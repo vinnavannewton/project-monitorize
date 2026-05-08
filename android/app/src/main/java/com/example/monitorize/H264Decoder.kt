@@ -28,8 +28,7 @@ class H264Decoder(private val surface: Surface) {
     fun decode(data: ByteArray, offset: Int, size: Int) {
         val c = codec ?: return
         try {
-            // Block until we get an input buffer (don't drop data!)
-            var inputIndex = -1
+            var inputIndex = c.dequeueInputBuffer(10000)
             while (inputIndex < 0) {
                 inputIndex = c.dequeueInputBuffer(10000)
             }

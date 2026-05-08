@@ -18,15 +18,19 @@ class StreamReceiver(private val decoder: H264Decoder) {
                 onStatusChange?.invoke("Ready")
                 
                 while (running) {
-                    val socket = serverSocket?.accept() ?: break
+                    val socket = try { 
+                        serverSocket?.accept() 
+                    } catch (e: Exception) { null } ?: break
+                    
                     Log.d(TAG, "Connection accepted")
                     onStatusChange?.invoke("Streaming")
                     
                     try {
                         val inputStream = socket.getInputStream()
-                        val buffer = ByteArray(128 * 1024)
+                        val buffer = ByteArray(256 * 1024)
                         
-                        // Use 1280x720 for stability
+                        // Clean start for every new connection
+                        decoder.release() 
                         decoder.init(1280, 720)
 
                         while (running) {
@@ -35,14 +39,16 @@ class StreamReceiver(private val decoder: H264Decoder) {
                             decoder.decode(buffer, 0, read)
                         }
                     } catch (e: Exception) {
-                        Log.e(TAG, "Stream error", e)
+                        Log.e(TAG, "Stream error: ${e.message}")
                     } finally {
                         socket.close()
+                        decoder.release() // Cleanup for next attempt
+                        Log.d(TAG, "Connection closed")
                         onStatusChange?.invoke("Ready")
                     }
                 }
             } catch (e: Exception) {
-                if (running) Log.e(TAG, "Server error", e)
+                if (running) Log.e(TAG, "Server error: ${e.message}")
             }
         }.start()
     }
