@@ -1,12 +1,12 @@
 package com.example.monitorize
 
 import java.net.ServerSocket
-import java.io.InputStream
+import android.util.Log
 
 class StreamReceiver(private val decoder: H264Decoder) {
-
     private var running = false
     private var serverSocket: ServerSocket? = null
+    private val TAG = "StreamReceiver"
     var onStatusChange: ((String) -> Unit)? = null
 
     fun start() {
@@ -14,40 +14,42 @@ class StreamReceiver(private val decoder: H264Decoder) {
         Thread {
             try {
                 serverSocket = ServerSocket(7110)
-                onStatusChange?.invoke("Waiting for connection...")
-
+                Log.d(TAG, "Server listening on 7110")
+                onStatusChange?.invoke("Ready")
+                
                 while (running) {
                     val socket = serverSocket?.accept() ?: break
-                    onStatusChange?.invoke("Connected: ${socket.inetAddress}")
-
+                    Log.d(TAG, "Connection accepted")
+                    onStatusChange?.invoke("Streaming")
+                    
                     try {
                         val inputStream = socket.getInputStream()
-                        val buffer = ByteArray(65536)
+                        val buffer = ByteArray(128 * 1024)
                         
-                        // Initialize decoder with expected resolution
-                        decoder.init(1920, 1080)
+                        // Use 1280x720 for stability
+                        decoder.init(1280, 720)
 
                         while (running) {
-                            val bytesRead = inputStream.read(buffer)
-                            if (bytesRead == -1) break
-                            
-                            decoder.decode(buffer, 0, bytesRead, System.nanoTime() / 1000)
+                            val read = inputStream.read(buffer)
+                            if (read <= 0) break
+                            decoder.decode(buffer, 0, read)
                         }
                     } catch (e: Exception) {
-                        onStatusChange?.invoke("Disconnected: ${e.message}")
+                        Log.e(TAG, "Stream error", e)
                     } finally {
                         socket.close()
+                        onStatusChange?.invoke("Ready")
                     }
                 }
             } catch (e: Exception) {
-                if (running) onStatusChange?.invoke("Error: ${e.message}")
+                if (running) Log.e(TAG, "Server error", e)
             }
         }.start()
     }
 
     fun stop() {
         running = false
-        serverSocket?.close()
+        try { serverSocket?.close() } catch (e: Exception) {}
         serverSocket = null
     }
 }
