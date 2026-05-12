@@ -46,6 +46,9 @@ class MainActivity : ComponentActivity() {
                     onSurfaceReady = { sv ->
                         sv.holder.addCallback(object : SurfaceHolder.Callback {
                             override fun surfaceCreated(holder: SurfaceHolder) {
+                                // Force the Surface to match the stream resolution exactly.
+                                // This bypasses the hardware scaler for minimum latency.
+                                holder.setFixedSize(StreamReceiver.STREAM_WIDTH, StreamReceiver.STREAM_HEIGHT)
                                 startStream(holder.surface)
                             }
                             override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, ht: Int) {}
