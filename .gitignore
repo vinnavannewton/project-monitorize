@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IntelliJ / PyCharm / Android Studio
+.idea/
+*.iml
+*.iws
+out/
+
+# Android / Gradle
+.gradle/
+local.properties
+*/build/
+captures/
+.externalNativeBuild
+.cxx/
+
+# macOS
+.DS_Store
+
+# Temporary files / Archives
+temp/
+*.zip
+*.tar.gz
+*.rar
