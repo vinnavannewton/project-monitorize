@@ -8,7 +8,7 @@
   [![Status](https://img.shields.io/badge/Status-Working%20%E2%9C%85-brightgreen)](#)
 </div>
 
-> **Project Status: Working & Actively Developed** — Core pipeline is fully functional. Screen mirroring at 1280×800 @ 60fps with hardware-accelerated H.264 decode on Android via ADB over USB.
+> **Project Status: Working & Actively Developed** — Core pipeline is fully functional and tested on fedora kde with some caveats. Screen mirroring at native-android-res @ native fps with hardware-accelerated H.264 decode on Android via ADB over USB.
 
 ---
 
@@ -18,7 +18,7 @@
 
 Think *Spacedesk* or *Duet Display*, but open-source and built for Linux/Wayland power users.
 
-### ✅ What Works Right Now
+### ✅ What Works Right Now (Only works on kde for now)
 
 - **60fps, 1280×800** hardware-decoded stream on Samsung Galaxy Tab S7 FE
 - **~100ms latency** over USB ADB tunnel
@@ -97,7 +97,7 @@ adb devices          # should show your device as "device" (not unauthorized)
 adb forward tcp:7110 tcp:7110
 ```
 
-### Step 3 — Build and install the Android app
+### Step 3 — Build and install the Android app (Or Download it from releases)
 
 ```bash
 cd android/
@@ -115,7 +115,7 @@ python3 linux/monitorize_fallback.py
 
 In the KDE screencast picker that appears, select **TabletDisplay**.
 
-The tablet should immediately show your Linux desktop at 1280×800 @ 60fps.
+The tablet should start behaving as your second monitor.
 
 ---
 
@@ -155,18 +155,7 @@ The GStreamer pipeline is tuned for minimum latency over USB:
 
 ---
 
-## 🧠 Technical Notes
 
-### Why ADB over USB instead of Wi-Fi?
-Wi-Fi introduces variable latency (10–100ms jitter) and packet loss that causes macro-block glitches. USB ADB gives consistent ~1ms transport latency and full USB 3.0 bandwidth (~400 MB/s).
-
-### Why raw Annex B chunks instead of NAL-aligned feeding?
-Samsung Galaxy Tab S7 FE's Qualcomm Snapdragon 750G MediaCodec decoder handles Annex B start codes natively. Manually splitting NALs and setting `BUFFER_FLAG_CODEC_CONFIG` on SPS/PPS caused full-frame chroma corruption on this device. Raw chunk feeding is both simpler and more compatible.
-
-### Why no `KEY_STRIDE` / `KEY_SLICE_HEIGHT` in MediaFormat?
-These keys describe the decoder's output buffer layout in **ByteBuffer** mode only. When decoding to a `Surface` (which this app does), the hardware decoder manages its own `GraphicBuffer` stride internally. Setting them in the configure format caused full-frame pink chroma corruption.
-
----
 
 ## 🗺️ Roadmap
 
@@ -174,7 +163,6 @@ These keys describe the decoder's output buffer layout in **ByteBuffer** mode on
 - [ ] Auto-detect resolution from SPS NAL unit
 - [ ] Auto-start on USB connect (Android foreground service)
 - [ ] Resolution/FPS selection UI on Android
-- [ ] Support for `monitorize.sh` (wf-recorder path) alongside fallback
 
 ---
 
@@ -185,5 +173,5 @@ Licensed under the **GNU General Public License v3.0**. See `LICENSE` for detail
 ---
 
 <div align="center">
-  <sub>Built with ❤️ by Vinnavan | Expanding your workspace, one pixel at a time.</sub>
+  <sub>Built by Vinnavan | Expanding your productivity, one monitor at a time.</sub>
 </div>

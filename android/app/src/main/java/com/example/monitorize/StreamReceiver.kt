@@ -4,12 +4,9 @@ import android.util.Log
 import java.net.ServerSocket
 
 /**
- * Reads raw H.264 Annex B bytes from TCP and feeds them directly to the decoder.
- * No NAL parsing — MediaCodec handles start-code detection internally.
- *
- * This raw-chunk approach produces the best results on Samsung Tab S7 FE
- * (Qualcomm Snapdragon 750G). NAL-aligned and CODEC_CONFIG approaches
- * caused full-frame chroma corruption on this device.
+ * Reads raw H.264 Annex B bytes from TCP and buffers them until complete NAL units
+ * (Access Units) are found. This prevents feeding partial frames to MediaCodec,
+ * which causes corruption during static scenes.
  */
 class StreamReceiver(private val decoder: H264Decoder) {
 
@@ -46,22 +43,75 @@ class StreamReceiver(private val decoder: H264Decoder) {
             decoder.init(STREAM_WIDTH, STREAM_HEIGHT, STREAM_FPS)
             onStatusChange?.invoke("Stream: ${STREAM_WIDTH}×${STREAM_HEIGHT} @ ${STREAM_FPS}fps")
 
-            // Read raw TCP bytes and feed directly to MediaCodec.
-            // The codec handles Annex B start-code detection internally.
-            val buf = ByteArray(256 * 1024)
             val input = socket.getInputStream()
 
-            while (running) {
-                val n = input.read(buf)
-                if (n <= 0) break
-                decoder.feedChunk(buf, 0, n)
-            }
+            // A buffer to hold incoming data until we find a full frame
+            val ringBuffer = ByteArray(2 * 1024 * 1024)
+            var bufferLength = 0
+            val readBuffer = ByteArray(64 * 1024)
 
+            while (running) {
+                val bytesRead = input.read(readBuffer)
+                if (bytesRead <= 0) break
+
+                // Append new data to our ring buffer
+                if (bufferLength + bytesRead > ringBuffer.size) {
+                    // This should not happen with normal H.264 desktop streams
+                    // unless the decoder falls way behind or the stream is huge.
+                    Log.w(TAG, "Buffer overflow, resetting")
+                    bufferLength = 0
+                }
+                System.arraycopy(readBuffer, 0, ringBuffer, bufferLength, bytesRead)
+                bufferLength += bytesRead
+
+                // Search for Annex B start codes (0x00 00 00 01)
+                var searchIndex = 0
+                while (searchIndex < bufferLength - 4) {
+                    if (ringBuffer[searchIndex] == 0.toByte() &&
+                        ringBuffer[searchIndex + 1] == 0.toByte() &&
+                        ringBuffer[searchIndex + 2] == 0.toByte() &&
+                        ringBuffer[searchIndex + 3] == 1.toByte()
+                    ) {
+                        // We found a start code. Find the NEXT start code to get a complete unit.
+                        var nextStartIndex = -1
+                        for (i in searchIndex + 4 until bufferLength - 3) {
+                            if (ringBuffer[i] == 0.toByte() &&
+                                ringBuffer[i + 1] == 0.toByte() &&
+                                ringBuffer[i + 2] == 0.toByte() &&
+                                ringBuffer[i + 3] == 1.toByte()) {
+                                nextStartIndex = i
+                                break
+                            }
+                        }
+
+                        if (nextStartIndex != -1) {
+                            // We found a complete NAL unit between searchIndex and nextStartIndex
+                            val frameSize = nextStartIndex - searchIndex
+
+                            // Send exactly one complete access unit to the decoder
+                            decoder.feedChunk(ringBuffer, searchIndex, frameSize)
+
+                            // Move the remaining unparsed bytes to the front of the buffer
+                            val remaining = bufferLength - nextStartIndex
+                            System.arraycopy(ringBuffer, nextStartIndex, ringBuffer, 0, remaining)
+                            bufferLength = remaining
+                            searchIndex = 0 // Reset search to start of shifted buffer
+                        } else {
+                            // No next start code found yet. We need to read more from TCP.
+                            break
+                        }
+                    } else {
+                        searchIndex++
+                    }
+                }
+            }
         } catch (e: Exception) {
             if (running) {
                 Log.e(TAG, "Stream error", e)
                 onStatusChange?.invoke("Error: ${e.message}")
             }
+        } finally {
+            try { serverSocket?.close() } catch (_: Exception) {}
         }
     }
 
