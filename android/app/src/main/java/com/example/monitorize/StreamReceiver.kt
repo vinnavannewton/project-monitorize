@@ -8,7 +8,12 @@ import java.net.ServerSocket
  * (Access Units) are found. This prevents feeding partial frames to MediaCodec,
  * which causes corruption during static scenes.
  */
-class StreamReceiver(private val decoder: H264Decoder) {
+class StreamReceiver(
+    private val decoder: H264Decoder,
+    private val width: Int,
+    private val height: Int,
+    private val fps: Int
+) {
 
     private var running = false
     private var serverSocket: ServerSocket? = null
@@ -18,11 +23,6 @@ class StreamReceiver(private val decoder: H264Decoder) {
     companion object {
         private const val TAG = "StreamReceiver"
         private const val PORT = 7110
-
-        // Must match linux/monitorize_fallback.py
-        const val STREAM_WIDTH  = 2560
-        const val STREAM_HEIGHT = 1600
-        const val STREAM_FPS    = 60
     }
 
     fun start() {
@@ -40,8 +40,8 @@ class StreamReceiver(private val decoder: H264Decoder) {
             socket.receiveBufferSize = 512 * 1024
             onStatusChange?.invoke("Connected")
 
-            decoder.init(STREAM_WIDTH, STREAM_HEIGHT, STREAM_FPS)
-            onStatusChange?.invoke("Stream: ${STREAM_WIDTH}×${STREAM_HEIGHT} @ ${STREAM_FPS}fps")
+            decoder.init(width, height, fps)
+            onStatusChange?.invoke("Stream: ${width}×${height} @ ${fps}fps")
 
             val input = socket.getInputStream()
 
@@ -56,8 +56,6 @@ class StreamReceiver(private val decoder: H264Decoder) {
 
                 // Append new data to our ring buffer
                 if (bufferLength + bytesRead > ringBuffer.size) {
-                    // This should not happen with normal H.264 desktop streams
-                    // unless the decoder falls way behind or the stream is huge.
                     Log.w(TAG, "Buffer overflow, resetting")
                     bufferLength = 0
                 }

@@ -1,13 +1,23 @@
 #!/usr/bin/env python3
+"""
+Streamer_usb.py — PipeWire → H.264 → TCP streamer for USB mode.
+
+Usage (from GUI):   python3 Streamer_usb.py <width> <height> <fps>
+Usage (standalone): python3 Streamer_usb.py          (uses defaults)
+"""
 import dbus, sys, signal, subprocess, threading
 from dbus.mainloop.glib import DBusGMainLoop
 from gi.repository import GLib
 
+# ---- Parse optional CLI arguments (passed by the GUI) ----
+WIDTH   = int(sys.argv[1]) if len(sys.argv) > 1 else 2560
+HEIGHT  = int(sys.argv[2]) if len(sys.argv) > 2 else 1600
+FPS     = int(sys.argv[3]) if len(sys.argv) > 3 else 60
+
 PORT    = 7110
-WIDTH   = 2560
-HEIGHT  = 1600
-FPS     = 60
 BITRATE = 25000
+
+print(f"[Streamer USB] Resolution={WIDTH}x{HEIGHT}  FPS={FPS}  Bitrate={BITRATE}")
 
 DBusGMainLoop(set_as_default=True)
 loop    = GLib.MainLoop()
