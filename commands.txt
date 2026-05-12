@@ -1,4 +1,0 @@
-ffmpeg -re -i Screencast_20250423_182102.webm \
-  -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2" \
-  -vcodec libx264 -preset ultrafast -tune zerolatency \
-  -f h264 tcp://127.0.0.1:7110

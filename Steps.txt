@@ -1,7 +1,0 @@
- adb devices
-
- adb forward tcp:7110 tcp:7110
-
-  krfb-virtualmonitor --resolution 1280x800 --name TabletDisplay --password test123 --port 5900
-
-   python3 /home/vinnavan/users/MegaProjects/Monitorize/linux/monitorize_fallback.py
