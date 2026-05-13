@@ -90,7 +90,7 @@ Android Tablet
 
 | Requirement                  | Notes                                      |
 |-----------------------------|--------------------------------------------|
-| Wayland desktop (KDE tested)| Fedora 44 + KDE Plasma 6 recommended      |
+| Wayland desktop (KDE/gnome tested)
 | `krfb`                      | Virtual monitor: `sudo dnf install krfb`  |
 | GStreamer (x264)            | `gstreamer1-plugins-bad-free` + `ugly`    |
 | Python 3                    | For scripts & GUI                          |
