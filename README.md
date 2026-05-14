@@ -85,6 +85,49 @@ Android Tablet
 ---
 
 ## 🛠️ Requirements
+### 📦 Dependencies (Must Do)
+
+Before running Monitorize on Fedora, you must install the required GStreamer plugins, PipeWire tools, and Android utilities. 
+
+Run the following commands in your terminal in order:
+
+#### 1. Enable RPM Fusion (Required for H.264 Encoding)
+Fedora does not ship the required `x264enc` plugin out of the box due to patent restrictions. You must enable the RPM Fusion repository first:
+```bash
+sudo dnf install -y \
+  https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
+  https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
+```
+
+#### 2. Install Core Dependencies (KDE & GNOME)
+This installs GStreamer, PipeWire plugins, Python D-Bus support, and ADB. Run this on **both KDE and GNOME**:
+```bash
+sudo dnf install -y \
+  gstreamer1 \
+  gstreamer1-plugins-base \
+  gstreamer1-plugins-bad-free \
+  gstreamer1-plugins-ugly \
+  gstreamer1-plugins-ugly-free \
+  gstreamer1-plugin-x264 \
+  gstreamer1-plugin-pipewire \
+  pipewire \
+  pipewire-gstreamer \
+  python3-dbus \
+  python3-gobject \
+  android-tools
+```
+
+#### 3. Desktop-Specific Requirements
+Depending on your Desktop Environment, install the required virtual monitor tools:
+
+**For KDE Plasma:**
+KDE requires `krfb` to generate the virtual display.
+```bash
+sudo dnf install -y krfb
+```
+
+**For GNOME:**
+No extra installation is needed! GNOME uses Mutter's built-in `RecordVirtual` D-Bus API, which works out of the box with the dependencies installed in step 2.
 
 ### Linux Host
 
