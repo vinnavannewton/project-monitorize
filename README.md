@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>ðŸ–¥ï¸ Monitorize</h1>
+  <h1>🖥️ Monitorize</h1>
   <p><strong>Turn your Android tablet into a smooth, low-latency secondary monitor for Linux.</strong></p>
 
   <a href="https://www.gnu.org/licenses/gpl-3.0"><img src="https://img.shields.io/badge/License-GPLv3-blue.svg" /></a>
@@ -10,11 +10,11 @@
 
 > **Project Status: Working & Actively Developed**
 > Core pipeline is fully functional and tested on Fedora KDE (Wayland).
-> Screen mirroring at native tablet resolutions and up to 60 FPS, using CPU `x264` encoding on Linux and hardware-accelerated H.264 decoding on Android over ADB (USB or Wiâ€‘Fi).
+> Screen mirroring at native tablet resolutions and up to 60 FPS, using CPU `x264` encoding on Linux and hardware-accelerated H.264 decoding on Android over ADB (USB or Wi-Fi).
 
 ---
 
-## ðŸ“– Overview
+## 📖 Overview
 
 **Monitorize** turns your Android tablet into a high-performance secondary monitor for your Linux desktop.
 
@@ -22,7 +22,7 @@ The pipeline is:
 
 - Linux (Wayland) screen capture via PipeWire + portal
 - CPU H.264 encoding with GStreamer (`x264enc` tuned for low latency)
-- Transport over ADB (USB or Wiâ€‘Fi TCP/IP)
+- Transport over ADB (USB or Wi-Fi TCP/IP)
 - Hardware H.264 decode on Android using `MediaCodec`
 - Fullscreen rendering to a `SurfaceView`
 
@@ -32,69 +32,69 @@ Think *Spacedesk* / *Duet Display*, but:
 - Focused on Linux / Wayland
 - Simple CPU-based encoder (no GPU driver drama)
 
-### âœ¨ What You Get
+### ✨ What You Get
 
-- **Native resolution** on your tablet (e.g., 1280Ã—800, 1920Ã—1200, 2560Ã—1600)
-- **Configurable FPS** (30 / 60 / â€¦) on both Linux and Android
+- **Native resolution** on your tablet (e.g., 1280×800, 1920×1200, 2560×1600)
+- **Configurable FPS** (30 / 60 / …) on both Linux and Android
 - **USB Mode** for lowest latency and most stable quality
-- **Wiâ€‘Fi Mode (experimental)** using ADB over TCP/IP with lower bitrate tuned for wireless
+- **Wi-Fi Mode (experimental)** using ADB over TCP/IP with lower bitrate tuned for wireless
 - **PyQt6 desktop app** to guide you through: ADB, virtual display, streaming start/stop
 - **Android app** with a simple UI: "Receive" and "Settings" (resolution/FPS)
 
 ---
 
-## ðŸ—ï¸ Architecture
+## 🏗️ Architecture
 
 ```text
 Linux (Wayland, e.g. Fedora KDE)
-â”‚
-â”œâ”€ PyQt6 GUI (monitorize_gui.py)
-â”‚    â”œâ”€ Lets you pick: USB / Wiâ€‘Fi mode
-â”‚    â”œâ”€ Lets you choose Resolution + FPS
-â”‚    â””â”€ Runs ADB + virtual monitor + streamer scripts
-â”‚
-â”œâ”€ krfb-virtualmonitor
-â”‚    â””â”€ Creates a virtual "TabletDisplay" output in KWin at chosen resolution
-â”‚
-â”œâ”€ PipeWire ScreenCast Portal
-â”‚    â””â”€ Captures the "TabletDisplay" as a PipeWire stream
-â”‚
-â””â”€ GStreamer (Streamer_usb.py / monitorize_wifi.py)
-     pipewiresrc (Wayland) â†’
-     videorate (FPS cap) â†’
-     videoconvert â†’
-     x264enc (CPU, zerolatency, ultrafast) â†’
-     h264parse (alignment=au) â†’
-     tcpclientsink â†’ localhost:7110
-                                â”‚
+│
+├─ PyQt6 GUI (monitorize_gui.py)
+│    ├─ Lets you pick: USB / Wi-Fi mode
+│    ├─ Lets you choose Resolution + FPS
+│    └─ Runs ADB + virtual monitor + streamer scripts
+│
+├─ krfb-virtualmonitor
+│    └─ Creates a virtual "TabletDisplay" output in KWin at chosen resolution
+│
+├─ PipeWire ScreenCast Portal
+│    └─ Captures the "TabletDisplay" as a PipeWire stream
+│
+└─ GStreamer (Streamer_usb.py / monitorize_wifi.py)
+     pipewiresrc (Wayland) →
+     videorate (FPS cap) →
+     videoconvert →
+     x264enc (CPU, zerolatency, ultrafast) →
+     h264parse (alignment=au) →
+     tcpclientsink → localhost:7110
+                                │
                         ADB forward tcp:7110
-                                â”‚
-                        USB cable or Wiâ€‘Fi ADB
-                                â”‚
+                                │
+                        USB cable or Wi-Fi ADB
+                                │
 Android Tablet
-â”‚
-â”œâ”€ StreamReceiver.kt
-â”‚    â””â”€ TCP ServerSocket on 7110
-â”‚       Reassembles Annex B frames from TCP stream
-â”‚
-â””â”€ H264Decoder.kt
-     â”œâ”€ MediaCodec (hardware decode) in low-latency mode
-     â””â”€ Decodes to SurfaceView (full-screen, fixed-size)
+│
+├─ StreamReceiver.kt
+│    └─ TCP ServerSocket on 7110
+│       Reassembles Annex B frames from TCP stream
+│
+└─ H264Decoder.kt
+     ├─ MediaCodec (hardware decode) in low-latency mode
+     └─ Decodes to SurfaceView (full-screen, fixed-size)
 ```
 
 ---
 
-## ðŸ› ï¸ Requirements
+## 🛠️ Requirements
 
-### ðŸ“¦ Dependencies (Must Do)
+### 📦 Dependencies (Must Do)
 
 Before running Monitorize, install the required packages for your distro and desktop environment. Follow your distro section below in order.
 
 ---
 
-### ðŸ§ Fedora (DNF)
+### 🐧 Fedora (DNF)
 
-#### Step 1 â€” Enable RPM Fusion
+#### Step 1 — Enable RPM Fusion
 Fedora does not ship `x264enc` by default due to patent restrictions. Enable RPM Fusion first:
 ```bash
 sudo dnf install -y \
@@ -102,7 +102,7 @@ sudo dnf install -y \
   https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
 ```
 
-#### Step 2 â€” Install Core Dependencies (all DEs)
+#### Step 2 — Install Core Dependencies (all DEs)
 ```bash
 sudo dnf install -y \
   gstreamer1 \
@@ -120,7 +120,7 @@ sudo dnf install -y \
   android-tools
 ```
 
-#### Step 3 â€” Desktop-Specific (Fedora)
+#### Step 3 — Desktop-Specific (Fedora)
 
 **KDE Plasma**
 KDE requires `krfb` to create the virtual monitor output:
@@ -141,9 +141,9 @@ sudo dnf install -y \
 
 ---
 
-### ðŸ§ Arch Linux (Pacman)
+### 🐧 Arch Linux (Pacman)
 
-#### Step 1 â€” Install Core Dependencies (all DEs)
+#### Step 1 — Install Core Dependencies (all DEs)
 ```bash
 sudo pacman -S --needed \
   gstreamer \
@@ -161,7 +161,7 @@ sudo pacman -S --needed \
   android-tools
 ```
 
-#### Step 2 â€” Desktop-Specific (Arch)
+#### Step 2 — Desktop-Specific (Arch)
 
 **KDE Plasma**
 ```bash
@@ -182,9 +182,9 @@ sudo pacman -S --needed \
 
 ---
 
-### ðŸ§ Debian / Ubuntu (APT)
+### 🐧 Debian / Ubuntu (APT)
 
-#### Step 1 â€” Enable non-free repos (Debian only, skip on Ubuntu)
+#### Step 1 — Enable non-free repos (Debian only, skip on Ubuntu)
 Debian restricts `gstreamer1.0-plugins-ugly` to the `non-free` component. Enable it first:
 ```bash
 sudo apt install -y software-properties-common
@@ -192,7 +192,7 @@ sudo apt-add-repository non-free
 sudo apt update
 ```
 
-#### Step 2 â€” Install Core Dependencies (all DEs)
+#### Step 2 — Install Core Dependencies (all DEs)
 ```bash
 sudo apt install -y \
   gstreamer1.0-tools \
@@ -209,7 +209,7 @@ sudo apt install -y \
   adb
 ```
 
-#### Step 3 â€” Desktop-Specific (Debian / Ubuntu)
+#### Step 3 — Desktop-Specific (Debian / Ubuntu)
 
 **KDE Plasma**
 ```bash
@@ -239,7 +239,7 @@ sudo apt install -y \
 | Python 3          | For scripts & GUI                                  |
 | PyQt6             | `python3-pyqt6` / `python-pyqt6`                   |
 | `adb`             | `android-tools` (Fedora/Arch) or `adb` (Debian)    |
-| `krfb`            | KDE only â€” virtual monitor creation                |
+| `krfb`            | KDE only — virtual monitor creation                |
 
 ### Android Tablet
 
@@ -249,11 +249,11 @@ sudo apt install -y \
 | USB Debugging      | Enable in Developer Options                         |
 | Monitorize app     | Built from `/android` or downloaded from Releases   |
 | Decent USB cable   | True USB 3.x cable recommended for best USB mode    |
-| 5GHz Wiâ€‘Fi (opt.)  | Recommended if using Wiâ€‘Fi ADB                      |
+| 5GHz Wi-Fi (opt.)  | Recommended if using Wi-Fi ADB                      |
 
 ---
 
-## ðŸš€ Getting Started
+## 🚀 Getting Started
 
 ### 1. Clone and build
 
@@ -295,14 +295,14 @@ python3 monitorize_gui.py
 
 The GUI will guide you through:
 
-1. Choose **USB Mode** (Wiâ€‘Fi Mode is still experimental).
+1. Choose **USB Mode** (Wi-Fi Mode is still experimental).
 2. Connect your tablet via USB and click **"I have connected it"**.
    - The app runs `adb devices` and `adb forward tcp:7110 tcp:7110`.
 3. Select **Resolution** and **FPS** in the GUI.
    - These must match the Android app's Settings.
 4. Click **"Start Streaming"**.
    - The app starts `krfb-virtualmonitor` with the chosen resolution.
-   - Shows a 3â€¦2â€¦1 countdown while the virtual screen is created.
+   - Shows a 3…2…1 countdown while the virtual screen is created.
    - Then runs `Streamer_usb.py` with the selected resolution/FPS.
 5. When the ScreenCast popup appears, **select "TabletDisplay"** and click **Share**.
 
@@ -310,7 +310,7 @@ Your tablet should now show your Linux desktop as a second monitor.
 
 ---
 
-## ðŸ”§ USB vs Wiâ€‘Fi Modes
+## 🔧 USB vs Wi-Fi Modes
 
 ### USB Mode (Recommended)
 
@@ -322,36 +322,36 @@ Your tablet should now show your Linux desktop as a second monitor.
   adb forward tcp:7110 tcp:7110
   ```
 
-### Wiâ€‘Fi Mode (Experimental)
+### Wi-Fi Mode (Experimental)
 
-Wiâ€‘Fi mode uses **ADB over TCP/IP** (still TCP, but over wireless):
+Wi-Fi mode uses **ADB over TCP/IP** (still TCP, but over wireless):
 
 1. With USB connected once:
    ```bash
    adb tcpip 5555
    ```
 2. Disconnect USB. Find tablet IP (e.g., `192.168.1.15`).
-3. Connect over Wiâ€‘Fi:
+3. Connect over Wi-Fi:
    ```bash
    adb connect 192.168.1.15:5555
    adb forward tcp:7110 tcp:7110
    ```
-4. In the GUI, choose **Wiâ€‘Fi Mode**, then start streaming.
-   - `monitorize_wifi.py` uses **lower bitrate** and **more frequent keyframes** so Wiâ€‘Fi dropouts don't trash the frame.
+4. In the GUI, choose **Wi-Fi Mode**, then start streaming.
+   - `monitorize_wifi.py` uses **lower bitrate** and **more frequent keyframes** so Wi-Fi dropouts don't trash the frame.
 
-> Wiâ€‘Fi is great for browsing/code, but USB will always feel snappier for fast mouse-heavy work.
+> Wi-Fi is great for browsing/code, but USB will always feel snappier for fast mouse-heavy work.
 
 ---
 
-## âš™ï¸ Internals & Latency Tuning
+## ⚙️ Internals & Latency Tuning
 
 Key encoder settings (CPU `x264enc`) in the scripts:
 
-- `tune=zerolatency` â€“ no internal frame buffering.
-- `speed-preset=ultrafast` â€“ trade compression for speed.
-- `bitrate=` â€“ configurable; higher = better quality, more bandwidth.
-- `key-int-max=15â€“30` â€“ frequent IDR frames for quick recovery if packets are dropped.
-- `bframes=0` â€“ no B-frames; avoids reordering delay.
+- `tune=zerolatency` — no internal frame buffering.
+- `speed-preset=ultrafast` — trade compression for speed.
+- `bitrate=` — configurable; higher = better quality, more bandwidth.
+- `key-int-max=15–30` — frequent IDR frames for quick recovery if packets are dropped.
+- `bframes=0` — no B-frames; avoids reordering delay.
 
 On Android:
 
@@ -363,32 +363,32 @@ This combination is why you no longer see "random colored pixels" or corruption 
 
 ---
 
-## ðŸ§± Project Layout
+## 🧱 Project Layout
 
 ```text
 ProjectMonitorize/
-â”œâ”€â”€ README.md
-â”œâ”€â”€ android/
-â”‚   â””â”€â”€ app/src/main/java/com/example/monitorize/
-â”‚       â”œâ”€â”€ MainActivity.kt
-â”‚       â”œâ”€â”€ StreamReceiver.kt
-â”‚       â”œâ”€â”€ H264Decoder.kt
-â”‚       â””â”€â”€ StreamScreen.kt
-â””â”€â”€ linux/
-    â”œâ”€â”€ monitorize_gui.py        # PyQt6 desktop controller
-    â”œâ”€â”€ Streamer_usb.py          # USB mode streamer (CPU x264enc)
-    â””â”€â”€ monitorize_wifi.py       # Wiâ€‘Fi mode streamer (CPU x264enc, lower bitrate)
+├── README.md
+├── android/
+│   └── app/src/main/java/com/example/monitorize/
+│       ├── MainActivity.kt
+│       ├── StreamReceiver.kt
+│       ├── H264Decoder.kt
+│       └── StreamScreen.kt
+└── linux/
+    ├── monitorize_gui.py        # PyQt6 desktop controller
+    ├── Streamer_usb.py          # USB mode streamer (CPU x264enc)
+    └── monitorize_wifi.py       # Wi-Fi mode streamer (CPU x264enc, lower bitrate)
 ```
 
 ---
 
-## ðŸ—ºï¸ Roadmap
+## 🗺️ Roadmap
 
-- [x] Stable CPU-based H.264 pipeline (Linux â†’ Android).
+- [x] Stable CPU-based H.264 pipeline (Linux → Android).
 - [x] Fix TCP chunking / macroblock corruption.
 - [x] Dynamic resolution & FPS (Linux + Android).
 - [x] PyQt6 desktop GUI with wizard flow and countdown.
-- [ ] Polished Wiâ€‘Fi mode (potential UDP/RTP option).
+- [ ] Polished Wi-Fi mode (potential UDP/RTP option).
 - [ ] Touch/pen input forwarding.
 - [ ] Flatpak packaging & Flathub distribution.
 
@@ -398,16 +398,16 @@ ProjectMonitorize/
 
 <a href="https://www.star-history.com/?type=date&repos=vinnavannewton%2FProjectMonitorize">
  <picture>
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=vinnavannewton/ProjectMonitorize&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=vinnavannewton/ProjectMonitorize&type=date&theme=dark&legend=top-left" />
    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=vinnavannewton/ProjectMonitorize&type=date&legend=top-left" />
    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=vinnavannewton/ProjectMonitorize&type=date&legend=top-left" />
  </picture>
 </a>
 
-## ðŸ“„ License
+## 📄 License
 
 Licensed under the **GNU General Public License v3.0**. See `LICENSE` for details.
 
 <div align="center">
-  <sub>Built by Vinnavan Â· Expanding your productivity, one monitor at a time.</sub>
+  <sub>Built by Vinnavan · Expanding your productivity, one monitor at a time.</sub>
 </div>
