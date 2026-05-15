@@ -17,7 +17,7 @@ HEIGHT  = int(sys.argv[2]) if len(sys.argv) > 2 else 1600
 FPS     = int(sys.argv[3]) if len(sys.argv) > 3 else 60
 
 PORT    = 7110
-BITRATE = 25000
+BITRATE = 8000
 
 print(f"[Streamer Sway USB] Resolution={WIDTH}x{HEIGHT}  FPS={FPS}  Bitrate={BITRATE}")
 

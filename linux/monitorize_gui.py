@@ -837,13 +837,15 @@ class MonitorizeWindow(QMainWindow):
             self.detected_de = self._ask_desktop_environment()
         # Badge is updated after pages are added to the stack (see below)
 
-        # Two persistent QProcess objects for streaming
-        self.process_krfb:     QProcess | None = None
-        self.process_streamer: QProcess | None = None
+        # Persistent QProcess objects for streaming + input forwarding
+        self.process_krfb:          QProcess | None = None
+        self.process_streamer:      QProcess | None = None
+        self.process_input_bridge:  QProcess | None = None
 
         # Transient QProcess objects for ADB (step 1)
-        self._proc_adb_dev: QProcess | None = None
-        self._proc_adb_fwd: QProcess | None = None
+        self._proc_adb_dev:  QProcess | None = None
+        self._proc_adb_fwd:  QProcess | None = None
+        self._proc_adb_fwd2:  QProcess | None = None   # adb forward for port 7111
 
         # Countdown timer (used between krfb start and streamer start)
         self._countdown: int = 0
@@ -1031,7 +1033,19 @@ class MonitorizeWindow(QMainWindow):
             self._page_usb1.set_busy(False)
             return
 
-        self._page_usb1.set_status("✅  Device ready!")
+        # Forward port 7111: Linux 127.0.0.1:7111 → Android 127.0.0.1:7111
+        # (Linux connects to Android, which acts as the Server for both video and input)
+        self._page_usb1.set_status("⏳  Forwarding tcp:7111 (input bridge)…")
+        self._proc_adb_fwd2 = QProcess(self)
+        self._proc_adb_fwd2.finished.connect(self._adb_forward2_done)
+        self._proc_adb_fwd2.start("adb", ["forward", "tcp:7111", "tcp:7111"])
+
+    def _adb_forward2_done(self, exit_code, _status):
+        # Non-fatal: if 7111 fails, video still works, touch just won't forward
+        if exit_code != 0:
+            self._page_usb1.set_status("⚠️  tcp:7111 forward failed — input disabled")
+        else:
+            self._page_usb1.set_status("✅  Device ready!")
         self._page_usb1.set_busy(False)
         QTimer.singleShot(600, lambda: self._stack.setCurrentIndex(PAGE_USB2))
 
@@ -1102,7 +1116,6 @@ class MonitorizeWindow(QMainWindow):
                 f"⏳  Starting virtual monitor…  {self._countdown}"
             )
             return
-
         # Countdown finished — stop timer, launch streamer
         self._countdown_timer.stop()
         self._launch_streamer()
@@ -1137,8 +1150,32 @@ class MonitorizeWindow(QMainWindow):
             str(self._stream_fps),
         ])
 
+        # ── Launch input bridge (compositor-agnostic, separate port 7111) ──
+        self._launch_input_bridge()
+
         self._page_streaming.set_status("⬤  Status: Streaming…")
         self._page_streaming.set_stop_enabled(True)
+
+    def _launch_input_bridge(self):
+        """Spawn input_bridge.py — listens on port 7111 for Android touch/pen events."""
+        self.process_input_bridge = QProcess(self)
+        self.process_input_bridge.setWorkingDirectory(self._script_dir)
+        self.process_input_bridge.setProcessEnvironment(self._env)
+        self.process_input_bridge.setProcessChannelMode(
+            QProcess.ProcessChannelMode.MergedChannels
+        )
+        self.process_input_bridge.readyReadStandardOutput.connect(self._read_input_bridge)
+        self.process_input_bridge.finished.connect(
+            lambda code, _: self._page_streaming.append_log(
+                "INPUT", f"Bridge exited (code {code})"
+            )
+        )
+        self.process_input_bridge.start("pkexec", [
+            "python3",
+            os.path.join(self._script_dir, "input_bridge.py"),
+            str(self._stream_width),
+            str(self._stream_height),
+        ])
 
     # ------------------------------------------------------------------
     # Log readers — called by readyReadStandardOutput signals
@@ -1160,6 +1197,14 @@ class MonitorizeWindow(QMainWindow):
         )
         self._page_streaming.append_log("STREAMER", raw)
 
+    def _read_input_bridge(self):
+        if self.process_input_bridge is None:
+            return
+        raw = bytes(self.process_input_bridge.readAllStandardOutput()).decode(
+            "utf-8", errors="replace"
+        )
+        self._page_streaming.append_log("INPUT", raw)
+
     # ------------------------------------------------------------------
     # Stop streaming — terminate BOTH processes
     # ------------------------------------------------------------------
@@ -1173,13 +1218,14 @@ class MonitorizeWindow(QMainWindow):
         self._countdown_timer.stop()
         self._countdown = 0
 
-        for proc in (self.process_krfb, self.process_streamer):
+        for proc in (self.process_krfb, self.process_streamer, self.process_input_bridge):
             if proc is not None and proc.state() != QProcess.ProcessState.NotRunning:
                 proc.terminate()
                 if not proc.waitForFinished(3000):
                     proc.kill()
-        self.process_krfb     = None
-        self.process_streamer = None
+        self.process_krfb          = None
+        self.process_streamer      = None
+        self.process_input_bridge  = None
 
     # ------------------------------------------------------------------
     # Tray helpers

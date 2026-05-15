@@ -61,7 +61,7 @@ def launch_streaming(fd, node_id):
         f"queue max-size-buffers=1 leaky=downstream ! "
         f"videoconvert ! video/x-raw,format=I420 ! "
         f"x264enc tune=zerolatency speed-preset=ultrafast "
-        f"bitrate={BITRATE} key-int-max=15 bframes=0 byte-stream=true ! "
+        f"bitrate={BITRATE} vbv-bufsize=1000 vbv-maxrate={BITRATE} key-int-max=15 bframes=0 byte-stream=true ! "
         f"h264parse config-interval=-1 ! "
         f"video/x-h264,stream-format=byte-stream,alignment=au ! "
         f"{sink}"
