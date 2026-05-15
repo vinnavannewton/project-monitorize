@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QStackedWidget, QFrame, QPlainTextEdit,
     QComboBox, QCheckBox, QSystemTrayIcon, QMenu,
-    QDialog, QMessageBox,
+    QDialog, QMessageBox, QLineEdit, QSpinBox,
 )
 from PyQt6.QtCore import Qt, QProcess, QProcessEnvironment, QTimer
 from PyQt6.QtGui import QColor, QPalette, QFont, QTextCursor, QIcon, QPixmap, QPainter
@@ -161,6 +161,35 @@ QComboBox QAbstractItemView {
     border: 1px solid #3a3e72;
     border-radius: 6px;
     padding: 4px;
+}
+
+QLineEdit#customInput {
+    background-color: #1a1b2e;
+    color: #d0d2ff;
+    border: 1px solid #3a3e72;
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 14px;
+    font-weight: 600;
+    min-width: 80px;
+    max-width: 90px;
+}
+QLineEdit#customInput:focus { border-color: #6e72cc; }
+QLineEdit#customInput[invalid="true"] {
+    border-color: #c0282e;
+    color: #ff7070;
+}
+
+QLabel#xSep {
+    font-size: 20px;
+    font-weight: 700;
+    color: #8888bb;
+    padding: 0 4px;
+}
+QLabel#customHint {
+    font-size: 11px;
+    color: #6060a0;
+    font-style: italic;
 }
 
 QLabel#warningLabel {
@@ -402,12 +431,13 @@ class UsbStep2Page(QWidget):
 
     RESOLUTIONS = [
         "1280x720", "1280x800", "1920x1080", "1920x1200",
-        "2560x1440", "2560x1600", "3840x2160",
+        "2560x1440", "2560x1600", "3840x2160", "Custom…",
     ]
-    FPS_OPTIONS = ["30", "60", "90", "120"]
+    FPS_OPTIONS = ["30", "60", "90", "120", "Custom…"]
 
     def __init__(self, on_back, on_start, parent=None):
         super().__init__(parent)
+        self._on_start_cb = on_start
         root = QVBoxLayout(self)
         root.setContentsMargins(60, 40, 60, 40)
 
@@ -426,34 +456,80 @@ class UsbStep2Page(QWidget):
         root.addWidget(msg)
         root.addSpacing(20)
 
-        # ---- Resolution dropdown ----
+        # ---- Resolution row ----
         res_row = QHBoxLayout()
         res_row.setSpacing(12)
         res_label = QLabel("Resolution:")
         res_label.setObjectName("instruction")
         self._res_combo = QComboBox()
         self._res_combo.addItems(self.RESOLUTIONS)
-        self._res_combo.setCurrentText("2560x1600")  # default
+        self._res_combo.setCurrentText("2560x1600")
+        self._res_combo.currentTextChanged.connect(self._on_res_changed)
         res_row.addStretch()
         res_row.addWidget(res_label)
         res_row.addWidget(self._res_combo)
         res_row.addStretch()
         root.addLayout(res_row)
+
+        # Custom resolution input (hidden by default)
+        self._custom_res_widget = QWidget()
+        custom_res_inner = QHBoxLayout(self._custom_res_widget)
+        custom_res_inner.setContentsMargins(0, 4, 0, 0)
+        custom_res_inner.setSpacing(6)
+        self._custom_w = QLineEdit()
+        self._custom_w.setObjectName("customInput")
+        self._custom_w.setPlaceholderText("Width")
+        self._custom_w.setMaxLength(4)
+        x_sep = QLabel("×")
+        x_sep.setObjectName("xSep")
+        self._custom_h = QLineEdit()
+        self._custom_h.setObjectName("customInput")
+        self._custom_h.setPlaceholderText("Height")
+        self._custom_h.setMaxLength(4)
+        res_hint = QLabel("(500 – 4000 each)")
+        res_hint.setObjectName("customHint")
+        custom_res_inner.addStretch()
+        custom_res_inner.addWidget(self._custom_w)
+        custom_res_inner.addWidget(x_sep)
+        custom_res_inner.addWidget(self._custom_h)
+        custom_res_inner.addWidget(res_hint)
+        custom_res_inner.addStretch()
+        self._custom_res_widget.setVisible(False)
+        root.addWidget(self._custom_res_widget)
         root.addSpacing(10)
 
-        # ---- FPS dropdown ----
+        # ---- FPS row ----
         fps_row = QHBoxLayout()
         fps_row.setSpacing(12)
         fps_label = QLabel("FPS:")
         fps_label.setObjectName("instruction")
         self._fps_combo = QComboBox()
         self._fps_combo.addItems(self.FPS_OPTIONS)
-        self._fps_combo.setCurrentText("60")  # default
+        self._fps_combo.setCurrentText("60")
+        self._fps_combo.currentTextChanged.connect(self._on_fps_changed)
         fps_row.addStretch()
         fps_row.addWidget(fps_label)
         fps_row.addWidget(self._fps_combo)
         fps_row.addStretch()
         root.addLayout(fps_row)
+
+        # Custom FPS input (hidden by default)
+        self._custom_fps_widget = QWidget()
+        custom_fps_inner = QHBoxLayout(self._custom_fps_widget)
+        custom_fps_inner.setContentsMargins(0, 4, 0, 0)
+        custom_fps_inner.setSpacing(6)
+        self._custom_fps_edit = QLineEdit()
+        self._custom_fps_edit.setObjectName("customInput")
+        self._custom_fps_edit.setPlaceholderText("FPS")
+        self._custom_fps_edit.setMaxLength(3)
+        fps_hint = QLabel("(24 – 240)")
+        fps_hint.setObjectName("customHint")
+        custom_fps_inner.addStretch()
+        custom_fps_inner.addWidget(self._custom_fps_edit)
+        custom_fps_inner.addWidget(fps_hint)
+        custom_fps_inner.addStretch()
+        self._custom_fps_widget.setVisible(False)
+        root.addWidget(self._custom_fps_widget)
         root.addSpacing(16)
 
         # ---- Warning label ----
@@ -498,28 +574,86 @@ class UsbStep2Page(QWidget):
         back.setObjectName("backBtn")
         back.clicked.connect(on_back)
 
-        start_btn = QPushButton("▶  Start Streaming")
-        start_btn.setObjectName("primaryBtn")
-        start_btn.clicked.connect(on_start)
+        self._start_btn = QPushButton("▶  Start Streaming")
+        self._start_btn.setObjectName("primaryBtn")
+        self._start_btn.clicked.connect(self._validate_and_start)
 
         row = QHBoxLayout()
         row.setSpacing(20)
         row.addStretch()
         row.addWidget(back)
-        row.addWidget(start_btn)
+        row.addWidget(self._start_btn)
         row.addStretch()
         root.addLayout(row)
         root.addSpacing(20)
 
+    # -- Slot: show/hide custom resolution inputs --
+
+    def _on_res_changed(self, text: str):
+        self._custom_res_widget.setVisible(text == "Custom…")
+
+    def _on_fps_changed(self, text: str):
+        self._custom_fps_widget.setVisible(text == "Custom…")
+
+    # -- Validation + start --
+
+    def _validate_and_start(self):
+        # Validate custom resolution if selected
+        if self._res_combo.currentText() == "Custom…":
+            try:
+                w = int(self._custom_w.text())
+                h = int(self._custom_h.text())
+            except ValueError:
+                QMessageBox.warning(
+                    self, "Invalid Resolution",
+                    "Please enter numeric values for width and height."
+                )
+                return
+            if not (500 <= w <= 4000):
+                QMessageBox.warning(
+                    self, "Invalid Resolution",
+                    f"Width must be between 500 and 4000.\nYou entered: {w}"
+                )
+                return
+            if not (500 <= h <= 4000):
+                QMessageBox.warning(
+                    self, "Invalid Resolution",
+                    f"Height must be between 500 and 4000.\nYou entered: {h}"
+                )
+                return
+
+        # Validate custom FPS if selected
+        if self._fps_combo.currentText() == "Custom…":
+            try:
+                fps = int(self._custom_fps_edit.text())
+            except ValueError:
+                QMessageBox.warning(
+                    self, "Invalid FPS",
+                    "Please enter a numeric value for FPS."
+                )
+                return
+            if not (24 <= fps <= 240):
+                QMessageBox.warning(
+                    self, "Invalid FPS",
+                    f"FPS must be between 24 and 240.\nYou entered: {fps}"
+                )
+                return
+
+        self._on_start_cb()
+
     # -- Public getters used by MonitorizeWindow --
 
     def selected_resolution(self) -> tuple[int, int]:
-        """Return (width, height) from the resolution dropdown."""
+        """Return (width, height) — handles Custom… selection."""
+        if self._res_combo.currentText() == "Custom…":
+            return int(self._custom_w.text()), int(self._custom_h.text())
         text = self._res_combo.currentText()   # e.g. "2560x1600"
         w, h = text.split("x")
         return int(w), int(h)
 
     def selected_fps(self) -> int:
+        if self._fps_combo.currentText() == "Custom…":
+            return int(self._custom_fps_edit.text())
         return int(self._fps_combo.currentText())
 
 
