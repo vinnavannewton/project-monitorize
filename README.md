@@ -318,6 +318,16 @@ ProjectMonitorize/
 
 ---
 
+## Star History
+
+<a href="https://www.star-history.com/?type=date&repos=USERNAME%2FREPO_NAME">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=USERNAME/REPO_NAME&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=USERNAME/REPO_NAME&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=USERNAME/REPO_NAME&type=date&legend=top-left" />
+ </picture>
+</a>
+
 [![Star History Chart](https://api.star-history.com/svg?repos=USERNAME/REPO_NAME&type=Date)](https://star-history.com/#USERNAME/REPO_NAME&Date)
 
 
