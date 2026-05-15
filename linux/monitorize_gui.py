@@ -202,6 +202,16 @@ QLabel#warningLabel {
     border-radius: 8px;
 }
 
+QLabel#deBadge {
+    font-size: 13px;
+    font-weight: 600;
+    color: #7878cc;
+    padding: 4px 16px;
+    background-color: rgba(82, 84, 216, 0.10);
+    border: 1px solid rgba(82, 84, 216, 0.22);
+    border-radius: 20px;
+}
+
 QLabel#portalHint {
     font-size: 15px;
     font-weight: 600;
@@ -261,13 +271,21 @@ def _make_tray_icon() -> QIcon:
 
 def detect_desktop_environment() -> str:
     """
-    Return "kde", "gnome", or "" (unknown) based on environment variables.
-    Reads XDG_CURRENT_DESKTOP and DESKTOP_SESSION; the check is
-    case-insensitive.
+    Return "kde", "gnome", "hyprland", "sway", or "" (unknown) based on
+    environment variables.  Checks XDG_CURRENT_DESKTOP, DESKTOP_SESSION,
+    and the Hyprland/Sway-specific vars; case-insensitive.
     """
     xdg   = os.environ.get("XDG_CURRENT_DESKTOP", "").lower()
     dsess = os.environ.get("DESKTOP_SESSION",      "").lower()
+    # Hyprland sets HYPRLAND_INSTANCE_SIGNATURE; Sway sets SWAYSOCK
+    hypr  = os.environ.get("HYPRLAND_INSTANCE_SIGNATURE", "")
+    sway  = os.environ.get("SWAYSOCK", "")
     combined = xdg + " " + dsess
+
+    if hypr or "hyprland" in combined:
+        return "hyprland"
+    if sway or "sway" in combined:
+        return "sway"
     if "kde" in combined:
         return "kde"
     if "gnome" in combined:
@@ -293,10 +311,17 @@ class MainMenuPage(QWidget):
         sub.setObjectName("subLabel")
         sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
+        # ---- Desktop environment badge ----
+        self._de_badge = QLabel("")
+        self._de_badge.setObjectName("deBadge")
+        self._de_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
         root.addWidget(title)
-        root.addSpacing(6)
+        root.addSpacing(4)
         root.addWidget(sub)
-        root.addSpacing(30)
+        root.addSpacing(6)
+        root.addWidget(self._de_badge)
+        root.addSpacing(20)
         root.addWidget(hr())
         root.addSpacing(48)
 
@@ -334,6 +359,24 @@ class MainMenuPage(QWidget):
         tray_row.addStretch()
         root.addLayout(tray_row)
         root.addSpacing(8)
+
+    def update_de_badge(self, de: str):
+        """Show the detected/selected desktop environment in the badge."""
+        _icons = {
+            "kde":      "🐉",
+            "gnome":    "🦶",
+            "hyprland": "🌊",
+            "sway":     "🌿",
+        }
+        _labels = {
+            "kde":      "KDE Plasma",
+            "gnome":    "GNOME",
+            "hyprland": "Hyprland",
+            "sway":     "Sway",
+        }
+        icon  = _icons.get(de, "❓")
+        label = _labels.get(de, de.upper() if de else "Unknown")
+        self._de_badge.setText(f"{icon}  Desktop: {label}")
 
 
 class WifiPage(QWidget):
@@ -752,6 +795,7 @@ class MonitorizeWindow(QMainWindow):
             self.detected_de = detected
         else:
             self.detected_de = self._ask_desktop_environment()
+        # Badge is updated after pages are added to the stack (see below)
 
         # Two persistent QProcess objects for streaming
         self.process_krfb:     QProcess | None = None
@@ -783,6 +827,9 @@ class MonitorizeWindow(QMainWindow):
         self._stack.addWidget(self._page_usb2)       # 3
         self._stack.addWidget(self._page_streaming)  # 4
 
+        # Show detected DE in the main menu badge
+        self._page_main.update_de_badge(self.detected_de)
+
         # ------------------------------------------------------------------
         # System tray icon
         # ------------------------------------------------------------------
@@ -808,8 +855,9 @@ class MonitorizeWindow(QMainWindow):
 
     def _ask_desktop_environment(self) -> str:
         """
-        Show a non-blocking QDialog asking the user to pick their DE.
-        Returns "kde" or "gnome"; exits the app if the user picks "Other".
+        Show a QDialog asking the user to pick their DE.
+        Returns one of: "kde", "gnome", "hyprland", "sway".
+        Shows a WIP message and exits if the user picks "Other".
         """
         dlg = QDialog()
         dlg.setWindowTitle("Select Desktop Environment")
@@ -821,24 +869,36 @@ class MonitorizeWindow(QMainWindow):
 
         lbl = QLabel(
             "Could not automatically detect your desktop environment.\n"
-            "Please select which one you are using:"
+            "Please select which one you are running:"
         )
         lbl.setWordWrap(True)
         lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(lbl)
 
-        btn_row = QHBoxLayout()
-        btn_row.setSpacing(14)
+        # Row 1: KDE / GNOME
+        row1 = QHBoxLayout()
+        row1.setSpacing(14)
+        kde_btn   = QPushButton("🐉  KDE")
+        gnome_btn = QPushButton("🦶  GNOME")
+        row1.addWidget(kde_btn)
+        row1.addWidget(gnome_btn)
+        layout.addLayout(row1)
 
-        kde_btn   = QPushButton("KDE")
-        gnome_btn = QPushButton("GNOME")
-        other_btn = QPushButton("Other")
+        # Row 2: Hyprland / Sway
+        row2 = QHBoxLayout()
+        row2.setSpacing(14)
+        hypr_btn  = QPushButton("🌊  Hyprland")
+        sway_btn  = QPushButton("🌿  Sway")
+        row2.addWidget(hypr_btn)
+        row2.addWidget(sway_btn)
+        layout.addLayout(row2)
 
-        for btn in (kde_btn, gnome_btn, other_btn):
-            btn_row.addWidget(btn)
+        # Row 3: Other
+        other_btn = QPushButton("Other / Unsupported")
+        other_btn.setObjectName("backBtn")
+        layout.addWidget(other_btn)
 
-        layout.addLayout(btn_row)
-        dlg.setMinimumWidth(380)
+        dlg.setMinimumWidth(420)
 
         chosen = [""]
 
@@ -848,23 +908,24 @@ class MonitorizeWindow(QMainWindow):
 
         kde_btn.clicked.connect(lambda: pick("kde"))
         gnome_btn.clicked.connect(lambda: pick("gnome"))
+        hypr_btn.clicked.connect(lambda: pick("hyprland"))
+        sway_btn.clicked.connect(lambda: pick("sway"))
         other_btn.clicked.connect(lambda: pick("other"))
 
         dlg.exec()
 
-        if chosen[0] == "other" or chosen[0] == "":
+        if chosen[0] in ("other", ""):
             msg = QMessageBox()
             msg.setWindowTitle("Unsupported Desktop Environment")
             msg.setText(
-                "Other desktop environments are a work in progress.\n"
-                "Only KDE and GNOME are supported right now."
+                "Only KDE, GNOME, Hyprland, and Sway are supported.\n"
+                "Support for other desktop environments is a work in progress."
             )
             msg.setIcon(QMessageBox.Icon.Information)
             msg.exec()
-            # Exit cleanly — QApplication may not exist yet, so use sys.exit
             sys.exit(0)
 
-        return chosen[0]   # "kde" or "gnome"
+        return chosen[0]   # "kde" | "gnome" | "hyprland" | "sway"
 
     # ------------------------------------------------------------------
     # Navigation
@@ -874,19 +935,27 @@ class MonitorizeWindow(QMainWindow):
         self._stack.setCurrentIndex(PAGE_MAIN)
 
     def _go_wifi(self):
-        """Navigate to Wi-Fi page (KDE) or show not-supported message (GNOME)."""
-        if self.detected_de == "gnome":
-            msg = QMessageBox(self)
-            msg.setWindowTitle("Wi-Fi Mode — GNOME")
-            msg.setText(
-                "Wi-Fi mode is not yet supported on GNOME.\n"
-                "Please use USB mode."
-            )
-            msg.setIcon(QMessageBox.Icon.Information)
-            msg.exec()
+        """Navigate to Wi-Fi page (KDE only) or show not-supported for other DEs."""
+        if self.detected_de == "kde":
+            # KDE has a Wi-Fi streamer (work in progress)
+            self._stack.setCurrentIndex(PAGE_WIFI)
             return
-        # KDE: show the work-in-progress Wi-Fi page
-        self._stack.setCurrentIndex(PAGE_WIFI)
+
+        # All other DEs: Wi-Fi not yet supported
+        _de_labels = {
+            "gnome":    "GNOME",
+            "hyprland": "Hyprland",
+            "sway":     "Sway",
+        }
+        de_label = _de_labels.get(self.detected_de, self.detected_de.upper())
+        msg = QMessageBox(self)
+        msg.setWindowTitle(f"Wi-Fi Mode — {de_label}")
+        msg.setText(
+            f"Wi-Fi mode is not yet supported on {de_label}.\n"
+            "Please use USB mode."
+        )
+        msg.setIcon(QMessageBox.Icon.Information)
+        msg.exec()
 
     def _go_usb1(self):
         self._page_usb1.set_status("")
@@ -1007,11 +1076,13 @@ class MonitorizeWindow(QMainWindow):
             )
         )
         # Choose the correct streamer script based on the detected DE
-        if self.detected_de == "gnome":
-            streamer_script = "Streamer_gnome_usb.py"
-        else:
-            # KDE (or anything else that passed detection)
-            streamer_script = "Streamer_kde_usb.py"
+        _streamer_map = {
+            "kde":      "Streamer_kde_usb.py",
+            "gnome":    "Streamer_gnome_usb.py",
+            "hyprland": "Streamer_hyprland_usb.py",
+            "sway":     "Streamer_sway_usb.py",
+        }
+        streamer_script = _streamer_map.get(self.detected_de, "Streamer_kde_usb.py")
 
         self.process_streamer.start("python3", [
             streamer_script,
