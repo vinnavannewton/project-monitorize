@@ -87,7 +87,7 @@ Android Tablet
 ## 🛠️ Requirements
 ### 📦 Dependencies (Must Do)
 
-Before running Monitorize on Fedora, you must install the required GStreamer plugins, PipeWire tools, and Android utilities. 
+Before running Monitorize on Fedora or Arch-based systems, you must install the required GStreamer plugins, PipeWire tools, and Android utilities. 
 
 Run the following commands in your terminal in order:
 
@@ -129,11 +129,36 @@ sudo dnf install -y krfb
 **For GNOME:**
 No extra installation is needed! GNOME uses Mutter's built-in `RecordVirtual` D-Bus API, which works out of the box with the dependencies installed in step 2.
 
+#### 4. Arch Linux / Hyprland
+For Arch Linux with Hyprland, install the Wayland portal backend, PipeWire stack, GStreamer plugins, Python bindings, Qt Wayland support, H.264 encoder library, and Android platform tools:
+```bash
+sudo pacman -S --needed \
+  hyprland \
+  xdg-desktop-portal \
+  xdg-desktop-portal-hyprland \
+  pipewire \
+  wireplumber \
+  gst-plugin-pipewire \
+  gstreamer \
+  gst-plugins-base \
+  gst-plugins-good \
+  gst-plugins-bad \
+  gst-plugins-ugly \
+  python-pyqt6 \
+  python-gobject \
+  python-dbus \
+  qt6-wayland \
+  x264 \
+  android-tools
+```
+
+> **Note:** the current KDE-specific `krfb` virtual monitor path does not apply to Hyprland. On Hyprland, the portal backend above is the key dependency.
+
 ### Linux Host
 
 | Requirement                  | Notes                                      |
 |-----------------------------|--------------------------------------------|
-| Wayland desktop (KDE/gnome tested)
+| Wayland desktop           | KDE/GNOME tested                         |
 | `krfb`                      | Virtual monitor: `sudo dnf install krfb`  |
 | GStreamer (x264)            | `gstreamer1-plugins-bad-free` + `ugly`    |
 | Python 3                    | For scripts & GUI                          |
