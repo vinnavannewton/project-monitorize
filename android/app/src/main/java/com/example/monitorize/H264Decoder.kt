@@ -21,7 +21,7 @@ class H264Decoder(private val surface: Surface) {
         private const val MAX_INPUT_BYTES = 2 * 1024 * 1024
     }
 
-    fun init(width: Int, height: Int) {
+    fun init(width: Int, height: Int, fps: Int = 60) {
         if (initialized) {
             Log.w(TAG, "Already initialized — releasing before re-init")
             release()
@@ -33,7 +33,7 @@ class H264Decoder(private val surface: Surface) {
             ).apply {
                 setInteger(MediaFormat.KEY_LOW_LATENCY, 1)
                 setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, MAX_INPUT_BYTES)
-                setInteger(MediaFormat.KEY_OPERATING_RATE, 30)
+                setInteger(MediaFormat.KEY_OPERATING_RATE, fps)
                 setInteger(MediaFormat.KEY_PRIORITY, 0)
             }
             codec = MediaCodec.createDecoderByType(MediaFormat.MIMETYPE_VIDEO_AVC).also { c ->
@@ -83,6 +83,14 @@ class H264Decoder(private val surface: Surface) {
             }
             outputIndex = c.dequeueOutputBuffer(bufferInfo, 0)
         }
+    }
+
+    /**
+     * Convenience wrapper used by StreamReceiver — feeds a chunk from a
+     * shared byte array with an offset and length, using frame count as PTS.
+     */
+    fun feedChunk(data: ByteArray, offset: Int, size: Int) {
+        decode(data, offset, size, frameCount * 33_333L)
     }
 
     fun release() {

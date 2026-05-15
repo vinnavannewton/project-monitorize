@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QStackedWidget, QFrame, QPlainTextEdit,
     QComboBox, QCheckBox, QSystemTrayIcon, QMenu,
-    QDialog, QMessageBox, QLineEdit, QSpinBox,
+    QDialog, QMessageBox, QLineEdit,
 )
 from PyQt6.QtCore import Qt, QProcess, QProcessEnvironment, QTimer
 from PyQt6.QtGui import QColor, QPalette, QFont, QTextCursor, QIcon, QPixmap, QPainter
@@ -20,220 +20,260 @@ from PyQt6.QtGui import QColor, QPalette, QFont, QTextCursor, QIcon, QPixmap, QP
 # ---------------------------------------------------------------------------
 
 DARK_QSS = """
+/* ── Base ─────────────────────────────────────────────────────────── */
 QMainWindow, QWidget {
-    background-color: #12131a;
-    color: #e0e0f0;
-    font-family: 'Segoe UI', 'Inter', 'Roboto', sans-serif;
+    background-color: #0c0d14;
+    color: #d4d6f0;
+    font-family: 'Inter', 'SF Pro Display', 'Segoe UI', sans-serif;
+    font-size: 14px;
 }
 
+/* ── Generic Button ───────────────────────────────────────────────── */
 QPushButton {
-    background-color: #1e1f2e;
-    color: #c8c9e8;
-    border: 1px solid #2e3050;
-    border-radius: 12px;
-    padding: 12px 28px;
-    font-size: 15px;
+    background-color: #16182a;
+    color: #b8bad8;
+    border: 1px solid #252845;
+    border-radius: 10px;
+    padding: 10px 24px;
+    font-size: 14px;
     font-weight: 600;
 }
 QPushButton:hover {
-    background-color: #272840;
-    border-color: #5a5fbb;
-    color: #ffffff;
+    background-color: #1e2040;
+    border-color: #4a4faa;
+    color: #e8e9ff;
 }
-QPushButton:pressed { background-color: #1a1b2a; }
+QPushButton:pressed { background-color: #121428; }
 QPushButton:disabled {
-    background-color: #181924;
-    color: #555570;
-    border-color: #23243a;
+    background-color: #101220;
+    color: #3e3f5a;
+    border-color: #1a1c30;
 }
 
+/* ── Mode Buttons (USB / Wi-Fi) ───────────────────────────────────── */
 QPushButton#modeBtn {
     background: qlineargradient(x1:0,y1:0,x2:1,y2:1,
-                stop:0 #1e2040, stop:1 #252747);
-    border: 2px solid #3a3e72;
-    border-radius: 18px;
-    font-size: 20px;
+                stop:0 #141630, stop:1 #1c1e3a);
+    border: 1px solid #2a2d55;
+    border-radius: 16px;
+    font-size: 18px;
     font-weight: 700;
-    color: #d0d2ff;
-    min-width: 220px;
-    min-height: 120px;
+    color: #c0c2ee;
+    min-width: 200px;
+    min-height: 110px;
 }
 QPushButton#modeBtn:hover {
     background: qlineargradient(x1:0,y1:0,x2:1,y2:1,
-                stop:0 #252850, stop:1 #2e3260);
-    border-color: #6e72cc;
+                stop:0 #1c1e42, stop:1 #24264e);
+    border-color: #5458b8;
     color: #ffffff;
 }
 
+/* ── Primary Action Button ────────────────────────────────────────── */
 QPushButton#primaryBtn {
     background: qlineargradient(x1:0,y1:0,x2:1,y2:1,
-                stop:0 #3b40c0, stop:1 #5254d8);
+                stop:0 #3538b0, stop:1 #4c4fd0);
     border: none;
-    border-radius: 14px;
-    font-size: 17px;
+    border-radius: 12px;
+    font-size: 15px;
     font-weight: 700;
     color: #ffffff;
-    min-height: 58px;
-    min-width: 260px;
+    min-height: 50px;
+    min-width: 240px;
 }
 QPushButton#primaryBtn:hover {
     background: qlineargradient(x1:0,y1:0,x2:1,y2:1,
-                stop:0 #4549d8, stop:1 #6264f0);
+                stop:0 #4042c8, stop:1 #5c5ee8);
 }
-QPushButton#primaryBtn:pressed { background-color: #2e32a8; }
+QPushButton#primaryBtn:pressed { background-color: #2a2c98; }
 
+/* ── Stop Button ──────────────────────────────────────────────────── */
 QPushButton#stopBtn {
     background: qlineargradient(x1:0,y1:0,x2:1,y2:1,
-                stop:0 #8b1a1a, stop:1 #c0282e);
+                stop:0 #7a1520, stop:1 #a82028);
     border: none;
-    border-radius: 14px;
-    font-size: 17px;
+    border-radius: 12px;
+    font-size: 15px;
     font-weight: 700;
     color: #ffffff;
-    min-height: 58px;
-    min-width: 260px;
+    min-height: 50px;
+    min-width: 240px;
 }
 QPushButton#stopBtn:hover {
     background: qlineargradient(x1:0,y1:0,x2:1,y2:1,
-                stop:0 #a81e1e, stop:1 #d83030);
+                stop:0 #941a24, stop:1 #c42830);
 }
-QPushButton#stopBtn:pressed { background-color: #6e1212; }
+QPushButton#stopBtn:pressed { background-color: #5a1010; }
 
+/* ── Back Button ──────────────────────────────────────────────────── */
 QPushButton#backBtn {
-    background-color: #1a1b2a;
-    border: 1px solid #2e3050;
+    background-color: transparent;
+    border: 1px solid #252845;
     border-radius: 10px;
     font-size: 13px;
-    color: #8888aa;
-    padding: 8px 20px;
-    min-width: 100px;
+    color: #6a6c90;
+    padding: 8px 18px;
+    min-width: 90px;
 }
-QPushButton#backBtn:hover { border-color: #5a5fbb; color: #c0c2e8; }
+QPushButton#backBtn:hover { border-color: #4a4faa; color: #b0b2d8; }
 
+/* ── Labels ───────────────────────────────────────────────────────── */
 QLabel#titleLabel {
-    font-size: 28px;
+    font-size: 30px;
     font-weight: 800;
-    color: #d8daff;
-    letter-spacing: 1px;
+    color: #e0e2ff;
+    letter-spacing: 2px;
 }
-QLabel#subLabel    { font-size: 15px; color: #8888bb; }
-QLabel#stepLabel   { font-size: 13px; color: #7070aa; }
-QLabel#instruction { font-size: 16px; color: #c0c2e0; }
-QLabel#wip         { font-size: 18px; color: #9090cc; font-style: italic; }
-QLabel#streaming   { font-size: 22px; font-weight: 700; color: #58d68d; }
-QLabel#statusLbl   { font-size: 13px; color: #7070aa; }
+QLabel#subLabel    { font-size: 14px; color: #6a6c96; font-weight: 400; }
+QLabel#stepLabel   { font-size: 12px; color: #5a5c82; font-weight: 500; letter-spacing: 1px; }
+QLabel#instruction { font-size: 15px; color: #b0b2d0; }
+QLabel#wip         { font-size: 17px; color: #7878aa; font-style: italic; }
+QLabel#streaming   { font-size: 20px; font-weight: 700; color: #4cd68d; }
+QLabel#statusLbl   { font-size: 12px; color: #5a5c82; }
 
+/* ── Log Box ──────────────────────────────────────────────────────── */
 QPlainTextEdit#logBox {
-    background-color: #0d0e18;
-    color: #a0d4a0;
-    border: 1px solid #2a2b42;
+    background-color: #080910;
+    color: #7cc87c;
+    border: 1px solid #1a1c30;
     border-radius: 8px;
-    font-family: 'Consolas', 'Fira Mono', monospace;
-    font-size: 12px;
-    padding: 6px;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 11px;
+    padding: 8px;
+    selection-background-color: #2a2d55;
 }
 
+/* ── Separator ────────────────────────────────────────────────────── */
 QFrame#sep {
-    background-color: #2a2b42;
+    background-color: #1a1c30;
     max-height: 1px;
 }
 
+/* ── Combo Box ────────────────────────────────────────────────────── */
 QComboBox {
-    background-color: #1a1b2e;
-    color: #d0d2ff;
-    border: 1px solid #3a3e72;
+    background-color: #12142a;
+    color: #c0c2ee;
+    border: 1px solid #2a2d55;
     border-radius: 8px;
     padding: 8px 14px;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     min-width: 140px;
 }
-QComboBox:hover { border-color: #6e72cc; }
-QComboBox::drop-down {
-    border: none;
-    width: 24px;
-}
+QComboBox:hover { border-color: #5458b8; }
+QComboBox::drop-down { border: none; width: 24px; }
 QComboBox QAbstractItemView {
-    background-color: #1a1b2e;
-    color: #d0d2ff;
-    selection-background-color: #3b40c0;
+    background-color: #12142a;
+    color: #c0c2ee;
+    selection-background-color: #3538b0;
     selection-color: #ffffff;
-    border: 1px solid #3a3e72;
+    border: 1px solid #2a2d55;
     border-radius: 6px;
     padding: 4px;
 }
 
+/* ── Custom Input ─────────────────────────────────────────────────── */
 QLineEdit#customInput {
-    background-color: #1a1b2e;
-    color: #d0d2ff;
-    border: 1px solid #3a3e72;
+    background-color: #12142a;
+    color: #c0c2ee;
+    border: 1px solid #2a2d55;
     border-radius: 8px;
     padding: 8px 10px;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     min-width: 80px;
     max-width: 90px;
 }
-QLineEdit#customInput:focus { border-color: #6e72cc; }
+QLineEdit#customInput:focus { border-color: #5458b8; }
 QLineEdit#customInput[invalid="true"] {
-    border-color: #c0282e;
-    color: #ff7070;
+    border-color: #a82028;
+    color: #ff6060;
 }
 
 QLabel#xSep {
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 700;
-    color: #8888bb;
+    color: #6a6c96;
     padding: 0 4px;
 }
 QLabel#customHint {
     font-size: 11px;
-    color: #6060a0;
+    color: #4a4c70;
     font-style: italic;
 }
 
+/* ── Warning Label ────────────────────────────────────────────────── */
 QLabel#warningLabel {
-    font-size: 13px;
-    font-weight: 700;
-    color: #f0ad4e;
+    font-size: 12px;
+    font-weight: 600;
+    color: #e8a840;
     padding: 8px 14px;
-    background-color: rgba(240, 173, 78, 0.08);
-    border: 1px solid rgba(240, 173, 78, 0.25);
+    background-color: rgba(232, 168, 64, 0.06);
+    border: 1px solid rgba(232, 168, 64, 0.18);
     border-radius: 8px;
 }
 
+/* ── DE Badge ─────────────────────────────────────────────────────── */
 QLabel#deBadge {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
-    color: #7878cc;
-    padding: 4px 16px;
-    background-color: rgba(82, 84, 216, 0.10);
-    border: 1px solid rgba(82, 84, 216, 0.22);
-    border-radius: 20px;
+    color: #6a6cbb;
+    padding: 4px 14px;
+    background-color: rgba(76, 79, 208, 0.08);
+    border: 1px solid rgba(76, 79, 208, 0.16);
+    border-radius: 14px;
 }
 
+/* ── Portal Hint ──────────────────────────────────────────────────── */
 QLabel#portalHint {
-    font-size: 15px;
-    font-weight: 600;
-    color: #9fa1dd;
+    font-size: 14px;
+    font-weight: 500;
+    color: #8a8cc0;
 }
 
+/* ── Tray Checkbox ────────────────────────────────────────────────── */
 QCheckBox#trayCheck {
-    font-size: 13px;
-    color: #7070aa;
+    font-size: 12px;
+    color: #5a5c82;
     spacing: 8px;
 }
-QCheckBox#trayCheck:hover { color: #b0b2d8; }
+QCheckBox#trayCheck:hover { color: #9a9cc0; }
 QCheckBox#trayCheck::indicator {
-    width: 16px;
-    height: 16px;
-    border: 1px solid #3a3e72;
+    width: 14px;
+    height: 14px;
+    border: 1px solid #2a2d55;
     border-radius: 4px;
-    background-color: #1a1b2e;
+    background-color: #12142a;
 }
 QCheckBox#trayCheck::indicator:checked {
-    background-color: #5254d8;
-    border-color: #5254d8;
+    background-color: #4c4fd0;
+    border-color: #4c4fd0;
+}
+
+/* ── Scrollbar ────────────────────────────────────────────────────── */
+QScrollBar:vertical {
+    background: transparent;
+    width: 6px;
+    margin: 0;
+}
+QScrollBar::handle:vertical {
+    background: #2a2d55;
+    border-radius: 3px;
+    min-height: 30px;
+}
+QScrollBar::handle:vertical:hover { background: #3a3d6a; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }
+
+/* ── Message Boxes / Dialogs ──────────────────────────────────────── */
+QDialog {
+    background-color: #0c0d14;
+}
+QMessageBox {
+    background-color: #0c0d14;
+}
+QMessageBox QLabel {
+    color: #d4d6f0;
 }
 """
 
@@ -256,7 +296,7 @@ def _make_tray_icon() -> QIcon:
     px.fill(Qt.GlobalColor.transparent)
     p = QPainter(px)
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setBrush(QColor("#5254d8"))
+    p.setBrush(QColor("#4c4fd0"))
     p.setPen(Qt.PenStyle.NoPen)
     p.drawEllipse(4, 4, 56, 56)
     p.setBrush(QColor("#ffffff"))
@@ -301,7 +341,7 @@ class MainMenuPage(QWidget):
     def __init__(self, on_usb, on_wifi, parent=None):
         super().__init__(parent)
         root = QVBoxLayout(self)
-        root.setContentsMargins(60, 60, 60, 60)
+        root.setContentsMargins(50, 50, 50, 40)
 
         title = QLabel("Monitorize")
         title.setObjectName("titleLabel")
@@ -317,16 +357,16 @@ class MainMenuPage(QWidget):
         self._de_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         root.addWidget(title)
-        root.addSpacing(4)
-        root.addWidget(sub)
         root.addSpacing(6)
+        root.addWidget(sub)
+        root.addSpacing(10)
         root.addWidget(self._de_badge)
-        root.addSpacing(20)
+        root.addSpacing(24)
         root.addWidget(hr())
-        root.addSpacing(48)
+        root.addSpacing(44)
 
         row = QHBoxLayout()
-        row.setSpacing(36)
+        row.setSpacing(28)
 
         usb_btn = QPushButton("🔌  USB Mode")
         usb_btn.setObjectName("modeBtn")
@@ -347,18 +387,18 @@ class MainMenuPage(QWidget):
         footer.setObjectName("statusLbl")
         footer.setAlignment(Qt.AlignmentFlag.AlignCenter)
         root.addWidget(footer)
-        root.addSpacing(16)
+        root.addSpacing(14)
 
         # ---- Tray option ----
         tray_row = QHBoxLayout()
-        self.tray_checkbox = QCheckBox("Go to tray when closed")
+        self.tray_checkbox = QCheckBox("Minimize to tray on close")
         self.tray_checkbox.setObjectName("trayCheck")
         self.tray_checkbox.setChecked(False)
         tray_row.addStretch()
         tray_row.addWidget(self.tray_checkbox)
         tray_row.addStretch()
         root.addLayout(tray_row)
-        root.addSpacing(8)
+        root.addSpacing(6)
 
     def update_de_badge(self, de: str):
         """Show the detected/selected desktop environment in the badge."""
@@ -1012,42 +1052,46 @@ class MonitorizeWindow(QMainWindow):
 
         # ---- Switch to streaming page immediately ----
         self._page_streaming.set_stop_enabled(False)
-        self._page_streaming.set_status("⏳  Starting virtual monitor…  3")
         self._stack.setCurrentIndex(PAGE_STREAMING)
 
-        # ---- Process A: krfb-virtualmonitor — starts NOW ----
-        self.process_krfb = QProcess(self)
-        self.process_krfb.setWorkingDirectory(script_dir)
-        self.process_krfb.setProcessEnvironment(env)
-        self.process_krfb.setProcessChannelMode(
-            QProcess.ProcessChannelMode.MergedChannels
-        )
-        self.process_krfb.readyReadStandardOutput.connect(self._read_krfb)
-        self.process_krfb.finished.connect(
-            lambda code, _: self._page_streaming.append_log(
-                "KRFB", f"Process exited (code {code})"
-            )
-        )
-        # Read user-chosen resolution for krfb
+        # Read user-chosen resolution / FPS
         width, height = self._page_usb2.selected_resolution()
         fps = self._page_usb2.selected_fps()
         self._stream_width  = width
         self._stream_height = height
         self._stream_fps    = fps
 
-        self.process_krfb.start(
-            "krfb-virtualmonitor",
-            [
-                "--resolution", f"{width}x{height}",
-                "--name",       "TabletDisplay",
-                "--password",   "test123",
-                "--port",       "5900",
-            ],
-        )
-
-        # ---- Begin 3-second countdown before starting the streamer ----
-        self._countdown = 3
-        self._countdown_timer.start()
+        # ---- KDE: start krfb-virtualmonitor first, then countdown ----
+        if self.detected_de == "kde":
+            self._page_streaming.set_status("⏳  Starting virtual monitor…  3")
+            self.process_krfb = QProcess(self)
+            self.process_krfb.setWorkingDirectory(script_dir)
+            self.process_krfb.setProcessEnvironment(env)
+            self.process_krfb.setProcessChannelMode(
+                QProcess.ProcessChannelMode.MergedChannels
+            )
+            self.process_krfb.readyReadStandardOutput.connect(self._read_krfb)
+            self.process_krfb.finished.connect(
+                lambda code, _: self._page_streaming.append_log(
+                    "KRFB", f"Process exited (code {code})"
+                )
+            )
+            self.process_krfb.start(
+                "krfb-virtualmonitor",
+                [
+                    "--resolution", f"{width}x{height}",
+                    "--name",       "TabletDisplay",
+                    "--password",   "test123",
+                    "--port",       "5900",
+                ],
+            )
+            # Begin 3-second countdown before starting the streamer
+            self._countdown = 3
+            self._countdown_timer.start()
+        else:
+            # GNOME / Hyprland / Sway handle virtual monitors internally
+            self._page_streaming.set_status("⏳  Launching streamer…")
+            self._launch_streamer()
 
     def _countdown_tick(self):
         """Called every 1 s by _countdown_timer. Starts the streamer at 0."""
@@ -1061,8 +1105,10 @@ class MonitorizeWindow(QMainWindow):
 
         # Countdown finished — stop timer, launch streamer
         self._countdown_timer.stop()
+        self._launch_streamer()
 
-        # ---- Process B: python3 Streamer_usb.py — starts after delay ----
+    def _launch_streamer(self):
+        """Spawn the correct DE-specific streamer script as a QProcess."""
         self.process_streamer = QProcess(self)
         self.process_streamer.setWorkingDirectory(self._script_dir)
         self.process_streamer.setProcessEnvironment(self._env)
@@ -1185,13 +1231,13 @@ def main():
     app.setStyleSheet(DARK_QSS)
 
     palette = QPalette()
-    palette.setColor(QPalette.ColorRole.Window,          QColor("#12131a"))
-    palette.setColor(QPalette.ColorRole.WindowText,      QColor("#e0e0f0"))
-    palette.setColor(QPalette.ColorRole.Base,            QColor("#1a1b2a"))
-    palette.setColor(QPalette.ColorRole.AlternateBase,   QColor("#1e1f2e"))
-    palette.setColor(QPalette.ColorRole.Button,          QColor("#1e1f2e"))
-    palette.setColor(QPalette.ColorRole.ButtonText,      QColor("#e0e0f0"))
-    palette.setColor(QPalette.ColorRole.Highlight,       QColor("#3b40c0"))
+    palette.setColor(QPalette.ColorRole.Window,          QColor("#0c0d14"))
+    palette.setColor(QPalette.ColorRole.WindowText,      QColor("#d4d6f0"))
+    palette.setColor(QPalette.ColorRole.Base,            QColor("#12142a"))
+    palette.setColor(QPalette.ColorRole.AlternateBase,   QColor("#16182a"))
+    palette.setColor(QPalette.ColorRole.Button,          QColor("#16182a"))
+    palette.setColor(QPalette.ColorRole.ButtonText,      QColor("#d4d6f0"))
+    palette.setColor(QPalette.ColorRole.Highlight,       QColor("#3538b0"))
     palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#ffffff"))
     app.setPalette(palette)
 
