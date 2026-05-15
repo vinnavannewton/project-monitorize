@@ -8,6 +8,8 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -30,35 +32,21 @@ import androidx.compose.ui.zIndex
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import kotlinx.coroutines.delay
 
-// ── Color Palette ────────────────────────────────────────────────────────────
-private val BgDark       = Color(0xFF0C0D14)
-private val SurfaceDark  = Color(0xFF12142A)
-private val CardDark     = Color(0xFF161830)
-private val BorderDark   = Color(0xFF252845)
-private val AccentIndigo = Color(0xFF4C4FD0)
-private val TextPrimary  = Color(0xFFD4D6F0)
-private val TextSecondary= Color(0xFF6A6C96)
-private val TextMuted    = Color(0xFF4A4C70)
-private val GreenAccent  = Color(0xFF4CD68D)
-private val AmberWarn    = Color(0xFFE8A840)
-private val RedStop      = Color(0xFFA82028)
+// ── UI Constants ─────────────────────────────────────────────────────────────
+val BackgroundDark = Color(0xFF0C0D14)
+val CardDark       = Color(0xFF161822)
+val BorderDark     = Color(0xFF242836)
+val AccentIndigo   = Color(0xFF6366F1)
+val GreenAccent    = Color(0xFF10B981)
+val AmberWarn      = Color(0xFFF59E0B)
+val TextPrimary    = Color(0xFFF1F5F9)
+val TextSecondary  = Color(0xFF94A3B8)
+val TextMuted      = Color(0xFF475569)
+val RedStop        = Color(0xFFEF4444)
 
 enum class Screen { Home, Settings, Receive }
-
-private val MonitorizeColorScheme = darkColorScheme(
-    primary          = AccentIndigo,
-    onPrimary        = Color.White,
-    secondary        = Color(0xFF3538B0),
-    background       = BgDark,
-    surface          = SurfaceDark,
-    surfaceVariant   = CardDark,
-    onBackground     = TextPrimary,
-    onSurface        = TextPrimary,
-    onSurfaceVariant = TextSecondary,
-    outline          = BorderDark,
-    error            = RedStop,
-)
 
 class MainActivity : ComponentActivity() {
 
@@ -71,19 +59,19 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         window.setBackgroundDrawableResource(android.R.color.black)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         setContent {
             var currentScreen by remember { mutableStateOf(Screen.Home) }
 
-            // Load saved settings
             var width by remember { mutableIntStateOf(prefs.getInt("width", 1280)) }
             var height by remember { mutableIntStateOf(prefs.getInt("height", 800)) }
             var fps by remember { mutableIntStateOf(prefs.getInt("fps", 60)) }
 
-            MaterialTheme(colorScheme = MonitorizeColorScheme) {
-                Surface(modifier = Modifier.fillMaxSize(), color = BgDark) {
+            MaterialTheme(colorScheme = darkColorScheme()) {
+                Surface(modifier = Modifier.fillMaxSize(), color = BackgroundDark) {
                     when (currentScreen) {
                         Screen.Home -> HomeScreen(
                             onReceiveClick = { currentScreen = Screen.Receive },
@@ -106,7 +94,7 @@ class MainActivity : ComponentActivity() {
                             val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
                             windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
                             windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-
+                            
                             ReceiveScreen(
                                 width = width,
                                 height = height,
@@ -125,14 +113,14 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // ── Home Screen ──────────────────────────────────────────────────────────
+    // ── Home Screen ─────────────────────────────────────────────────────────
 
     @Composable
     fun HomeScreen(onReceiveClick: () -> Unit, onSettingsClick: () -> Unit) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 40.dp, vertical = 48.dp),
+                .padding(horizontal = 32.dp, vertical = 48.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -483,6 +471,14 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun ReceiveScreen(width: Int, height: Int, fps: Int, status: String, onBack: () -> Unit) {
         BackHandler(onBack = onBack)
+        
+        var showHint by remember { mutableStateOf(true) }
+        
+        LaunchedEffect(Unit) {
+            delay(5000)
+            showHint = false
+        }
+
         Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
             StreamSurface(
                 modifier = Modifier.fillMaxSize(),
@@ -519,24 +515,30 @@ class MainActivity : ComponentActivity() {
             }
 
             // First-time hint
-            Box(
+            AnimatedVisibility(
+                visible = showHint,
+                exit = fadeOut(),
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(bottom = 20.dp, start = 20.dp, end = 20.dp)
-                    .background(
-                        color = Color(0xCC0C0D14),
-                        shape = RoundedCornerShape(10.dp)
-                    )
-                    .padding(horizontal = 14.dp, vertical = 10.dp)
                     .zIndex(1f)
             ) {
-                Text(
-                    text = "💡 First time? After the stream starts, go to Display Config and set up the virtual display.",
-                    color = TextSecondary,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
-                    lineHeight = 16.sp
-                )
+                Box(
+                    modifier = Modifier
+                        .background(
+                            color = Color(0xCC0C0D14),
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                ) {
+                    Text(
+                        text = "💡 First time? After the stream starts, go to Display Config and set up the virtual display in your pc.",
+                        color = TextSecondary,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        lineHeight = 16.sp
+                    )
+                }
             }
         }
     }

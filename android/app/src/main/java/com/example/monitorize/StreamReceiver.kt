@@ -41,6 +41,7 @@ class StreamReceiver(
             onStatusChange?.invoke("Connected")
 
             decoder.init(width, height, fps)
+            onStatusChange?.invoke("Stream: ${width}×${height} @ ${fps}fps")
 
             val input = socket.getInputStream()
 
@@ -48,7 +49,6 @@ class StreamReceiver(
             val ringBuffer = ByteArray(2 * 1024 * 1024)
             var bufferLength = 0
             val readBuffer = ByteArray(64 * 1024)
-            var firstFrame = true
 
             while (running) {
                 val bytesRead = input.read(readBuffer)
@@ -85,12 +85,6 @@ class StreamReceiver(
                         if (nextStartIndex != -1) {
                             // We found a complete NAL unit between searchIndex and nextStartIndex
                             val frameSize = nextStartIndex - searchIndex
-
-                            // Clear status overlay only when actual video content starts processing
-                            if (firstFrame) {
-                                onStatusChange?.invoke("")
-                                firstFrame = false
-                            }
 
                             // Send exactly one complete access unit to the decoder
                             decoder.feedChunk(ringBuffer, searchIndex, frameSize)
