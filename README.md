@@ -328,9 +328,6 @@ ProjectMonitorize/
  </picture>
 </a>
 
-[![Star History Chart](https://api.star-history.com/svg?repos=USERNAME/REPO_NAME&type=Date)](https://star-history.com/#USERNAME/REPO_NAME&Date)
-
-
 ## 📄 License
 
 Licensed under the **GNU General Public License v3.0**. See `LICENSE` for details.
