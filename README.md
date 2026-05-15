@@ -320,11 +320,11 @@ ProjectMonitorize/
 
 ## Star History
 
-<a href="https://www.star-history.com/?type=date&repos=USERNAME%2FREPO_NAME">
+<a href="https://www.star-history.com/?type=date&repos=vinnavannewton%2FProjectMonitorize">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=USERNAME/REPO_NAME&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=USERNAME/REPO_NAME&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=USERNAME/REPO_NAME&type=date&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=vinnavannewton/ProjectMonitorize&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=vinnavannewton/ProjectMonitorize&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=vinnavannewton/ProjectMonitorize&type=date&legend=top-left" />
  </picture>
 </a>
 
