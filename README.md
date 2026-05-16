@@ -120,6 +120,32 @@ sudo dnf install -y \
   android-tools
 ```
 
+#### Step 3 — Install snegg (libei Python bindings) for Touch/Pen Input
+
+The touch daemon uses `snegg` — the official Python bindings for `libei`.
+Do **not** use `pip install pyei` (that is a different, unrelated package).
+
+```bash
+# C build dependencies for snegg
+sudo dnf install -y \
+  libei \
+  libei-devel \
+  liboeffis \
+  gcc \
+  python3-devel \
+  meson \
+  ninja-build \
+  pkg-config \
+  git
+
+# Install snegg from the upstream GitLab repo
+python3 -m pip install --user \
+  git+https://gitlab.freedesktop.org/whot/snegg
+```
+
+> **Note:** The Python module is `snegg`, not `ei`.
+> Import it as `import snegg.ei` and `import snegg.oeffis` — not `import ei`.
+
 #### Step 3 — Desktop-Specific (Fedora)
 
 **KDE Plasma**
@@ -159,6 +185,17 @@ sudo pacman -S --needed \
   python-pyqt6 \
   x264 \
   android-tools
+```
+
+#### Step 2 — Install snegg (Arch)
+
+```bash
+# Build deps
+sudo pacman -S --needed gcc python meson ninja pkg-config git libei
+
+# Install snegg from upstream
+python3 -m pip install --user \
+  git+https://gitlab.freedesktop.org/whot/snegg
 ```
 
 #### Step 2 — Desktop-Specific (Arch)
@@ -240,6 +277,7 @@ sudo apt install -y \
 | PyQt6             | `python3-pyqt6` / `python-pyqt6`                   |
 | `adb`             | `android-tools` (Fedora/Arch) or `adb` (Debian)    |
 | `krfb`            | KDE only — virtual monitor creation                |
+| `snegg` + `libei` | Touch/pen input forwarding via libei portal. Install with `pip install --user git+https://gitlab.freedesktop.org/whot/snegg` |
 
 ### Android Tablet
 
@@ -388,8 +426,8 @@ ProjectMonitorize/
 - [x] Fix TCP chunking / macroblock corruption.
 - [x] Dynamic resolution & FPS (Linux + Android).
 - [x] PyQt6 desktop GUI with wizard flow and countdown.
+- [x] Touch/pen input forwarding via libei + XDG RemoteDesktop portal (`touch_daemon.py`).
 - [ ] Polished Wi-Fi mode (potential UDP/RTP option).
-- [ ] Touch/pen input forwarding.
 - [ ] Flatpak packaging & Flathub distribution.
 
 ---

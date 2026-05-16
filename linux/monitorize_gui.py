@@ -1178,7 +1178,7 @@ class MonitorizeWindow(QMainWindow):
         ])
 
         self._page_streaming.set_status(
-            "🖐  Touch service starting… Watch for KDE 'Allow Remote Control' popup"
+            "🖐  Touch service starting… Watch for 'Allow Remote Control' popup and click Allow"
         )
 
     # ------------------------------------------------------------------
