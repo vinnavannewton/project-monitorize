@@ -74,7 +74,11 @@ class InputEventSender(
      * Non-blocking — queues the serialized packet.
      */
     fun send(event: MotionEvent) {
-        if (out == null) return  // not connected yet, drop silently
+        val outIsNull = out == null
+        if (event.actionMasked != MotionEvent.ACTION_MOVE) {
+            android.util.Log.d("InputEventSender", "send() called: action=${event.actionMasked} pointers=${event.pointerCount} out_isNull=${outIsNull}")
+        }
+        if (outIsNull) return  // not connected yet, drop silently
 
         when (event.actionMasked) {
             MotionEvent.ACTION_MOVE -> {
@@ -138,7 +142,10 @@ class InputEventSender(
             putShort(0)          // tilt Y (always 0)
         }.array()
 
-        sendChannel.trySend(frame)
+        val success = sendChannel.trySend(frame).isSuccess
+        if (action != 1) { // Log down/up events
+            android.util.Log.d("InputEventSender", "Queued frame: action=$action contactId=$contactId pktType=$pktType success=$success")
+        }
     }
 
     fun stop() {
