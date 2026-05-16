@@ -111,7 +111,9 @@ class InputEventSender(
             else -> 0
         }.toByte()
 
-        val contactId = event.getPointerId(pointerIndex).coerceIn(0, 9).toByte()
+        // Android pointer IDs increment over time. The binary packet expects a 1-byte ID (0-255).
+        // If we coerceIn(0, 9), multiple fingers with IDs >= 9 will collide into slot 9.
+        val contactId = (event.getPointerId(pointerIndex) % 256).toByte()
 
         val rawX = event.getX(pointerIndex)
         val rawY = event.getY(pointerIndex)

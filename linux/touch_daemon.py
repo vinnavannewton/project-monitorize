@@ -397,11 +397,23 @@ def _setup_ei(eis_fd_int: int) -> None:
 
 # ── Phase 3: Injection helpers ────────────────────────────────────────────────
 
-def _scale_x(norm: int) -> float:
-    return (norm / COORD_MAX) * SCREEN_W
-
-def _scale_y(norm: int) -> float:
-    return (norm / COORD_MAX) * SCREEN_H
+def _scale_coords(dev: ei.Device, norm_x: int, norm_y: int) -> tuple[float, float]:
+    """
+    Convert 0..65535 normalized coordinates into the logical bounds of the device's region.
+    If the compositor defines a specific region (e.g. scaled virtual display), we MUST
+    inject coordinates within that exact region, otherwise libei rejects them.
+    """
+    w, h = SCREEN_W, SCREEN_H
+    ox, oy = 0.0, 0.0
+    
+    if dev and hasattr(dev, 'regions') and dev.regions:
+        reg = dev.regions[0]
+        w, h = reg.dimension
+        ox, oy = reg.position
+        
+    rx = ox + (norm_x / COORD_MAX) * w
+    ry = oy + (norm_y / COORD_MAX) * h
+    return rx, ry
 
 
 def _inject_touch(action: int, contact_id: int, x: int, y: int) -> None:
@@ -420,8 +432,7 @@ def _inject_touch(action: int, contact_id: int, x: int, y: int) -> None:
     if dev is None:
         return
 
-    rx = _scale_x(x)
-    ry = _scale_y(y)
+    rx, ry = _scale_coords(dev, x, y)
 
     try:
         if action == ACTION_DOWN:
@@ -458,8 +469,7 @@ def _inject_pen(action: int, x: int, y: int) -> None:
     if dev is None:
         return
 
-    rx = _scale_x(x)
-    ry = _scale_y(y)
+    rx, ry = _scale_coords(dev, x, y)
 
     # If the pen device actually has TOUCH capability (fall-back path),
     # use a fixed contact_id=9 so it doesn't collide with finger slots.
