@@ -1,5 +1,6 @@
 package com.example.monitorize
 
+import android.content.res.Resources
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -7,7 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInteropFilter
-import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 
 /**
  * TouchInputOverlay
@@ -19,13 +20,23 @@ import androidx.compose.ui.layout.onSizeChanged
  * The overlay must sit ABOVE the StreamSurface in the Compose z-order so it
  * receives events first.
  *
- * The [InputEventSender] is created, started, and stopped automatically
- * for the lifetime of this composable.
+ * The [InputEventSender] is created with the current screen pixel dimensions,
+ * started, and stopped automatically for the lifetime of this composable.
+ *
+ * NOTE: InputEventSender requires screenW and screenH at construction time.
+ * We read them from DisplayMetrics — the same source used in MainActivity.startStream().
  */
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun rememberInputSender(): InputEventSender {
-    val sender = remember { InputEventSender() }
+    val context = LocalContext.current
+    val metrics = remember { context.resources.displayMetrics }
+    val sender = remember {
+        InputEventSender(
+            screenW = metrics.widthPixels.toFloat(),
+            screenH = metrics.heightPixels.toFloat()
+        )
+    }
     DisposableEffect(Unit) {
         sender.start()
         onDispose { sender.stop() }
@@ -34,18 +45,13 @@ fun rememberInputSender(): InputEventSender {
 }
 
 /**
- * Extension function that adds touch capture and size tracking to a Modifier.
- * Apply this to the overlay Box so events are forwarded to [sender].
+ * Extension function that adds touch and hover capture to a Modifier.
+ * Apply this to the overlay Box so all finger and stylus events are forwarded to [sender].
  */
 @OptIn(ExperimentalComposeUiApi::class)
 fun Modifier.touchInputOverlay(sender: InputEventSender): Modifier =
     this
         .fillMaxSize()
-        // Track rendered pixel size so the sender can normalize coordinates
-        .onSizeChanged { size ->
-            sender.viewWidth  = size.width.coerceAtLeast(1)
-            sender.viewHeight = size.height.coerceAtLeast(1)
-        }
         // Intercept all MotionEvents (finger + stylus + hover)
         .pointerInteropFilter { event ->
             sender.send(event)

@@ -89,6 +89,60 @@ except ImportError as _snegg_err:
     )
     sys.exit(1)
 
+# ── Raw libei event-type helpers ───────────────────────────────────────────────
+#
+# PROBLEM: snegg's EventType Python enum only covers types known at the time
+# snegg was written. libei 1.5.0 (Fedora 44) added two new event types:
+#   90  EI_EVENT_PONG
+#   91  EI_EVENT_SYNC
+# Calling event.event_type on these raises:
+#   ValueError: 91 is not a valid EventType
+#
+# FIX: Never coerce via EventType(). Instead:
+#   1. Read the raw int via libei.event_get_type(event._cobject)
+#   2. Compare against the known integer constants below
+#   3. Use event_type_to_string() for human-readable logging
+#
+# This is forward-compatible — unknown future types are silently skipped.
+
+import ctypes
+_libei = ei.libei   # the underlying C wrapper already loaded by snegg.ei
+
+# Set correct ctypes return type so we get a Python bytes/None, not a garbage int
+_libei.event_type_to_string.restype  = ctypes.c_char_p
+_libei.event_type_to_string.argtypes = [ctypes.c_uint32]
+_libei.event_get_type.restype        = ctypes.c_uint32
+
+# Known EI_EVENT_* integer constants (from libei C header).
+# These never change — they are part of the stable libei ABI.
+_EI_EVENT_CONNECT           = 1
+_EI_EVENT_DISCONNECT        = 2
+_EI_EVENT_SEAT_ADDED        = 3
+_EI_EVENT_SEAT_REMOVED      = 4
+_EI_EVENT_DEVICE_ADDED      = 5
+_EI_EVENT_DEVICE_REMOVED    = 6
+_EI_EVENT_DEVICE_PAUSED     = 7
+_EI_EVENT_DEVICE_RESUMED    = 8
+_EI_EVENT_KEYBOARD_MODIFIERS= 9
+_EI_EVENT_PONG              = 90   # added in libei 1.5 — not in snegg enum
+_EI_EVENT_SYNC              = 91   # added in libei 1.5 — crashes old snegg
+_EI_EVENT_FRAME             = 100
+_EI_EVENT_DEVICE_START_EMULATING = 200
+_EI_EVENT_DEVICE_STOP_EMULATING  = 201
+
+
+def _event_raw_type(event: ei.Event) -> int:
+    """Return the raw uint32 event type from libei — never raises ValueError."""
+    return int(_libei.event_get_type(event._cobject))
+
+
+def _event_type_name(raw_type: int) -> str:
+    """Return the C-level name string (e.g. 'EI_EVENT_SYNC') or 'UNKNOWN(<n>)'."""
+    name = _libei.event_type_to_string(raw_type)
+    if name:
+        return name.decode("utf-8", errors="replace")
+    return f"UNKNOWN({raw_type})"
+
 # ── Configuration ──────────────────────────────────────────────────────────────
 
 PORT      = 7111
@@ -179,21 +233,23 @@ def _setup_ei(eis_fd_int: int) -> None:
     Process events until the compositor grants a TOUCH device (and optionally a
     POINTER_ABSOLUTE device for pen fall-back).
 
-    Verified API (snegg.ei):
-      Sender.create_for_fd(io_fd, name)    — io_fd must be an IO object (os.fdopen)
-      ctx.dispatch()                        — pump the libei event queue
-      ctx.events                            — property: Iterator[Event]
-      event.event_type                      — EventType enum
-      event.seat                            — Seat | None
-      event.device                          — Device | None
-      seat.bind((DeviceCapability.TOUCH,))  — request capability; tuple required
-      device.capabilities                   — tuple[DeviceCapability]
-      device.start_emulating()              — announce we will send events
-      device.touch_new()                    — Touch object (no contact_id arg)
-      touch.down(x, y)
-      touch.motion(x, y)
-      touch.up()
-      device.frame()                        — commit events (frame on Device!)
+    IMPORTANT — raw int dispatch:
+      We intentionally do NOT call event.event_type (which coerces to the Python
+      EventType enum and crashes on unknown values like 91=EI_EVENT_SYNC).
+      Instead we call _event_raw_type(event) to get the raw uint32 and compare
+      against the _EI_EVENT_* integer constants defined above.
+
+      snegg.ei API used here:
+        Sender.create_for_fd(io_fd, name)    — io_fd = os.fdopen(int_fd)
+        ctx.dispatch()                        — pump the libei event queue
+        ctx.events                            — Iterator[Event] (never raises)
+        event.seat / event.device             — Seat | Device | None
+        seat.bind((DeviceCapability.TOUCH,))  — request caps; tuple required
+        device.capabilities                   — tuple[DeviceCapability]
+        device.start_emulating()              — begin emitting events
+        device.touch_new()                    — no contact_id arg
+        touch.down/motion/up(x, y)
+        device.frame()                        — commit frame to compositor
     """
     global _ei_sender, _touch_device, _pen_device
 
@@ -212,62 +268,78 @@ def _setup_ei(eis_fd_int: int) -> None:
     deadline     = time.monotonic() + 15.0
 
     # ── Event loop: pump until we get a TOUCH device ────────────────────────
+    # Use _event_raw_type() — safe against new libei event types the Python
+    # enum doesn't know about (e.g. EI_EVENT_SYNC=91, EI_EVENT_PONG=90).
     while time.monotonic() < deadline:
         if _shutdown.is_set():
             raise RuntimeError("Shutdown requested")
 
-        # Wait up to 500 ms for data on the libei fd
         ready, _, _ = select.select([ei_fileno], [], [], 0.5)
         if ready:
             ctx.dispatch()
 
         for event in ctx.events:
-            etype = event.event_type
-            log.debug("ei event: %s", etype.name)
+            raw = _event_raw_type(event)
+            log.debug("ei event: %s (%d)", _event_type_name(raw), raw)
 
-            if etype == ei.EventType.CONNECT:
+            if raw == _EI_EVENT_CONNECT:
                 connected = True
                 log.info("snegg/libei connected to compositor")
 
-            elif etype == ei.EventType.SEAT_ADDED:
+            elif raw == _EI_EVENT_SEAT_ADDED:
                 seat = event.seat
-                log.info("Seat added: %s (caps: %s)",
+                if seat is None:
+                    log.warning("SEAT_ADDED but event.seat is None — skipping")
+                    continue
+                log.info("Seat added: %s  caps=%s",
                          seat.name,
                          [c.name for c in seat.capabilities])
-                # Request TOUCH capability on this seat
                 # seat.bind() takes a tuple of DeviceCapability
                 seat.bind((ei.DeviceCapability.TOUCH,))
-                log.info("Requested TOUCH capability on seat %s", seat.name)
+                log.info("Requested TOUCH capability on seat '%s'", seat.name)
 
-            elif etype == ei.EventType.DEVICE_ADDED:
+            elif raw == _EI_EVENT_DEVICE_ADDED:
                 dev = event.device
+                if dev is None:
+                    log.warning("DEVICE_ADDED but event.device is None — skipping")
+                    continue
                 caps = dev.capabilities
-                log.info("Device added: %s  caps=%s",
+                log.info("Device added: '%s'  caps=%s",
                          dev.name, [c.name for c in caps])
 
                 if ei.DeviceCapability.TOUCH in caps and touch_dev is None:
                     touch_dev = dev
                     dev.start_emulating()
-                    log.info("Touch device ready: %s", dev.name)
+                    log.info("Touch device ready: '%s'", dev.name)
 
                 elif ei.DeviceCapability.POINTER_ABSOLUTE in caps and pen_dev is None:
                     pen_dev = dev
                     dev.start_emulating()
-                    log.info("Pen/pointer-absolute device ready: %s", dev.name)
+                    log.info("Pen/pointer-absolute device ready: '%s'", dev.name)
 
-            elif etype == ei.EventType.DEVICE_REMOVED:
+            elif raw == _EI_EVENT_DEVICE_REMOVED:
                 d = event.device
-                log.warning("Device removed: %s", d.name if d else "?")
+                log.warning("Device removed: '%s'", d.name if d else "?")
 
-            elif etype == ei.EventType.DISCONNECT:
+            elif raw == _EI_EVENT_DISCONNECT:
                 raise RuntimeError("Compositor disconnected from libei")
+
+            elif raw in (_EI_EVENT_PONG, _EI_EVENT_SYNC):
+                # libei 1.5 housekeeping events — normal, no action needed
+                log.debug("libei housekeeping event: %s — ignored",
+                          _event_type_name(raw))
+
+            else:
+                # Unknown future event type — log and continue, never crash
+                log.debug("Unhandled libei event %s — skipping",
+                          _event_type_name(raw))
 
         if touch_dev:
             break
 
     if not connected:
         raise RuntimeError(
-            "snegg/libei never received a CONNECT event from the compositor. "
+            "snegg/libei never received EI_EVENT_CONNECT from the compositor. "
             "The EIS fd may have been invalid or the compositor does not support libei."
         )
 
@@ -290,13 +362,15 @@ def _setup_ei(eis_fd_int: int) -> None:
                 ctx.dispatch()
 
             for event in ctx.events:
-                if event.event_type == ei.EventType.DEVICE_ADDED:
+                raw = _event_raw_type(event)
+                if raw == _EI_EVENT_DEVICE_ADDED:
                     dev = event.device
-                    if ei.DeviceCapability.POINTER_ABSOLUTE in dev.capabilities:
+                    if dev and ei.DeviceCapability.POINTER_ABSOLUTE in dev.capabilities:
                         pen_dev = dev
                         dev.start_emulating()
-                        log.info("Pen device ready: %s", dev.name)
+                        log.info("Pen device ready: '%s'", dev.name)
                         break
+                # silently skip PONG/SYNC and other housekeeping
             if pen_dev:
                 break
 

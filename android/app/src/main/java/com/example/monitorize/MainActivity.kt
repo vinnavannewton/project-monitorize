@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -171,7 +172,7 @@ class MainActivity : ComponentActivity() {
                     .fillMaxWidth(0.7f)
                     .height(56.dp),
                 shape = RoundedCornerShape(14.dp),
-                border = ButtonDefaults.outlinedButtonBorder.copy(
+                border = ButtonDefaults.outlinedButtonBorder(enabled = true).copy(
                     brush = Brush.linearGradient(listOf(BorderDark, BorderDark))
                 ),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary)
@@ -273,7 +274,7 @@ class MainActivity : ComponentActivity() {
                     onValueChange = {},
                     readOnly = true,
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = resExpanded) },
-                    modifier = Modifier.menuAnchor().fillMaxWidth(),
+                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = CardDark,
                         unfocusedContainerColor = CardDark,
@@ -357,7 +358,7 @@ class MainActivity : ComponentActivity() {
                     onValueChange = {},
                     readOnly = true,
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = fpsExpanded) },
-                    modifier = Modifier.menuAnchor().fillMaxWidth(),
+                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = CardDark,
                         unfocusedContainerColor = CardDark,
