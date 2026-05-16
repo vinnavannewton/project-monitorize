@@ -1,5 +1,6 @@
 package com.example.monitorize
 
+import android.view.MotionEvent
 import android.view.SurfaceView
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -15,7 +16,11 @@ import androidx.compose.ui.viewinterop.AndroidView
  * keep the surface at MATCH_PARENT and let the codec drive it.
  */
 @Composable
-fun StreamSurface(modifier: Modifier = Modifier, onSurfaceReady: (SurfaceView) -> Unit) {
+fun StreamSurface(
+    modifier: Modifier = Modifier,
+    onSurfaceReady: (SurfaceView) -> Unit,
+    onTouch: ((MotionEvent) -> Unit)? = null
+) {
     AndroidView(
         factory = { ctx ->
             SurfaceView(ctx).also { sv ->
@@ -23,6 +28,14 @@ fun StreamSurface(modifier: Modifier = Modifier, onSurfaceReady: (SurfaceView) -
                 sv.setZOrderOnTop(false)
                 // Keep the surface pixels intact when the view is not drawn
                 sv.setZOrderMediaOverlay(false)
+                
+                if (onTouch != null) {
+                    sv.setOnTouchListener { _, event ->
+                        onTouch(event)
+                        true
+                    }
+                }
+                
                 onSurfaceReady(sv)
             }
         },
