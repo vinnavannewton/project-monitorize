@@ -22,6 +22,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -33,6 +34,9 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import kotlinx.coroutines.delay
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.viewinterop.AndroidView
+import com.example.monitorize.InputEventSender
 
 // ── UI Constants ─────────────────────────────────────────────────────────────
 val BackgroundDark = Color(0xFF0C0D14)
@@ -52,6 +56,7 @@ class MainActivity : ComponentActivity() {
 
     private var decoder: H264Decoder? = null
     private var receiver: StreamReceiver? = null
+    private var inputSender: InputEventSender? = null
     private val status = mutableStateOf("Ready")
 
     private val prefs by lazy { getSharedPreferences("monitorize_prefs", Context.MODE_PRIVATE) }
@@ -471,9 +476,8 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun ReceiveScreen(width: Int, height: Int, fps: Int, status: String, onBack: () -> Unit) {
         BackHandler(onBack = onBack)
-        
+
         var showHint by remember { mutableStateOf(true) }
-        
         LaunchedEffect(Unit) {
             delay(5000)
             showHint = false
@@ -481,7 +485,8 @@ class MainActivity : ComponentActivity() {
 
         Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
             StreamSurface(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize(),
                 onSurfaceReady = { sv ->
                     sv.holder.addCallback(object : SurfaceHolder.Callback {
                         override fun surfaceCreated(holder: SurfaceHolder) {
@@ -492,6 +497,29 @@ class MainActivity : ComponentActivity() {
                         override fun surfaceDestroyed(h: SurfaceHolder) { stopStream() }
                     })
                 }
+            )
+
+            // Touch and pen input overlay — transparent, covers the full screen
+            AndroidView(
+                factory = { ctx ->
+                    android.view.View(ctx).apply {
+                        // Touch events (fingers and pen-on-screen)
+                        setOnTouchListener { _, event ->
+                            inputSender?.send(event)
+                            true  // consume the event
+                        }
+                        // Hover events (pen floating above screen without touching)
+                        setOnHoverListener { _, event ->
+                            inputSender?.send(event)
+                            true
+                        }
+                        isClickable = true
+                        isFocusable = false
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(2f)  // above the SurfaceView
             )
 
             // Status overlay
@@ -550,6 +578,11 @@ class MainActivity : ComponentActivity() {
             it.onStatusChange = { msg -> runOnUiThread { status.value = msg } }
             it.start()
         }
+        val displayMetrics = resources.displayMetrics
+        inputSender = InputEventSender(
+            screenW = displayMetrics.widthPixels.toFloat(),
+            screenH = displayMetrics.heightPixels.toFloat()
+        ).also { it.start() }
     }
 
     private fun stopStream() {
@@ -557,5 +590,7 @@ class MainActivity : ComponentActivity() {
         receiver = null
         decoder?.release()
         decoder = null
+        inputSender?.stop()
+        inputSender = null
     }
 }

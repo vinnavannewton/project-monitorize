@@ -1172,10 +1172,14 @@ class MonitorizeWindow(QMainWindow):
         )
         self.process_input_bridge.start("pkexec", [
             "python3",
-            os.path.join(self._script_dir, "input_bridge.py"),
+            os.path.join(self._script_dir, "touch_daemon.py"),
             str(self._stream_width),
             str(self._stream_height),
         ])
+
+        self._page_streaming.set_status(
+            "🖐  Touch service starting… Watch for KDE 'Allow Remote Control' popup"
+        )
 
     # ------------------------------------------------------------------
     # Log readers — called by readyReadStandardOutput signals
