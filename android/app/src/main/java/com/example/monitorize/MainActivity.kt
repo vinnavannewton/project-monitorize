@@ -504,8 +504,20 @@ class MainActivity : ComponentActivity() {
             AndroidView(
                 factory = { ctx ->
                     android.view.View(ctx).apply {
+                        // Ensure the view is fully measurable and active
+                        layoutParams = android.view.ViewGroup.LayoutParams(
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                        )
+                        setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                        isClickable = true
+                        isFocusable = false
+
                         // Touch events (fingers and pen-on-screen)
                         setOnTouchListener { _, event ->
+                            if (event.actionMasked == android.view.MotionEvent.ACTION_DOWN) {
+                                android.util.Log.d("ReceiveScreen", "AndroidView setOnTouchListener ACTION_DOWN. inputSender_isNull=${inputSender == null}")
+                            }
                             inputSender?.send(event)
                             true  // consume the event
                         }
@@ -514,8 +526,6 @@ class MainActivity : ComponentActivity() {
                             inputSender?.send(event)
                             true
                         }
-                        isClickable = true
-                        isFocusable = false
                     }
                 },
                 modifier = Modifier
