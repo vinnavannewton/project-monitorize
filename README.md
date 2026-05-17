@@ -37,7 +37,7 @@ Think *Spacedesk* / *Duet Display*, but:
 - **Native resolution** on your tablet (e.g., 1280×800, 1920×1200, 2560×1600)
 - **Configurable FPS** (30 / 60 / …) on both Linux and Android
 - **USB Mode** for lowest latency and most stable quality
-- **Wi-Fi Mode (experimental)** using ADB over TCP/IP with lower bitrate tuned for wireless
+- **Wi-Fi Mode (Work In Progress)** using ADB over TCP/IP with lower bitrate tuned for wireless
 - **PyQt6 desktop app** to guide you through: ADB, virtual display, streaming start/stop
 - **Android app** with a simple UI: "Receive" and "Settings" (resolution/FPS)
 
