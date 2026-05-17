@@ -424,11 +424,13 @@ ProjectMonitorize/
 
 - [x] Stable CPU-based H.264 pipeline (Linux → Android).
 - [x] Fix TCP chunking / macroblock corruption.
-- [x] Dynamic resolution & FPS (Linux + Android).
-- [x] PyQt6 desktop GUI with wizard flow and countdown.
-- [x] Touch/pen input forwarding via libei + XDG RemoteDesktop portal (`touch_daemon.py`).
-- [ ] Polished Wi-Fi mode (potential UDP/RTP option).
-- [ ] Flatpak packaging & Flathub distribution.
+- [x] desktop GUI.
+- [ ] Touch screen and stylus support.
+- [ ] Stable Wi-Fi mode.
+- [ ] Flathub distribution.
+- [ ] use your other laptop as second screen for your host laptop.
+- [ ] Triple monitor setup attempt.
+- [ ] multi monitor single desktop.
 
 ---
 
