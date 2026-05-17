@@ -333,7 +333,7 @@ python3 monitorize_gui.py
 
 The GUI will guide you through:
 
-1. Choose **USB Mode** (Wi-Fi Mode is still experimental).
+1. Choose **USB Mode** (Wi-Fi Mode is still in Work In Progress).
 2. Connect your tablet via USB and click **"I have connected it"**.
    - The app runs `adb devices` and `adb forward tcp:7110 tcp:7110`.
 3. Select **Resolution** and **FPS** in the GUI.
@@ -360,7 +360,7 @@ Your tablet should now show your Linux desktop as a second monitor.
   adb forward tcp:7110 tcp:7110
   ```
 
-### Wi-Fi Mode (Experimental)
+### Wi-Fi Mode (Work In Progress)
 
 Wi-Fi mode uses **ADB over TCP/IP** (still TCP, but over wireless):
 
