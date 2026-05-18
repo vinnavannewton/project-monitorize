@@ -196,11 +196,17 @@ def _setup_libei() -> None:
                          getattr(dev, 'regions', []))
                 if dev and ei.DeviceCapability.TOUCH in caps and touch_dev is None:
                     touch_dev = dev
-                    dev.start_emulating()
-                    # KWin does NOT send EI_EVENT_DEVICE_START_EMULATING on this version.
-                    # Mark ready immediately after calling start_emulating().
+                    log.info("Found touch device! Waiting for compositor to RESUME it...")
+
+            elif raw == 8: # _EV_DEVICE_RESUMED
+                if touch_dev is not None and event.device and touch_dev._cobject == event.device._cobject:
+                    seq = event.emulating_sequence
+                    log.info("Device RESUMED with sequence %d. Calling start_emulating(%d)…", seq, seq)
+                    touch_dev.start_emulating(seq)
+                    # libei changes state to EMULATING locally immediately upon calling this.
+                    # KWin doesn't reply to this, so we are ready right away.
                     emulating = True
-                    log.info("start_emulating() sent — device READY (no confirmation needed) ✓")
+                    log.info("Touch input READY ✓")
 
             elif raw == _EV_DISCONNECT:
                 log.error("Compositor disconnected from libei!")
