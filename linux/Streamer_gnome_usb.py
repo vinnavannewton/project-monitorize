@@ -40,7 +40,7 @@ def launch_streaming(node_id):
     sink = f"tcpclientsink host=127.0.0.1 port={PORT} sync=false"
     pipeline = (
         f"gst-launch-1.0 -e -v "
-        f"pipewiresrc path={node_id} do-timestamp=true always-copy=true ! "
+        f"pipewiresrc path={node_id} do-timestamp=true always-copy=true keepalive-time=16 ! "
         f"videorate ! video/x-raw,framerate={FPS}/1 ! "
         f"queue max-size-buffers=1 leaky=downstream ! "
         f"videoconvert n-threads=4 ! videoscale ! "

@@ -183,16 +183,62 @@ def _inject_touch(action: int, cid: int, nx: int, ny: int) -> None:
     except Exception as exc:
         log.error("inject_touch error cid=%d action=%d: %s", cid, action, exc, exc_info=True)
 
+def _inject_pen(action: int, tool: int, nx: int, ny: int, pressure: int, tx: int, btn_state: int) -> None:
+    global _pen_dev, _touch_dev
+    dev = _pen_dev if _pen_dev is not None else _touch_dev
+    if dev is None:
+        return
+
+    x, y = _scale(dev, nx, ny)
+    
+    # 32 is BUTTON_STYLUS_PRIMARY on Android (the side button)
+    # Tool 2 is ERASER
+    is_secondary = (btn_state & 32) != 0 or (tool == 2)
+    # 0x110 is BTN_LEFT, 0x111 is BTN_RIGHT
+    # Note: earlier we used 0x14a for touch, but libei absolute pointer supports BTN_LEFT/BTN_RIGHT standard mouse codes
+    # We will use 0x110/0x111 to avoid compatibility issues with drawing apps
+    button_code = 0x111 if is_secondary else 0x110
+    
+    try:
+        with _ei_lock:
+            if action == ACTION_DOWN:
+                dev.pointer_motion_absolute(x, y)
+                dev.button_button(button_code, True)
+                dev.frame()
+                log.info("[INJECT PEN] DOWN  coords=(%.1f, %.1f) tool=%d btn=0x%x", x, y, tool, button_code)
+            elif action == ACTION_MOVE:
+                dev.pointer_motion_absolute(x, y)
+                dev.frame()
+                # log.debug("[INJECT PEN] MOVE  coords=(%.1f, %.1f)", x, y)
+            elif action == ACTION_UP:
+                dev.pointer_motion_absolute(x, y)
+                dev.button_button(button_code, False)
+                # also release the other button just in case state changed while pressed
+                other_btn = 0x110 if is_secondary else 0x111
+                dev.button_button(other_btn, False)
+                dev.frame()
+                log.info("[INJECT PEN] UP    coords=(%.1f, %.1f)", x, y)
+            elif action == ACTION_HOVER:
+                dev.pointer_motion_absolute(x, y)
+                dev.frame()
+                # log.debug("[INJECT PEN] HOVER coords=(%.1f, %.1f) btn_state=%d", x, y, btn_state)
+
+            if _ei_ctx:
+                _ei_ctx.dispatch()
+    except Exception as exc:
+        log.error("inject_pen error action=%d: %s", action, exc, exc_info=True)
+
 # ── portal + libei setup ───────────────────────────────────────────────────────
 def _setup_libei() -> None:
     """Run the full portal handshake, set up libei, then spin the dispatch loop."""
-    global _ei_ctx, _touch_dev
+    global _ei_ctx, _touch_dev, _pen_dev
 
-    log.info("Requesting TOUCHSCREEN permission via XDG RemoteDesktop portal…")
+    log.info("Requesting TOUCHSCREEN and POINTER permission via XDG RemoteDesktop portal…")
     log.info("▶  Watch for the compositor popup 'Allow Remote Control' and click Allow.")
 
     # Phase 1: oeffis portal handshake
-    oef = oeffis.Oeffis.create(devices=oeffis.DeviceType.TOUCHSCREEN)
+    devices = oeffis.DeviceType.TOUCHSCREEN | oeffis.DeviceType.POINTER
+    oef = oeffis.Oeffis.create(devices=devices)
     eis_fd_int: Optional[int] = None
 
     deadline = time.monotonic() + 60.0
@@ -216,7 +262,7 @@ def _setup_libei() -> None:
 
     seat       = None
     touch_dev  = None
-    emulating  = False
+    pen_dev    = None
     connected  = False
 
     deadline2 = time.monotonic() + 20.0
@@ -234,8 +280,8 @@ def _setup_libei() -> None:
 
             elif raw == _EV_SEAT_ADDED:
                 seat = event.seat
-                log.info("Seat added: %s — binding TOUCH capability", seat.name)
-                seat.bind((ei.DeviceCapability.TOUCH,))
+                log.info("Seat added: %s — binding TOUCH and POINTER_ABSOLUTE capability", seat.name)
+                seat.bind((ei.DeviceCapability.TOUCH, ei.DeviceCapability.POINTER_ABSOLUTE))
 
             elif raw == _EV_DEVICE_ADDED:
                 dev  = event.device
@@ -244,29 +290,35 @@ def _setup_libei() -> None:
                          getattr(dev, 'name', '?'),
                          [c.name for c in caps],
                          getattr(dev, 'regions', []))
+                
                 if dev and ei.DeviceCapability.TOUCH in caps and touch_dev is None:
                     touch_dev = dev
                     dev.start_emulating()
-                    # KWin does NOT send EI_EVENT_DEVICE_START_EMULATING on this version.
-                    # Mark ready immediately after calling start_emulating().
-                    emulating = True
-                    log.info("start_emulating() sent — device READY (no confirmation needed) ✓")
+                    log.info("start_emulating() sent — TOUCH device READY ✓")
+                    
+                if dev and ei.DeviceCapability.POINTER_ABSOLUTE in caps and pen_dev is None:
+                    pen_dev = dev
+                    if pen_dev is not touch_dev:
+                        dev.start_emulating()
+                    log.info("start_emulating() sent — PEN device READY ✓")
 
             elif raw == _EV_DISCONNECT:
                 log.error("Compositor disconnected from libei!")
                 _shutdown.set()
                 return
 
-        if connected and touch_dev and emulating:
+        # We consider setup complete if we have at least touch_dev
+        if connected and touch_dev:
             break
 
-    if not (connected and touch_dev and emulating):
-        log.error("libei setup incomplete (connected=%s device=%s emulating=%s). Touch disabled.",
-                  connected, touch_dev is not None, emulating)
+    if not connected or not touch_dev:
+        log.error("libei setup incomplete (connected=%s touch_dev=%s). Touch disabled.",
+                  connected, touch_dev is not None)
         _shutdown.set()
         return
 
     _touch_dev = touch_dev
+    _pen_dev = pen_dev
     log.info("Touch daemon ready — screen %dx%d, region: %s",
              SCREEN_W, SCREEN_H,
              touch_dev.regions[0].dimension if touch_dev.regions else "none")
@@ -335,8 +387,11 @@ def _handle_client(conn: socket.socket, addr) -> None:
             log.debug("[TCP] pkt#%d type=0x%02x action=%d cid=%d norm=(%d,%d)",
                       pkt_count, pkt_type, action, cid, nx, ny)
 
-            # Both touch and pen are routed through the TOUCH device
-            _inject_touch(action, cid, nx, ny)
+            if pkt_type == PKT_PEN:
+                # ty holds Android's buttonState
+                _inject_pen(action, tool, nx, ny, pressure, tx, ty)
+            else:
+                _inject_touch(action, cid, nx, ny)
 
     except EOFError:
         log.info("Android disconnected cleanly")

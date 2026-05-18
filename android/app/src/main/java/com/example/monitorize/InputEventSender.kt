@@ -126,6 +126,8 @@ class InputEventSender(
         val pr = (event.getPressure(pointerIndex) * 65535f).toInt().coerceIn(0, 65535).toShort()
         val tx = (event.getAxisValue(MotionEvent.AXIS_TILT, pointerIndex) * 100f)
                     .toInt().coerceIn(-9000, 9000).toShort()
+        // Repurpose tiltY (which Android doesn't use for S-Pen) to send buttonState
+        val btnState = event.buttonState.toShort()
 
         // 13-byte payload matching struct ">BBBHHHhh"
         // Frame = 4 bytes length + 1 byte type + 13 bytes payload = 18 bytes total
@@ -139,7 +141,7 @@ class InputEventSender(
             putShort(y)          // normalized Y 0-65535
             putShort(pr)         // pressure 0-65535
             putShort(tx)         // tilt X hundredths of degrees
-            putShort(0)          // tilt Y (always 0)
+            putShort(btnState)   // button state
         }.array()
 
         val success = sendChannel.trySend(frame).isSuccess
