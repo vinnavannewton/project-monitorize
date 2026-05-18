@@ -152,33 +152,37 @@ def _inject_touch(action: int, cid: int, nx: int, ny: int) -> None:
     log.debug("touch action=%d cid=%d → (%.1f, %.1f)", action, cid, x, y)
 
     try:
-        if action == ACTION_DOWN:
-            # CRITICAL: Store the object immediately in our strong dict (prevents GC)
-            touch = dev.touch_new()
-            _active_touches[cid] = touch
-            touch.down(x, y)
-            dev.frame()
-            log.info("[INJECT] DOWN  cid=%d  coords=(%.1f, %.1f)  active_slots=%d",
-                     cid, x, y, len(_active_touches))
-
-        elif action == ACTION_MOVE:
-            touch = _active_touches.get(cid)
-            if touch is not None:
-                touch.motion(x, y)
+        with _ei_lock:
+            if action == ACTION_DOWN:
+                # CRITICAL: Store the object immediately in our strong dict (prevents GC)
+                touch = dev.touch_new()
+                _active_touches[cid] = touch
+                touch.down(x, y)
                 dev.frame()
-                log.debug("[INJECT] MOVE  cid=%d  coords=(%.1f, %.1f)", cid, x, y)
-            else:
-                log.warning("[INJECT] MOVE  cid=%d  — no active touch slot!", cid)
-
-        elif action == ACTION_UP:
-            touch = _active_touches.pop(cid, None)
-            if touch is not None:
-                touch.up()
-                dev.frame()
-                log.info("[INJECT] UP    cid=%d  coords=(%.1f, %.1f)  remaining=%d",
+                log.info("[INJECT] DOWN  cid=%d  coords=(%.1f, %.1f)  active_slots=%d",
                          cid, x, y, len(_active_touches))
-            else:
-                log.warning("[INJECT] UP    cid=%d  — no active touch slot!", cid)
+
+            elif action == ACTION_MOVE:
+                touch = _active_touches.get(cid)
+                if touch is not None:
+                    touch.motion(x, y)
+                    dev.frame()
+                    # log.debug("[INJECT] MOVE  cid=%d  coords=(%.1f, %.1f)", cid, x, y)
+                else:
+                    log.warning("[INJECT] MOVE  cid=%d  — no active touch slot!", cid)
+
+            elif action == ACTION_UP:
+                touch = _active_touches.pop(cid, None)
+                if touch is not None:
+                    touch.up()
+                    dev.frame()
+                    log.info("[INJECT] UP    cid=%d  coords=(%.1f, %.1f)  remaining=%d",
+                             cid, x, y, len(_active_touches))
+                else:
+                    log.warning("[INJECT] UP    cid=%d  — no active touch slot!", cid)
+
+            if _ei_ctx:
+                _ei_ctx.dispatch()
 
     except Exception as exc:
         log.error("inject_touch error cid=%d action=%d: %s", cid, action, exc, exc_info=True)
@@ -237,7 +241,7 @@ def _setup_libei() -> None:
     log.info("▶  Watch for the compositor popup 'Allow Remote Control' and click Allow.")
 
     # Phase 1: oeffis portal handshake
-    devices = oeffis.DeviceType.TOUCHSCREEN | oeffis.DeviceType.POINTER
+    devices = oeffis.DeviceType.TOUCHSCREEN
     oef = oeffis.Oeffis.create(devices=devices)
     eis_fd_int: Optional[int] = None
 
@@ -280,8 +284,8 @@ def _setup_libei() -> None:
 
             elif raw == _EV_SEAT_ADDED:
                 seat = event.seat
-                log.info("Seat added: %s — binding TOUCH and POINTER_ABSOLUTE capability", seat.name)
-                seat.bind((ei.DeviceCapability.TOUCH, ei.DeviceCapability.POINTER_ABSOLUTE))
+                log.info("Seat added: %s — binding TOUCH capability", seat.name)
+                seat.bind((ei.DeviceCapability.TOUCH,))
 
             elif raw == _EV_DEVICE_ADDED:
                 dev  = event.device
@@ -295,12 +299,6 @@ def _setup_libei() -> None:
                     touch_dev = dev
                     dev.start_emulating()
                     log.info("start_emulating() sent — TOUCH device READY ✓")
-                    
-                if dev and ei.DeviceCapability.POINTER_ABSOLUTE in caps and pen_dev is None:
-                    pen_dev = dev
-                    if pen_dev is not touch_dev:
-                        dev.start_emulating()
-                    log.info("start_emulating() sent — PEN device READY ✓")
 
             elif raw == _EV_DISCONNECT:
                 log.error("Compositor disconnected from libei!")
@@ -330,17 +328,18 @@ def _setup_libei() -> None:
     log.info("Entering libei dispatch loop…")
     while not _shutdown.is_set():
         r, _, _ = select.select([ctx.fd], [], [], 0.05)
-        if r:
-            ctx.dispatch()
-            for event in ctx.events:
-                raw = int(_libei.event_get_type(event._cobject))
-                if raw == _EV_DISCONNECT:
-                    log.error("Compositor disconnected — shutting down.")
-                    _shutdown.set()
-                    break
-        else:
-            # Even when idle, dispatch pumps any pending outgoing writes
-            ctx.dispatch()
+        with _ei_lock:
+            if r:
+                ctx.dispatch()
+                for event in ctx.events:
+                    raw = int(_libei.event_get_type(event._cobject))
+                    if raw == _EV_DISCONNECT:
+                        log.error("Compositor disconnected — shutting down.")
+                        _shutdown.set()
+                        break
+            else:
+                # Even when idle, dispatch pumps any pending outgoing writes
+                ctx.dispatch()
 
 # ── TCP server ─────────────────────────────────────────────────────────────────
 def _read_exact(sock: socket.socket, n: int) -> bytes:
@@ -387,11 +386,11 @@ def _handle_client(conn: socket.socket, addr) -> None:
             log.debug("[TCP] pkt#%d type=0x%02x action=%d cid=%d norm=(%d,%d)",
                       pkt_count, pkt_type, action, cid, nx, ny)
 
-            if pkt_type == PKT_PEN:
-                # ty holds Android's buttonState
-                _inject_pen(action, tool, nx, ny, pressure, tx, ty)
-            else:
-                _inject_touch(action, cid, nx, ny)
+            # Both touch and pen are routed through the TOUCH device
+            # This is necessary because combining POINTER_ABSOLUTE and TOUCHSCREEN
+            # causes KDE KWin to map the device to the primary screen (eDP-1)
+            # instead of the Virtual Display. 
+            _inject_touch(action, cid, nx, ny)
 
     except EOFError:
         log.info("Android disconnected cleanly")

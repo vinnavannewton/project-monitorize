@@ -77,7 +77,7 @@ def launch_streaming(fd, node_id):
 
     pipeline = (
     f"gst-launch-1.0 -e -v "
-    f"pipewiresrc fd={fd} path={node_id} do-timestamp=true always-copy=true keepalive-time=16 ! "
+    f"pipewiresrc fd={fd} path={node_id} do-timestamp=true always-copy=true keepalive-time=1 ! "
     f"videorate ! video/x-raw,framerate={FPS}/1 ! "
     f"queue max-size-buffers=1 leaky=downstream ! "
     f"videoconvert n-threads=4 ! videoscale ! "
