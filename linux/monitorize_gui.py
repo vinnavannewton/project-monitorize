@@ -613,6 +613,22 @@ class UsbStep2Page(QWidget):
         custom_fps_inner.addStretch()
         self._custom_fps_widget.setVisible(False)
         root.addWidget(self._custom_fps_widget)
+        root.addSpacing(10)
+
+        # ---- Bitrate row ----
+        bitrate_row = QHBoxLayout()
+        bitrate_row.setSpacing(12)
+        bitrate_label = QLabel("Video Bitrate (kbps):")
+        bitrate_label.setObjectName("instruction")
+        self._bitrate_edit = QLineEdit()
+        self._bitrate_edit.setObjectName("customInput")
+        self._bitrate_edit.setText("8000")
+        self._bitrate_edit.setMaxLength(5)
+        bitrate_row.addStretch()
+        bitrate_row.addWidget(bitrate_label)
+        bitrate_row.addWidget(self._bitrate_edit)
+        bitrate_row.addStretch()
+        root.addLayout(bitrate_row)
         root.addSpacing(16)
 
         # ---- Warning label ----
@@ -722,6 +738,16 @@ class UsbStep2Page(QWidget):
                 )
                 return
 
+        # Validate bitrate
+        try:
+            bitrate = int(self._bitrate_edit.text())
+        except ValueError:
+            QMessageBox.warning(self, "Invalid Bitrate", "Please enter a numeric value for Bitrate.")
+            return
+        if not (1000 <= bitrate <= 100000):
+            QMessageBox.warning(self, "Invalid Bitrate", "Bitrate must be between 1000 and 100000 kbps.")
+            return
+
         self._on_start_cb()
 
     # -- Public getters used by MonitorizeWindow --
@@ -738,6 +764,9 @@ class UsbStep2Page(QWidget):
         if self._fps_combo.currentText() == "Custom…":
             return int(self._custom_fps_edit.text())
         return int(self._fps_combo.currentText())
+
+    def selected_bitrate(self) -> int:
+        return int(self._bitrate_edit.text())
 
 
 class StreamingPage(QWidget):
@@ -1033,17 +1062,17 @@ class MonitorizeWindow(QMainWindow):
             self._page_usb1.set_busy(False)
             return
 
-        # Forward port 7111: Linux 127.0.0.1:7111 → Android 127.0.0.1:7111
-        # (Linux connects to Android, which acts as the Server for both video and input)
-        self._page_usb1.set_status("⏳  Forwarding tcp:7111 (input bridge)…")
+        # Touch daemon acts as a Server on Linux port 7111.
+        # We need adb reverse so Android can connect to localhost:7111 and reach Linux.
+        self._page_usb1.set_status("⏳  Setting up reverse proxy tcp:7111 (touch)…")
         self._proc_adb_fwd2 = QProcess(self)
         self._proc_adb_fwd2.finished.connect(self._adb_forward2_done)
-        self._proc_adb_fwd2.start("adb", ["forward", "tcp:7111", "tcp:7111"])
+        self._proc_adb_fwd2.start("adb", ["reverse", "tcp:7111", "tcp:7111"])
 
     def _adb_forward2_done(self, exit_code, _status):
         # Non-fatal: if 7111 fails, video still works, touch just won't forward
         if exit_code != 0:
-            self._page_usb1.set_status("⚠️  tcp:7111 forward failed — input disabled")
+            self._page_usb1.set_status("⚠️  tcp:7111 reverse failed — touch disabled")
         else:
             self._page_usb1.set_status("✅  Device ready!")
         self._page_usb1.set_busy(False)
@@ -1068,16 +1097,18 @@ class MonitorizeWindow(QMainWindow):
         self._page_streaming.set_stop_enabled(False)
         self._stack.setCurrentIndex(PAGE_STREAMING)
 
-        # Read user-chosen resolution / FPS
+        # Read user-chosen resolution / FPS / Bitrate
         width, height = self._page_usb2.selected_resolution()
         fps = self._page_usb2.selected_fps()
+        bitrate = self._page_usb2.selected_bitrate()
         self._stream_width  = width
         self._stream_height = height
         self._stream_fps    = fps
+        self._stream_bitrate = bitrate
 
-        # ---- KDE: start krfb-virtualmonitor first, then countdown ----
+        # ---- KDE: start krfb-virtualmonitor first, wait 5 seconds, then launch streamer ----
         if self.detected_de == "kde":
-            self._page_streaming.set_status("⏳  Starting virtual monitor…  3")
+            self._page_streaming.set_status("⏳  Starting virtual monitor…  5")
             self.process_krfb = QProcess(self)
             self.process_krfb.setWorkingDirectory(script_dir)
             self.process_krfb.setProcessEnvironment(env)
@@ -1090,6 +1121,9 @@ class MonitorizeWindow(QMainWindow):
                     "KRFB", f"Process exited (code {code})"
                 )
             )
+            import subprocess
+            subprocess.run(["killall", "krfb-virtualmonitor"], capture_output=True)
+
             self.process_krfb.start(
                 "krfb-virtualmonitor",
                 [
@@ -1099,8 +1133,8 @@ class MonitorizeWindow(QMainWindow):
                     "--port",       "5900",
                 ],
             )
-            # Begin 3-second countdown before starting the streamer
-            self._countdown = 3
+            # Begin 5-second countdown before starting the streamer
+            self._countdown = 5
             self._countdown_timer.start()
         else:
             # GNOME / Hyprland / Sway handle virtual monitors internally
@@ -1143,15 +1177,20 @@ class MonitorizeWindow(QMainWindow):
         }
         streamer_script = _streamer_map.get(self.detected_de, "Streamer_kde_usb.py")
 
+        # ── Launch input bridge (compositor-agnostic, separate port 7111) ──
+        if self.detected_de == "kde":
+            self._launch_input_bridge()
+
+        # Small delay to ensure input prompt appears before screen selector
+        import time as _time; _time.sleep(0.5)
+
         self.process_streamer.start("python3", [
             streamer_script,
             str(self._stream_width),
             str(self._stream_height),
             str(self._stream_fps),
+            str(self._stream_bitrate),
         ])
-
-        # ── Launch input bridge (compositor-agnostic, separate port 7111) ──
-        self._launch_input_bridge()
 
         self._page_streaming.set_status("⬤  Status: Streaming…")
         self._page_streaming.set_stop_enabled(True)
@@ -1179,6 +1218,8 @@ class MonitorizeWindow(QMainWindow):
         self._page_streaming.set_status(
             "🖐  Touch service starting… Watch for 'Allow Remote Control' popup and click Allow"
         )
+
+
 
     # ------------------------------------------------------------------
     # Log readers — called by readyReadStandardOutput signals

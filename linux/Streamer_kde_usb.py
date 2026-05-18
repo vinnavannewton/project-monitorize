@@ -13,9 +13,9 @@ from gi.repository import GLib
 WIDTH   = int(sys.argv[1]) if len(sys.argv) > 1 else 2560
 HEIGHT  = int(sys.argv[2]) if len(sys.argv) > 2 else 1600
 FPS     = int(sys.argv[3]) if len(sys.argv) > 3 else 60
+BITRATE = int(sys.argv[4]) if len(sys.argv) > 4 else 8000
 
 PORT    = 7110
-BITRATE = 8000
 
 print(f"[Streamer USB] Resolution={WIDTH}x{HEIGHT}  FPS={FPS}  Bitrate={BITRATE}")
 

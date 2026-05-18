@@ -64,7 +64,6 @@ _ei_ctx:       Optional[ei.Sender] = None
 _touch_dev:    Optional[ei.Device] = None
 _portal_ready  = threading.Event()
 _shutdown      = threading.Event()
-_ei_lock       = threading.Lock()
 
 # CRITICAL FIX #1 — Touch objects must be held in a STRONG dict.
 # snegg's CObjectWrapper uses a WeakValueDictionary internally, so the C-level
@@ -72,25 +71,73 @@ _ei_lock       = threading.Lock()
 _active_touches: dict[int, ei.Touch] = {}
 
 # ── coordinate scaling ─────────────────────────────────────────────────────────
-def _scale(dev: ei.Device, nx: int, ny: int) -> tuple[float, float]:
-    """Map Android 0-65535 normalised coords to the region the compositor gave us."""
-    if dev.regions:
-        reg = dev.regions[0]
-        # snegg Region.position has a known bug (reads x twice); dimension is correct.
-        rw, rh = reg.dimension          # e.g. 1463, 914  (pre-scale logical px)
-        rx, ry = 0.0, 0.0              # position always (0,0) on a single monitor
-        # Also try real position via libei C call directly to avoid snegg bug
-        try:
-            rx = float(_libei.region_get_x(reg._cobject))
-            ry = float(_libei.region_get_y(reg._cobject))
-        except Exception:
-            pass
-    else:
-        rw, rh = float(SCREEN_W), float(SCREEN_H)
-        rx, ry = 0.0, 0.0
+_virtual_monitor_cache = None
 
-    x = rx + (nx / COORD_MAX) * rw
-    y = ry + (ny / COORD_MAX) * rh
+def _get_virtual_monitor_rect() -> tuple[float, float, float, float]:
+    """Return (x, y, width, height) of Virtual-TabletDisplay from kscreen-doctor."""
+    global _virtual_monitor_cache
+    if _virtual_monitor_cache:
+        return _virtual_monitor_cache
+    
+    try:
+        import subprocess, json
+        res = subprocess.run(["kscreen-doctor", "-j"], capture_output=True, text=True)
+        data = json.loads(res.stdout)
+        for output in data.get("outputs", []):
+            if output.get("name") == "Virtual-TabletDisplay":
+                pos = output.get("pos", {"x": 0, "y": 0})
+                size = output.get("size", {"width": 1280, "height": 800})
+                scale = output.get("scale", 1.0)
+                # kscreen-doctor -j returns unscaled size in the JSON `size` field,
+                # but logical size is size / scale. Let's rely on pos for the match.
+                _virtual_monitor_cache = (float(pos["x"]), float(pos["y"]),
+                                          float(size["width"]/scale), float(size["height"]/scale))
+                return _virtual_monitor_cache
+    except Exception as e:
+        log.warning("Failed to query kscreen-doctor: %s", e)
+    
+    return None
+
+def _scale(dev: ei.Device, nx: int, ny: int) -> tuple[float, float]:
+    """Map Android 0-65535 normalised coords to the Virtual Monitor region."""
+    
+    # Target the virtual monitor dynamically
+    vm_rect = _get_virtual_monitor_rect()
+    target_rx, target_ry = 0.0, 0.0
+    
+    if vm_rect:
+        target_rx, target_ry, _, _ = vm_rect
+    
+    # Find the region that matches this position
+    best_reg = None
+    best_rx, best_ry, best_rw, best_rh = 0.0, 0.0, float(SCREEN_W), float(SCREEN_H)
+    
+    if dev.regions:
+        best_reg = dev.regions[0] # fallback
+        for reg in dev.regions:
+            rw, rh = reg.dimension
+            rx, ry = 0.0, 0.0
+            try:
+                rx = float(_libei.region_get_x(reg._cobject))
+                ry = float(_libei.region_get_y(reg._cobject))
+            except Exception:
+                pass
+            
+            # If this region matches the virtual monitor's position, it's the one!
+            if abs(rx - target_rx) < 5 and abs(ry - target_ry) < 5:
+                best_rx, best_ry, best_rw, best_rh = rx, ry, rw, rh
+                break
+        else:
+            # If no match found, just use the first region but fetch its real position
+            try:
+                best_rx = float(_libei.region_get_x(best_reg._cobject))
+                best_ry = float(_libei.region_get_y(best_reg._cobject))
+                best_rw, best_rh = best_reg.dimension
+            except Exception:
+                pass
+
+    x = best_rx + (nx / COORD_MAX) * best_rw
+    y = best_ry + (ny / COORD_MAX) * best_rh
     return x, y
 
 # ── injection helpers ──────────────────────────────────────────────────────────
@@ -103,38 +150,33 @@ def _inject_touch(action: int, cid: int, nx: int, ny: int) -> None:
     log.debug("touch action=%d cid=%d → (%.1f, %.1f)", action, cid, x, y)
 
     try:
-        with _ei_lock:
-            if action == ACTION_DOWN:
-                # CRITICAL: Store the object immediately in our strong dict (prevents GC)
-                touch = dev.touch_new()
-                _active_touches[cid] = touch
-                touch.down(x, y)
+        if action == ACTION_DOWN:
+            # CRITICAL: Store the object immediately in our strong dict (prevents GC)
+            touch = dev.touch_new()
+            _active_touches[cid] = touch
+            touch.down(x, y)
+            dev.frame()
+            log.info("[INJECT] DOWN  cid=%d  coords=(%.1f, %.1f)  active_slots=%d",
+                     cid, x, y, len(_active_touches))
+
+        elif action == ACTION_MOVE:
+            touch = _active_touches.get(cid)
+            if touch is not None:
+                touch.motion(x, y)
                 dev.frame()
-                log.info("[INJECT] DOWN  cid=%d  coords=(%.1f, %.1f)  active_slots=%d",
+                log.debug("[INJECT] MOVE  cid=%d  coords=(%.1f, %.1f)", cid, x, y)
+            else:
+                log.warning("[INJECT] MOVE  cid=%d  — no active touch slot!", cid)
+
+        elif action == ACTION_UP:
+            touch = _active_touches.pop(cid, None)
+            if touch is not None:
+                touch.up()
+                dev.frame()
+                log.info("[INJECT] UP    cid=%d  coords=(%.1f, %.1f)  remaining=%d",
                          cid, x, y, len(_active_touches))
-
-            elif action == ACTION_MOVE:
-                touch = _active_touches.get(cid)
-                if touch is not None:
-                    touch.motion(x, y)
-                    dev.frame()
-                    log.debug("[INJECT] MOVE  cid=%d  coords=(%.1f, %.1f)", cid, x, y)
-                else:
-                    log.warning("[INJECT] MOVE  cid=%d  — no active touch slot!", cid)
-
-            elif action == ACTION_UP:
-                touch = _active_touches.pop(cid, None)
-                if touch is not None:
-                    touch.up()
-                    dev.frame()
-                    log.info("[INJECT] UP    cid=%d  coords=(%.1f, %.1f)  remaining=%d",
-                             cid, x, y, len(_active_touches))
-                else:
-                    log.warning("[INJECT] UP    cid=%d  — no active touch slot!", cid)
-            
-            # Immediately flush to reduce latency and prevent compositor drops
-            if _ei_ctx:
-                _ei_ctx.dispatch()
+            else:
+                log.warning("[INJECT] UP    cid=%d  — no active touch slot!", cid)
 
     except Exception as exc:
         log.error("inject_touch error cid=%d action=%d: %s", cid, action, exc, exc_info=True)
@@ -202,17 +244,11 @@ def _setup_libei() -> None:
                          getattr(dev, 'regions', []))
                 if dev and ei.DeviceCapability.TOUCH in caps and touch_dev is None:
                     touch_dev = dev
-                    log.info("Found touch device! Waiting for compositor to RESUME it...")
-
-            elif raw == 8: # _EV_DEVICE_RESUMED
-                if touch_dev is not None and event.device and touch_dev._cobject == event.device._cobject:
-                    seq = event.emulating_sequence
-                    log.info("Device RESUMED with sequence %d. Calling start_emulating(%d)…", seq, seq)
-                    touch_dev.start_emulating(seq)
-                    # libei changes state to EMULATING locally immediately upon calling this.
-                    # KWin doesn't reply to this, so we are ready right away.
+                    dev.start_emulating()
+                    # KWin does NOT send EI_EVENT_DEVICE_START_EMULATING on this version.
+                    # Mark ready immediately after calling start_emulating().
                     emulating = True
-                    log.info("Touch input READY ✓")
+                    log.info("start_emulating() sent — device READY (no confirmation needed) ✓")
 
             elif raw == _EV_DISCONNECT:
                 log.error("Compositor disconnected from libei!")
@@ -240,18 +276,17 @@ def _setup_libei() -> None:
     log.info("Entering libei dispatch loop…")
     while not _shutdown.is_set():
         r, _, _ = select.select([ctx.fd], [], [], 0.05)
-        with _ei_lock:
-            if r:
-                ctx.dispatch()
-                for event in ctx.events:
-                    raw = int(_libei.event_get_type(event._cobject))
-                    if raw == _EV_DISCONNECT:
-                        log.error("Compositor disconnected — shutting down.")
-                        _shutdown.set()
-                        break
-            else:
-                # Even when idle, dispatch pumps any pending outgoing writes
-                ctx.dispatch()
+        if r:
+            ctx.dispatch()
+            for event in ctx.events:
+                raw = int(_libei.event_get_type(event._cobject))
+                if raw == _EV_DISCONNECT:
+                    log.error("Compositor disconnected — shutting down.")
+                    _shutdown.set()
+                    break
+        else:
+            # Even when idle, dispatch pumps any pending outgoing writes
+            ctx.dispatch()
 
 # ── TCP server ─────────────────────────────────────────────────────────────────
 def _read_exact(sock: socket.socket, n: int) -> bytes:

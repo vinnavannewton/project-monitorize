@@ -12,16 +12,12 @@ from gi.repository import GLib
 WIDTH   = int(sys.argv[1]) if len(sys.argv) > 1 else 2560
 HEIGHT  = int(sys.argv[2]) if len(sys.argv) > 2 else 1600
 FPS     = int(sys.argv[3]) if len(sys.argv) > 3 else 60
+BITRATE = int(sys.argv[4]) if len(sys.argv) > 4 else 36000
 
 PORT    = 7110
 
-# Allocate 90% of available bandwidth for video and rest 10% for touch
-# Assuming a solid USB 2.0 practical bandwidth limit of 40 Mbps (40000 kbps)
-TOTAL_BANDWIDTH_KBPS = 40000
-BITRATE = int(TOTAL_BANDWIDTH_KBPS * 0.90)
-
 print(f"[Main Streamer] Resolution={WIDTH}x{HEIGHT}  FPS={FPS}")
-print(f"[Main Streamer] Total Bandwidth={TOTAL_BANDWIDTH_KBPS}kbps  Video Bitrate={BITRATE}kbps (90% video, 10% touch)")
+print(f"[Main Streamer] Video Bitrate={BITRATE}kbps")
 
 # ---- ADB Port Forwarding ----
 print("[Main Streamer] Setting up ADB port forwarding...")
