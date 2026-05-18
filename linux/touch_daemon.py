@@ -64,6 +64,7 @@ _ei_ctx:       Optional[ei.Sender] = None
 _touch_dev:    Optional[ei.Device] = None
 _portal_ready  = threading.Event()
 _shutdown      = threading.Event()
+_ei_lock       = threading.Lock()
 
 # CRITICAL FIX #1 — Touch objects must be held in a STRONG dict.
 # snegg's CObjectWrapper uses a WeakValueDictionary internally, so the C-level
@@ -102,33 +103,38 @@ def _inject_touch(action: int, cid: int, nx: int, ny: int) -> None:
     log.debug("touch action=%d cid=%d → (%.1f, %.1f)", action, cid, x, y)
 
     try:
-        if action == ACTION_DOWN:
-            # CRITICAL: Store the object immediately in our strong dict (prevents GC)
-            touch = dev.touch_new()
-            _active_touches[cid] = touch
-            touch.down(x, y)
-            dev.frame()
-            log.info("[INJECT] DOWN  cid=%d  coords=(%.1f, %.1f)  active_slots=%d",
-                     cid, x, y, len(_active_touches))
-
-        elif action == ACTION_MOVE:
-            touch = _active_touches.get(cid)
-            if touch is not None:
-                touch.motion(x, y)
+        with _ei_lock:
+            if action == ACTION_DOWN:
+                # CRITICAL: Store the object immediately in our strong dict (prevents GC)
+                touch = dev.touch_new()
+                _active_touches[cid] = touch
+                touch.down(x, y)
                 dev.frame()
-                log.debug("[INJECT] MOVE  cid=%d  coords=(%.1f, %.1f)", cid, x, y)
-            else:
-                log.warning("[INJECT] MOVE  cid=%d  — no active touch slot!", cid)
-
-        elif action == ACTION_UP:
-            touch = _active_touches.pop(cid, None)
-            if touch is not None:
-                touch.up()
-                dev.frame()
-                log.info("[INJECT] UP    cid=%d  coords=(%.1f, %.1f)  remaining=%d",
+                log.info("[INJECT] DOWN  cid=%d  coords=(%.1f, %.1f)  active_slots=%d",
                          cid, x, y, len(_active_touches))
-            else:
-                log.warning("[INJECT] UP    cid=%d  — no active touch slot!", cid)
+
+            elif action == ACTION_MOVE:
+                touch = _active_touches.get(cid)
+                if touch is not None:
+                    touch.motion(x, y)
+                    dev.frame()
+                    log.debug("[INJECT] MOVE  cid=%d  coords=(%.1f, %.1f)", cid, x, y)
+                else:
+                    log.warning("[INJECT] MOVE  cid=%d  — no active touch slot!", cid)
+
+            elif action == ACTION_UP:
+                touch = _active_touches.pop(cid, None)
+                if touch is not None:
+                    touch.up()
+                    dev.frame()
+                    log.info("[INJECT] UP    cid=%d  coords=(%.1f, %.1f)  remaining=%d",
+                             cid, x, y, len(_active_touches))
+                else:
+                    log.warning("[INJECT] UP    cid=%d  — no active touch slot!", cid)
+            
+            # Immediately flush to reduce latency and prevent compositor drops
+            if _ei_ctx:
+                _ei_ctx.dispatch()
 
     except Exception as exc:
         log.error("inject_touch error cid=%d action=%d: %s", cid, action, exc, exc_info=True)
@@ -234,17 +240,18 @@ def _setup_libei() -> None:
     log.info("Entering libei dispatch loop…")
     while not _shutdown.is_set():
         r, _, _ = select.select([ctx.fd], [], [], 0.05)
-        if r:
-            ctx.dispatch()
-            for event in ctx.events:
-                raw = int(_libei.event_get_type(event._cobject))
-                if raw == _EV_DISCONNECT:
-                    log.error("Compositor disconnected — shutting down.")
-                    _shutdown.set()
-                    break
-        else:
-            # Even when idle, dispatch pumps any pending outgoing writes
-            ctx.dispatch()
+        with _ei_lock:
+            if r:
+                ctx.dispatch()
+                for event in ctx.events:
+                    raw = int(_libei.event_get_type(event._cobject))
+                    if raw == _EV_DISCONNECT:
+                        log.error("Compositor disconnected — shutting down.")
+                        _shutdown.set()
+                        break
+            else:
+                # Even when idle, dispatch pumps any pending outgoing writes
+                ctx.dispatch()
 
 # ── TCP server ─────────────────────────────────────────────────────────────────
 def _read_exact(sock: socket.socket, n: int) -> bytes:
