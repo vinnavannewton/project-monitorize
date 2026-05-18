@@ -62,6 +62,8 @@ if _DEBUG:
 # ── global state ───────────────────────────────────────────────────────────────
 _ei_ctx:       Optional[ei.Sender] = None
 _touch_dev:    Optional[ei.Device] = None
+_pen_dev:      Optional[ei.Device] = None
+_ei_lock       = threading.Lock()
 _portal_ready  = threading.Event()
 _shutdown      = threading.Event()
 
