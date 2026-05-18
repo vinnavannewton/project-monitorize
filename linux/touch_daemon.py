@@ -295,8 +295,8 @@ def _setup_ei(eis_fd_int: int) -> None:
                          seat.name,
                          [c.name for c in seat.capabilities])
                 # seat.bind() takes a tuple of DeviceCapability
-                seat.bind((ei.DeviceCapability.TOUCH,))
-                log.info("Requested TOUCH capability on seat '%s'", seat.name)
+                seat.bind((ei.DeviceCapability.TOUCH, ei.DeviceCapability.POINTER_ABSOLUTE))
+                log.info("Requested TOUCH and POINTER_ABSOLUTE capabilities on seat '%s'", seat.name)
 
             elif raw == _EI_EVENT_DEVICE_ADDED:
                 dev = event.device
@@ -311,11 +311,24 @@ def _setup_ei(eis_fd_int: int) -> None:
                     touch_dev = dev
                     dev.start_emulating()
                     log.info("Touch device ready: '%s'", dev.name)
+                    if hasattr(dev, 'regions') and dev.regions:
+                        for i, r in enumerate(dev.regions):
+                            log.info("Touch device region %d: position=%s dimension=%s physical_scale=%s", 
+                                     i, r.position, r.dimension, r.physical_scale)
+                    else:
+                        log.info("Touch device has NO regions")
 
-                elif ei.DeviceCapability.POINTER_ABSOLUTE in caps and pen_dev is None:
+                if ei.DeviceCapability.POINTER_ABSOLUTE in caps and pen_dev is None:
                     pen_dev = dev
-                    dev.start_emulating()
+                    if pen_dev is not touch_dev:
+                        dev.start_emulating()
                     log.info("Pen/pointer-absolute device ready: '%s'", dev.name)
+                    if hasattr(dev, 'regions') and dev.regions:
+                        for i, r in enumerate(dev.regions):
+                            log.info("Pen device region %d: position=%s dimension=%s physical_scale=%s", 
+                                     i, r.position, r.dimension, r.physical_scale)
+                    else:
+                        log.info("Pen device has NO regions")
 
             elif raw == _EI_EVENT_DEVICE_REMOVED:
                 d = event.device

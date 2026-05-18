@@ -1170,8 +1170,7 @@ class MonitorizeWindow(QMainWindow):
                 "INPUT", f"Bridge exited (code {code})"
             )
         )
-        self.process_input_bridge.start("pkexec", [
-            "python3",
+        self.process_input_bridge.start("python3", [
             os.path.join(self._script_dir, "touch_daemon.py"),
             str(self._stream_width),
             str(self._stream_height),
