@@ -227,118 +227,99 @@ def _inject_pen(action: int, tool: int, nx: int, ny: int, pressure: int, tx: int
                 dev.frame()
                 # log.debug("[INJECT PEN] HOVER coords=(%.1f, %.1f) btn_state=%d", x, y, btn_state)
 
-            if _ei_ctx:
-                _ei_ctx.dispatch()
+            if _ei_ctx_pen:
+                _ei_ctx_pen.dispatch()
     except Exception as exc:
         log.error("inject_pen error action=%d: %s", action, exc, exc_info=True)
 
 # ── portal + libei setup ───────────────────────────────────────────────────────
 def _setup_libei() -> None:
     """Run the full portal handshake, set up libei, then spin the dispatch loop."""
-    global _ei_ctx, _touch_dev, _pen_dev
+    global _touch_dev, _ei_ctx_touch
 
-    log.info("Requesting TOUCHSCREEN and POINTER permission via XDG RemoteDesktop portal…")
+    log.info("Requesting TOUCHSCREEN permission via XDG RemoteDesktop portal…")
     log.info("▶  Watch for the compositor popup 'Allow Remote Control' and click Allow.")
 
-    # Phase 1: oeffis portal handshake
-    devices = oeffis.DeviceType.TOUCHSCREEN
-    oef = oeffis.Oeffis.create(devices=devices)
-    eis_fd_int: Optional[int] = None
+    # Phase 1: oeffis portal handshake (TOUCH ONLY)
+    oef = oeffis.Oeffis.create(devices=oeffis.DeviceType.TOUCHSCREEN)
+    
+    eis_fd: Optional[int] = None
 
     deadline = time.monotonic() + 60.0
     while time.monotonic() < deadline and not _shutdown.is_set():
         r, _, _ = select.select([oef.fd.fileno()], [], [], 1.0)
+        
         if r and oef.dispatch():
-            eis_fd_int = oef.eis_fd
+            eis_fd = oef.eis_fd
             break
 
-    if eis_fd_int is None:
-        log.error("Portal timed out — user must click Allow in compositor popup.")
+    if eis_fd is None:
+        log.error("Portal timed out — user must click Allow on the popup.")
         _shutdown.set()
         return
 
-    log.info("Portal granted — EIS fd=%d", eis_fd_int)
+    log.info("Portal granted — Touch fd=%d", eis_fd)
 
-    # Phase 2: snegg.ei.Sender connection
-    io_fd = os.fdopen(eis_fd_int, "rb", buffering=0)
-    ctx   = ei.Sender.create_for_fd(io_fd, name="monitorize-touch")
-    _ei_ctx = ctx
+    # Phase 2: snegg.ei.Sender connections
+    # We MUST keep a reference to the Python file object, otherwise Python's GC
+    # will automatically close the underlying fd, causing Bad file descriptor!
+    global _io_fd
+    _io_fd = os.fdopen(eis_fd, "rb", buffering=0)
+    ctx = ei.Sender.create_for_fd(_io_fd, name="Virtual-TabletDisplay")
 
-    seat       = None
-    touch_dev  = None
-    pen_dev    = None
-    connected  = False
+    touch_dev = None
+    connected = False
 
     deadline2 = time.monotonic() + 20.0
     while time.monotonic() < deadline2 and not _shutdown.is_set():
         r, _, _ = select.select([ctx.fd], [], [], 0.1)
-        if r:
+        
+        if ctx.fd in r:
             ctx.dispatch()
+            for event in ctx.events:
+                raw = int(_libei.event_get_type(event._cobject))
+                if raw == _EV_CONNECT:
+                    connected = True
+                elif raw == _EV_SEAT_ADDED:
+                    event.seat.bind((ei.DeviceCapability.TOUCH,))
+                elif raw == _EV_DEVICE_ADDED:
+                    dev = event.device
+                    caps = dev.capabilities if dev else ()
+                    if dev and ei.DeviceCapability.TOUCH in caps and touch_dev is None:
+                        touch_dev = dev
+                        dev.start_emulating()
+                        log.info("start_emulating() sent — TOUCH device READY ✓")
+                elif raw == _EV_DISCONNECT:
+                    log.error("Touch Compositor disconnected!")
+                    _shutdown.set()
+                    return
 
-        for event in ctx.events:
-            raw = int(_libei.event_get_type(event._cobject))
-
-            if raw == _EV_CONNECT:
-                connected = True
-                log.info("libei connected to compositor ✓")
-
-            elif raw == _EV_SEAT_ADDED:
-                seat = event.seat
-                log.info("Seat added: %s — binding TOUCH capability", seat.name)
-                seat.bind((ei.DeviceCapability.TOUCH,))
-
-            elif raw == _EV_DEVICE_ADDED:
-                dev  = event.device
-                caps = dev.capabilities if dev else ()
-                log.info("Device added: '%s'  caps=%s regions=%s",
-                         getattr(dev, 'name', '?'),
-                         [c.name for c in caps],
-                         getattr(dev, 'regions', []))
-                
-                if dev and ei.DeviceCapability.TOUCH in caps and touch_dev is None:
-                    touch_dev = dev
-                    dev.start_emulating()
-                    log.info("start_emulating() sent — TOUCH device READY ✓")
-
-            elif raw == _EV_DISCONNECT:
-                log.error("Compositor disconnected from libei!")
-                _shutdown.set()
-                return
-
-        # We consider setup complete if we have at least touch_dev
         if connected and touch_dev:
             break
 
-    if not connected or not touch_dev:
-        log.error("libei setup incomplete (connected=%s touch_dev=%s). Touch disabled.",
-                  connected, touch_dev is not None)
+    if not touch_dev:
+        log.error("libei setup incomplete. Touch disabled.")
         _shutdown.set()
         return
 
     _touch_dev = touch_dev
-    _pen_dev = pen_dev
-    log.info("Touch daemon ready — screen %dx%d, region: %s",
-             SCREEN_W, SCREEN_H,
-             touch_dev.regions[0].dimension if touch_dev.regions else "none")
+    _ei_ctx_touch = ctx
+    
+    log.info("Touch daemon ready — screen %dx%d", SCREEN_W, SCREEN_H)
     _portal_ready.set()
 
-    # Phase 3: CRITICAL FIX #4 — spin dispatch loop forever.
-    # Without this, compositor PINGs go unanswered (→ connection drop) and
-    # device.frame() output buffers are never flushed to the EIS socket.
+    # Phase 3: spin dispatch loop forever.
     log.info("Entering libei dispatch loop…")
     while not _shutdown.is_set():
         r, _, _ = select.select([ctx.fd], [], [], 0.05)
         with _ei_lock:
-            if r:
+            if ctx.fd in r:
                 ctx.dispatch()
                 for event in ctx.events:
-                    raw = int(_libei.event_get_type(event._cobject))
-                    if raw == _EV_DISCONNECT:
-                        log.error("Compositor disconnected — shutting down.")
+                    if int(_libei.event_get_type(event._cobject)) == _EV_DISCONNECT:
                         _shutdown.set()
                         break
             else:
-                # Even when idle, dispatch pumps any pending outgoing writes
                 ctx.dispatch()
 
 # ── TCP server ─────────────────────────────────────────────────────────────────
@@ -347,49 +328,57 @@ def _read_exact(sock: socket.socket, n: int) -> bytes:
     while len(buf) < n:
         chunk = sock.recv(n - len(buf))
         if not chunk:
-            raise EOFError("peer closed")
+            return bytes()
         buf.extend(chunk)
     return bytes(buf)
 
-def _handle_client(conn: socket.socket, addr) -> None:
+def _handle_client(client: socket.socket, addr: tuple) -> None:
     log.info("Android connected from %s", addr)
-    # Wait up to 30 s for portal to be ready
-    if not _portal_ready.wait(timeout=30):
-        log.warning("Portal not ready after 30 s — dropping connection")
-        conn.close()
-        return
-
     pkt_count = 0
     try:
+        # Read the first 32 bytes to see EXACTLY what Android is sending!
+        first_chunk = client.recv(32, socket.MSG_PEEK)
+        log.warning("[DEBUG] First chunk from Android (hex): %s", first_chunk.hex())
+
         while not _shutdown.is_set():
-            hdr      = _read_exact(conn, 5)
-            length   = struct.unpack(">I", hdr[:4])[0]
-            pkt_type = hdr[4]
-            payload  = _read_exact(conn, length) if length else b""
+            # Try to read 1 byte first. If it's 0x00, it's probably a 4-byte length prefix.
+            b1 = _read_exact(client, 1)
+            if not b1: break
+
+            if b1[0] == 0x00:
+                # Modern framing: 4-byte length prefix (00 00 00 0D)
+                _read_exact(client, 3) # read the rest of the length (00 00 0D)
+                pkt_type_bytes = _read_exact(client, 1)
+                pkt_type = pkt_type_bytes[0]
+                length = 13
+            else:
+                # Legacy framing: No length prefix, the first byte IS the type!
+                pkt_type = b1[0]
+                length = 12 # Old framing only sent 12 bytes of payload?
+                # Actually, if PAYLOAD_FMT requires 13 bytes, we read 13 bytes.
+                # But wait, if type was the first byte, we read 12 more. Let's read 13 bytes total anyway.
+                # Actually, let's just assume payload is 13 bytes for PKT_TOUCH.
+                length = 13
+            
+            if pkt_type not in (PKT_TOUCH, PKT_PEN):
+                log.warning("Unknown packet type 0x%02x, closing connection.", pkt_type)
+                break
+
+            payload = _read_exact(client, length)
+            if len(payload) < PAYLOAD_SIZE:
+                log.warning("Short payload, skipping.")
+                continue
+
+            unpacked = struct.unpack(PAYLOAD_FMT, payload[:PAYLOAD_SIZE])
+            action, tool, cid, nx, ny, pressure, tx, ty = unpacked
             pkt_count += 1
 
             if pkt_count == 1:
-                log.info("[TCP] First packet received from Android! type=0x%02x len=%d",
-                         pkt_type, length)
-
-            if pkt_type not in (PKT_TOUCH, PKT_PEN):
-                log.warning("[TCP] Unknown packet type 0x%02x — skip", pkt_type)
-                continue
-            if len(payload) < PAYLOAD_SIZE:
-                log.warning("[TCP] Short payload %d bytes (need %d) — skip",
-                            len(payload), PAYLOAD_SIZE)
-                continue
-
-            action, tool, cid, nx, ny, pressure, tx, ty = \
-                struct.unpack(PAYLOAD_FMT, payload[:PAYLOAD_SIZE])
+                log.info("[TCP] First packet parsed successfully! type=0x%02x", pkt_type)
 
             log.debug("[TCP] pkt#%d type=0x%02x action=%d cid=%d norm=(%d,%d)",
                       pkt_count, pkt_type, action, cid, nx, ny)
 
-            # Both touch and pen are routed through the TOUCH device
-            # This is necessary because combining POINTER_ABSOLUTE and TOUCHSCREEN
-            # causes KDE KWin to map the device to the primary screen (eDP-1)
-            # instead of the Virtual Display. 
             _inject_touch(action, cid, nx, ny)
 
     except EOFError:
@@ -398,7 +387,8 @@ def _handle_client(conn: socket.socket, addr) -> None:
         if not _shutdown.is_set():
             log.error("Client error: %s", e)
     finally:
-        conn.close()
+        client.close()
+        _active_touches.clear()
 
 def _run_tcp_server() -> None:
     """

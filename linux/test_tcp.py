@@ -1,0 +1,11 @@
+import socket
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.bind(("127.0.0.1", 7111))
+s.listen(1)
+print("Waiting for Android...")
+c, addr = s.accept()
+print("Connected!")
+data = c.recv(18)
+print("Received hex:", data.hex())
+c.close()
+s.close()
