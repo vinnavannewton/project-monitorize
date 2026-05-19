@@ -7,6 +7,7 @@ Android touch input directly to the main desktop using the existing snegg daemon
 import dbus, sys, signal, subprocess, threading, os
 from dbus.mainloop.glib import DBusGMainLoop
 from gi.repository import GLib
+from pipeline_builder import detect_igpu_encoder, launch_with_fallback
 
 # ---- Parse optional CLI arguments ----
 WIDTH   = int(sys.argv[1]) if len(sys.argv) > 1 else 2560
@@ -44,6 +45,9 @@ touch_daemon_path = os.path.join(script_dir, "touch_daemon.py")
 print(f"[Main Streamer] Starting touch daemon from {touch_daemon_path}...")
 touch_proc = subprocess.Popen(["python3", touch_daemon_path, str(WIDTH), str(HEIGHT)])
 
+# Detect iGPU HW encoder once at startup
+HW_ENCODER = detect_igpu_encoder()
+
 DBusGMainLoop(set_as_default=True)
 loop    = GLib.MainLoop()
 bus     = dbus.SessionBus()
@@ -72,31 +76,13 @@ signal.signal(signal.SIGTERM, cleanup)
 
 def launch_streaming(fd, node_id):
     global gst_proc
-
-    sink = f"tcpclientsink host=127.0.0.1 port={PORT} sync=false"
-
-    pipeline = (
-    f"gst-launch-1.0 -e -v "
-    f"pipewiresrc fd={fd} path={node_id} do-timestamp=true always-copy=true keepalive-time=1 ! "
-    f"videorate ! video/x-raw,framerate={FPS}/1 ! "
-    f"queue max-size-buffers=1 leaky=downstream ! "
-    f"videoconvert n-threads=4 ! videoscale ! "
-    f"video/x-raw,format=I420,width={WIDTH},height={HEIGHT} ! "
-    f"x264enc tune=zerolatency speed-preset=ultrafast bitrate={BITRATE} "
-    f"key-int-max=30 byte-stream=true "
-    f"option-string=\"bframes=0:ref=1:sliced-threads=0:"
-    f"rc-lookahead=0:sync-lookahead=0:threads=4:"
-    f"vbv-bufsize=1000:vbv-maxrate={BITRATE}\" ! "
-    f"h264parse config-interval=-1 ! "
-    f"video/x-h264,stream-format=byte-stream,alignment=au ! "
-    f"{sink}"
-    )
-
-    print(f"\n[GStreamer] {pipeline}\n")
     print("[Monitorize] Streaming. Ctrl+C to stop.\n")
 
-    gst_proc = subprocess.Popen(pipeline, shell=True, pass_fds=(fd,))
-    gst_proc.wait()
+    gst_proc = launch_with_fallback(
+        pw_fd=fd, node_id=node_id,
+        width=WIDTH, height=HEIGHT, fps=FPS, bitrate=BITRATE, port=PORT,
+        hw_encoder=HW_ENCODER, pass_fds=(fd,),
+    )
 
 def on_response(response, results, **kw):
     if response != 0:

@@ -7,15 +7,19 @@ PipeWire node ID arrives via PipeWireStreamAdded signal, not a method call.
 import dbus, sys, signal, subprocess, threading
 from dbus.mainloop.glib import DBusGMainLoop
 from gi.repository import GLib
+from pipeline_builder import detect_igpu_encoder, launch_with_fallback
 
 WIDTH   = int(sys.argv[1]) if len(sys.argv) > 1 else 2560
 HEIGHT  = int(sys.argv[2]) if len(sys.argv) > 2 else 1600
 FPS     = int(sys.argv[3]) if len(sys.argv) > 3 else 60
+BITRATE = int(sys.argv[4]) if len(sys.argv) > 4 else 8000
 
 PORT    = 7110
-BITRATE = 8000
 
 print(f"[Streamer GNOME USB] Resolution={WIDTH}x{HEIGHT}  FPS={FPS}  Bitrate={BITRATE}")
+
+# Detect iGPU HW encoder once at startup
+HW_ENCODER = detect_igpu_encoder()
 
 DBusGMainLoop(set_as_default=True)
 loop     = GLib.MainLoop()
@@ -37,26 +41,13 @@ signal.signal(signal.SIGTERM, cleanup)
 
 def launch_streaming(node_id):
     global gst_proc
-    sink = f"tcpclientsink host=127.0.0.1 port={PORT} sync=false"
-    pipeline = (
-        f"gst-launch-1.0 -e -v "
-        f"pipewiresrc path={node_id} do-timestamp=true always-copy=true keepalive-time=1 ! "
-        f"videorate ! video/x-raw,framerate={FPS}/1 ! "
-        f"queue max-size-buffers=1 leaky=downstream ! "
-        f"videoconvert n-threads=4 ! videoscale ! "
-        f"video/x-raw,format=I420,width={WIDTH},height={HEIGHT} ! "
-        f"x264enc tune=zerolatency speed-preset=ultrafast bitrate={BITRATE} "
-        f"key-int-max=30 byte-stream=true "
-        f"option-string=\"bframes=0:ref=1:sliced-threads=0:"
-        f"rc-lookahead=0:sync-lookahead=0:threads=4:"
-        f"vbv-bufsize=1000:vbv-maxrate={BITRATE}\" ! "
-        f"h264parse config-interval=-1 ! "
-        f"video/x-h264,stream-format=byte-stream,alignment=au ! "
-        f"{sink}"
+    print("[Monitorize GNOME] Streaming. Ctrl+C to stop.\n")
+
+    gst_proc = launch_with_fallback(
+        pw_fd=None, node_id=node_id,
+        width=WIDTH, height=HEIGHT, fps=FPS, bitrate=BITRATE, port=PORT,
+        hw_encoder=HW_ENCODER,
     )
-    print(f"\n[GStreamer] {pipeline}\n")
-    gst_proc = subprocess.Popen(pipeline, shell=True)
-    gst_proc.wait()
 
 def start_virtual_session():
     mutter_sc_obj = bus.get_object(

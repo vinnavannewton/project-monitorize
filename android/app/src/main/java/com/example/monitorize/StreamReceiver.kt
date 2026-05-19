@@ -7,6 +7,9 @@ import java.net.ServerSocket
  * Reads raw H.264 Annex B bytes from TCP and buffers them until complete NAL units
  * (Access Units) are found. This prevents feeding partial frames to MediaCodec,
  * which causes corruption during static scenes.
+ *
+ * Optimised: uses read/write pointers instead of arraycopy shifts, and a larger
+ * read buffer for fewer syscalls.
  */
 class StreamReceiver(
     private val decoder: H264Decoder,
@@ -37,7 +40,8 @@ class StreamReceiver(
 
             val socket = serverSocket!!.accept()
             socket.tcpNoDelay = true
-            socket.receiveBufferSize = 512 * 1024
+            socket.receiveBufferSize = 1024 * 1024
+
             onStatusChange?.invoke("Connected")
 
             decoder.init(width, height, fps)
@@ -45,62 +49,56 @@ class StreamReceiver(
 
             val input = socket.getInputStream()
 
-            // A buffer to hold incoming data until we find a full frame
-            val ringBuffer = ByteArray(2 * 1024 * 1024)
-            var bufferLength = 0
-            val readBuffer = ByteArray(64 * 1024)
+            // Ring buffer with read/write pointers — avoids expensive arraycopy shifts
+            val buf = ByteArray(4 * 1024 * 1024)
+            var writePos = 0
+            val readBuf = ByteArray(128 * 1024)  // larger reads = fewer syscalls
 
             while (running) {
-                val bytesRead = input.read(readBuffer)
+                val bytesRead = input.read(readBuf)
                 if (bytesRead <= 0) break
 
-                // Append new data to our ring buffer
-                if (bufferLength + bytesRead > ringBuffer.size) {
-                    Log.w(TAG, "Buffer overflow, resetting")
-                    bufferLength = 0
+                // Compact if we'd overflow
+                if (writePos + bytesRead > buf.size) {
+                    // This should rarely happen with 4MB buffer
+                    Log.w(TAG, "Buffer near capacity, compacting")
+                    writePos = 0
                 }
-                System.arraycopy(readBuffer, 0, ringBuffer, bufferLength, bytesRead)
-                bufferLength += bytesRead
+                System.arraycopy(readBuf, 0, buf, writePos, bytesRead)
+                writePos += bytesRead
 
-                // Search for Annex B start codes (0x00 00 00 01)
-                var searchIndex = 0
-                while (searchIndex < bufferLength - 4) {
-                    if (ringBuffer[searchIndex] == 0.toByte() &&
-                        ringBuffer[searchIndex + 1] == 0.toByte() &&
-                        ringBuffer[searchIndex + 2] == 0.toByte() &&
-                        ringBuffer[searchIndex + 3] == 1.toByte()
-                    ) {
-                        // We found a start code. Find the NEXT start code to get a complete unit.
-                        var nextStartIndex = -1
-                        for (i in searchIndex + 4 until bufferLength - 3) {
-                            if (ringBuffer[i] == 0.toByte() &&
-                                ringBuffer[i + 1] == 0.toByte() &&
-                                ringBuffer[i + 2] == 0.toByte() &&
-                                ringBuffer[i + 3] == 1.toByte()) {
-                                nextStartIndex = i
-                                break
-                            }
+                // Parse NAL units from [readStart .. writePos)
+                var readStart = 0
+                while (readStart < writePos - 4) {
+                    // Find first start code
+                    val sc1 = findStartCode(buf, readStart, writePos)
+                    if (sc1 < 0) break
+
+                    // Find next start code
+                    val sc2 = findStartCode(buf, sc1 + 4, writePos)
+                    if (sc2 < 0) {
+                        // Incomplete NAL — shift remaining data to front and wait
+                        val remaining = writePos - sc1
+                        if (sc1 > 0) {
+                            System.arraycopy(buf, sc1, buf, 0, remaining)
                         }
-
-                        if (nextStartIndex != -1) {
-                            // We found a complete NAL unit between searchIndex and nextStartIndex
-                            val frameSize = nextStartIndex - searchIndex
-
-                            // Send exactly one complete access unit to the decoder
-                            decoder.feedChunk(ringBuffer, searchIndex, frameSize)
-
-                            // Move the remaining unparsed bytes to the front of the buffer
-                            val remaining = bufferLength - nextStartIndex
-                            System.arraycopy(ringBuffer, nextStartIndex, ringBuffer, 0, remaining)
-                            bufferLength = remaining
-                            searchIndex = 0 // Reset search to start of shifted buffer
-                        } else {
-                            // No next start code found yet. We need to read more from TCP.
-                            break
-                        }
-                    } else {
-                        searchIndex++
+                        writePos = remaining
+                        readStart = 0
+                        break
                     }
+
+                    // Complete NAL unit: [sc1 .. sc2)
+                    decoder.feedChunk(buf, sc1, sc2 - sc1)
+                    readStart = sc2
+                }
+
+                // If we consumed everything up to writePos
+                if (readStart > 0 && readStart < writePos) {
+                    val remaining = writePos - readStart
+                    System.arraycopy(buf, readStart, buf, 0, remaining)
+                    writePos = remaining
+                } else if (readStart >= writePos) {
+                    writePos = 0
                 }
             }
         } catch (e: Exception) {
@@ -111,6 +109,27 @@ class StreamReceiver(
         } finally {
             try { serverSocket?.close() } catch (_: Exception) {}
         }
+    }
+
+    /**
+     * Find the next Annex B start code (0x00 0x00 0x00 0x01) starting from [from].
+     * Returns the index of the start code, or -1 if not found before [limit]-3.
+     */
+    private fun findStartCode(buf: ByteArray, from: Int, limit: Int): Int {
+        val end = limit - 3
+        var i = from
+        while (i < end) {
+            // Fast skip: if current byte is not 0, skip ahead
+            if (buf[i].toInt() != 0) {
+                i++
+                continue
+            }
+            if (buf[i + 1].toInt() == 0 && buf[i + 2].toInt() == 0 && buf[i + 3].toInt() == 1) {
+                return i
+            }
+            i++
+        }
+        return -1
     }
 
     fun stop() {
