@@ -46,7 +46,7 @@ Before running Monitorize, install the required packages for your distro and des
 #### Step 1 — Enable RPM Fusion
 Fedora does not ship `x264enc` by default due to patent restrictions. Enable RPM Fusion first:
 ```bash
-sudo dnf install -y https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
+bash -c 'sudo dnf install -y https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm'
 ```
 #### Step 2 — Install Core Dependencies (all DEs)
 ```bash
