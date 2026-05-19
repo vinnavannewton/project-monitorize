@@ -26,12 +26,6 @@ The pipeline is:
 - Hardware H.264 decode on Android using `MediaCodec`
 - Fullscreen rendering to a `SurfaceView`
 
-Think *Spacedesk* / *Duet Display*, but:
-
-- Open-source
-- Focused on Linux / Wayland
-- Simple CPU-based encoder (no GPU driver drama)
-
 ### ✨ What You Get
 
 - **Native resolution** on your tablet (e.g., 1280×800, 1920×1200, 2560×1600)
@@ -40,47 +34,6 @@ Think *Spacedesk* / *Duet Display*, but:
 - **Wi-Fi Mode (Work In Progress)** using ADB over TCP/IP with lower bitrate tuned for wireless
 - **PyQt6 desktop app** to guide you through: ADB, virtual display, streaming start/stop
 - **Android app** with a simple UI: "Receive" and "Settings" (resolution/FPS)
-
----
-
-## 🏗️ Architecture
-
-```text
-Linux (Wayland, e.g. Fedora KDE)
-│
-├─ PyQt6 GUI (monitorize_gui.py)
-│    ├─ Lets you pick: USB / Wi-Fi mode
-│    ├─ Lets you choose Resolution + FPS
-│    └─ Runs ADB + virtual monitor + streamer scripts
-│
-├─ krfb-virtualmonitor
-│    └─ Creates a virtual "TabletDisplay" output in KWin at chosen resolution
-│
-├─ PipeWire ScreenCast Portal
-│    └─ Captures the "TabletDisplay" as a PipeWire stream
-│
-└─ GStreamer (Streamer_usb.py / monitorize_wifi.py)
-     pipewiresrc (Wayland) →
-     videorate (FPS cap) →
-     videoconvert →
-     x264enc (CPU, zerolatency, ultrafast) →
-     h264parse (alignment=au) →
-     tcpclientsink → localhost:7110
-                                │
-                        ADB forward tcp:7110
-                                │
-                        USB cable or Wi-Fi ADB
-                                │
-Android Tablet
-│
-├─ StreamReceiver.kt
-│    └─ TCP ServerSocket on 7110
-│       Reassembles Annex B frames from TCP stream
-│
-└─ H264Decoder.kt
-     ├─ MediaCodec (hardware decode) in low-latency mode
-     └─ Decodes to SurfaceView (full-screen, fixed-size)
-```
 
 ---
 
@@ -262,14 +215,12 @@ sudo apt install -y \
 ## Running the Application
 
 1. From the project repository, go into the `linux` directory and run `monitor_gui.py`.
-
-2. On the Android app, tap **Receive** before starting the desktop stream.
-
-3. In KDE, click **Stream** on the desktop app.
-
-4. When the input access pop-up appears, allow it first.
-
-5. From the second pop-up, select the **Tablet Virtual Display**.
+2. enable usb debuuging and connect your android to your pc via usb.
+3. in the desktop app click usb then click "i have connected"
+4. Then open the android app and first configure settings use ur native resolution and fps for best experience
+5. click receive on android app then click Start streaming on desktop app (order is important)
+6. When the input access pop-up appears, allow it first.
+7. From the second pop-up, select the **Tablet Virtual Display**.
 
 > [!WARNING]
 > The order matters: if you select the display first or click **Stream** before tapping **Receive** on Android, it will not work.
@@ -296,7 +247,7 @@ sudo apt install -y \
 | PyQt6             | `python3-pyqt6` / `python-pyqt6`                   |
 | `adb`             | `android-tools` (Fedora/Arch) or `adb` (Debian)    |
 | `krfb`            | KDE only — virtual monitor creation                |
-| `snegg` + `libei` | Touch/pen input forwarding via libei portal. Install with `pip install --user git+https://gitlab.freedesktop.org/whot/snegg` |
+| `snegg` + `libei` | Touch/pen(on RoadMap) input forwarding via libei portal. Install with `pip install --user git+https://gitlab.freedesktop.org/whot/snegg` |
 
 ### Android Tablet
 
@@ -312,11 +263,12 @@ sudo apt install -y \
 
 ## 🚀 Getting Started
 
-### 1. Clone and build
+### 1. Clone, build and run (Desktop side)
 
 ```bash
 git clone https://github.com/vinnavannewton/ProjectMonitorize.git
 cd ProjectMonitorize
+python3 monitorize_gui.py
 ```
 
 ### 2. Android side
@@ -334,110 +286,12 @@ Or:
 
 - Install the APK from the Releases section, then open **Monitorize**.
 
-In the app:
-
-1. Open **Settings**.
-2. Choose your tablet's resolution (e.g., `2560x1600`).
-3. Choose FPS (e.g., `60`).
-4. Go back and tap **Receive Stream**. The app will wait for a connection.
-
-### 3. Linux desktop app (PyQt GUI)
-
-From the repo root:
-
-```bash
-cd linux
-python3 monitorize_gui.py
-```
-
-The GUI will guide you through:
-
-1. Choose **USB Mode** (Wi-Fi Mode is still in Work In Progress).
-2. Connect your tablet via USB and click **"I have connected it"**.
-   - The app runs `adb devices` and `adb forward tcp:7110 tcp:7110`.
-3. Select **Resolution** and **FPS** in the GUI.
-   - These must match the Android app's Settings.
-4. Click **"Start Streaming"**.
-   - The app starts `krfb-virtualmonitor` with the chosen resolution.
-   - Shows a 3…2…1 countdown while the virtual screen is created.
-   - Then runs `Streamer_usb.py` with the selected resolution/FPS.
-5. When the ScreenCast popup appears, **select "TabletDisplay"** and click **Share**.
-
-Your tablet should now show your Linux desktop as a second monitor.
-
 ---
-
-## 🔧 USB vs Wi-Fi Modes
-
-### USB Mode (Recommended)
-
-- Lowest latency.
-- More stable bandwidth.
-- Just needs:
-  ```bash
-  adb devices
-  adb forward tcp:7110 tcp:7110
-  ```
 
 ### Wi-Fi Mode (Work In Progress)
 
-Wi-Fi mode uses **ADB over TCP/IP** (still TCP, but over wireless):
-
-1. With USB connected once:
-   ```bash
-   adb tcpip 5555
-   ```
-2. Disconnect USB. Find tablet IP (e.g., `192.168.1.15`).
-3. Connect over Wi-Fi:
-   ```bash
-   adb connect 192.168.1.15:5555
-   adb forward tcp:7110 tcp:7110
-   ```
-4. In the GUI, choose **Wi-Fi Mode**, then start streaming.
-   - `monitorize_wifi.py` uses **lower bitrate** and **more frequent keyframes** so Wi-Fi dropouts don't trash the frame.
-
-> Wi-Fi is great for browsing/code, but USB will always feel snappier for fast mouse-heavy work.
-
 ---
 
-## ⚙️ Internals & Latency Tuning
-
-Key encoder settings (CPU `x264enc`) in the scripts:
-
-- `tune=zerolatency` — no internal frame buffering.
-- `speed-preset=ultrafast` — trade compression for speed.
-- `bitrate=` — configurable; higher = better quality, more bandwidth.
-- `key-int-max=15–30` — frequent IDR frames for quick recovery if packets are dropped.
-- `bframes=0` — no B-frames; avoids reordering delay.
-
-On Android:
-
-- `MediaCodec` is configured with `LOW_LATENCY` flags (where available).
-- A dedicated decode thread pulls frames from a small queue, always preferring the most recent frame over backlog.
-- TCP chunks are reassembled into full Annex B Access Units by scanning for `0x00000001` start codes before feeding into `MediaCodec`.
-
-This combination is why you no longer see "random colored pixels" or corruption on static wallpaper scenes: the decoder never receives partial frames anymore.
-
----
-
-## 🧱 Project Layout
-
-```text
-ProjectMonitorize/
-├── README.md
-├── android/
-│   └── app/src/main/java/com/example/monitorize/
-│       ├── MainActivity.kt
-│       ├── StreamReceiver.kt
-│       ├── H264Decoder.kt
-│       └── StreamScreen.kt
-└── linux/
-    ├── monitorize_gui.py        # PyQt6 desktop controller
-    ├── Streamer_usb.py          # USB mode streamer (CPU x264enc)
-    └── monitorize_wifi.py       # Wi-Fi mode streamer (CPU x264enc, lower bitrate)
-```
-
----
 
 ## 🗺️ Roadmap
 
