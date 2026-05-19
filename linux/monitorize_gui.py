@@ -1177,13 +1177,6 @@ class MonitorizeWindow(QMainWindow):
         }
         streamer_script = _streamer_map.get(self.detected_de, "Streamer_kde_usb.py")
 
-        # ── Launch input bridge (compositor-agnostic, separate port 7111) ──
-        if self.detected_de == "kde":
-            self._launch_input_bridge()
-
-        # Small delay to ensure input prompt appears before screen selector
-        import time as _time; _time.sleep(0.5)
-
         self.process_streamer.start("python3", [
             streamer_script,
             str(self._stream_width),
@@ -1191,6 +1184,13 @@ class MonitorizeWindow(QMainWindow):
             str(self._stream_fps),
             str(self._stream_bitrate),
         ])
+
+        # ── Launch input bridge AFTER streamer (compositor-agnostic, separate port 7111) ──
+        # The streamer triggers the screen-share display selector popup;
+        # the input bridge triggers the input permission popup.
+        # We want display selector first, input permission second, back-to-back.
+        if self.detected_de == "kde":
+            QTimer.singleShot(400, self._launch_input_bridge)
 
         self._page_streaming.set_status("⬤  Status: Streaming…")
         self._page_streaming.set_stop_enabled(True)

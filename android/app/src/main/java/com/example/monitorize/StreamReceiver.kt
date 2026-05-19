@@ -41,7 +41,7 @@ class StreamReceiver(
             onStatusChange?.invoke("Connected")
 
             decoder.init(width, height, fps)
-            onStatusChange?.invoke("Stream: ${width}×${height} @ ${fps}fps")
+            onStatusChange?.invoke("")
 
             val input = socket.getInputStream()
 
