@@ -10,13 +10,13 @@
 
 > **Project Status: Working & Actively Developed**
 > Core pipeline is fully functional and tested on Fedora KDE (Wayland).
-> Screen mirroring at native tablet resolutions and up to 60 FPS, using CPU `x264` encoding on Linux and hardware-accelerated H.264 decoding on Android over ADB (USB or Wi-Fi).
+> Screen mirroring at native tablet resolutions and up to 120 FPS, using CPU `x264` encoding on Linux and hardware-accelerated H.264 decoding on Android over ADB (USB or Wi-Fi).
 
 ---
 
 ## 📖 Overview
 
-**Monitorize** turns your Android tablet into a high-performance secondary monitor for your Linux desktop.
+**Monitorize** turns your Android tablet into a secondary monitor for your Linux desktop.
 
 The pipeline is:
 
@@ -258,6 +258,32 @@ sudo apt install -y \
 > **Note:** `xdg-desktop-portal-hyprland` may not be in older Debian/Ubuntu repos. If not found, build from source: [xdg-desktop-portal-hyprland](https://github.com/hyprwm/xdg-desktop-portal-hyprland)
 
 ---
+
+## Running the Application
+
+1. From the project repository, go into the `linux` directory and run `monitor_gui.py`.
+
+2. On the Android app, tap **Receive** before starting the desktop stream.
+
+3. In KDE, click **Stream** on the desktop app.
+
+4. When the input access pop-up appears, allow it first.
+
+5. From the second pop-up, select the **Tablet Virtual Display**.
+
+> [!WARNING]
+> The order matters: if you select the display first or click **Stream** before tapping **Receive** on Android, it will not work.
+
+### Notes
+
+- The resolution and FPS set in the Android app must match the desktop app.
+- If the USB device is not detected, make sure `android-tools` is installed and run:
+  ```bash
+  adb devices
+  ```
+  to confirm the device is connected.
+
+
 
 ### Linux Host
 
