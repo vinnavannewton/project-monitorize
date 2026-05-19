@@ -1220,7 +1220,6 @@ class MonitorizeWindow(QMainWindow):
         )
 
 
-
     # ------------------------------------------------------------------
     # Log readers — called by readyReadStandardOutput signals
     # ------------------------------------------------------------------
