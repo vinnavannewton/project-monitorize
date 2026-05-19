@@ -85,32 +85,28 @@ Android Tablet
 ---
 
 ## 🛠️ Requirements
-
 ### 📦 Dependencies (Must Do)
-
 Before running Monitorize, install the required packages for your distro and desktop environment. Follow your distro section below in order.
-
 ---
-
 ### 🐧 Fedora (DNF)
-
-#### Step 1 — Enable RPM Fusion
+#### Step 1 — Install fedora-release (if missing)
+```bash
+sudo dnf install -y fedora-release
+```
+#### Step 2 — Enable RPM Fusion
 Fedora does not ship `x264enc` by default due to patent restrictions. Enable RPM Fusion first:
 ```bash
-sudo dnf install -y \
-  https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
-  https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
+sudo dnf install -y https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
 ```
-
-#### Step 2 — Install Core Dependencies (all DEs)
+#### Step 3 — Install Core Dependencies (all DEs)
 ```bash
 sudo dnf install -y \
   gstreamer1 \
   gstreamer1-plugins-base \
   gstreamer1-plugins-bad-free \
+  gstreamer1-plugins-bad-freeworld \
   gstreamer1-plugins-ugly \
-  gstreamer1-plugins-ugly-free \
-  gstreamer1-plugin-x264 \
+  gstreamer1-plugin-libav \
   gstreamer1-plugin-pipewire \
   pipewire \
   pipewire-gstreamer \
