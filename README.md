@@ -39,6 +39,10 @@ The pipeline is:
 
 ## 🛠️ Requirements
 ### 📦 Dependencies (Must Do)
+### Install PyQt6 package
+```bash
+pip install PyQt6
+```
 Before running Monitorize, install the required packages for your distro and desktop environment. Follow your distro section below in order.
 ---
 ### 🐧 Fedora (DNF)
