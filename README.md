@@ -45,7 +45,7 @@ pip install PyQt6
 ```
 ### Before running Monitorize, install the required packages for your distro and desktop environment. Follow your distro section below in order.
 ---
-## 🐧 Fedora (DNF)
+## <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/Fedora_icon_(2021).svg/960px-Fedora_icon_(2021).svg.png" height="28" alt="Fedora"> Fedora (DNF)
 
 ### Step 1 — Enable RPM Fusion
 Fedora does not ship `x264enc` by default due to patent restrictions. Enable RPM Fusion first:
@@ -133,7 +133,7 @@ sudo usermod -aG input $USER
 
 ---
 
-## 🐧 Arch Linux (Pacman)
+## <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/13/Arch_Linux_%22Crystal%22_icon.svg/330px-Arch_Linux_%22Crystal%22_icon.svg.png" height="28" alt="Arch Linux"> Arch Linux (Pacman)
 
 ### Step 1 — Install Core Dependencies (all DEs)
 ```bash
@@ -200,7 +200,7 @@ sudo usermod -aG input $USER
 ```
 
 
-## 🐧 Debian / Ubuntu (APT)
+## <img src="https://upload.wikimedia.org/wikipedia/commons/4/4a/Debian-OpenLogo.svg" height="28" alt="Debian"> Debian / Ubuntu (APT)
 
 ### Step 1 — Enable non-free repos (Debian only, skip on Ubuntu)
 Debian restricts `gstreamer1.0-plugins-ugly` to the `non-free` component. Enable it first:
