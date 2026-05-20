@@ -136,7 +136,7 @@ sudo pacman -S --needed \
   android-tools
 ```
 
-#### Step 2 — Desktop-Specific (Arch)
+### Step 2 — Desktop-Specific (Arch)
 
 **KDE Plasma**
 ```bash
@@ -156,12 +156,12 @@ sudo pacman -S --needed \
   wlr-randr
 ```
 
-# Step 2 (uinput dependency)
+### Step 2 (uinput dependency)
 ```bash
 sudo pacman -S python-evdev
 ---
 ```
-# Step 3 (uinput permission)
+### Step 3 (uinput permission)
 ```bash
 echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
 sudo udevadm control --reload-rules && sudo udevadm trigger
