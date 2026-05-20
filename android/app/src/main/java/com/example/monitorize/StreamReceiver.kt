@@ -49,6 +49,7 @@ class StreamReceiver(
 
                 val input = socket.getInputStream()
 
+<<<<<<< HEAD
                 // Ring buffer with read/write pointers — avoids expensive arraycopy shifts
                 val buf = ByteArray(4 * 1024 * 1024)
                 var writePos = 0
@@ -56,6 +57,15 @@ class StreamReceiver(
                 val frameBuffer = ByteArray(2 * 1024 * 1024) // Reusable buffer
                 var frameLen = 0
                 var discardCurrentFrame = false
+=======
+            // Ring buffer with read/write pointers — avoids expensive arraycopy shifts
+            val buf = ByteArray(4 * 1024 * 1024)
+            var writePos = 0
+            val readBuf = ByteArray(128 * 1024)  // larger reads = fewer syscalls
+            val frameBuffer = ByteArray(2 * 1024 * 1024) // Reusable buffer
+            var frameLen = 0
+            var discardCurrentFrame = false
+>>>>>>> 2f513d66000938b45af89dc5485a96ac597c2907
 
                 while (running) {
                     val bytesRead = input.read(readBuf)
@@ -70,6 +80,7 @@ class StreamReceiver(
                         System.arraycopy(readBuf, 0, buf, writePos, bytesRead)
                         writePos += bytesRead
 
+<<<<<<< HEAD
                         // Parse NAL units from [readStart .. writePos)
                         var readStart = 0
                         while (readStart < writePos - 4) {
@@ -96,6 +107,39 @@ class StreamReceiver(
                                     readStart = 0
                                     break
                                 }
+=======
+                    // Complete NAL unit: [sc1 .. sc2)
+                    val naluSize = sc2 - sc1
+                    
+                    // Guard against short/malformed NAL units
+                    if (naluSize <= sc1Len) {
+                        readStart = sc2
+                        continue
+                    }
+                    
+                    val naluType = buf[sc1 + sc1Len].toInt() and 0x1F
+
+                    // Accumulate the NAL unit into the reusable frame buffer
+                    if (!discardCurrentFrame) {
+                        if (frameLen + naluSize <= frameBuffer.size) {
+                            System.arraycopy(buf, sc1, frameBuffer, frameLen, naluSize)
+                            frameLen += naluSize
+                        } else {
+                            Log.w(TAG, "Frame buffer overflow, discarding current frame")
+                            frameLen = 0
+                            discardCurrentFrame = true
+                        }
+                    }
+
+                    // If it is a slice (1 = non-IDR/P-slice, 5 = IDR/I-slice), flush the accumulated frame
+                    if (naluType == 1 || naluType == 5) {
+                        if (!discardCurrentFrame && frameLen > 0) {
+                            decoder.feedChunk(frameBuffer, 0, frameLen)
+                        }
+                        frameLen = 0
+                        discardCurrentFrame = false
+                    }
+>>>>>>> 2f513d66000938b45af89dc5485a96ac597c2907
 
                                 // Complete NAL unit: [sc1 .. sc2)
                                 val naluSize = sc2 - sc1
