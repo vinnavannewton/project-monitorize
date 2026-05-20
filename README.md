@@ -159,7 +159,6 @@ sudo pacman -S --needed \
 ### Step 2 (uinput dependency)
 ```bash
 sudo pacman -S python-evdev
----
 ```
 ### Step 3 (uinput permission)
 ```bash
@@ -167,7 +166,6 @@ echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d
 sudo udevadm control --reload-rules && sudo udevadm trigger
 sudo usermod -aG input $USER
 # Log out and back in for group change to take effect
----
 ```
 
 
