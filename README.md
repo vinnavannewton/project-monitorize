@@ -97,16 +97,16 @@ python3 -m pip install --user \
 
 ### Step 3 — Desktop-Specific (Fedora)
 
-### <img src="https://upload.wikimedia.org/wikipedia/commons/9/91/Plasma_coloured_logo.svg" height="22" alt="KDE Plasma"> KDE Plasma:
+### KDE Plasma:
 KDE requires `krfb` to create the virtual monitor output:
 ```bash
 sudo dnf install -y krfb
 ```
 
-### <img src="https://upload.wikimedia.org/wikipedia/commons/1/1a/Gnomelogo.svg" height="22" alt="GNOME"> GNOME:
+### GNOME:
 No extra packages needed. GNOME uses Mutter's built-in `RecordVirtual` D-Bus API which works out of the box.
 
-### <img src="https://upload.wikimedia.org/wikipedia/commons/e/e2/Hyprland_Logo_Icon.svg" height="22" alt="Hyprland"> Hyprland:
+### Hyprland:
 Install the Hyprland XDG portal backend:
 
 #### Step 1:
@@ -169,15 +169,15 @@ python3 -m pip install --user \
 ```
 ### Step 3 — Desktop-Specific (Arch)
 
-### <img src="https://upload.wikimedia.org/wikipedia/commons/9/91/Plasma_coloured_logo.svg" height="22" alt="KDE Plasma"> KDE Plasma:
+### KDE Plasma:
 ```bash
 sudo pacman -S --needed krfb
 ```
 
-### <img src="https://upload.wikimedia.org/wikipedia/commons/1/1a/Gnomelogo.svg" height="22" alt="GNOME"> GNOME:
+### GNOME:
 No extra packages needed. GNOME uses Mutter's built-in `RecordVirtual` D-Bus API out of the box.
 
-### <img src="https://upload.wikimedia.org/wikipedia/commons/e/e2/Hyprland_Logo_Icon.svg" height="22" alt="Hyprland"> Hyprland:
+### Hyprland:
 #### Step 1 (specific dependencies)
 ```bash
 sudo pacman -S --needed \
@@ -244,15 +244,15 @@ python3 -m pip install --user \
 
 ### Step 3 — Desktop-Specific (Debian / Ubuntu)
 
-### <img src="https://upload.wikimedia.org/wikipedia/commons/9/91/Plasma_coloured_logo.svg" height="22" alt="KDE Plasma"> KDE Plasma:
+### KDE Plasma:
 ```bash
 sudo apt install -y krfb
 ```
 
-### <img src="https://upload.wikimedia.org/wikipedia/commons/1/1a/Gnomelogo.svg" height="22" alt="GNOME"> GNOME:
+### GNOME:
 No extra packages needed. GNOME uses Mutter's built-in `RecordVirtual` D-Bus API out of the box.
 
-### <img src="https://upload.wikimedia.org/wikipedia/commons/e/e2/Hyprland_Logo_Icon.svg" height="22" alt="Hyprland"> Hyprland:
+### Hyprland:
 #### Step 1:
 ```bash
 sudo apt install -y \
