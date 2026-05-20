@@ -1189,7 +1189,7 @@ class MonitorizeWindow(QMainWindow):
         # The streamer triggers the screen-share display selector popup;
         # the input bridge triggers the input permission popup.
         # We want display selector first, input permission second, back-to-back.
-        if self.detected_de == "kde":
+        if self.detected_de in ("kde", "hyprland", "gnome"):
             QTimer.singleShot(400, self._launch_input_bridge)
 
         self._page_streaming.set_status("⬤  Status: Streaming…")
@@ -1215,9 +1215,14 @@ class MonitorizeWindow(QMainWindow):
             str(self._stream_height),
         ])
 
-        self._page_streaming.set_status(
-            "🖐  Touch service starting… Watch for 'Allow Remote Control' popup and click Allow"
-        )
+        if self.detected_de == "hyprland":
+            self._page_streaming.set_status(
+                "🖐  Touch service starting via uinput…"
+            )
+        else:
+            self._page_streaming.set_status(
+                "🖐  Touch service starting… Watch for 'Allow Remote Control' popup and click Allow"
+            )
 
 
     # ------------------------------------------------------------------
