@@ -315,7 +315,7 @@ sudo usermod -aG input $USER
 | PyQt6             | `python3-pyqt6` / `python-pyqt6`                   |
 | `adb`             | `android-tools` (Fedora/Arch) or `adb` (Debian)    |
 | `krfb`            | KDE only — virtual monitor creation                |
-| `snegg` + `libei` | Touch/pen(on RoadMap) input forwarding via libei portal. Install with `pip install --user git+https://gitlab.freedesktop.org/whot/snegg` |
+| `snegg` + `libei` / `uinput` (hyprland)  | Touch/pen(on RoadMap)       |
 
 ### Android Tablet
 
@@ -366,11 +366,12 @@ Or:
 - [x] Stable CPU-based H.264 pipeline (Linux → Android).
 - [x] Fix TCP chunking / macroblock corruption.
 - [x] desktop GUI.
-- [ ] Touch screen and stylus support.
+- [x] Touch screen.
+- [ ] Stylus support.
 - [ ] Stable Wi-Fi mode.
 - [ ] Flathub distribution.
 - [ ] use your other laptop as second screen for your host laptop.
-- [ ] Triple monitor setup attempt.
+- [ ] Triple monitor setup.
 - [ ] multi monitor single desktop.
 
 ---
