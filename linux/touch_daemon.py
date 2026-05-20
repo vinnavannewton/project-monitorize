@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """
-touch_daemon.py — Monitorize Wayland touch injector via libei / snegg.
+touch_daemon.py — Monitorize Wayland touch injector.
+
+KDE / GNOME: uses libei via snegg + XDG RemoteDesktop portal.
+Hyprland:    uses evdev/uinput (kernel-level virtual touchscreen),
+             because xdg-desktop-portal-hyprland does NOT implement
+             the RemoteDesktop portal.
 
 Usage:
   python3 touch_daemon.py [width] [height] [--debug]
@@ -14,19 +19,32 @@ from typing import Optional
 
 _DEBUG = "--debug" in sys.argv
 
-# ── snegg imports ──────────────────────────────────────────────────────────────
+# ── snegg imports (optional — only needed for KDE/GNOME) ──────────────────────
+_HAS_SNEGG = False
 try:
     import snegg.ei as ei
     import snegg.oeffis as oeffis
-except ImportError as e:
-    print(f"ERROR: snegg not found. Install snegg. ({e})", file=sys.stderr)
-    sys.exit(1)
+    _HAS_SNEGG = True
+except ImportError:
+    ei = None       # type: ignore
+    oeffis = None   # type: ignore
+
+# ── evdev imports (optional — only needed for Hyprland) ───────────────────────
+_HAS_EVDEV = False
+try:
+    import evdev
+    from evdev import UInput, ecodes as e_codes
+    _HAS_EVDEV = True
+except ImportError:
+    evdev = None   # type: ignore
 
 # ── raw libei C types (safe against unknown EventType enum values) ─────────────
-_libei = ei.libei
-_libei.event_get_type.restype  = ctypes.c_uint32
-_libei.event_type_to_string.restype  = ctypes.c_char_p
-_libei.event_type_to_string.argtypes = [ctypes.c_uint32]
+_libei = None
+if _HAS_SNEGG:
+    _libei = ei.libei
+    _libei.event_get_type.restype  = ctypes.c_uint32
+    _libei.event_type_to_string.restype  = ctypes.c_char_p
+    _libei.event_type_to_string.argtypes = [ctypes.c_uint32]
 
 _EV_CONNECT          = 1
 _EV_DISCONNECT       = 2
@@ -60,9 +78,10 @@ if _DEBUG:
     log.debug("DEBUG mode enabled")
 
 # ── global state ───────────────────────────────────────────────────────────────
-_ei_ctx:       Optional[ei.Sender] = None
-_touch_dev:    Optional[ei.Device] = None
-_pen_dev:      Optional[ei.Device] = None
+_ei_ctx       = None   # ei.Sender (KDE/GNOME)
+_touch_dev    = None   # ei.Device (KDE/GNOME)
+_pen_dev      = None   # ei.Device (KDE/GNOME)
+_uinput_dev   = None   # evdev.UInput (Hyprland)
 _ei_lock       = threading.Lock()
 _portal_ready  = threading.Event()
 _shutdown      = threading.Event()
@@ -70,17 +89,32 @@ _shutdown      = threading.Event()
 # CRITICAL FIX #1 — Touch objects must be held in a STRONG dict.
 # snegg's CObjectWrapper uses a WeakValueDictionary internally, so the C-level
 # touch pointer can be GC'd between DOWN and MOVE/UP unless we hold a strong ref.
-_active_touches: dict[int, ei.Touch] = {}
+_active_touches: dict = {}
+_inject_fn = None   # set in main() → _inject_touch_libei or _inject_touch_uinput
+
+# ── DE detection (for coordinate mapping) ─────────────────────────────────────
+def _detect_de() -> str:
+    """Detect desktop environment. Returns 'kde', 'gnome', 'hyprland', or 'unknown'."""
+    hypr = os.environ.get("HYPRLAND_INSTANCE_SIGNATURE", "")
+    xdg  = os.environ.get("XDG_CURRENT_DESKTOP", "").lower()
+    dsess = os.environ.get("DESKTOP_SESSION", "").lower()
+    combined = xdg + " " + dsess
+    if hypr or "hyprland" in combined:
+        return "hyprland"
+    if "kde" in combined:
+        return "kde"
+    if "gnome" in combined:
+        return "gnome"
+    return "unknown"
+
+_DETECTED_DE = _detect_de()
+log.info("Detected DE: %s", _DETECTED_DE)
 
 # ── coordinate scaling ─────────────────────────────────────────────────────────
 _virtual_monitor_cache = None
 
-def _get_virtual_monitor_rect() -> tuple[float, float, float, float]:
+def _get_virtual_monitor_rect_kde() -> tuple[float, float, float, float]:
     """Return (x, y, width, height) of Virtual-TabletDisplay from kscreen-doctor."""
-    global _virtual_monitor_cache
-    if _virtual_monitor_cache:
-        return _virtual_monitor_cache
-    
     try:
         import subprocess, json
         res = subprocess.run(["kscreen-doctor", "-j"], capture_output=True, text=True)
@@ -91,16 +125,108 @@ def _get_virtual_monitor_rect() -> tuple[float, float, float, float]:
                 size = output.get("size", {"width": 1280, "height": 800})
                 scale = output.get("scale", 1.0)
                 # kscreen-doctor -j returns unscaled size in the JSON `size` field,
-                # but logical size is size / scale. Let's rely on pos for the match.
-                _virtual_monitor_cache = (float(pos["x"]), float(pos["y"]),
-                                          float(size["width"]/scale), float(size["height"]/scale))
-                return _virtual_monitor_cache
+                # but logical size is size / scale.
+                return (float(pos["x"]), float(pos["y"]),
+                        float(size["width"]/scale), float(size["height"]/scale))
     except Exception as e:
         log.warning("Failed to query kscreen-doctor: %s", e)
-    
     return None
 
-def _scale(dev: ei.Device, nx: int, ny: int) -> tuple[float, float]:
+def _get_virtual_monitor_rect_hyprland() -> tuple[float, float, float, float]:
+    """Return (x, y, width, height) of the headless virtual monitor from hyprctl."""
+    try:
+        import subprocess, json
+        res = subprocess.run(["hyprctl", "monitors", "-j"], capture_output=True, text=True)
+        monitors = json.loads(res.stdout)
+        for mon in monitors:
+            name = mon.get("name", "")
+            # Hyprland headless monitors are named HEADLESS-1, HEADLESS-2, etc.
+            if name.startswith("HEADLESS"):
+                x = float(mon.get("x", 0))
+                y = float(mon.get("y", 0))
+                w = float(mon.get("width", SCREEN_W))
+                h = float(mon.get("height", SCREEN_H))
+                scale = float(mon.get("scale", 1.0))
+                # hyprctl reports pixel dimensions; logical size = pixels / scale
+                log.info("Found Hyprland headless monitor %s at (%.0f, %.0f) %dx%d scale=%.1f",
+                         name, x, y, int(w), int(h), scale)
+                return (x, y, w / scale, h / scale)
+    except Exception as e:
+        log.warning("Failed to query hyprctl monitors: %s", e)
+    return None
+
+def _get_virtual_monitor_rect_gnome() -> tuple[float, float, float, float]:
+    """Return (x, y, width, height) of the GNOME virtual monitor.
+
+    GNOME's Streamer_gnome_usb.py creates the virtual monitor via Mutter's
+    RecordVirtual D-Bus API with a known position (currently 0,0).  We query
+    org.gnome.Mutter.DisplayConfig to find the logical monitor whose
+    connector starts with 'Virtual-' (Mutter's naming for RecordVirtual
+    outputs).  If the D-Bus query fails we fall back to (0, 0, SCREEN_W,
+    SCREEN_H) which matches the RecordVirtual defaults.
+    """
+    try:
+        import subprocess, json
+        # gdctl (GNOME 47+) or gnome-monitor-config can dump JSON, but the
+        # most universal method is the D-Bus DisplayConfig.GetCurrentState
+        # introspection.  However, parsing that is complex.  A simpler
+        # approach: Mutter stores the layout in ~/.config/monitors.xml but
+        # RecordVirtual monitors are ephemeral and won't appear there.
+        #
+        # Best portable approach: try gdctl first, fall back to the known
+        # position that Streamer_gnome_usb.py passes to RecordVirtual.
+        res = subprocess.run(
+            ["gdctl", "show", "--json"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if res.returncode == 0:
+            data = json.loads(res.stdout)
+            for mon in data.get("monitors", data.get("logical-monitors", [])):
+                connector = mon.get("connector", mon.get("name", ""))
+                if connector.startswith("Virtual") or connector.startswith("virtual"):
+                    x = float(mon.get("x", 0))
+                    y = float(mon.get("y", 0))
+                    # gdctl may report the mode inside a nested structure
+                    mode = mon.get("current-mode", mon)
+                    w = float(mode.get("width", SCREEN_W))
+                    h = float(mode.get("height", SCREEN_H))
+                    scale = float(mon.get("scale", 1.0))
+                    log.info("Found GNOME virtual monitor %s at (%.0f, %.0f) %dx%d",
+                             connector, x, y, int(w), int(h))
+                    return (x, y, w / scale, h / scale)
+    except FileNotFoundError:
+        log.debug("gdctl not found (pre-GNOME 47), using RecordVirtual defaults")
+    except Exception as e:
+        log.warning("Failed to query GNOME monitor config: %s", e)
+
+    # Fallback: Streamer_gnome_usb.py creates the virtual monitor at (0, 0)
+    # with the user-specified SCREEN_W x SCREEN_H, so use those directly.
+    log.info("Using GNOME RecordVirtual defaults: (0, 0, %d, %d)", SCREEN_W, SCREEN_H)
+    return (0.0, 0.0, float(SCREEN_W), float(SCREEN_H))
+
+def _get_virtual_monitor_rect() -> tuple[float, float, float, float]:
+    """Return (x, y, width, height) of the virtual monitor, dispatching by DE."""
+    global _virtual_monitor_cache
+    if _virtual_monitor_cache:
+        return _virtual_monitor_cache
+
+    if _DETECTED_DE == "hyprland":
+        result = _get_virtual_monitor_rect_hyprland()
+    elif _DETECTED_DE == "kde":
+        result = _get_virtual_monitor_rect_kde()
+    elif _DETECTED_DE == "gnome":
+        result = _get_virtual_monitor_rect_gnome()
+    else:
+        # Unknown DE — try all, most specific first
+        result = (_get_virtual_monitor_rect_hyprland()
+                  or _get_virtual_monitor_rect_kde()
+                  or _get_virtual_monitor_rect_gnome())
+
+    if result:
+        _virtual_monitor_cache = result
+    return result
+
+def _scale(dev, nx: int, ny: int) -> tuple[float, float]:
     """Map Android 0-65535 normalised coords to the Virtual Monitor region."""
     
     # Target the virtual monitor dynamically
@@ -142,8 +268,8 @@ def _scale(dev: ei.Device, nx: int, ny: int) -> tuple[float, float]:
     y = best_ry + (ny / COORD_MAX) * best_rh
     return x, y
 
-# ── injection helpers ──────────────────────────────────────────────────────────
-def _inject_touch(action: int, cid: int, nx: int, ny: int) -> None:
+# ── injection helpers (libei — KDE/GNOME) ──────────────────────────────────────
+def _inject_touch_libei(action: int, cid: int, nx: int, ny: int) -> None:
     dev = _touch_dev
     if dev is None:
         return
@@ -186,6 +312,59 @@ def _inject_touch(action: int, cid: int, nx: int, ny: int) -> None:
 
     except Exception as exc:
         log.error("inject_touch error cid=%d action=%d: %s", cid, action, exc, exc_info=True)
+
+# ── injection helpers (uinput — Hyprland) ──────────────────────────────────────
+def _inject_touch_uinput(action: int, cid: int, nx: int, ny: int) -> None:
+    """Inject touch via evdev/uinput virtual touchscreen (Hyprland backend)."""
+    ui = _uinput_dev
+    if ui is None:
+        return
+
+    # Map normalised 0-65535 to the virtual screen pixel coordinates
+    vm = _get_virtual_monitor_rect()
+    if vm:
+        _, _, vw, vh = vm
+    else:
+        vw, vh = float(SCREEN_W), float(SCREEN_H)
+
+    abs_x = int((nx / COORD_MAX) * vw)
+    abs_y = int((ny / COORD_MAX) * vh)
+    slot = cid % 10   # max 10 slots
+
+    try:
+        with _ei_lock:
+            if action == ACTION_DOWN:
+                _active_touches[cid] = slot
+                ui.write(e_codes.EV_ABS, e_codes.ABS_MT_SLOT, slot)
+                ui.write(e_codes.EV_ABS, e_codes.ABS_MT_TRACKING_ID, cid & 0xFFFF)
+                ui.write(e_codes.EV_ABS, e_codes.ABS_MT_POSITION_X, abs_x)
+                ui.write(e_codes.EV_ABS, e_codes.ABS_MT_POSITION_Y, abs_y)
+                ui.write(e_codes.EV_KEY, e_codes.BTN_TOUCH, 1)
+                ui.syn()
+                log.info("[UINPUT] DOWN  cid=%d slot=%d coords=(%d, %d)  active=%d",
+                         cid, slot, abs_x, abs_y, len(_active_touches))
+
+            elif action == ACTION_MOVE:
+                s = _active_touches.get(cid)
+                if s is not None:
+                    ui.write(e_codes.EV_ABS, e_codes.ABS_MT_SLOT, s)
+                    ui.write(e_codes.EV_ABS, e_codes.ABS_MT_POSITION_X, abs_x)
+                    ui.write(e_codes.EV_ABS, e_codes.ABS_MT_POSITION_Y, abs_y)
+                    ui.syn()
+
+            elif action == ACTION_UP:
+                s = _active_touches.pop(cid, None)
+                if s is not None:
+                    ui.write(e_codes.EV_ABS, e_codes.ABS_MT_SLOT, s)
+                    ui.write(e_codes.EV_ABS, e_codes.ABS_MT_TRACKING_ID, -1)
+                    if not _active_touches:
+                        ui.write(e_codes.EV_KEY, e_codes.BTN_TOUCH, 0)
+                    ui.syn()
+                    log.info("[UINPUT] UP    cid=%d slot=%d  remaining=%d",
+                             cid, s, len(_active_touches))
+
+    except Exception as exc:
+        log.error("inject_touch_uinput error cid=%d action=%d: %s", cid, action, exc, exc_info=True)
 
 def _inject_pen(action: int, tool: int, nx: int, ny: int, pressure: int, tx: int, btn_state: int) -> None:
     global _pen_dev, _touch_dev
@@ -232,10 +411,15 @@ def _inject_pen(action: int, tool: int, nx: int, ny: int, pressure: int, tx: int
     except Exception as exc:
         log.error("inject_pen error action=%d: %s", action, exc, exc_info=True)
 
-# ── portal + libei setup ───────────────────────────────────────────────────────
+# ── portal + libei setup (KDE / GNOME) ─────────────────────────────────────────
 def _setup_libei() -> None:
     """Run the full portal handshake, set up libei, then spin the dispatch loop."""
     global _touch_dev, _ei_ctx_touch
+
+    if not _HAS_SNEGG:
+        log.error("snegg not installed — libei backend unavailable.")
+        _shutdown.set()
+        return
 
     log.info("Requesting TOUCHSCREEN permission via XDG RemoteDesktop portal…")
     log.info("▶  Watch for the compositor popup 'Allow Remote Control' and click Allow.")
@@ -322,6 +506,62 @@ def _setup_libei() -> None:
             else:
                 ctx.dispatch()
 
+# ── uinput setup (Hyprland) ────────────────────────────────────────────────────
+def _setup_uinput() -> None:
+    """Create a virtual multitouch device via evdev/uinput for Hyprland.
+
+    This bypasses the XDG RemoteDesktop portal entirely — Hyprland picks up
+    the uinput device through libinput like any physical touchscreen.
+    Requires write access to /dev/uinput (root or udev rule).
+    """
+    global _uinput_dev
+
+    if not _HAS_EVDEV:
+        log.error("python-evdev not installed — uinput backend unavailable.")
+        log.error("Install it:  pip install evdev   (or pacman -S python-evdev)")
+        _shutdown.set()
+        return
+
+    vm = _get_virtual_monitor_rect()
+    if vm:
+        _, _, vw, vh = vm
+    else:
+        vw, vh = float(SCREEN_W), float(SCREEN_H)
+    max_x, max_y = int(vw), int(vh)
+
+    log.info("Creating uinput virtual touchscreen: %dx%d", max_x, max_y)
+
+    cap = {
+        e_codes.EV_ABS: [
+            (e_codes.ABS_MT_SLOT,         evdev.AbsInfo(value=0, min=0, max=9, fuzz=0, flat=0, resolution=0)),
+            (e_codes.ABS_MT_TRACKING_ID,  evdev.AbsInfo(value=0, min=0, max=65535, fuzz=0, flat=0, resolution=0)),
+            (e_codes.ABS_MT_POSITION_X,   evdev.AbsInfo(value=0, min=0, max=max_x, fuzz=0, flat=0, resolution=0)),
+            (e_codes.ABS_MT_POSITION_Y,   evdev.AbsInfo(value=0, min=0, max=max_y, fuzz=0, flat=0, resolution=0)),
+        ],
+        e_codes.EV_KEY: [e_codes.BTN_TOUCH],
+    }
+
+    try:
+        ui = UInput(cap, name="Monitorize-Touch", bustype=e_codes.BUS_USB)
+        _uinput_dev = ui
+        log.info("uinput device created: %s  (fd=%d)", ui.device.path, ui.fd)
+        log.info("Touch daemon ready (uinput) — screen %dx%d", SCREEN_W, SCREEN_H)
+        _portal_ready.set()
+
+        # Keep thread alive so UInput is not garbage-collected
+        while not _shutdown.is_set():
+            time.sleep(0.5)
+
+    except PermissionError:
+        log.error("Cannot open /dev/uinput — run touch_daemon as root or add a udev rule:")
+        log.error('  echo \'KERNEL=="uinput", MODE="0660", GROUP="input"\' | sudo tee /etc/udev/rules.d/99-uinput.rules')
+        log.error("  sudo udevadm control --reload-rules && sudo udevadm trigger")
+        log.error("  # Then add your user to the 'input' group:  sudo usermod -aG input $USER")
+        _shutdown.set()
+    except Exception as exc:
+        log.error("Failed to create uinput device: %s", exc, exc_info=True)
+        _shutdown.set()
+
 # ── TCP server ─────────────────────────────────────────────────────────────────
 def _read_exact(sock: socket.socket, n: int) -> bytes:
     buf = bytearray()
@@ -379,7 +619,7 @@ def _handle_client(client: socket.socket, addr: tuple) -> None:
             log.debug("[TCP] pkt#%d type=0x%02x action=%d cid=%d norm=(%d,%d)",
                       pkt_count, pkt_type, action, cid, nx, ny)
 
-            _inject_touch(action, cid, nx, ny)
+            _inject_fn(action, cid, nx, ny)
 
     except EOFError:
         log.info("Android disconnected cleanly")
@@ -444,15 +684,28 @@ def _cleanup(sig=None, frame=None):
     if _touch_dev:
         try: _touch_dev.stop_emulating()
         except Exception: pass
+    if _uinput_dev:
+        try: _uinput_dev.close()
+        except Exception: pass
     sys.exit(0)
 
 def main():
+    global _inject_fn
     signal.signal(signal.SIGINT,  _cleanup)
     signal.signal(signal.SIGTERM, _cleanup)
 
-    log.info("touch_daemon.py — screen %dx%d", SCREEN_W, SCREEN_H)
+    log.info("touch_daemon.py — screen %dx%d  DE=%s", SCREEN_W, SCREEN_H, _DETECTED_DE)
 
-    threading.Thread(target=_setup_libei,    daemon=True).start()
+    # Choose backend based on desktop environment
+    if _DETECTED_DE == "hyprland":
+        log.info("Using uinput backend (Hyprland does not support RemoteDesktop portal)")
+        _inject_fn = _inject_touch_uinput
+        threading.Thread(target=_setup_uinput, daemon=True).start()
+    else:
+        log.info("Using libei backend (XDG RemoteDesktop portal)")
+        _inject_fn = _inject_touch_libei
+        threading.Thread(target=_setup_libei, daemon=True).start()
+
     threading.Thread(target=_run_tcp_server, daemon=True).start()
 
     # Main thread keeps process alive
