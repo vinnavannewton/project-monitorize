@@ -8,9 +8,9 @@
   <img src="https://img.shields.io/badge/Status-Working%20%E2%9C%85-brightgreen" />
 </div>
 
-> **Project Status: Working & Actively Developed**
+> **Project Status: Working & Actively being Developed**
 > Core pipeline is fully functional and tested on Fedora KDE (Wayland).
-> Screen mirroring at native tablet resolutions and up to 120 FPS, using CPU `x264` encoding on Linux and hardware-accelerated H.264 decoding on Android over ADB (USB or Wi-Fi).
+> Screen mirroring at native tablet resolutions and up to 120 FPS, using CPU / IGPU encoding on Linux and hardware-accelerated H.264 decoding on Android over ADB (USB or Wi-Fi).
 
 ---
 
