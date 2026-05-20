@@ -53,7 +53,8 @@ class StreamReceiver(
             val buf = ByteArray(4 * 1024 * 1024)
             var writePos = 0
             val readBuf = ByteArray(128 * 1024)  // larger reads = fewer syscalls
-            val accumulator = java.io.ByteArrayOutputStream()
+            val frameBuffer =  ByteArray(2 * 1024 * 1024) // Reusable buffer
+            var frameLen = 0
 
             while (running) {
                 val bytesRead = input.read(readBuf)
