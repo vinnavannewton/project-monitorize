@@ -21,10 +21,9 @@
 The pipeline is:
 
 - Linux (Wayland) screen capture via PipeWire + portal
-- CPU H.264 encoding with GStreamer (`x264enc` tuned for low latency)
+- CPU H.264 / IGPU encoding with GStreamer (`x264enc` tuned for low latency)
 - Transport over ADB (USB or Wi-Fi TCP/IP)
 - Hardware H.264 decode on Android using `MediaCodec`
-- Fullscreen rendering to a `SurfaceView`
 
 ### ✨ What You Get
 
@@ -43,7 +42,7 @@ The pipeline is:
 ```bash
 pip install PyQt6
 ```
-Before running Monitorize, install the required packages for your distro and desktop environment. Follow your distro section below in order.
+Before running Monitorize, install the required packages for your distro and desktop environment.
 ---
 ### 🐧 Fedora (DNF)
 
@@ -70,7 +69,7 @@ sudo dnf install -y \
   android-tools
 ```
 
-#### Step 3 — Install snegg (libei Python bindings) for Touch/Pen Input
+#### Step 3 — Install snegg (libei Python bindings) for Touch/Pen Input (only needed for kde right now)
 
 The touch daemon uses `snegg` — the official Python bindings for `libei`.
 Do **not** use `pip install pyei` (that is a different, unrelated package).
