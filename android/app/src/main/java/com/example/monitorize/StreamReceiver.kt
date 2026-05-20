@@ -52,8 +52,7 @@ class StreamReceiver(
             // Ring buffer with read/write pointers — avoids expensive arraycopy shifts
             val buf = ByteArray(4 * 1024 * 1024)
             var writePos = 0
-            val readBuf = ByteArray(128 * 1024)  // larger reads = fewer syscalls
-            val frameBuffer =  ByteArray(2 * 1024 * 1024) // Reusable buffer
+            val frameBuffer = ByteArray(2 * 1024 * 1024) // Reusable buffer
             var frameLen = 0
 
             while (running) {
@@ -98,16 +97,30 @@ class StreamReceiver(
 
                     // Complete NAL unit: [sc1 .. sc2)
                     val naluSize = sc2 - sc1
+                    
+                    // Guard against short/malformed NAL units
+                    if (naluSize <= sc1Len) {
+                        readStart = sc2
+                        continue
+                    }
+                    
                     val naluType = buf[sc1 + sc1Len].toInt() and 0x1F
 
-                    // Accumulate the NAL unit
-                    accumulator.write(buf, sc1, naluSize)
+                    // Accumulate the NAL unit into the reusable frame buffer
+                    if (frameLen + naluSize <= frameBuffer.size) {
+                        System.arraycopy(buf, sc1, frameBuffer, frameLen, naluSize)
+                        frameLen += naluSize
+                    } else {
+                        Log.w(TAG, "Frame buffer overflow, resetting current frame")
+                        frameLen = 0
+                    }
 
                     // If it is a slice (1 = non-IDR/P-slice, 5 = IDR/I-slice), flush the accumulated frame
                     if (naluType == 1 || naluType == 5) {
-                        val frameData = accumulator.toByteArray()
-                        decoder.feedChunk(frameData, 0, frameData.size)
-                        accumulator.reset()
+                        if (frameLen > 0) {
+                            decoder.feedChunk(frameBuffer, 0, frameLen)
+                            frameLen = 0
+                        }
                     }
 
                     readStart = sc2
