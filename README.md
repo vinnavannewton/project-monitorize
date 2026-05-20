@@ -144,7 +144,7 @@ sudo pacman -S --needed \
 sudo pacman -S --needed gcc python meson ninja pkg-config git libei
 
 # Install snegg from upstream
-python3 -m pip install --user \
+python3 -m pip install --user --break-system-packages \
   git+https://gitlab.freedesktop.org/whot/snegg
 ```
 
