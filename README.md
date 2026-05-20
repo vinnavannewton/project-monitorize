@@ -2,15 +2,15 @@
   <h1>🖥️ Monitorize</h1>
   <p><strong>Turn your Android tablet into a smooth, low-latency secondary monitor for Linux.</strong></p>
 
-  <a href="https://www.gnu.org/licenses/gpl-3.0"><img src="https://img.shields.io/badge/License-GPLv3-blue.svg" /></a>
+  <a href="https://www.gnu.org/licenses/agpl-3.0"><img src="https://img.shields.io/badge/License-AGPL%20v3-blue.svg" /></a>
   <img src="https://img.shields.io/badge/Platform-Linux%20%7C%20Android-lightgrey" />
   <img src="https://img.shields.io/badge/Tech-Wayland%20%7C%20GStreamer%20%7C%20PyQt6-orange" />
   <img src="https://img.shields.io/badge/Status-Working%20%E2%9C%85-brightgreen" />
 </div>
 
-> **Project Status: Working & Actively being Developed**
+> **Project Status: Working & Actively Developed**
 > Core pipeline is fully functional and tested on Fedora KDE (Wayland).
-> Screen mirroring at native tablet resolutions and up to 120 FPS, using CPU / IGPU encoding on Linux and hardware-accelerated H.264 decoding on Android over ADB (USB or Wi-Fi).
+> Screen mirroring at native tablet resolutions and up to 120 FPS, using CPU `x264` encoding on Linux and hardware-accelerated H.264 decoding on Android over ADB (USB or Wi-Fi).
 
 ---
 
@@ -21,9 +21,10 @@
 The pipeline is:
 
 - Linux (Wayland) screen capture via PipeWire + portal
-- CPU H.264 / IGPU encoding with GStreamer (`x264enc` tuned for low latency)
+- CPU H.264 encoding with GStreamer (`x264enc` tuned for low latency)
 - Transport over ADB (USB or Wi-Fi TCP/IP)
 - Hardware H.264 decode on Android using `MediaCodec`
+- Fullscreen rendering to a `SurfaceView`
 
 ### ✨ What You Get
 
@@ -42,7 +43,7 @@ The pipeline is:
 ```bash
 pip install PyQt6
 ```
-Before running Monitorize, install the required packages for your distro and desktop environment.
+Before running Monitorize, install the required packages for your distro and desktop environment. Follow your distro section below in order.
 ---
 ### 🐧 Fedora (DNF)
 
@@ -69,7 +70,7 @@ sudo dnf install -y \
   android-tools
 ```
 
-#### Step 3 — Install snegg (libei Python bindings) for Touch/Pen Input (only needed for kde right now)
+#### Step 3 — Install snegg (libei Python bindings) for Touch/Pen Input
 
 The touch daemon uses `snegg` — the official Python bindings for `libei`.
 Do **not** use `pip install pyei` (that is a different, unrelated package).
@@ -312,17 +313,21 @@ Or:
 
 ## Star History
 
-<a href="https://www.star-history.com/?repos=vinnavannewton%2FProjectMonitorize&type=date&legend=top-left">
+<a href="https://www.star-history.com/?type=date&repos=vinnavannewton%2FProjectMonitorize">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=vinnavannewton/ProjectMonitorize&type=date&theme=dark&legend=bottom-right" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=vinnavannewton/ProjectMonitorize&type=date&legend=bottom-right" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=vinnavannewton/ProjectMonitorize&type=date&legend=bottom-right" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=vinnavannewton/ProjectMonitorize&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=vinnavannewton/ProjectMonitorize&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=vinnavannewton/ProjectMonitorize&type=date&legend=top-left" />
  </picture>
 </a>
 
 ## 📄 License
 
-Licensed under the **GNU General Public License v3.0**. See `LICENSE` for details.
+Monitorize is dual-licensed:
+
+- **Open Source use:** Licensed under the [GNU Affero General Public License v3.0 (AGPL-3.0)](https://www.gnu.org/licenses/agpl-3.0). You are free to use, modify, and distribute this software as long as your project is also open source under AGPL-3.0.
+
+- **Commercial / Closed Source use:** If you want to use Monitorize in a closed-source product, proprietary application, or commercial service without open-sourcing your code, you must obtain a commercial license. See [`COMMERCIAL_LICENSE.md`](COMMERCIAL_LICENSE.md) or contact **vinnavannewton@proton.me**.
 
 <div align="center">
   <sub>Built by Vinnavan · Expanding your productivity, one monitor at a time.</sub>
