@@ -45,14 +45,14 @@ pip install PyQt6
 ```
 Before running Monitorize, install the required packages for your distro and desktop environment. Follow your distro section below in order.
 ---
-### 🐧 Fedora (DNF)
+## 🐧 Fedora (DNF)
 
-#### Step 1 — Enable RPM Fusion
+### Step 1 — Enable RPM Fusion
 Fedora does not ship `x264enc` by default due to patent restrictions. Enable RPM Fusion first:
 ```bash
 bash -c 'sudo dnf install -y https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm'
 ```
-#### Step 2 — Install Core Dependencies (all DEs)
+### Step 2 — Install Core Dependencies (all DEs)
 ```bash
 sudo dnf install -y --skip-unavailable \
   gstreamer1 \
@@ -69,7 +69,7 @@ sudo dnf install -y --skip-unavailable \
   android-tools
 ```
 
-#### Step 3 — Install snegg (libei Python bindings) for Touch/Pen Input
+### Step 3 — Install snegg (libei Python bindings) for Touch/Pen Input (Not needed for hyprland)
 
 The touch daemon uses `snegg` — the official Python bindings for `libei`.
 Do **not** use `pip install pyei` (that is a different, unrelated package).
@@ -95,30 +95,47 @@ python3 -m pip install --user \
 > **Note:** The Python module is `snegg`, not `ei`.
 > Import it as `import snegg.ei` and `import snegg.oeffis` — not `import ei`.
 
-#### Step 3 — Desktop-Specific (Fedora)
+### Step 3 — Desktop-Specific (Fedora)
 
-**KDE Plasma**
+### KDE Plasma:
 KDE requires `krfb` to create the virtual monitor output:
 ```bash
 sudo dnf install -y krfb
 ```
 
-**GNOME**
+### GNOME:
 No extra packages needed. GNOME uses Mutter's built-in `RecordVirtual` D-Bus API which works out of the box.
 
-**Hyprland**
+### Hyprland:
 Install the Hyprland XDG portal backend:
+
+#### Step 1:
 ```bash
 sudo dnf install -y \
   xdg-desktop-portal \
-  xdg-desktop-portal-hyprland
+  xdg-desktop-portal-hyprland \
+  xdg-desktop-portal-gtk \
+  wlr-randr
+```
+
+#### Step 2:
+```bash
+sudo dnf install -y python3-evdev
+```
+
+#### Step 3:
+```bash
+echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+sudo usermod -aG input $USER
+# Log out and back in for group change to take effect
 ```
 
 ---
 
-### 🐧 Arch Linux (Pacman)
+## 🐧 Arch Linux (Pacman)
 
-#### Step 1 — Install Core Dependencies (all DEs)
+### Step 1 — Install Core Dependencies (all DEs)
 ```bash
 sudo pacman -S --needed \
   gstreamer \
@@ -136,18 +153,32 @@ sudo pacman -S --needed \
   android-tools
 ```
 
-### Step 2 — Desktop-Specific (Arch)
+### Step 2 snegg package for input (Not needed for hyprland)
+```bash
+# Install snegg (libei Python bindings) for Touch/Pen Input
+sudo pacman -S --needed \
+  libei \
+  base-devel \
+  meson \
+  ninja \
+  pkgconf \
+  git
 
-**KDE Plasma**
+python3 -m pip install --user \
+  git+https://gitlab.freedesktop.org/whot/snegg
+```
+### Step 3 — Desktop-Specific (Arch)
+
+### KDE Plasma:
 ```bash
 sudo pacman -S --needed krfb
 ```
 
-**GNOME**
+### GNOME:
 No extra packages needed. GNOME uses Mutter's built-in `RecordVirtual` D-Bus API out of the box.
 
-**Hyprland**
-### Step 1 (hyprland specific dependencies)
+### Hyprland:
+#### Step 1 (specific dependencies)
 ```bash
 sudo pacman -S --needed \
   xdg-desktop-portal \
@@ -156,11 +187,11 @@ sudo pacman -S --needed \
   wlr-randr
 ```
 
-### Step 2 (uinput dependency)
+#### Step 2 (uinput dependency)
 ```bash
 sudo pacman -S python-evdev
 ```
-### Step 3 (uinput permission)
+#### Step 3 (uinput permission)
 ```bash
 echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
 sudo udevadm control --reload-rules && sudo udevadm trigger
@@ -169,9 +200,9 @@ sudo usermod -aG input $USER
 ```
 
 
-### 🐧 Debian / Ubuntu (APT)
+## 🐧 Debian / Ubuntu (APT)
 
-#### Step 1 — Enable non-free repos (Debian only, skip on Ubuntu)
+### Step 1 — Enable non-free repos (Debian only, skip on Ubuntu)
 Debian restricts `gstreamer1.0-plugins-ugly` to the `non-free` component. Enable it first:
 ```bash
 sudo apt install -y software-properties-common
@@ -179,7 +210,7 @@ sudo apt-add-repository non-free
 sudo apt update
 ```
 
-#### Step 2 — Install Core Dependencies (all DEs)
+### Step 2 — Install Core Dependencies (all DEs)
 ```bash
 sudo apt install -y \
   gstreamer1.0-tools \
@@ -196,22 +227,55 @@ sudo apt install -y \
   adb
 ```
 
-#### Step 3 — Desktop-Specific (Debian / Ubuntu)
+### Step 3 — snegg for touch inputs (Not needed for hyprland)
+```bash
+sudo apt install -y \
+  libei-dev \
+  gcc \
+  python3-dev \
+  meson \
+  ninja-build \
+  pkg-config \
+  git
 
-**KDE Plasma**
+python3 -m pip install --user \
+  git+https://gitlab.freedesktop.org/whot/snegg
+```
+
+### Step 3 — Desktop-Specific (Debian / Ubuntu)
+
+### KDE Plasma:
 ```bash
 sudo apt install -y krfb
 ```
 
-**GNOME**
+### GNOME:
 No extra packages needed. GNOME uses Mutter's built-in `RecordVirtual` D-Bus API out of the box.
 
-**Hyprland**
+### Hyprland:
+#### Step 1:
 ```bash
 sudo apt install -y \
   xdg-desktop-portal \
-  xdg-desktop-portal-hyprland
+  xdg-desktop-portal-hyprland \
+  xdg-desktop-portal-gtk \
+  wlr-randr
 ```
+
+#### Step 2:
+```bash
+sudo apt install -y python3-evdev
+```
+
+#### Step 3:
+```bash
+echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+sudo usermod -aG input $USER
+# Log out and back in for group change to take effect
+```
+
+
 > **Note:** `xdg-desktop-portal-hyprland` may not be in older Debian/Ubuntu repos. If not found, build from source: [xdg-desktop-portal-hyprland](https://github.com/hyprwm/xdg-desktop-portal-hyprland)
 
 ---
