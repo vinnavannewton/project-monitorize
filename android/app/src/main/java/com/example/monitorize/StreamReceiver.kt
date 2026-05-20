@@ -53,6 +53,7 @@ class StreamReceiver(
             val buf = ByteArray(4 * 1024 * 1024)
             var writePos = 0
             val readBuf = ByteArray(128 * 1024)  // larger reads = fewer syscalls
+            val accumulator = java.io.ByteArrayOutputStream()
 
             while (running) {
                 val bytesRead = input.read(readBuf)
@@ -74,8 +75,15 @@ class StreamReceiver(
                     val sc1 = findStartCode(buf, readStart, writePos)
                     if (sc1 < 0) break
 
+                    // Calculate start code length at sc1 to properly offset search for next start code
+                    val sc1Len = if (sc1 + 3 < writePos &&
+                                     buf[sc1] == 0.toByte() &&
+                                     buf[sc1 + 1] == 0.toByte() &&
+                                     buf[sc1 + 2] == 0.toByte() &&
+                                     buf[sc1 + 3] == 1.toByte()) 4 else 3
+
                     // Find next start code
-                    val sc2 = findStartCode(buf, sc1 + 4, writePos)
+                    val sc2 = findStartCode(buf, sc1 + sc1Len, writePos)
                     if (sc2 < 0) {
                         // Incomplete NAL — shift remaining data to front and wait
                         val remaining = writePos - sc1
@@ -88,7 +96,19 @@ class StreamReceiver(
                     }
 
                     // Complete NAL unit: [sc1 .. sc2)
-                    decoder.feedChunk(buf, sc1, sc2 - sc1)
+                    val naluSize = sc2 - sc1
+                    val naluType = buf[sc1 + sc1Len].toInt() and 0x1F
+
+                    // Accumulate the NAL unit
+                    accumulator.write(buf, sc1, naluSize)
+
+                    // If it is a slice (1 = non-IDR/P-slice, 5 = IDR/I-slice), flush the accumulated frame
+                    if (naluType == 1 || naluType == 5) {
+                        val frameData = accumulator.toByteArray()
+                        decoder.feedChunk(frameData, 0, frameData.size)
+                        accumulator.reset()
+                    }
+
                     readStart = sc2
                 }
 
@@ -116,7 +136,7 @@ class StreamReceiver(
      * Returns the index of the start code, or -1 if not found before [limit]-3.
      */
     private fun findStartCode(buf: ByteArray, from: Int, limit: Int): Int {
-        val end = limit - 3
+        val end = limit - 2
         var i = from
         while (i < end) {
             // Fast skip: if current byte is not 0, skip ahead
@@ -124,7 +144,11 @@ class StreamReceiver(
                 i++
                 continue
             }
-            if (buf[i + 1].toInt() == 0 && buf[i + 2].toInt() == 0 && buf[i + 3].toInt() == 1) {
+            if (buf[i + 1].toInt() == 0 && buf[i + 2].toInt() == 1) {
+                // Check if there is an extra leading 0 before it
+                if (i > from && buf[i - 1].toInt() == 0) {
+                    return i - 1
+                }
                 return i
             }
             i++

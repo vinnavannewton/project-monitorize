@@ -44,7 +44,7 @@ def _cpu_encoder_params(bitrate, key_int):
     return (
         f"x264enc tune=zerolatency speed-preset=ultrafast bitrate={bitrate} "
         f"key-int-max={key_int} byte-stream=true "
-        f"option-string=\"bframes=0:ref=1:sliced-threads=1:"
+        f"option-string=\"bframes=0:ref=1:sliced-threads=0:"                #trying single slice instead of 4
         f"rc-lookahead=0:sync-lookahead=0:threads=4:"
         f"vbv-bufsize=500:vbv-maxrate={bitrate}:intra-refresh=1\""
     )
