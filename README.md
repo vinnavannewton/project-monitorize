@@ -136,17 +136,6 @@ sudo pacman -S --needed \
   android-tools
 ```
 
-#### Step 2 — Install snegg (Arch)
-
-```bash
-# Build deps
-sudo pacman -S --needed gcc python meson ninja pkg-config git libei
-
-# Install snegg from upstream
-python3 -m pip install --user --break-system-packages \
-  git+https://gitlab.freedesktop.org/whot/snegg
-```
-
 #### Step 2 — Desktop-Specific (Arch)
 
 **KDE Plasma**
@@ -158,6 +147,7 @@ sudo pacman -S --needed krfb
 No extra packages needed. GNOME uses Mutter's built-in `RecordVirtual` D-Bus API out of the box.
 
 **Hyprland**
+### Step 1 (hyprland specific dependencies)
 ```bash
 sudo pacman -S --needed \
   xdg-desktop-portal \
@@ -166,7 +156,20 @@ sudo pacman -S --needed \
   wlr-randr
 ```
 
+# Step 2 (uinput dependency)
+```bash
+sudo pacman -S python-evdev
 ---
+```
+# Step 3 (uinput permission)
+```bash
+echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+sudo usermod -aG input $USER
+# Log out and back in for group change to take effect
+---
+```
+
 
 ### 🐧 Debian / Ubuntu (APT)
 
