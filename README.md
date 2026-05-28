@@ -4,13 +4,11 @@
 
   <a href="https://www.gnu.org/licenses/agpl-3.0"><img src="https://img.shields.io/badge/License-AGPL%20v3-blue.svg" /></a>
   <img src="https://img.shields.io/badge/Platform-Linux%20%7C%20Android-lightgrey" />
-  <img src="https://img.shields.io/badge/Tech-Wayland%20%7C%20GStreamer%20%7C%20PyQt6-orange" />
-  <img src="https://img.shields.io/badge/Status-Working%20%E2%9C%85-brightgreen" />
+  
 </div>
 
-> **Project Status: Working & Actively Being Developed**
-> Core pipeline is fully functional and tested on Fedora KDE (Wayland).
-> Screen mirroring at native tablet resolutions and up to 120 FPS, using CPU `x264` encoding on Linux and hardware-accelerated H.264 decoding on Android over ADB (USB or Wi-Fi).
+> **Project Status: In alpha & Actively Being Developed**
+> Core pipeline is fully functional and tested on the latest Fedora KDE  and Arch hyprland.
 
 ---
 
@@ -20,26 +18,19 @@
 
 The pipeline is:
 
-- Linux (Wayland) screen capture via PipeWire + portal
-- CPU H.264 encoding with GStreamer (`x264enc` tuned for low latency)
-- Transport over ADB (USB or Wi-Fi TCP/IP)
-- Hardware H.264 decode on Android using `MediaCodec`
-- Fullscreen rendering to a `SurfaceView`
-
 ### ✨ What You Get
 
-- **Native resolution** on your tablet (e.g., 1280×800, 1920×1200, 2560×1600)
-- **Configurable FPS** (30 / 60 / …) on both Linux and Android
+- A **High resolution** and **High FPS** second display. 
 - **USB Mode** for lowest latency and most stable quality
-- **Wi-Fi Mode (Work In Progress)** using ADB over TCP/IP with lower bitrate tuned for wireless
-- **PyQt6 desktop app** to guide you through: ADB, virtual display, streaming start/stop
-- **Android app** with a simple UI: "Receive" and "Settings" (resolution/FPS)
+- **Wi-Fi Mode (Work In Progress)** for higher bitrates and multimonitor setups.
+- **User friendly desktop app made with pyqt** to guide you through.
+- **Android app** with a simple UI.
 
 ---
 
 ## 🛠️ Requirements
 ### 📦 Dependencies (Must Do)
-### Install PyQt6 package
+### Install PyQt6 packe
 ```bash
 pip install PyQt6
 ```
@@ -72,7 +63,6 @@ sudo dnf install -y --skip-unavailable \
 ### Step 3 — Install snegg (libei Python bindings) for Touch/Pen Input (Not needed for hyprland)
 
 The touch daemon uses `snegg` — the official Python bindings for `libei`.
-Do **not** use `pip install pyei` (that is a different, unrelated package).
 
 ```bash
 # C build dependencies for snegg
@@ -92,9 +82,6 @@ python3 -m pip install --user \
   git+https://gitlab.freedesktop.org/whot/snegg
 ```
 
-> **Note:** The Python module is `snegg`, not `ei`.
-> Import it as `import snegg.ei` and `import snegg.oeffis` — not `import ei`.
-
 ### Step 3 — Desktop-Specific (Fedora)
 
 ### KDE Plasma:
@@ -104,7 +91,7 @@ sudo dnf install -y krfb
 ```
 
 ### GNOME:
-No extra packages needed. GNOME uses Mutter's built-in `RecordVirtual` D-Bus API which works out of the box.
+No extra packages needed. 
 
 ### Hyprland:
 Install the Hyprland XDG portal backend:
@@ -175,7 +162,7 @@ sudo pacman -S --needed krfb
 ```
 
 ### GNOME:
-No extra packages needed. GNOME uses Mutter's built-in `RecordVirtual` D-Bus API out of the box.
+No extra packages needed.
 
 ### Hyprland:
 #### Step 1 (specific dependencies)
@@ -250,7 +237,7 @@ sudo apt install -y krfb
 ```
 
 ### GNOME:
-No extra packages needed. GNOME uses Mutter's built-in `RecordVirtual` D-Bus API out of the box.
+No extra packages needed. 
 
 ### Hyprland:
 #### Step 1:
@@ -289,18 +276,19 @@ sudo usermod -aG input $USER
 5. click receive on android app then click Start streaming on desktop app (order is important)
 6. When the input access pop-up appears, allow it first.
 7. From the second pop-up, select the **Tablet Virtual Display**.
-
-> [!WARNING]
-> The order matters: if you select the display first or click **Stream** before tapping **Receive** on Android, it will not work.
+8. After that goto your display configuration settings and setup your second display.
 
 ### Notes
 
 - The resolution and FPS set in the Android app must match the desktop app.
+- 
 - If the USB device is not detected, make sure `android-tools` is installed and run:
   ```bash
   adb devices
   ```
   to confirm the device is connected.
+-
+-Touch the android screen after it starts streaming, then in 5 seconds the touch input will get activated.
 
 
 
@@ -315,7 +303,7 @@ sudo usermod -aG input $USER
 | PyQt6             | `python3-pyqt6` / `python-pyqt6`                   |
 | `adb`             | `android-tools` (Fedora/Arch) or `adb` (Debian)    |
 | `krfb`            | KDE only — virtual monitor creation                |
-| `snegg` + `libei` | Touch/pen(on RoadMap) input forwarding via libei portal. Install with `pip install --user git+https://gitlab.freedesktop.org/whot/snegg` |
+| `snegg` + `libei` / `uinput` (hyprland)  | Touch/pen(on RoadMap)       |
 
 ### Android Tablet
 
@@ -352,7 +340,7 @@ Either:
 
 Or:
 
-- Install the APK from the Releases section, then open **Monitorize**.
+- Install the APK from the Releases section.
 
 ---
 
@@ -366,11 +354,12 @@ Or:
 - [x] Stable CPU-based H.264 pipeline (Linux → Android).
 - [x] Fix TCP chunking / macroblock corruption.
 - [x] desktop GUI.
-- [ ] Touch screen and stylus support.
+- [x] Touch screen.
+- [ ] Stylus support.
 - [ ] Stable Wi-Fi mode.
 - [ ] Flathub distribution.
 - [ ] use your other laptop as second screen for your host laptop.
-- [ ] Triple monitor setup attempt.
+- [ ] Triple monitor setup.
 - [ ] multi monitor single desktop.
 
 ---
@@ -385,14 +374,6 @@ Or:
  </picture>
 </a>
 
-## 📄 License
-
-Monitorize is dual-licensed:
-
-- **Open Source use:** Licensed under the [GNU Affero General Public License v3.0 (AGPL-3.0)](https://www.gnu.org/licenses/agpl-3.0). You are free to use, modify, and distribute this software as long as your project is also open source under AGPL-3.0.
-
-- **Commercial / Closed Source use:** If you want to use Monitorize in a closed-source product, proprietary application, or commercial service without open-sourcing your code, you must obtain a commercial license. See [`COMMERCIAL_LICENSE.md`](COMMERCIAL_LICENSE.md) or contact **vinnavannewton@proton.me**.
-
 <div align="center">
-  <sub>Built by Vinnavan · Expanding your productivity, one monitor at a time.</sub>
+  <sub>Expanding your productivity, one monitor at a time.</sub>
 </div>

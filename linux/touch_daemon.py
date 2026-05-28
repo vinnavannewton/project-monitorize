@@ -18,6 +18,7 @@ import sys, os, select, struct, socket, signal, logging, threading, time, ctypes
 from typing import Optional
 
 _DEBUG = "--debug" in sys.argv
+_WIFI  = "--wifi" in sys.argv
 
 # ── snegg imports (optional — only needed for KDE/GNOME) ──────────────────────
 _HAS_SNEGG = False
@@ -648,9 +649,10 @@ def _run_tcp_server() -> None:
     except AttributeError:
         pass
 
+    bind_host = "0.0.0.0" if _WIFI else "127.0.0.1"
     for attempt in range(8):
         try:
-            server.bind(("127.0.0.1", PORT))
+            server.bind((bind_host, PORT))
             break
         except OSError:
             log.warning("[TCP] Port %d busy (attempt %d/8) — retrying in 1 s…", PORT, attempt + 1)
@@ -661,7 +663,8 @@ def _run_tcp_server() -> None:
 
     server.listen(2)
     server.settimeout(1.0)
-    log.info("[TCP] Server listening on 127.0.0.1:%d (waiting for Android via adb reverse)", PORT)
+    mode_str = "Wi-Fi (0.0.0.0)" if _WIFI else "USB via adb reverse (127.0.0.1)"
+    log.info("[TCP] Server listening on %s:%d (waiting for Android %s)", bind_host, PORT, mode_str)
 
     while not _shutdown.is_set():
         try:
@@ -676,6 +679,36 @@ def _run_tcp_server() -> None:
     server.close()
 
 
+def _run_udp_server() -> None:
+    """
+    Linux is the UDP SERVER on port 7113 for Wi-Fi touch injection.
+    """
+    server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        server.bind(("0.0.0.0", 7113))
+    except OSError:
+        log.error("[UDP] Could not bind port 7113 — touch disabled.")
+        return
+
+    server.settimeout(1.0)
+    log.info("[UDP] Server listening on 0.0.0.0:7113 (waiting for Android UDP)")
+
+    while not _shutdown.is_set():
+        try:
+            data, addr = server.recvfrom(2048)
+            if len(data) < PAYLOAD_SIZE + 4:
+                continue
+
+            unpacked = struct.unpack(PAYLOAD_FMT, data[4:4+PAYLOAD_SIZE])
+            action, tool, cid, nx, ny, pressure, tx, ty = unpacked
+
+            _inject_fn(action, cid, nx, ny)
+
+        except socket.timeout:
+            continue
+        except Exception as e:
+            if not _shutdown.is_set():
+                log.error("[UDP] Receive error: %s", e)
 
 # ── main ───────────────────────────────────────────────────────────────────────
 def _cleanup(sig=None, frame=None):
@@ -706,7 +739,10 @@ def main():
         _inject_fn = _inject_touch_libei
         threading.Thread(target=_setup_libei, daemon=True).start()
 
-    threading.Thread(target=_run_tcp_server, daemon=True).start()
+    if _WIFI:
+        threading.Thread(target=_run_udp_server, daemon=True).start()
+    else:
+        threading.Thread(target=_run_tcp_server, daemon=True).start()
 
     # Main thread keeps process alive
     try:
