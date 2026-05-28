@@ -12,20 +12,18 @@ import dbus, sys, signal, subprocess, threading
 from dbus.mainloop.glib import DBusGMainLoop
 from gi.repository import GLib
 from pipeline_builder import detect_igpu_encoder, launch_with_fallback
-ENC_FAMILY, ENC_NAME = detect_igpu_encoder()
 
 WIDTH   = int(sys.argv[1]) if len(sys.argv) > 1 else 2560
 HEIGHT  = int(sys.argv[2]) if len(sys.argv) > 2 else 1600
 FPS     = int(sys.argv[3]) if len(sys.argv) > 3 else 60
 BITRATE = int(sys.argv[4]) if len(sys.argv) > 4 else 8000
-MODE    = sys.argv[5] if len(sys.argv) > 5 else "usb"
-
-server_mode = (MODE == "wifi")
-host = "0.0.0.0" if server_mode else "127.0.0.1"
 
 PORT    = 7110
 
 print(f"[Streamer Sway USB] Resolution={WIDTH}x{HEIGHT}  FPS={FPS}  Bitrate={BITRATE}")
+
+# Detect iGPU HW encoder once at startup
+HW_ENCODER = detect_igpu_encoder()
 
 DBusGMainLoop(set_as_default=True)
 loop     = GLib.MainLoop()
@@ -56,8 +54,7 @@ def launch_streaming(fd, node_id):
     gst_proc = launch_with_fallback(
         pw_fd=fd, node_id=node_id,
         width=WIDTH, height=HEIGHT, fps=FPS, bitrate=BITRATE, port=PORT,
-        hw_encoder=ENC_NAME, pass_fds=(fd,),
-        server_mode=server_mode, host=host
+        hw_encoder=HW_ENCODER, pass_fds=(fd,),
     )
 
 def on_response(response, results, **kw):

@@ -419,216 +419,34 @@ class MainMenuPage(QWidget):
         self._de_badge.setText(f"{icon}  Desktop: {label}")
 
 
-
-def get_local_ip():
-    import socket
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        s.connect(('10.255.255.255', 1))
-        IP = s.getsockname()[0]
-    except Exception:
-        IP = '127.0.0.1'
-    finally:
-        s.close()
-    return IP
-
 class WifiPage(QWidget):
-    RESOLUTIONS = [
-        "1280x720", "1280x800", "1920x1080", "1920x1200",
-        "2560x1440", "2560x1600", "3840x2160", "Custom…"
-    ]
-    FPS_OPTIONS = ["30", "60", "90", "120", "Custom…"]
-
-    def __init__(self, on_back, on_start, parent=None):
+    def __init__(self, on_back, parent=None):
         super().__init__(parent)
-        self._on_start_cb = on_start
         root = QVBoxLayout(self)
-        root.setContentsMargins(60, 40, 60, 40)
+        root.setContentsMargins(60, 60, 60, 60)
+        root.addStretch()
 
-        step = QLabel("Wi-Fi Mode")
-        step.setObjectName("stepLabel")
-        root.addWidget(step)
-        root.addSpacing(12)
-        root.addWidget(hr())
-        root.addSpacing(24)
+        icon = QLabel("📶")
+        icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon.setFont(QFont("Segoe UI", 48))
+        root.addWidget(icon)
+        root.addSpacing(20)
 
-        ip = get_local_ip()
-        msg = QLabel(f"📶  Your Local IP Address is: {ip}\\n\\nEnter this IP in the Monitorize Android app and tap Receive.")
-        msg.setObjectName("instruction")
+        msg = QLabel("Wi-Fi Mode is a Work in Progress")
+        msg.setObjectName("wip")
         msg.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        msg.setWordWrap(True)
-        # make it stand out a bit
-        msg.setStyleSheet("font-size: 16px; font-weight: bold;")
         root.addWidget(msg)
-        root.addSpacing(20)
-
-        # ---- Resolution row ----
-        res_row = QHBoxLayout()
-        res_row.setSpacing(12)
-        res_label = QLabel("Resolution:")
-        res_label.setObjectName("instruction")
-        self._res_combo = QComboBox()
-        self._res_combo.addItems(self.RESOLUTIONS)
-        self._res_combo.setCurrentText("2560x1600")
-        self._res_combo.currentTextChanged.connect(self._on_res_changed)
-        res_row.addStretch()
-        res_row.addWidget(res_label)
-        res_row.addWidget(self._res_combo)
-        res_row.addStretch()
-        root.addLayout(res_row)
-
-        self._custom_res_widget = QWidget()
-        custom_res_inner = QHBoxLayout(self._custom_res_widget)
-        custom_res_inner.setContentsMargins(0, 4, 0, 0)
-        custom_res_inner.setSpacing(6)
-        self._custom_w = QLineEdit()
-        self._custom_w.setObjectName("customInput")
-        self._custom_w.setPlaceholderText("Width")
-        self._custom_w.setMaxLength(4)
-        x_sep = QLabel("×")
-        x_sep.setObjectName("xSep")
-        self._custom_h = QLineEdit()
-        self._custom_h.setObjectName("customInput")
-        self._custom_h.setPlaceholderText("Height")
-        self._custom_h.setMaxLength(4)
-        res_hint = QLabel("(500 – 4000 each)")
-        res_hint.setObjectName("customHint")
-        custom_res_inner.addStretch()
-        custom_res_inner.addWidget(self._custom_w)
-        custom_res_inner.addWidget(x_sep)
-        custom_res_inner.addWidget(self._custom_h)
-        custom_res_inner.addWidget(res_hint)
-        custom_res_inner.addStretch()
-        self._custom_res_widget.setVisible(False)
-        root.addWidget(self._custom_res_widget)
-        root.addSpacing(10)
-
-        # ---- FPS row ----
-        fps_row = QHBoxLayout()
-        fps_row.setSpacing(12)
-        fps_label = QLabel("FPS:")
-        fps_label.setObjectName("instruction")
-        self._fps_combo = QComboBox()
-        self._fps_combo.addItems(self.FPS_OPTIONS)
-        self._fps_combo.setCurrentText("60")
-        self._fps_combo.currentTextChanged.connect(self._on_fps_changed)
-        fps_row.addStretch()
-        fps_row.addWidget(fps_label)
-        fps_row.addWidget(self._fps_combo)
-        fps_row.addStretch()
-        root.addLayout(fps_row)
-
-        self._custom_fps_widget = QWidget()
-        custom_fps_inner = QHBoxLayout(self._custom_fps_widget)
-        custom_fps_inner.setContentsMargins(0, 4, 0, 0)
-        custom_fps_inner.setSpacing(6)
-        self._custom_fps_edit = QLineEdit()
-        self._custom_fps_edit.setObjectName("customInput")
-        self._custom_fps_edit.setPlaceholderText("FPS")
-        self._custom_fps_edit.setMaxLength(3)
-        fps_hint = QLabel("(24 – 240)")
-        fps_hint.setObjectName("customHint")
-        custom_fps_inner.addStretch()
-        custom_fps_inner.addWidget(self._custom_fps_edit)
-        custom_fps_inner.addWidget(fps_hint)
-        custom_fps_inner.addStretch()
-        self._custom_fps_widget.setVisible(False)
-        root.addWidget(self._custom_fps_widget)
-        root.addSpacing(10)
-
-        # ---- Bitrate row ----
-        bitrate_row = QHBoxLayout()
-        bitrate_row.setSpacing(12)
-        bitrate_label = QLabel("Video Bitrate (kbps):")
-        bitrate_label.setObjectName("instruction")
-        self._bitrate_edit = QLineEdit()
-        self._bitrate_edit.setObjectName("customInput")
-        self._bitrate_edit.setText("8000")
-        self._bitrate_edit.setMaxLength(5)
-        bitrate_row.addStretch()
-        bitrate_row.addWidget(bitrate_label)
-        bitrate_row.addWidget(self._bitrate_edit)
-        bitrate_row.addStretch()
-        root.addLayout(bitrate_row)
-        root.addSpacing(16)
-
-        warning = QLabel(
-            "⚠️ WARNING: The Resolution and FPS set here MUST EXACTLY "
-            "MATCH the settings in the Android tablet app, or the stream "
-            "will corrupt!"
-        )
-        warning.setObjectName("warningLabel")
-        warning.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        warning.setWordWrap(True)
-        root.addWidget(warning)
-        root.addSpacing(20)
-
-        root.addWidget(hr())
-        root.addSpacing(16)
-
-        step2_lbl = QLabel(
-            'Then click Start Streaming below. When the screen-sharing '
-            'popup appears, select "TabletDisplay" and click Share.'
-        )
-        step2_lbl.setObjectName("portalHint")
-        step2_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        step2_lbl.setWordWrap(True)
-        root.addWidget(step2_lbl)
-        root.addSpacing(20)
-
         root.addStretch()
 
         back = QPushButton("← Back")
         back.setObjectName("backBtn")
         back.clicked.connect(on_back)
 
-        self._start_btn = QPushButton("▶  Start Streaming")
-        self._start_btn.setObjectName("primaryBtn")
-        self._start_btn.clicked.connect(self._validate_and_start)
-
         row = QHBoxLayout()
-        row.setSpacing(20)
-        row.addStretch()
-        row.addWidget(back)
-        row.addWidget(self._start_btn)
-        row.addStretch()
+        row.addStretch(); row.addWidget(back); row.addStretch()
         root.addLayout(row)
         root.addSpacing(20)
 
-    def _on_res_changed(self, text: str):
-        self._custom_res_widget.setVisible(text == "Custom…")
-
-    def _on_fps_changed(self, text: str):
-        self._custom_fps_widget.setVisible(text == "Custom…")
-
-    def _validate_and_start(self):
-        if self._res_combo.currentText() == "Custom…":
-            try:
-                w = int(self._custom_w.text())
-                h = int(self._custom_h.text())
-            except ValueError: return
-        if self._fps_combo.currentText() == "Custom…":
-            try: fps = int(self._custom_fps_edit.text())
-            except ValueError: return
-        try: bitrate = int(self._bitrate_edit.text())
-        except ValueError: return
-
-        self._on_start_cb()
-
-    def selected_resolution(self) -> tuple[int, int]:
-        if self._res_combo.currentText() == "Custom…":
-            return int(self._custom_w.text()), int(self._custom_h.text())
-        text = self._res_combo.currentText()
-        w, h = text.split("x")
-        return int(w), int(h)
-
-    def selected_fps(self) -> int:
-        if self._fps_combo.currentText() == "Custom…":
-            return int(self._custom_fps_edit.text())
-        return int(self._fps_combo.currentText())
-
-    def selected_bitrate(self) -> int:
-        return int(self._bitrate_edit.text())
 
 class UsbStep1Page(QWidget):
     """Step 1 — connect tablet and run ADB."""
@@ -1046,7 +864,6 @@ class MonitorizeWindow(QMainWindow):
             self.detected_de = detected
         else:
             self.detected_de = self._ask_desktop_environment()
-        self._is_wifi = False
         # Badge is updated after pages are added to the stack (see below)
 
         # Persistent QProcess objects for streaming + input forwarding
@@ -1070,7 +887,7 @@ class MonitorizeWindow(QMainWindow):
         self.setCentralWidget(self._stack)
 
         self._page_main      = MainMenuPage(self._go_usb1, self._go_wifi)
-        self._page_wifi      = WifiPage(self._go_main, self._on_start_streaming_wifi)
+        self._page_wifi      = WifiPage(self._go_main)
         self._page_usb1      = UsbStep1Page(self._go_main, self._on_connected)
         self._page_usb2      = UsbStep2Page(self._go_usb1, self._on_start_streaming)
         self._page_streaming = StreamingPage(self._on_stop_streaming)
@@ -1189,13 +1006,31 @@ class MonitorizeWindow(QMainWindow):
         self._stack.setCurrentIndex(PAGE_MAIN)
 
     def _go_wifi(self):
-        self._is_wifi = True
-        self._stack.setCurrentIndex(PAGE_WIFI)
+        """Navigate to Wi-Fi page (KDE only) or show not-supported for other DEs."""
+        if self.detected_de == "kde":
+            # KDE has a Wi-Fi streamer (work in progress)
+            self._stack.setCurrentIndex(PAGE_WIFI)
+            return
+
+        # All other DEs: Wi-Fi not yet supported
+        _de_labels = {
+            "gnome":    "GNOME",
+            "hyprland": "Hyprland",
+            "sway":     "Sway",
+        }
+        de_label = _de_labels.get(self.detected_de, self.detected_de.upper())
+        msg = QMessageBox(self)
+        msg.setWindowTitle(f"Wi-Fi Mode — {de_label}")
+        msg.setText(
+            f"Wi-Fi mode is not yet supported on {de_label}.\n"
+            "Please use USB mode."
+        )
+        msg.setIcon(QMessageBox.Icon.Information)
+        msg.exec()
 
     def _go_usb1(self):
         self._page_usb1.set_status("")
         self._page_usb1.set_busy(False)
-        self._is_wifi = False
         self._stack.setCurrentIndex(PAGE_USB1)
 
     # ------------------------------------------------------------------
@@ -1214,7 +1049,6 @@ class MonitorizeWindow(QMainWindow):
         if exit_code != 0:
             self._page_usb1.set_status("❌  adb devices failed. Is ADB installed?")
             self._page_usb1.set_busy(False)
-            self._is_wifi = False
             return
 
         self._page_usb1.set_status("⏳  Forwarding port tcp:7110…")
@@ -1226,7 +1060,6 @@ class MonitorizeWindow(QMainWindow):
         if exit_code != 0:
             self._page_usb1.set_status("❌  Port forward failed. Is a device connected?")
             self._page_usb1.set_busy(False)
-            self._is_wifi = False
             return
 
         # Touch daemon acts as a Server on Linux port 7111.
@@ -1242,69 +1075,69 @@ class MonitorizeWindow(QMainWindow):
             self._page_usb1.set_status("⚠️  tcp:7111 reverse failed — touch disabled")
         else:
             self._page_usb1.set_status("✅  Device ready!")
-            import socket, subprocess
-            try:
-                hostname = socket.gethostname()
-                subprocess.Popen(["adb", "shell", "setprop", "debug.monitorize.pc_name", hostname])
-            except Exception:
-                pass
         self._page_usb1.set_busy(False)
-        self._is_wifi = False
         QTimer.singleShot(600, lambda: self._stack.setCurrentIndex(PAGE_USB2))
 
     # ------------------------------------------------------------------
     # Step 2 — Start both processes SIMULTANEOUSLY
     # ------------------------------------------------------------------
 
-    def _on_start_streaming_wifi(self):
-        self._is_wifi = True
-        self._do_start_streaming(self._page_wifi)
-
     def _on_start_streaming(self):
-        self._is_wifi = False
-        self._do_start_streaming(self._page_usb2)
-
-    def _do_start_streaming(self, config_page):
         script_dir = os.path.dirname(os.path.abspath(__file__))
         self._page_streaming.clear_log()
 
+        # Inherit the full system environment (WAYLAND_DISPLAY, XDG_SESSION_TYPE,
+        # DBUS_SESSION_BUS_ADDRESS, etc.) so both processes behave exactly like
+        # commands launched from a native terminal inside KDE Plasma.
         env = QProcessEnvironment.systemEnvironment()
         self._script_dir = script_dir
         self._env        = env
 
+        # ---- Switch to streaming page immediately ----
         self._page_streaming.set_stop_enabled(False)
         self._stack.setCurrentIndex(PAGE_STREAMING)
 
-        width, height = config_page.selected_resolution()
-        fps = config_page.selected_fps()
-        bitrate = config_page.selected_bitrate()
+        # Read user-chosen resolution / FPS / Bitrate
+        width, height = self._page_usb2.selected_resolution()
+        fps = self._page_usb2.selected_fps()
+        bitrate = self._page_usb2.selected_bitrate()
         self._stream_width  = width
         self._stream_height = height
         self._stream_fps    = fps
         self._stream_bitrate = bitrate
 
+        # ---- KDE: start krfb-virtualmonitor first, wait 5 seconds, then launch streamer ----
         if self.detected_de == "kde":
             self._page_streaming.set_status("⏳  Starting virtual monitor…  5")
             self.process_krfb = QProcess(self)
             self.process_krfb.setWorkingDirectory(script_dir)
             self.process_krfb.setProcessEnvironment(env)
-            self.process_krfb.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+            self.process_krfb.setProcessChannelMode(
+                QProcess.ProcessChannelMode.MergedChannels
+            )
             self.process_krfb.readyReadStandardOutput.connect(self._read_krfb)
             self.process_krfb.finished.connect(
-                lambda code, _: self._page_streaming.append_log("KRFB", f"Process exited (code {code})")
+                lambda code, _: self._page_streaming.append_log(
+                    "KRFB", f"Process exited (code {code})"
+                )
             )
             import subprocess
             subprocess.run(["killall", "krfb-virtualmonitor"], capture_output=True)
 
-            self.process_krfb.start("krfb-virtualmonitor", [
-                "--resolution", f"{width}x{height}",
-                "--name",       "TabletDisplay",
-                "--password",   "test123",
-                "--port",       "5900",
-            ])
-            self._countdown = 1
+            self.process_krfb.start(
+                "krfb-virtualmonitor",
+                [
+                    "--resolution", f"{width}x{height}",
+                    "--name",       "TabletDisplay",
+                    "--password",   "test123",
+                    "--port",       "5900",
+                ],
+            )
+            # Begin 5-second countdown before starting the streamer
+            self._countdown = 5
             self._countdown_timer.start()
         else:
+            # GNOME / Hyprland / Sway handle virtual monitors internally
             self._page_streaming.set_status("⏳  Launching streamer…")
             self._launch_streamer()
 
@@ -1344,18 +1177,13 @@ class MonitorizeWindow(QMainWindow):
         }
         streamer_script = _streamer_map.get(self.detected_de, "Streamer_kde_usb.py")
 
-        args = [
+        self.process_streamer.start("python3", [
             streamer_script,
             str(self._stream_width),
             str(self._stream_height),
             str(self._stream_fps),
             str(self._stream_bitrate),
-        ]
-        if self._is_wifi:
-            args.append("wifi")
-        else:
-            args.append("usb")
-        self.process_streamer.start("python3", args)
+        ])
 
         # ── Launch input bridge AFTER streamer (compositor-agnostic, separate port 7111) ──
         # The streamer triggers the screen-share display selector popup;
@@ -1381,14 +1209,11 @@ class MonitorizeWindow(QMainWindow):
                 "INPUT", f"Bridge exited (code {code})"
             )
         )
-        args = [
+        self.process_input_bridge.start("python3", [
             os.path.join(self._script_dir, "touch_daemon.py"),
             str(self._stream_width),
             str(self._stream_height),
-        ]
-        if getattr(self, "_is_wifi", False):
-            args.append("--wifi")
-        self.process_input_bridge.start("python3", args)
+        ])
 
         if self.detected_de == "hyprland":
             self._page_streaming.set_status(
