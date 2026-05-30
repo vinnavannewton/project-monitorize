@@ -2,26 +2,25 @@ package com.example.monitorize
 
 import android.util.Log
 import java.net.ServerSocket
+import java.net.Socket
+import java.net.DatagramSocket
+import java.net.DatagramPacket
+import java.net.InetSocketAddress
 
-/**
- * Reads raw H.264 Annex B bytes from TCP and buffers them until complete NAL units
- * (Access Units) are found. This prevents feeding partial frames to MediaCodec,
- * which causes corruption during static scenes.
- *
- * Optimised: uses read/write pointers instead of arraycopy shifts, and a larger
- * read buffer for fewer syscalls.
- */
 class StreamReceiver(
     private val decoder: H264Decoder,
     private val width: Int,
     private val height: Int,
-    private val fps: Int
+    private val fps: Int,
+    private val hostIp: String? = null
 ) {
-
     private var running = false
     private var serverSocket: ServerSocket? = null
+    private var controlSocket: Socket? = null
+    private var udpSocket: DatagramSocket? = null
 
     var onStatusChange: ((String) -> Unit)? = null
+    var onDisconnect: (() -> Unit)? = null
 
     companion object {
         private const val TAG = "StreamReceiver"
@@ -30,96 +29,160 @@ class StreamReceiver(
 
     fun start() {
         running = true
-        Thread(::receiveLoop, "MonitorizeReceiver").start()
+        Thread({
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_DISPLAY)
+            try {
+                receiveLoop()
+            } catch (e: Exception) {
+                Log.e(TAG, "receiveLoop crashed", e)
+            } finally {
+                // If running is still true, the loop exited unexpectedly (disconnect)
+                if (running) {
+                    running = false
+                    onDisconnect?.invoke()
+                }
+                cleanup()
+            }
+        }, "MonitorizeReceiver").start()
     }
 
     private fun receiveLoop() {
-        try {
-            serverSocket = ServerSocket(PORT)
-            onStatusChange?.invoke("Waiting for connection…")
+        if (hostIp.isNullOrEmpty()) {
+            receiveLoopUsb()
+        } else {
+            receiveLoopWifi(hostIp)
+        }
+    }
 
-            val socket = serverSocket!!.accept()
+
+    private fun receiveLoopWifi(targetIp: String) {
+        while (running) {
+            onStatusChange?.invoke("Connecting to $targetIp…")
+            var socket: Socket? = null
+            while (running && socket == null) {
+                try {
+                    socket = Socket()
+                    socket.connect(InetSocketAddress(targetIp, PORT), 2000)
+                } catch (e: Exception) {
+                    socket = null
+                    Thread.sleep(1000)
+                }
+            }
+            if (socket == null || !running) break
+
+            socket.tcpNoDelay = true
+            socket.receiveBufferSize = 1024 * 1024
+            controlSocket = socket
+
+            onStatusChange?.invoke("Connected")
+            decoder.init(width, height, fps)
+            onStatusChange?.invoke("")
+
+            processStreamLoop(socket.getInputStream(), "WiFi")
+            try { socket.close() } catch (e: Exception) {}
+        }
+    }
+
+
+    private fun receiveLoopUsb() {
+        val ss = ServerSocket()
+        ss.reuseAddress = true
+        ss.bind(InetSocketAddress(PORT))
+        ss.soTimeout = 1000
+        serverSocket = ss
+            
+        while (running) {
+            onStatusChange?.invoke("Waiting for USB connection…")
+
+            var socket: Socket? = null
+            while (running && socket == null) {
+                try {
+                    socket = ss.accept()
+                } catch (e: java.net.SocketTimeoutException) {
+                    continue
+                }
+            }
+            if (socket == null || !running) break
+
             socket.tcpNoDelay = true
             socket.receiveBufferSize = 1024 * 1024
 
             onStatusChange?.invoke("Connected")
-
             decoder.init(width, height, fps)
             onStatusChange?.invoke("")
 
-            val input = socket.getInputStream()
+            processStreamLoop(socket.getInputStream(), "USB")
+            try { socket.close() } catch (e: Exception) {}
+        }
+    }
+    
+    private fun processStreamLoop(input: java.io.InputStream, streamType: String) {
+        val buf = ByteArray(4 * 1024 * 1024)
+        var writePos = 0
+        val readBuf = ByteArray(128 * 1024)
+        var hasReceivedVideo = false
 
-            // Ring buffer with read/write pointers — avoids expensive arraycopy shifts
-            val buf = ByteArray(4 * 1024 * 1024)
-            var writePos = 0
-            val readBuf = ByteArray(128 * 1024)  // larger reads = fewer syscalls
-
-            while (running) {
-                val bytesRead = input.read(readBuf)
-                if (bytesRead <= 0) break
-
-                // Compact if we'd overflow
-                if (writePos + bytesRead > buf.size) {
-                    // This should rarely happen with 4MB buffer
-                    Log.w(TAG, "Buffer near capacity, compacting")
-                    writePos = 0
+        while (running) {
+            val bytesRead = try {
+                input.read(readBuf)
+            } catch (e: Exception) {
+                Log.w(TAG, "$streamType stream read error: ${e.message}")
+                -1
+            }
+            
+            if (bytesRead > 0) {
+                hasReceivedVideo = true
+            } else if (bytesRead <= 0) {
+                if (hasReceivedVideo && running) {
+                    Log.w(TAG, "$streamType stream ended permanently.")
+                    running = false
+                    onDisconnect?.invoke()
+                } else {
+                    Log.w(TAG, "$streamType stream probe ended. Re-listening...")
                 }
-                System.arraycopy(readBuf, 0, buf, writePos, bytesRead)
-                writePos += bytesRead
+                break
+            }
 
-                // Parse NAL units from [readStart .. writePos)
-                var readStart = 0
-                while (readStart < writePos - 4) {
-                    // Find first start code
-                    val sc1 = findStartCode(buf, readStart, writePos)
-                    if (sc1 < 0) break
+            if (writePos + bytesRead > buf.size) {
+                writePos = 0
+            }
+            System.arraycopy(readBuf, 0, buf, writePos, bytesRead)
+            writePos += bytesRead
 
-                    // Find next start code
-                    val sc2 = findStartCode(buf, sc1 + 4, writePos)
-                    if (sc2 < 0) {
-                        // Incomplete NAL — shift remaining data to front and wait
-                        val remaining = writePos - sc1
-                        if (sc1 > 0) {
-                            System.arraycopy(buf, sc1, buf, 0, remaining)
-                        }
-                        writePos = remaining
-                        readStart = 0
-                        break
+            var readStart = 0
+            while (readStart < writePos - 4) {
+                val sc1 = findStartCode(buf, readStart, writePos)
+                if (sc1 < 0) break
+
+                val sc2 = findStartCode(buf, sc1 + 4, writePos)
+                if (sc2 < 0) {
+                    val remaining = writePos - sc1
+                    if (sc1 > 0) {
+                        System.arraycopy(buf, sc1, buf, 0, remaining)
                     }
-
-                    // Complete NAL unit: [sc1 .. sc2)
-                    decoder.feedChunk(buf, sc1, sc2 - sc1)
-                    readStart = sc2
-                }
-
-                // If we consumed everything up to writePos
-                if (readStart > 0 && readStart < writePos) {
-                    val remaining = writePos - readStart
-                    System.arraycopy(buf, readStart, buf, 0, remaining)
                     writePos = remaining
-                } else if (readStart >= writePos) {
-                    writePos = 0
+                    readStart = 0
+                    break
                 }
+
+                decoder.feedChunk(buf, sc1, sc2 - sc1)
+                readStart = sc2
             }
-        } catch (e: Exception) {
-            if (running) {
-                Log.e(TAG, "Stream error", e)
-                onStatusChange?.invoke("Error: ${e.message}")
+
+            if (readStart > 0 && readStart < writePos) {
+                val remaining = writePos - readStart
+                System.arraycopy(buf, readStart, buf, 0, remaining)
+                writePos = remaining
+            } else if (readStart >= writePos) {
+                writePos = 0
             }
-        } finally {
-            try { serverSocket?.close() } catch (_: Exception) {}
         }
     }
 
-    /**
-     * Find the next Annex B start code (0x00 0x00 0x00 0x01) starting from [from].
-     * Returns the index of the start code, or -1 if not found before [limit]-3.
-     */
     private fun findStartCode(buf: ByteArray, from: Int, limit: Int): Int {
         val end = limit - 3
         var i = from
         while (i < end) {
-            // Fast skip: if current byte is not 0, skip ahead
             if (buf[i].toInt() != 0) {
                 i++
                 continue
@@ -132,8 +195,17 @@ class StreamReceiver(
         return -1
     }
 
+    private fun cleanup() {
+        try { controlSocket?.close() } catch (_: Exception) {}
+        try { udpSocket?.close() } catch (_: Exception) {}
+        try { serverSocket?.close() } catch (_: Exception) {}
+        controlSocket = null
+        udpSocket = null
+        serverSocket = null
+    }
+
     fun stop() {
         running = false
-        try { serverSocket?.close() } catch (_: Exception) {}
+        cleanup()
     }
 }

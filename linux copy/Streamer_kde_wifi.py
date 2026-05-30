@@ -9,10 +9,10 @@ from gi.repository import GLib
 
 # Wi‑Fi‑tuned parameters
 PORT    = 7110
-WIDTH   = int(sys.argv[1]) if len(sys.argv) > 1 else 2560
-HEIGHT  = int(sys.argv[2]) if len(sys.argv) > 2 else 1600
-FPS     = int(sys.argv[3]) if len(sys.argv) > 3 else 60
-BITRATE = int(sys.argv[4]) if len(sys.argv) > 4 else 8000
+WIDTH   = 2560   # keep in sync with your virtual monitor + Android
+HEIGHT  = 1600
+FPS     = 60
+BITRATE = 8000   # lower than USB, more stable on Wi‑Fi
 
 DBusGMainLoop(set_as_default=True)
 loop    = GLib.MainLoop()
