@@ -8,12 +8,11 @@ import android.os.HandlerThread
 import android.util.Log
 import android.view.Surface
 import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * H.264 hardware decoder — minimal latency configuration.
- * Uses asynchronous MediaCodec callbacks for lowest possible decode latency.
- * Feeds raw Annex B byte chunks directly to MediaCodec.
+ * H.264 hardware decoder — zero-allocation minimal latency configuration.
  */
 class H264Decoder(private val surface: Surface) {
 
@@ -22,11 +21,24 @@ class H264Decoder(private val surface: Surface) {
     @Volatile private var initialized = false
     private var callbackThread: HandlerThread? = null
 
+    class FrameChunk(val data: ByteArray) {
+        var size: Int = 0
+    }
+
+    // Object pool for zero-allocation
     // Tight queue — only 2 frames max to minimise backlog latency.
-    // When full, we drop the OLDEST chunk so the decoder always catches up.
-    private val chunkQueue = LinkedBlockingQueue<ByteArray>(2)
+    private val POOL_SIZE = 2
+    private val chunkPool = ArrayBlockingQueue<FrameChunk>(POOL_SIZE)
+    private val chunkQueue = LinkedBlockingQueue<FrameChunk>(POOL_SIZE)
+    
     private val nextPts = AtomicLong(0L)
     private var frameDurationUs = 16_667L
+
+    init {
+        for (i in 0 until POOL_SIZE) {
+            chunkPool.offer(FrameChunk(ByteArray(MAX_INPUT)))
+        }
+    }
 
     companion object {
         private const val TAG = "H264Decoder"
@@ -44,19 +56,17 @@ class H264Decoder(private val surface: Surface) {
                 MediaFormat.MIMETYPE_VIDEO_AVC, width, height
             ).apply {
                 setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, MAX_INPUT)
-                setInteger(MediaFormat.KEY_OPERATING_RATE, Short.MAX_VALUE.toInt()) // max speed
-                setInteger(MediaFormat.KEY_PRIORITY, 0) // real-time
-                setInteger(MediaFormat.KEY_LOW_LATENCY, 1) // request low-latency mode
-                // Constrained Baseline — no B-frames, fastest decode path
+                setInteger(MediaFormat.KEY_OPERATING_RATE, Short.MAX_VALUE.toInt())
+                setInteger(MediaFormat.KEY_PRIORITY, 0)
+                setInteger(MediaFormat.KEY_LOW_LATENCY, 1)
                 try {
                     setInteger(
                         MediaFormat.KEY_PROFILE,
                         MediaCodecInfo.CodecProfileLevel.AVCProfileConstrainedBaseline
                     )
-                } catch (_: Exception) { /* not all devices support this key */ }
+                } catch (_: Exception) {}
             }
 
-            // Dedicated handler thread for codec callbacks
             callbackThread = HandlerThread("MonitorizeDecoder").also {
                 it.priority = Thread.MAX_PRIORITY
                 it.start()
@@ -67,14 +77,13 @@ class H264Decoder(private val surface: Surface) {
                 it.setCallback(object : MediaCodec.Callback() {
                     override fun onInputBufferAvailable(mc: MediaCodec, inputBufferId: Int) {
                         if (!initialized) return
-                        // Try to get a chunk; if none available, re-offer the buffer index
                         val chunk = chunkQueue.poll()
                         if (chunk == null) {
-                            // No data ready — park this buffer index for later use by feedChunk
                             pendingInputBuffers.offer(inputBufferId)
                             return
                         }
                         fillInputBuffer(mc, inputBufferId, chunk)
+                        chunkPool.offer(chunk) // Return to pool
                     }
 
                     override fun onOutputBufferAvailable(
@@ -84,18 +93,12 @@ class H264Decoder(private val surface: Surface) {
                         try {
                             mc.releaseOutputBuffer(outputBufferId, true)
                             frameCount++
-                        } catch (e: Exception) {
-                            if (initialized) Log.e(TAG, "Release error", e)
-                        }
+                        } catch (e: Exception) {}
                     }
 
-                    override fun onError(mc: MediaCodec, e: MediaCodec.CodecException) {
-                        Log.e(TAG, "Codec error", e)
-                    }
+                    override fun onError(mc: MediaCodec, e: MediaCodec.CodecException) {}
 
-                    override fun onOutputFormatChanged(mc: MediaCodec, format: MediaFormat) {
-                        Log.i(TAG, "Format: $format")
-                    }
+                    override fun onOutputFormatChanged(mc: MediaCodec, format: MediaFormat) {}
                 }, handler)
 
                 it.configure(format, surface, null, 0)
@@ -109,39 +112,44 @@ class H264Decoder(private val surface: Surface) {
         }
     }
 
-    // Queue of input buffer indices that are ready but had no data
     private val pendingInputBuffers = LinkedBlockingQueue<Int>(16)
 
-    private fun fillInputBuffer(mc: MediaCodec, idx: Int, chunk: ByteArray) {
+    private fun fillInputBuffer(mc: MediaCodec, idx: Int, chunk: FrameChunk) {
         try {
             val buf = mc.getInputBuffer(idx) ?: return
             buf.clear()
             val sz = chunk.size.coerceAtMost(buf.remaining())
-            buf.put(chunk, 0, sz)
+            buf.put(chunk.data, 0, sz)
             val pts = nextPts.getAndAdd(frameDurationUs)
             mc.queueInputBuffer(idx, 0, sz, pts, 0)
-        } catch (e: Exception) {
-            if (initialized) Log.e(TAG, "Input error", e)
-        }
+        } catch (e: Exception) {}
     }
 
     fun feedChunk(data: ByteArray, offset: Int, size: Int) {
         if (!initialized) return
-        val copy = ByteArray(size)
-        System.arraycopy(data, offset, copy, 0, size)
 
-        // If there's a pending input buffer from the callback, fill it immediately
+        var chunk = chunkPool.poll()
+        if (chunk == null) {
+            // Drop oldest from queue to prefer newest data (lowest latency)
+            chunk = chunkQueue.poll()
+            if (chunk == null) {
+                chunk = FrameChunk(ByteArray(MAX_INPUT))
+            }
+        }
+
+        val actualSize = size.coerceAtMost(chunk.data.size)
+        System.arraycopy(data, offset, chunk.data, 0, actualSize)
+        chunk.size = actualSize
+
         val pendingIdx = pendingInputBuffers.poll()
         if (pendingIdx != null) {
             val mc = codec ?: return
-            fillInputBuffer(mc, pendingIdx, copy)
+            fillInputBuffer(mc, pendingIdx, chunk)
+            chunkPool.offer(chunk) // Return to pool
             return
         }
 
-        // Otherwise queue the chunk — drop oldest when full to prefer newest data
-        while (!chunkQueue.offer(copy)) {
-            chunkQueue.poll()
-        }
+        chunkQueue.offer(chunk) // Put into queue
     }
 
     fun release() {
@@ -153,6 +161,5 @@ class H264Decoder(private val surface: Surface) {
         try { callbackThread?.quitSafely(); callbackThread?.join(2000) }
         catch (_: InterruptedException) { Thread.currentThread().interrupt() }
         callbackThread = null
-        Log.i(TAG, "Released. Frames: $frameCount")
     }
 }

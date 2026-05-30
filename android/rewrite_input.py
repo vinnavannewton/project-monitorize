@@ -1,4 +1,6 @@
-package com.example.monitorize
+import os
+
+input_sender = """package com.example.monitorize
 
 import android.view.MotionEvent
 import java.io.OutputStream
@@ -13,6 +15,8 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 
 class InputEventSender(
+    private val screenW: Float,
+    private val screenH: Float,
     private val hostIp: String? = null
 ) {
     companion object {
@@ -67,14 +71,14 @@ class InputEventSender(
         }
     }
 
-    fun send(event: MotionEvent, viewW: Float, viewH: Float) {
+    fun send(event: MotionEvent) {
         val notConnected = (hostIp.isNullOrEmpty() && out == null) || (!hostIp.isNullOrEmpty() && udpSocket == null)
         if (notConnected) return
 
         when (event.actionMasked) {
             MotionEvent.ACTION_MOVE -> {
                 for (i in 0 until event.pointerCount) {
-                    buildAndQueue(event, i, 1, viewW, viewH)
+                    buildAndQueue(event, i, 1)
                 }
             }
             else -> {
@@ -90,12 +94,12 @@ class InputEventSender(
                     MotionEvent.ACTION_HOVER_EXIT -> 3
                     else -> return
                 }
-                buildAndQueue(event, idx, action, viewW, viewH)
+                buildAndQueue(event, idx, action)
             }
         }
     }
 
-    private fun buildAndQueue(event: MotionEvent, pointerIndex: Int, action: Int, viewW: Float, viewH: Float) {
+    private fun buildAndQueue(event: MotionEvent, pointerIndex: Int, action: Int) {
         val toolType = event.getToolType(pointerIndex)
         val pktType: Byte = if (toolType == MotionEvent.TOOL_TYPE_STYLUS ||
                                  toolType == MotionEvent.TOOL_TYPE_ERASER) 0x04 else 0x03
@@ -109,12 +113,8 @@ class InputEventSender(
 
         val rawX = event.getX(pointerIndex)
         val rawY = event.getY(pointerIndex)
-        // Mathematically guarantee boundary checking with coerceIn(1f) to prevent division by zero
-        val w = viewW.coerceAtLeast(1f)
-        val h = viewH.coerceAtLeast(1f)
-        
-        val x  = ((rawX / w) * 65535f).toInt().coerceIn(0, 65535).toShort()
-        val y  = ((rawY / h) * 65535f).toInt().coerceIn(0, 65535).toShort()
+        val x  = ((rawX / screenW) * 65535f).toInt().coerceIn(0, 65535).toShort()
+        val y  = ((rawY / screenH) * 65535f).toInt().coerceIn(0, 65535).toShort()
         val pr = (event.getPressure(pointerIndex) * 65535f).toInt().coerceIn(0, 65535).toShort()
         val tx = (event.getAxisValue(MotionEvent.AXIS_TILT, pointerIndex) * 100f)
                     .toInt().coerceIn(-9000, 9000).toShort()
@@ -145,3 +145,8 @@ class InputEventSender(
         out = null
     }
 }
+"""
+
+with open("/home/vinnavan/user/MegaProjects/Monitorize/android/app/src/main/java/com/example/monitorize/InputEventSender.kt", "w") as f:
+    f.write(input_sender)
+print("InputEventSender.kt updated.")

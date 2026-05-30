@@ -10,9 +10,9 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QStackedWidget, QFrame, QPlainTextEdit,
     QComboBox, QCheckBox, QSystemTrayIcon, QMenu,
-    QDialog, QMessageBox, QLineEdit, QScrollArea,
+    QDialog, QMessageBox, QLineEdit,
 )
-from PyQt6.QtCore import Qt, QProcess, QProcessEnvironment, QTimer, QSize
+from PyQt6.QtCore import Qt, QProcess, QProcessEnvironment, QTimer
 from PyQt6.QtGui import QColor, QPalette, QFont, QTextCursor, QIcon, QPixmap, QPainter
 
 # ---------------------------------------------------------------------------
@@ -214,17 +214,14 @@ QLabel#warningLabel {
 }
 
 /* ── DE Badge ─────────────────────────────────────────────────────── */
-#deBadge {
-    background-color: rgba(76, 79, 208, 0.08);
-    border: 1px solid rgba(76, 79, 208, 0.16);
-    border-radius: 14px;
-}
-#deBadge QLabel {
+QLabel#deBadge {
     font-size: 12px;
     font-weight: 600;
     color: #6a6cbb;
-    background: transparent;
-    border: none;
+    padding: 4px 14px;
+    background-color: rgba(76, 79, 208, 0.08);
+    border: 1px solid rgba(76, 79, 208, 0.16);
+    border-radius: 14px;
 }
 
 /* ── Portal Hint ──────────────────────────────────────────────────── */
@@ -355,18 +352,9 @@ class MainMenuPage(QWidget):
         sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # ---- Desktop environment badge ----
-        self._de_badge = QFrame()
+        self._de_badge = QLabel("")
         self._de_badge.setObjectName("deBadge")
-        badge_layout = QHBoxLayout(self._de_badge)
-        badge_layout.setContentsMargins(14, 4, 14, 4)
-        badge_layout.setSpacing(6)
-        
-        self._de_badge_icon = QLabel()
-        self._de_badge_text = QLabel("")
-        badge_layout.addStretch()
-        badge_layout.addWidget(self._de_badge_icon)
-        badge_layout.addWidget(self._de_badge_text)
-        badge_layout.addStretch()
+        self._de_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         root.addWidget(title)
         root.addSpacing(6)
@@ -380,22 +368,12 @@ class MainMenuPage(QWidget):
         row = QHBoxLayout()
         row.setSpacing(28)
 
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        usb_svg = os.path.join(script_dir, "assets", "svg", "usb-logo.svg")
-        wifi_svg = os.path.join(script_dir, "assets", "svg", "wifi-logo.svg")
-
-        usb_btn = QPushButton("  USB Mode")
+        usb_btn = QPushButton("🔌  USB Mode")
         usb_btn.setObjectName("modeBtn")
-        if os.path.exists(usb_svg):
-            usb_btn.setIcon(QIcon(usb_svg))
-            usb_btn.setIconSize(QSize(20, 20))
         usb_btn.clicked.connect(on_usb)
 
-        wifi_btn = QPushButton("  Wi-Fi Mode")
+        wifi_btn = QPushButton("📶  Wi-Fi Mode")
         wifi_btn.setObjectName("modeBtn")
-        if os.path.exists(wifi_svg):
-            wifi_btn.setIcon(QIcon(wifi_svg))
-            wifi_btn.setIconSize(QSize(20, 20))
         wifi_btn.clicked.connect(on_wifi)
 
         row.addStretch()
@@ -424,11 +402,11 @@ class MainMenuPage(QWidget):
 
     def update_de_badge(self, de: str):
         """Show the detected/selected desktop environment in the badge."""
-        script_dir = os.path.dirname(os.path.abspath(__file__))
         _icons = {
-            "kde":      os.path.join(script_dir, "assets", "svg", "kde-logo.svg"),
-            "gnome":    os.path.join(script_dir, "assets", "svg", "gnome-logo.svg"),
-            "hyprland": os.path.join(script_dir, "assets", "svg", "hyprland-logo.svg"),
+            "kde":      "🐉",
+            "gnome":    "🦶",
+            "hyprland": "🌊",
+            "sway":     "🌿",
         }
         _labels = {
             "kde":      "KDE Plasma",
@@ -436,15 +414,9 @@ class MainMenuPage(QWidget):
             "hyprland": "Hyprland",
             "sway":     "Sway",
         }
-        icon_path = _icons.get(de)
-        if icon_path and os.path.exists(icon_path):
-            self._de_badge_icon.setPixmap(QIcon(icon_path).pixmap(16, 16))
-            self._de_badge_icon.setVisible(True)
-        else:
-            self._de_badge_icon.setVisible(False)
-
+        icon  = _icons.get(de, "❓")
         label = _labels.get(de, de.upper() if de else "Unknown")
-        self._de_badge_text.setText(f"Desktop: {label}")
+        self._de_badge.setText(f"{icon}  Desktop: {label}")
 
 
 def get_local_ip():
@@ -466,7 +438,7 @@ class WifiPage(QWidget):
     ]
     FPS_OPTIONS = ["30", "60", "90", "120", "Custom…"]
 
-    def __init__(self, on_back, on_start, detected_de="kde", parent=None):
+    def __init__(self, on_back, on_start, parent=None):
         super().__init__(parent)
         self._on_start_cb = on_start
         root = QVBoxLayout(self)
@@ -480,33 +452,12 @@ class WifiPage(QWidget):
         root.addSpacing(24)
 
         ip = get_local_ip()
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        wifi_svg = os.path.join(script_dir, "assets", "svg", "wifi-logo.svg")
-
-        wifi_header = QWidget()
-        wifi_header_layout = QHBoxLayout(wifi_header)
-        wifi_header_layout.setContentsMargins(0, 0, 0, 0)
-        wifi_header_layout.setSpacing(8)
-
-        wifi_icon_lbl = QLabel()
-        if os.path.exists(wifi_svg):
-            wifi_icon_lbl.setPixmap(QIcon(wifi_svg).pixmap(24, 24))
-
-        wifi_text_lbl = QLabel(f"Your Local IP Address is: {ip}")
-        wifi_text_lbl.setObjectName("instruction")
-        wifi_text_lbl.setStyleSheet("font-size: 16px; font-weight: bold;")
-
-        wifi_header_layout.addStretch()
-        wifi_header_layout.addWidget(wifi_icon_lbl)
-        wifi_header_layout.addWidget(wifi_text_lbl)
-        wifi_header_layout.addStretch()
-        root.addWidget(wifi_header)
-
-        msg = QLabel("Enter this IP in the Monitorize Android app and tap Receive.")
+        msg = QLabel(f"📶  Your Local IP Address is: {ip}\n\nEnter this IP in the Monitorize Android app and tap Receive.")
         msg.setObjectName("instruction")
         msg.setAlignment(Qt.AlignmentFlag.AlignCenter)
         msg.setWordWrap(True)
-        msg.setStyleSheet("font-size: 14px; color: #8a8cc0;")
+        # make it stand out a bit
+        msg.setStyleSheet("font-size: 16px; font-weight: bold;")
         root.addWidget(msg)
         root.addSpacing(20)
 
@@ -600,36 +551,8 @@ class WifiPage(QWidget):
         root.addLayout(bitrate_row)
         root.addSpacing(16)
 
-        self._is_gnome = (detected_de == "gnome")
-        if self._is_gnome:
-            gnome_row = QHBoxLayout()
-            gnome_row.setSpacing(20)
-            
-            scale_lbl = QLabel("Display Scale:")
-            scale_lbl.setObjectName("instruction")
-            self._gnome_scale_combo = QComboBox()
-            self._gnome_scale_combo.addItems([f"{i/10:.1f}" for i in range(10, 21)])
-            self._gnome_scale_combo.setCurrentText("2.0")
-            
-            type_lbl = QLabel("Display Type:")
-            type_lbl.setObjectName("instruction")
-            self._gnome_type_combo = QComboBox()
-            self._gnome_type_combo.addItems(["Extend Right", "Extend Left", "Mirror"])
-            self._gnome_type_combo.setCurrentText("Extend Right")
-            
-            gnome_row.addStretch()
-            gnome_row.addWidget(scale_lbl)
-            gnome_row.addWidget(self._gnome_scale_combo)
-            gnome_row.addSpacing(20)
-            gnome_row.addWidget(type_lbl)
-            gnome_row.addWidget(self._gnome_type_combo)
-            gnome_row.addStretch()
-            
-            root.addLayout(gnome_row)
-            root.addSpacing(16)
-
         warning = QLabel(
-            "WARNING: The Resolution and FPS set here MUST EXACTLY "
+            "⚠️ WARNING: The Resolution and FPS set here MUST EXACTLY "
             "MATCH the settings in the Android tablet app, or the stream "
             "will corrupt!"
         )
@@ -706,16 +629,6 @@ class WifiPage(QWidget):
     def selected_bitrate(self) -> int:
         return int(self._bitrate_edit.text())
 
-    def gnome_scale(self) -> str:
-        if hasattr(self, "_gnome_scale_combo"):
-            return self._gnome_scale_combo.currentText()
-        return "2.0"
-
-    def gnome_type(self) -> str:
-        if hasattr(self, "_gnome_type_combo"):
-            return self._gnome_type_combo.currentText()
-        return "Extend Right"
-
 class UsbStep1Page(QWidget):
     """Step 1 — connect tablet and run ADB."""
 
@@ -731,13 +644,9 @@ class UsbStep1Page(QWidget):
         root.addWidget(hr())
         root.addStretch()
 
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        usb_svg = os.path.join(script_dir, "assets", "svg", "usb-logo.svg")
-
-        icon = QLabel()
+        icon = QLabel("🔌")
         icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        if os.path.exists(usb_svg):
-            icon.setPixmap(QIcon(usb_svg).pixmap(96, 96))
+        icon.setFont(QFont("Segoe UI", 48))
         root.addWidget(icon)
         root.addSpacing(24)
 
@@ -757,7 +666,7 @@ class UsbStep1Page(QWidget):
         root.addWidget(self._status)
         root.addSpacing(16)
 
-        self._next_btn = QPushButton("I have connected it")
+        self._next_btn = QPushButton("✔  I have connected it")
         self._next_btn.setObjectName("primaryBtn")
         self._next_btn.clicked.connect(on_connected)
 
@@ -790,7 +699,7 @@ class UsbStep2Page(QWidget):
     ]
     FPS_OPTIONS = ["30", "60", "90", "120", "Custom…"]
 
-    def __init__(self, on_back, on_start, detected_de="kde", parent=None):
+    def __init__(self, on_back, on_start, parent=None):
         super().__init__(parent)
         self._on_start_cb = on_start
         root = QVBoxLayout(self)
@@ -804,7 +713,7 @@ class UsbStep2Page(QWidget):
         root.addSpacing(24)
 
         # ---- Open app instruction ----
-        msg = QLabel("Please open the Monitorize app on your tablet.")
+        msg = QLabel("📱  Please open the Monitorize app on your tablet.")
         msg.setObjectName("instruction")
         msg.setAlignment(Qt.AlignmentFlag.AlignCenter)
         msg.setWordWrap(True)
@@ -903,37 +812,9 @@ class UsbStep2Page(QWidget):
         root.addLayout(bitrate_row)
         root.addSpacing(16)
 
-        self._is_gnome = (detected_de == "gnome")
-        if self._is_gnome:
-            gnome_row = QHBoxLayout()
-            gnome_row.setSpacing(20)
-            
-            scale_lbl = QLabel("Display Scale:")
-            scale_lbl.setObjectName("instruction")
-            self._gnome_scale_combo = QComboBox()
-            self._gnome_scale_combo.addItems([f"{i/10:.1f}" for i in range(10, 21)])
-            self._gnome_scale_combo.setCurrentText("2.0")
-            
-            type_lbl = QLabel("Display Type:")
-            type_lbl.setObjectName("instruction")
-            self._gnome_type_combo = QComboBox()
-            self._gnome_type_combo.addItems(["Extend Right", "Extend Left", "Mirror"])
-            self._gnome_type_combo.setCurrentText("Extend Right")
-            
-            gnome_row.addStretch()
-            gnome_row.addWidget(scale_lbl)
-            gnome_row.addWidget(self._gnome_scale_combo)
-            gnome_row.addSpacing(20)
-            gnome_row.addWidget(type_lbl)
-            gnome_row.addWidget(self._gnome_type_combo)
-            gnome_row.addStretch()
-            
-            root.addLayout(gnome_row)
-            root.addSpacing(16)
-
         # ---- Warning label ----
         warning = QLabel(
-            "WARNING: The Resolution and FPS set here MUST EXACTLY "
+            "⚠️ WARNING: The Resolution and FPS set here MUST EXACTLY "
             "MATCH the settings in the Android tablet app, or the stream "
             "will corrupt!"
         )
@@ -948,7 +829,7 @@ class UsbStep2Page(QWidget):
 
         # ---- Before-you-click checklist ----
         step1_lbl = QLabel(
-            "1.  Tap the  Receive  button on the Android app first."
+            "1️⃣  Tap the  Receive  button on the Android app first."
         )
         step1_lbl.setObjectName("portalHint")
         step1_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -957,7 +838,7 @@ class UsbStep2Page(QWidget):
         root.addSpacing(10)
 
         step2_lbl = QLabel(
-            '2.  Then click Start Streaming below. When the screen-sharing '
+            '2️⃣  Then click Start Streaming below. When the screen-sharing '
             'popup appears, select "TabletDisplay" and click Share.'
         )
         step2_lbl.setObjectName("portalHint")
@@ -1068,16 +949,6 @@ class UsbStep2Page(QWidget):
     def selected_bitrate(self) -> int:
         return int(self._bitrate_edit.text())
 
-    def gnome_scale(self) -> str:
-        if hasattr(self, "_gnome_scale_combo"):
-            return self._gnome_scale_combo.currentText()
-        return "2.0"
-
-    def gnome_type(self) -> str:
-        if hasattr(self, "_gnome_type_combo"):
-            return self._gnome_type_combo.currentText()
-        return "Extend Right"
-
 
 class StreamingPage(QWidget):
     """
@@ -1092,7 +963,7 @@ class StreamingPage(QWidget):
         root.setSpacing(0)
 
         # ---- Status label (updated by countdown / streaming state) ----
-        self._status_lbl = QLabel("Starting virtual monitor…")
+        self._status_lbl = QLabel("⏳  Starting virtual monitor…")
         self._status_lbl.setObjectName("streaming")
         self._status_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         root.addWidget(self._status_lbl)
@@ -1155,15 +1026,6 @@ PAGE_USB2      = 3
 PAGE_STREAMING = 4
 
 
-def make_scrollable(widget: QWidget) -> QScrollArea:
-    scroll = QScrollArea()
-    scroll.setWidgetResizable(True)
-    scroll.setWidget(widget)
-    scroll.setFrameShape(QFrame.Shape.NoFrame)
-    scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-    scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-    return scroll
-
 # ---------------------------------------------------------------------------
 # Main window
 # ---------------------------------------------------------------------------
@@ -1211,15 +1073,15 @@ class MonitorizeWindow(QMainWindow):
         self.setCentralWidget(self._stack)
 
         self._page_main      = MainMenuPage(self._go_usb1, self._go_wifi)
-        self._page_wifi      = WifiPage(self._go_main, self._on_start_streaming_wifi, detected_de=self.detected_de)
+        self._page_wifi      = WifiPage(self._go_main, self._on_start_streaming_wifi)
         self._page_usb1      = UsbStep1Page(self._go_main, self._on_connected)
-        self._page_usb2      = UsbStep2Page(self._go_usb1, self._on_start_streaming, detected_de=self.detected_de)
+        self._page_usb2      = UsbStep2Page(self._go_usb1, self._on_start_streaming)
         self._page_streaming = StreamingPage(self._on_stop_streaming)
 
         self._stack.addWidget(self._page_main)       # 0
-        self._stack.addWidget(make_scrollable(self._page_wifi))  # 1
+        self._stack.addWidget(self._page_wifi)       # 1
         self._stack.addWidget(self._page_usb1)       # 2
-        self._stack.addWidget(make_scrollable(self._page_usb2))  # 3
+        self._stack.addWidget(self._page_usb2)       # 3
         self._stack.addWidget(self._page_streaming)  # 4
 
         # Show detected DE in the main menu badge
@@ -1298,21 +1160,8 @@ class MonitorizeWindow(QMainWindow):
         # Row 1: KDE / GNOME
         row1 = QHBoxLayout()
         row1.setSpacing(14)
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        kde_svg = os.path.join(script_dir, "assets", "svg", "kde-logo.svg")
-        gnome_svg = os.path.join(script_dir, "assets", "svg", "gnome-logo.svg")
-        hypr_svg = os.path.join(script_dir, "assets", "svg", "hyprland-logo.svg")
-
-        kde_btn   = QPushButton("  KDE")
-        if os.path.exists(kde_svg):
-            kde_btn.setIcon(QIcon(kde_svg))
-            kde_btn.setIconSize(QSize(20, 20))
-
-        gnome_btn = QPushButton("  GNOME")
-        if os.path.exists(gnome_svg):
-            gnome_btn.setIcon(QIcon(gnome_svg))
-            gnome_btn.setIconSize(QSize(20, 20))
-
+        kde_btn   = QPushButton("🐉  KDE")
+        gnome_btn = QPushButton("🦶  GNOME")
         row1.addWidget(kde_btn)
         row1.addWidget(gnome_btn)
         layout.addLayout(row1)
@@ -1320,12 +1169,8 @@ class MonitorizeWindow(QMainWindow):
         # Row 2: Hyprland / Sway
         row2 = QHBoxLayout()
         row2.setSpacing(14)
-        hypr_btn  = QPushButton("  Hyprland")
-        if os.path.exists(hypr_svg):
-            hypr_btn.setIcon(QIcon(hypr_svg))
-            hypr_btn.setIconSize(QSize(20, 20))
-
-        sway_btn  = QPushButton("Sway")
+        hypr_btn  = QPushButton("🌊  Hyprland")
+        sway_btn  = QPushButton("🌿  Sway")
         row2.addWidget(hypr_btn)
         row2.addWidget(sway_btn)
         layout.addLayout(row2)
@@ -1386,7 +1231,7 @@ class MonitorizeWindow(QMainWindow):
 
     def _on_connected(self):
         self._page_usb1.set_busy(True)
-        self._page_usb1.set_status("Running adb devices…")
+        self._page_usb1.set_status("⏳  Running adb devices…")
 
         self._proc_adb_dev = QProcess(self)
         self._proc_adb_dev.finished.connect(self._adb_devices_done)
@@ -1394,24 +1239,24 @@ class MonitorizeWindow(QMainWindow):
 
     def _adb_devices_done(self, exit_code, _status):
         if exit_code != 0:
-            self._page_usb1.set_status("Error: adb devices failed. Is ADB installed?")
+            self._page_usb1.set_status("❌  adb devices failed. Is ADB installed?")
             self._page_usb1.set_busy(False)
             return
 
-        self._page_usb1.set_status("Forwarding port tcp:7110…")
+        self._page_usb1.set_status("⏳  Forwarding port tcp:7110…")
         self._proc_adb_fwd = QProcess(self)
         self._proc_adb_fwd.finished.connect(self._adb_forward_done)
         self._proc_adb_fwd.start("adb", ["forward", "tcp:7110", "tcp:7110"])
 
     def _adb_forward_done(self, exit_code, _status):
         if exit_code != 0:
-            self._page_usb1.set_status("Error: Port forward failed. Is a device connected?")
+            self._page_usb1.set_status("❌  Port forward failed. Is a device connected?")
             self._page_usb1.set_busy(False)
             return
 
         # Touch daemon acts as a Server on Linux port 7111.
         # We need adb reverse so Android can connect to localhost:7111 and reach Linux.
-        self._page_usb1.set_status("Setting up reverse proxy tcp:7111 (touch)…")
+        self._page_usb1.set_status("⏳  Setting up reverse proxy tcp:7111 (touch)…")
         self._proc_adb_fwd2 = QProcess(self)
         self._proc_adb_fwd2.finished.connect(self._adb_forward2_done)
         self._proc_adb_fwd2.start("adb", ["reverse", "tcp:7111", "tcp:7111"])
@@ -1419,9 +1264,9 @@ class MonitorizeWindow(QMainWindow):
     def _adb_forward2_done(self, exit_code, _status):
         # Non-fatal: if 7111 fails, video still works, touch just won't forward
         if exit_code != 0:
-            self._page_usb1.set_status("Warning: tcp:7111 reverse failed — touch disabled")
+            self._page_usb1.set_status("⚠️  tcp:7111 reverse failed — touch disabled")
         else:
-            self._page_usb1.set_status("Device ready!")
+            self._page_usb1.set_status("✅  Device ready!")
         self._page_usb1.set_busy(False)
         QTimer.singleShot(600, lambda: self._stack.setCurrentIndex(PAGE_USB2))
 
@@ -1466,7 +1311,7 @@ class MonitorizeWindow(QMainWindow):
             subprocess.run(["adb", "reverse", "--remove", "tcp:7111"], capture_output=True)
 
         if self.detected_de == "kde":
-            self._page_streaming.set_status("Starting virtual monitor…  5")
+            self._page_streaming.set_status("⏳  Starting virtual monitor…  5")
             self.process_krfb = QProcess(self)
             self.process_krfb.setWorkingDirectory(script_dir)
             self.process_krfb.setProcessEnvironment(env)
@@ -1487,7 +1332,7 @@ class MonitorizeWindow(QMainWindow):
             self._countdown = 1
             self._countdown_timer.start()
         else:
-            self._page_streaming.set_status("Launching streamer…")
+            self._page_streaming.set_status("⏳  Launching streamer…")
             self._launch_streamer()
 
     def _countdown_tick(self):
@@ -1496,7 +1341,7 @@ class MonitorizeWindow(QMainWindow):
 
         if self._countdown > 0:
             self._page_streaming.set_status(
-                f"Starting virtual monitor…  {self._countdown}"
+                f"⏳  Starting virtual monitor…  {self._countdown}"
             )
             return
         # Countdown finished — stop timer, launch streamer
@@ -1512,7 +1357,11 @@ class MonitorizeWindow(QMainWindow):
             QProcess.ProcessChannelMode.MergedChannels
         )
         self.process_streamer.readyReadStandardOutput.connect(self._read_streamer)
-        self.process_streamer.finished.connect(self._on_streamer_finished)
+        self.process_streamer.finished.connect(
+            lambda code, _: self._page_streaming.append_log(
+                "STREAMER", f"Process exited (code {code})"
+            )
+        )
         # Choose the correct streamer script based on the detected DE
         _streamer_map = {
             "kde":      "Streamer_kde_usb.py",
@@ -1533,12 +1382,6 @@ class MonitorizeWindow(QMainWindow):
             args.append("wifi")
         else:
             args.append("usb")
-
-        if self.detected_de == "gnome":
-            active_page = self._page_wifi if self._is_wifi else self._page_usb2
-            args.append(active_page.gnome_scale())
-            args.append(active_page.gnome_type().replace(" ", "_"))
-
         self.process_streamer.start("python3", args)
 
         # ── Launch input bridge AFTER streamer (compositor-agnostic, separate port 7111) ──
@@ -1548,7 +1391,7 @@ class MonitorizeWindow(QMainWindow):
         if self.detected_de in ("kde", "hyprland", "gnome"):
             QTimer.singleShot(400, self._launch_input_bridge)
 
-        self._page_streaming.set_status("Status: Streaming…")
+        self._page_streaming.set_status("⬤  Status: Streaming…")
         self._page_streaming.set_stop_enabled(True)
 
     def _launch_input_bridge(self):
@@ -1560,7 +1403,11 @@ class MonitorizeWindow(QMainWindow):
             QProcess.ProcessChannelMode.MergedChannels
         )
         self.process_input_bridge.readyReadStandardOutput.connect(self._read_input_bridge)
-        self.process_input_bridge.finished.connect(self._on_input_bridge_finished)
+        self.process_input_bridge.finished.connect(
+            lambda code, _: self._page_streaming.append_log(
+                "INPUT", f"Bridge exited (code {code})"
+            )
+        )
         args = [
             os.path.join(self._script_dir, "touch_daemon.py"),
             str(self._stream_width),
@@ -1572,65 +1419,13 @@ class MonitorizeWindow(QMainWindow):
 
         if self.detected_de == "hyprland":
             self._page_streaming.set_status(
-                "Touch service starting via uinput…"
+                "🖐  Touch service starting via uinput…"
             )
         else:
             self._page_streaming.set_status(
-                "Touch service starting… Watch for 'Allow Remote Control' popup and click Allow"
+                "🖐  Touch service starting… Watch for 'Allow Remote Control' popup and click Allow"
             )
 
-    # ------------------------------------------------------------------
-    # Process exit handlers — GNOME auto-restart on crash
-    # ------------------------------------------------------------------
-
-    def _on_streamer_finished(self, code, _status):
-        """Handle streamer process exit. On GNOME, auto-restart after crashes."""
-        self._page_streaming.append_log("STREAMER", f"Process exited (code {code})")
-
-        # On GNOME, display config changes (scaling, position) kill the
-        # RecordVirtual session and the GStreamer pipeline.  The GNOME streamer
-        # script has internal auto-restart, but if the *process itself* dies
-        # (e.g. uncaught exception), we restart from the GUI side.
-        if (self.detected_de == "gnome"
-                and code != 0
-                and self._stack.currentIndex() == PAGE_STREAMING):
-            self._page_streaming.append_log(
-                "STREAMER",
-                "⟳  GNOME streamer crashed — auto-restarting in 2s…"
-            )
-            self._page_streaming.set_status(
-                "⟳  Stream reconnecting after display config change…"
-            )
-            QTimer.singleShot(2000, self._gnome_restart_streamer)
-
-    def _on_input_bridge_finished(self, code, _status):
-        """Handle touch daemon process exit."""
-        self._page_streaming.append_log("INPUT", f"Bridge exited (code {code})")
-
-        if code == 0 and self._stack.currentIndex() == PAGE_STREAMING:
-            # Touch daemon exited gracefully — touch not available but
-            # streaming continues.  This is expected when the user denies
-            # the portal popup or the DE doesn't support touch injection.
-            self._page_streaming.append_log(
-                "INPUT",
-                "ℹ️  Touch input not available — streaming continues without touch."
-            )
-
-    def _gnome_restart_streamer(self):
-        """Auto-restart the GNOME streamer after a crash."""
-        if self._stack.currentIndex() != PAGE_STREAMING:
-            return   # user navigated away
-        # Kill any lingering gst-launch processes
-        import subprocess
-        subprocess.run(["killall", "-9", "gst-launch-1.0"], capture_output=True)
-        self._launch_streamer()
-        self._page_streaming.set_status("Status: Streaming…  (restarted)")
-
-    def _gnome_restart_input_bridge(self):
-        """Auto-restart the touch daemon after a crash on GNOME."""
-        if self._stack.currentIndex() != PAGE_STREAMING:
-            return   # user navigated away
-        self._launch_input_bridge()
 
     # ------------------------------------------------------------------
     # Log readers — called by readyReadStandardOutput signals

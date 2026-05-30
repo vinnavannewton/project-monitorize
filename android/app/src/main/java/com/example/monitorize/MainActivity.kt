@@ -1,6 +1,7 @@
 package com.example.monitorize
 
 import android.content.Context
+import android.os.Build
 import android.os.Bundle
 import android.view.Surface
 import android.view.SurfaceHolder
@@ -8,600 +9,575 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeOut
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
-import androidx.compose.material3.MenuAnchorType
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import kotlinx.coroutines.delay
-import androidx.compose.ui.zIndex
-import androidx.compose.ui.viewinterop.AndroidView
-import com.example.monitorize.InputEventSender
+import kotlinx.coroutines.launch
 
-// ── UI Constants ─────────────────────────────────────────────────────────────
-val BackgroundDark = Color(0xFF0C0D14)
-val CardDark       = Color(0xFF161822)
-val BorderDark     = Color(0xFF242836)
+// ── UI Constants (Modern Dark Theme) ─────────────────────────────────────────
+val BackgroundDark = Color(0xFF121214) // Modern deep grey (not pitch black)
+val CardDark       = Color(0xFF1C1C1E)
+val BorderDark     = Color(0xFF2C2C2E)
 val AccentIndigo   = Color(0xFF6366F1)
 val GreenAccent    = Color(0xFF10B981)
-val AmberWarn      = Color(0xFFF59E0B)
 val TextPrimary    = Color(0xFFF1F5F9)
 val TextSecondary  = Color(0xFF94A3B8)
 val TextMuted      = Color(0xFF475569)
-val RedStop        = Color(0xFFEF4444)
 
-enum class Screen { Home, Settings, Receive }
+enum class Screen { Home, Receive }
 
 class MainActivity : ComponentActivity() {
 
     private var decoder: H264Decoder? = null
     private var receiver: StreamReceiver? = null
     private var inputSender: InputEventSender? = null
-    private val status = mutableStateOf("Ready")
+    private val status = mutableStateOf("")
+    private lateinit var discovery: DeviceDiscovery
 
     private val prefs by lazy { getSharedPreferences("monitorize_prefs", Context.MODE_PRIVATE) }
 
+    private fun triggerAppRestart(showDisconnected: Boolean = false) {
+        runOnUiThread {
+            val intent = android.content.Intent(this@MainActivity, MainActivity::class.java).apply {
+                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                if (showDisconnected) {
+                    putExtra("SHOW_DISCONNECTED", true)
+                }
+            }
+            startActivity(intent)
+            finish()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        discovery = DeviceDiscovery(this)
 
+        // Force Full Screen & Immersive Mode
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        applyImmersiveMode()
+
+        // Handle cutout (notch)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            window.attributes.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+        }
+
         window.setBackgroundDrawableResource(android.R.color.black)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         setContent {
             var currentScreen by remember { mutableStateOf(Screen.Home) }
+            var isSettingsOpen by remember { mutableStateOf(false) }
 
             var width by remember { mutableIntStateOf(prefs.getInt("width", 1280)) }
             var height by remember { mutableIntStateOf(prefs.getInt("height", 800)) }
             var fps by remember { mutableIntStateOf(prefs.getInt("fps", 60)) }
+            
+            var selectedDevice by remember { mutableStateOf<DiscoveredDevice?>(null) }
+            var disconnectionMessage by remember { mutableStateOf<String?>(
+                if (intent.getBooleanExtra("SHOW_DISCONNECTED", false)) "Disconnected" else null
+            ) }
+            
+            val coroutineScope = rememberCoroutineScope()
+            val context = androidx.compose.ui.platform.LocalContext.current
+
+            // Auto-clear disconnection message after 5 seconds
+            if (disconnectionMessage != null) {
+                LaunchedEffect(disconnectionMessage) {
+                    kotlinx.coroutines.delay(5000)
+                    disconnectionMessage = null
+                }
+            }
 
             MaterialTheme(colorScheme = darkColorScheme()) {
                 Surface(modifier = Modifier.fillMaxSize(), color = BackgroundDark) {
-                    when (currentScreen) {
-                        Screen.Home -> HomeScreen(
-                            onReceiveClick = { currentScreen = Screen.Receive },
-                            onSettingsClick = { currentScreen = Screen.Settings }
-                        )
-                        Screen.Settings -> SettingsScreen(
-                            initialWidth = width,
-                            initialHeight = height,
-                            initialFps = fps,
-                            onSave = { w, h, f ->
-                                width = w
-                                height = h
-                                fps = f
-                                prefs.edit().putInt("width", w).putInt("height", h).putInt("fps", f).apply()
-                                currentScreen = Screen.Home
-                            },
-                            onBack = { currentScreen = Screen.Home }
-                        )
-                        Screen.Receive -> {
-                            val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
-                            windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
-                            windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                            
-                            ReceiveScreen(
-                                width = width,
-                                height = height,
-                                fps = fps,
-                                status = status.value,
-                                onBack = {
-                                    stopStream()
-                                    windowInsetsController.show(WindowInsetsCompat.Type.systemBars())
-                                    currentScreen = Screen.Home
-                                }
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        when (currentScreen) {
+                            Screen.Home -> {
+                                HomeScreen(
+                                    devices = discovery.devices,
+                                    onDeviceSelected = { device ->
+                                        selectedDevice = device
+                                        currentScreen = Screen.Receive
+                                        disconnectionMessage = null // Clear any existing message
+                                    },
+                                    onSettingsToggle = { isSettingsOpen = true },
+                                    onStartDiscovery = { discovery.startDiscovery() }
+                                )
+                            }
+                            Screen.Receive -> {
+                                ReceiveScreen(
+                                    hostIp = if (selectedDevice?.isUsb == true) "" else selectedDevice?.ip ?: "",
+                                    width = width,
+                                    height = height,
+                                    fps = fps,
+                                    status = status.value,
+                                    onBack = {
+                                        coroutineScope.launch {
+                                            stopStream()
+                                        }
+                                        triggerAppRestart(showDisconnected = true)
+                                    },
+                                    onSurfaceCreated = { ip, surface, w, h, f ->
+                                        coroutineScope.launch {
+                                            // Allow hardware media server to fully tear down any previous codec
+                                            kotlinx.coroutines.delay(400)
+                                            startStream(ip, surface, w, h, f) {
+                                                runOnUiThread {
+                                                    coroutineScope.launch { stopStream() }
+                                                    triggerAppRestart(showDisconnected = true)
+                                                }
+                                            }
+                                        }
+                                    },
+                                    onSurfaceDestroyed = { 
+                                        coroutineScope.launch { stopStream() } 
+                                    },
+                                    onInputEvent = { event, viewW, viewH -> inputSender?.send(event, viewW, viewH) }
+                                )
+                            }
+                        }
+
+                        // Sliding Settings Panel Overlay (Right to Left)
+                        AnimatedVisibility(
+                            visible = isSettingsOpen,
+                            enter = slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300)),
+                            exit = slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(300)),
+                            modifier = Modifier.align(Alignment.CenterEnd).zIndex(10f)
+                        ) {
+                            Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(0.45f).background(CardDark).border(1.dp, BorderDark)) {
+                                SettingsPanel(
+                                    initialWidth = width,
+                                    initialHeight = height,
+                                    initialFps = fps,
+                                    onSave = { w, h, f ->
+                                        if (w != width || h != height || f != fps) {
+                                            prefs.edit().putInt("width", w).putInt("height", h).putInt("fps", f).apply()
+                                            isSettingsOpen = false
+                                            triggerAppRestart(showDisconnected = false)
+                                        } else {
+                                            isSettingsOpen = false
+                                        }
+                                    },
+                                    onClose = { isSettingsOpen = false }
+                                )
+                            }
+                        }
+                        
+                        // Scrim to dim the background when settings is open
+                        if (isSettingsOpen) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Color.Black.copy(alpha = 0.6f))
+                                    .clickable { isSettingsOpen = false }
+                                    .zIndex(9f)
                             )
                         }
+
+                        // Custom 5-second Toast Notification for Disconnection
+                        AnimatedVisibility(
+                            visible = disconnectionMessage != null,
+                            enter = fadeIn() + expandVertically(expandFrom = Alignment.Bottom),
+                            exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Bottom),
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(bottom = 48.dp)
+                                .zIndex(20f)
+                        ) {
+                            Surface(
+                                color = CardDark,
+                                shape = RoundedCornerShape(12.dp),
+                                border = BorderStroke(1.dp, BorderDark),
+                                shadowElevation = 8.dp
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 14.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Box(modifier = Modifier.size(8.dp).background(Color.Red, CircleShape))
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(
+                                        text = disconnectionMessage ?: "",
+                                        color = TextPrimary,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
     }
 
-    // ── Home Screen ─────────────────────────────────────────────────────────
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            applyImmersiveMode()
+        }
+    }
 
-    @Composable
-    fun HomeScreen(onReceiveClick: () -> Unit, onSettingsClick: () -> Unit) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 32.dp, vertical = 48.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
+    private fun applyImmersiveMode() {
+        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
+        windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
+        windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+    }
+
+    private fun startStream(hostIp: String, surface: Surface, width: Int, height: Int, fps: Int, onDisconnect: () -> Unit) {
+        val d = H264Decoder(surface)
+        decoder = d
+        receiver = StreamReceiver(d, width, height, fps, hostIp.takeIf { it.isNotBlank() }).also {
+            it.onStatusChange = { msg -> runOnUiThread { status.value = msg } }
+            it.onDisconnect = onDisconnect
+            it.start()
+        }
+        val metrics = resources.displayMetrics
+        inputSender = InputEventSender(hostIp.takeIf { it.isNotBlank() }).also { it.start() }
+    }
+
+    private var isStopping = false
+
+    private suspend fun stopStream() {
+        if (isStopping) return
+        isStopping = true
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            receiver?.stop(); receiver = null
+            decoder?.release(); decoder = null
+            inputSender?.stop(); inputSender = null
+        }
+        isStopping = false
+    }
+}
+
+// ── UI Components ─────────────────────────────────────────────────────────────
+
+@Composable
+fun HomeScreen(
+    devices: List<DiscoveredDevice>,
+    onDeviceSelected: (DiscoveredDevice) -> Unit,
+    onSettingsToggle: () -> Unit,
+    onStartDiscovery: () -> Unit = {}
+) {
+    LaunchedEffect(Unit) {
+        onStartDiscovery()
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Settings Icon Top Right
+        IconButton(
+            onClick = onSettingsToggle,
+            modifier = Modifier.align(Alignment.TopEnd).padding(24.dp).size(48.dp).background(CardDark, CircleShape)
         ) {
-            Spacer(modifier = Modifier.weight(1f))
+            Icon(Icons.Default.Settings, contentDescription = "Settings", tint = TextPrimary)
+        }
 
+        Column(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 48.dp)
+        ) {
+            Spacer(modifier = Modifier.height(100.dp))
+            
+            // "Hint-type" header
             Text(
-                "Monitorize",
-                fontSize = 42.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = TextPrimary,
+                "YOU SHOULD SEE A LIST OF DEVICES HERE",
+                fontSize = 11.sp,
+                color = TextMuted,
+                fontWeight = FontWeight.Bold,
                 letterSpacing = 2.sp
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                "Linux → Android Display Bridge",
-                fontSize = 14.sp,
-                color = TextSecondary
-            )
-
-            Spacer(modifier = Modifier.height(48.dp))
-
-            Button(
-                onClick = onReceiveClick,
-                modifier = Modifier
-                    .fillMaxWidth(0.7f)
-                    .height(56.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = AccentIndigo)
-            ) {
-                Text(
-                    "▶  RECEIVE STREAM",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp
-                )
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            OutlinedButton(
-                onClick = onSettingsClick,
-                modifier = Modifier
-                    .fillMaxWidth(0.7f)
-                    .height(56.dp),
-                shape = RoundedCornerShape(14.dp),
-                border = ButtonDefaults.outlinedButtonBorder(enabled = true).copy(
-                    brush = Brush.linearGradient(listOf(BorderDark, BorderDark))
-                ),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary)
-            ) {
-                Text(
-                    "⚙  SETTINGS",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = 1.sp
-                )
-            }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            Text(
-                "Connect via USB · Open source",
-                fontSize = 11.sp,
-                color = TextMuted
-            )
-        }
-    }
-
-    // ── Settings Screen ─────────────────────────────────────────────────────
-
-    @OptIn(ExperimentalMaterial3Api::class)
-    @Composable
-    fun SettingsScreen(
-        initialWidth: Int,
-        initialHeight: Int,
-        initialFps: Int,
-        onSave: (Int, Int, Int) -> Unit,
-        onBack: () -> Unit
-    ) {
-        val resolutions = listOf(
-            "1280x720", "1280x800", "1920x1080", "1920x1200",
-            "2560x1440", "2560x1600", "3840x2160", "Custom…"
-        )
-        val fpsOptions = listOf("30", "60", "90", "120", "Custom…")
-
-        val initRes = "${initialWidth}x${initialHeight}"
-        val isInitResCustom = initRes !in resolutions
-        var selectedRes by remember { mutableStateOf(if (isInitResCustom) "Custom…" else initRes) }
-        var customWidth  by remember { mutableStateOf(if (isInitResCustom) initialWidth.toString()  else "") }
-        var customHeight by remember { mutableStateOf(if (isInitResCustom) initialHeight.toString() else "") }
-
-        val isInitFpsCustom = initialFps.toString() !in fpsOptions
-        var selectedFps by remember { mutableStateOf(if (isInitFpsCustom) "Custom…" else initialFps.toString()) }
-        var customFps by remember { mutableStateOf(if (isInitFpsCustom) initialFps.toString() else "") }
-
-        var resExpanded by remember { mutableStateOf(false) }
-        var fpsExpanded by remember { mutableStateOf(false) }
-        var saveError  by remember { mutableStateOf("") }
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 28.dp, vertical = 32.dp)
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                "Settings",
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextPrimary,
-                letterSpacing = 1.sp
-            )
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Warning card
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0x0FE8A840))
-                    .padding(14.dp)
-            ) {
-                Text(
-                    "⚠  Resolution and FPS must exactly match the Linux desktop app settings, or the stream will corrupt.",
-                    color = AmberWarn,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    lineHeight = 18.sp
-                )
-            }
-
-            Spacer(modifier = Modifier.height(28.dp))
-
-            // ── Resolution Section ──
-            SectionHeader("RESOLUTION")
-            Spacer(modifier = Modifier.height(10.dp))
-
-            ExposedDropdownMenuBox(
-                expanded = resExpanded,
-                onExpandedChange = { resExpanded = !resExpanded }
-            ) {
-                TextField(
-                    value = selectedRes,
-                    onValueChange = {},
-                    readOnly = true,
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = resExpanded) },
-                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = CardDark,
-                        unfocusedContainerColor = CardDark,
-                        focusedTextColor = TextPrimary,
-                        unfocusedTextColor = TextPrimary,
-                        focusedIndicatorColor = AccentIndigo,
-                        unfocusedIndicatorColor = BorderDark
-                    ),
-                    shape = RoundedCornerShape(10.dp)
-                )
-                ExposedDropdownMenu(expanded = resExpanded, onDismissRequest = { resExpanded = false }) {
-                    resolutions.forEach { res ->
-                        DropdownMenuItem(
-                            text = { Text(res, color = TextPrimary) },
-                            onClick = { selectedRes = res; resExpanded = false }
-                        )
-                    }
-                }
-            }
-
-            if (selectedRes == "Custom…") {
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    OutlinedTextField(
-                        value = customWidth,
-                        onValueChange = { customWidth = it },
-                        label = { Text("Width") },
-                        placeholder = { Text("e.g. 1920") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true,
-                        modifier = Modifier.width(120.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = AccentIndigo,
-                            unfocusedBorderColor = BorderDark,
-                            focusedTextColor = TextPrimary,
-                            unfocusedTextColor = TextPrimary
-                        )
-                    )
+            if (devices.isEmpty()) {
+                Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     Text(
-                        " × ",
-                        color = TextSecondary,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 8.dp)
-                    )
-                    OutlinedTextField(
-                        value = customHeight,
-                        onValueChange = { customHeight = it },
-                        label = { Text("Height") },
-                        placeholder = { Text("e.g. 1080") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true,
-                        modifier = Modifier.width(120.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = AccentIndigo,
-                            unfocusedBorderColor = BorderDark,
-                            focusedTextColor = TextPrimary,
-                            unfocusedTextColor = TextPrimary
-                        )
+                        "Searching for devices...\n(Check USB or Wi-Fi connection)",
+                        color = TextMuted,
+                        fontSize = 14.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
                 }
-                Text("500 – 4000 for each value", color = TextMuted, fontSize = 11.sp)
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // ── FPS Section ──
-            SectionHeader("FRAMERATE")
-            Spacer(modifier = Modifier.height(10.dp))
-
-            ExposedDropdownMenuBox(
-                expanded = fpsExpanded,
-                onExpandedChange = { fpsExpanded = !fpsExpanded }
-            ) {
-                TextField(
-                    value = selectedFps,
-                    onValueChange = {},
-                    readOnly = true,
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = fpsExpanded) },
-                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = CardDark,
-                        unfocusedContainerColor = CardDark,
-                        focusedTextColor = TextPrimary,
-                        unfocusedTextColor = TextPrimary,
-                        focusedIndicatorColor = AccentIndigo,
-                        unfocusedIndicatorColor = BorderDark
-                    ),
-                    shape = RoundedCornerShape(10.dp)
-                )
-                ExposedDropdownMenu(expanded = fpsExpanded, onDismissRequest = { fpsExpanded = false }) {
-                    fpsOptions.forEach { f ->
-                        DropdownMenuItem(
-                            text = { Text(f, color = TextPrimary) },
-                            onClick = { selectedFps = f; fpsExpanded = false }
-                        )
+            } else {
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(bottom = 16.dp)
+                ) {
+                    items(devices) { device ->
+                        DeviceItem(device = device, onClick = { onDeviceSelected(device) })
                     }
                 }
             }
-
-            if (selectedFps == "Custom…") {
-                Spacer(modifier = Modifier.height(12.dp))
+            
+            // Manual IP Entry
+            var manualIp by remember { mutableStateOf("") }
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 OutlinedTextField(
-                    value = customFps,
-                    onValueChange = { customFps = it },
-                    label = { Text("Custom FPS") },
-                    placeholder = { Text("e.g. 144") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    value = manualIp,
+                    onValueChange = { manualIp = it },
+                    placeholder = { Text("Enter PC IP manually", color = TextMuted) },
+                    modifier = Modifier.weight(1f),
                     singleLine = true,
-                    modifier = Modifier.width(160.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = AccentIndigo,
-                        unfocusedBorderColor = BorderDark,
-                        focusedTextColor = TextPrimary,
-                        unfocusedTextColor = TextPrimary
+                        unfocusedBorderColor = BorderDark
                     )
                 )
-                Text("24 – 240", color = TextMuted, fontSize = 11.sp)
-            }
-
-            if (saveError.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(14.dp))
-                Text(saveError, color = RedStop, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-            }
-
-            Spacer(modifier = Modifier.height(40.dp))
-
-            Button(
-                onClick = {
-                    saveError = ""
-                    val (finalW, finalH) = if (selectedRes == "Custom…") {
-                        val w = customWidth.trim().toIntOrNull()
-                        val h = customHeight.trim().toIntOrNull()
-                        if (w == null || h == null) {
-                            saveError = "Width and Height must be numbers."
-                            return@Button
+                Spacer(modifier = Modifier.width(12.dp))
+                Button(
+                    onClick = {
+                        if (manualIp.isNotBlank()) {
+                            onDeviceSelected(DiscoveredDevice(name = "Manual WiFi", ip = manualIp.trim(), port = 7110, isUsb = false))
                         }
-                        if (w !in 500..4000) {
-                            saveError = "Width must be between 500 and 4000. Got: $w"
-                            return@Button
-                        }
-                        if (h !in 500..4000) {
-                            saveError = "Height must be between 500 and 4000. Got: $h"
-                            return@Button
-                        }
-                        Pair(w, h)
-                    } else {
-                        val parts = selectedRes.split("x")
-                        Pair(parts[0].toInt(), parts[1].toInt())
-                    }
-                    val finalFps = if (selectedFps == "Custom…") {
-                        val f = customFps.trim().toIntOrNull()
-                        if (f == null) {
-                            saveError = "FPS must be a number."
-                            return@Button
-                        }
-                        if (f !in 24..240) {
-                            saveError = "FPS must be between 24 and 240. Got: $f"
-                            return@Button
-                        }
-                        f
-                    } else {
-                        selectedFps.toInt()
-                    }
-                    onSave(finalW, finalH, finalFps)
-                },
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = AccentIndigo)
-            ) {
-                Text("SAVE & BACK", fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            TextButton(onClick = onBack) {
-                Text("CANCEL", color = TextSecondary, letterSpacing = 1.sp)
+                    },
+                    modifier = Modifier.height(56.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = GreenAccent)
+                ) {
+                    Text("Connect", fontWeight = FontWeight.Bold, color = Color.Black)
+                }
             }
         }
     }
+}
 
-    @Composable
-    private fun SectionHeader(title: String) {
-        Text(
-            title,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            color = TextSecondary,
-            letterSpacing = 2.sp,
-            modifier = Modifier.fillMaxWidth().padding(start = 4.dp)
+@Composable
+fun DeviceItem(device: DiscoveredDevice, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(CardDark)
+            .border(1.dp, BorderDark, RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(18.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            // Main Device Name
+            Text(
+                device.name, 
+                color = TextPrimary, 
+                fontWeight = FontWeight.Bold, 
+                fontSize = 18.sp
+            )
+            // IP address shown directly under the name
+            Text(
+                device.ip, 
+                color = TextSecondary, 
+                fontSize = 13.sp,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
+        
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(4.dp))
+                .background(if (device.isUsb) AccentIndigo.copy(alpha = 0.2f) else GreenAccent.copy(alpha = 0.2f))
+                .padding(horizontal = 10.dp, vertical = 4.dp)
+        ) {
+            Text(
+                text = if (device.isUsb) "usb" else "wifi",
+                color = if (device.isUsb) AccentIndigo else GreenAccent,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.ExtraBold
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsPanel(
+    initialWidth: Int,
+    initialHeight: Int,
+    initialFps: Int,
+    onSave: (Int, Int, Int) -> Unit,
+    onClose: () -> Unit
+) {
+    var wText by remember { mutableStateOf(initialWidth.toString()) }
+    var hText by remember { mutableStateOf(initialHeight.toString()) }
+    var fText by remember { mutableStateOf(initialFps.toString()) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(28.dp)
+            .verticalScroll(rememberScrollState())
+    ) {
+        Text("Current Settings", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+        Spacer(modifier = Modifier.height(32.dp))
+
+        OutlinedTextField(
+            value = wText, onValueChange = { wText = it },
+            label = { Text("Stream Width") },
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentIndigo, unfocusedBorderColor = BorderDark)
         )
-    }
+        Spacer(modifier = Modifier.height(16.dp))
+        OutlinedTextField(
+            value = hText, onValueChange = { hText = it },
+            label = { Text("Stream Height") },
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentIndigo, unfocusedBorderColor = BorderDark)
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        OutlinedTextField(
+            value = fText, onValueChange = { fText = it },
+            label = { Text("Stream FPS") },
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentIndigo, unfocusedBorderColor = BorderDark)
+        )
 
-    // ── Receive Screen ──────────────────────────────────────────────────────
+        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.height(40.dp))
 
-    @Composable
-    fun ReceiveScreen(width: Int, height: Int, fps: Int, status: String, onBack: () -> Unit) {
-        BackHandler(onBack = onBack)
-
-        var showHint by remember { mutableStateOf(true) }
-        LaunchedEffect(Unit) {
-            delay(5000)
-            showHint = false
+        Button(
+            onClick = {
+                onSave(wText.toIntOrNull() ?: 1280, hText.toIntOrNull() ?: 800, fText.toIntOrNull() ?: 60)
+            },
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = AccentIndigo)
+        ) { Text("SAVE & APPLY", fontWeight = FontWeight.Bold) }
+        
+        TextButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
+            Text("DISCARD", color = TextSecondary)
         }
+    }
+}
 
-        Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+@Composable
+fun ReceiveScreen(
+    hostIp: String,
+    width: Int,
+    height: Int,
+    fps: Int,
+    status: String,
+    onBack: () -> Unit,
+    onSurfaceCreated: (String, Surface, Int, Int, Int) -> Unit,
+    onSurfaceDestroyed: () -> Unit,
+    onInputEvent: (android.view.MotionEvent, Float, Float) -> Unit
+) {
+    BackHandler(onBack = onBack)
+    Box(
+        modifier = Modifier.fillMaxSize().background(Color.Black),
+        contentAlignment = Alignment.Center
+    ) {
+        // Inner box locked perfectly to the stream's aspect ratio.
+        // This ensures the touch overlay never extends over the black letterbox bars.
+        Box(modifier = Modifier.aspectRatio(width.toFloat() / height.toFloat())) {
             StreamSurface(
-                modifier = Modifier
-                    .fillMaxSize(),
+                modifier = Modifier.fillMaxSize(),
                 onSurfaceReady = { sv ->
                     sv.holder.addCallback(object : SurfaceHolder.Callback {
                         override fun surfaceCreated(holder: SurfaceHolder) {
                             holder.setFixedSize(width, height)
-                            startStream(holder.surface, width, height, fps)
+                            onSurfaceCreated(hostIp, holder.surface, width, height, fps)
                         }
                         override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, ht: Int) {}
-                        override fun surfaceDestroyed(h: SurfaceHolder) { stopStream() }
+                        override fun surfaceDestroyed(h: SurfaceHolder) { onSurfaceDestroyed() }
                     })
                 }
             )
 
-            // Touch and pen input overlay — transparent, covers the full screen
+            // Input layer perfectly layered over the aspect-locked Box
             AndroidView(
                 factory = { ctx ->
                     android.view.View(ctx).apply {
-                        // Ensure the view is fully measurable and active
                         layoutParams = android.view.ViewGroup.LayoutParams(
                             android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                             android.view.ViewGroup.LayoutParams.MATCH_PARENT
                         )
                         setBackgroundColor(android.graphics.Color.TRANSPARENT)
                         isClickable = true
-                        isFocusable = false
-
-                        // Touch events (fingers and pen-on-screen)
-                        setOnTouchListener { _, event ->
-                            if (event.actionMasked == android.view.MotionEvent.ACTION_DOWN) {
-                                android.util.Log.d("ReceiveScreen", "AndroidView setOnTouchListener ACTION_DOWN. inputSender_isNull=${inputSender == null}")
-                            }
-                            inputSender?.send(event)
-                            true  // consume the event
+                        setOnTouchListener { v, event -> 
+                            if (event.action == android.view.MotionEvent.ACTION_DOWN) v.performClick()
+                            onInputEvent(event, v.width.toFloat(), v.height.toFloat())
+                            true 
                         }
-                        // Hover events (pen floating above screen without touching)
-                        setOnHoverListener { _, event ->
-                            inputSender?.send(event)
-                            true
-                        }
+                        setOnHoverListener { v, event -> onInputEvent(event, v.width.toFloat(), v.height.toFloat()); true }
                     }
                 },
-                modifier = Modifier
-                    .fillMaxSize()
-                    .zIndex(2f)  // above the SurfaceView
+                modifier = Modifier.fillMaxSize().zIndex(2f)
             )
+        }
 
-            // Status overlay
-            if (status.isNotEmpty()) {
-                Text(
-                    text = status,
-                    color = GreenAccent,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(24.dp)
-                        .zIndex(1f)
-                        .background(
-                            color = Color(0xAA0C0D14),
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                        .clickable { onBack() }
-                )
-            }
-
-            // First-time hint
-            AnimatedVisibility(
-                visible = showHint,
-                exit = fadeOut(),
+        // Small status badge (Clickable to exit)
+        if (status.isNotEmpty()) {
+            Box(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 20.dp, start = 20.dp, end = 20.dp)
+                    .align(Alignment.TopStart)
+                    .padding(24.dp)
                     .zIndex(1f)
+                    .background(Color(0x88000000), RoundedCornerShape(6.dp))
+                    .clickable { onBack() }
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .background(
-                            color = Color(0xCC0C0D14),
-                            shape = RoundedCornerShape(10.dp)
-                        )
-                        .padding(horizontal = 14.dp, vertical = 10.dp)
-                ) {
-                    Text(
-                        text = "💡 First time? After the stream starts, go to Display Config and set up the virtual display in your pc.",
-                        color = TextSecondary,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
-                        lineHeight = 16.sp
-                    )
-                }
+                Text(text = status, color = GreenAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
+}
 
-    private fun startStream(surface: Surface, width: Int, height: Int, fps: Int) {
-        val d = H264Decoder(surface)
-        decoder = d
-        receiver = StreamReceiver(d, width, height, fps).also {
-            it.onStatusChange = { msg -> runOnUiThread { status.value = msg } }
-            it.start()
+@Composable
+fun StreamSurface(modifier: Modifier, onSurfaceReady: (android.view.SurfaceView) -> Unit) {
+    AndroidView(
+        factory = { ctx -> android.view.SurfaceView(ctx).also { onSurfaceReady(it) } },
+        modifier = modifier
+    )
+}
+
+// ── PREVIEWS ─────────────────────────────────────────────────────────────
+
+@Preview(showBackground = true, widthDp = 800, heightDp = 480)
+@Composable
+fun HomeScreenPreview() {
+    val mockDevices = listOf(
+        DiscoveredDevice("Main Desktop", "192.168.1.100", 7110, false),
+        DiscoveredDevice("Local PC (USB)", "127.0.0.1", 7110, true)
+    )
+    MaterialTheme(colorScheme = darkColorScheme()) {
+        Surface(color = BackgroundDark) {
+            HomeScreen(devices = mockDevices, onDeviceSelected = {}, onSettingsToggle = {})
         }
-        val displayMetrics = resources.displayMetrics
-        inputSender = InputEventSender(
-            screenW = displayMetrics.widthPixels.toFloat(),
-            screenH = displayMetrics.heightPixels.toFloat()
-        ).also { it.start() }
-    }
-
-    private fun stopStream() {
-        receiver?.stop()
-        receiver = null
-        decoder?.release()
-        decoder = null
-        inputSender?.stop()
-        inputSender = null
     }
 }
