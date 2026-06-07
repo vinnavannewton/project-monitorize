@@ -1443,6 +1443,7 @@ class MonitorizeWindow(QMainWindow):
         self._page_streaming.clear_log()
 
         env = QProcessEnvironment.systemEnvironment()
+        env.insert("PYTHONUNBUFFERED", "1")
         self._script_dir = script_dir
         self._env        = env
 
@@ -1570,8 +1571,11 @@ class MonitorizeWindow(QMainWindow):
         # The streamer triggers the screen-share display selector popup;
         # the input bridge triggers the input permission popup.
         # We want display selector first, input permission second, back-to-back.
-        if self.detected_de in ("kde", "hyprland", "gnome"):
+        if self.detected_de in ("kde", "gnome"):
             QTimer.singleShot(400, self._launch_input_bridge)
+        elif self.detected_de == "hyprland":
+            self._input_bridge_launched = False
+            self._streamer_buffer = ""
 
         self._page_streaming.set_status("Status: Streaming…")
         self._page_streaming.set_stop_enabled(True)
@@ -1676,6 +1680,21 @@ class MonitorizeWindow(QMainWindow):
             "utf-8", errors="replace"
         )
         self._page_streaming.append_log("STREAMER", raw)
+
+        # For Hyprland, wait until the user has selected the monitor in the portal
+        # screen-share picker and the PipeWire node has been negotiated/streaming started,
+        # before starting the touch daemon. This avoids any race conditions or premature
+        # touch injection crashes.
+        if self.detected_de == "hyprland":
+            if not getattr(self, "_input_bridge_launched", False):
+                if not hasattr(self, "_streamer_buffer"):
+                    self._streamer_buffer = ""
+                self._streamer_buffer += raw
+                if "[Portal] Got PipeWire node=" in self._streamer_buffer:
+                    self._input_bridge_launched = True
+                    # A small 500ms delay to allow the PipeWire stream to fully negotiate
+                    # and stabilize before launching the input bridge.
+                    QTimer.singleShot(500, self._launch_input_bridge)
 
     def _read_input_bridge(self):
         if self.process_input_bridge is None:

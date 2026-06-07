@@ -351,6 +351,9 @@ def _inject_touch_uinput(action: int, cid: int, nx: int, ny: int) -> None:
                 ui.write(e_codes.EV_ABS, e_codes.ABS_MT_TRACKING_ID, cid & 0xFFFF)
                 ui.write(e_codes.EV_ABS, e_codes.ABS_MT_POSITION_X, abs_x)
                 ui.write(e_codes.EV_ABS, e_codes.ABS_MT_POSITION_Y, abs_y)
+                if slot == 0:
+                    ui.write(e_codes.EV_ABS, e_codes.ABS_X, abs_x)
+                    ui.write(e_codes.EV_ABS, e_codes.ABS_Y, abs_y)
                 ui.write(e_codes.EV_KEY, e_codes.BTN_TOUCH, 1)
                 ui.syn()
                 log.info("[UINPUT] DOWN  cid=%d slot=%d coords=(%d, %d)  active=%d",
@@ -362,6 +365,9 @@ def _inject_touch_uinput(action: int, cid: int, nx: int, ny: int) -> None:
                     ui.write(e_codes.EV_ABS, e_codes.ABS_MT_SLOT, s)
                     ui.write(e_codes.EV_ABS, e_codes.ABS_MT_POSITION_X, abs_x)
                     ui.write(e_codes.EV_ABS, e_codes.ABS_MT_POSITION_Y, abs_y)
+                    if s == 0:
+                        ui.write(e_codes.EV_ABS, e_codes.ABS_X, abs_x)
+                        ui.write(e_codes.EV_ABS, e_codes.ABS_Y, abs_y)
                     ui.syn()
 
             elif action == ACTION_UP:
@@ -556,8 +562,25 @@ def _setup_uinput() -> None:
 
     log.info("Creating uinput virtual touchscreen: %dx%d", max_x, max_y)
 
+    # Query monitors to find name for uinput mapping
+    monitor_name = None
+    try:
+        import subprocess, json
+        res = subprocess.run(["hyprctl", "monitors", "-j"], capture_output=True, text=True)
+        if res.returncode == 0:
+            monitors = json.loads(res.stdout)
+            for mon in monitors:
+                name = mon.get("name", "")
+                if name.startswith("HEADLESS") or name.lower().startswith("virtual-tabletdisplay"):
+                    monitor_name = name
+                    break
+    except Exception as e:
+        log.warning("Failed to query monitor name for uinput mapping: %s", e)
+
     cap = {
         e_codes.EV_ABS: [
+            (e_codes.ABS_X,               evdev.AbsInfo(value=0, min=0, max=max_x, fuzz=0, flat=0, resolution=0)),
+            (e_codes.ABS_Y,               evdev.AbsInfo(value=0, min=0, max=max_y, fuzz=0, flat=0, resolution=0)),
             (e_codes.ABS_MT_SLOT,         evdev.AbsInfo(value=0, min=0, max=9, fuzz=0, flat=0, resolution=0)),
             (e_codes.ABS_MT_TRACKING_ID,  evdev.AbsInfo(value=0, min=0, max=65535, fuzz=0, flat=0, resolution=0)),
             (e_codes.ABS_MT_POSITION_X,   evdev.AbsInfo(value=0, min=0, max=max_x, fuzz=0, flat=0, resolution=0)),
@@ -570,6 +593,20 @@ def _setup_uinput() -> None:
         ui = UInput(cap, name="Monitorize-Touch", bustype=e_codes.BUS_USB)
         _uinput_dev = ui
         log.info("uinput device created: %s  (fd=%d)", ui.device.path, ui.fd)
+
+        # Map the touch device to the virtual monitor output in Hyprland
+        if monitor_name:
+            log.info("Mapping touch device 'monitorize-touch' to monitor '%s'", monitor_name)
+            res = subprocess.run(["hyprctl", "keyword", "device:monitorize-touch:output", monitor_name], capture_output=True, text=True)
+            log.info("hyprctl mapping output: stdout=%r stderr=%r", res.stdout, res.stderr)
+        else:
+            log.info("No headless monitor found, mapping to default 'HEADLESS-1'")
+            res = subprocess.run(["hyprctl", "keyword", "device:monitorize-touch:output", "HEADLESS-1"], capture_output=True, text=True)
+            log.info("hyprctl mapping output: stdout=%r stderr=%r", res.stdout, res.stderr)
+
+        log.info("Waiting 2.0 seconds for compositor to detect and configure the new touch device...")
+        time.sleep(2.0)
+
         log.info("Touch daemon ready (uinput) — screen %dx%d", SCREEN_W, SCREEN_H)
         _portal_ready.set()
 
@@ -745,7 +782,7 @@ def _run_udp_server() -> None:
                             log.debug("[UDP] pkt#%d type=%d action=%d cid=%d nx=%d ny=%d",
                                       pkt_count, pkt_type, action, cid, nx, ny)
                         
-                        if pkt_type == PKT_TOUCH:
+                        if pkt_type == PKT_TOUCH or _DETECTED_DE == "hyprland":
                             _inject_fn(action, cid, nx, ny)
                         else:
                             _inject_pen(action, tool, nx, ny, pr, tx, btn)
@@ -776,6 +813,9 @@ def main():
     signal.signal(signal.SIGTERM, _cleanup)
 
     log.info("touch_daemon.py — screen %dx%d  DE=%s", SCREEN_W, SCREEN_H, _DETECTED_DE)
+
+    # Delay startup of input backends to allow the virtual display and compositor layout to settle
+    time.sleep(2.0)
 
     # Choose backend based on desktop environment
     if _DETECTED_DE == "hyprland":
