@@ -1,10 +1,21 @@
-# Python
+# ==============================
+#  Python
+# ==============================
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
+*.pyo
+*.pyd
 
-# Environments
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+*.whl
+
+# Virtual environments
 .env
 .venv
 env/
@@ -13,25 +24,107 @@ ENV/
 env.bak/
 venv.bak/
 
-# IntelliJ / PyCharm / Android Studio
+# Type checkers / linters
+.mypy_cache/
+.dmypy.json
+.pytype/
+.ruff_cache/
+.pylint.d/
+
+# Testing
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+htmlcov/
+coverage.xml
+*.cover
+
+# ==============================
+#  Android / Gradle
+# ==============================
+.gradle/
+**/build/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Signing
+*.jks
+*.keystore
+
+# APK / AAB outputs
+*.apk
+*.aab
+
+# Proguard mapping (generated, can be huge)
+**/mapping/
+
+# ==============================
+#  IntelliJ / Android Studio / PyCharm
+# ==============================
 .idea/
 *.iml
 *.iws
+*.ipr
 out/
 
-# Android / Gradle
-.gradle/
-local.properties
-*/build/
-captures/
-.externalNativeBuild
-.cxx/
+# ==============================
+#  VS Code
+# ==============================
+.vscode/
+*.code-workspace
 
+# ==============================
+#  OS generated files
+# ==============================
 # macOS
 .DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
 
-# Temporary files / Archives
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+*.swp
+*.swo
+.nfs*
+.directory
+
+# ==============================
+#  Logs & crash reports
+# ==============================
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+crash-*.log
+hs_err_pid*.log
+
+# ==============================
+#  Temporary files / Archives
+# ==============================
 temp/
+tmp/
 *.zip
 *.tar.gz
 *.rar
+*.7z
+
+# ==============================
+#  Miscellaneous
+# ==============================
+# Gradle wrapper JAR (can be re-downloaded)
+gradle/wrapper/gradle-wrapper.jar
+
+# Gemini / AI tool caches
+.gemini/
