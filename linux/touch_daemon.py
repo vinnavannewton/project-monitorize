@@ -141,7 +141,8 @@ def _get_virtual_monitor_rect_hyprland() -> tuple[float, float, float, float]:
         for mon in monitors:
             name = mon.get("name", "")
             # Hyprland headless monitors are named HEADLESS-1, HEADLESS-2, etc.
-            if name.startswith("HEADLESS"):
+            # or custom names like Virtual-TabletDIsplay.
+            if name.startswith("HEADLESS") or name.lower().startswith("virtual-tabletdisplay"):
                 x = float(mon.get("x", 0))
                 y = float(mon.get("y", 0))
                 w = float(mon.get("width", SCREEN_W))
@@ -156,53 +157,43 @@ def _get_virtual_monitor_rect_hyprland() -> tuple[float, float, float, float]:
     return None
 
 def _get_virtual_monitor_rect_gnome() -> tuple[float, float, float, float]:
-    """Return (x, y, width, height) of the GNOME virtual monitor.
-
-    GNOME's Streamer_gnome_usb.py creates the virtual monitor via Mutter's
-    RecordVirtual D-Bus API with a known position (currently 0,0).  We query
-    org.gnome.Mutter.DisplayConfig to find the logical monitor whose
-    connector starts with 'Virtual-' (Mutter's naming for RecordVirtual
-    outputs).  If the D-Bus query fails we fall back to (0, 0, SCREEN_W,
-    SCREEN_H) which matches the RecordVirtual defaults.
-    """
+    """Return (x, y, width, height) of the GNOME virtual monitor by querying D-Bus."""
     try:
-        import subprocess, json
-        # gdctl (GNOME 47+) or gnome-monitor-config can dump JSON, but the
-        # most universal method is the D-Bus DisplayConfig.GetCurrentState
-        # introspection.  However, parsing that is complex.  A simpler
-        # approach: Mutter stores the layout in ~/.config/monitors.xml but
-        # RecordVirtual monitors are ephemeral and won't appear there.
-        #
-        # Best portable approach: try gdctl first, fall back to the known
-        # position that Streamer_gnome_usb.py passes to RecordVirtual.
-        res = subprocess.run(
-            ["gdctl", "show", "--json"],
-            capture_output=True, text=True, timeout=5,
-        )
-        if res.returncode == 0:
-            data = json.loads(res.stdout)
-            for mon in data.get("monitors", data.get("logical-monitors", [])):
-                connector = mon.get("connector", mon.get("name", ""))
-                if connector.startswith("Virtual") or connector.startswith("virtual"):
-                    x = float(mon.get("x", 0))
-                    y = float(mon.get("y", 0))
-                    # gdctl may report the mode inside a nested structure
-                    mode = mon.get("current-mode", mon)
-                    w = float(mode.get("width", SCREEN_W))
-                    h = float(mode.get("height", SCREEN_H))
-                    scale = float(mon.get("scale", 1.0))
-                    log.info("Found GNOME virtual monitor %s at (%.0f, %.0f) %dx%d",
-                             connector, x, y, int(w), int(h))
-                    return (x, y, w / scale, h / scale)
-    except FileNotFoundError:
-        log.debug("gdctl not found (pre-GNOME 47), using RecordVirtual defaults")
-    except Exception as e:
-        log.warning("Failed to query GNOME monitor config: %s", e)
+        import dbus
+        bus = dbus.SessionBus()
+        obj = bus.get_object('org.gnome.Mutter.DisplayConfig', '/org/gnome/Mutter/DisplayConfig')
+        dc = dbus.Interface(obj, 'org.gnome.Mutter.DisplayConfig')
+        serial_num, pms, lms, props = dc.GetCurrentState()
 
-    # Fallback: Streamer_gnome_usb.py creates the virtual monitor at (0, 0)
-    # with the user-specified SCREEN_W x SCREEN_H, so use those directly.
-    log.info("Using GNOME RecordVirtual defaults: (0, 0, %d, %d)", SCREEN_W, SCREEN_H)
-    return (0.0, 0.0, float(SCREEN_W), float(SCREEN_H))
+        for pm in pms:
+            connector = str(pm[0][0])
+            # Check for virtual monitors (typically start with 'Virtual-' or 'Meta-')
+            if any(name in connector.lower() for name in ("virtual", "meta")):
+                # Find current mode resolution
+                w, h = None, None
+                for mode in pm[1]:
+                    if mode[6].get('is-current'):
+                        w = float(mode[1])
+                        h = float(mode[2])
+                        break
+                if w is None and pm[1]:
+                    w = float(pm[1][0][1])
+                    h = float(pm[1][0][2])
+                
+                if w is not None:
+                    # Find corresponding logical monitor
+                    for lm in lms:
+                        for mon in lm[5]:
+                            if str(mon[0]) == connector:
+                                x = float(lm[0])
+                                y = float(lm[1])
+                                scale = float(lm[2])
+                                log.info("Found GNOME virtual monitor %s via D-Bus at (%.0f, %.0f) %dx%d scale=%.2f",
+                                         connector, x, y, int(w), int(h), scale)
+                                return (x, y, w / scale, h / scale)
+    except Exception as e:
+        log.warning("Failed to query GNOME Mutter DisplayConfig: %s", e)
+    return None
 
 def _get_virtual_monitor_rect() -> tuple[float, float, float, float]:
     """Return (x, y, width, height) of the virtual monitor, dispatching by DE."""
@@ -277,35 +268,56 @@ def _inject_touch_libei(action: int, cid: int, nx: int, ny: int) -> None:
     x, y = _scale(dev, nx, ny)
     log.debug("touch action=%d cid=%d → (%.1f, %.1f)", action, cid, x, y)
 
+    caps = dev.capabilities if dev else ()
+    is_touch = ei.DeviceCapability.TOUCH in caps
+
     try:
         with _ei_lock:
-            if action == ACTION_DOWN:
-                # CRITICAL: Store the object immediately in our strong dict (prevents GC)
-                touch = dev.touch_new()
-                _active_touches[cid] = touch
-                touch.down(x, y)
-                dev.frame()
-                log.info("[INJECT] DOWN  cid=%d  coords=(%.1f, %.1f)  active_slots=%d",
-                         cid, x, y, len(_active_touches))
-
-            elif action == ACTION_MOVE:
-                touch = _active_touches.get(cid)
-                if touch is not None:
-                    touch.motion(x, y)
+            if is_touch:
+                if action == ACTION_DOWN:
+                    # CRITICAL: Store the object immediately in our strong dict (prevents GC)
+                    touch = dev.touch_new()
+                    _active_touches[cid] = touch
+                    touch.down(x, y)
                     dev.frame()
-                    # log.debug("[INJECT] MOVE  cid=%d  coords=(%.1f, %.1f)", cid, x, y)
-                else:
-                    log.warning("[INJECT] MOVE  cid=%d  — no active touch slot!", cid)
-
-            elif action == ACTION_UP:
-                touch = _active_touches.pop(cid, None)
-                if touch is not None:
-                    touch.up()
-                    dev.frame()
-                    log.info("[INJECT] UP    cid=%d  coords=(%.1f, %.1f)  remaining=%d",
+                    log.info("[INJECT] DOWN  cid=%d  coords=(%.1f, %.1f)  active_slots=%d",
                              cid, x, y, len(_active_touches))
-                else:
-                    log.warning("[INJECT] UP    cid=%d  — no active touch slot!", cid)
+
+                elif action == ACTION_MOVE:
+                    touch = _active_touches.get(cid)
+                    if touch is not None:
+                        touch.motion(x, y)
+                        dev.frame()
+                    else:
+                        log.warning("[INJECT] MOVE  cid=%d  — no active touch slot!", cid)
+
+                elif action == ACTION_UP:
+                    touch = _active_touches.pop(cid, None)
+                    if touch is not None:
+                        touch.up()
+                        dev.frame()
+                        log.info("[INJECT] UP    cid=%d  coords=(%.1f, %.1f)  remaining=%d",
+                                 cid, x, y, len(_active_touches))
+                    else:
+                        log.warning("[INJECT] UP    cid=%d  — no active touch slot!", cid)
+            else:
+                # Fallback pointer absolute emulation (for GNOME)
+                btn_left = 0x110
+                if action == ACTION_DOWN:
+                    dev.pointer_motion_absolute(x, y)
+                    dev.button_button(btn_left, True)
+                    dev.frame()
+                    _active_touches[cid] = True
+                    log.info("[INJECT POINTER] DOWN  cid=%d  coords=(%.1f, %.1f)", cid, x, y)
+                elif action == ACTION_MOVE:
+                    dev.pointer_motion_absolute(x, y)
+                    dev.frame()
+                elif action == ACTION_UP:
+                    _active_touches.pop(cid, None)
+                    dev.pointer_motion_absolute(x, y)
+                    dev.button_button(btn_left, False)
+                    dev.frame()
+                    log.info("[INJECT POINTER] UP    cid=%d  coords=(%.1f, %.1f)", cid, x, y)
 
             if _ei_ctx:
                 _ei_ctx.dispatch()
@@ -406,26 +418,26 @@ def _inject_pen(action: int, tool: int, nx: int, ny: int, pressure: int, tx: int
                 dev.frame()
                 # log.debug("[INJECT PEN] HOVER coords=(%.1f, %.1f) btn_state=%d", x, y, btn_state)
 
-            if _ei_ctx_pen:
-                _ei_ctx_pen.dispatch()
+            if _ei_ctx:
+                _ei_ctx.dispatch()
     except Exception as exc:
         log.error("inject_pen error action=%d: %s", action, exc, exc_info=True)
 
 # ── portal + libei setup (KDE / GNOME) ─────────────────────────────────────────
 def _setup_libei() -> None:
     """Run the full portal handshake, set up libei, then spin the dispatch loop."""
-    global _touch_dev, _ei_ctx_touch
+    global _touch_dev, _pen_dev, _ei_ctx
 
     if not _HAS_SNEGG:
         log.error("snegg not installed — libei backend unavailable.")
         _shutdown.set()
         return
 
-    log.info("Requesting TOUCHSCREEN permission via XDG RemoteDesktop portal…")
+    log.info("Requesting TOUCHSCREEN/POINTER permissions via XDG RemoteDesktop portal…")
     log.info("▶  Watch for the compositor popup 'Allow Remote Control' and click Allow.")
 
-    # Phase 1: oeffis portal handshake (TOUCH ONLY)
-    oef = oeffis.Oeffis.create(devices=oeffis.DeviceType.TOUCHSCREEN)
+    # Phase 1: oeffis portal handshake (Request both TOUCHSCREEN and POINTER)
+    oef = oeffis.Oeffis.create(devices=oeffis.DeviceType.TOUCHSCREEN | oeffis.DeviceType.POINTER)
     
     eis_fd: Optional[int] = None
 
@@ -442,7 +454,7 @@ def _setup_libei() -> None:
         _shutdown.set()
         return
 
-    log.info("Portal granted — Touch fd=%d", eis_fd)
+    log.info("Portal granted — Touch/Pointer fd=%d", eis_fd)
 
     # Phase 2: snegg.ei.Sender connections
     # We MUST keep a reference to the Python file object, otherwise Python's GC
@@ -452,6 +464,7 @@ def _setup_libei() -> None:
     ctx = ei.Sender.create_for_fd(_io_fd, name="Virtual-TabletDisplay")
 
     touch_dev = None
+    pen_dev = None
     connected = False
 
     deadline2 = time.monotonic() + 20.0
@@ -465,21 +478,32 @@ def _setup_libei() -> None:
                 if raw == _EV_CONNECT:
                     connected = True
                 elif raw == _EV_SEAT_ADDED:
-                    event.seat.bind((ei.DeviceCapability.TOUCH,))
+                    log.info("Seat added: %s, caps: %s", event.seat.name, event.seat.capabilities)
+                    event.seat.bind(event.seat.capabilities)
                 elif raw == _EV_DEVICE_ADDED:
                     dev = event.device
                     caps = dev.capabilities if dev else ()
-                    if dev and ei.DeviceCapability.TOUCH in caps and touch_dev is None:
-                        touch_dev = dev
-                        dev.start_emulating()
-                        log.info("start_emulating() sent — TOUCH device READY ✓")
+                    if dev:
+                        if ei.DeviceCapability.TOUCH in caps:
+                            touch_dev = dev
+                            dev.start_emulating()
+                            log.info("start_emulating() sent — TOUCH device READY ✓")
+                        elif ei.DeviceCapability.POINTER_ABSOLUTE in caps:
+                            pen_dev = dev
+                            dev.start_emulating()
+                            log.info("start_emulating() sent — POINTER_ABSOLUTE device READY ✓")
                 elif raw == _EV_DISCONNECT:
                     log.error("Touch Compositor disconnected!")
                     _shutdown.set()
                     return
 
-        if connected and touch_dev:
+        if connected and (touch_dev or pen_dev):
             break
+
+    # If we got POINTER_ABSOLUTE but no TOUCH, use it as fallback touch_dev
+    if not touch_dev and pen_dev:
+        touch_dev = pen_dev
+        pen_dev = None
 
     if not touch_dev:
         log.error("libei setup incomplete. Touch disabled.")
@@ -487,7 +511,8 @@ def _setup_libei() -> None:
         return
 
     _touch_dev = touch_dev
-    _ei_ctx_touch = ctx
+    _pen_dev = pen_dev
+    _ei_ctx = ctx
     
     log.info("Touch daemon ready — screen %dx%d", SCREEN_W, SCREEN_H)
     _portal_ready.set()
@@ -691,9 +716,21 @@ def _run_udp_server() -> None:
     log.info("[UDP] Server listening on 0.0.0.0:7113 (waiting for Android over Wi-Fi)")
 
     pkt_count = 0
+    last_packet_time = 0.0
+
     while not _shutdown.is_set():
         try:
             data, addr = server.recvfrom(64)
+            
+            # Clear display layout cache if resuming from a silent gap (e.g. 3.0s),
+            # allowing dynamic layout updates (e.g., monitor config/restarts)
+            # to refresh the coordinate mapping correctly.
+            current_time = time.monotonic()
+            if current_time - last_packet_time > 3.0:
+                global _virtual_monitor_cache
+                _virtual_monitor_cache = None
+            last_packet_time = current_time
+
             if len(data) >= 13:
                 # Same payload as TCP. If it has the 4-byte length prefix (00 00 00 0D), skip it
                 offset = 4 if data[0] == 0x00 else 0

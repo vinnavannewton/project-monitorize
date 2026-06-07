@@ -9,10 +9,10 @@ from gi.repository import GLib
 
 # Wi‑Fi‑tuned parameters
 PORT    = 7110
-WIDTH   = 2560   # keep in sync with your virtual monitor + Android
-HEIGHT  = 1600
-FPS     = 60
-BITRATE = 8000   # lower than USB, more stable on Wi‑Fi
+WIDTH   = int(sys.argv[1]) if len(sys.argv) > 1 else 2560
+HEIGHT  = int(sys.argv[2]) if len(sys.argv) > 2 else 1600
+FPS     = int(sys.argv[3]) if len(sys.argv) > 3 else 60
+BITRATE = int(sys.argv[4]) if len(sys.argv) > 4 else 8000
 
 DBusGMainLoop(set_as_default=True)
 loop    = GLib.MainLoop()
@@ -50,8 +50,8 @@ def launch_streaming(fd, node_id):
     """
     global gst_proc
 
-    # For Wi‑Fi we still use TCP, just over adb tcpip tunnel instead of USB.
-    sink = f"tcpclientsink host=127.0.0.1 port={PORT} sync=false"
+    # For Wi‑Fi we use tcpserversink to listen on all interfaces.
+    sink = f"tcpserversink host=0.0.0.0 port={PORT} sync=false"
 
     pipeline = (
         f"gst-launch-1.0 -e -v "
@@ -59,9 +59,9 @@ def launch_streaming(fd, node_id):
         f"videorate skip-to-first=true ! "
         f"video/x-raw,framerate={FPS}/1 ! "
         f"queue max-size-buffers=1 leaky=downstream ! "
-        f"videoconvert ! video/x-raw,format=I420 ! "
+        f"videoconvert ! videoscale ! video/x-raw,format=I420,width={WIDTH},height={HEIGHT} ! "
         f"x264enc tune=zerolatency speed-preset=ultrafast "
-        f"bitrate={BITRATE} vbv-bufsize=1000 vbv-maxrate={BITRATE} key-int-max=15 bframes=0 byte-stream=true ! "
+        f"bitrate={BITRATE} option-string=\"vbv-bufsize=1000:vbv-maxrate={BITRATE}\" key-int-max=15 bframes=0 byte-stream=true ! "
         f"h264parse config-interval=-1 ! "
         f"video/x-h264,stream-format=byte-stream,alignment=au ! "
         f"{sink}"

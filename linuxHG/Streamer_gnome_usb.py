@@ -14,6 +14,8 @@ HEIGHT  = int(sys.argv[2]) if len(sys.argv) > 2 else 1600
 FPS     = int(sys.argv[3]) if len(sys.argv) > 3 else 60
 BITRATE = int(sys.argv[4]) if len(sys.argv) > 4 else 8000
 MODE    = sys.argv[5] if len(sys.argv) > 5 else "usb"
+SCALE   = float(sys.argv[6]) if len(sys.argv) > 6 else 1.0
+TYPE    = sys.argv[7] if len(sys.argv) > 7 else "Extend_Right"
 
 server_mode = (MODE == "wifi")
 host = "0.0.0.0" if server_mode else "127.0.0.1"
@@ -54,6 +56,20 @@ def launch_streaming(node_id):
         host=host, server_mode=server_mode,
     )
 
+def get_primary_connector():
+    try:
+        obj = bus.get_object('org.gnome.Mutter.DisplayConfig', '/org/gnome/Mutter/DisplayConfig')
+        display_config = dbus.Interface(obj, 'org.gnome.Mutter.DisplayConfig')
+        serial, physical_monitors, logical_monitors, properties = display_config.GetCurrentState()
+        for lm in logical_monitors:
+            is_primary = bool(lm[4])
+            monitors_list = lm[5]
+            if is_primary and monitors_list:
+                return str(monitors_list[0][0])
+    except Exception as e:
+        print(f"[Mutter] Failed to get primary connector via D-Bus: {e}")
+    return "eDP-1"
+
 def start_virtual_session():
     mutter_sc_obj = bus.get_object(
         "org.gnome.Mutter.ScreenCast",
@@ -67,15 +83,27 @@ def start_virtual_session():
     session_obj = bus.get_object("org.gnome.Mutter.ScreenCast", session_path)
     session     = dbus.Interface(session_obj, "org.gnome.Mutter.ScreenCast.Session")
 
-    stream_path = session.RecordVirtual({
-        "size":         dbus.Struct(
-                            [dbus.Int32(WIDTH), dbus.Int32(HEIGHT)],
-                            signature="ii"),
-        "position":     dbus.Struct(
-                            [dbus.Int32(0), dbus.Int32(0)],
-                            signature="ii"),
-        "refresh-rate": dbus.UInt32(FPS * 1000),
-    })
+    if TYPE.lower() == "mirror":
+        primary_conn = get_primary_connector()
+        print(f"[Mutter] Mirroring primary monitor: {primary_conn}")
+        stream_path = session.RecordMonitor(
+            primary_conn,
+            {
+                "cursor-mode": dbus.UInt32(1),
+            }
+        )
+    else:
+        print(f"[Mutter] Creating virtual monitor at 0,0 resolution {WIDTH}x{HEIGHT}")
+        stream_path = session.RecordVirtual({
+            "size":         dbus.Struct(
+                                [dbus.Int32(WIDTH), dbus.Int32(HEIGHT)],
+                                signature="ii"),
+            "position":     dbus.Struct(
+                                [dbus.Int32(0), dbus.Int32(0)],
+                                signature="ii"),
+            "refresh-rate": dbus.UInt32(FPS * 1000),
+            "cursor-mode":  dbus.UInt32(1),
+        })
     print(f"[Mutter] Stream: {stream_path}")
 
     # ---- THIS is where the indentation bug was ----

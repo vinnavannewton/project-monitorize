@@ -10,7 +10,7 @@ import subprocess
 
 def detect_igpu_encoder():
     """Detect an iGPU VA-API H.264 encoder. Skips NVIDIA dGPU. Returns element name or None."""
-    for enc in ("vah264lpenc", "vah264enc", "vaapih264enc"):
+    for enc in ("vah264enc", "vah264lpenc", "vaapih264enc"):
         try:
             result = subprocess.run(
                 ["gst-inspect-1.0", enc],
@@ -44,12 +44,13 @@ def _hw_encoder_params(enc_name, bitrate, key_int):
 
 def _cpu_encoder_params(bitrate, key_int):
     """Return GStreamer property string for optimised CPU x264enc."""
+    vbv_buf = int(bitrate * 0.15)
     return (
-        f"x264enc tune=zerolatency speed-preset=ultrafast bitrate={bitrate} "
+        f"x264enc tune=zerolatency speed-preset=ultrafast intra-refresh=true bitrate={bitrate} "
         f"key-int-max={key_int} byte-stream=true "
-        f"option-string=\"bframes=0:ref=1:sliced-threads=0:"                #trying single slice instead of 4
+        f"option-string=\"bframes=0:ref=1:sliced-threads=1:mb-tree=0:"
         f"rc-lookahead=0:sync-lookahead=0:threads=4:"
-        f"vbv-bufsize=2000:vbv-maxrate={bitrate}\""
+        f"vbv-bufsize={vbv_buf}:vbv-maxrate={bitrate}\""
     )
 
 
@@ -69,19 +70,19 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
     hw_encoder : str or None
         Element name from detect_igpu_encoder(), or None for CPU fallback.
     """
-    # Source
+    # Source: Limit buffers to 2 to prevent any frame queuing
     if pw_fd is not None:
-        src = f"pipewiresrc fd={pw_fd} path={node_id} do-timestamp=true always-copy=true keepalive-time=1"
+        src = f"pipewiresrc fd={pw_fd} path={node_id} do-timestamp=true always-copy=true keepalive-time=1 min-buffers=2 max-buffers=2"
     else:
-        src = f"pipewiresrc path={node_id} do-timestamp=true always-copy=true keepalive-time=1"
+        src = f"pipewiresrc path={node_id} do-timestamp=true always-copy=true keepalive-time=1 min-buffers=2 max-buffers=2"
 
     # videorate adapts PipeWire's variable damage-tracked rate to a fixed output rate.
     # skip-to-first=true avoids buffering before the first frame arrives.
     # drop-only=true ensures we never duplicate frames, avoiding unnecessary processing overhead.
     framerate = f"videorate skip-to-first=true drop-only=true ! video/x-raw,framerate={fps}/1"
 
-    # Queue — tight, drop-old
-    queue = "queue max-size-buffers=1 max-size-time=0 leaky=downstream"
+    # Queue — tight, drop-old, strictly single frame limits
+    queue = "queue max-size-buffers=1 max-size-time=0 max-size-bytes=0 leaky=downstream"
 
     # Encoder
     key_int = max(fps // 2, 15)   # keyframe every ~0.5s
@@ -94,13 +95,14 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
         convert = f"videoconvert n-threads=4 ! videoscale ! video/x-raw,format=NV12,width={width},height={height}"
         encoder = _cpu_encoder_params(bitrate, key_int)
 
-    # Mux + sink
-    parse = "h264parse config-interval=-1"
+    # Mux + sink: Send SPS/PPS every 1 second so client can sync up quickly without IDR frames
+    parse = "h264parse config-interval=1"
     caps_out = "video/x-h264,stream-format=byte-stream,alignment=au"
 
     # Sink: tcpserversink for Wi-Fi (Linux serves), tcpclientsink for USB
     if host != "127.0.0.1":
-        sink = f"tcpserversink host={host} port={port} sync=false"
+        # sync-method=2 (latest-keyframe) and recover-policy=1 (keyframe) to minimize lag on Wi-Fi
+        sink = f"tcpserversink host={host} port={port} sync=false sync-method=2 recover-policy=1"
     else:
         sink = f"tcpclientsink host=127.0.0.1 port={port} sync=false"
 

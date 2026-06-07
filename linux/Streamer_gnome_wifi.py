@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Streamer_gnome_usb.py — GNOME Wayland version.
+Streamer_gnome_wifi.py — GNOME Wayland version for Wi-Fi mode.
 Uses org.gnome.Mutter.ScreenCast RecordVirtual D-Bus API.
-PipeWire node ID arrives via PipeWireStreamAdded signal, not a method call.
+Standardized GStreamer pipeline builder framework.
 """
 import dbus, sys, signal, subprocess, threading
 from dbus.mainloop.glib import DBusGMainLoop
@@ -13,16 +13,15 @@ WIDTH   = int(sys.argv[1]) if len(sys.argv) > 1 else 2560
 HEIGHT  = int(sys.argv[2]) if len(sys.argv) > 2 else 1600
 FPS     = int(sys.argv[3]) if len(sys.argv) > 3 else 60
 BITRATE = int(sys.argv[4]) if len(sys.argv) > 4 else 8000
-MODE    = sys.argv[5] if len(sys.argv) > 5 else "usb"
+MODE    = sys.argv[5] if len(sys.argv) > 5 else "wifi"
 SCALE   = float(sys.argv[6]) if len(sys.argv) > 6 else 1.0
 TYPE    = sys.argv[7] if len(sys.argv) > 7 else "Extend_Right"
 
-server_mode = (MODE == "wifi")
-host = "0.0.0.0" if server_mode else "127.0.0.1"
+server_mode = True
+host = "0.0.0.0"
+PORT = 7110
 
-PORT    = 7110
-
-print(f"[Streamer GNOME USB] Resolution={WIDTH}x{HEIGHT}  FPS={FPS}  Bitrate={BITRATE}")
+print(f"[Streamer GNOME Wi-Fi] Resolution={WIDTH}x{HEIGHT}  FPS={FPS}  Bitrate={BITRATE}")
 
 # Detect iGPU HW encoder once at startup
 HW_ENCODER = detect_igpu_encoder()
@@ -33,7 +32,7 @@ bus      = dbus.SessionBus()
 gst_proc = None
 
 def cleanup(sig=None, frame=None):
-    print("\n[Monitorize GNOME] Shutting down...")
+    print("\n[Monitorize GNOME Wi-Fi] Shutting down...")
     if gst_proc and gst_proc.poll() is None:
         gst_proc.terminate()
         try:    gst_proc.wait(timeout=3)
@@ -47,7 +46,7 @@ signal.signal(signal.SIGTERM, cleanup)
 
 def launch_streaming(node_id):
     global gst_proc
-    print("[Monitorize GNOME] Streaming. Ctrl+C to stop.\n")
+    print("[Monitorize GNOME Wi-Fi] Streaming over Wi-Fi. Ctrl+C to stop.\n")
 
     gst_proc = launch_with_fallback(
         pw_fd=None, node_id=node_id,
@@ -106,7 +105,6 @@ def start_virtual_session():
         })
     print(f"[Mutter] Stream: {stream_path}")
 
-    # ---- THIS is where the indentation bug was ----
     def on_pipewire_stream_added(node_id):
         print(f"[Mutter] PipeWireStreamAdded — node_id={node_id}")
         t = threading.Thread(

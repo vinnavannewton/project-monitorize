@@ -50,8 +50,8 @@ def launch_streaming(fd, node_id):
     """
     global gst_proc
 
-    # For Wi‑Fi we still use TCP, just over adb tcpip tunnel instead of USB.
-    sink = f"tcpclientsink host=127.0.0.1 port={PORT} sync=false"
+    # For Wi‑Fi we use tcpserversink to listen on all interfaces.
+    sink = f"tcpserversink host=0.0.0.0 port={PORT} sync=false"
 
     pipeline = (
         f"gst-launch-1.0 -e -v "
@@ -59,7 +59,7 @@ def launch_streaming(fd, node_id):
         f"videorate skip-to-first=true ! "
         f"video/x-raw,framerate={FPS}/1 ! "
         f"queue max-size-buffers=1 leaky=downstream ! "
-        f"videoconvert ! video/x-raw,format=I420 ! "
+        f"videoconvert ! videoscale ! video/x-raw,format=I420,width={WIDTH},height={HEIGHT} ! "
         f"x264enc tune=zerolatency speed-preset=ultrafast "
         f"bitrate={BITRATE} option-string=\"vbv-bufsize=1000:vbv-maxrate={BITRATE}\" key-int-max=15 bframes=0 byte-stream=true ! "
         f"h264parse config-interval=-1 ! "

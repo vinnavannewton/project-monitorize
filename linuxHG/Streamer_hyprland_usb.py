@@ -3,8 +3,7 @@
 Streamer_hyprland_usb.py — Hyprland Wayland version.
 Uses org.freedesktop.portal.ScreenCast (via xdg-desktop-portal-hyprland).
 Virtual monitor must be created first with:
-  hyprctl output create headless Virtual-1
-  hyprctl keyword monitor Virtual-1,2560x1600@60,auto,1
+  hyprctl output create headless
 
 Usage: python3 Streamer_hyprland_usb.py <width> <height> <fps>
 """
@@ -29,6 +28,36 @@ print(f"[Streamer Hyprland USB] Resolution={WIDTH}x{HEIGHT}  FPS={FPS}  Bitrate=
 # Detect iGPU HW encoder once at startup
 HW_ENCODER = detect_igpu_encoder()
 
+def get_current_headless_monitors():
+    import subprocess, re
+    try:
+        res = subprocess.run(["hyprctl", "monitors", "all"], capture_output=True, text=True)
+        if res.returncode == 0:
+            return set(re.findall(r"\bHEADLESS-\d+\b", res.stdout))
+    except Exception:
+        pass
+    return set()
+
+# Handle virtual monitor creation/selection
+headless_arg = sys.argv[6] if len(sys.argv) > 6 else None
+created_monitor = None
+
+if headless_arg:
+    created_monitor = headless_arg
+    print(f"[Hyprland] Using headless monitor from GUI: {created_monitor}")
+else:
+    # Standalone mode: create one automatically
+    print("[Hyprland] Standalone mode: Creating virtual monitor...")
+    old_mons = get_current_headless_monitors()
+    subprocess.run(["hyprctl", "output", "create", "headless"], capture_output=True)
+    new_mons = get_current_headless_monitors()
+    diff = new_mons - old_mons
+    if diff:
+        created_monitor = list(diff)[0]
+    else:
+        created_monitor = "HEADLESS-1"
+    print(f"[Hyprland] Created virtual monitor: {created_monitor}")
+
 DBusGMainLoop(set_as_default=True)
 loop     = GLib.MainLoop()
 bus      = dbus.SessionBus()
@@ -38,12 +67,24 @@ sc       = dbus.Interface(desktop, "org.freedesktop.portal.ScreenCast")
 state    = {"step": "create_session", "session": None}
 gst_proc = None
 
+cleaning_up = False
+
 def cleanup(sig=None, frame=None):
+    global created_monitor, cleaning_up
+    if cleaning_up:
+        return
+    cleaning_up = True
     print("\n[Monitorize Hyprland] Shutting down...")
     if gst_proc and gst_proc.poll() is None:
         gst_proc.terminate()
         try:    gst_proc.wait(timeout=3)
         except subprocess.TimeoutExpired: gst_proc.kill()
+
+    if created_monitor:
+        print(f"[Hyprland] Removing created headless monitor: {created_monitor}")
+        subprocess.run(["hyprctl", "output", "remove", created_monitor], capture_output=True)
+        created_monitor = None
+
     if loop.is_running():
         loop.quit()
     sys.exit(0)
@@ -103,11 +144,14 @@ bus.add_signal_receiver(on_response, signal_name="Response",
                         dbus_interface="org.freedesktop.portal.Request")
 
 print("[Portal] Creating session... Hyprland will ask you to select a monitor.")
-print("         Select 'Virtual-1' in the picker.\n")
+print("         Select 'HEADLESS' in the picker.\n")
 
 sc.CreateSession({
     "handle_token":         dbus.String("tok1"),
     "session_handle_token": dbus.String("ses1"),
 })
 
-loop.run()
+try:
+    loop.run()
+finally:
+    cleanup()
