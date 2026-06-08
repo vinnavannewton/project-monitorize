@@ -311,7 +311,7 @@ fun HomeScreen(
             
             // "Hint-type" header
             Text(
-                "YOU SHOULD SEE A LIST OF DEVICES HERE",
+                "DEVICES:",
                 fontSize = 11.sp,
                 color = TextMuted,
                 fontWeight = FontWeight.Bold,
@@ -350,7 +350,7 @@ fun HomeScreen(
                 OutlinedTextField(
                     value = manualIp,
                     onValueChange = { manualIp = it },
-                    placeholder = { Text("Enter PC IP manually", color = TextMuted) },
+                    placeholder = { Text("Enter IP manually", color = TextMuted) },
                     modifier = Modifier.weight(1f),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(

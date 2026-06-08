@@ -12,7 +12,7 @@ from PyQt6.QtWidgets import (
     QComboBox, QCheckBox, QSystemTrayIcon, QMenu,
     QDialog, QMessageBox, QLineEdit, QScrollArea,
 )
-from PyQt6.QtCore import Qt, QProcess, QProcessEnvironment, QTimer, QSize
+from PyQt6.QtCore import Qt, QProcess, QProcessEnvironment, QTimer, QSize, QSettings
 from PyQt6.QtGui import QColor, QPalette, QFont, QTextCursor, QIcon, QPixmap, QPainter
 
 # ---------------------------------------------------------------------------
@@ -284,6 +284,11 @@ QMessageBox QLabel {
 # Tiny helpers
 # ---------------------------------------------------------------------------
 
+class NonScrollComboBox(QComboBox):
+    """A QComboBox that ignores mouse wheel events to prevent accidental setting changes while scrolling the panel."""
+    def wheelEvent(self, event):
+        event.ignore()
+
 def hr() -> QFrame:
     line = QFrame()
     line.setObjectName("sep")
@@ -515,7 +520,7 @@ class WifiPage(QWidget):
         res_row.setSpacing(12)
         res_label = QLabel("Resolution:")
         res_label.setObjectName("instruction")
-        self._res_combo = QComboBox()
+        self._res_combo = NonScrollComboBox()
         self._res_combo.addItems(self.RESOLUTIONS)
         self._res_combo.setCurrentText("2560x1600")
         self._res_combo.currentTextChanged.connect(self._on_res_changed)
@@ -556,7 +561,7 @@ class WifiPage(QWidget):
         fps_row.setSpacing(12)
         fps_label = QLabel("FPS:")
         fps_label.setObjectName("instruction")
-        self._fps_combo = QComboBox()
+        self._fps_combo = NonScrollComboBox()
         self._fps_combo.addItems(self.FPS_OPTIONS)
         self._fps_combo.setCurrentText("60")
         self._fps_combo.currentTextChanged.connect(self._on_fps_changed)
@@ -605,22 +610,13 @@ class WifiPage(QWidget):
             gnome_row = QHBoxLayout()
             gnome_row.setSpacing(20)
             
-            scale_lbl = QLabel("Display Scale:")
-            scale_lbl.setObjectName("instruction")
-            self._gnome_scale_combo = QComboBox()
-            self._gnome_scale_combo.addItems([f"{i/10:.1f}" for i in range(10, 21)])
-            self._gnome_scale_combo.setCurrentText("2.0")
-            
             type_lbl = QLabel("Display Type:")
             type_lbl.setObjectName("instruction")
-            self._gnome_type_combo = QComboBox()
-            self._gnome_type_combo.addItems(["Extend Right", "Extend Left", "Mirror"])
+            self._gnome_type_combo = NonScrollComboBox()
+            self._gnome_type_combo.addItems(["Extend Right", "Mirror"])
             self._gnome_type_combo.setCurrentText("Extend Right")
             
             gnome_row.addStretch()
-            gnome_row.addWidget(scale_lbl)
-            gnome_row.addWidget(self._gnome_scale_combo)
-            gnome_row.addSpacing(20)
             gnome_row.addWidget(type_lbl)
             gnome_row.addWidget(self._gnome_type_combo)
             gnome_row.addStretch()
@@ -709,7 +705,7 @@ class WifiPage(QWidget):
     def gnome_scale(self) -> str:
         if hasattr(self, "_gnome_scale_combo"):
             return self._gnome_scale_combo.currentText()
-        return "2.0"
+        return "1.0"
 
     def gnome_type(self) -> str:
         if hasattr(self, "_gnome_type_combo"):
@@ -816,7 +812,7 @@ class UsbStep2Page(QWidget):
         res_row.setSpacing(12)
         res_label = QLabel("Resolution:")
         res_label.setObjectName("instruction")
-        self._res_combo = QComboBox()
+        self._res_combo = NonScrollComboBox()
         self._res_combo.addItems(self.RESOLUTIONS)
         self._res_combo.setCurrentText("2560x1600")
         self._res_combo.currentTextChanged.connect(self._on_res_changed)
@@ -858,7 +854,7 @@ class UsbStep2Page(QWidget):
         fps_row.setSpacing(12)
         fps_label = QLabel("FPS:")
         fps_label.setObjectName("instruction")
-        self._fps_combo = QComboBox()
+        self._fps_combo = NonScrollComboBox()
         self._fps_combo.addItems(self.FPS_OPTIONS)
         self._fps_combo.setCurrentText("60")
         self._fps_combo.currentTextChanged.connect(self._on_fps_changed)
@@ -908,22 +904,13 @@ class UsbStep2Page(QWidget):
             gnome_row = QHBoxLayout()
             gnome_row.setSpacing(20)
             
-            scale_lbl = QLabel("Display Scale:")
-            scale_lbl.setObjectName("instruction")
-            self._gnome_scale_combo = QComboBox()
-            self._gnome_scale_combo.addItems([f"{i/10:.1f}" for i in range(10, 21)])
-            self._gnome_scale_combo.setCurrentText("2.0")
-            
             type_lbl = QLabel("Display Type:")
             type_lbl.setObjectName("instruction")
-            self._gnome_type_combo = QComboBox()
-            self._gnome_type_combo.addItems(["Extend Right", "Extend Left", "Mirror"])
+            self._gnome_type_combo = NonScrollComboBox()
+            self._gnome_type_combo.addItems(["Extend Right", "Mirror"])
             self._gnome_type_combo.setCurrentText("Extend Right")
             
             gnome_row.addStretch()
-            gnome_row.addWidget(scale_lbl)
-            gnome_row.addWidget(self._gnome_scale_combo)
-            gnome_row.addSpacing(20)
             gnome_row.addWidget(type_lbl)
             gnome_row.addWidget(self._gnome_type_combo)
             gnome_row.addStretch()
@@ -1071,7 +1058,7 @@ class UsbStep2Page(QWidget):
     def gnome_scale(self) -> str:
         if hasattr(self, "_gnome_scale_combo"):
             return self._gnome_scale_combo.currentText()
-        return "2.0"
+        return "1.0"
 
     def gnome_type(self) -> str:
         if hasattr(self, "_gnome_type_combo"):
@@ -1085,7 +1072,7 @@ class StreamingPage(QWidget):
     Shows a live log box fed from both QProcess stdout streams.
     """
 
-    def __init__(self, on_stop, parent=None):
+    def __init__(self, on_stop, on_configure, parent=None):
         super().__init__(parent)
         root = QVBoxLayout(self)
         root.setContentsMargins(40, 36, 40, 36)
@@ -1121,8 +1108,16 @@ class StreamingPage(QWidget):
         self._stop_btn.setEnabled(False)
         self._stop_btn.clicked.connect(on_stop)
 
+        # ---- Configure display button (only visible on Hyprland) ----
+        self._configure_btn = QPushButton("⚙  Configure Display")
+        self._configure_btn.clicked.connect(on_configure)
+        self._configure_btn.setVisible(False)
+
         row = QHBoxLayout()
-        row.addStretch(); row.addWidget(self._stop_btn); row.addStretch()
+        row.addStretch()
+        row.addWidget(self._stop_btn)
+        row.addWidget(self._configure_btn)
+        row.addStretch()
         root.addLayout(row)
         root.addSpacing(16)
 
@@ -1133,6 +1128,9 @@ class StreamingPage(QWidget):
 
     def set_stop_enabled(self, enabled: bool):
         self._stop_btn.setEnabled(enabled)
+
+    def set_configure_visible(self, visible: bool):
+        self._configure_btn.setVisible(visible)
 
     def append_log(self, prefix: str, text: str):
         """Append a labelled line to the log and auto-scroll."""
@@ -1180,15 +1178,18 @@ class MonitorizeWindow(QMainWindow):
         subprocess.run(["killall", "-9", "gst-launch-1.0"], capture_output=True)
         subprocess.run(["pkill", "-9", "-f", "Streamer_.*\\.py"], capture_output=True)
 
-        # ------------------------------------------------------------------
-        # Desktop-environment detection (runs once at startup)
-        # ------------------------------------------------------------------
         detected = detect_desktop_environment()
         if detected:
             self.detected_de = detected
         else:
             self.detected_de = self._ask_desktop_environment()
         # Badge is updated after pages are added to the stack (see below)
+
+        self.initial_headless_monitors = []
+        if self.detected_de == "hyprland":
+            self.initial_headless_monitors = self._get_current_headless_monitors()
+            print(f"[Hyprland] Initial virtual monitors detected: {self.initial_headless_monitors}")
+        self.created_headless_monitor = None
 
         # Persistent QProcess objects for streaming + input forwarding
         self.process_krfb:          QProcess | None = None
@@ -1214,7 +1215,7 @@ class MonitorizeWindow(QMainWindow):
         self._page_wifi      = WifiPage(self._go_main, self._on_start_streaming_wifi, detected_de=self.detected_de)
         self._page_usb1      = UsbStep1Page(self._go_main, self._on_connected)
         self._page_usb2      = UsbStep2Page(self._go_usb1, self._on_start_streaming, detected_de=self.detected_de)
-        self._page_streaming = StreamingPage(self._on_stop_streaming)
+        self._page_streaming = StreamingPage(self._on_stop_streaming, self._on_configure_display)
 
         self._stack.addWidget(self._page_main)       # 0
         self._stack.addWidget(make_scrollable(self._page_wifi))  # 1
@@ -1442,10 +1443,12 @@ class MonitorizeWindow(QMainWindow):
         self._page_streaming.clear_log()
 
         env = QProcessEnvironment.systemEnvironment()
+        env.insert("PYTHONUNBUFFERED", "1")
         self._script_dir = script_dir
         self._env        = env
 
         self._page_streaming.set_stop_enabled(False)
+        self._page_streaming.set_configure_visible(self.detected_de == "hyprland")
         self._stack.setCurrentIndex(PAGE_STREAMING)
 
         width, height = config_page.selected_resolution()
@@ -1455,7 +1458,6 @@ class MonitorizeWindow(QMainWindow):
         self._stream_height = height
         self._stream_fps    = fps
         self._stream_bitrate = bitrate
-
         import subprocess
         subprocess.run(["killall", "-9", "gst-launch-1.0"], capture_output=True)
         subprocess.run(["pkill", "-9", "-f", "Streamer_.*\\.py"], capture_output=True)
@@ -1486,6 +1488,26 @@ class MonitorizeWindow(QMainWindow):
             ])
             self._countdown = 1
             self._countdown_timer.start()
+        elif self.detected_de == "hyprland":
+            self._page_streaming.set_status("Setting up virtual monitor on Hyprland…")
+            import subprocess
+            old_monitors = set(self._get_current_headless_monitors())
+            subprocess.run(["hyprctl", "output", "create", "headless"], capture_output=True)
+            
+            new_monitors = set(self._get_current_headless_monitors())
+            diff = new_monitors - old_monitors
+            if diff:
+                new_name = list(diff)[0]
+            else:
+                new_name = "HEADLESS-1"
+            
+            self.created_headless_monitor = new_name
+            # Set the monitor resolution dynamically
+            subprocess.run(["hyprctl", "keyword", "monitor", f"{new_name},{width}x{height}@{fps},auto,1"], capture_output=True)
+            subprocess.run(["hyprctl", "eval", f"hl.monitor({{ output = '{new_name}', mode = '{width}x{height}@{fps}', position = 'auto', scale = 1.0 }})"], capture_output=True)
+            print(f"[Hyprland] Created new headless monitor: {new_name} at {width}x{height}@{fps}")
+            self._page_streaming.append_log("STREAMER", f"Created new headless monitor: {new_name} at {width}x{height}@{fps}")
+            self._launch_streamer()
         else:
             self._page_streaming.set_status("Launching streamer…")
             self._launch_streamer()
@@ -1516,8 +1538,8 @@ class MonitorizeWindow(QMainWindow):
         # Choose the correct streamer script based on the detected DE
         _streamer_map = {
             "kde":      "Streamer_kde_usb.py",
-            "gnome":    "Streamer_gnome_usb.py",
-            "hyprland": "Streamer_hyprland_usb.py",
+            "gnome":    "Streamer_gnome_wifi.py" if self._is_wifi else "Streamer_gnome_usb.py",
+            "hyprland": "Streamer_hyprland_wifi.py" if self._is_wifi else "Streamer_hyprland_usb.py",
             "sway":     "Streamer_sway_usb.py",
         }
         streamer_script = _streamer_map.get(self.detected_de, "Streamer_kde_usb.py")
@@ -1534,6 +1556,10 @@ class MonitorizeWindow(QMainWindow):
         else:
             args.append("usb")
 
+        # Pass created headless monitor name as the 7th argument for Hyprland
+        if self.detected_de == "hyprland" and getattr(self, "created_headless_monitor", None):
+            args.append(self.created_headless_monitor)
+
         if self.detected_de == "gnome":
             active_page = self._page_wifi if self._is_wifi else self._page_usb2
             args.append(active_page.gnome_scale())
@@ -1545,8 +1571,11 @@ class MonitorizeWindow(QMainWindow):
         # The streamer triggers the screen-share display selector popup;
         # the input bridge triggers the input permission popup.
         # We want display selector first, input permission second, back-to-back.
-        if self.detected_de in ("kde", "hyprland", "gnome"):
+        if self.detected_de in ("kde", "gnome"):
             QTimer.singleShot(400, self._launch_input_bridge)
+        elif self.detected_de == "hyprland":
+            self._input_bridge_launched = False
+            self._streamer_buffer = ""
 
         self._page_streaming.set_status("Status: Streaming…")
         self._page_streaming.set_stop_enabled(True)
@@ -1652,6 +1681,21 @@ class MonitorizeWindow(QMainWindow):
         )
         self._page_streaming.append_log("STREAMER", raw)
 
+        # For Hyprland, wait until the user has selected the monitor in the portal
+        # screen-share picker and the PipeWire node has been negotiated/streaming started,
+        # before starting the touch daemon. This avoids any race conditions or premature
+        # touch injection crashes.
+        if self.detected_de == "hyprland":
+            if not getattr(self, "_input_bridge_launched", False):
+                if not hasattr(self, "_streamer_buffer"):
+                    self._streamer_buffer = ""
+                self._streamer_buffer += raw
+                if "[Portal] Got PipeWire node=" in self._streamer_buffer:
+                    self._input_bridge_launched = True
+                    # A small 500ms delay to allow the PipeWire stream to fully negotiate
+                    # and stabilize before launching the input bridge.
+                    QTimer.singleShot(500, self._launch_input_bridge)
+
     def _read_input_bridge(self):
         if self.process_input_bridge is None:
             return
@@ -1668,6 +1712,34 @@ class MonitorizeWindow(QMainWindow):
         self._kill_stream_procs()
         self._go_main()
 
+    def _on_configure_display(self):
+        """Run nwg-displays for Hyprland display configuration."""
+        import shutil
+        cmd = "nwg-displays"
+        if shutil.which(cmd) is None:
+            QMessageBox.warning(
+                self,
+                "nwg-displays Not Installed",
+                "nwg-displays is not installed."
+            )
+            return
+
+        try:
+            QProcess.startDetached(cmd)
+        except Exception as e:
+            if "not found" in str(e).lower() or isinstance(e, FileNotFoundError):
+                QMessageBox.warning(
+                    self,
+                    "nwg-displays Not Installed",
+                    "nwg-displays is not installed."
+                )
+            else:
+                QMessageBox.warning(
+                    self,
+                    "Error",
+                    f"Failed to run nwg-displays:\n{str(e)}"
+                )
+
     def _kill_stream_procs(self):
         # Stop the countdown so it can't fire and start the streamer after cleanup
         self._countdown_timer.stop()
@@ -1681,6 +1753,40 @@ class MonitorizeWindow(QMainWindow):
         self.process_krfb          = None
         self.process_streamer      = None
         self.process_input_bridge  = None
+
+        # Clean up headless monitor on Hyprland if we created one
+        if self.detected_de == "hyprland" and getattr(self, "created_headless_monitor", None):
+            print(f"[Hyprland] Removing created headless monitor: {self.created_headless_monitor}")
+            import subprocess
+            subprocess.run(["hyprctl", "output", "remove", self.created_headless_monitor], capture_output=True)
+            self.created_headless_monitor = None
+
+    def _get_current_headless_monitors(self):
+        """Query and return a list of currently existing headless monitor names."""
+        import subprocess, json, re
+        headless_names = []
+        # Primary method: JSON parsing
+        try:
+            res = subprocess.run(["hyprctl", "monitors", "all", "-j"], capture_output=True, text=True)
+            if res.returncode == 0:
+                monitors = json.loads(res.stdout)
+                for mon in monitors:
+                    name = mon.get("name", "")
+                    if name.startswith("HEADLESS"):
+                        headless_names.append(name)
+                return headless_names
+        except Exception:
+            pass
+
+        # Fallback method: Text parsing using regex
+        try:
+            res = subprocess.run(["hyprctl", "monitors", "all"], capture_output=True, text=True)
+            if res.returncode == 0:
+                matches = re.findall(r"\bHEADLESS-\d+\b", res.stdout)
+                headless_names = list(set(matches))
+        except Exception:
+            pass
+        return headless_names
 
     # ------------------------------------------------------------------
     # Tray helpers
