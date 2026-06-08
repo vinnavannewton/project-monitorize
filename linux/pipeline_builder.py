@@ -44,13 +44,9 @@ def _hw_encoder_params(enc_name, bitrate, key_int):
 
 def _cpu_encoder_params(bitrate, key_int):
     """Return GStreamer property string for optimised CPU x264enc."""
-    vbv_buf = int(bitrate * 0.15)
     return (
-        f"x264enc tune=zerolatency speed-preset=ultrafast intra-refresh=true bitrate={bitrate} "
-        f"key-int-max={key_int} byte-stream=true "
-        f"option-string=\"bframes=0:ref=1:sliced-threads=1:mb-tree=0:"
-        f"rc-lookahead=0:sync-lookahead=0:threads=4:"
-        f"vbv-bufsize={vbv_buf}:vbv-maxrate={bitrate}\""
+        f"x264enc tune=zerolatency speed-preset=ultrafast intra-refresh=false bitrate={bitrate} "
+        f"key-int-max={key_int} byte-stream=true threads=4"
     )
 
 
