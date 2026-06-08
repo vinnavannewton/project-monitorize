@@ -9,7 +9,24 @@ import subprocess
 
 
 def detect_igpu_encoder():
-    """Detect an iGPU VA-API H.264 encoder. Skips NVIDIA dGPU. Returns element name or None."""
+    """
+    Detect a hardware H.264 encoder.
+    Prioritizes NVIDIA dGPU (nvh264enc) first, then falls back to VA-API (iGPU),
+    and finally CPU (x264enc).
+    """
+    # 1. Prioritize NVIDIA native NVENC
+    try:
+        result = subprocess.run(
+            ["gst-inspect-1.0", "nvh264enc"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0:
+            print("[Pipeline] Detected NVIDIA GPU encoder: nvh264enc")
+            return "nvh264enc"
+    except Exception:
+        pass
+
+    # 2. Fall back to VA-API (Intel/AMD iGPU)
     for enc in ("vah264enc", "vah264lpenc", "vaapih264enc"):
         try:
             result = subprocess.run(
@@ -21,13 +38,19 @@ def detect_igpu_encoder():
                 return enc
         except Exception:
             continue
-    print("[Pipeline] No iGPU encoder found — will use CPU x264enc")
+
+    print("[Pipeline] No hardware encoder found — will use CPU x264enc")
     return None
 
 
 def _hw_encoder_params(enc_name, bitrate, key_int):
     """Return GStreamer property string for a detected hardware encoder."""
-    if enc_name == "vaapih264enc":
+    if enc_name == "nvh264enc":
+        return (
+            f"nvh264enc bitrate={bitrate} zerolatency=true bframes=0 "
+            f"rc-mode=cbr gop-size={key_int}"
+        )
+    elif enc_name == "vaapih264enc":
         return (
             f"{enc_name} rate-control=cbr bitrate={bitrate} "
             f"keyframe-period={key_int} max-bframes=0 quality-level=7"
