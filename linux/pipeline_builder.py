@@ -72,7 +72,7 @@ def _cpu_encoder_params(bitrate, key_int):
         f"x264enc tune=zerolatency speed-preset=ultrafast intra-refresh=true bitrate={bitrate} "
         f"key-int-max={key_int} byte-stream=true "
         f"option-string=\"bframes=0:ref=1:sliced-threads=1:mb-tree=0:"
-        f"rc-lookahead=0:sync-lookahead=0:threads=4:"
+        f"rc-lookahead=0:sync-lookahead=0:threads=0:"
         f"vbv-bufsize={vbv_buf}:vbv-maxrate={bitrate}\""
     )
 
