@@ -79,7 +79,10 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
     # videorate adapts PipeWire's variable damage-tracked rate to a fixed output rate.
     # skip-to-first=true avoids buffering before the first frame arrives.
     # drop-only=true ensures we never duplicate frames, avoiding unnecessary processing overhead.
-    framerate = f"videorate skip-to-first=true drop-only=true ! video/x-raw,framerate={fps}/1"
+    # videoconvert before videorate ensures DMA-BUF / non-raw frames from
+    # PipeWire are converted to video/x-raw before the caps filter.
+    # Zero-cost passthrough when frames are already raw.
+    framerate = f"videoconvert ! videorate skip-to-first=true drop-only=true ! video/x-raw,framerate={fps}/1"
 
     # Queue — tight, drop-old, strictly single frame limits
     queue = "queue max-size-buffers=1 max-size-time=0 max-size-bytes=0 leaky=downstream"
