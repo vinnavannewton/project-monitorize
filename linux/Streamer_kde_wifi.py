@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 import dbus
 import sys
 import signal
@@ -7,7 +7,7 @@ import threading
 from dbus.mainloop.glib import DBusGMainLoop
 from gi.repository import GLib
 
-# Wi‑Fi‑tuned parameters
+
 PORT    = 7110
 WIDTH   = int(sys.argv[1]) if len(sys.argv) > 1 else 2560
 HEIGHT  = int(sys.argv[2]) if len(sys.argv) > 2 else 1600
@@ -50,7 +50,7 @@ def launch_streaming(fd, node_id):
     """
     global gst_proc
 
-    # For Wi‑Fi we use tcpserversink to listen on all interfaces.
+    
     sink = f"tcpserversink host=0.0.0.0 port={PORT} sync=false"
 
     pipeline = (
@@ -85,9 +85,9 @@ def on_response(response, results, **kw):
         state["session"] = str(results["session_handle"])
         state["step"]    = "select_sources"
         sc.SelectSources(state["session"], {
-            "types":        dbus.UInt32(1),   # monitor
+            "types":        dbus.UInt32(1),   
             "multiple":     dbus.Boolean(False),
-            "cursor_mode":  dbus.UInt32(2),   # embedded cursor
+            "cursor_mode":  dbus.UInt32(2),   
             "handle_token": dbus.String("tok2"),
         })
 
@@ -113,7 +113,7 @@ def on_response(response, results, **kw):
             daemon=True,
         )
         t.start()
-        # Keep loop running to keep portal session alive
+        
 
 bus.add_signal_receiver(
     on_response,

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 touch_daemon.py — Monitorize Wayland touch injector.
 
@@ -19,26 +19,26 @@ from typing import Optional
 
 _DEBUG = "--debug" in sys.argv
 
-# ── snegg imports (optional — only needed for KDE/GNOME) ──────────────────────
+
 _HAS_SNEGG = False
 try:
     import snegg.ei as ei
     import snegg.oeffis as oeffis
     _HAS_SNEGG = True
 except ImportError:
-    ei = None       # type: ignore
-    oeffis = None   # type: ignore
+    ei = None       
+    oeffis = None   
 
-# ── evdev imports (optional — only needed for Hyprland) ───────────────────────
+
 _HAS_EVDEV = False
 try:
     import evdev
     from evdev import UInput, ecodes as e_codes
     _HAS_EVDEV = True
 except ImportError:
-    evdev = None   # type: ignore
+    evdev = None   
 
-# ── raw libei C types (safe against unknown EventType enum values) ─────────────
+
 _libei = None
 if _HAS_SNEGG:
     _libei = ei.libei
@@ -51,9 +51,9 @@ _EV_DISCONNECT       = 2
 _EV_SEAT_ADDED       = 3
 _EV_DEVICE_ADDED     = 5
 _EV_DEVICE_REMOVED   = 6
-_EV_START_EMULATING  = 200   # must arrive before we send touch events
+_EV_START_EMULATING  = 200   
 
-# ── config ─────────────────────────────────────────────────────────────────────
+
 PORT      = 7111
 SCREEN_W  = int(sys.argv[1]) if len(sys.argv) > 1 else 2560
 SCREEN_H  = int(sys.argv[2]) if len(sys.argv) > 2 else 1600
@@ -67,7 +67,7 @@ ACTION_UP    = 2
 ACTION_HOVER = 3
 
 PAYLOAD_FMT  = ">BBBHHHhh"
-PAYLOAD_SIZE = struct.calcsize(PAYLOAD_FMT)   # 13 bytes
+PAYLOAD_SIZE = struct.calcsize(PAYLOAD_FMT)   
 
 logging.basicConfig(
     level=logging.DEBUG if _DEBUG else logging.INFO,
@@ -77,22 +77,22 @@ log = logging.getLogger("TouchDaemon")
 if _DEBUG:
     log.debug("DEBUG mode enabled")
 
-# ── global state ───────────────────────────────────────────────────────────────
-_ei_ctx       = None   # ei.Sender (KDE/GNOME)
-_touch_dev    = None   # ei.Device (KDE/GNOME)
-_pen_dev      = None   # ei.Device (KDE/GNOME)
-_uinput_dev   = None   # evdev.UInput (Hyprland)
+
+_ei_ctx       = None   
+_touch_dev    = None   
+_pen_dev      = None   
+_uinput_dev   = None   
 _ei_lock       = threading.Lock()
 _portal_ready  = threading.Event()
 _shutdown      = threading.Event()
 
-# CRITICAL FIX #1 — Touch objects must be held in a STRONG dict.
-# snegg's CObjectWrapper uses a WeakValueDictionary internally, so the C-level
-# touch pointer can be GC'd between DOWN and MOVE/UP unless we hold a strong ref.
-_active_touches: dict = {}
-_inject_fn = None   # set in main() → _inject_touch_libei or _inject_touch_uinput
 
-# ── DE detection (for coordinate mapping) ─────────────────────────────────────
+
+
+_active_touches: dict = {}
+_inject_fn = None   
+
+
 def _detect_de() -> str:
     """Detect desktop environment. Returns 'kde', 'gnome', 'hyprland', or 'unknown'."""
     hypr = os.environ.get("HYPRLAND_INSTANCE_SIGNATURE", "")
@@ -110,7 +110,7 @@ def _detect_de() -> str:
 _DETECTED_DE = _detect_de()
 log.info("Detected DE: %s", _DETECTED_DE)
 
-# ── coordinate scaling ─────────────────────────────────────────────────────────
+
 _virtual_monitor_cache = None
 
 def _get_virtual_monitor_rect_kde() -> tuple[float, float, float, float]:
@@ -124,8 +124,8 @@ def _get_virtual_monitor_rect_kde() -> tuple[float, float, float, float]:
                 pos = output.get("pos", {"x": 0, "y": 0})
                 size = output.get("size", {"width": 1280, "height": 800})
                 scale = output.get("scale", 1.0)
-                # kscreen-doctor -j returns unscaled size in the JSON `size` field,
-                # but logical size is size / scale.
+                
+                
                 return (float(pos["x"]), float(pos["y"]),
                         float(size["width"]/scale), float(size["height"]/scale))
     except Exception as e:
@@ -140,15 +140,15 @@ def _get_virtual_monitor_rect_hyprland() -> tuple[float, float, float, float]:
         monitors = json.loads(res.stdout)
         for mon in monitors:
             name = mon.get("name", "")
-            # Hyprland headless monitors are named HEADLESS-1, HEADLESS-2, etc.
-            # or custom names like Virtual-TabletDIsplay.
+            
+            
             if name.startswith("HEADLESS") or name.lower().startswith("virtual-tabletdisplay"):
                 x = float(mon.get("x", 0))
                 y = float(mon.get("y", 0))
                 w = float(mon.get("width", SCREEN_W))
                 h = float(mon.get("height", SCREEN_H))
                 scale = float(mon.get("scale", 1.0))
-                # hyprctl reports pixel dimensions; logical size = pixels / scale
+                
                 log.info("Found Hyprland headless monitor %s at (%.0f, %.0f) %dx%d scale=%.1f",
                          name, x, y, int(w), int(h), scale)
                 return (x, y, w / scale, h / scale)
@@ -167,9 +167,9 @@ def _get_virtual_monitor_rect_gnome() -> tuple[float, float, float, float]:
 
         for pm in pms:
             connector = str(pm[0][0])
-            # Check for virtual monitors (typically start with 'Virtual-' or 'Meta-')
+            
             if any(name in connector.lower() for name in ("virtual", "meta")):
-                # Find current mode resolution
+                
                 w, h = None, None
                 for mode in pm[1]:
                     if mode[6].get('is-current'):
@@ -181,7 +181,7 @@ def _get_virtual_monitor_rect_gnome() -> tuple[float, float, float, float]:
                     h = float(pm[1][0][2])
                 
                 if w is not None:
-                    # Find corresponding logical monitor
+                    
                     for lm in lms:
                         for mon in lm[5]:
                             if str(mon[0]) == connector:
@@ -208,7 +208,7 @@ def _get_virtual_monitor_rect() -> tuple[float, float, float, float]:
     elif _DETECTED_DE == "gnome":
         result = _get_virtual_monitor_rect_gnome()
     else:
-        # Unknown DE — try all, most specific first
+        
         result = (_get_virtual_monitor_rect_hyprland()
                   or _get_virtual_monitor_rect_kde()
                   or _get_virtual_monitor_rect_gnome())
@@ -220,19 +220,19 @@ def _get_virtual_monitor_rect() -> tuple[float, float, float, float]:
 def _scale(dev, nx: int, ny: int) -> tuple[float, float]:
     """Map Android 0-65535 normalised coords to the Virtual Monitor region."""
     
-    # Target the virtual monitor dynamically
+    
     vm_rect = _get_virtual_monitor_rect()
     target_rx, target_ry = 0.0, 0.0
     
     if vm_rect:
         target_rx, target_ry, _, _ = vm_rect
     
-    # Find the region that matches this position
+    
     best_reg = None
     best_rx, best_ry, best_rw, best_rh = 0.0, 0.0, float(SCREEN_W), float(SCREEN_H)
     
     if dev.regions:
-        best_reg = dev.regions[0] # fallback
+        best_reg = dev.regions[0] 
         for reg in dev.regions:
             rw, rh = reg.dimension
             rx, ry = 0.0, 0.0
@@ -242,12 +242,12 @@ def _scale(dev, nx: int, ny: int) -> tuple[float, float]:
             except Exception:
                 pass
             
-            # If this region matches the virtual monitor's position, it's the one!
+            
             if abs(rx - target_rx) < 5 and abs(ry - target_ry) < 5:
                 best_rx, best_ry, best_rw, best_rh = rx, ry, rw, rh
                 break
         else:
-            # If no match found, just use the first region but fetch its real position
+            
             try:
                 best_rx = float(_libei.region_get_x(best_reg._cobject))
                 best_ry = float(_libei.region_get_y(best_reg._cobject))
@@ -259,7 +259,7 @@ def _scale(dev, nx: int, ny: int) -> tuple[float, float]:
     y = best_ry + (ny / COORD_MAX) * best_rh
     return x, y
 
-# ── injection helpers (libei — KDE/GNOME) ──────────────────────────────────────
+
 def _inject_touch_libei(action: int, cid: int, nx: int, ny: int) -> None:
     dev = _touch_dev
     if dev is None:
@@ -275,7 +275,7 @@ def _inject_touch_libei(action: int, cid: int, nx: int, ny: int) -> None:
         with _ei_lock:
             if is_touch:
                 if action == ACTION_DOWN:
-                    # CRITICAL: Store the object immediately in our strong dict (prevents GC)
+                    
                     touch = dev.touch_new()
                     _active_touches[cid] = touch
                     touch.down(x, y)
@@ -301,7 +301,7 @@ def _inject_touch_libei(action: int, cid: int, nx: int, ny: int) -> None:
                     else:
                         log.warning("[INJECT] UP    cid=%d  — no active touch slot!", cid)
             else:
-                # Fallback pointer absolute emulation (for GNOME)
+                
                 btn_left = 0x110
                 if action == ACTION_DOWN:
                     dev.pointer_motion_absolute(x, y)
@@ -325,14 +325,14 @@ def _inject_touch_libei(action: int, cid: int, nx: int, ny: int) -> None:
     except Exception as exc:
         log.error("inject_touch error cid=%d action=%d: %s", cid, action, exc, exc_info=True)
 
-# ── injection helpers (uinput — Hyprland) ──────────────────────────────────────
+
 def _inject_touch_uinput(action: int, cid: int, nx: int, ny: int) -> None:
     """Inject touch via evdev/uinput virtual touchscreen (Hyprland backend)."""
     ui = _uinput_dev
     if ui is None:
         return
 
-    # Map normalised 0-65535 to the virtual screen pixel coordinates
+    
     vm = _get_virtual_monitor_rect()
     if vm:
         _, _, vw, vh = vm
@@ -341,7 +341,7 @@ def _inject_touch_uinput(action: int, cid: int, nx: int, ny: int) -> None:
 
     abs_x = int((nx / COORD_MAX) * vw)
     abs_y = int((ny / COORD_MAX) * vh)
-    slot = cid % 10   # max 10 slots
+    slot = cid % 10   
 
     try:
         with _ei_lock:
@@ -392,12 +392,12 @@ def _inject_pen(action: int, tool: int, nx: int, ny: int, pressure: int, tx: int
 
     x, y = _scale(dev, nx, ny)
     
-    # 32 is BUTTON_STYLUS_PRIMARY on Android (the side button)
-    # Tool 2 is ERASER
+    
+    
     is_secondary = (btn_state & 32) != 0 or (tool == 2)
-    # 0x110 is BTN_LEFT, 0x111 is BTN_RIGHT
-    # Note: earlier we used 0x14a for touch, but libei absolute pointer supports BTN_LEFT/BTN_RIGHT standard mouse codes
-    # We will use 0x110/0x111 to avoid compatibility issues with drawing apps
+    
+    
+    
     button_code = 0x111 if is_secondary else 0x110
     
     try:
@@ -410,11 +410,11 @@ def _inject_pen(action: int, tool: int, nx: int, ny: int, pressure: int, tx: int
             elif action == ACTION_MOVE:
                 dev.pointer_motion_absolute(x, y)
                 dev.frame()
-                # log.debug("[INJECT PEN] MOVE  coords=(%.1f, %.1f)", x, y)
+                
             elif action == ACTION_UP:
                 dev.pointer_motion_absolute(x, y)
                 dev.button_button(button_code, False)
-                # also release the other button just in case state changed while pressed
+                
                 other_btn = 0x110 if is_secondary else 0x111
                 dev.button_button(other_btn, False)
                 dev.frame()
@@ -422,14 +422,14 @@ def _inject_pen(action: int, tool: int, nx: int, ny: int, pressure: int, tx: int
             elif action == ACTION_HOVER:
                 dev.pointer_motion_absolute(x, y)
                 dev.frame()
-                # log.debug("[INJECT PEN] HOVER coords=(%.1f, %.1f) btn_state=%d", x, y, btn_state)
+                
 
             if _ei_ctx:
                 _ei_ctx.dispatch()
     except Exception as exc:
         log.error("inject_pen error action=%d: %s", action, exc, exc_info=True)
 
-# ── portal + libei setup (KDE / GNOME) ─────────────────────────────────────────
+
 def _setup_libei() -> None:
     """Run the full portal handshake, set up libei, then spin the dispatch loop."""
     global _touch_dev, _pen_dev, _ei_ctx
@@ -442,7 +442,7 @@ def _setup_libei() -> None:
     log.info("Requesting TOUCHSCREEN/POINTER permissions via XDG RemoteDesktop portal…")
     log.info("▶  Watch for the compositor popup 'Allow Remote Control' and click Allow.")
 
-    # Phase 1: oeffis portal handshake (Request both TOUCHSCREEN and POINTER)
+    
     oef = oeffis.Oeffis.create(devices=oeffis.DeviceType.TOUCHSCREEN | oeffis.DeviceType.POINTER)
     
     eis_fd: Optional[int] = None
@@ -462,9 +462,9 @@ def _setup_libei() -> None:
 
     log.info("Portal granted — Touch/Pointer fd=%d", eis_fd)
 
-    # Phase 2: snegg.ei.Sender connections
-    # We MUST keep a reference to the Python file object, otherwise Python's GC
-    # will automatically close the underlying fd, causing Bad file descriptor!
+    
+    
+    
     global _io_fd
     _io_fd = os.fdopen(eis_fd, "rb", buffering=0)
     ctx = ei.Sender.create_for_fd(_io_fd, name="Virtual-TabletDisplay")
@@ -506,7 +506,7 @@ def _setup_libei() -> None:
         if connected and (touch_dev or pen_dev):
             break
 
-    # If we got POINTER_ABSOLUTE but no TOUCH, use it as fallback touch_dev
+    
     if not touch_dev and pen_dev:
         touch_dev = pen_dev
         pen_dev = None
@@ -523,7 +523,7 @@ def _setup_libei() -> None:
     log.info("Touch daemon ready — screen %dx%d", SCREEN_W, SCREEN_H)
     _portal_ready.set()
 
-    # Phase 3: spin dispatch loop forever.
+    
     log.info("Entering libei dispatch loop…")
     while not _shutdown.is_set():
         r, _, _ = select.select([ctx.fd], [], [], 0.05)
@@ -537,7 +537,7 @@ def _setup_libei() -> None:
             else:
                 ctx.dispatch()
 
-# ── uinput setup (Hyprland) ────────────────────────────────────────────────────
+
 def _setup_uinput() -> None:
     """Create a virtual multitouch device via evdev/uinput for Hyprland.
 
@@ -562,7 +562,7 @@ def _setup_uinput() -> None:
 
     log.info("Creating uinput virtual touchscreen: %dx%d", max_x, max_y)
 
-    # Query monitors to find name for uinput mapping
+    
     monitor_name = None
     try:
         import subprocess, json
@@ -594,7 +594,7 @@ def _setup_uinput() -> None:
         _uinput_dev = ui
         log.info("uinput device created: %s  (fd=%d)", ui.device.path, ui.fd)
 
-        # Map the touch device to the virtual monitor output in Hyprland
+        
         if monitor_name:
             log.info("Mapping touch device 'monitorize-touch' to monitor '%s'", monitor_name)
             res = subprocess.run(["hyprctl", "keyword", "device:monitorize-touch:output", monitor_name], capture_output=True, text=True)
@@ -610,7 +610,7 @@ def _setup_uinput() -> None:
         log.info("Touch daemon ready (uinput) — screen %dx%d", SCREEN_W, SCREEN_H)
         _portal_ready.set()
 
-        # Keep thread alive so UInput is not garbage-collected
+        
         while not _shutdown.is_set():
             time.sleep(0.5)
 
@@ -624,7 +624,7 @@ def _setup_uinput() -> None:
         log.error("Failed to create uinput device: %s", exc, exc_info=True)
         _shutdown.set()
 
-# ── TCP server ─────────────────────────────────────────────────────────────────
+
 def _read_exact(sock: socket.socket, n: int) -> bytes:
     buf = bytearray()
     while len(buf) < n:
@@ -638,28 +638,28 @@ def _handle_client(client: socket.socket, addr: tuple) -> None:
     log.info("Android connected from %s", addr)
     pkt_count = 0
     try:
-        # Read the first 32 bytes to see EXACTLY what Android is sending!
+        
         first_chunk = client.recv(32, socket.MSG_PEEK)
         log.warning("[DEBUG] First chunk from Android (hex): %s", first_chunk.hex())
 
         while not _shutdown.is_set():
-            # Try to read 1 byte first. If it's 0x00, it's probably a 4-byte length prefix.
+            
             b1 = _read_exact(client, 1)
             if not b1: break
 
             if b1[0] == 0x00:
-                # Modern framing: 4-byte length prefix (00 00 00 0D)
-                _read_exact(client, 3) # read the rest of the length (00 00 0D)
+                
+                _read_exact(client, 3) 
                 pkt_type_bytes = _read_exact(client, 1)
                 pkt_type = pkt_type_bytes[0]
                 length = 13
             else:
-                # Legacy framing: No length prefix, the first byte IS the type!
+                
                 pkt_type = b1[0]
-                length = 12 # Old framing only sent 12 bytes of payload?
-                # Actually, if PAYLOAD_FMT requires 13 bytes, we read 13 bytes.
-                # But wait, if type was the first byte, we read 12 more. Let's read 13 bytes total anyway.
-                # Actually, let's just assume payload is 13 bytes for PKT_TOUCH.
+                length = 12 
+                
+                
+                
                 length = 13
             
             if pkt_type not in (PKT_TOUCH, PKT_PEN):
@@ -699,9 +699,9 @@ def _run_tcp_server() -> None:
     adb reverse tcp:7111 tcp:7111 forwards Android's localhost:7111 -> Linux:7111.
     """
     import subprocess as _sp
-    # Force-free the port (kills whatever process holds it, including stale daemons)
+    
     _sp.run(["fuser", "-k", f"{PORT}/tcp"], capture_output=True)
-    time.sleep(0.5)   # wait for kernel to release
+    time.sleep(0.5)   
 
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -759,9 +759,9 @@ def _run_udp_server() -> None:
         try:
             data, addr = server.recvfrom(64)
             
-            # Clear display layout cache if resuming from a silent gap (e.g. 3.0s),
-            # allowing dynamic layout updates (e.g., monitor config/restarts)
-            # to refresh the coordinate mapping correctly.
+            
+            
+            
             current_time = time.monotonic()
             if current_time - last_packet_time > 3.0:
                 global _virtual_monitor_cache
@@ -769,7 +769,7 @@ def _run_udp_server() -> None:
             last_packet_time = current_time
 
             if len(data) >= 13:
-                # Same payload as TCP. If it has the 4-byte length prefix (00 00 00 0D), skip it
+                
                 offset = 4 if data[0] == 0x00 else 0
                 if len(data) >= offset + 14:
                     payload = data[offset:offset+14]
@@ -795,7 +795,7 @@ def _run_udp_server() -> None:
 
 
 
-# ── main ───────────────────────────────────────────────────────────────────────
+
 def _cleanup(sig=None, frame=None):
     log.info("Shutting down…")
     _shutdown.set()
@@ -814,10 +814,10 @@ def main():
 
     log.info("touch_daemon.py — screen %dx%d  DE=%s", SCREEN_W, SCREEN_H, _DETECTED_DE)
 
-    # Delay startup of input backends to allow the virtual display and compositor layout to settle
+    
     time.sleep(2.0)
 
-    # Choose backend based on desktop environment
+    
     if _DETECTED_DE == "hyprland":
         log.info("Using uinput backend (Hyprland does not support RemoteDesktop portal)")
         _inject_fn = _inject_touch_uinput
@@ -832,7 +832,7 @@ def main():
     else:
         threading.Thread(target=_run_tcp_server, daemon=True).start()
 
-    # Main thread keeps process alive
+    
     try:
         while not _shutdown.is_set():
             time.sleep(0.5)

@@ -30,7 +30,7 @@ class InputEventSender(
     fun start() {
         scope.launch {
             if (hostIp.isNullOrEmpty()) {
-                // USB mode: TCP
+                
                 while (isActive) {
                     try {
                         val s = Socket(HOST, PORT_TCP)
@@ -50,7 +50,7 @@ class InputEventSender(
                     }
                 }
             } else {
-                // Wi-Fi mode: UDP
+                
                 try {
                     val u = DatagramSocket()
                     val addr = InetAddress.getByName(hostIp)
@@ -109,7 +109,7 @@ class InputEventSender(
 
         val rawX = event.getX(pointerIndex)
         val rawY = event.getY(pointerIndex)
-        // Mathematically guarantee boundary checking with coerceIn(1f) to prevent division by zero
+        
         val w = viewW.coerceAtLeast(1f)
         val h = viewH.coerceAtLeast(1f)
         

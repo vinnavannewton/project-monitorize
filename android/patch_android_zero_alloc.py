@@ -145,7 +145,7 @@ new_loop = '''            val buf = ByteArray(65535)
 
 content = content.replace(old_loop, new_loop)
 
-# Also need to remove import java.io.ByteArrayOutputStream if present
+
 content = content.replace("import java.io.ByteArrayOutputStream", "")
 
 with open("/home/vinnavan/user/MegaProjects/Monitorize/android/app/src/main/java/com/example/monitorize/StreamReceiver.kt", "w") as f:

@@ -3,7 +3,7 @@ import java.io.File
 with open("/home/vinnavan/user/MegaProjects/Monitorize/android/app/src/main/java/com/example/monitorize/StreamReceiver.kt", "r") as f:
     content = f.read()
 
-# Replace receiveLoop completely
+
 old_loop_pattern = "    private fun receiveLoop() {.*"
 new_loop = '''    private fun receiveLoop() {
         if (hostIp.isNullOrEmpty()) {
@@ -113,11 +113,11 @@ new_loop = '''    private fun receiveLoop() {
     private fun receiveLoopUsb() {'''
 
 import re
-# We need to replace `private fun receiveLoop() {` with the above, and close it properly.
-# The original `receiveLoop` body will become `receiveLoopUsb`.
-# It ends with `} catch (_: Exception) {} } }` or something.
-# We will use regex to find the start of receiveLoop.
+
+
+
+
 content = content.replace("    private fun receiveLoop() {", new_loop)
 
-# There is a `socket: java.net.Socket` block inside that we changed previously. Let's restore the original USB block for clarity or keep it as is.
-# Actually, the easiest way is to rewrite the whole file since it's short.
+
+
