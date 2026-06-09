@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 Streamer_hyprland_wifi.py — Hyprland Wayland version for WiFi mode.
 Uses org.freedesktop.portal.ScreenCast (via xdg-desktop-portal-hyprland).
@@ -16,18 +16,18 @@ from pipeline_builder import detect_igpu_encoder, launch_with_fallback
 
 HW_ENCODER = detect_igpu_encoder()
 
-# ── Parameters ────────────────────────────────────────────────────────────────
+
 PORT    = 7110
 WIDTH   = int(sys.argv[1]) if len(sys.argv) > 1 else 2560
 HEIGHT  = int(sys.argv[2]) if len(sys.argv) > 2 else 1600
 FPS     = int(sys.argv[3]) if len(sys.argv) > 3 else 60
 BITRATE = int(sys.argv[4]) if len(sys.argv) > 4 else 8000
-# argv[5] = "wifi" (mode flag from GUI)
-# argv[6] = headless monitor name (optional, from GUI)
+
+
 
 print(f"[Streamer Hyprland WiFi] Resolution={WIDTH}x{HEIGHT}  FPS={FPS}  Bitrate={BITRATE}")
 
-# ── Virtual monitor handling ──────────────────────────────────────────────────
+
 def get_current_headless_monitors():
     try:
         res = subprocess.run(["hyprctl", "monitors", "all"], capture_output=True, text=True)
@@ -44,7 +44,7 @@ if headless_arg:
     created_monitor = headless_arg
     print(f"[Hyprland] Using headless monitor from GUI: {created_monitor}")
 else:
-    # Standalone mode: create one automatically
+    
     print("[Hyprland] Standalone mode: Creating virtual monitor...")
     old_mons = get_current_headless_monitors()
     subprocess.run(["hyprctl", "output", "create", "headless"], capture_output=True)
@@ -56,7 +56,7 @@ else:
                    capture_output=True)
     print(f"[Hyprland] Created virtual monitor: {created_monitor} at {WIDTH}x{HEIGHT}@{FPS}")
 
-# ── D-Bus / Portal setup ─────────────────────────────────────────────────────
+
 DBusGMainLoop(set_as_default=True)
 loop     = GLib.MainLoop()
 bus      = dbus.SessionBus()
@@ -80,7 +80,7 @@ def cleanup(sig=None, frame=None):
         except subprocess.TimeoutExpired: gst_proc.kill()
 
     if created_monitor and not headless_arg:
-        # Only remove if WE created it (standalone mode)
+        
         print(f"[Hyprland] Removing created headless monitor: {created_monitor}")
         subprocess.run(["hyprctl", "output", "remove", created_monitor], capture_output=True)
         created_monitor = None
@@ -92,7 +92,7 @@ def cleanup(sig=None, frame=None):
 signal.signal(signal.SIGINT,  cleanup)
 signal.signal(signal.SIGTERM, cleanup)
 
-# ── GStreamer pipeline ────────────────────────────────────────────────────────
+
 def launch_streaming(fd, node_id):
     """
     WiFi profile using pipeline_builder for low latency.
@@ -108,7 +108,7 @@ def launch_streaming(fd, node_id):
     )
 
 
-# ── Portal callback ──────────────────────────────────────────────────────────
+
 def on_response(response, results, **kw):
     if response != 0:
         print(f"[ERROR] Portal denied (code {response})")
@@ -121,9 +121,9 @@ def on_response(response, results, **kw):
         state["session"] = str(results["session_handle"])
         state["step"]    = "select_sources"
         sc.SelectSources(state["session"], {
-            "types":        dbus.UInt32(1),      # monitor
+            "types":        dbus.UInt32(1),      
             "multiple":     dbus.Boolean(False),
-            "cursor_mode":  dbus.UInt32(2),      # embedded cursor
+            "cursor_mode":  dbus.UInt32(2),      
             "handle_token": dbus.String("tok2"),
         })
 
@@ -149,9 +149,9 @@ def on_response(response, results, **kw):
             daemon=True,
         )
         t.start()
-        # Keep loop running to keep portal session alive
+        
 
-# ── Main ──────────────────────────────────────────────────────────────────────
+
 bus.add_signal_receiver(
     on_response,
     signal_name="Response",

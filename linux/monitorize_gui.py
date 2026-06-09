@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 Monitorize GUI — PyQt6 control panel
 Run from the linux/ directory:  python3 monitorize_gui.py
@@ -15,9 +15,9 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QProcess, QProcessEnvironment, QTimer, QSize, QSettings
 from PyQt6.QtGui import QColor, QPalette, QFont, QTextCursor, QIcon, QPixmap, QPainter
 
-# ---------------------------------------------------------------------------
-# Dark stylesheet
-# ---------------------------------------------------------------------------
+
+
+
 
 DARK_QSS = """
 /* ── Base ─────────────────────────────────────────────────────────── */
@@ -280,9 +280,9 @@ QMessageBox QLabel {
 }
 """
 
-# ---------------------------------------------------------------------------
-# Tiny helpers
-# ---------------------------------------------------------------------------
+
+
+
 
 class NonScrollComboBox(QComboBox):
     """A QComboBox that ignores mouse wheel events to prevent accidental setting changes while scrolling the panel."""
@@ -296,7 +296,7 @@ def hr() -> QFrame:
     return line
 
 def vspace(n: int) -> int:
-    return n  # used as argument to addSpacing
+    return n  
 
 def _make_tray_icon() -> QIcon:
     """Generate a simple coloured square icon for the system tray."""
@@ -313,9 +313,9 @@ def _make_tray_icon() -> QIcon:
     return QIcon(px)
 
 
-# ---------------------------------------------------------------------------
-# Desktop-environment detection
-# ---------------------------------------------------------------------------
+
+
+
 
 def detect_desktop_environment() -> str:
     """
@@ -325,7 +325,7 @@ def detect_desktop_environment() -> str:
     """
     xdg   = os.environ.get("XDG_CURRENT_DESKTOP", "").lower()
     dsess = os.environ.get("DESKTOP_SESSION",      "").lower()
-    # Hyprland sets HYPRLAND_INSTANCE_SIGNATURE; Sway sets SWAYSOCK
+    
     hypr  = os.environ.get("HYPRLAND_INSTANCE_SIGNATURE", "")
     sway  = os.environ.get("SWAYSOCK", "")
     combined = xdg + " " + dsess
@@ -341,9 +341,9 @@ def detect_desktop_environment() -> str:
     return ""
 
 
-# ---------------------------------------------------------------------------
-# Pages
-# ---------------------------------------------------------------------------
+
+
+
 
 class MainMenuPage(QWidget):
     def __init__(self, on_usb, on_wifi, parent=None):
@@ -359,7 +359,7 @@ class MainMenuPage(QWidget):
         sub.setObjectName("subLabel")
         sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        # ---- Desktop environment badge ----
+        
         self._de_badge = QFrame()
         self._de_badge.setObjectName("deBadge")
         badge_layout = QHBoxLayout(self._de_badge)
@@ -416,7 +416,7 @@ class MainMenuPage(QWidget):
         root.addWidget(footer)
         root.addSpacing(14)
 
-        # ---- Tray option ----
+        
         tray_row = QHBoxLayout()
         self.tray_checkbox = QCheckBox("Minimize to tray on close")
         self.tray_checkbox.setObjectName("trayCheck")
@@ -515,7 +515,7 @@ class WifiPage(QWidget):
         root.addWidget(msg)
         root.addSpacing(20)
 
-        # ---- Resolution row ----
+        
         res_row = QHBoxLayout()
         res_row.setSpacing(12)
         res_label = QLabel("Resolution:")
@@ -556,7 +556,7 @@ class WifiPage(QWidget):
         root.addWidget(self._custom_res_widget)
         root.addSpacing(10)
 
-        # ---- FPS row ----
+        
         fps_row = QHBoxLayout()
         fps_row.setSpacing(12)
         fps_label = QLabel("FPS:")
@@ -589,7 +589,7 @@ class WifiPage(QWidget):
         root.addWidget(self._custom_fps_widget)
         root.addSpacing(10)
 
-        # ---- Bitrate row ----
+        
         bitrate_row = QHBoxLayout()
         bitrate_row.setSpacing(12)
         bitrate_label = QLabel("Video Bitrate (kbps):")
@@ -799,7 +799,7 @@ class UsbStep2Page(QWidget):
         root.addWidget(hr())
         root.addSpacing(24)
 
-        # ---- Open app instruction ----
+        
         msg = QLabel("Please open the Monitorize app on your tablet.")
         msg.setObjectName("instruction")
         msg.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -807,7 +807,7 @@ class UsbStep2Page(QWidget):
         root.addWidget(msg)
         root.addSpacing(20)
 
-        # ---- Resolution row ----
+        
         res_row = QHBoxLayout()
         res_row.setSpacing(12)
         res_label = QLabel("Resolution:")
@@ -822,7 +822,7 @@ class UsbStep2Page(QWidget):
         res_row.addStretch()
         root.addLayout(res_row)
 
-        # Custom resolution input (hidden by default)
+        
         self._custom_res_widget = QWidget()
         custom_res_inner = QHBoxLayout(self._custom_res_widget)
         custom_res_inner.setContentsMargins(0, 4, 0, 0)
@@ -849,7 +849,7 @@ class UsbStep2Page(QWidget):
         root.addWidget(self._custom_res_widget)
         root.addSpacing(10)
 
-        # ---- FPS row ----
+        
         fps_row = QHBoxLayout()
         fps_row.setSpacing(12)
         fps_label = QLabel("FPS:")
@@ -864,7 +864,7 @@ class UsbStep2Page(QWidget):
         fps_row.addStretch()
         root.addLayout(fps_row)
 
-        # Custom FPS input (hidden by default)
+        
         self._custom_fps_widget = QWidget()
         custom_fps_inner = QHBoxLayout(self._custom_fps_widget)
         custom_fps_inner.setContentsMargins(0, 4, 0, 0)
@@ -883,7 +883,7 @@ class UsbStep2Page(QWidget):
         root.addWidget(self._custom_fps_widget)
         root.addSpacing(10)
 
-        # ---- Bitrate row ----
+        
         bitrate_row = QHBoxLayout()
         bitrate_row.setSpacing(12)
         bitrate_label = QLabel("Video Bitrate (kbps):")
@@ -918,7 +918,7 @@ class UsbStep2Page(QWidget):
             root.addLayout(gnome_row)
             root.addSpacing(16)
 
-        # ---- Warning label ----
+        
         warning = QLabel(
             "WARNING: The Resolution and FPS set here MUST EXACTLY "
             "MATCH the settings in the Android tablet app, or the stream "
@@ -933,7 +933,7 @@ class UsbStep2Page(QWidget):
         root.addWidget(hr())
         root.addSpacing(16)
 
-        # ---- Before-you-click checklist ----
+        
         step1_lbl = QLabel(
             "1.  Tap the  Receive  button on the Android app first."
         )
@@ -955,7 +955,7 @@ class UsbStep2Page(QWidget):
 
         root.addStretch()
 
-        # ---- Buttons ----
+        
         back = QPushButton("← Back")
         back.setObjectName("backBtn")
         back.clicked.connect(on_back)
@@ -973,7 +973,7 @@ class UsbStep2Page(QWidget):
         root.addLayout(row)
         root.addSpacing(20)
 
-    # -- Slot: show/hide custom resolution inputs --
+    
 
     def _on_res_changed(self, text: str):
         self._custom_res_widget.setVisible(text == "Custom…")
@@ -981,10 +981,10 @@ class UsbStep2Page(QWidget):
     def _on_fps_changed(self, text: str):
         self._custom_fps_widget.setVisible(text == "Custom…")
 
-    # -- Validation + start --
+    
 
     def _validate_and_start(self):
-        # Validate custom resolution if selected
+        
         if self._res_combo.currentText() == "Custom…":
             try:
                 w = int(self._custom_w.text())
@@ -1008,7 +1008,7 @@ class UsbStep2Page(QWidget):
                 )
                 return
 
-        # Validate custom FPS if selected
+        
         if self._fps_combo.currentText() == "Custom…":
             try:
                 fps = int(self._custom_fps_edit.text())
@@ -1025,7 +1025,7 @@ class UsbStep2Page(QWidget):
                 )
                 return
 
-        # Validate bitrate
+        
         try:
             bitrate = int(self._bitrate_edit.text())
         except ValueError:
@@ -1037,13 +1037,13 @@ class UsbStep2Page(QWidget):
 
         self._on_start_cb()
 
-    # -- Public getters used by MonitorizeWindow --
+    
 
     def selected_resolution(self) -> tuple[int, int]:
         """Return (width, height) — handles Custom… selection."""
         if self._res_combo.currentText() == "Custom…":
             return int(self._custom_w.text()), int(self._custom_h.text())
-        text = self._res_combo.currentText()   # e.g. "2560x1600"
+        text = self._res_combo.currentText()   
         w, h = text.split("x")
         return int(w), int(h)
 
@@ -1078,7 +1078,7 @@ class StreamingPage(QWidget):
         root.setContentsMargins(40, 36, 40, 36)
         root.setSpacing(0)
 
-        # ---- Status label (updated by countdown / streaming state) ----
+        
         self._status_lbl = QLabel("Starting virtual monitor…")
         self._status_lbl.setObjectName("streaming")
         self._status_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -1094,7 +1094,7 @@ class StreamingPage(QWidget):
         root.addWidget(hint)
         root.addSpacing(16)
 
-        # ---- Log box ----
+        
         self.log = QPlainTextEdit()
         self.log.setObjectName("logBox")
         self.log.setReadOnly(True)
@@ -1102,13 +1102,13 @@ class StreamingPage(QWidget):
         root.addWidget(self.log, stretch=1)
         root.addSpacing(20)
 
-        # ---- Stop button (disabled until streamer actually starts) ----
+        
         self._stop_btn = QPushButton("⏹  Stop Streaming")
         self._stop_btn.setObjectName("stopBtn")
         self._stop_btn.setEnabled(False)
         self._stop_btn.clicked.connect(on_stop)
 
-        # ---- Configure display button (only visible on Hyprland) ----
+        
         self._configure_btn = QPushButton("⚙  Configure Display")
         self._configure_btn.clicked.connect(on_configure)
         self._configure_btn.setVisible(False)
@@ -1121,7 +1121,7 @@ class StreamingPage(QWidget):
         root.addLayout(row)
         root.addSpacing(16)
 
-    # -- Public helpers called by MonitorizeWindow --
+    
 
     def set_status(self, text: str):
         self._status_lbl.setText(text)
@@ -1143,9 +1143,9 @@ class StreamingPage(QWidget):
         self.log.clear()
 
 
-# ---------------------------------------------------------------------------
-# Page indices
-# ---------------------------------------------------------------------------
+
+
+
 PAGE_MAIN      = 0
 PAGE_WIFI      = 1
 PAGE_USB1      = 2
@@ -1162,9 +1162,9 @@ def make_scrollable(widget: QWidget) -> QScrollArea:
     scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
     return scroll
 
-# ---------------------------------------------------------------------------
-# Main window
-# ---------------------------------------------------------------------------
+
+
+
 
 class MonitorizeWindow(QMainWindow):
     def __init__(self):
@@ -1173,7 +1173,7 @@ class MonitorizeWindow(QMainWindow):
         self.setMinimumSize(760, 520)
         self.resize(860, 580)
 
-        # Force-kill any zombies from previous crashed sessions
+        
         import subprocess
         subprocess.run(["killall", "-9", "gst-launch-1.0"], capture_output=True)
         subprocess.run(["pkill", "-9", "-f", "Streamer_.*\\.py"], capture_output=True)
@@ -1183,7 +1183,7 @@ class MonitorizeWindow(QMainWindow):
             self.detected_de = detected
         else:
             self.detected_de = self._ask_desktop_environment()
-        # Badge is updated after pages are added to the stack (see below)
+        
 
         self.initial_headless_monitors = []
         if self.detected_de == "hyprland":
@@ -1191,23 +1191,23 @@ class MonitorizeWindow(QMainWindow):
             print(f"[Hyprland] Initial virtual monitors detected: {self.initial_headless_monitors}")
         self.created_headless_monitor = None
 
-        # Persistent QProcess objects for streaming + input forwarding
+        
         self.process_krfb:          QProcess | None = None
         self.process_streamer:      QProcess | None = None
         self.process_input_bridge:  QProcess | None = None
 
-        # Transient QProcess objects for ADB (step 1)
+        
         self._proc_adb_dev:  QProcess | None = None
         self._proc_adb_fwd:  QProcess | None = None
-        self._proc_adb_fwd2:  QProcess | None = None   # adb forward for port 7111
+        self._proc_adb_fwd2:  QProcess | None = None   
 
-        # Countdown timer (used between krfb start and streamer start)
+        
         self._countdown: int = 0
         self._countdown_timer = QTimer(self)
-        self._countdown_timer.setInterval(1000)   # 1 second ticks
+        self._countdown_timer.setInterval(1000)   
         self._countdown_timer.timeout.connect(self._countdown_tick)
 
-        # Stack
+        
         self._stack = QStackedWidget()
         self.setCentralWidget(self._stack)
 
@@ -1217,18 +1217,18 @@ class MonitorizeWindow(QMainWindow):
         self._page_usb2      = UsbStep2Page(self._go_usb1, self._on_start_streaming, detected_de=self.detected_de)
         self._page_streaming = StreamingPage(self._on_stop_streaming, self._on_configure_display)
 
-        self._stack.addWidget(self._page_main)       # 0
-        self._stack.addWidget(make_scrollable(self._page_wifi))  # 1
-        self._stack.addWidget(self._page_usb1)       # 2
-        self._stack.addWidget(make_scrollable(self._page_usb2))  # 3
-        self._stack.addWidget(self._page_streaming)  # 4
+        self._stack.addWidget(self._page_main)       
+        self._stack.addWidget(make_scrollable(self._page_wifi))  
+        self._stack.addWidget(self._page_usb1)       
+        self._stack.addWidget(make_scrollable(self._page_usb2))  
+        self._stack.addWidget(self._page_streaming)  
 
-        # Show detected DE in the main menu badge
+        
         self._page_main.update_de_badge(self.detected_de)
 
-        # ------------------------------------------------------------------
-        # ZeroConf (mDNS) Registration for instant Android discovery
-        # ------------------------------------------------------------------
+        
+        
+        
         try:
             from zeroconf import ServiceInfo, Zeroconf
             import socket
@@ -1236,7 +1236,7 @@ class MonitorizeWindow(QMainWindow):
             self._zc = Zeroconf()
             desc = {'name': hostname, 'port': 7110}
             
-            # Using the existing get_local_ip() helper function in the module
+            
             ip_addr = get_local_ip()
             
             self._info = ServiceInfo(
@@ -1251,9 +1251,9 @@ class MonitorizeWindow(QMainWindow):
         except Exception as e:
             print("Zeroconf registration failed:", e)
 
-        # ------------------------------------------------------------------
-        # System tray icon
-        # ------------------------------------------------------------------
+        
+        
+        
         self._tray = QSystemTrayIcon(self)
         self._tray.setIcon(_make_tray_icon())
         self._tray.setToolTip("Monitorize")
@@ -1267,12 +1267,12 @@ class MonitorizeWindow(QMainWindow):
 
         self._tray.setContextMenu(tray_menu)
         self._tray.activated.connect(self._tray_activated)
-        # Tray icon is shown only when the window is hidden to tray
+        
         self._tray.hide()
 
-    # ------------------------------------------------------------------
-    # DE selection dialog (shown only when auto-detection fails)
-    # ------------------------------------------------------------------
+    
+    
+    
 
     def _ask_desktop_environment(self) -> str:
         """
@@ -1296,7 +1296,7 @@ class MonitorizeWindow(QMainWindow):
         lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(lbl)
 
-        # Row 1: KDE / GNOME
+        
         row1 = QHBoxLayout()
         row1.setSpacing(14)
         script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -1318,7 +1318,7 @@ class MonitorizeWindow(QMainWindow):
         row1.addWidget(gnome_btn)
         layout.addLayout(row1)
 
-        # Row 2: Hyprland / Sway
+        
         row2 = QHBoxLayout()
         row2.setSpacing(14)
         hypr_btn  = QPushButton("  Hyprland")
@@ -1331,7 +1331,7 @@ class MonitorizeWindow(QMainWindow):
         row2.addWidget(sway_btn)
         layout.addLayout(row2)
 
-        # Row 3: Other
+        
         other_btn = QPushButton("Other / Unsupported")
         other_btn.setObjectName("backBtn")
         layout.addWidget(other_btn)
@@ -1363,11 +1363,11 @@ class MonitorizeWindow(QMainWindow):
             msg.exec()
             sys.exit(0)
 
-        return chosen[0]   # "kde" | "gnome" | "hyprland" | "sway"
+        return chosen[0]   
 
-    # ------------------------------------------------------------------
-    # Navigation
-    # ------------------------------------------------------------------
+    
+    
+    
 
     def _go_main(self):
         self._stack.setCurrentIndex(PAGE_MAIN)
@@ -1381,9 +1381,9 @@ class MonitorizeWindow(QMainWindow):
         self._page_usb1.set_busy(False)
         self._stack.setCurrentIndex(PAGE_USB1)
 
-    # ------------------------------------------------------------------
-    # Step 1 — ADB setup
-    # ------------------------------------------------------------------
+    
+    
+    
 
     def _on_connected(self):
         self._page_usb1.set_busy(True)
@@ -1410,15 +1410,15 @@ class MonitorizeWindow(QMainWindow):
             self._page_usb1.set_busy(False)
             return
 
-        # Touch daemon acts as a Server on Linux port 7111.
-        # We need adb reverse so Android can connect to localhost:7111 and reach Linux.
+        
+        
         self._page_usb1.set_status("Setting up reverse proxy tcp:7111 (touch)…")
         self._proc_adb_fwd2 = QProcess(self)
         self._proc_adb_fwd2.finished.connect(self._adb_forward2_done)
         self._proc_adb_fwd2.start("adb", ["reverse", "tcp:7111", "tcp:7111"])
 
     def _adb_forward2_done(self, exit_code, _status):
-        # Non-fatal: if 7111 fails, video still works, touch just won't forward
+        
         if exit_code != 0:
             self._page_usb1.set_status("Warning: tcp:7111 reverse failed — touch disabled")
         else:
@@ -1426,9 +1426,9 @@ class MonitorizeWindow(QMainWindow):
         self._page_usb1.set_busy(False)
         QTimer.singleShot(600, lambda: self._stack.setCurrentIndex(PAGE_USB2))
 
-    # ------------------------------------------------------------------
-    # Step 2 — Start both processes SIMULTANEOUSLY
-    # ------------------------------------------------------------------
+    
+    
+    
 
     def _on_start_streaming_wifi(self):
         self._is_wifi = True
@@ -1463,7 +1463,7 @@ class MonitorizeWindow(QMainWindow):
         subprocess.run(["pkill", "-9", "-f", "Streamer_.*\\.py"], capture_output=True)
         
         if self._is_wifi:
-            # Release ADB ports in case they were left open from a previous USB session
+            
             subprocess.run(["adb", "forward", "--remove", "tcp:7110"], capture_output=True)
             subprocess.run(["adb", "reverse", "--remove", "tcp:7111"], capture_output=True)
 
@@ -1502,7 +1502,7 @@ class MonitorizeWindow(QMainWindow):
                 new_name = "HEADLESS-1"
             
             self.created_headless_monitor = new_name
-            # Set the monitor resolution dynamically
+            
             subprocess.run(["hyprctl", "keyword", "monitor", f"{new_name},{width}x{height}@{fps},auto,1"], capture_output=True)
             subprocess.run(["hyprctl", "eval", f"hl.monitor({{ output = '{new_name}', mode = '{width}x{height}@{fps}', position = 'auto', scale = 1.0 }})"], capture_output=True)
             print(f"[Hyprland] Created new headless monitor: {new_name} at {width}x{height}@{fps}")
@@ -1521,7 +1521,7 @@ class MonitorizeWindow(QMainWindow):
                 f"Starting virtual monitor…  {self._countdown}"
             )
             return
-        # Countdown finished — stop timer, launch streamer
+        
         self._countdown_timer.stop()
         self._launch_streamer()
 
@@ -1535,7 +1535,7 @@ class MonitorizeWindow(QMainWindow):
         )
         self.process_streamer.readyReadStandardOutput.connect(self._read_streamer)
         self.process_streamer.finished.connect(self._on_streamer_finished)
-        # Choose the correct streamer script based on the detected DE
+        
         _streamer_map = {
             "kde":      "Streamer_kde_usb.py",
             "gnome":    "Streamer_gnome_wifi.py" if self._is_wifi else "Streamer_gnome_usb.py",
@@ -1556,7 +1556,7 @@ class MonitorizeWindow(QMainWindow):
         else:
             args.append("usb")
 
-        # Pass created headless monitor name as the 7th argument for Hyprland
+        
         if self.detected_de == "hyprland" and getattr(self, "created_headless_monitor", None):
             args.append(self.created_headless_monitor)
 
@@ -1567,10 +1567,10 @@ class MonitorizeWindow(QMainWindow):
 
         self.process_streamer.start("python3", args)
 
-        # ── Launch input bridge AFTER streamer (compositor-agnostic, separate port 7111) ──
-        # The streamer triggers the screen-share display selector popup;
-        # the input bridge triggers the input permission popup.
-        # We want display selector first, input permission second, back-to-back.
+        
+        
+        
+        
         if self.detected_de in ("kde", "gnome"):
             QTimer.singleShot(400, self._launch_input_bridge)
         elif self.detected_de == "hyprland":
@@ -1608,18 +1608,18 @@ class MonitorizeWindow(QMainWindow):
                 "Touch service starting… Watch for 'Allow Remote Control' popup and click Allow"
             )
 
-    # ------------------------------------------------------------------
-    # Process exit handlers — GNOME auto-restart on crash
-    # ------------------------------------------------------------------
+    
+    
+    
 
     def _on_streamer_finished(self, code, _status):
         """Handle streamer process exit. On GNOME, auto-restart after crashes."""
         self._page_streaming.append_log("STREAMER", f"Process exited (code {code})")
 
-        # On GNOME, display config changes (scaling, position) kill the
-        # RecordVirtual session and the GStreamer pipeline.  The GNOME streamer
-        # script has internal auto-restart, but if the *process itself* dies
-        # (e.g. uncaught exception), we restart from the GUI side.
+        
+        
+        
+        
         if (self.detected_de == "gnome"
                 and code != 0
                 and self._stack.currentIndex() == PAGE_STREAMING):
@@ -1637,9 +1637,9 @@ class MonitorizeWindow(QMainWindow):
         self._page_streaming.append_log("INPUT", f"Bridge exited (code {code})")
 
         if code == 0 and self._stack.currentIndex() == PAGE_STREAMING:
-            # Touch daemon exited gracefully — touch not available but
-            # streaming continues.  This is expected when the user denies
-            # the portal popup or the DE doesn't support touch injection.
+            
+            
+            
             self._page_streaming.append_log(
                 "INPUT",
                 "ℹ️  Touch input not available — streaming continues without touch."
@@ -1648,8 +1648,8 @@ class MonitorizeWindow(QMainWindow):
     def _gnome_restart_streamer(self):
         """Auto-restart the GNOME streamer after a crash."""
         if self._stack.currentIndex() != PAGE_STREAMING:
-            return   # user navigated away
-        # Kill any lingering gst-launch processes
+            return   
+        
         import subprocess
         subprocess.run(["killall", "-9", "gst-launch-1.0"], capture_output=True)
         self._launch_streamer()
@@ -1658,12 +1658,12 @@ class MonitorizeWindow(QMainWindow):
     def _gnome_restart_input_bridge(self):
         """Auto-restart the touch daemon after a crash on GNOME."""
         if self._stack.currentIndex() != PAGE_STREAMING:
-            return   # user navigated away
+            return   
         self._launch_input_bridge()
 
-    # ------------------------------------------------------------------
-    # Log readers — called by readyReadStandardOutput signals
-    # ------------------------------------------------------------------
+    
+    
+    
 
     def _read_krfb(self):
         if self.process_krfb is None:
@@ -1681,10 +1681,10 @@ class MonitorizeWindow(QMainWindow):
         )
         self._page_streaming.append_log("STREAMER", raw)
 
-        # For Hyprland, wait until the user has selected the monitor in the portal
-        # screen-share picker and the PipeWire node has been negotiated/streaming started,
-        # before starting the touch daemon. This avoids any race conditions or premature
-        # touch injection crashes.
+        
+        
+        
+        
         if self.detected_de == "hyprland":
             if not getattr(self, "_input_bridge_launched", False):
                 if not hasattr(self, "_streamer_buffer"):
@@ -1692,8 +1692,8 @@ class MonitorizeWindow(QMainWindow):
                 self._streamer_buffer += raw
                 if "[Portal] Got PipeWire node=" in self._streamer_buffer:
                     self._input_bridge_launched = True
-                    # A small 500ms delay to allow the PipeWire stream to fully negotiate
-                    # and stabilize before launching the input bridge.
+                    
+                    
                     QTimer.singleShot(500, self._launch_input_bridge)
 
     def _read_input_bridge(self):
@@ -1704,9 +1704,9 @@ class MonitorizeWindow(QMainWindow):
         )
         self._page_streaming.append_log("INPUT", raw)
 
-    # ------------------------------------------------------------------
-    # Stop streaming — terminate BOTH processes
-    # ------------------------------------------------------------------
+    
+    
+    
 
     def _on_stop_streaming(self):
         self._kill_stream_procs()
@@ -1741,7 +1741,7 @@ class MonitorizeWindow(QMainWindow):
                 )
 
     def _kill_stream_procs(self):
-        # Stop the countdown so it can't fire and start the streamer after cleanup
+        
         self._countdown_timer.stop()
         self._countdown = 0
 
@@ -1754,7 +1754,7 @@ class MonitorizeWindow(QMainWindow):
         self.process_streamer      = None
         self.process_input_bridge  = None
 
-        # Clean up headless monitor on Hyprland if we created one
+        
         if self.detected_de == "hyprland" and getattr(self, "created_headless_monitor", None):
             print(f"[Hyprland] Removing created headless monitor: {self.created_headless_monitor}")
             import subprocess
@@ -1765,7 +1765,7 @@ class MonitorizeWindow(QMainWindow):
         """Query and return a list of currently existing headless monitor names."""
         import subprocess, json, re
         headless_names = []
-        # Primary method: JSON parsing
+        
         try:
             res = subprocess.run(["hyprctl", "monitors", "all", "-j"], capture_output=True, text=True)
             if res.returncode == 0:
@@ -1778,7 +1778,7 @@ class MonitorizeWindow(QMainWindow):
         except Exception:
             pass
 
-        # Fallback method: Text parsing using regex
+        
         try:
             res = subprocess.run(["hyprctl", "monitors", "all"], capture_output=True, text=True)
             if res.returncode == 0:
@@ -1788,9 +1788,9 @@ class MonitorizeWindow(QMainWindow):
             pass
         return headless_names
 
-    # ------------------------------------------------------------------
-    # Tray helpers
-    # ------------------------------------------------------------------
+    
+    
+    
 
     def _tray_activated(self, reason):
         """Restore the window when the tray icon is double-clicked."""
@@ -1812,13 +1812,13 @@ class MonitorizeWindow(QMainWindow):
             except Exception: pass
         QApplication.quit()
 
-    # ------------------------------------------------------------------
-    # Close event — hide to tray or quit depending on checkbox
-    # ------------------------------------------------------------------
+    
+    
+    
 
     def closeEvent(self, event):
         if self._page_main.tray_checkbox.isChecked():
-            # Hide to tray instead of closing
+            
             event.ignore()
             self.hide()
             self._tray.show()
@@ -1838,9 +1838,9 @@ class MonitorizeWindow(QMainWindow):
             event.accept()
 
 
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
+
+
+
 
 def main():
     app = QApplication(sys.argv)

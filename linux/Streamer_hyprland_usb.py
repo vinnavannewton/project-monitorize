@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 Streamer_hyprland_usb.py — Hyprland Wayland version.
 Uses org.freedesktop.portal.ScreenCast (via xdg-desktop-portal-hyprland).
@@ -25,7 +25,7 @@ PORT    = 7110
 
 print(f"[Streamer Hyprland USB] Resolution={WIDTH}x{HEIGHT}  FPS={FPS}  Bitrate={BITRATE}")
 
-# Detect iGPU HW encoder once at startup
+
 HW_ENCODER = detect_igpu_encoder()
 
 def get_current_headless_monitors():
@@ -38,7 +38,7 @@ def get_current_headless_monitors():
         pass
     return set()
 
-# Handle virtual monitor creation/selection
+
 headless_arg = sys.argv[6] if len(sys.argv) > 6 else None
 created_monitor = None
 
@@ -46,7 +46,7 @@ if headless_arg:
     created_monitor = headless_arg
     print(f"[Hyprland] Using headless monitor from GUI: {created_monitor}")
 else:
-    # Standalone mode: create one automatically
+    
     print("[Hyprland] Standalone mode: Creating virtual monitor...")
     old_mons = get_current_headless_monitors()
     subprocess.run(["hyprctl", "output", "create", "headless"], capture_output=True)

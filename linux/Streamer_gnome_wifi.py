@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 Streamer_gnome_wifi.py — GNOME Wayland version for Wi-Fi mode.
 Uses org.gnome.Mutter.ScreenCast RecordVirtual D-Bus API.
@@ -23,7 +23,7 @@ PORT = 7110
 
 print(f"[Streamer GNOME Wi-Fi] Resolution={WIDTH}x{HEIGHT}  FPS={FPS}  Bitrate={BITRATE}")
 
-# Detect iGPU HW encoder once at startup
+
 HW_ENCODER = detect_igpu_encoder()
 
 DBusGMainLoop(set_as_default=True)

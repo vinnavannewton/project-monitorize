@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 Streamer_sway_usb.py — Sway Wayland version.
 Uses org.freedesktop.portal.ScreenCast (via xdg-desktop-portal-wlr).
@@ -26,7 +26,7 @@ PORT    = 7110
 
 print(f"[Streamer Sway USB] Resolution={WIDTH}x{HEIGHT}  FPS={FPS}  Bitrate={BITRATE}")
 
-# Detect iGPU HW encoder once at startup
+
 HW_ENCODER = detect_igpu_encoder()
 
 DBusGMainLoop(set_as_default=True)

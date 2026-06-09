@@ -14,7 +14,7 @@ def detect_igpu_encoder():
     Prioritizes NVIDIA dGPU (nvh264enc) first, then falls back to VA-API (iGPU),
     and finally CPU (x264enc).
     """
-    # 1. Prioritize NVIDIA native NVENC
+    
     try:
         result = subprocess.run(
             ["gst-inspect-1.0", "nvh264enc"],
@@ -26,7 +26,7 @@ def detect_igpu_encoder():
     except Exception:
         pass
 
-    # 2. Fall back to VA-API (Intel/AMD iGPU)
+    
     for enc in ("vah264enc", "vah264lpenc", "vaapih264enc"):
         try:
             result = subprocess.run(
@@ -55,10 +55,10 @@ def _hw_encoder_params(enc_name, bitrate, key_int):
             f"{enc_name} rate-control=cbr bitrate={bitrate} "
             f"keyframe-period={key_int} max-bframes=0 quality-level=7"
         )
-    # vah264enc / vah264lpenc (va plugin family)
-    # cpb-size=2000 allocates a small buffer so the encoder can temporarily exceed
-    # bitrate during high-motion frames without starving/glitching.
-    # target-usage=4 is "balanced" (prevents massive blockiness) and has no latency cost over 7.
+    
+    
+    
+    
     return (
         f"{enc_name} rate-control=cbr bitrate={bitrate} cpb-size=2000 "
         f"key-int-max={key_int} ref-frames=1 b-frames=0 target-usage=7"
@@ -93,41 +93,41 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
     hw_encoder : str or None
         Element name from detect_igpu_encoder(), or None for CPU fallback.
     """
-    # Source: Limit buffers to 2 to prevent any frame queuing
+    
     if pw_fd is not None:
         src = f"pipewiresrc fd={pw_fd} path={node_id} do-timestamp=true always-copy=true keepalive-time=1 min-buffers=2 max-buffers=2"
     else:
         src = f"pipewiresrc path={node_id} do-timestamp=true always-copy=true keepalive-time=1 min-buffers=2 max-buffers=2"
 
-    # videorate adapts PipeWire's variable damage-tracked rate to a fixed output rate.
-    # skip-to-first=true avoids buffering before the first frame arrives.
-    # drop-only=true ensures we never duplicate frames, avoiding unnecessary processing overhead.
-    # videoconvert before videorate ensures DMA-BUF / non-raw frames from
-    # PipeWire are converted to video/x-raw before the caps filter.
-    # Zero-cost passthrough when frames are already raw.
+    
+    
+    
+    
+    
+    
     framerate = f"videoconvert ! videorate skip-to-first=true drop-only=true ! video/x-raw,framerate={fps}/1"
 
-    # Queue — tight, drop-old, strictly single frame limits
+    
     queue = "queue max-size-buffers=1 max-size-time=0 max-size-bytes=0 leaky=downstream"
 
-    # Encoder
-    key_int = max(fps // 2, 15)   # keyframe every ~0.5s
+    
+    key_int = max(fps // 2, 15)   
     if hw_encoder:
-        # Hardware path: videoconvert to NV12 → HW encoder
+        
         convert = f"videoconvert n-threads=4 ! videoscale ! video/x-raw,format=NV12,width={width},height={height}"
         encoder = _hw_encoder_params(hw_encoder, bitrate, key_int)
     else:
-        # CPU path: videoconvert to NV12 → optimised x264enc
+        
         convert = f"videoconvert n-threads=4 ! videoscale ! video/x-raw,format=NV12,width={width},height={height}"
         encoder = _cpu_encoder_params(bitrate, key_int)
 
-    # Mux + sink: Send SPS/PPS every 1 second so client can sync up quickly without IDR frames
+    
     parse = "h264parse config-interval=1"
     caps_out = "video/x-h264,stream-format=byte-stream,alignment=au"
 
-    # Sink: tcpserversink for Wi-Fi (Linux serves), tcpclientsink for USB
+    
     if host != "127.0.0.1":
-        # sync-method=2 (latest-keyframe) and recover-policy=1 (keyframe) to minimize lag on Wi-Fi
+        
         sink = f"tcpserversink host={host} port={port} sync=false sync-method=2 recover-policy=1"
     else:
         sink = f"tcpclientsink host=127.0.0.1 port={port} sync=false"
@@ -165,17 +165,17 @@ def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
 
     proc = subprocess.Popen(pipeline, **kwargs)
 
-    # If we used a HW encoder, watch for quick failure and fall back to CPU
+    
     if hw_encoder:
         try:
             proc.wait(timeout=4)
         except subprocess.TimeoutExpired:
-            # Still running after 4s — HW encoder is working
+            
             print(f"[Pipeline] HW encoder ({hw_encoder}) running OK")
             proc.wait()
             return proc
 
-        # Process exited within 4s — likely negotiation failure
+        
         rc = proc.returncode
         if rc != 0:
             print(f"[Pipeline] HW encoder failed (exit {rc}), falling back to CPU x264enc")

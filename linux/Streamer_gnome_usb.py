@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 Streamer_gnome_usb.py — GNOME Wayland version.
 Uses org.gnome.Mutter.ScreenCast RecordVirtual D-Bus API.
@@ -24,7 +24,7 @@ PORT    = 7110
 
 print(f"[Streamer GNOME USB] Resolution={WIDTH}x{HEIGHT}  FPS={FPS}  Bitrate={BITRATE}")
 
-# Detect iGPU HW encoder once at startup
+
 HW_ENCODER = detect_igpu_encoder()
 
 DBusGMainLoop(set_as_default=True)
@@ -106,7 +106,7 @@ def start_virtual_session():
         })
     print(f"[Mutter] Stream: {stream_path}")
 
-    # ---- THIS is where the indentation bug was ----
+    
     def on_pipewire_stream_added(node_id):
         print(f"[Mutter] PipeWireStreamAdded — node_id={node_id}")
         t = threading.Thread(

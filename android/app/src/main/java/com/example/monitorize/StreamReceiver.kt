@@ -36,7 +36,7 @@ class StreamReceiver(
             } catch (e: Exception) {
                 Log.e(TAG, "receiveLoop crashed", e)
             } finally {
-                // If running is still true, the loop exited unexpectedly (disconnect)
+                
                 if (running) {
                     running = false
                     onDisconnect?.invoke()

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 Streamer_usb.py — PipeWire → H.264 → TCP streamer for USB mode.
 
@@ -10,7 +10,7 @@ from dbus.mainloop.glib import DBusGMainLoop
 from gi.repository import GLib
 from pipeline_builder import detect_igpu_encoder, launch_with_fallback
 
-# ---- Parse optional CLI arguments (passed by the GUI) ----
+
 WIDTH   = int(sys.argv[1]) if len(sys.argv) > 1 else 2560
 HEIGHT  = int(sys.argv[2]) if len(sys.argv) > 2 else 1600
 FPS     = int(sys.argv[3]) if len(sys.argv) > 3 else 60
@@ -24,7 +24,7 @@ PORT    = 7110
 
 print(f"[Streamer USB] Resolution={WIDTH}x{HEIGHT}  FPS={FPS}  Bitrate={BITRATE}")
 
-# Detect iGPU HW encoder once at startup
+
 HW_ENCODER = detect_igpu_encoder()
 
 DBusGMainLoop(set_as_default=True)
@@ -52,8 +52,8 @@ signal.signal(signal.SIGTERM, cleanup)
 def launch_streaming(fd, node_id):
     global gst_proc
 
-    # ADB forward: data goes over USB, not WiFi
-    # Run: adb forward tcp:7110 tcp:7110
+    
+    
     print("[Monitorize] Streaming. Ctrl+C to stop.\n")
 
     gst_proc = launch_with_fallback(
@@ -99,7 +99,7 @@ def on_response(response, results, **kw):
 
         t = threading.Thread(target=launch_streaming, args=(fd, node_id), daemon=True)
         t.start()
-        # DO NOT call loop.quit() here — keeps portal session alive
+        
 
 bus.add_signal_receiver(on_response, signal_name="Response",
                         dbus_interface="org.freedesktop.portal.Request")
