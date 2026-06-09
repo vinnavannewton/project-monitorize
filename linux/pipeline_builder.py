@@ -95,9 +95,9 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
     """
     
     if pw_fd is not None:
-        src = f"pipewiresrc fd={pw_fd} path={node_id} do-timestamp=true always-copy=true keepalive-time=1 min-buffers=2 max-buffers=2"
+        src = f"pipewiresrc fd={pw_fd} path={node_id} do-timestamp=true always-copy=true keepalive-time=1"
     else:
-        src = f"pipewiresrc path={node_id} do-timestamp=true always-copy=true keepalive-time=1 min-buffers=2 max-buffers=2"
+        src = f"pipewiresrc path={node_id} do-timestamp=true always-copy=true keepalive-time=1"
 
     
     
