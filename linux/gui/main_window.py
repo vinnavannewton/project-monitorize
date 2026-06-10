@@ -383,7 +383,7 @@ class MonitorizeWindow(QMainWindow):
             args.append(active_page.gnome_scale())
             args.append(active_page.gnome_type().replace(" ", "_"))
 
-        self.process_streamer.start("python3", args)
+        self.process_streamer.start(sys.executable, args)
 
         if self.detected_de in ("kde", "gnome"):
             QTimer.singleShot(400, self._launch_input_bridge)
@@ -411,7 +411,7 @@ class MonitorizeWindow(QMainWindow):
         ]
         if getattr(self, "_is_wifi", False):
             args.append("--wifi")
-        self.process_input_bridge.start("python3", args)
+        self.process_input_bridge.start(sys.executable, args)
 
         if self.detected_de == "hyprland":
             self._page_streaming.set_status(
