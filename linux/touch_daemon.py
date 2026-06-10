@@ -112,6 +112,7 @@ log.info("Detected DE: %s", _DETECTED_DE)
 
 
 _virtual_monitor_cache = None
+_virtual_monitor_queried = False
 
 def _get_virtual_monitor_rect_kde() -> tuple[float, float, float, float]:
     """Return (x, y, width, height) of Virtual-TabletDisplay from kscreen-doctor."""
@@ -197,8 +198,8 @@ def _get_virtual_monitor_rect_gnome() -> tuple[float, float, float, float]:
 
 def _get_virtual_monitor_rect() -> tuple[float, float, float, float]:
     """Return (x, y, width, height) of the virtual monitor, dispatching by DE."""
-    global _virtual_monitor_cache
-    if _virtual_monitor_cache:
+    global _virtual_monitor_cache, _virtual_monitor_queried
+    if _virtual_monitor_queried:
         return _virtual_monitor_cache
 
     if _DETECTED_DE == "hyprland":
@@ -213,8 +214,8 @@ def _get_virtual_monitor_rect() -> tuple[float, float, float, float]:
                   or _get_virtual_monitor_rect_kde()
                   or _get_virtual_monitor_rect_gnome())
 
-    if result:
-        _virtual_monitor_cache = result
+    _virtual_monitor_cache = result
+    _virtual_monitor_queried = True
     return result
 
 def _scale(dev, nx: int, ny: int) -> tuple[float, float]:
@@ -260,7 +261,7 @@ def _scale(dev, nx: int, ny: int) -> tuple[float, float]:
     return x, y
 
 
-def _inject_touch_libei(action: int, cid: int, nx: int, ny: int) -> None:
+def _inject_touch_libei(action: int, cid: int, nx: int, ny: int, frame: bool = True) -> None:
     dev = _touch_dev
     if dev is None:
         return
@@ -279,7 +280,6 @@ def _inject_touch_libei(action: int, cid: int, nx: int, ny: int) -> None:
                     touch = dev.touch_new()
                     _active_touches[cid] = touch
                     touch.down(x, y)
-                    dev.frame()
                     log.info("[INJECT] DOWN  cid=%d  coords=(%.1f, %.1f)  active_slots=%d",
                              cid, x, y, len(_active_touches))
 
@@ -287,7 +287,6 @@ def _inject_touch_libei(action: int, cid: int, nx: int, ny: int) -> None:
                     touch = _active_touches.get(cid)
                     if touch is not None:
                         touch.motion(x, y)
-                        dev.frame()
                     else:
                         log.warning("[INJECT] MOVE  cid=%d  — no active touch slot!", cid)
 
@@ -295,7 +294,6 @@ def _inject_touch_libei(action: int, cid: int, nx: int, ny: int) -> None:
                     touch = _active_touches.pop(cid, None)
                     if touch is not None:
                         touch.up()
-                        dev.frame()
                         log.info("[INJECT] UP    cid=%d  coords=(%.1f, %.1f)  remaining=%d",
                                  cid, x, y, len(_active_touches))
                     else:
@@ -306,27 +304,27 @@ def _inject_touch_libei(action: int, cid: int, nx: int, ny: int) -> None:
                 if action == ACTION_DOWN:
                     dev.pointer_motion_absolute(x, y)
                     dev.button_button(btn_left, True)
-                    dev.frame()
                     _active_touches[cid] = True
                     log.info("[INJECT POINTER] DOWN  cid=%d  coords=(%.1f, %.1f)", cid, x, y)
                 elif action == ACTION_MOVE:
                     dev.pointer_motion_absolute(x, y)
-                    dev.frame()
                 elif action == ACTION_UP:
                     _active_touches.pop(cid, None)
                     dev.pointer_motion_absolute(x, y)
                     dev.button_button(btn_left, False)
-                    dev.frame()
                     log.info("[INJECT POINTER] UP    cid=%d  coords=(%.1f, %.1f)", cid, x, y)
 
-            if _ei_ctx:
-                _ei_ctx.dispatch()
+            if frame:
+                if dev:
+                    dev.frame()
+                if _ei_ctx:
+                    _ei_ctx.dispatch()
 
     except Exception as exc:
         log.error("inject_touch error cid=%d action=%d: %s", cid, action, exc, exc_info=True)
 
 
-def _inject_touch_uinput(action: int, cid: int, nx: int, ny: int) -> None:
+def _inject_touch_uinput(action: int, cid: int, nx: int, ny: int, frame: bool = True) -> None:
     """Inject touch via evdev/uinput virtual touchscreen (Hyprland backend)."""
     ui = _uinput_dev
     if ui is None:
@@ -355,7 +353,6 @@ def _inject_touch_uinput(action: int, cid: int, nx: int, ny: int) -> None:
                     ui.write(e_codes.EV_ABS, e_codes.ABS_X, abs_x)
                     ui.write(e_codes.EV_ABS, e_codes.ABS_Y, abs_y)
                 ui.write(e_codes.EV_KEY, e_codes.BTN_TOUCH, 1)
-                ui.syn()
                 log.info("[UINPUT] DOWN  cid=%d slot=%d coords=(%d, %d)  active=%d",
                          cid, slot, abs_x, abs_y, len(_active_touches))
 
@@ -368,7 +365,6 @@ def _inject_touch_uinput(action: int, cid: int, nx: int, ny: int) -> None:
                     if s == 0:
                         ui.write(e_codes.EV_ABS, e_codes.ABS_X, abs_x)
                         ui.write(e_codes.EV_ABS, e_codes.ABS_Y, abs_y)
-                    ui.syn()
 
             elif action == ACTION_UP:
                 s = _active_touches.pop(cid, None)
@@ -377,14 +373,16 @@ def _inject_touch_uinput(action: int, cid: int, nx: int, ny: int) -> None:
                     ui.write(e_codes.EV_ABS, e_codes.ABS_MT_TRACKING_ID, -1)
                     if not _active_touches:
                         ui.write(e_codes.EV_KEY, e_codes.BTN_TOUCH, 0)
-                    ui.syn()
                     log.info("[UINPUT] UP    cid=%d slot=%d  remaining=%d",
                              cid, s, len(_active_touches))
+
+            if frame:
+                ui.syn()
 
     except Exception as exc:
         log.error("inject_touch_uinput error cid=%d action=%d: %s", cid, action, exc, exc_info=True)
 
-def _inject_pen(action: int, tool: int, nx: int, ny: int, pressure: int, tx: int, btn_state: int) -> None:
+def _inject_pen(action: int, tool: int, nx: int, ny: int, pressure: int, tx: int, btn_state: int, frame: bool = True) -> None:
     global _pen_dev, _touch_dev
     dev = _pen_dev if _pen_dev is not None else _touch_dev
     if dev is None:
@@ -405,11 +403,9 @@ def _inject_pen(action: int, tool: int, nx: int, ny: int, pressure: int, tx: int
             if action == ACTION_DOWN:
                 dev.pointer_motion_absolute(x, y)
                 dev.button_button(button_code, True)
-                dev.frame()
                 log.info("[INJECT PEN] DOWN  coords=(%.1f, %.1f) tool=%d btn=0x%x", x, y, tool, button_code)
             elif action == ACTION_MOVE:
                 dev.pointer_motion_absolute(x, y)
-                dev.frame()
                 
             elif action == ACTION_UP:
                 dev.pointer_motion_absolute(x, y)
@@ -417,15 +413,16 @@ def _inject_pen(action: int, tool: int, nx: int, ny: int, pressure: int, tx: int
                 
                 other_btn = 0x110 if is_secondary else 0x111
                 dev.button_button(other_btn, False)
-                dev.frame()
                 log.info("[INJECT PEN] UP    coords=(%.1f, %.1f)", x, y)
             elif action == ACTION_HOVER:
                 dev.pointer_motion_absolute(x, y)
-                dev.frame()
                 
 
-            if _ei_ctx:
-                _ei_ctx.dispatch()
+            if frame:
+                if dev:
+                    dev.frame()
+                if _ei_ctx:
+                    _ei_ctx.dispatch()
     except Exception as exc:
         log.error("inject_pen error action=%d: %s", action, exc, exc_info=True)
 
@@ -442,21 +439,42 @@ def _setup_libei() -> None:
     log.info("Requesting TOUCHSCREEN/POINTER permissions via XDG RemoteDesktop portal…")
     log.info("▶  Watch for the compositor popup 'Allow Remote Control' and click Allow.")
 
-    
-    oef = oeffis.Oeffis.create(devices=oeffis.DeviceType.TOUCHSCREEN | oeffis.DeviceType.POINTER)
-    
-    eis_fd: Optional[int] = None
+    devices_to_try = [
+        oeffis.DeviceType.TOUCHSCREEN | oeffis.DeviceType.POINTER,
+        oeffis.DeviceType.ALL_DEVICES,
+        oeffis.DeviceType.POINTER
+    ]
 
-    deadline = time.monotonic() + 60.0
-    while time.monotonic() < deadline and not _shutdown.is_set():
-        r, _, _ = select.select([oef.fd.fileno()], [], [], 1.0)
-        
-        if r and oef.dispatch():
-            eis_fd = oef.eis_fd
+    oef = None
+    eis_fd = None
+
+    for idx, devices in enumerate(devices_to_try):
+        try:
+            log.info("Creating RemoteDesktop session request (try %d/%d)...", idx + 1, len(devices_to_try))
+            oef = oeffis.Oeffis.create(devices=devices)
+            
+            deadline = time.monotonic() + 60.0
+            while time.monotonic() < deadline and not _shutdown.is_set():
+                r, _, _ = select.select([oef.fd.fileno()], [], [], 1.0)
+                if r:
+                    if oef.dispatch():
+                        eis_fd = oef.eis_fd
+                        break
+            if eis_fd is not None:
+                break
+        except oeffis.SessionClosedError:
+            log.error("Portal session closed/denied by user.")
             break
+        except oeffis.DisconnectedError as de:
+            msg = getattr(de, "message", None) or str(de)
+            log.warning("Portal disconnected during request (try %d): %s", idx + 1, msg)
+            continue
+        except Exception as e:
+            log.warning("Failed to dispatch portal request (try %d): %s", idx + 1, e)
+            continue
 
     if eis_fd is None:
-        log.error("Portal timed out — user must click Allow on the popup.")
+        log.error("Portal timed out, connection failed, or permission denied — user must click Allow on the popup.")
         _shutdown.set()
         return
 
@@ -637,54 +655,55 @@ def _read_exact(sock: socket.socket, n: int) -> bytes:
 def _handle_client(client: socket.socket, addr: tuple) -> None:
     log.info("Android connected from %s", addr)
     pkt_count = 0
+    buffer = bytearray()
     try:
         
         first_chunk = client.recv(32, socket.MSG_PEEK)
         log.warning("[DEBUG] First chunk from Android (hex): %s", first_chunk.hex())
 
         while not _shutdown.is_set():
-            
-            b1 = _read_exact(client, 1)
-            if not b1: break
-
-            if b1[0] == 0x00:
-                
-                _read_exact(client, 3) 
-                pkt_type_bytes = _read_exact(client, 1)
-                pkt_type = pkt_type_bytes[0]
-                length = 13
-            else:
-                
-                pkt_type = b1[0]
-                length = 12 
-                
-                
-                
-                length = 13
-            
-            if pkt_type not in (PKT_TOUCH, PKT_PEN):
-                log.warning("Unknown packet type 0x%02x, closing connection.", pkt_type)
+            chunk = client.recv(4096)
+            if not chunk:
                 break
+            buffer.extend(chunk)
 
-            payload = _read_exact(client, length)
-            if len(payload) < PAYLOAD_SIZE:
-                log.warning("Short payload, skipping.")
-                continue
+            
+            
+            packets_to_process = []
+            while len(buffer) >= 18:
+                if buffer[0:4] == b'\x00\x00\x00\x0d':
+                    pkt_type = buffer[4]
+                    payload = buffer[5:18]
+                    packets_to_process.append((pkt_type, payload))
+                    del buffer[0:18]
+                else:
+                    
+                    del buffer[0]
 
-            unpacked = struct.unpack(PAYLOAD_FMT, payload[:PAYLOAD_SIZE])
-            action, tool, cid, nx, ny, pressure, tx, ty = unpacked
-            pkt_count += 1
+            if packets_to_process:
+                num_packets = len(packets_to_process)
+                for idx, (pkt_type, payload) in enumerate(packets_to_process):
+                    if pkt_type not in (PKT_TOUCH, PKT_PEN):
+                        log.warning("Unknown packet type 0x%02x, skipping.", pkt_type)
+                        continue
 
-            if pkt_count == 1:
-                log.info("[TCP] First packet parsed successfully! type=0x%02x", pkt_type)
+                    unpacked = struct.unpack(PAYLOAD_FMT, payload)
+                    action, tool, cid, nx, ny, pressure, tx, ty = unpacked
+                    pkt_count += 1
 
-            log.debug("[TCP] pkt#%d type=0x%02x action=%d cid=%d norm=(%d,%d)",
-                      pkt_count, pkt_type, action, cid, nx, ny)
+                    if pkt_count == 1:
+                        log.info("[TCP] First packet parsed successfully! type=0x%02x", pkt_type)
 
-            _inject_fn(action, cid, nx, ny)
+                    log.debug("[TCP] pkt#%d type=0x%02x action=%d cid=%d norm=(%d,%d)",
+                              pkt_count, pkt_type, action, cid, nx, ny)
 
-    except EOFError:
-        log.info("Android disconnected cleanly")
+                    
+                    is_last = (idx == num_packets - 1)
+                    if pkt_type == PKT_TOUCH or _DETECTED_DE == "hyprland":
+                        _inject_fn(action, cid, nx, ny, frame=is_last)
+                    else:
+                        _inject_pen(action, tool, nx, ny, pressure, tx, ty, frame=is_last)
+
     except Exception as e:
         if not _shutdown.is_set():
             log.error("Client error: %s", e)

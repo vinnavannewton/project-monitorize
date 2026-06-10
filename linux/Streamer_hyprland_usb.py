@@ -42,9 +42,11 @@ def get_current_headless_monitors():
 headless_arg = sys.argv[6] if len(sys.argv) > 6 else None
 created_monitor = None
 
-if headless_arg:
+if headless_arg and headless_arg != "mirror":
     created_monitor = headless_arg
     print(f"[Hyprland] Using headless monitor from GUI: {created_monitor}")
+elif headless_arg == "mirror":
+    print("[Hyprland] Mirror mode: using primary monitor, no virtual display spawned.")
 else:
     
     print("[Hyprland] Standalone mode: Creating virtual monitor...")
@@ -144,7 +146,10 @@ bus.add_signal_receiver(on_response, signal_name="Response",
                         dbus_interface="org.freedesktop.portal.Request")
 
 print("[Portal] Creating session... Hyprland will ask you to select a monitor.")
-print("         Select 'HEADLESS' in the picker.\n")
+if headless_arg == "mirror":
+    print("         Select your primary monitor in the picker.\n")
+else:
+    print("         Select 'HEADLESS' in the picker.\n")
 
 sc.CreateSession({
     "handle_token":         dbus.String("tok1"),

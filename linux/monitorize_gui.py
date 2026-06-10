@@ -605,23 +605,23 @@ class WifiPage(QWidget):
         root.addLayout(bitrate_row)
         root.addSpacing(16)
 
-        self._is_gnome = (detected_de == "gnome")
-        if self._is_gnome:
-            gnome_row = QHBoxLayout()
-            gnome_row.setSpacing(20)
+        self._show_display_type = (detected_de in ("gnome", "kde", "hyprland"))
+        if self._show_display_type:
+            type_row = QHBoxLayout()
+            type_row.setSpacing(20)
             
             type_lbl = QLabel("Display Type:")
             type_lbl.setObjectName("instruction")
-            self._gnome_type_combo = NonScrollComboBox()
-            self._gnome_type_combo.addItems(["Extend Right", "Mirror"])
-            self._gnome_type_combo.setCurrentText("Extend Right")
+            self._display_type_combo = NonScrollComboBox()
+            self._display_type_combo.addItems(["Extend Right", "Mirror"])
+            self._display_type_combo.setCurrentText("Extend Right")
             
-            gnome_row.addStretch()
-            gnome_row.addWidget(type_lbl)
-            gnome_row.addWidget(self._gnome_type_combo)
-            gnome_row.addStretch()
+            type_row.addStretch()
+            type_row.addWidget(type_lbl)
+            type_row.addWidget(self._display_type_combo)
+            type_row.addStretch()
             
-            root.addLayout(gnome_row)
+            root.addLayout(type_row)
             root.addSpacing(16)
 
         warning = QLabel(
@@ -708,8 +708,8 @@ class WifiPage(QWidget):
         return "1.0"
 
     def gnome_type(self) -> str:
-        if hasattr(self, "_gnome_type_combo"):
-            return self._gnome_type_combo.currentText()
+        if hasattr(self, "_display_type_combo"):
+            return self._display_type_combo.currentText()
         return "Extend Right"
 
 class UsbStep1Page(QWidget):
@@ -899,23 +899,23 @@ class UsbStep2Page(QWidget):
         root.addLayout(bitrate_row)
         root.addSpacing(16)
 
-        self._is_gnome = (detected_de == "gnome")
-        if self._is_gnome:
-            gnome_row = QHBoxLayout()
-            gnome_row.setSpacing(20)
+        self._show_display_type = (detected_de in ("gnome", "kde", "hyprland"))
+        if self._show_display_type:
+            type_row = QHBoxLayout()
+            type_row.setSpacing(20)
             
             type_lbl = QLabel("Display Type:")
             type_lbl.setObjectName("instruction")
-            self._gnome_type_combo = NonScrollComboBox()
-            self._gnome_type_combo.addItems(["Extend Right", "Mirror"])
-            self._gnome_type_combo.setCurrentText("Extend Right")
+            self._display_type_combo = NonScrollComboBox()
+            self._display_type_combo.addItems(["Extend Right", "Mirror"])
+            self._display_type_combo.setCurrentText("Extend Right")
             
-            gnome_row.addStretch()
-            gnome_row.addWidget(type_lbl)
-            gnome_row.addWidget(self._gnome_type_combo)
-            gnome_row.addStretch()
+            type_row.addStretch()
+            type_row.addWidget(type_lbl)
+            type_row.addWidget(self._display_type_combo)
+            type_row.addStretch()
             
-            root.addLayout(gnome_row)
+            root.addLayout(type_row)
             root.addSpacing(16)
 
         
@@ -1061,8 +1061,8 @@ class UsbStep2Page(QWidget):
         return "1.0"
 
     def gnome_type(self) -> str:
-        if hasattr(self, "_gnome_type_combo"):
-            return self._gnome_type_combo.currentText()
+        if hasattr(self, "_display_type_combo"):
+            return self._display_type_combo.currentText()
         return "Extend Right"
 
 
@@ -1467,47 +1467,57 @@ class MonitorizeWindow(QMainWindow):
             subprocess.run(["adb", "forward", "--remove", "tcp:7110"], capture_output=True)
             subprocess.run(["adb", "reverse", "--remove", "tcp:7111"], capture_output=True)
 
-        if self.detected_de == "kde":
-            self._page_streaming.set_status("Starting virtual monitor…  5")
-            self.process_krfb = QProcess(self)
-            self.process_krfb.setWorkingDirectory(script_dir)
-            self.process_krfb.setProcessEnvironment(env)
-            self.process_krfb.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
-            self.process_krfb.readyReadStandardOutput.connect(self._read_krfb)
-            self.process_krfb.finished.connect(
-                lambda code, _: self._page_streaming.append_log("KRFB", f"Process exited (code {code})")
-            )
-            import subprocess
-            subprocess.run(["killall", "krfb-virtualmonitor"], capture_output=True)
+        display_type = config_page.gnome_type()  
 
-            self.process_krfb.start("krfb-virtualmonitor", [
-                "--resolution", f"{width}x{height}",
-                "--name",       "TabletDisplay",
-                "--password",   "test123",
-                "--port",       "5900",
-            ])
-            self._countdown = 1
-            self._countdown_timer.start()
-        elif self.detected_de == "hyprland":
-            self._page_streaming.set_status("Setting up virtual monitor on Hyprland…")
-            import subprocess
-            old_monitors = set(self._get_current_headless_monitors())
-            subprocess.run(["hyprctl", "output", "create", "headless"], capture_output=True)
-            
-            new_monitors = set(self._get_current_headless_monitors())
-            diff = new_monitors - old_monitors
-            if diff:
-                new_name = list(diff)[0]
+        if self.detected_de == "kde":
+            if display_type == "Mirror":
+                self._page_streaming.set_status("Launching streamer (Mirror mode)…")
+                self._launch_streamer()
             else:
-                new_name = "HEADLESS-1"
-            
-            self.created_headless_monitor = new_name
-            
-            subprocess.run(["hyprctl", "keyword", "monitor", f"{new_name},{width}x{height}@{fps},auto,1"], capture_output=True)
-            subprocess.run(["hyprctl", "eval", f"hl.monitor({{ output = '{new_name}', mode = '{width}x{height}@{fps}', position = 'auto', scale = 1.0 }})"], capture_output=True)
-            print(f"[Hyprland] Created new headless monitor: {new_name} at {width}x{height}@{fps}")
-            self._page_streaming.append_log("STREAMER", f"Created new headless monitor: {new_name} at {width}x{height}@{fps}")
-            self._launch_streamer()
+                self._page_streaming.set_status("Starting virtual monitor…  5")
+                self.process_krfb = QProcess(self)
+                self.process_krfb.setWorkingDirectory(script_dir)
+                self.process_krfb.setProcessEnvironment(env)
+                self.process_krfb.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+                self.process_krfb.readyReadStandardOutput.connect(self._read_krfb)
+                self.process_krfb.finished.connect(
+                    lambda code, _: self._page_streaming.append_log("KRFB", f"Process exited (code {code})")
+                )
+                import subprocess
+                subprocess.run(["killall", "krfb-virtualmonitor"], capture_output=True)
+
+                self.process_krfb.start("krfb-virtualmonitor", [
+                    "--resolution", f"{width}x{height}",
+                    "--name",       "TabletDisplay",
+                    "--password",   "test123",
+                    "--port",       "5900",
+                ])
+                self._countdown = 1
+                self._countdown_timer.start()
+        elif self.detected_de == "hyprland":
+            if display_type == "Mirror":
+                self._page_streaming.set_status("Launching streamer (Mirror mode)…")
+                self._launch_streamer()
+            else:
+                self._page_streaming.set_status("Setting up virtual monitor on Hyprland…")
+                import subprocess
+                old_monitors = set(self._get_current_headless_monitors())
+                subprocess.run(["hyprctl", "output", "create", "headless"], capture_output=True)
+                
+                new_monitors = set(self._get_current_headless_monitors())
+                diff = new_monitors - old_monitors
+                if diff:
+                    new_name = list(diff)[0]
+                else:
+                    new_name = "HEADLESS-1"
+                
+                self.created_headless_monitor = new_name
+                
+                subprocess.run(["hyprctl", "keyword", "monitor", f"{new_name},{width}x{height}@{fps},auto,1"], capture_output=True)
+                subprocess.run(["hyprctl", "eval", f"hl.monitor({{ output = '{new_name}', mode = '{width}x{height}@{fps}', position = 'auto', scale = 1.0 }})"], capture_output=True)
+                print(f"[Hyprland] Created new headless monitor: {new_name} at {width}x{height}@{fps}")
+                self._page_streaming.append_log("STREAMER", f"Created new headless monitor: {new_name} at {width}x{height}@{fps}")
+                self._launch_streamer()
         else:
             self._page_streaming.set_status("Launching streamer…")
             self._launch_streamer()
@@ -1557,8 +1567,11 @@ class MonitorizeWindow(QMainWindow):
             args.append("usb")
 
         
-        if self.detected_de == "hyprland" and getattr(self, "created_headless_monitor", None):
-            args.append(self.created_headless_monitor)
+        if self.detected_de == "hyprland":
+            if getattr(self, "created_headless_monitor", None):
+                args.append(self.created_headless_monitor)
+            else:
+                args.append("mirror")
 
         if self.detected_de == "gnome":
             active_page = self._page_wifi if self._is_wifi else self._page_usb2

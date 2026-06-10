@@ -507,37 +507,13 @@ fun ReceiveScreen(
         Box(modifier = Modifier.aspectRatio(width.toFloat() / height.toFloat())) {
             StreamSurface(
                 modifier = Modifier.fillMaxSize(),
-                onSurfaceReady = { sv ->
-                    sv.holder.addCallback(object : SurfaceHolder.Callback {
-                        override fun surfaceCreated(holder: SurfaceHolder) {
-                            holder.setFixedSize(width, height)
-                            onSurfaceCreated(hostIp, holder.surface, width, height, fps)
-                        }
-                        override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, ht: Int) {}
-                        override fun surfaceDestroyed(h: SurfaceHolder) { onSurfaceDestroyed() }
-                    })
-                }
-            )
-
-            
-            AndroidView(
-                factory = { ctx ->
-                    android.view.View(ctx).apply {
-                        layoutParams = android.view.ViewGroup.LayoutParams(
-                            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                            android.view.ViewGroup.LayoutParams.MATCH_PARENT
-                        )
-                        setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                        isClickable = true
-                        setOnTouchListener { v, event -> 
-                            if (event.action == android.view.MotionEvent.ACTION_DOWN) v.performClick()
-                            onInputEvent(event, v.width.toFloat(), v.height.toFloat())
-                            true 
-                        }
-                        setOnHoverListener { v, event -> onInputEvent(event, v.width.toFloat(), v.height.toFloat()); true }
-                    }
-                },
-                modifier = Modifier.fillMaxSize().zIndex(2f)
+                width = width,
+                height = height,
+                fps = fps,
+                hostIp = hostIp,
+                onSurfaceCreated = onSurfaceCreated,
+                onSurfaceDestroyed = onSurfaceDestroyed,
+                onInputEvent = onInputEvent
             )
         }
 
@@ -559,9 +535,39 @@ fun ReceiveScreen(
 }
 
 @Composable
-fun StreamSurface(modifier: Modifier, onSurfaceReady: (android.view.SurfaceView) -> Unit) {
+fun StreamSurface(
+    modifier: Modifier,
+    width: Int,
+    height: Int,
+    fps: Int,
+    hostIp: String,
+    onSurfaceCreated: (String, Surface, Int, Int, Int) -> Unit,
+    onSurfaceDestroyed: () -> Unit,
+    onInputEvent: (android.view.MotionEvent, Float, Float) -> Unit
+) {
     AndroidView(
-        factory = { ctx -> android.view.SurfaceView(ctx).also { onSurfaceReady(it) } },
+        factory = { ctx ->
+            android.view.SurfaceView(ctx).apply {
+                isClickable = true
+                holder.addCallback(object : SurfaceHolder.Callback {
+                    override fun surfaceCreated(holder: SurfaceHolder) {
+                        holder.setFixedSize(width, height)
+                        onSurfaceCreated(hostIp, holder.surface, width, height, fps)
+                    }
+                    override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, ht: Int) {}
+                    override fun surfaceDestroyed(h: SurfaceHolder) { onSurfaceDestroyed() }
+                })
+                setOnTouchListener { v, event ->
+                    if (event.action == android.view.MotionEvent.ACTION_DOWN) v.performClick()
+                    onInputEvent(event, v.width.toFloat(), v.height.toFloat())
+                    true
+                }
+                setOnHoverListener { v, event ->
+                    onInputEvent(event, v.width.toFloat(), v.height.toFloat())
+                    true
+                }
+            }
+        },
         modifier = modifier
     )
 }
