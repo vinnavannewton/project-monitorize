@@ -32,6 +32,8 @@ if [[ "${1:-}" == "remove" || "${1:-}" == "uninstall" ]]; then
     echo "Removing ${APP_NAME} desktop entry…"
     rm -f "${DESKTOP_DIR}/${DESKTOP_FILE}"
     rm -f "${ICON_DEST}"
+    rm -rf "${SCRIPT_DIR}/venv"
+    find "${SCRIPT_DIR}" -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
     # Refresh desktop database if available
     if command -v update-desktop-database &>/dev/null; then
         update-desktop-database "${DESKTOP_DIR}" 2>/dev/null || true
@@ -60,6 +62,33 @@ if ! command -v python3 &>/dev/null; then
     exit 1
 fi
 
+# ── Setup Virtual Environment ────────────────────────────────────────
+VENV_DIR="${SCRIPT_DIR}/venv"
+echo "Setting up Python virtual environment at ${VENV_DIR}…"
+
+# Check if python3-venv is available
+if ! python3 -c "import venv" &>/dev/null; then
+    echo "Error: The Python 'venv' module is not installed." >&2
+    if command -v apt-get &>/dev/null; then
+        echo "Please install it by running:  sudo apt install python3-venv" >&2
+    elif command -v dnf &>/dev/null; then
+        echo "Please install it by running:  sudo dnf install python3-virtualenv" >&2
+    elif command -v pacman &>/dev/null; then
+        echo "Please install it by running:  sudo pacman -S python-virtualenv" >&2
+    else
+        echo "Please install the python virtual environment package for your distribution." >&2
+    fi
+    exit 1
+fi
+
+# Create venv with --system-site-packages so it can access the system's dbus-python
+python3 -m venv --system-site-packages "${VENV_DIR}"
+
+echo "Installing/updating Python dependencies inside the virtual environment…"
+"${VENV_DIR}/bin/pip" install --upgrade pip
+"${VENV_DIR}/bin/pip" install -r "${SCRIPT_DIR}/requirements.txt"
+echo "✓ Virtual environment dependencies installed"
+
 # ── Install icon ─────────────────────────────────────────────────────
 mkdir -p "${ICON_DIR}"
 cp "${ICON_SRC}" "${ICON_DEST}"
@@ -73,7 +102,7 @@ cat > "${DESKTOP_DIR}/${DESKTOP_FILE}" <<EOF
 Type=Application
 Name=${APP_NAME}
 Comment=Linux to Android Display Bridge — extend or mirror your desktop to a tablet
-Exec=python3 ${ENTRY_POINT}
+Exec=${VENV_DIR}/bin/python3 ${ENTRY_POINT}
 Icon=${APP_ID}
 Terminal=false
 Categories=Utility;System;
@@ -99,7 +128,7 @@ if command -v gtk-update-icon-cache &>/dev/null; then
 fi
 
 # Pre-compile Python files to .pyc to ensure maximum startup speed
-python3 -m compileall "${SCRIPT_DIR}" &>/dev/null || true
+"${VENV_DIR}/bin/python3" -m compileall "${SCRIPT_DIR}" &>/dev/null || true
 echo "✓ Python bytecode pre-compiled"
 
 echo ""
