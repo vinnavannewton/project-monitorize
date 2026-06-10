@@ -48,7 +48,7 @@ def _hw_encoder_params(enc_name, bitrate, key_int):
     if enc_name == "nvh264enc":
         return (
             f"nvh264enc bitrate={bitrate} zerolatency=true bframes=0 "
-            f"rc-mode=cbr gop-size={key_int}"
+            f"rc-mode=cbr gop-size={key_int} tune=ultra-low-latency preset=p1"
         )
     elif enc_name == "vaapih264enc":
         return (
@@ -113,8 +113,12 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
     
     key_int = max(fps // 2, 15)   
     if hw_encoder:
-        
-        convert = f"videoconvert n-threads=4 ! videoscale ! video/x-raw,format=NV12,width={width},height={height}"
+        if hw_encoder == "nvh264enc":
+            
+            convert = f"cudaupload ! cudaconvertscale ! 'video/x-raw(memory:CUDAMemory),format=NV12,width={width},height={height}'"
+        else:
+            
+            convert = f"videoconvert n-threads=4 ! videoscale ! video/x-raw,format=NV12,width={width},height={height}"
         encoder = _hw_encoder_params(hw_encoder, bitrate, key_int)
     else:
         
@@ -128,7 +132,7 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
     
     if host != "127.0.0.1":
         
-        sink = f"tcpserversink host={host} port={port} sync=false sync-method=2 recover-policy=1"
+        sink = f"tcpserversink host={host} port={port} sync=false sync-method=2 recover-policy=1 buffers-max=2 buffers-soft-max=1"
     else:
         sink = f"tcpclientsink host=127.0.0.1 port={port} sync=false"
 
