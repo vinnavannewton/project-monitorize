@@ -82,23 +82,7 @@ class MainMenuPage(QWidget):
         root.addWidget(footer)
         root.addSpacing(14)
 
-        tray_row = QHBoxLayout()
-        self.tray_checkbox = QCheckBox("Minimize to tray on close")
-        self.tray_checkbox.setObjectName("trayCheck")
-        tray_row.addStretch()
-        tray_row.addWidget(self.tray_checkbox)
-        tray_row.addStretch()
-        root.addLayout(tray_row)
-        root.addSpacing(6)
 
-        
-        gen = load_general_settings()
-        self.tray_checkbox.setChecked(gen["minimize_to_tray"])
-
-        
-        self.tray_checkbox.toggled.connect(
-            lambda checked: save_general_settings(minimize_to_tray=checked)
-        )
 
     def update_de_badge(self, de: str):
         """Show the detected/selected desktop environment in the badge."""

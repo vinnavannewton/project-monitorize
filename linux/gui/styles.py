@@ -218,21 +218,21 @@ QLabel#portalHint {
     color: #8a8cc0;
 }
 
-/* ── Tray Checkbox ────────────────────────────────────────────────── */
-QCheckBox#trayCheck {
+/* ── Checkboxes ───────────────────────────────────────────────────── */
+QCheckBox#trayCheck, QCheckBox#touchCheck {
     font-size: 12px;
     color: #5a5c82;
     spacing: 8px;
 }
-QCheckBox#trayCheck:hover { color: #9a9cc0; }
-QCheckBox#trayCheck::indicator {
+QCheckBox#trayCheck:hover, QCheckBox#touchCheck:hover { color: #9a9cc0; }
+QCheckBox#trayCheck::indicator, QCheckBox#touchCheck::indicator {
     width: 14px;
     height: 14px;
     border: 1px solid #2a2d55;
     border-radius: 4px;
     background-color: #12142a;
 }
-QCheckBox#trayCheck::indicator:checked {
+QCheckBox#trayCheck::indicator:checked, QCheckBox#touchCheck::indicator:checked {
     background-color: #4c4fd0;
     border-color: #4c4fd0;
 }

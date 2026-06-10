@@ -4,14 +4,16 @@ Monitorize GUI — Wi-Fi mode configuration page.
 
 import os
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit,
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit, QCheckBox,
 )
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QIcon
 
 from gui.utils import hr, get_local_ip, LINUX_DIR
 from gui.widgets import NonScrollComboBox
-from gui.settings import load_wifi_settings, save_wifi_settings
+from gui.settings import (
+    load_wifi_settings, save_wifi_settings, load_general_settings, save_general_settings
+)
 
 
 class WifiPage(QWidget):
@@ -193,6 +195,24 @@ class WifiPage(QWidget):
         root.addLayout(encoder_row)
         root.addSpacing(16)
 
+        
+        checkbox_row = QHBoxLayout()
+        checkbox_row.setSpacing(24)
+
+        self.tray_checkbox = QCheckBox("Minimize to tray on close")
+        self.tray_checkbox.setObjectName("trayCheck")
+
+        self.touch_checkbox = QCheckBox("Enable Touch Input")
+        self.touch_checkbox.setObjectName("touchCheck")
+
+        checkbox_row.addStretch()
+        checkbox_row.addWidget(self.tray_checkbox)
+        checkbox_row.addWidget(self.touch_checkbox)
+        checkbox_row.addStretch()
+
+        root.addLayout(checkbox_row)
+        root.addSpacing(16)
+
         warning = QLabel(
             "WARNING: The Resolution and FPS set here MUST EXACTLY "
             "MATCH the settings in the Android tablet app, or the stream "
@@ -255,6 +275,28 @@ class WifiPage(QWidget):
         if hasattr(self, "_display_type_combo"):
             self._display_type_combo.setCurrentText(saved["display_type"])
         self._encoder_combo.setCurrentText(saved.get("encoder", "Auto-detect (Recommended)"))
+
+        
+        self.reload_general_settings()
+
+        self.tray_checkbox.toggled.connect(
+            lambda checked: save_general_settings(minimize_to_tray=checked)
+        )
+        self.touch_checkbox.toggled.connect(
+            lambda checked: save_general_settings(enable_touch=checked)
+        )
+
+    def reload_general_settings(self):
+        """Reload general settings to stay in sync."""
+        self.tray_checkbox.blockSignals(True)
+        self.touch_checkbox.blockSignals(True)
+        try:
+            gen = load_general_settings()
+            self.tray_checkbox.setChecked(gen.get("minimize_to_tray", False))
+            self.touch_checkbox.setChecked(gen.get("enable_touch", True))
+        finally:
+            self.tray_checkbox.blockSignals(False)
+            self.touch_checkbox.blockSignals(False)
 
     def save_settings(self):
         """Persist current Wi-Fi settings to disk."""

@@ -51,10 +51,13 @@ def save_usb_settings(*, resolution: str, custom_w: str, custom_h: str,
     s.sync()
 
 
-def save_general_settings(*, minimize_to_tray: bool):
+def save_general_settings(*, minimize_to_tray: bool = None, enable_touch: bool = None):
     s = _get_settings()
     s.beginGroup("general")
-    s.setValue("minimize_to_tray", minimize_to_tray)
+    if minimize_to_tray is not None:
+        s.setValue("minimize_to_tray", minimize_to_tray)
+    if enable_touch is not None:
+        s.setValue("enable_touch", enable_touch)
     s.endGroup()
     s.sync()
 
@@ -100,6 +103,7 @@ def load_general_settings() -> dict:
     s.beginGroup("general")
     data = {
         "minimize_to_tray": s.value("minimize_to_tray", False, type=bool),
+        "enable_touch": s.value("enable_touch", True, type=bool),
     }
     s.endGroup()
     return data

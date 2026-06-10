@@ -112,7 +112,6 @@ log.info("Detected DE: %s", _DETECTED_DE)
 
 
 _virtual_monitor_cache = None
-_virtual_monitor_queried = False
 
 def _get_virtual_monitor_rect_kde() -> tuple[float, float, float, float]:
     """Return (x, y, width, height) of Virtual-TabletDisplay from kscreen-doctor."""
@@ -198,8 +197,8 @@ def _get_virtual_monitor_rect_gnome() -> tuple[float, float, float, float]:
 
 def _get_virtual_monitor_rect() -> tuple[float, float, float, float]:
     """Return (x, y, width, height) of the virtual monitor, dispatching by DE."""
-    global _virtual_monitor_cache, _virtual_monitor_queried
-    if _virtual_monitor_queried:
+    global _virtual_monitor_cache
+    if _virtual_monitor_cache is not None:
         return _virtual_monitor_cache
 
     if _DETECTED_DE == "hyprland":
@@ -214,8 +213,8 @@ def _get_virtual_monitor_rect() -> tuple[float, float, float, float]:
                   or _get_virtual_monitor_rect_kde()
                   or _get_virtual_monitor_rect_gnome())
 
-    _virtual_monitor_cache = result
-    _virtual_monitor_queried = True
+    if result is not None:
+        _virtual_monitor_cache = result
     return result
 
 def _scale(dev, nx: int, ny: int) -> tuple[float, float]:
@@ -475,7 +474,9 @@ def _setup_libei() -> None:
 
     if eis_fd is None:
         log.error("Portal timed out, connection failed, or permission denied — user must click Allow on the popup.")
-        _shutdown.set()
+        
+        
+        
         return
 
     log.info("Portal granted — Touch/Pointer fd=%d", eis_fd)
