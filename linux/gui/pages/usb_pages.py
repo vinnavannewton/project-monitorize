@@ -214,6 +214,29 @@ class UsbStep2Page(QWidget):
             root.addLayout(type_row)
             root.addSpacing(16)
 
+        
+        encoder_row = QHBoxLayout()
+        encoder_row.setSpacing(20)
+
+        encoder_lbl = QLabel("Encoder:")
+        encoder_lbl.setObjectName("instruction")
+        self._encoder_combo = NonScrollComboBox()
+        self._encoder_combo.addItems([
+            "Auto-detect (Recommended)",
+            "NVIDIA NVENC (nvh264enc)",
+            "Intel/AMD VA-API (vah264enc)",
+            "Software (CPU / x264enc)"
+        ])
+        self._encoder_combo.setCurrentText("Auto-detect (Recommended)")
+
+        encoder_row.addStretch()
+        encoder_row.addWidget(encoder_lbl)
+        encoder_row.addWidget(self._encoder_combo)
+        encoder_row.addStretch()
+
+        root.addLayout(encoder_row)
+        root.addSpacing(16)
+
         warning = QLabel(
             "WARNING: The Resolution and FPS set here MUST EXACTLY "
             "MATCH the settings in the Android tablet app, or the stream "
@@ -284,6 +307,7 @@ class UsbStep2Page(QWidget):
         self._bitrate_edit.setText(saved["bitrate"])
         if hasattr(self, "_display_type_combo"):
             self._display_type_combo.setCurrentText(saved["display_type"])
+        self._encoder_combo.setCurrentText(saved.get("encoder", "Auto-detect (Recommended)"))
 
     def save_settings(self):
         """Persist current USB settings to disk."""
@@ -296,6 +320,7 @@ class UsbStep2Page(QWidget):
             bitrate=self._bitrate_edit.text(),
             display_type=self._display_type_combo.currentText()
                          if hasattr(self, "_display_type_combo") else "Extend Right",
+            encoder=self._encoder_combo.currentText(),
         )
 
     def _on_res_changed(self, text: str):
@@ -371,6 +396,9 @@ class UsbStep2Page(QWidget):
 
     def selected_bitrate(self) -> int:
         return int(self._bitrate_edit.text())
+
+    def selected_encoder(self) -> str:
+        return self._encoder_combo.currentText()
 
     def gnome_scale(self) -> str:
         if hasattr(self, "_gnome_scale_combo"):

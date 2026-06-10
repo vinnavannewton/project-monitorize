@@ -7,10 +7,10 @@ Virtual monitor must be created first with:
 
 Usage: python3 Streamer_hyprland_usb.py <width> <height> <fps>
 """
-import dbus, sys, signal, subprocess, threading
+import dbus, sys, signal, subprocess, threading, os
 from dbus.mainloop.glib import DBusGMainLoop
 from gi.repository import GLib
-from pipeline_builder import detect_igpu_encoder, launch_with_fallback
+from pipeline_builder import get_encoder, launch_with_fallback
 
 WIDTH   = int(sys.argv[1]) if len(sys.argv) > 1 else 2560
 HEIGHT  = int(sys.argv[2]) if len(sys.argv) > 2 else 1600
@@ -26,7 +26,7 @@ PORT    = 7110
 print(f"[Streamer Hyprland USB] Resolution={WIDTH}x{HEIGHT}  FPS={FPS}  Bitrate={BITRATE}")
 
 
-HW_ENCODER = detect_igpu_encoder()
+HW_ENCODER = get_encoder(os.environ.get("MONITORIZE_ENCODER", "auto"))
 
 def get_current_headless_monitors():
     import subprocess, re

@@ -4,8 +4,10 @@ import sys
 import signal
 import subprocess
 import threading
+import os
 from dbus.mainloop.glib import DBusGMainLoop
 from gi.repository import GLib
+from pipeline_builder import get_encoder, launch_with_fallback
 
 
 PORT    = 7110
@@ -13,6 +15,9 @@ WIDTH   = int(sys.argv[1]) if len(sys.argv) > 1 else 2560
 HEIGHT  = int(sys.argv[2]) if len(sys.argv) > 2 else 1600
 FPS     = int(sys.argv[3]) if len(sys.argv) > 3 else 60
 BITRATE = int(sys.argv[4]) if len(sys.argv) > 4 else 8000
+
+
+HW_ENCODER = get_encoder(os.environ.get("MONITORIZE_ENCODER", "auto"))
 
 DBusGMainLoop(set_as_default=True)
 loop    = GLib.MainLoop()
@@ -43,35 +48,17 @@ signal.signal(signal.SIGTERM, cleanup)
 
 def launch_streaming(fd, node_id):
     """
-    Wi‑Fi profile:
-    - Lower bitrate for wireless stability.
-    - More frequent keyframes (short GOP) so corruption heals quickly.
-    - Still CPU x264enc because that felt most responsive on your setup.
+    Wi‑Fi profile using pipeline_builder for low latency.
+    Supports hardware encoding (vah264enc / vah264lpenc) with fallback to x264enc CPU.
     """
     global gst_proc
-
-    
-    sink = f"tcpserversink host=0.0.0.0 port={PORT} sync=false"
-
-    pipeline = (
-        f"gst-launch-1.0 -e -v "
-        f"pipewiresrc fd={fd} path={node_id} do-timestamp=true keepalive-time=1 ! "
-        f"videoconvert ! videorate skip-to-first=true ! "
-        f"video/x-raw,framerate={FPS}/1 ! "
-        f"queue max-size-buffers=1 leaky=downstream ! "
-        f"videoconvert ! videoscale ! video/x-raw,format=I420,width={WIDTH},height={HEIGHT} ! "
-        f"x264enc tune=zerolatency speed-preset=ultrafast "
-        f"bitrate={BITRATE} option-string=\"vbv-bufsize=1000:vbv-maxrate={BITRATE}\" key-int-max=15 bframes=0 byte-stream=true ! "
-        f"h264parse config-interval=-1 ! "
-        f"video/x-h264,stream-format=byte-stream,alignment=au ! "
-        f"{sink}"
+    print("[Monitorize Wi‑Fi] Launching Wi‑Fi stream...")
+    gst_proc = launch_with_fallback(
+        pw_fd=fd, node_id=node_id,
+        width=WIDTH, height=HEIGHT, fps=FPS, bitrate=BITRATE, port=PORT,
+        hw_encoder=HW_ENCODER, pass_fds=(fd,),
+        host="0.0.0.0", server_mode=True,
     )
-
-    print(f"\n[GStreamer Wi‑Fi] {pipeline}\n")
-    print("[Monitorize Wi‑Fi] Streaming over Wi‑Fi. Ctrl+C to stop.\n")
-
-    gst_proc = subprocess.Popen(pipeline, shell=True, pass_fds=(fd,))
-    gst_proc.wait()
 
 def on_response(response, results, **kw):
     if response != 0:
