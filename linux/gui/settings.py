@@ -19,7 +19,7 @@ def _get_settings() -> QSettings:
 
 def save_wifi_settings(*, resolution: str, custom_w: str, custom_h: str,
                        fps: str, custom_fps: str, bitrate: str,
-                       display_type: str):
+                       display_type: str, encoder: str):
     s = _get_settings()
     s.beginGroup("wifi")
     s.setValue("resolution", resolution)
@@ -29,13 +29,14 @@ def save_wifi_settings(*, resolution: str, custom_w: str, custom_h: str,
     s.setValue("custom_fps", custom_fps)
     s.setValue("bitrate", bitrate)
     s.setValue("display_type", display_type)
+    s.setValue("encoder", encoder)
     s.endGroup()
     s.sync()
 
 
 def save_usb_settings(*, resolution: str, custom_w: str, custom_h: str,
                       fps: str, custom_fps: str, bitrate: str,
-                      display_type: str):
+                      display_type: str, encoder: str):
     s = _get_settings()
     s.beginGroup("usb")
     s.setValue("resolution", resolution)
@@ -45,6 +46,7 @@ def save_usb_settings(*, resolution: str, custom_w: str, custom_h: str,
     s.setValue("custom_fps", custom_fps)
     s.setValue("bitrate", bitrate)
     s.setValue("display_type", display_type)
+    s.setValue("encoder", encoder)
     s.endGroup()
     s.sync()
 
@@ -70,6 +72,7 @@ def load_wifi_settings() -> dict:
         "custom_fps":   s.value("custom_fps",   ""),
         "bitrate":      s.value("bitrate",      "8000"),
         "display_type": s.value("display_type", "Extend Right"),
+        "encoder":      s.value("encoder",      "Auto-detect (Recommended)"),
     }
     s.endGroup()
     return data
@@ -86,6 +89,7 @@ def load_usb_settings() -> dict:
         "custom_fps":   s.value("custom_fps",   ""),
         "bitrate":      s.value("bitrate",      "8000"),
         "display_type": s.value("display_type", "Extend Right"),
+        "encoder":      s.value("encoder",      "Auto-detect (Recommended)"),
     }
     s.endGroup()
     return data

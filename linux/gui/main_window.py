@@ -251,6 +251,18 @@ class MonitorizeWindow(QMainWindow):
 
         env = QProcessEnvironment.systemEnvironment()
         env.insert("PYTHONUNBUFFERED", "1")
+
+        
+        encoder_map = {
+            "Auto-detect (Recommended)": "auto",
+            "NVIDIA NVENC (nvh264enc)": "nvidia",
+            "Intel/AMD VA-API (vah264enc)": "vaapi",
+            "Software (CPU / x264enc)": "cpu"
+        }
+        selected_enc = config_page.selected_encoder()
+        pref = encoder_map.get(selected_enc, "auto")
+        env.insert("MONITORIZE_ENCODER", pref)
+
         self._script_dir = script_dir
         self._env        = env
 

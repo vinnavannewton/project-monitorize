@@ -4,10 +4,10 @@ Streamer_gnome_usb.py — GNOME Wayland version.
 Uses org.gnome.Mutter.ScreenCast RecordVirtual D-Bus API.
 PipeWire node ID arrives via PipeWireStreamAdded signal, not a method call.
 """
-import dbus, sys, signal, subprocess, threading
+import dbus, sys, signal, subprocess, threading, os
 from dbus.mainloop.glib import DBusGMainLoop
 from gi.repository import GLib
-from pipeline_builder import detect_igpu_encoder, launch_with_fallback
+from pipeline_builder import get_encoder, launch_with_fallback
 
 WIDTH   = int(sys.argv[1]) if len(sys.argv) > 1 else 2560
 HEIGHT  = int(sys.argv[2]) if len(sys.argv) > 2 else 1600
@@ -25,7 +25,7 @@ PORT    = 7110
 print(f"[Streamer GNOME USB] Resolution={WIDTH}x{HEIGHT}  FPS={FPS}  Bitrate={BITRATE}")
 
 
-HW_ENCODER = detect_igpu_encoder()
+HW_ENCODER = get_encoder(os.environ.get("MONITORIZE_ENCODER", "auto"))
 
 DBusGMainLoop(set_as_default=True)
 loop     = GLib.MainLoop()

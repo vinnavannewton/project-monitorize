@@ -5,10 +5,10 @@ Streamer_usb.py — PipeWire → H.264 → TCP streamer for USB mode.
 Usage (from GUI):   python3 Streamer_usb.py <width> <height> <fps>
 Usage (standalone): python3 Streamer_usb.py          (uses defaults)
 """
-import dbus, sys, signal, subprocess, threading
+import dbus, sys, signal, subprocess, threading, os
 from dbus.mainloop.glib import DBusGMainLoop
 from gi.repository import GLib
-from pipeline_builder import detect_igpu_encoder, launch_with_fallback
+from pipeline_builder import get_encoder, launch_with_fallback
 
 
 WIDTH   = int(sys.argv[1]) if len(sys.argv) > 1 else 2560
@@ -25,7 +25,7 @@ PORT    = 7110
 print(f"[Streamer USB] Resolution={WIDTH}x{HEIGHT}  FPS={FPS}  Bitrate={BITRATE}")
 
 
-HW_ENCODER = detect_igpu_encoder()
+HW_ENCODER = get_encoder(os.environ.get("MONITORIZE_ENCODER", "auto"))
 
 DBusGMainLoop(set_as_default=True)
 loop    = GLib.MainLoop()

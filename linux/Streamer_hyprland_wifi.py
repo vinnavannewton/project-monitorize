@@ -9,12 +9,12 @@ can connect as a TCP client over Wi-Fi.
 
 Usage: python3 Streamer_hyprland_wifi.py <width> <height> <fps> <bitrate> [wifi] [HEADLESS-N]
 """
-import dbus, sys, signal, subprocess, threading, re
+import dbus, sys, signal, subprocess, threading, re, os
 from dbus.mainloop.glib import DBusGMainLoop
 from gi.repository import GLib
-from pipeline_builder import detect_igpu_encoder, launch_with_fallback
+from pipeline_builder import get_encoder, launch_with_fallback
 
-HW_ENCODER = detect_igpu_encoder()
+HW_ENCODER = get_encoder(os.environ.get("MONITORIZE_ENCODER", "auto"))
 
 
 PORT    = 7110

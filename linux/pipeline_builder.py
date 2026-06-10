@@ -8,6 +8,38 @@ Falls back to optimised x264enc if no hardware encoder is found.
 import subprocess
 
 
+def get_encoder(preference: str = "auto") -> str | None:
+    """
+    Return the encoder name based on user preference.
+    
+    Parameters
+    ----------
+    preference : str
+        One of: 'auto', 'nvidia', 'vaapi', 'cpu'.
+    """
+    pref = preference.lower()
+    
+    if pref == "nvidia":
+        return "nvh264enc"
+        
+    elif pref == "vaapi":
+        
+        for enc in ("vah264enc", "vah264lpenc", "vaapih264enc"):
+            try:
+                res = subprocess.run(["gst-inspect-1.0", enc], capture_output=True, text=True, timeout=5)
+                if res.returncode == 0 and "nvidia" not in res.stdout.lower():
+                    return enc
+            except Exception:
+                continue
+        return "vah264enc"  
+        
+    elif pref == "cpu":
+        return None
+        
+    else:  
+        return detect_igpu_encoder()
+
+
 def detect_igpu_encoder():
     """
     Detect a hardware H.264 encoder.
@@ -67,13 +99,10 @@ def _hw_encoder_params(enc_name, bitrate, key_int):
 
 def _cpu_encoder_params(bitrate, key_int):
     """Return GStreamer property string for optimised CPU x264enc."""
-    vbv_buf = int(bitrate * 0.15)
     return (
-        f"x264enc tune=zerolatency speed-preset=ultrafast intra-refresh=true bitrate={bitrate} "
-        f"key-int-max={key_int} byte-stream=true "
-        f"option-string=\"bframes=0:ref=1:sliced-threads=1:mb-tree=0:"
-        f"rc-lookahead=0:sync-lookahead=0:threads=0:"
-        f"vbv-bufsize={vbv_buf}:vbv-maxrate={bitrate}\""
+        f"x264enc tune=zerolatency speed-preset=ultrafast bitrate={bitrate} "
+        f"key-int-max={key_int} byte-stream=true bframes=0 ref=1 "
+        f"sliced-threads=false mb-tree=false threads=1"
     )
 
 
@@ -122,12 +151,19 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
         encoder = _hw_encoder_params(hw_encoder, bitrate, key_int)
     else:
         
-        convert = f"videoconvert n-threads=4 ! videoscale ! video/x-raw,format=NV12,width={width},height={height}"
+        convert = f"videoconvert n-threads=4 ! videoscale ! video/x-raw,format=I420,width={width},height={height}"
         encoder = _cpu_encoder_params(bitrate, key_int)
 
     
-    parse = "h264parse config-interval=1"
-    caps_out = "video/x-h264,stream-format=byte-stream,alignment=au"
+    if hw_encoder:
+        parse = "h264parse config-interval=1"
+        caps_out = "video/x-h264,stream-format=byte-stream,alignment=au"
+    else:
+        
+        
+        parse = "h264parse config-interval=-1"
+        
+        caps_out = "video/x-h264,profile=baseline,stream-format=byte-stream,alignment=au"
 
     
     if host != "127.0.0.1":
