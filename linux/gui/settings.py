@@ -67,6 +67,9 @@ def save_general_settings(*, minimize_to_tray: bool = None, enable_touch: bool =
 def load_wifi_settings() -> dict:
     s = _get_settings()
     s.beginGroup("wifi")
+    display_type = s.value("display_type", "Extend")
+    if display_type == "Extend Right":
+        display_type = "Extend"
     data = {
         "resolution":   s.value("resolution",   "2560x1600"),
         "custom_w":     s.value("custom_w",     ""),
@@ -74,7 +77,7 @@ def load_wifi_settings() -> dict:
         "fps":          s.value("fps",          "60"),
         "custom_fps":   s.value("custom_fps",   ""),
         "bitrate":      s.value("bitrate",      "8000"),
-        "display_type": s.value("display_type", "Extend Right"),
+        "display_type": display_type,
         "encoder":      s.value("encoder",      "Auto-detect (Recommended)"),
     }
     s.endGroup()
@@ -84,6 +87,9 @@ def load_wifi_settings() -> dict:
 def load_usb_settings() -> dict:
     s = _get_settings()
     s.beginGroup("usb")
+    display_type = s.value("display_type", "Extend")
+    if display_type == "Extend Right":
+        display_type = "Extend"
     data = {
         "resolution":   s.value("resolution",   "2560x1600"),
         "custom_w":     s.value("custom_w",     ""),
@@ -91,7 +97,7 @@ def load_usb_settings() -> dict:
         "fps":          s.value("fps",          "60"),
         "custom_fps":   s.value("custom_fps",   ""),
         "bitrate":      s.value("bitrate",      "8000"),
-        "display_type": s.value("display_type", "Extend Right"),
+        "display_type": display_type,
         "encoder":      s.value("encoder",      "Auto-detect (Recommended)"),
     }
     s.endGroup()

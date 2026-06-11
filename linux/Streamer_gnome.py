@@ -1,8 +1,10 @@
 
 """
-Streamer_gnome_usb.py — GNOME Wayland version.
+Streamer_gnome.py — GNOME Wayland streamer.
 Uses org.gnome.Mutter.ScreenCast RecordVirtual D-Bus API.
-PipeWire node ID arrives via PipeWireStreamAdded signal, not a method call.
+Handles both USB and Wi-Fi modes via the MODE argument.
+
+Usage: python3 Streamer_gnome.py <width> <height> <fps> <bitrate> <usb|wifi> [scale] [Extend|Mirror]
 """
 import dbus, sys, signal, subprocess, threading, os
 from dbus.mainloop.glib import DBusGMainLoop
@@ -15,14 +17,14 @@ FPS     = int(sys.argv[3]) if len(sys.argv) > 3 else 60
 BITRATE = int(sys.argv[4]) if len(sys.argv) > 4 else 8000
 MODE    = sys.argv[5] if len(sys.argv) > 5 else "usb"
 SCALE   = float(sys.argv[6]) if len(sys.argv) > 6 else 1.0
-TYPE    = sys.argv[7] if len(sys.argv) > 7 else "Extend_Right"
+TYPE    = sys.argv[7] if len(sys.argv) > 7 else "Extend"
 
 server_mode = (MODE == "wifi")
 host = "0.0.0.0" if server_mode else "127.0.0.1"
 
-PORT    = 7110
+PORT = 7110
 
-print(f"[Streamer GNOME USB] Resolution={WIDTH}x{HEIGHT}  FPS={FPS}  Bitrate={BITRATE}")
+print(f"[Streamer GNOME] Resolution={WIDTH}x{HEIGHT}  FPS={FPS}  Bitrate={BITRATE}  Mode={MODE}")
 
 
 HW_ENCODER = get_encoder(os.environ.get("MONITORIZE_ENCODER", "auto"))
@@ -47,7 +49,7 @@ signal.signal(signal.SIGTERM, cleanup)
 
 def launch_streaming(node_id):
     global gst_proc
-    print("[Monitorize GNOME] Streaming. Ctrl+C to stop.\n")
+    print(f"[Monitorize GNOME] Streaming ({MODE} mode). Ctrl+C to stop.\n")
 
     gst_proc = launch_with_fallback(
         pw_fd=None, node_id=node_id,
@@ -106,7 +108,6 @@ def start_virtual_session():
         })
     print(f"[Mutter] Stream: {stream_path}")
 
-    
     def on_pipewire_stream_added(node_id):
         print(f"[Mutter] PipeWireStreamAdded — node_id={node_id}")
         t = threading.Thread(

@@ -28,6 +28,10 @@ from gui.settings import (
 
 
 class MonitorizeWindow(QMainWindow):
+    """Main application window. Hosts the QML UI via QQuickWidget and
+    exposes backend slots, properties, and signals to drive streaming,
+    USB scanning, settings persistence, and system-tray behaviour."""
+
     
     detectedDeChanged = pyqtSignal(str)
     localIpChanged = pyqtSignal(str)
@@ -39,6 +43,8 @@ class MonitorizeWindow(QMainWindow):
     logAppended = pyqtSignal(str, str) 
 
     def __init__(self):
+        """Initialise the window, detect the desktop environment, set up
+        the system tray, and load the QML interface."""
         super().__init__()
         self.setWindowTitle("Monitorize")
         self.setMinimumSize(760, 520)
@@ -180,6 +186,7 @@ class MonitorizeWindow(QMainWindow):
     
     @pyqtSlot()
     def startUsbScan(self):
+        """Begin the ADB device scan → port-forward chain for USB mode."""
         self.set_usb_busy(True)
         self.set_usb_status_text("Running adb devices…")
 
@@ -273,6 +280,8 @@ class MonitorizeWindow(QMainWindow):
 
     @pyqtSlot(str, str, str, str, str, bool)
     def startStreaming(self, res, fps, bitrate, display_type, encoder, is_wifi):
+        """Parse streaming parameters from the QML UI and launch the
+        appropriate DE-specific streamer subprocess."""
         self._is_wifi = is_wifi
         try:
             self._stream_width, self._stream_height = map(int, res.split("x"))
@@ -286,6 +295,8 @@ class MonitorizeWindow(QMainWindow):
         self._do_start_streaming()
 
     def _do_start_streaming(self):
+        """Prepare the environment, kill stale processes, and trigger
+        the streamer launch (with optional virtual-monitor setup on KDE/Hyprland)."""
         script_dir = LINUX_DIR
 
         env = QProcessEnvironment.systemEnvironment()
@@ -379,6 +390,7 @@ class MonitorizeWindow(QMainWindow):
         self._launch_streamer()
 
     def _launch_streamer(self):
+        """Spawn the correct DE-specific streamer script as a QProcess."""
         self.process_streamer = QProcess(self)
         self.process_streamer.setWorkingDirectory(self._script_dir)
         self.process_streamer.setProcessEnvironment(self._env)
@@ -387,7 +399,7 @@ class MonitorizeWindow(QMainWindow):
         self.process_streamer.finished.connect(self._on_streamer_finished)
 
         _streamer_map = {
-            "kde":      "Streamer_kde_usb.py",
+            "kde":      "Streamer_kde.py",
             "gnome":    "Streamer_gnome.py",
             "hyprland": "Streamer_hyprland.py",
         }
@@ -427,6 +439,7 @@ class MonitorizeWindow(QMainWindow):
         self.set_streaming_status("Status: Streaming…")
 
     def _launch_input_bridge(self):
+        """Spawn touch_daemon.py to relay Android touch/pen events."""
         gen = load_general_settings()
         if not gen.get("enable_touch", True):
             self.append_log("INPUT", "ℹ️  Touch input is disabled in settings.")
@@ -506,10 +519,12 @@ class MonitorizeWindow(QMainWindow):
         self.append_log("INPUT", raw)
 
     def _on_stop_streaming(self):
+        """Terminate all streaming subprocesses and return to the main menu."""
         self._kill_stream_procs()
         self.set_is_streaming(False)
 
     def _on_configure_display(self):
+        """Launch nwg-displays for Hyprland display configuration."""
         cmd = "nwg-displays"
         if shutil.which(cmd) is None:
             QMessageBox.warning(self, "nwg-displays Not Installed", "nwg-displays is not installed.")
@@ -524,6 +539,7 @@ class MonitorizeWindow(QMainWindow):
                 QMessageBox.warning(self, "Error", f"Failed to run nwg-displays:\n{str(e)}")
 
     def _kill_stream_procs(self):
+        """Terminate and clean up all streaming-related QProcess instances."""
         self._countdown_timer.stop()
         self._countdown = 0
 
@@ -542,6 +558,7 @@ class MonitorizeWindow(QMainWindow):
             self.created_headless_monitor = None
 
     def _get_current_headless_monitors(self):
+        """Query hyprctl for currently existing HEADLESS-* monitor names."""
         headless_names = []
         try:
             res = subprocess.run(["hyprctl", "monitors", "all", "-j"], capture_output=True, text=True)
@@ -574,6 +591,7 @@ class MonitorizeWindow(QMainWindow):
         self.activateWindow()
 
     def _quit_app(self):
+        """Hard quit from the tray menu — always terminates processes."""
         self._kill_stream_procs()
         if hasattr(self, '_zc') and hasattr(self, '_info') and self._zc is not None and self._info is not None:
             try:
@@ -583,6 +601,7 @@ class MonitorizeWindow(QMainWindow):
         QApplication.quit()
 
     def _setup_zeroconf(self):
+        """Register the Monitorize service via Zeroconf for LAN discovery."""
         try:
             from zeroconf import ServiceInfo, Zeroconf
             import socket
