@@ -124,9 +124,9 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
     """
     
     if pw_fd is not None:
-        src = f"pipewiresrc fd={pw_fd} path={node_id} do-timestamp=true always-copy=true keepalive-time=1"
+        src = f"pipewiresrc fd={pw_fd} path={node_id} do-timestamp=true always-copy=true keepalive-time=1000"
     else:
-        src = f"pipewiresrc path={node_id} do-timestamp=true always-copy=true keepalive-time=1"
+        src = f"pipewiresrc path={node_id} do-timestamp=true always-copy=true keepalive-time=1000"
 
     
     
@@ -134,7 +134,7 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
     
     
     
-    framerate = f"videoconvert ! videorate skip-to-first=true drop-only=true ! video/x-raw,framerate={fps}/1"
+    framerate = f"videoconvert ! videorate skip-to-first=true ! video/x-raw,framerate={fps}/1"
 
     
     queue = "queue max-size-buffers=1 max-size-time=0 max-size-bytes=0 leaky=downstream"
