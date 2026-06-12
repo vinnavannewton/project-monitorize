@@ -94,7 +94,17 @@ sudo dnf install -y krfb
 
 ### GNOME:
 
-No extra packages needed. 
+No extra packages needed. However, you **must** disable hardware cursor rendering so the cursor is visible on the virtual monitor stream:
+
+```bash
+gsettings set org.gnome.mutter.wayland disable-hardware-cursor true
+```
+
+Log out and back in for the change to take effect. To revert:
+
+```bash
+gsettings set org.gnome.mutter.wayland disable-hardware-cursor false
+```
 
 ### Hyprland:
 
@@ -165,7 +175,17 @@ sudo pacman -S --needed krfb
 
 ### GNOME:
 
-No extra packages needed.
+No extra packages needed. However, you **must** disable hardware cursor rendering so the cursor is visible on the virtual monitor stream:
+
+```bash
+gsettings set org.gnome.mutter.wayland disable-hardware-cursor true
+```
+
+Log out and back in for the change to take effect. To revert:
+
+```bash
+gsettings set org.gnome.mutter.wayland disable-hardware-cursor false
+```
 
 ### Hyprland:
 
@@ -242,7 +262,17 @@ sudo apt install -y krfb
 
 ### GNOME:
 
-No extra packages needed. 
+No extra packages needed. However, you **must** disable hardware cursor rendering so the cursor is visible on the virtual monitor stream:
+
+```bash
+gsettings set org.gnome.mutter.wayland disable-hardware-cursor true
+```
+
+Log out and back in for the change to take effect. To revert:
+
+```bash
+gsettings set org.gnome.mutter.wayland disable-hardware-cursor false
+```
 
 ### Hyprland:
 
