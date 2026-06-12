@@ -26,13 +26,22 @@ Item {
             customFps.text = saved["custom_fps"] || "";
         }
         bitrateField.text = saved["bitrate"] || "8000";
+
+        // Force a proper state change for displayTypeCombo by resetting to -1 first.
+        // On first install, the default currentIndex is already 0 ("Extend"), so setting
+        // currentIndex = 0 is a no-op — Qt6 won't fire currentIndexChanged, and
+        // currentText can remain uninitialized/empty until the user manually interacts.
+        let dtIdx = 0;
         if (saved["display_type"] && displayTypeCombo) {
-            let idx = displayTypeCombo.find(saved["display_type"]);
-            if (idx === -1) {
-                idx = displayTypeCombo.find("Extend");
+            let foundIdx = displayTypeCombo.find(saved["display_type"]);
+            if (foundIdx === -1) {
+                foundIdx = displayTypeCombo.find("Extend");
             }
-            displayTypeCombo.currentIndex = (idx !== -1) ? idx : 0;
+            dtIdx = (foundIdx !== -1) ? foundIdx : 0;
         }
+        displayTypeCombo.currentIndex = -1;
+        displayTypeCombo.currentIndex = dtIdx;
+
         let savedEnc = saved["encoder"] || "Software (CPU / x264enc)";
         if (savedEnc === "Auto-detect" || savedEnc === "Auto-detect (Recommended)") {
             savedEnc = "Software (CPU / x264enc)";
@@ -41,6 +50,7 @@ Item {
         if (encIdx === -1) {
             encIdx = encoderCombo.find("Software (CPU / x264enc)");
         }
+        encoderCombo.currentIndex = -1;
         encoderCombo.currentIndex = (encIdx !== -1) ? encIdx : 2;
 
         let gen = backend.loadGeneralSettings();
@@ -250,15 +260,16 @@ Item {
                             fpsCombo.currentText,
                             fpsCombo.currentText === "Custom..." ? customFps.text : "",
                             bitrateField.text,
-                            displayTypeCombo.visible ? displayTypeCombo.currentText : "Extend",
+                            displayTypeCombo.visible ? (displayTypeCombo.currentText || "Extend") : "Extend",
                             encoderCombo.currentText
                         );
                         // Start stream
+                        let dt = displayTypeCombo.visible ? (displayTypeCombo.currentText || "Extend") : "Extend";
                         backend.startStreaming(
                             resCombo.currentText === "Custom..." ? customW.text + "x" + customH.text : resCombo.currentText,
                             fpsCombo.currentText === "Custom..." ? customFps.text : fpsCombo.currentText,
                             bitrateField.text,
-                            displayTypeCombo.visible ? displayTypeCombo.currentText : "Extend",
+                            dt,
                             encoderCombo.currentText,
                             true // isWifi = true
                         );
