@@ -18,16 +18,6 @@
 
 Currently works only on Kde and hyprland, Gnome is experimental.
 
-The pipeline is:
-
-### ✨ What You Get
-
-- A **High resolution** and **High FPS** second display. 
-- **USB Mode** for lowest latency and most stable quality
-- **Wi-Fi Mode (Work In Progress)** for higher bitrates and multimonitor setups.
-- **User friendly desktop app made with pyqt** to guide you through.
-- **Android app** with a simple UI.
-
 ---
 
 ## 🛠️ Requirements
