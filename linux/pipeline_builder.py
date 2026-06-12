@@ -8,14 +8,14 @@ Falls back to optimised x264enc if no hardware encoder is found.
 import subprocess
 
 
-def get_encoder(preference: str = "auto") -> str | None:
+def get_encoder(preference: str = "cpu") -> str | None:
     """
     Return the encoder name based on user preference.
     
     Parameters
     ----------
     preference : str
-        One of: 'auto', 'nvidia', 'vaapi', 'cpu'.
+        One of: 'nvidia', 'vaapi', 'cpu'.
     """
     pref = preference.lower()
     
@@ -23,7 +23,6 @@ def get_encoder(preference: str = "auto") -> str | None:
         return "nvh264enc"
         
     elif pref == "vaapi":
-        
         for enc in ("vah264enc", "vah264lpenc", "vaapih264enc"):
             try:
                 res = subprocess.run(["gst-inspect-1.0", enc], capture_output=True, text=True, timeout=5)
@@ -33,45 +32,6 @@ def get_encoder(preference: str = "auto") -> str | None:
                 continue
         return "vah264enc"  
         
-    elif pref == "cpu":
-        return None
-        
-    else:  
-        return detect_igpu_encoder()
-
-
-def detect_igpu_encoder():
-    """
-    Detect a hardware H.264 encoder.
-    Prioritizes NVIDIA dGPU (nvh264enc) first, then falls back to VA-API (iGPU),
-    and finally CPU (x264enc).
-    """
-    
-    try:
-        result = subprocess.run(
-            ["gst-inspect-1.0", "nvh264enc"],
-            capture_output=True, text=True, timeout=5,
-        )
-        if result.returncode == 0:
-            print("[Pipeline] Detected NVIDIA GPU encoder: nvh264enc")
-            return "nvh264enc"
-    except Exception:
-        pass
-
-    
-    for enc in ("vah264enc", "vah264lpenc", "vaapih264enc"):
-        try:
-            result = subprocess.run(
-                ["gst-inspect-1.0", enc],
-                capture_output=True, text=True, timeout=5,
-            )
-            if result.returncode == 0 and "nvidia" not in result.stdout.lower():
-                print(f"[Pipeline] Detected iGPU encoder: {enc}")
-                return enc
-        except Exception:
-            continue
-
-    print("[Pipeline] No hardware encoder found — will use CPU x264enc")
     return None
 
 
@@ -79,7 +39,7 @@ def _hw_encoder_params(enc_name, bitrate, key_int):
     """Return GStreamer property string for a detected hardware encoder."""
     if enc_name == "nvh264enc":
         return (
-            f"nvh264enc bitrate={bitrate} zerolatency=true bframes=0 "
+            f"nvh264enc bitrate={bitrate} zerolatency=true bframes=0 rc-lookahead=0 "
             f"rc-mode=cbr gop-size={key_int} tune=ultra-low-latency preset=p1"
         )
     elif enc_name == "vaapih264enc":
@@ -168,7 +128,7 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
     
     if host != "127.0.0.1":
         
-        sink = f"tcpserversink host={host} port={port} sync=false sync-method=2 recover-policy=1 buffers-max=2 buffers-soft-max=1"
+        sink = f"tcpserversink host={host} port={port} sync=false sync-method=2 recover-policy=2 buffers-max=10 buffers-soft-max=5"
     else:
         sink = f"tcpclientsink host=127.0.0.1 port={port} sync=false"
 
@@ -184,9 +144,7 @@ def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
                          hw_encoder=None, pass_fds=None,
                          host="127.0.0.1", server_mode=False):
     """
-    Launch the streaming pipeline. If a hardware encoder was requested and the
-    process exits within 4 seconds (negotiation failure), automatically retry
-    with the CPU fallback pipeline.
+    Launch the streaming pipeline.
 
     Returns the subprocess.Popen object.
     """
@@ -204,30 +162,5 @@ def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
         kwargs["pass_fds"] = pass_fds
 
     proc = subprocess.Popen(pipeline, **kwargs)
-
-    
-    if hw_encoder:
-        try:
-            proc.wait(timeout=4)
-        except subprocess.TimeoutExpired:
-            
-            print(f"[Pipeline] HW encoder ({hw_encoder}) running OK")
-            proc.wait()
-            return proc
-
-        
-        rc = proc.returncode
-        if rc != 0:
-            print(f"[Pipeline] HW encoder failed (exit {rc}), falling back to CPU x264enc")
-            pipeline = build_pipeline(
-                pw_fd=pw_fd, node_id=node_id,
-                width=width, height=height, fps=fps, bitrate=bitrate, port=port,
-                hw_encoder=None, host=host,
-            )
-            print(f"[GStreamer] {pipeline}\n")
-            proc = subprocess.Popen(pipeline, **kwargs)
-            proc.wait()
-        return proc
-    else:
-        proc.wait()
-        return proc
+    proc.wait()
+    return proc

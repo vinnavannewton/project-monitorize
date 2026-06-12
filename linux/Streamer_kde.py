@@ -26,7 +26,7 @@ PORT    = 7110
 print(f"[Streamer KDE] Resolution={WIDTH}x{HEIGHT}  FPS={FPS}  Bitrate={BITRATE}  Mode={MODE}")
 
 
-HW_ENCODER = get_encoder(os.environ.get("MONITORIZE_ENCODER", "auto"))
+HW_ENCODER = get_encoder(os.environ.get("MONITORIZE_ENCODER", "cpu"))
 
 DBusGMainLoop(set_as_default=True)
 loop    = GLib.MainLoop()

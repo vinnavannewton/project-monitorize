@@ -70,6 +70,9 @@ def load_wifi_settings() -> dict:
     display_type = s.value("display_type", "Extend")
     if display_type == "Extend Right":
         display_type = "Extend"
+    encoder = s.value("encoder", "Software (CPU / x264enc)")
+    if encoder in ("Auto-detect", "Auto-detect (Recommended)"):
+        encoder = "Software (CPU / x264enc)"
     data = {
         "resolution":   s.value("resolution",   "2560x1600"),
         "custom_w":     s.value("custom_w",     ""),
@@ -78,7 +81,7 @@ def load_wifi_settings() -> dict:
         "custom_fps":   s.value("custom_fps",   ""),
         "bitrate":      s.value("bitrate",      "8000"),
         "display_type": display_type,
-        "encoder":      s.value("encoder",      "Auto-detect (Recommended)"),
+        "encoder":      encoder,
     }
     s.endGroup()
     return data
@@ -90,6 +93,9 @@ def load_usb_settings() -> dict:
     display_type = s.value("display_type", "Extend")
     if display_type == "Extend Right":
         display_type = "Extend"
+    encoder = s.value("encoder", "Software (CPU / x264enc)")
+    if encoder in ("Auto-detect", "Auto-detect (Recommended)"):
+        encoder = "Software (CPU / x264enc)"
     data = {
         "resolution":   s.value("resolution",   "2560x1600"),
         "custom_w":     s.value("custom_w",     ""),
@@ -98,7 +104,7 @@ def load_usb_settings() -> dict:
         "custom_fps":   s.value("custom_fps",   ""),
         "bitrate":      s.value("bitrate",      "8000"),
         "display_type": display_type,
-        "encoder":      s.value("encoder",      "Auto-detect (Recommended)"),
+        "encoder":      encoder,
     }
     s.endGroup()
     return data

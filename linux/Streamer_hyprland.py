@@ -27,7 +27,7 @@ PORT    = 7110
 print(f"[Streamer Hyprland] Resolution={WIDTH}x{HEIGHT}  FPS={FPS}  Bitrate={BITRATE}  Mode={MODE}")
 
 
-HW_ENCODER = get_encoder(os.environ.get("MONITORIZE_ENCODER", "auto"))
+HW_ENCODER = get_encoder(os.environ.get("MONITORIZE_ENCODER", "cpu"))
 
 
 def get_current_headless_monitors():

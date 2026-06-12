@@ -98,6 +98,12 @@ class MonitorizeWindow(QMainWindow):
         QTimer.singleShot(0, self._setup_zeroconf)
 
         
+        self._network_timer = QTimer(self)
+        self._network_timer.setInterval(5000)
+        self._network_timer.timeout.connect(self._check_network_ip)
+        self._network_timer.start()
+
+        
         self._tray = QSystemTrayIcon(self)
         self._tray.setIcon(_make_tray_icon())
         self._tray.setToolTip("Monitorize")
@@ -304,12 +310,11 @@ class MonitorizeWindow(QMainWindow):
 
         
         encoder_map = {
-            "Auto-detect (Recommended)": "auto",
             "NVIDIA NVENC (nvh264enc)": "nvidia",
             "Intel/AMD VA-API (vah264enc)": "vaapi",
             "Software (CPU / x264enc)": "cpu"
         }
-        pref = encoder_map.get(self._selected_encoder, "auto")
+        pref = encoder_map.get(self._selected_encoder, "cpu")
         env.insert("MONITORIZE_ENCODER", pref)
 
         self._script_dir = script_dir
@@ -601,15 +606,33 @@ class MonitorizeWindow(QMainWindow):
         QApplication.quit()
 
     def _setup_zeroconf(self):
-        """Register the Monitorize service via Zeroconf for LAN discovery."""
+        """Initial Zeroconf setup."""
+        self._update_zeroconf_registration(self._local_ip)
+
+    def _update_zeroconf_registration(self, ip_addr):
+        """Clean up old registration and register the service under the new IP."""
         try:
             from zeroconf import ServiceInfo, Zeroconf
             import socket
+
+            
+            if self._info is not None and self._zc is not None:
+                try:
+                    self._zc.unregister_service(self._info)
+                except Exception:
+                    pass
+            if self._zc is not None:
+                try:
+                    self._zc.close()
+                except Exception:
+                    pass
+            self._zc = None
+            self._info = None
+
+            
             hostname = socket.gethostname()
             self._zc = Zeroconf()
             desc = {'name': hostname, 'port': 7110}
-
-            ip_addr = get_local_ip()
 
             self._info = ServiceInfo(
                 "_monitorize._tcp.local.",
@@ -620,8 +643,18 @@ class MonitorizeWindow(QMainWindow):
                 server=f"{hostname}.local.",
             )
             self._zc.register_service(self._info)
+            print(f"[Zeroconf] Service registered successfully on {ip_addr}")
         except Exception as e:
-            print("Zeroconf registration failed:", e)
+            print("Zeroconf registration/update failed:", e)
+
+    def _check_network_ip(self):
+        """Periodically check the local IP and update Zeroconf registration on changes."""
+        current_ip = get_local_ip()
+        if current_ip != self._local_ip:
+            print(f"[Network] IP changed from {self._local_ip} to {current_ip}")
+            self._local_ip = current_ip
+            self.localIpChanged.emit(current_ip)
+            self._update_zeroconf_registration(current_ip)
 
     def closeEvent(self, event):
         gen = load_general_settings()

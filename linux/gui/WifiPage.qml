@@ -33,7 +33,15 @@ Item {
             }
             displayTypeCombo.currentIndex = (idx !== -1) ? idx : 0;
         }
-        encoderCombo.currentIndex = encoderCombo.find(saved["encoder"] || "Auto-detect (Recommended)");
+        let savedEnc = saved["encoder"] || "Software (CPU / x264enc)";
+        if (savedEnc === "Auto-detect" || savedEnc === "Auto-detect (Recommended)") {
+            savedEnc = "Software (CPU / x264enc)";
+        }
+        let encIdx = encoderCombo.find(savedEnc);
+        if (encIdx === -1) {
+            encIdx = encoderCombo.find("Software (CPU / x264enc)");
+        }
+        encoderCombo.currentIndex = (encIdx !== -1) ? encIdx : 2;
 
         let gen = backend.loadGeneralSettings();
         trayCheck.checked = gen["minimize_to_tray"] || false;
@@ -150,8 +158,8 @@ Item {
                 Text { text: "Encoder:"; color: "#b0b2d0"; font.pixelSize: 14 }
                 CustomComboBox {
                     id: encoderCombo
+                    currentIndex: 2
                     model: [
-                        "Auto-detect (Recommended)",
                         "NVIDIA NVENC (nvh264enc)",
                         "Intel/AMD VA-API (vah264enc)",
                         "Software (CPU / x264enc)"
