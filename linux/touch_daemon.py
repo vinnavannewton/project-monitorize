@@ -834,10 +834,6 @@ def main():
 
     log.info("touch_daemon.py — screen %dx%d  DE=%s", SCREEN_W, SCREEN_H, _DETECTED_DE)
 
-    
-    time.sleep(2.0)
-
-    
     if _DETECTED_DE == "hyprland":
         log.info("Using uinput backend (Hyprland does not support RemoteDesktop portal)")
         _inject_fn = _inject_touch_uinput

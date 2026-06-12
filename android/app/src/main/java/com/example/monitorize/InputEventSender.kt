@@ -30,27 +30,34 @@ class InputEventSender(
     fun start() {
         scope.launch {
             if (hostIp.isNullOrEmpty()) {
-                
                 while (isActive) {
+                    var s: Socket? = null
                     try {
-                        val s = Socket(HOST, PORT_TCP)
+                        s = Socket(HOST, PORT_TCP)
                         s.tcpNoDelay = true
                         s.sendBufferSize = 64 * 1024
                         socket = s
                         out = s.getOutputStream()
                         android.util.Log.i("InputEventSender", "Connected to touch_daemon TCP on $HOST:$PORT_TCP")
-                        for (frame in sendChannel) {
-                            out?.write(frame) ?: break
-                            out?.flush()
+                        
+                        val inputStream = s.getInputStream()
+                        val buffer = ByteArray(16)
+                        while (isActive) {
+                            val read = inputStream.read(buffer)
+                            if (read == -1) {
+                                break
+                            }
                         }
                     } catch (e: Exception) {
-                        socket = null
+                        
+                    } finally {
                         out = null
+                        socket = null
+                        try { s?.close() } catch (_: Exception) {}
                         delay(2000)
                     }
                 }
             } else {
-                
                 try {
                     val u = DatagramSocket()
                     val addr = InetAddress.getByName(hostIp)
@@ -62,6 +69,24 @@ class InputEventSender(
                     }
                 } catch (e: Exception) {
                     android.util.Log.e("InputEventSender", "UDP error", e)
+                }
+            }
+        }
+
+        if (hostIp.isNullOrEmpty()) {
+            scope.launch {
+                for (frame in sendChannel) {
+                    val currentOut = out
+                    if (currentOut != null) {
+                        try {
+                            currentOut.write(frame)
+                            currentOut.flush()
+                        } catch (e: Exception) {
+                            out = null
+                            try { socket?.close() } catch (_: Exception) {}
+                            socket = null
+                        }
+                    }
                 }
             }
         }
