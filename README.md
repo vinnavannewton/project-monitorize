@@ -275,7 +275,7 @@ sudo usermod -aG input $USER
 2. enable usb debugging and connect your android to your pc via usb.
 3. in the desktop app click usb then click "i have connected"
 4. Then open the android app and first configure settings use ur native resolution and fps for best experience
-5. click receive on android app then click Start streaming on desktop app (order is important)
+5. Click receive on the Android app and click Start streaming on the desktop app (either order works).
 6. When the input access pop-up appears, allow it first.
 7. From the second pop-up, select the **Tablet Virtual Display**.
 8. After that goto your display configuration settings and setup your second display.

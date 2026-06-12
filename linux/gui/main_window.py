@@ -206,14 +206,14 @@ class MonitorizeWindow(QMainWindow):
             self.set_usb_busy(False)
             return
 
-        self.set_usb_status_text("Forwarding port tcp:7112…")
+        self.set_usb_status_text("Setting up reverse proxy tcp:7110 (video)…")
         self._proc_adb_fwd = QProcess(self)
         self._proc_adb_fwd.finished.connect(self._adb_forward_done)
-        self._proc_adb_fwd.start("adb", ["forward", "tcp:7112", "tcp:7110"])
+        self._proc_adb_fwd.start("adb", ["reverse", "tcp:7110", "tcp:7112"])
 
     def _adb_forward_done(self, exit_code, _status):
         if exit_code != 0:
-            self.set_usb_status_text("Error: Port forward failed. Is a device connected?")
+            self.set_usb_status_text("Error: Reverse port setup failed. Is a device connected?")
             self.set_usb_busy(False)
             return
 
@@ -325,7 +325,7 @@ class MonitorizeWindow(QMainWindow):
         subprocess.run(["pkill", "-9", "-f", "Streamer_.*\\.py"], capture_output=True)
 
         if self._is_wifi:
-            subprocess.run(["adb", "forward", "--remove", "tcp:7112"], capture_output=True)
+            subprocess.run(["adb", "reverse", "--remove", "tcp:7110"], capture_output=True)
             subprocess.run(["adb", "reverse", "--remove", "tcp:7111"], capture_output=True)
 
         

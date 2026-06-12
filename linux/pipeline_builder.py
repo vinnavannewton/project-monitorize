@@ -94,7 +94,7 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
     
     
     
-    framerate = f"videoconvert ! videorate skip-to-first=true ! video/x-raw,framerate={fps}/1"
+    framerate = f"videoconvert ! videorate skip-to-first=false ! video/x-raw,framerate={fps}/1"
 
     
     queue = "queue max-size-buffers=1 max-size-time=0 max-size-bytes=0 leaky=downstream"
@@ -126,11 +126,9 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
         caps_out = "video/x-h264,profile=baseline,stream-format=byte-stream,alignment=au"
 
     
-    if host != "127.0.0.1":
-        
-        sink = f"tcpserversink host={host} port={port} sync=false sync-method=2 recover-policy=2 buffers-max=10 buffers-soft-max=5"
-    else:
-        sink = f"tcpclientsink host=127.0.0.1 port={port} sync=false"
+    
+    sink = f"tcpserversink host={host} port={port} sync=false sync-method=2 recover-policy=2 buffers-max=10 buffers-soft-max=5"
+
 
     pipeline = (
         f"exec gst-launch-1.0 -e "

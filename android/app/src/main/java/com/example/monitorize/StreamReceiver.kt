@@ -1,7 +1,6 @@
 package com.example.monitorize
 
 import android.util.Log
-import java.net.ServerSocket
 import java.net.Socket
 import java.net.DatagramSocket
 import java.net.DatagramPacket
@@ -15,7 +14,6 @@ class StreamReceiver(
     private val hostIp: String? = null
 ) {
     private var running = false
-    private var serverSocket: ServerSocket? = null
     private var controlSocket: Socket? = null
     private var udpSocket: DatagramSocket? = null
 
@@ -48,16 +46,16 @@ class StreamReceiver(
 
     private fun receiveLoop() {
         if (hostIp.isNullOrEmpty()) {
-            receiveLoopUsb()
+            receiveLoopWifi("127.0.0.1")
         } else {
             receiveLoopWifi(hostIp)
         }
     }
 
-
     private fun receiveLoopWifi(targetIp: String) {
+        val streamType = if (targetIp == "127.0.0.1") "USB" else "WiFi"
         while (running) {
-            onStatusChange?.invoke("Connecting to $targetIp…")
+            onStatusChange?.invoke(if (streamType == "USB") "Waiting for USB connection…" else "Connecting to $targetIp…")
             var socket: Socket? = null
             while (running && socket == null) {
                 try {
@@ -78,43 +76,12 @@ class StreamReceiver(
             decoder.init(width, height, fps)
             onStatusChange?.invoke("")
 
-            processStreamLoop(socket.getInputStream(), "WiFi")
+            processStreamLoop(socket.getInputStream(), streamType)
             try { socket.close() } catch (e: Exception) {}
         }
     }
 
 
-    private fun receiveLoopUsb() {
-        val ss = ServerSocket()
-        ss.reuseAddress = true
-        ss.bind(InetSocketAddress(PORT))
-        ss.soTimeout = 1000
-        serverSocket = ss
-            
-        while (running) {
-            onStatusChange?.invoke("Waiting for USB connection…")
-
-            var socket: Socket? = null
-            while (running && socket == null) {
-                try {
-                    socket = ss.accept()
-                } catch (e: java.net.SocketTimeoutException) {
-                    continue
-                }
-            }
-            if (socket == null || !running) break
-
-            socket.tcpNoDelay = true
-            socket.receiveBufferSize = 1024 * 1024
-
-            onStatusChange?.invoke("Connected")
-            decoder.init(width, height, fps)
-            onStatusChange?.invoke("")
-
-            processStreamLoop(socket.getInputStream(), "USB")
-            try { socket.close() } catch (e: Exception) {}
-        }
-    }
     
     private fun processStreamLoop(input: java.io.InputStream, streamType: String) {
         val buf = ByteArray(4 * 1024 * 1024)
@@ -198,10 +165,8 @@ class StreamReceiver(
     private fun cleanup() {
         try { controlSocket?.close() } catch (_: Exception) {}
         try { udpSocket?.close() } catch (_: Exception) {}
-        try { serverSocket?.close() } catch (_: Exception) {}
         controlSocket = null
         udpSocket = null
-        serverSocket = null
     }
 
     fun stop() {
