@@ -22,7 +22,7 @@ TYPE    = sys.argv[7] if len(sys.argv) > 7 else "Extend"
 server_mode = (MODE == "wifi")
 host = "0.0.0.0" if server_mode else "127.0.0.1"
 
-PORT = 7110
+PORT = 7110 if server_mode else 7112
 
 print(f"[Streamer GNOME] Resolution={WIDTH}x{HEIGHT}  FPS={FPS}  Bitrate={BITRATE}  Mode={MODE}")
 
