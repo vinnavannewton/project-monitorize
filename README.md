@@ -371,6 +371,7 @@ Or:
 - [x] desktop GUI.
 - [x] Touch screen.
 - [ ] Stable nvidia encoder (waiting for driver 610.x which implemented proper DMA BUF).
+- [ ] On Sway DE.
 - [ ] Stylus support (stylus touch and hover works for now others will be implemented soon).
 - [ ] Stable Wi-Fi mode (beta).
 - [ ] Flathub distribution.
