@@ -26,7 +26,7 @@ Currently works only on Kde and hyprland, Gnome is experimental.
 
 > **Note:** Python packages (`PyQt6`, `snegg`, `evdev`, `zeroconf`) are automatically installed inside a virtual environment when you run `install.sh`. You only need to install the system-level packages listed below.
 
-### Before running Monitorize, install the required packages for your distro and desktop environment. Follow your distro section below in order.
+### Before running Monitorize, install the required packages for your distro and desktop environment. Follow your distro section below.
 
 ---
 
