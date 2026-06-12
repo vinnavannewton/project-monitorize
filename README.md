@@ -16,6 +16,8 @@
 
 **Monitorize** turns your Android tablet into a secondary monitor for your Linux desktop.
 
+Currently works only on Kde and hyprland, Gnome is experimental.
+
 The pipeline is:
 
 ### ✨ What You Get
@@ -92,7 +94,7 @@ KDE requires `krfb` to create the virtual monitor output:
 sudo dnf install -y krfb
 ```
 
-### GNOME:
+### GNOME (Experimental):
 
 No extra packages needed. However, you **must** disable hardware cursor rendering so the cursor is visible on the virtual monitor stream:
 
@@ -173,7 +175,7 @@ sudo pacman -S --needed \
 sudo pacman -S --needed krfb
 ```
 
-### GNOME:
+### GNOME (Experimental):
 
 No extra packages needed. However, you **must** disable hardware cursor rendering so the cursor is visible on the virtual monitor stream:
 
@@ -260,7 +262,7 @@ sudo apt install -y \
 sudo apt install -y krfb
 ```
 
-### GNOME:
+### GNOME (Experimental):
 
 No extra packages needed. However, you **must** disable hardware cursor rendering so the cursor is visible on the virtual monitor stream:
 
