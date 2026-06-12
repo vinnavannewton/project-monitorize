@@ -44,8 +44,8 @@ import androidx.core.view.WindowInsetsControllerCompat
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-// ── UI Constants (Modern Dark Theme) ─────────────────────────────────────────
-val BackgroundDark = Color(0xFF121214) // Modern deep grey (not pitch black)
+
+val BackgroundDark = Color(0xFF121214) 
 val CardDark       = Color(0xFF1C1C1E)
 val BorderDark     = Color(0xFF2C2C2E)
 val AccentIndigo   = Color(0xFF6366F1)
@@ -83,11 +83,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         discovery = DeviceDiscovery(this)
 
-        // Force Full Screen & Immersive Mode
+        
         WindowCompat.setDecorFitsSystemWindows(window, false)
         applyImmersiveMode()
 
-        // Handle cutout (notch)
+        
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             window.attributes.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         }
@@ -111,7 +111,7 @@ class MainActivity : ComponentActivity() {
             val coroutineScope = rememberCoroutineScope()
             val context = androidx.compose.ui.platform.LocalContext.current
 
-            // Auto-clear disconnection message after 5 seconds
+            
             if (disconnectionMessage != null) {
                 LaunchedEffect(disconnectionMessage) {
                     kotlinx.coroutines.delay(5000)
@@ -129,7 +129,7 @@ class MainActivity : ComponentActivity() {
                                     onDeviceSelected = { device ->
                                         selectedDevice = device
                                         currentScreen = Screen.Receive
-                                        disconnectionMessage = null // Clear any existing message
+                                        disconnectionMessage = null 
                                     },
                                     onSettingsToggle = { isSettingsOpen = true },
                                     onStartDiscovery = { discovery.startDiscovery() }
@@ -150,7 +150,7 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onSurfaceCreated = { ip, surface, w, h, f ->
                                         coroutineScope.launch {
-                                            // Allow hardware media server to fully tear down any previous codec
+                                            
                                             kotlinx.coroutines.delay(400)
                                             startStream(ip, surface, w, h, f) {
                                                 runOnUiThread {
@@ -168,7 +168,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
 
-                        // Sliding Settings Panel Overlay (Right to Left)
+                        
                         AnimatedVisibility(
                             visible = isSettingsOpen,
                             enter = slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300)),
@@ -194,7 +194,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                         
-                        // Scrim to dim the background when settings is open
+                        
                         if (isSettingsOpen) {
                             Box(
                                 modifier = Modifier
@@ -205,7 +205,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // Custom 5-second Toast Notification for Disconnection
+                        
                         AnimatedVisibility(
                             visible = disconnectionMessage != null,
                             enter = fadeIn() + expandVertically(expandFrom = Alignment.Bottom),
@@ -282,7 +282,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// ── UI Components ─────────────────────────────────────────────────────────────
+
 
 @Composable
 fun HomeScreen(
@@ -296,7 +296,7 @@ fun HomeScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Settings Icon Top Right
+        
         IconButton(
             onClick = onSettingsToggle,
             modifier = Modifier.align(Alignment.TopEnd).padding(24.dp).size(48.dp).background(CardDark, CircleShape)
@@ -309,7 +309,7 @@ fun HomeScreen(
         ) {
             Spacer(modifier = Modifier.height(100.dp))
             
-            // "Hint-type" header
+            
             Text(
                 "DEVICES:",
                 fontSize = 11.sp,
@@ -340,7 +340,7 @@ fun HomeScreen(
                 }
             }
             
-            // Manual IP Entry
+            
             var manualIp by remember { mutableStateOf("") }
             Spacer(modifier = Modifier.height(8.dp))
             Row(
@@ -389,14 +389,14 @@ fun DeviceItem(device: DiscoveredDevice, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            // Main Device Name
+            
             Text(
                 device.name, 
                 color = TextPrimary, 
                 fontWeight = FontWeight.Bold, 
                 fontSize = 18.sp
             )
-            // IP address shown directly under the name
+            
             Text(
                 device.ip, 
                 color = TextSecondary, 
@@ -502,46 +502,22 @@ fun ReceiveScreen(
         modifier = Modifier.fillMaxSize().background(Color.Black),
         contentAlignment = Alignment.Center
     ) {
-        // Inner box locked perfectly to the stream's aspect ratio.
-        // This ensures the touch overlay never extends over the black letterbox bars.
+        
+        
         Box(modifier = Modifier.aspectRatio(width.toFloat() / height.toFloat())) {
             StreamSurface(
                 modifier = Modifier.fillMaxSize(),
-                onSurfaceReady = { sv ->
-                    sv.holder.addCallback(object : SurfaceHolder.Callback {
-                        override fun surfaceCreated(holder: SurfaceHolder) {
-                            holder.setFixedSize(width, height)
-                            onSurfaceCreated(hostIp, holder.surface, width, height, fps)
-                        }
-                        override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, ht: Int) {}
-                        override fun surfaceDestroyed(h: SurfaceHolder) { onSurfaceDestroyed() }
-                    })
-                }
-            )
-
-            // Input layer perfectly layered over the aspect-locked Box
-            AndroidView(
-                factory = { ctx ->
-                    android.view.View(ctx).apply {
-                        layoutParams = android.view.ViewGroup.LayoutParams(
-                            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                            android.view.ViewGroup.LayoutParams.MATCH_PARENT
-                        )
-                        setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                        isClickable = true
-                        setOnTouchListener { v, event -> 
-                            if (event.action == android.view.MotionEvent.ACTION_DOWN) v.performClick()
-                            onInputEvent(event, v.width.toFloat(), v.height.toFloat())
-                            true 
-                        }
-                        setOnHoverListener { v, event -> onInputEvent(event, v.width.toFloat(), v.height.toFloat()); true }
-                    }
-                },
-                modifier = Modifier.fillMaxSize().zIndex(2f)
+                width = width,
+                height = height,
+                fps = fps,
+                hostIp = hostIp,
+                onSurfaceCreated = onSurfaceCreated,
+                onSurfaceDestroyed = onSurfaceDestroyed,
+                onInputEvent = onInputEvent
             )
         }
 
-        // Small status badge (Clickable to exit)
+        
         if (status.isNotEmpty()) {
             Box(
                 modifier = Modifier
@@ -559,14 +535,44 @@ fun ReceiveScreen(
 }
 
 @Composable
-fun StreamSurface(modifier: Modifier, onSurfaceReady: (android.view.SurfaceView) -> Unit) {
+fun StreamSurface(
+    modifier: Modifier,
+    width: Int,
+    height: Int,
+    fps: Int,
+    hostIp: String,
+    onSurfaceCreated: (String, Surface, Int, Int, Int) -> Unit,
+    onSurfaceDestroyed: () -> Unit,
+    onInputEvent: (android.view.MotionEvent, Float, Float) -> Unit
+) {
     AndroidView(
-        factory = { ctx -> android.view.SurfaceView(ctx).also { onSurfaceReady(it) } },
+        factory = { ctx ->
+            android.view.SurfaceView(ctx).apply {
+                isClickable = true
+                holder.addCallback(object : SurfaceHolder.Callback {
+                    override fun surfaceCreated(holder: SurfaceHolder) {
+                        holder.setFixedSize(width, height)
+                        onSurfaceCreated(hostIp, holder.surface, width, height, fps)
+                    }
+                    override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, ht: Int) {}
+                    override fun surfaceDestroyed(h: SurfaceHolder) { onSurfaceDestroyed() }
+                })
+                setOnTouchListener { v, event ->
+                    if (event.action == android.view.MotionEvent.ACTION_DOWN) v.performClick()
+                    onInputEvent(event, v.width.toFloat(), v.height.toFloat())
+                    true
+                }
+                setOnHoverListener { v, event ->
+                    onInputEvent(event, v.width.toFloat(), v.height.toFloat())
+                    true
+                }
+            }
+        },
         modifier = modifier
     )
 }
 
-// ── PREVIEWS ─────────────────────────────────────────────────────────────
+
 
 @Preview(showBackground = true, widthDp = 800, heightDp = 480)
 @Composable

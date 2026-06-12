@@ -4,7 +4,7 @@
 
   <a href="https://www.gnu.org/licenses/agpl-3.0"><img src="https://img.shields.io/badge/License-AGPL%20v3-blue.svg" /></a>
   <img src="https://img.shields.io/badge/Platform-Linux%20%7C%20Android-lightgrey" />
-  
+
 </div>
 
 > **Project Status: In alpha & Actively Being Developed**
@@ -15,6 +15,8 @@
 ## 📖 Overview
 
 **Monitorize** turns your Android tablet into a secondary monitor for your Linux desktop.
+
+Currently works only on Kde and hyprland, Gnome is experimental.
 
 The pipeline is:
 
@@ -29,21 +31,27 @@ The pipeline is:
 ---
 
 ## 🛠️ Requirements
+
 ### 📦 Dependencies (Must Do)
-### Install PyQt6 packe
-```bash
-pip install PyQt6
-```
+
+> **Note:** Python packages (`PyQt6`, `snegg`, `evdev`, `zeroconf`) are automatically installed inside a virtual environment when you run `install.sh`. You only need to install the system-level packages listed below.
+
 ### Before running Monitorize, install the required packages for your distro and desktop environment. Follow your distro section below in order.
+
 ---
+
 ## <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/Fedora_icon_(2021).svg/960px-Fedora_icon_(2021).svg.png" height="28" alt="Fedora"> Fedora (DNF)
 
 ### Step 1 — Enable RPM Fusion
+
 Fedora does not ship `x264enc` by default due to patent restrictions. Enable RPM Fusion first:
+
 ```bash
 bash -c 'sudo dnf install -y https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm'
 ```
+
 ### Step 2 — Install Core Dependencies (all DEs)
+
 ```bash
 sudo dnf install -y --skip-unavailable \
   gstreamer1 \
@@ -56,16 +64,14 @@ sudo dnf install -y --skip-unavailable \
   pipewire-gstreamer \
   python3-dbus \
   python3-gobject \
-  python3-pyqt6 \
   android-tools
 ```
 
-### Step 3 — Install snegg (libei Python bindings) for Touch/Pen Input (Not needed for hyprland)
+### Step 3 — Install snegg build dependencies (Not needed for Hyprland)
 
-The touch daemon uses `snegg` — the official Python bindings for `libei`.
+These system packages are required so that `snegg` (libei Python bindings) can be compiled inside the virtual environment by `install.sh`.
 
 ```bash
-# C build dependencies for snegg
 sudo dnf install -y \
   libei \
   libei-devel \
@@ -76,27 +82,38 @@ sudo dnf install -y \
   ninja-build \
   pkg-config \
   git
-
-# Install snegg from the upstream GitLab repo
-python3 -m pip install --user \
-  git+https://gitlab.freedesktop.org/whot/snegg
 ```
 
-### Step 3 — Desktop-Specific (Fedora)
+### Step 4 — Desktop-Specific (Fedora)
 
 ### KDE Plasma:
+
 KDE requires `krfb` to create the virtual monitor output:
+
 ```bash
 sudo dnf install -y krfb
 ```
 
-### GNOME:
-No extra packages needed. 
+### GNOME (Experimental):
+
+No extra packages needed. However, you **must** disable hardware cursor rendering so the cursor is visible on the virtual monitor stream:
+
+```bash
+gsettings set org.gnome.mutter.wayland disable-hardware-cursor true
+```
+
+Log out and back in for the change to take effect. To revert:
+
+```bash
+gsettings set org.gnome.mutter.wayland disable-hardware-cursor false
+```
 
 ### Hyprland:
+
 Install the Hyprland XDG portal backend:
 
 #### Step 1:
+
 ```bash
 sudo dnf install -y \
   xdg-desktop-portal \
@@ -106,11 +123,7 @@ sudo dnf install -y \
 ```
 
 #### Step 2:
-```bash
-sudo dnf install -y python3-evdev
-```
 
-#### Step 3:
 ```bash
 echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
 sudo udevadm control --reload-rules && sudo udevadm trigger
@@ -123,6 +136,7 @@ sudo usermod -aG input $USER
 ## <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/13/Arch_Linux_%22Crystal%22_icon.svg/330px-Arch_Linux_%22Crystal%22_icon.svg.png" height="28" alt="Arch Linux"> Arch Linux (Pacman)
 
 ### Step 1 — Install Core Dependencies (all DEs)
+
 ```bash
 sudo pacman -S --needed \
   gstreamer \
@@ -135,14 +149,15 @@ sudo pacman -S --needed \
   wireplumber \
   python-dbus \
   python-gobject \
-  python-pyqt6 \
   x264 \
   android-tools
 ```
 
-### Step 2 snegg package for input (Not needed for hyprland)
+### Step 2 — Install snegg build dependencies (Not needed for Hyprland)
+
+These system packages are required so that `snegg` (libei Python bindings) can be compiled inside the virtual environment by `install.sh`.
+
 ```bash
-# Install snegg (libei Python bindings) for Touch/Pen Input
 sudo pacman -S --needed \
   libei \
   base-devel \
@@ -150,22 +165,34 @@ sudo pacman -S --needed \
   ninja \
   pkgconf \
   git
-
-python3 -m pip install --user \
-  git+https://gitlab.freedesktop.org/whot/snegg
 ```
+
 ### Step 3 — Desktop-Specific (Arch)
 
 ### KDE Plasma:
+
 ```bash
 sudo pacman -S --needed krfb
 ```
 
-### GNOME:
-No extra packages needed.
+### GNOME (Experimental):
+
+No extra packages needed. However, you **must** disable hardware cursor rendering so the cursor is visible on the virtual monitor stream:
+
+```bash
+gsettings set org.gnome.mutter.wayland disable-hardware-cursor true
+```
+
+Log out and back in for the change to take effect. To revert:
+
+```bash
+gsettings set org.gnome.mutter.wayland disable-hardware-cursor false
+```
 
 ### Hyprland:
+
 #### Step 1 (specific dependencies)
+
 ```bash
 sudo pacman -S --needed \
   xdg-desktop-portal \
@@ -174,11 +201,8 @@ sudo pacman -S --needed \
   wlr-randr
 ```
 
-#### Step 2 (uinput dependency)
-```bash
-sudo pacman -S python-evdev
-```
-#### Step 3 (uinput permission)
+#### Step 2 (uinput permission)
+
 ```bash
 echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
 sudo udevadm control --reload-rules && sudo udevadm trigger
@@ -186,11 +210,12 @@ sudo usermod -aG input $USER
 # Log out and back in for group change to take effect
 ```
 
-
 ## <img src="https://upload.wikimedia.org/wikipedia/commons/4/4a/Debian-OpenLogo.svg" height="28" alt="Debian"> Debian / Ubuntu (APT)
 
 ### Step 1 — Enable non-free repos (Debian only, skip on Ubuntu)
+
 Debian restricts `gstreamer1.0-plugins-ugly` to the `non-free` component. Enable it first:
+
 ```bash
 sudo apt install -y software-properties-common
 sudo apt-add-repository non-free
@@ -198,6 +223,7 @@ sudo apt update
 ```
 
 ### Step 2 — Install Core Dependencies (all DEs)
+
 ```bash
 sudo apt install -y \
   gstreamer1.0-tools \
@@ -210,11 +236,13 @@ sudo apt install -y \
   wireplumber \
   python3-dbus \
   python3-gi \
-  python3-pyqt6 \
   adb
 ```
 
-### Step 3 — snegg for touch inputs (Not needed for hyprland)
+### Step 3 — Install snegg build dependencies (Not needed for Hyprland)
+
+These system packages are required so that `snegg` (libei Python bindings) can be compiled inside the virtual environment by `install.sh`.
+
 ```bash
 sudo apt install -y \
   libei-dev \
@@ -224,23 +252,34 @@ sudo apt install -y \
   ninja-build \
   pkg-config \
   git
-
-python3 -m pip install --user \
-  git+https://gitlab.freedesktop.org/whot/snegg
 ```
 
-### Step 3 — Desktop-Specific (Debian / Ubuntu)
+### Step 4 — Desktop-Specific (Debian / Ubuntu)
 
 ### KDE Plasma:
+
 ```bash
 sudo apt install -y krfb
 ```
 
-### GNOME:
-No extra packages needed. 
+### GNOME (Experimental):
+
+No extra packages needed. However, you **must** disable hardware cursor rendering so the cursor is visible on the virtual monitor stream:
+
+```bash
+gsettings set org.gnome.mutter.wayland disable-hardware-cursor true
+```
+
+Log out and back in for the change to take effect. To revert:
+
+```bash
+gsettings set org.gnome.mutter.wayland disable-hardware-cursor false
+```
 
 ### Hyprland:
+
 #### Step 1:
+
 ```bash
 sudo apt install -y \
   xdg-desktop-portal \
@@ -250,11 +289,7 @@ sudo apt install -y \
 ```
 
 #### Step 2:
-```bash
-sudo apt install -y python3-evdev
-```
 
-#### Step 3:
 ```bash
 echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
 sudo udevadm control --reload-rules && sudo udevadm trigger
@@ -262,69 +297,54 @@ sudo usermod -aG input $USER
 # Log out and back in for group change to take effect
 ```
 
-
 > **Note:** `xdg-desktop-portal-hyprland` may not be in older Debian/Ubuntu repos. If not found, build from source: [xdg-desktop-portal-hyprland](https://github.com/hyprwm/xdg-desktop-portal-hyprland)
 
 ---
 
 ## Running the Application
 
-1. From the project repository, go into the `linux` directory and run `monitor_gui.py`.
-2. enable usb debuuging and connect your android to your pc via usb.
-3. in the desktop app click usb then click "i have connected"
-4. Then open the android app and first configure settings use ur native resolution and fps for best experience
-5. click receive on android app then click Start streaming on desktop app (order is important)
-6. When the input access pop-up appears, allow it first.
-7. From the second pop-up, select the **Tablet Virtual Display**.
-8. After that goto your display configuration settings and setup your second display.
+1.After running the application make sure you go to your display settings and configure the virtual display.
+
+2.When made changes to the virtual display's position or anything sometimes the stream crashes, it's normal just start the stream again (This won't work in gnome though).
 
 ### Notes
 
-- The resolution and FPS set in the Android app must match the desktop app.
-- 
+- Match the resolution and FPS set in the Android settings app to the desktop app settings.
+
 - If the USB device is not detected, make sure `android-tools` is installed and run:
+  
   ```bash
   adb devices
   ```
+  
   to confirm the device is connected.
--
--Touch the android screen after it starts streaming, then in 5 seconds the touch input will get activated.
 
-
-
-### Linux Host
-
-| Requirement       | Notes                                              |
-|-------------------|----------------------------------------------------|
-| Wayland desktop   | KDE / GNOME / Hyprland tested                      |
-| GStreamer + x264  | See distro steps above                             |
-| PipeWire          | Required for screen capture                        |
-| Python 3          | For scripts & GUI                                  |
-| PyQt6             | `python3-pyqt6` / `python-pyqt6`                   |
-| `adb`             | `android-tools` (Fedora/Arch) or `adb` (Debian)    |
-| `krfb`            | KDE only — virtual monitor creation                |
-| `snegg` + `libei` / `uinput` (hyprland)  | Touch/pen(on RoadMap)       |
 
 ### Android Tablet
 
-| Requirement        | Notes                                               |
-|--------------------|-----------------------------------------------------|
-| Android 9+         | Tested on Samsung Galaxy Tab S7 FE                  |
-| USB Debugging      | Enable in Developer Options                         |
-| Monitorize app     | Built from `/android` or downloaded from Releases   |
-| Decent USB cable   | True USB 3.x cable recommended for best USB mode    |
-| 5GHz Wi-Fi (opt.)  | Recommended if using Wi-Fi ADB                      |
+| Requirement       | Notes                                             |
+| ----------------- | ------------------------------------------------- |
+| Android 9+        | Tested on Samsung Galaxy Tab S7 FE                |
+| USB Debugging     | Enable in Developer Options                       |
+| 5GHz Wi-Fi (opt.) | Recommended if using Wi-Fi mode                   |
 
 ---
 
 ## 🚀 Getting Started
 
-### 1. Clone, build and run (Desktop side)
+### 1. Clone and install (Desktop side)
 
 ```bash
 git clone https://github.com/vinnavannewton/ProjectMonitorize.git
-cd ProjectMonitorize
-python3 monitorize_gui.py
+cd ProjectMonitorize/linux
+chmod +x install.sh
+./install.sh
+```
+
+Or run manually:
+
+```bash
+./venv/bin/python3 monitorize_gui.py
 ```
 
 ### 2. Android side
@@ -332,6 +352,7 @@ python3 monitorize_gui.py
 Either:
 
 - Build from source:
+  
   ```bash
   cd android
   ./gradlew installDebug
@@ -344,23 +365,20 @@ Or:
 
 ---
 
-### Wi-Fi Mode (Work In Progress)
-
----
-
-
 ## 🗺️ Roadmap
 
-- [x] Stable CPU-based H.264 pipeline (Linux → Android).
-- [x] Fix TCP chunking / macroblock corruption.
+- [x] Stable CPU encoder (Software encoder).
+- [x] Stable vaapi encoder
+- [x] Fix stream corruption.
 - [x] desktop GUI.
 - [x] Touch screen.
-- [ ] Stylus support.
-- [ ] Stable Wi-Fi mode.
+- [ ] Stable nvidia encoder (waiting for driver 610.x which implemented proper DMA BUF).
+- [ ] On Sway DE.
+- [ ] Stylus support (stylus touch and hover works for now others will be implemented soon).
+- [ ] Stable Wi-Fi mode (beta).
 - [ ] Flathub distribution.
-- [ ] use your other laptop as second screen for your host laptop.
-- [ ] Triple monitor setup.
-- [ ] multi monitor single desktop.
+- [ ] use laptop as second screen.
+- [ ] multi monitor setup.
 
 ---
 

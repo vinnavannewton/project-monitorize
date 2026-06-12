@@ -41,7 +41,7 @@ class DeviceDiscovery(private val context: Context) {
         Log.d(TAG, "startDiscovery() called")
         stopDiscovery()
         
-        // 1. Enable Multicast to receive name broadcasts (Linux/Avahi and Android/Google)
+        
         try {
             multicastLock = wifiManager.createMulticastLock("monitorize_discovery").apply {
                 setReferenceCounted(true)
@@ -51,7 +51,7 @@ class DeviceDiscovery(private val context: Context) {
             Log.e(TAG, "Multicast lock error", e)
         }
 
-        // 2. Add USB fallback immediately
+        
         var usbName = "Local PC (USB)"
         try {
             val process = Runtime.getRuntime().exec("getprop debug.monitorize.pc_name")
@@ -63,12 +63,12 @@ class DeviceDiscovery(private val context: Context) {
         } catch (e: Exception) {}
         addDevice(DiscoveredDevice(usbName, "127.0.0.1", DEFAULT_PORT, isUsb = true, isMonitorizeService = true))
 
-        // 3. Start Sequential Resolver Job for mDNS
+        
         val channel = Channel<NsdServiceInfo>(Channel.UNLIMITED)
         resolveChannel = channel
         startResolverJob(channel)
 
-        // 4. Start NSD harvesting for many common service types to find hostnames
+        
         val harvestTypes = listOf(
             SERVICE_TYPE,
             "_workstation._tcp.", 
@@ -81,12 +81,12 @@ class DeviceDiscovery(private val context: Context) {
         
         harvestTypes.forEachIndexed { index, type ->
             scope.launch {
-                delay(index * 150L) // Stagger to keep NsdManager happy
+                delay(index * 150L) 
                 startNsdDiscovery(type)
             }
         }
 
-        // 5. Start Robust Subnet Scan to find all devices even if they don't broadcast names
+        
         startSubnetScan()
     }
 
@@ -113,7 +113,7 @@ class DeviceDiscovery(private val context: Context) {
                                     resolvedName = hostName
                                 }
                                 
-                                // Harvest friendly names from TXT records if available
+                                
                                 try {
                                     resolved.attributes?.let { attrs ->
                                         if (attrs.containsKey("fn")) resolvedName = String(attrs["fn"]!!)
@@ -174,7 +174,7 @@ class DeviceDiscovery(private val context: Context) {
             val prefix = localIp.substringBeforeLast(".")
             Log.d(TAG, "Starting subnet scan on $prefix.0/24")
 
-            // Scan in chunks to avoid overwhelming the system
+            
             (1..254).chunked(32).forEach { chunk ->
                 if (!isActive) return@launch
                 chunk.map { i ->
@@ -182,8 +182,8 @@ class DeviceDiscovery(private val context: Context) {
                         val targetIp = "$prefix.$i"
                         if (targetIp == localIp) return@async
                         
-                        // Check common ports to find any device that is "alive"
-                        // 7110: monitorize, 22: ssh, 80: http, 1714: kde connect, 5555: adb
+                        
+                        
                         val ports = listOf(DEFAULT_PORT, 22, 80, 1714, 5555)
                         var foundAlive = false
                         var isOurPort = false
@@ -204,10 +204,10 @@ class DeviceDiscovery(private val context: Context) {
                         }
 
                         if (foundAlive) {
-                            // Add immediately with fallback name
+                            
                             addDevice(DiscoveredDevice("WiFi Device", targetIp, DEFAULT_PORT, isMonitorizeService = isOurPort))
                             
-                            // Try name resolution check in background
+                            
                             launch {
                                 try {
                                     val inet = InetAddress.getByName(targetIp)
@@ -233,7 +233,7 @@ class DeviceDiscovery(private val context: Context) {
             if (index != -1) {
                 val existing = devices[index]
                 
-                // Priority: Keep a specific name over fallback "WiFi Device"
+                
                 val isExistingGeneric = isGenericName(existing.name)
                 val isNewGeneric = isGenericName(newDevice.name)
                 
@@ -244,7 +244,7 @@ class DeviceDiscovery(private val context: Context) {
                     devices[index] = existing.copy(name = betterName, isMonitorizeService = betterService)
                 }
             } else {
-                // New device insertion. Priority: USB at top (0), then Monitorize servers, then others.
+                
                 if (newDevice.isMonitorizeService) {
                     val pos = if (devices.isNotEmpty() && devices[0].isUsb) 1 else 0
                     if (pos <= devices.size) devices.add(pos, newDevice) else devices.add(newDevice)

@@ -3,14 +3,14 @@ import os, re
 with open("/home/vinnavan/user/MegaProjects/Monitorize/android/app/src/main/java/com/example/monitorize/MainActivity.kt", "r") as f:
     content = f.read()
 
-# Add hostIp to setContent state
+
 content = content.replace(
     '''            var width by remember { mutableIntStateOf(prefs.getInt("width", 1280)) }''',
     '''            var hostIp by remember { mutableStateOf(prefs.getString("hostIp", "") ?: "") }
             var width by remember { mutableIntStateOf(prefs.getInt("width", 1280)) }'''
 )
 
-# Pass hostIp and onHostIpChange to HomeScreen
+
 content = content.replace(
     '''                        Screen.Home -> HomeScreen(
                             onReceiveClick = { currentScreen = Screen.Receive },
@@ -27,7 +27,7 @@ content = content.replace(
                         )'''
 )
 
-# Pass hostIp to ReceiveScreen
+
 content = content.replace(
     '''                            ReceiveScreen(
                                 width = width,
@@ -42,19 +42,19 @@ content = content.replace(
                                 status = status.value,'''
 )
 
-# Update ReceiveScreen signature
+
 content = content.replace(
     '''    fun ReceiveScreen(width: Int, height: Int, fps: Int, status: String, onBack: () -> Unit) {''',
     '''    fun ReceiveScreen(hostIp: String, width: Int, height: Int, fps: Int, status: String, onBack: () -> Unit) {'''
 )
 
-# Update startStream call inside ReceiveScreen
+
 content = content.replace(
     '''                            startStream(holder.surface, width, height, fps)''',
     '''                            startStream(hostIp, holder.surface, width, height, fps)'''
 )
 
-# Update startStream signature and logic
+
 content = content.replace(
     '''    private fun startStream(surface: Surface, width: Int, height: Int, fps: Int) {
         val d = H264Decoder(surface)
@@ -85,7 +85,7 @@ content = content.replace(
     }'''
 )
 
-# Update HomeScreen signature and add IP text field
+
 home_screen_old = '''    @Composable
     fun HomeScreen(onReceiveClick: () -> Unit, onSettingsClick: () -> Unit) {
         Column(
@@ -110,7 +110,7 @@ home_screen_new = '''    @Composable
 
 content = content.replace(home_screen_old, home_screen_new)
 
-# Add the text field above RECEIVE STREAM button
+
 btn_old = '''            Spacer(modifier = Modifier.height(48.dp))
 
             Button(
@@ -147,7 +147,7 @@ btn_new = '''            Spacer(modifier = Modifier.height(32.dp))
 
 content = content.replace(btn_old, btn_new)
 
-# Replace bottom text
+
 bottom_text_old = '''            Text(
                 "Connect via USB · Open source",
                 fontSize = 11.sp,
