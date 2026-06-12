@@ -11,9 +11,7 @@ import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.atomic.AtomicLong
 
-/**
- * H.264 hardware decoder — zero-allocation minimal latency configuration.
- */
+
 class H264Decoder(private val surface: Surface) {
 
     private var codec: MediaCodec? = null
@@ -25,8 +23,8 @@ class H264Decoder(private val surface: Surface) {
         var size: Int = 0
     }
 
-    // Object pool for zero-allocation
-    // Tight queue — only 2 frames max to minimise backlog latency.
+    
+    
     private val POOL_SIZE = 2
     private val chunkPool = ArrayBlockingQueue<FrameChunk>(POOL_SIZE)
     private val chunkQueue = LinkedBlockingQueue<FrameChunk>(POOL_SIZE)
@@ -83,7 +81,7 @@ class H264Decoder(private val surface: Surface) {
                             return
                         }
                         fillInputBuffer(mc, inputBufferId, chunk)
-                        chunkPool.offer(chunk) // Return to pool
+                        chunkPool.offer(chunk) 
                     }
 
                     override fun onOutputBufferAvailable(
@@ -130,7 +128,7 @@ class H264Decoder(private val surface: Surface) {
 
         var chunk = chunkPool.poll()
         if (chunk == null) {
-            // Drop oldest from queue to prefer newest data (lowest latency)
+            
             chunk = chunkQueue.poll()
             if (chunk == null) {
                 chunk = FrameChunk(ByteArray(MAX_INPUT))
@@ -145,11 +143,11 @@ class H264Decoder(private val surface: Surface) {
         if (pendingIdx != null) {
             val mc = codec ?: return
             fillInputBuffer(mc, pendingIdx, chunk)
-            chunkPool.offer(chunk) // Return to pool
+            chunkPool.offer(chunk) 
             return
         }
 
-        chunkQueue.offer(chunk) // Put into queue
+        chunkQueue.offer(chunk) 
     }
 
     fun release() {
