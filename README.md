@@ -372,12 +372,12 @@ Or:
 - [x] Fix stream corruption.
 - [x] desktop GUI.
 - [x] Touch screen.
-- [ ] Stable nvidia encoder (waiting for driver 610.x which implemented proper DMA BUF).
+- [x] Stylus support (stylus touch and hover works for now others will be implemented soon).
+- [x] Stable Wi-Fi mode (beta).
+- [ ] Stable nvidia encoder (waiting for driver 610.x which implements proper DMA BUF).
 - [ ] On Sway DE.
-- [ ] Stylus support (stylus touch and hover works for now others will be implemented soon).
-- [ ] Stable Wi-Fi mode (beta).
-- [ ] Flathub distribution.
 - [ ] use laptop as second screen.
+- [ ] Flathub distribution.
 - [ ] multi monitor setup.
 
 ---
