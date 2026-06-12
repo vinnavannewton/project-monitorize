@@ -301,18 +301,14 @@ sudo usermod -aG input $USER
 
 ## Running the Application
 
-1. Run `install.sh` in the `linux` directory (see Getting Started below), then launch **Monitorize** from your application menu — or run `./venv/bin/python3 monitorize_gui.py` from the `linux` directory.
-2. enable usb debugging and connect your android to your pc via usb.
-3. in the desktop app click usb then click "i have connected"
-4. Then open the android app and first configure settings use ur native resolution and fps for best experience
-5. Click receive on the Android app and click Start streaming on the desktop app (either order works).
-6. When the input access pop-up appears, allow it first.
-7. From the second pop-up, select the **Tablet Virtual Display**.
-8. After that goto your display configuration settings and setup your second display.
+1.After running the application make sure you go to your display settings and configure the virtual display.
+
+2.When made changes to the virtual display's position or anything sometimes the stream crashes, it's normal just start the stream again (This won't work in gnome though).
 
 ### Notes
 
-- The resolution and FPS set in the Android app must match the desktop app.
+- Match the resolution and FPS set in the Android settings app to the desktop app settings.
+
 - If the USB device is not detected, make sure `android-tools` is installed and run:
   
   ```bash
@@ -320,19 +316,7 @@ sudo usermod -aG input $USER
   ```
   
   to confirm the device is connected.
-- Touch the android screen after it starts streaming, then in 5 seconds the touch input will get activated.
 
-### Linux Host
-
-| Requirement                             | Notes                                           |
-| --------------------------------------- | ----------------------------------------------- |
-| Wayland desktop                         | KDE / GNOME / Hyprland tested                   |
-| GStreamer + x264                        | See distro steps above                          |
-| PipeWire                                | Required for screen capture                     |
-| Python 3                                | For scripts & GUI                               |
-| `adb`                                   | `android-tools` (Fedora/Arch) or `adb` (Debian) |
-| `krfb`                                  | KDE only — virtual monitor creation             |
-| `snegg` + `libei` / `uinput` (hyprland) | Touch/pen (on RoadMap)                          |
 
 ### Android Tablet
 
@@ -340,9 +324,7 @@ sudo usermod -aG input $USER
 | ----------------- | ------------------------------------------------- |
 | Android 9+        | Tested on Samsung Galaxy Tab S7 FE                |
 | USB Debugging     | Enable in Developer Options                       |
-| Monitorize app    | Built from `/android` or downloaded from Releases |
-| Decent USB cable  | True USB 3.x cable recommended for best USB mode  |
-| 5GHz Wi-Fi (opt.) | Recommended if using Wi-Fi ADB                    |
+| 5GHz Wi-Fi (opt.) | Recommended if using Wi-Fi mode                   |
 
 ---
 
@@ -357,7 +339,7 @@ chmod +x install.sh
 ./install.sh
 ```
 
-This sets up a Python virtual environment, installs all Python dependencies, and creates a desktop menu entry. You can then launch **Monitorize** from your application menu, or run manually:
+Or run manually:
 
 ```bash
 ./venv/bin/python3 monitorize_gui.py
@@ -378,10 +360,6 @@ Either:
 Or:
 
 - Install the APK from the Releases section.
-
----
-
-### Wi-Fi Mode (Work In Progress)
 
 ---
 
