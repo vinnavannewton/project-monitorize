@@ -55,6 +55,22 @@ linux/
 | GNOME | ✅ (Mutter RecordVirtual) | ✅ | ✅ |
 | Hyprland | ✅ (hyprctl headless) | ✅ | ✅ (uinput) |
 
+## GNOME — Required Setup
+
+GNOME (Mutter) uses hardware cursor rendering by default. Hardware cursors are drawn by the GPU overlay plane and are **not captured** by the virtual monitor's PipeWire stream — your cursor will be invisible on the tablet unless a window is being dragged. To fix this, switch to software-rendered cursors:
+
+```bash
+# Disable hardware cursor (enables software cursor rendering)
+gsettings set org.gnome.mutter.wayland disable-hardware-cursor true
+```
+
+Log out and back in (or restart GNOME Shell with `Alt+F2` → `r` on X11) for the change to take effect.
+
+To revert later:
+```bash
+gsettings set org.gnome.mutter.wayland disable-hardware-cursor false
+```
+
 ## Installation
 
 ```bash
