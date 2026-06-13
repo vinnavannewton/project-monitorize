@@ -16,15 +16,31 @@ Item {
 
     Component.onCompleted: {
         let saved = backend.loadWifiSettings();
-        let savedRes = saved["resolution"] || "2560x1600";
+        let defaultRes = "2560x1600";
+        let savedRes = saved["resolution"] || defaultRes;
         let foundIdx = -1;
+        let defaultIdx = -1;
+
         for (let i = 0; i < resCombo.count; i++) {
-            if (resCombo.textAt(i).indexOf(savedRes) === 0) {
+            let text = resCombo.textAt(i);
+            if (foundIdx === -1 && text.indexOf(savedRes) === 0) {
                 foundIdx = i;
+            }
+            if (defaultIdx === -1 && text.indexOf(defaultRes) === 0) {
+                defaultIdx = i;
+            }
+            if (foundIdx !== -1 && defaultIdx !== -1) {
                 break;
             }
         }
-        resCombo.currentIndex = (foundIdx !== -1) ? foundIdx : 5;
+
+        if (foundIdx !== -1) {
+            resCombo.currentIndex = foundIdx;
+        } else if (defaultIdx !== -1) {
+            resCombo.currentIndex = defaultIdx;
+        } else {
+            resCombo.currentIndex = (resCombo.count > 0) ? 0 : -1;
+        }
         if (saved["resolution"] === "Custom...") {
             customW.text = saved["custom_w"] || "";
             customH.text = saved["custom_h"] || "";

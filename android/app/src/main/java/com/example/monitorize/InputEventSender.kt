@@ -11,13 +11,28 @@ import java.net.InetAddress
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
+import java.util.concurrent.atomic.AtomicInteger
 
 class ByteArrayPool(private val itemSize: Int) {
     private val pool = java.util.concurrent.ConcurrentLinkedQueue<ByteArray>()
-    fun obtain(): ByteArray = pool.poll() ?: ByteArray(itemSize)
+    private val poolSize = AtomicInteger(0)
+
+    fun obtain(): ByteArray {
+        val fromPool = pool.poll()
+        return if (fromPool != null) {
+            poolSize.decrementAndGet()
+            fromPool
+        } else {
+            ByteArray(itemSize)
+        }
+    }
+
     fun recycle(array: ByteArray) {
-        if (pool.size < 32) {
-            pool.offer(array)
+        
+        if (poolSize.get() < 32) {
+            if (pool.offer(array)) {
+                poolSize.incrementAndGet()
+            }
         }
     }
 }
