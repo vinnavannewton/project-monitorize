@@ -511,6 +511,16 @@ fun ResolutionCard(
     }
 }
 
+private data class SettingsMetrics(
+    val nativeW: Int,
+    val nativeH: Int,
+    val mediumW: Int,
+    val mediumH: Int,
+    val lowW: Int,
+    val lowH: Int,
+    val initialSelected: String
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsPanel(
@@ -520,34 +530,45 @@ fun SettingsPanel(
     onClose: () -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val wm = context.getSystemService(android.content.Context.WINDOW_SERVICE) as android.view.WindowManager
-    val (rawW, rawH) = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-        val bounds = wm.maximumWindowMetrics.bounds
-        Pair(bounds.width(), bounds.height())
-    } else {
-        val dm = android.util.DisplayMetrics()
-        @Suppress("DEPRECATION")
-        wm.defaultDisplay.getRealMetrics(dm)
-        Pair(dm.widthPixels, dm.heightPixels)
-    }
-    val nativeW = maxOf(rawW, rawH)
-    val nativeH = minOf(rawW, rawH)
+    val metrics = remember(context, initialWidth, initialHeight) {
+        val wm = context.getSystemService(android.content.Context.WINDOW_SERVICE) as android.view.WindowManager
+        val (rawW, rawH) = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            val bounds = wm.maximumWindowMetrics.bounds
+            Pair(bounds.width(), bounds.height())
+        } else {
+            val dm = android.util.DisplayMetrics()
+            @Suppress("DEPRECATION")
+            wm.defaultDisplay.getRealMetrics(dm)
+            Pair(dm.widthPixels, dm.heightPixels)
+        }
+        val nativeW = maxOf(rawW, rawH)
+        val nativeH = minOf(rawW, rawH)
 
-    fun getNearestMultipleOf16(value: Int): Int {
-        return ((value + 8) / 16) * 16
+        fun getNearestMultipleOf16(value: Int): Int {
+            return ((value + 8) / 16) * 16
+        }
+
+        val mediumW = getNearestMultipleOf16((nativeW * 0.75f).toInt())
+        val mediumH = getNearestMultipleOf16((nativeH * 0.75f).toInt())
+        val lowW = getNearestMultipleOf16((nativeW * 0.5f).toInt())
+        val lowH = getNearestMultipleOf16((nativeH * 0.5f).toInt())
+
+        val initialSelected = when {
+            initialWidth == nativeW && initialHeight == nativeH -> "native"
+            initialWidth == mediumW && initialHeight == mediumH -> "medium"
+            initialWidth == lowW && initialHeight == lowH -> "low"
+            else -> "custom"
+        }
+        SettingsMetrics(nativeW, nativeH, mediumW, mediumH, lowW, lowH, initialSelected)
     }
 
-    val mediumW = getNearestMultipleOf16((nativeW * 0.75f).toInt())
-    val mediumH = getNearestMultipleOf16((nativeH * 0.75f).toInt())
-    val lowW = getNearestMultipleOf16((nativeW * 0.5f).toInt())
-    val lowH = getNearestMultipleOf16((nativeH * 0.5f).toInt())
-
-    val initialSelected = when {
-        initialWidth == nativeW && initialHeight == nativeH -> "native"
-        initialWidth == mediumW && initialHeight == mediumH -> "medium"
-        initialWidth == lowW && initialHeight == lowH -> "low"
-        else -> "custom"
-    }
+    val nativeW = metrics.nativeW
+    val nativeH = metrics.nativeH
+    val mediumW = metrics.mediumW
+    val mediumH = metrics.mediumH
+    val lowW = metrics.lowW
+    val lowH = metrics.lowH
+    val initialSelected = metrics.initialSelected
 
     var selectedOption by remember { mutableStateOf(initialSelected) }
     var customWidthText by remember { mutableStateOf(if (initialSelected == "custom") initialWidth.toString() else "") }
