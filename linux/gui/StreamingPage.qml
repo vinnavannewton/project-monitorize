@@ -104,6 +104,39 @@ Item {
             }
         }
 
+        // Active Ports Card
+        Rectangle {
+            Layout.fillWidth: true
+            implicitHeight: 40
+            radius: 8
+            color: "#161726"
+            border.color: "#2a2d55"
+            border.width: 1
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 16
+                anchors.rightMargin: 16
+                
+                Text {
+                    text: "📺 Display 1: Port 7110"
+                    color: "#a78bfa"
+                    font.pixelSize: 12
+                    font.weight: Font.Bold
+                }
+                
+                Item { Layout.fillWidth: true }
+                
+                Text {
+                    visible: backend.secondStreamActive
+                    text: "📺 Display 2: Port 7114"
+                    color: "#f472b6"
+                    font.pixelSize: 12
+                    font.weight: Font.Bold
+                }
+            }
+        }
+
         // Log Tab Filters
         RowLayout {
             spacing: 10
