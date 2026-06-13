@@ -160,5 +160,4 @@ def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
         kwargs["pass_fds"] = pass_fds
 
     proc = subprocess.Popen(pipeline, **kwargs)
-    proc.wait()
     return proc

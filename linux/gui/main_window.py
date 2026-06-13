@@ -290,7 +290,8 @@ class MonitorizeWindow(QMainWindow):
         appropriate DE-specific streamer subprocess."""
         self._is_wifi = is_wifi
         try:
-            self._stream_width, self._stream_height = map(int, res.split("x"))
+            clean_res = res.split()[0] if res else ""
+            self._stream_width, self._stream_height = map(int, clean_res.split("x"))
         except ValueError:
             self._stream_width, self._stream_height = 1920, 1200
         self._stream_fps = int(fps)
@@ -560,6 +561,9 @@ class MonitorizeWindow(QMainWindow):
         self.process_streamer      = None
         self.process_input_bridge  = None
 
+        
+        subprocess.run(["killall", "-9", "gst-launch-1.0"], capture_output=True)
+
         if self._detected_de == "hyprland" and getattr(self, "created_headless_monitor", None):
             print(f"[Hyprland] Removing created headless monitor: {self.created_headless_monitor}")
             subprocess.run(["hyprctl", "output", "remove", self.created_headless_monitor], capture_output=True)
@@ -610,16 +614,18 @@ class MonitorizeWindow(QMainWindow):
 
     def _cleanup_zeroconf(self):
         """Clean up old registration and close Zeroconf instance if any."""
-        if hasattr(self, '_zc') and self._zc is not None:
-            if hasattr(self, '_info') and self._info is not None:
-                try:
-                    self._zc.unregister_service(self._info)
-                except Exception:
-                    pass
+        if self._zc is None:
+            return
+
+        if self._info is not None:
             try:
-                self._zc.close()
+                self._zc.unregister_service(self._info)
             except Exception:
                 pass
+        try:
+            self._zc.close()
+        except Exception:
+            pass
         self._zc = None
         self._info = None
 

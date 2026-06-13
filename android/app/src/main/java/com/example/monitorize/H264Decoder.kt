@@ -43,11 +43,11 @@ class H264Decoder(private val surface: Surface) {
         private const val MAX_INPUT = 2 * 1024 * 1024
     }
 
-    fun init(width: Int, height: Int, fps: Int = 60) {
+    fun init(width: Int, height: Int) {
         if (initialized) release()
         try {
-            Log.i(TAG, "Init: ${width}×${height}@${fps}fps")
-            frameDurationUs = if (fps > 0) 1_000_000L / fps else 16_667L
+            Log.i(TAG, "Init: ${width}×${height}")
+            frameDurationUs = 16_667L
             nextPts.set(0L)
 
             val format = MediaFormat.createVideoFormat(

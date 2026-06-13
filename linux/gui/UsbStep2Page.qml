@@ -16,7 +16,15 @@ Item {
 
     Component.onCompleted: {
         let saved = backend.loadUsbSettings();
-        resCombo.currentIndex = resCombo.find(saved["resolution"] || "2560x1600");
+        let savedRes = saved["resolution"] || "2560x1600";
+        let foundIdx = -1;
+        for (let i = 0; i < resCombo.count; i++) {
+            if (resCombo.textAt(i).indexOf(savedRes) === 0) {
+                foundIdx = i;
+                break;
+            }
+        }
+        resCombo.currentIndex = (foundIdx !== -1) ? foundIdx : 5;
         if (saved["resolution"] === "Custom...") {
             customW.text = saved["custom_w"] || "";
             customH.text = saved["custom_h"] || "";
@@ -92,7 +100,7 @@ Item {
                 Text { text: "Resolution:"; color: "#b0b2d0"; font.pixelSize: 14 }
                 CustomComboBox {
                     id: resCombo
-                    model: ["1280x720", "1280x800", "1920x1080", "1920x1200", "2560x1440", "2560x1600", "3840x2160", "Custom..."]
+                    model: ["1280x720 (16:9)", "1280x800 (16:10)", "1920x1080 (16:9)", "1920x1200 (16:10)", "2560x1440 (16:9)", "2560x1600 (16:10)", "3840x2160 (16:9)", "Custom..."]
                 }
 
                 // Custom Res fields row
@@ -184,7 +192,7 @@ Item {
                     id: warningText
                     anchors.fill: parent
                     anchors.margins: 10
-                    text: "WARNING: The Resolution and FPS set here MUST EXACTLY MATCH the settings in the Android tablet app, or the stream will corrupt!"
+                    text: "WARNING: The Resolution set here MUST EXACTLY MATCH the settings in the Android tablet app, or the stream will corrupt!"
                     color: "#e8a840"
                     font.pixelSize: 12
                     font.weight: Font.DemiBold
@@ -229,10 +237,14 @@ Item {
                     implicitWidth: 200
                     implicitHeight: 44
                     onClicked: {
+                        let cleanRes = resCombo.currentText;
+                        if (cleanRes !== "Custom...") {
+                            cleanRes = cleanRes.split(" ")[0];
+                        }
                         // Save settings
                         backend.saveGeneralSettings(trayCheck.checked, touchCheck.checked);
                         backend.saveUsbSettings(
-                            resCombo.currentText,
+                            cleanRes,
                             resCombo.currentText === "Custom..." ? customW.text : "",
                             resCombo.currentText === "Custom..." ? customH.text : "",
                             fpsCombo.currentText,
@@ -243,7 +255,7 @@ Item {
                         );
                         // Start stream
                         backend.startStreaming(
-                            resCombo.currentText === "Custom..." ? customW.text + "x" + customH.text : resCombo.currentText,
+                            resCombo.currentText === "Custom..." ? customW.text + "x" + customH.text : cleanRes,
                             fpsCombo.currentText === "Custom..." ? customFps.text : fpsCombo.currentText,
                             bitrateField.text,
                             displayTypeCombo.visible ? displayTypeCombo.currentText : "Extend",
