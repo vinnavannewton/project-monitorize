@@ -83,10 +83,11 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
         Element name from detect_igpu_encoder(), or None for CPU fallback.
     """
     
+    always_copy = "false" if (hw_encoder and hw_encoder != "nvh264enc") else "true"
     if pw_fd is not None:
-        src = f"pipewiresrc fd={pw_fd} path={node_id} do-timestamp=true always-copy=true keepalive-time=1000"
+        src = f"pipewiresrc fd={pw_fd} path={node_id} do-timestamp=true always-copy={always_copy} keepalive-time=1000"
     else:
-        src = f"pipewiresrc path={node_id} do-timestamp=true always-copy=true keepalive-time=1000"
+        src = f"pipewiresrc path={node_id} do-timestamp=true always-copy={always_copy} keepalive-time=1000"
 
     
     
@@ -107,7 +108,9 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
             convert = f"cudaupload ! cudaconvertscale ! 'video/x-raw(memory:CUDAMemory),format=NV12,width={width},height={height}'"
         else:
             
-            convert = f"videoconvert n-threads=4 ! videoscale ! video/x-raw,format=NV12,width={width},height={height}"
+            
+            postproc = "vapostproc" if hw_encoder in ("vah264enc", "vah264lpenc") else "vaapipostproc"
+            convert = f"{postproc} ! 'video/x-raw(memory:VAMemory),format=NV12,width={width},height={height}'"
         encoder = _hw_encoder_params(hw_encoder, bitrate, key_int)
     else:
         
@@ -127,11 +130,17 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
 
     
     
-    sink = f"tcpserversink host={host} port={port} sync=false sync-method=2 recover-policy=2 buffers-max=10 buffers-soft-max=5"
+    sink = f"tcpserversink host={host} port={port} sync=false sync-method=2 recover-policy=2 buffers-max=10 buffers-soft-max=5 qos-dscp=48"
 
+    taskset_prefix = ""
+    if not hw_encoder:
+        import os
+        cores = os.cpu_count() or 1
+        if cores > 1:
+            taskset_prefix = f"taskset -c 1-{cores - 1} "
 
     pipeline = (
-        f"exec gst-launch-1.0 -e "
+        f"exec {taskset_prefix}gst-launch-1.0 -e "
         f"{src} ! {framerate} ! {queue} ! {convert} ! "
         f"{encoder} ! {parse} ! {caps_out} ! {sink}"
     )

@@ -69,6 +69,12 @@ class StreamReceiver(
 
             socket.tcpNoDelay = true
             socket.receiveBufferSize = 1024 * 1024
+            try {
+                
+                socket.trafficClass = 0xC0
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to set socket traffic class: ${e.message}")
+            }
             controlSocket = socket
 
             onStatusChange?.invoke("Connected")

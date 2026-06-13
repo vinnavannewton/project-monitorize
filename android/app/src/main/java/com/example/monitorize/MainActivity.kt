@@ -1,6 +1,8 @@
 package com.example.monitorize
 
 import android.content.Context
+import android.net.wifi.WifiManager
+import android.util.Log
 import android.os.Build
 import android.os.Bundle
 import android.view.Surface
@@ -62,6 +64,7 @@ class MainActivity : ComponentActivity() {
     private var decoder: H264Decoder? = null
     private var receiver: StreamReceiver? = null
     private var inputSender: InputEventSender? = null
+    private var wifiLock: WifiManager.WifiLock? = null
     private val status = mutableStateOf("")
     private lateinit var discovery: DeviceDiscovery
 
@@ -260,6 +263,16 @@ class MainActivity : ComponentActivity() {
         discovery.stopDiscovery()
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        try {
+            if (wifiLock?.isHeld == true) {
+                wifiLock?.release()
+            }
+        } catch (_: Exception) {}
+        wifiLock = null
+    }
+
     private fun applyImmersiveMode() {
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
@@ -267,6 +280,24 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startStream(hostIp: String, surface: Surface, width: Int, height: Int, onDisconnect: () -> Unit) {
+        
+        try {
+            val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            val lockType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                WifiManager.WIFI_MODE_FULL_LOW_LATENCY
+            } else {
+                @Suppress("DEPRECATION")
+                WifiManager.WIFI_MODE_FULL_HIGH_PERF
+            }
+            wifiLock = wifiManager.createWifiLock(lockType, "Monitorize:LowLatencyLock").apply {
+                setReferenceCounted(false)
+                acquire()
+            }
+            Log.i("MainActivity", "Acquired low latency Wi-Fi lock")
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to acquire Wi-Fi lock: ${e.message}")
+        }
+
         val d = H264Decoder(surface)
         decoder = d
         receiver = StreamReceiver(d, width, height, hostIp.takeIf { it.isNotBlank() }).also {
@@ -288,6 +319,16 @@ class MainActivity : ComponentActivity() {
             decoder?.release(); decoder = null
             inputSender?.stop(); inputSender = null
         }
+        
+        try {
+            if (wifiLock?.isHeld == true) {
+                wifiLock?.release()
+            }
+            Log.i("MainActivity", "Released low latency Wi-Fi lock")
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to release Wi-Fi lock: ${e.message}")
+        }
+        wifiLock = null
         isStopping = false
     }
 }

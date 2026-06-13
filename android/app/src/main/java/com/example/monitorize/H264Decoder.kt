@@ -25,7 +25,7 @@ class H264Decoder(private val surface: Surface) {
 
     
     
-    private val POOL_SIZE = 2
+    private val POOL_SIZE = 10
     private val chunkPool = ArrayBlockingQueue<FrameChunk>(POOL_SIZE)
     private val chunkQueue = LinkedBlockingQueue<FrameChunk>(POOL_SIZE)
     
@@ -118,7 +118,7 @@ class H264Decoder(private val surface: Surface) {
             buf.clear()
             val sz = chunk.size.coerceAtMost(buf.remaining())
             buf.put(chunk.data, 0, sz)
-            val pts = nextPts.getAndAdd(frameDurationUs)
+            val pts = System.nanoTime() / 1000
             mc.queueInputBuffer(idx, 0, sz, pts, 0)
         } catch (e: Exception) {}
     }
