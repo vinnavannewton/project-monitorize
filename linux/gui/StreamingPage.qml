@@ -205,6 +205,37 @@ Item {
                 }
             }
 
+            // Add / Remove Second Display button (KDE only)
+            Button {
+                text: backend.secondStreamActive ? "✕ Remove Display 2" : "➕ Add Display"
+                visible: backend.detectedDe === "kde"
+                onClicked: {
+                    if (backend.secondStreamActive) {
+                        backend.stopSecondStream()
+                    } else {
+                        addDisplayPopup.open()
+                    }
+                }
+                background: Rectangle {
+                    implicitWidth: 160
+                    implicitHeight: 38
+                    color: backend.secondStreamActive
+                        ? (parent.down ? "#5a1010" : (parent.hovered ? "#c42830" : "#a82028"))
+                        : (parent.down ? "#16182a" : (parent.hovered ? "#222540" : "#1a1c30"))
+                    border.color: backend.secondStreamActive ? "#c42830" : "#7c3aed"
+                    radius: 8
+                    Behavior on color { ColorAnimation { duration: 150 } }
+                }
+                contentItem: Text {
+                    text: parent.text
+                    color: backend.secondStreamActive ? "#ffffff" : "#a78bfa"
+                    font.pixelSize: 12
+                    font.weight: Font.Bold
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+            }
+
             Button {
                 text: "⏹ Stop Streaming"
                 onClicked: {
@@ -225,6 +256,137 @@ Item {
                     font.weight: Font.Bold
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
+                }
+            }
+        }
+    }
+
+    // ──── Add Display Popup (KDE only) ────
+    Popup {
+        id: addDisplayPopup
+        modal: true
+        x: (page.width - width) / 2
+        y: (page.height - height) / 2
+        width: 460
+        height: popupContent.implicitHeight + 60
+        padding: 0
+
+        background: Rectangle {
+            color: "#12142a"
+            border.color: "#2a2d55"
+            border.width: 1
+            radius: 14
+        }
+
+        // Dim overlay
+        Overlay.modal: Rectangle {
+            color: "#80000000"
+        }
+
+        ColumnLayout {
+            id: popupContent
+            anchors.fill: parent
+            anchors.margins: 24
+            spacing: 14
+
+            Text {
+                text: "Add Second Display"
+                font.pixelSize: 18
+                font.weight: Font.ExtraBold
+                color: "#e0e2ff"
+            }
+
+            Text {
+                text: "Spawns a second virtual monitor streamed on port 7114.\nA KDE source picker will appear — select 'TabletDisplay2'."
+                font.pixelSize: 12
+                color: "#6a6c96"
+                wrapMode: Text.Wrap
+                Layout.fillWidth: true
+            }
+
+            Rectangle { Layout.fillWidth: true; height: 1; color: "#1a1c30" }
+
+            // Settings grid
+            GridLayout {
+                columns: 2
+                columnSpacing: 16
+                rowSpacing: 10
+                Layout.fillWidth: true
+
+                Text { text: "Resolution:"; color: "#b0b2d0"; font.pixelSize: 13 }
+                CustomComboBox {
+                    id: s2ResCombo
+                    model: ["1280x720 (16:9)", "1280x800 (16:10)", "1920x1080 (16:9)", "1920x1200 (16:10)", "2560x1440 (16:9)", "2560x1600 (16:10)"]
+                    currentIndex: 2
+                }
+
+                Text { text: "FPS:"; color: "#b0b2d0"; font.pixelSize: 13 }
+                CustomComboBox {
+                    id: s2FpsCombo
+                    model: ["30", "60", "90", "120"]
+                    currentIndex: 1
+                }
+
+                Text { text: "Bitrate (kbps):"; color: "#b0b2d0"; font.pixelSize: 13 }
+                CustomTextField {
+                    id: s2BitrateField
+                    text: "8000"
+                    maximumLength: 5
+                }
+
+                Text { text: "Encoder:"; color: "#b0b2d0"; font.pixelSize: 13 }
+                CustomComboBox {
+                    id: s2EncoderCombo
+                    currentIndex: 2
+                    model: [
+                        "NVIDIA NVENC (nvh264enc)",
+                        "Intel/AMD VA-API (vah264enc)",
+                        "Software (CPU / x264enc)"
+                    ]
+                }
+            }
+
+            Item { Layout.preferredHeight: 6 }
+
+            // Action buttons
+            RowLayout {
+                spacing: 12
+                Layout.alignment: Qt.AlignRight
+
+                Button {
+                    text: "Cancel"
+                    onClicked: addDisplayPopup.close()
+                    background: Rectangle {
+                        implicitWidth: 90
+                        implicitHeight: 36
+                        color: "transparent"
+                        border.color: "#2a2d55"
+                        radius: 8
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: "#6a6c90"
+                        font.pixelSize: 13
+                        font.weight: Font.Bold
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                }
+
+                CustomButton {
+                    text: "▶  Start Display 2"
+                    implicitWidth: 170
+                    implicitHeight: 36
+                    onClicked: {
+                        let cleanRes = s2ResCombo.currentText.split(" ")[0]
+                        backend.startSecondStream(
+                            cleanRes,
+                            s2FpsCombo.currentText,
+                            s2BitrateField.text,
+                            s2EncoderCombo.currentText
+                        )
+                        addDisplayPopup.close()
+                    }
                 }
             }
         }

@@ -17,13 +17,14 @@ HEIGHT  = int(sys.argv[2]) if len(sys.argv) > 2 else 1600
 FPS     = int(sys.argv[3]) if len(sys.argv) > 3 else 60
 BITRATE = int(sys.argv[4]) if len(sys.argv) > 4 else 8000
 MODE    = sys.argv[5] if len(sys.argv) > 5 else "usb"
+PORT_OVERRIDE = int(sys.argv[6]) if len(sys.argv) > 6 else None
 
 server_mode = (MODE == "wifi")
 host = "0.0.0.0" if server_mode else "127.0.0.1"
 
-PORT    = 7110 if server_mode else 7112
+PORT    = PORT_OVERRIDE if PORT_OVERRIDE else (7110 if server_mode else 7112)
 
-print(f"[Streamer KDE] Resolution={WIDTH}x{HEIGHT}  FPS={FPS}  Bitrate={BITRATE}  Mode={MODE}")
+print(f"[Streamer KDE] Resolution={WIDTH}x{HEIGHT}  FPS={FPS}  Bitrate={BITRATE}  Mode={MODE}  Port={PORT}")
 
 
 HW_ENCODER = get_encoder(os.environ.get("MONITORIZE_ENCODER", "cpu"))

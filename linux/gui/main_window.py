@@ -49,6 +49,9 @@ class MonitorizeWindow(QMainWindow):
     discoveredDevicesChanged = pyqtSignal()
     receiverLogAppended = pyqtSignal(str)
 
+    
+    secondStreamActiveChanged = pyqtSignal(bool)
+
     def __init__(self):
         """Initialise the window, detect the desktop environment, set up
         the system tray, and load the QML interface."""
@@ -89,6 +92,12 @@ class MonitorizeWindow(QMainWindow):
         self._discovery_browser = None
         self._discovery_zc = None
         self.process_receiver: QProcess | None = None
+
+        
+        self._second_stream_active = False
+        self.process_krfb2:     QProcess | None = None
+        self.process_streamer2: QProcess | None = None
+        self._gst_pids2 = set()
         self._streaming_status = ""
 
         self.initial_headless_monitors = []
@@ -202,6 +211,10 @@ class MonitorizeWindow(QMainWindow):
     @pyqtProperty('QVariant', notify=discoveredDevicesChanged)
     def discoveredDevices(self):
         return self._discovered_devices
+
+    @pyqtProperty(bool, notify=secondStreamActiveChanged)
+    def secondStreamActive(self):
+        return self._second_stream_active
 
     
     def set_usb_status_text(self, text):
@@ -456,6 +469,138 @@ class MonitorizeWindow(QMainWindow):
         self.process_receiver = None
         
         subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*tcpclientsrc"], capture_output=True)
+
+    
+
+    @pyqtSlot(str, str, str, str)
+    def startSecondStream(self, res, fps, bitrate, encoder):
+        """Launch a second virtual monitor + streamer on port 7114 (KDE only)."""
+        if self._second_stream_active:
+            return
+
+        try:
+            clean_res = res.split()[0] if res else ""
+            s2_w, s2_h = map(int, clean_res.split("x"))
+        except ValueError:
+            s2_w, s2_h = 1920, 1200
+        s2_fps = int(fps)
+        s2_bitrate = int(bitrate)
+
+        
+        env = QProcessEnvironment.systemEnvironment()
+        env.insert("PYTHONUNBUFFERED", "1")
+        encoder_map = {
+            "NVIDIA NVENC (nvh264enc)": "nvidia",
+            "Intel/AMD VA-API (vah264enc)": "vaapi",
+            "Software (CPU / x264enc)": "cpu"
+        }
+        pref = encoder_map.get(encoder, "cpu")
+        env.insert("MONITORIZE_ENCODER", pref)
+
+        self._s2_w = s2_w
+        self._s2_h = s2_h
+        self._s2_fps = s2_fps
+        self._s2_bitrate = s2_bitrate
+        self._s2_env = env
+
+        self._second_stream_active = True
+        self.secondStreamActiveChanged.emit(True)
+
+        self.append_log("STREAMER", f"[Display 2] Spawning virtual monitor: {s2_w}x{s2_h}")
+
+        
+        self.process_krfb2 = QProcess(self)
+        self.process_krfb2.setWorkingDirectory(LINUX_DIR)
+        self.process_krfb2.setProcessEnvironment(env)
+        self.process_krfb2.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+        self.process_krfb2.readyReadStandardOutput.connect(self._read_krfb2)
+        self.process_krfb2.finished.connect(
+            lambda code, _: self.append_log("STREAMER", f"[Display 2] KRFB exited (code {code})")
+        )
+
+        self.process_krfb2.start("krfb-virtualmonitor", [
+            "--resolution", f"{s2_w}x{s2_h}",
+            "--name",       "TabletDisplay2",
+            "--password",   "test123",
+            "--port",       "5901",
+        ])
+
+        
+        QTimer.singleShot(5000, self._launch_second_streamer)
+
+    def _read_krfb2(self):
+        if self.process_krfb2 is None:
+            return
+        raw = bytes(self.process_krfb2.readAllStandardOutput()).decode("utf-8", errors="replace")
+        self.append_log("STREAMER", f"[Display 2 KRFB] {raw}")
+
+    def _launch_second_streamer(self):
+        """Launch second Streamer_kde.py on port 7114."""
+        if not self._second_stream_active:
+            return
+
+        self.process_streamer2 = QProcess(self)
+        self.process_streamer2.setWorkingDirectory(LINUX_DIR)
+        self.process_streamer2.setProcessEnvironment(self._s2_env)
+        self.process_streamer2.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+        self.process_streamer2.readyReadStandardOutput.connect(self._read_streamer2)
+        self.process_streamer2.finished.connect(self._on_streamer2_finished)
+
+        script_path = os.path.join(LINUX_DIR, "Streamer_kde.py")
+        args = [
+            script_path,
+            str(self._s2_w),
+            str(self._s2_h),
+            str(self._s2_fps),
+            str(self._s2_bitrate),
+            "wifi",
+            "7114",  
+        ]
+        self.process_streamer2.start(sys.executable, args)
+        self.append_log("STREAMER", "[Display 2] Streamer launched on port 7114. Select 'TabletDisplay2' in the KDE picker.")
+
+    def _read_streamer2(self):
+        if self.process_streamer2 is None:
+            return
+        raw = bytes(self.process_streamer2.readAllStandardOutput()).decode("utf-8", errors="replace")
+        self.append_log("STREAMER", f"[Display 2] {raw}")
+        for line in raw.splitlines():
+            if "[GStreamer] PID:" in line:
+                try:
+                    pid = int(line.split("PID:")[1].strip())
+                    self._gst_pids2.add(pid)
+                    print(f"[GUI] Tracked GStreamer PID (Display 2): {pid}")
+                except Exception:
+                    pass
+
+    def _on_streamer2_finished(self, code, _status):
+        self.append_log("STREAMER", f"[Display 2] Streamer exited (code {code})")
+
+    @pyqtSlot()
+    def stopSecondStream(self):
+        """Stop the second display stream."""
+        self._kill_second_stream_procs()
+        self._second_stream_active = False
+        self.secondStreamActiveChanged.emit(False)
+        self.append_log("STREAMER", "[Display 2] Stopped.")
+
+    def _kill_second_stream_procs(self):
+        """Terminate second display processes."""
+        for proc in (self.process_krfb2, self.process_streamer2):
+            if proc is not None and proc.state() != QProcess.ProcessState.NotRunning:
+                proc.terminate()
+                if not proc.waitForFinished(3000):
+                    proc.kill()
+        self.process_krfb2 = None
+        self.process_streamer2 = None
+
+        for pid in list(self._gst_pids2):
+            try:
+                os.kill(pid, 9)
+            except OSError:
+                pass
+        self._gst_pids2.clear()
+        subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7114"], capture_output=True)
 
     @pyqtSlot(str, str, str, str, str, bool)
     def startStreaming(self, res, fps, bitrate, display_type, encoder, is_wifi):
@@ -749,6 +894,12 @@ class MonitorizeWindow(QMainWindow):
         self._countdown_timer.stop()
         self._countdown = 0
 
+        
+        if self._second_stream_active:
+            self._kill_second_stream_procs()
+            self._second_stream_active = False
+            self.secondStreamActiveChanged.emit(False)
+
         for proc in (self.process_krfb, self.process_streamer, self.process_input_bridge):
             if proc is not None and proc.state() != QProcess.ProcessState.NotRunning:
                 proc.terminate()
@@ -767,6 +918,7 @@ class MonitorizeWindow(QMainWindow):
         self._gst_pids.clear()
         subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7110"], capture_output=True)
         subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7112"], capture_output=True)
+        subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7114"], capture_output=True)
 
         if self._detected_de == "hyprland" and getattr(self, "created_headless_monitor", None):
             print(f"[Hyprland] Removing created headless monitor: {self.created_headless_monitor}")
