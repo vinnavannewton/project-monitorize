@@ -416,9 +416,9 @@ class MonitorizeWindow(QMainWindow):
         pipeline = (
             f"gst-launch-1.0 -e "
             f"tcpclientsrc host={host_ip} port=7110 ! "
-            f"queue max-size-buffers=1 leaky=downstream ! "
             f"h264parse ! "
             f"avdec_h264 ! "
+            f"queue max-size-buffers=2 leaky=downstream ! "
             f"videoconvert ! "
             f"autovideosink sync=false"
         )
