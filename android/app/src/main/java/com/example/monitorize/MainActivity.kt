@@ -37,6 +37,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.zIndex
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -96,12 +97,14 @@ class MainActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         setContent {
+            val configuration = LocalConfiguration.current
+            val isTablet = configuration.smallestScreenWidthDp >= 600
+
             var currentScreen by remember { mutableStateOf(Screen.Home) }
             var isSettingsOpen by remember { mutableStateOf(false) }
 
             var width by remember { mutableIntStateOf(prefs.getInt("width", 1280)) }
             var height by remember { mutableIntStateOf(prefs.getInt("height", 800)) }
-            var fps by remember { mutableIntStateOf(prefs.getInt("fps", 60)) }
             
             var selectedDevice by remember { mutableStateOf<DiscoveredDevice?>(null) }
             var disconnectionMessage by remember { mutableStateOf<String?>(
@@ -127,6 +130,7 @@ class MainActivity : ComponentActivity() {
                                 HomeScreen(
                                     devices = discovery.devices,
                                     onDeviceSelected = { device ->
+                                        discovery.stopDiscovery()
                                         selectedDevice = device
                                         currentScreen = Screen.Receive
                                         disconnectionMessage = null 
@@ -140,7 +144,6 @@ class MainActivity : ComponentActivity() {
                                     hostIp = if (selectedDevice?.isUsb == true) "" else selectedDevice?.ip ?: "",
                                     width = width,
                                     height = height,
-                                    fps = fps,
                                     status = status.value,
                                     onBack = {
                                         coroutineScope.launch {
@@ -148,11 +151,11 @@ class MainActivity : ComponentActivity() {
                                         }
                                         triggerAppRestart(showDisconnected = true)
                                     },
-                                    onSurfaceCreated = { ip, surface, w, h, f ->
+                                    onSurfaceCreated = { ip, surface, w, h ->
                                         coroutineScope.launch {
                                             
                                             kotlinx.coroutines.delay(400)
-                                            startStream(ip, surface, w, h, f) {
+                                            startStream(ip, surface, w, h) {
                                                 runOnUiThread {
                                                     coroutineScope.launch { stopStream() }
                                                     triggerAppRestart(showDisconnected = true)
@@ -175,14 +178,15 @@ class MainActivity : ComponentActivity() {
                             exit = slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(300)),
                             modifier = Modifier.align(Alignment.CenterEnd).zIndex(10f)
                         ) {
-                            Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(0.45f).background(CardDark).border(1.dp, BorderDark)) {
+                            val panelWidthFraction = if (isTablet) 0.45f else 0.85f
+
+                            Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(panelWidthFraction).background(CardDark).border(1.dp, BorderDark)) {
                                 SettingsPanel(
                                     initialWidth = width,
                                     initialHeight = height,
-                                    initialFps = fps,
-                                    onSave = { w, h, f ->
-                                        if (w != width || h != height || f != fps) {
-                                            prefs.edit().putInt("width", w).putInt("height", h).putInt("fps", f).apply()
+                                    onSave = { w, h ->
+                                        if (w != width || h != height) {
+                                            prefs.edit().putInt("width", w).putInt("height", h).apply()
                                             isSettingsOpen = false
                                             triggerAppRestart(showDisconnected = false)
                                         } else {
@@ -250,16 +254,21 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onStop() {
+        super.onStop()
+        discovery.stopDiscovery()
+    }
+
     private fun applyImmersiveMode() {
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
         windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     }
 
-    private fun startStream(hostIp: String, surface: Surface, width: Int, height: Int, fps: Int, onDisconnect: () -> Unit) {
+    private fun startStream(hostIp: String, surface: Surface, width: Int, height: Int, onDisconnect: () -> Unit) {
         val d = H264Decoder(surface)
         decoder = d
-        receiver = StreamReceiver(d, width, height, fps, hostIp.takeIf { it.isNotBlank() }).also {
+        receiver = StreamReceiver(d, width, height, hostIp.takeIf { it.isNotBlank() }).also {
             it.onStatusChange = { msg -> runOnUiThread { status.value = msg } }
             it.onDisconnect = onDisconnect
             it.start()
@@ -291,33 +300,68 @@ fun HomeScreen(
     onSettingsToggle: () -> Unit,
     onStartDiscovery: () -> Unit = {}
 ) {
+    val configuration = LocalConfiguration.current
+    val isTablet = configuration.smallestScreenWidthDp >= 600
+    val isLandscapeMobile = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE && !isTablet
+
+    val horizontalPadding = if (isTablet) 48.dp else 16.dp
+    val topSpacerHeight = when {
+        isTablet -> 100.dp
+        isLandscapeMobile -> 12.dp
+        else -> 32.dp
+    }
+    val devicesSpacing = if (isLandscapeMobile) 6.dp else 10.dp
+    val settingsButtonPadding = if (isLandscapeMobile) 12.dp else 24.dp
+    val manualRowPadding = if (isLandscapeMobile) 12.dp else 32.dp
+    val manualSpacerHeight = if (isLandscapeMobile) 4.dp else 8.dp
+    val manualFieldHeight = if (isLandscapeMobile) 48.dp else 56.dp
+
     LaunchedEffect(Unit) {
         onStartDiscovery()
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        
         IconButton(
             onClick = onSettingsToggle,
-            modifier = Modifier.align(Alignment.TopEnd).padding(24.dp).size(48.dp).background(CardDark, CircleShape)
+            modifier = Modifier.align(Alignment.TopEnd).padding(settingsButtonPadding).size(48.dp).background(CardDark, CircleShape)
         ) {
             Icon(Icons.Default.Settings, contentDescription = "Settings", tint = TextPrimary)
         }
 
         Column(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 48.dp)
+            modifier = Modifier.fillMaxSize().padding(horizontal = horizontalPadding)
         ) {
-            Spacer(modifier = Modifier.height(100.dp))
+            Spacer(modifier = Modifier.height(topSpacerHeight))
             
-            
-            Text(
-                "DEVICES:",
-                fontSize = 11.sp,
-                color = TextMuted,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 2.sp
-            )
-            Spacer(modifier = Modifier.height(24.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "DEVICES:",
+                    fontSize = 11.sp,
+                    color = TextMuted,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 2.sp
+                )
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(AccentIndigo.copy(alpha = 0.15f))
+                        .border(1.dp, AccentIndigo.copy(alpha = 0.4f), RoundedCornerShape(6.dp))
+                        .clickable { onStartDiscovery() }
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = "REFRESH",
+                        color = AccentIndigo,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(devicesSpacing))
 
             if (devices.isEmpty()) {
                 Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -331,7 +375,7 @@ fun HomeScreen(
             } else {
                 LazyColumn(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(devicesSpacing),
                     contentPadding = PaddingValues(bottom = 16.dp)
                 ) {
                     items(devices) { device ->
@@ -340,18 +384,17 @@ fun HomeScreen(
                 }
             }
             
-            
             var manualIp by remember { mutableStateOf("") }
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(manualSpacerHeight))
             Row(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = manualRowPadding),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 OutlinedTextField(
                     value = manualIp,
                     onValueChange = { manualIp = it },
                     placeholder = { Text("Enter IP manually", color = TextMuted) },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).height(manualFieldHeight),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = AccentIndigo,
@@ -365,7 +408,7 @@ fun HomeScreen(
                             onDeviceSelected(DiscoveredDevice(name = "Manual WiFi", ip = manualIp.trim(), port = 7110, isUsb = false))
                         }
                     },
-                    modifier = Modifier.height(56.dp),
+                    modifier = Modifier.height(manualFieldHeight),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = GreenAccent)
                 ) {
@@ -378,6 +421,14 @@ fun HomeScreen(
 
 @Composable
 fun DeviceItem(device: DiscoveredDevice, onClick: () -> Unit) {
+    val configuration = LocalConfiguration.current
+    val isTablet = configuration.smallestScreenWidthDp >= 600
+    val isLandscapeMobile = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE && !isTablet
+
+    val verticalPadding = if (isLandscapeMobile) 10.dp else 18.dp
+    val horizontalPadding = if (isLandscapeMobile) 14.dp else 18.dp
+    val titleFontSize = if (isLandscapeMobile) 16.sp else 18.sp
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -385,16 +436,15 @@ fun DeviceItem(device: DiscoveredDevice, onClick: () -> Unit) {
             .background(CardDark)
             .border(1.dp, BorderDark, RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
-            .padding(18.dp),
+            .padding(horizontal = horizontalPadding, vertical = verticalPadding),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            
             Text(
                 device.name, 
                 color = TextPrimary, 
                 fontWeight = FontWeight.Bold, 
-                fontSize = 18.sp
+                fontSize = titleFontSize
             )
             
             Text(
@@ -421,63 +471,203 @@ fun DeviceItem(device: DiscoveredDevice, onClick: () -> Unit) {
     }
 }
 
+@Composable
+fun ResolutionCard(
+    title: String,
+    subtitle: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) AccentIndigo.copy(alpha = 0.15f) else CardDark
+        ),
+        border = BorderStroke(
+            width = if (isSelected) 2.dp else 1.dp,
+            color = if (isSelected) AccentIndigo else BorderDark
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = title,
+                color = if (isSelected) Color.White else TextPrimary,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = subtitle,
+                color = TextSecondary,
+                fontSize = 13.sp
+            )
+        }
+    }
+}
+
+private data class SettingsMetrics(
+    val nativeW: Int,
+    val nativeH: Int,
+    val mediumW: Int,
+    val mediumH: Int,
+    val lowW: Int,
+    val lowH: Int,
+    val initialSelected: String
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsPanel(
     initialWidth: Int,
     initialHeight: Int,
-    initialFps: Int,
-    onSave: (Int, Int, Int) -> Unit,
+    onSave: (Int, Int) -> Unit,
     onClose: () -> Unit
 ) {
-    var wText by remember { mutableStateOf(initialWidth.toString()) }
-    var hText by remember { mutableStateOf(initialHeight.toString()) }
-    var fText by remember { mutableStateOf(initialFps.toString()) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val metrics = remember(context, initialWidth, initialHeight) {
+        val wm = context.getSystemService(android.content.Context.WINDOW_SERVICE) as android.view.WindowManager
+        val (rawW, rawH) = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            val bounds = wm.maximumWindowMetrics.bounds
+            Pair(bounds.width(), bounds.height())
+        } else {
+            val dm = android.util.DisplayMetrics()
+            @Suppress("DEPRECATION")
+            wm.defaultDisplay.getRealMetrics(dm)
+            Pair(dm.widthPixels, dm.heightPixels)
+        }
+        val nativeW = maxOf(rawW, rawH)
+        val nativeH = minOf(rawW, rawH)
+
+        fun getNearestMultipleOf16(value: Int): Int {
+            return ((value + 8) / 16) * 16
+        }
+
+        val mediumW = getNearestMultipleOf16((nativeW * 0.75f).toInt())
+        val mediumH = getNearestMultipleOf16((nativeH * 0.75f).toInt())
+        val lowW = getNearestMultipleOf16((nativeW * 0.5f).toInt())
+        val lowH = getNearestMultipleOf16((nativeH * 0.5f).toInt())
+
+        val initialSelected = when {
+            initialWidth == nativeW && initialHeight == nativeH -> "native"
+            initialWidth == mediumW && initialHeight == mediumH -> "medium"
+            initialWidth == lowW && initialHeight == lowH -> "low"
+            else -> "custom"
+        }
+        SettingsMetrics(nativeW, nativeH, mediumW, mediumH, lowW, lowH, initialSelected)
+    }
+
+    val nativeW = metrics.nativeW
+    val nativeH = metrics.nativeH
+    val mediumW = metrics.mediumW
+    val mediumH = metrics.mediumH
+    val lowW = metrics.lowW
+    val lowH = metrics.lowH
+    val initialSelected = metrics.initialSelected
+
+    var selectedOption by remember { mutableStateOf(initialSelected) }
+    var customWidthText by remember { mutableStateOf(if (initialSelected == "custom") initialWidth.toString() else "") }
+    var customHeightText by remember { mutableStateOf(if (initialSelected == "custom") initialHeight.toString() else "") }
+
+    val configuration = LocalConfiguration.current
+    val isTablet = configuration.smallestScreenWidthDp >= 600
+    val panelPadding = if (isTablet) 28.dp else 16.dp
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(28.dp)
+            .padding(panelPadding)
             .verticalScroll(rememberScrollState())
     ) {
-        Text("Current Settings", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-        Spacer(modifier = Modifier.height(32.dp))
+        Text("Resolution Settings", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+        Spacer(modifier = Modifier.height(24.dp))
 
-        OutlinedTextField(
-            value = wText, onValueChange = { wText = it },
-            label = { Text("Stream Width") },
-            modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentIndigo, unfocusedBorderColor = BorderDark)
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        OutlinedTextField(
-            value = hText, onValueChange = { hText = it },
-            label = { Text("Stream Height") },
-            modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentIndigo, unfocusedBorderColor = BorderDark)
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        OutlinedTextField(
-            value = fText, onValueChange = { fText = it },
-            label = { Text("Stream FPS") },
-            modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentIndigo, unfocusedBorderColor = BorderDark)
+        ResolutionCard(
+            title = "Native",
+            subtitle = "${nativeW} × ${nativeH} (Tablet Screen)",
+            isSelected = selectedOption == "native",
+            onClick = { selectedOption = "native" }
         )
 
-        Spacer(modifier = Modifier.weight(1f))
-        Spacer(modifier = Modifier.height(40.dp))
+        ResolutionCard(
+            title = "Medium",
+            subtitle = "${mediumW} × ${mediumH} (0.75x Scale)",
+            isSelected = selectedOption == "medium",
+            onClick = { selectedOption = "medium" }
+        )
+
+        ResolutionCard(
+            title = "Low",
+            subtitle = "${lowW} × ${lowH} (0.5x Scale)",
+            isSelected = selectedOption == "low",
+            onClick = { selectedOption = "low" }
+        )
+
+        ResolutionCard(
+            title = "Custom",
+            subtitle = "Manually enter dimensions",
+            isSelected = selectedOption == "custom",
+            onClick = { selectedOption = "custom" }
+        )
+
+        AnimatedVisibility(visible = selectedOption == "custom") {
+            Column {
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = customWidthText,
+                    onValueChange = { customWidthText = it },
+                    label = { Text("Stream Width") },
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AccentIndigo,
+                        unfocusedBorderColor = BorderDark
+                    )
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = customHeightText,
+                    onValueChange = { customHeightText = it },
+                    label = { Text("Stream Height") },
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AccentIndigo,
+                        unfocusedBorderColor = BorderDark
+                    )
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
 
         Button(
             onClick = {
-                onSave(wText.toIntOrNull() ?: 1280, hText.toIntOrNull() ?: 800, fText.toIntOrNull() ?: 60)
+                val finalW = when (selectedOption) {
+                    "native" -> nativeW
+                    "medium" -> mediumW
+                    "low" -> lowW
+                    else -> customWidthText.toIntOrNull() ?: 1280
+                }
+                val finalH = when (selectedOption) {
+                    "native" -> nativeH
+                    "medium" -> mediumH
+                    "low" -> lowH
+                    else -> customHeightText.toIntOrNull() ?: 800
+                }
+                onSave(finalW, finalH)
             },
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = AccentIndigo)
-        ) { Text("SAVE & APPLY", fontWeight = FontWeight.Bold) }
+        ) {
+            Text("SAVE & APPLY", fontWeight = FontWeight.Bold)
+        }
         
         TextButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
             Text("DISCARD", color = TextSecondary)
@@ -490,10 +680,9 @@ fun ReceiveScreen(
     hostIp: String,
     width: Int,
     height: Int,
-    fps: Int,
     status: String,
     onBack: () -> Unit,
-    onSurfaceCreated: (String, Surface, Int, Int, Int) -> Unit,
+    onSurfaceCreated: (String, Surface, Int, Int) -> Unit,
     onSurfaceDestroyed: () -> Unit,
     onInputEvent: (android.view.MotionEvent, Float, Float) -> Unit
 ) {
@@ -509,7 +698,6 @@ fun ReceiveScreen(
                 modifier = Modifier.fillMaxSize(),
                 width = width,
                 height = height,
-                fps = fps,
                 hostIp = hostIp,
                 onSurfaceCreated = onSurfaceCreated,
                 onSurfaceDestroyed = onSurfaceDestroyed,
@@ -539,9 +727,8 @@ fun StreamSurface(
     modifier: Modifier,
     width: Int,
     height: Int,
-    fps: Int,
     hostIp: String,
-    onSurfaceCreated: (String, Surface, Int, Int, Int) -> Unit,
+    onSurfaceCreated: (String, Surface, Int, Int) -> Unit,
     onSurfaceDestroyed: () -> Unit,
     onInputEvent: (android.view.MotionEvent, Float, Float) -> Unit
 ) {
@@ -552,7 +739,7 @@ fun StreamSurface(
                 holder.addCallback(object : SurfaceHolder.Callback {
                     override fun surfaceCreated(holder: SurfaceHolder) {
                         holder.setFixedSize(width, height)
-                        onSurfaceCreated(hostIp, holder.surface, width, height, fps)
+                        onSurfaceCreated(hostIp, holder.surface, width, height)
                     }
                     override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, ht: Int) {}
                     override fun surfaceDestroyed(h: SurfaceHolder) { onSurfaceDestroyed() }

@@ -11,6 +11,31 @@ import java.net.InetAddress
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
+import java.util.concurrent.atomic.AtomicInteger
+
+class ByteArrayPool(private val itemSize: Int) {
+    private val pool = java.util.concurrent.ConcurrentLinkedQueue<ByteArray>()
+    private val poolSize = AtomicInteger(0)
+
+    fun obtain(): ByteArray {
+        val fromPool = pool.poll()
+        return if (fromPool != null) {
+            poolSize.decrementAndGet()
+            fromPool
+        } else {
+            ByteArray(itemSize)
+        }
+    }
+
+    fun recycle(array: ByteArray) {
+        
+        if (poolSize.get() < 32) {
+            if (pool.offer(array)) {
+                poolSize.incrementAndGet()
+            }
+        }
+    }
+}
 
 class InputEventSender(
     private val hostIp: String? = null
@@ -25,6 +50,7 @@ class InputEventSender(
     private var udpSocket: DatagramSocket? = null
     private var out: OutputStream? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val pool = ByteArrayPool(18)
     private val sendChannel = Channel<ByteArray>(capacity = 256, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
     fun start() {
@@ -66,6 +92,7 @@ class InputEventSender(
                     for (frame in sendChannel) {
                         val packet = DatagramPacket(frame, frame.size, addr, PORT_UDP)
                         udpSocket?.send(packet)
+                        pool.recycle(frame)
                     }
                 } catch (e: Exception) {
                     android.util.Log.e("InputEventSender", "UDP error", e)
@@ -87,6 +114,7 @@ class InputEventSender(
                             socket = null
                         }
                     }
+                    pool.recycle(frame)
                 }
             }
         }
@@ -145,20 +173,31 @@ class InputEventSender(
                     .toInt().coerceIn(-9000, 9000).toShort()
         val btnState = event.buttonState.toShort()
 
-        val frame = ByteBuffer.allocate(18).order(ByteOrder.BIG_ENDIAN).apply {
-            putInt(13)
-            put(pktType)
-            put(action.toByte())
-            put(tool)
-            put(contactId)
-            putShort(x)
-            putShort(y)
-            putShort(pr)
-            putShort(tx)
-            putShort(btnState)
-        }.array()
+        val frame = pool.obtain()
+        frame[0] = 0
+        frame[1] = 0
+        frame[2] = 0
+        frame[3] = 13
+        frame[4] = pktType
+        frame[5] = action.toByte()
+        frame[6] = tool
+        frame[7] = contactId
+        
+        frame[8] = (x.toInt() shr 8).toByte()
+        frame[9] = x.toByte()
+        frame[10] = (y.toInt() shr 8).toByte()
+        frame[11] = y.toByte()
+        frame[12] = (pr.toInt() shr 8).toByte()
+        frame[13] = pr.toByte()
+        frame[14] = (tx.toInt() shr 8).toByte()
+        frame[15] = tx.toByte()
+        frame[16] = (btnState.toInt() shr 8).toByte()
+        frame[17] = btnState.toByte()
 
-        sendChannel.trySend(frame)
+        val sent = sendChannel.trySend(frame)
+        if (!sent.isSuccess) {
+            pool.recycle(frame)
+        }
     }
 
     fun stop() {

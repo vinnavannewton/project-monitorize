@@ -36,15 +36,19 @@ class DeviceDiscovery(private val context: Context) {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private var resolveChannel: Channel<NsdServiceInfo>? = null
+    var isDiscovering = false
+        private set
+    private var harvestJob: Job? = null
 
     fun startDiscovery() {
         Log.d(TAG, "startDiscovery() called")
         stopDiscovery()
+        isDiscovering = true
         
         
         try {
             multicastLock = wifiManager.createMulticastLock("monitorize_discovery").apply {
-                setReferenceCounted(true)
+                setReferenceCounted(false)
                 acquire()
             }
         } catch (e: Exception) {
@@ -69,20 +73,16 @@ class DeviceDiscovery(private val context: Context) {
         startResolverJob(channel)
 
         
-        val harvestTypes = listOf(
-            SERVICE_TYPE,
-            "_workstation._tcp.", 
-            "_googlecast._tcp.", 
-            "_ssh._tcp.",
-            "_http._tcp.",
-            "_ipp._tcp.",
-            "_kdeconnect._udp."
-        )
+        val harvestTypes = listOf(SERVICE_TYPE)
         
-        harvestTypes.forEachIndexed { index, type ->
-            scope.launch {
-                delay(index * 150L) 
-                startNsdDiscovery(type)
+        harvestJob = scope.launch {
+            harvestTypes.forEachIndexed { index, type ->
+                launch {
+                    delay(500L + index * 150L) 
+                    if (isDiscovering) {
+                        startNsdDiscovery(type)
+                    }
+                }
             }
         }
 
@@ -184,23 +184,20 @@ class DeviceDiscovery(private val context: Context) {
                         
                         
                         
-                        val ports = listOf(DEFAULT_PORT, 22, 80, 1714, 5555)
+                        val ports = listOf(DEFAULT_PORT, 1714, 22, 80, 53)
                         var foundAlive = false
                         var isOurPort = false
                         
-                        for (port in ports) {
-                            if (isPortOpen(targetIp, port, 450)) {
+                        val checks = ports.map { port ->
+                            async { port to isPortOpen(targetIp, port, 300) }
+                        }.awaitAll()
+                        
+                        for ((port, open) in checks) {
+                            if (open) {
                                 foundAlive = true
                                 if (port == DEFAULT_PORT) isOurPort = true
                                 break
                             }
-                        }
-                        
-                        if (!foundAlive) {
-                            try {
-                                val inet = InetAddress.getByName(targetIp)
-                                if (inet.isReachable(600)) foundAlive = true
-                            } catch (_: Exception) {}
                         }
 
                         if (foundAlive) {
@@ -226,9 +223,11 @@ class DeviceDiscovery(private val context: Context) {
     }
 
     private fun addDevice(newDevice: DiscoveredDevice) {
+        if (!isDiscovering) return
         if (newDevice.ip == "127.0.0.1" && !newDevice.isUsb) return
         
         scope.launch(Dispatchers.Main) {
+            if (!isDiscovering) return@launch
             val index = devices.indexOfFirst { it.ip == newDevice.ip }
             if (index != -1) {
                 val existing = devices[index]
@@ -280,11 +279,40 @@ class DeviceDiscovery(private val context: Context) {
                 }
             }
         } catch (_: Exception) {}
+
+        
+        try {
+            val interfaces = NetworkInterface.getNetworkInterfaces()
+            var fallbackAddr: String? = null
+            for (intf in Collections.list(interfaces)) {
+                if (!intf.isUp || intf.isLoopback) continue
+                val name = intf.name.lowercase()
+                val isWifiOrEthernet = name.contains("wlan") || name.contains("ap") || name.contains("p2p") || name.contains("eth")
+                
+                val addrs = intf.inetAddresses
+                for (addr in Collections.list(addrs)) {
+                    if (!addr.isLoopbackAddress && addr is Inet4Address) {
+                        val ip = addr.hostAddress
+                        if (isWifiOrEthernet) {
+                            return ip 
+                        } else if (fallbackAddr == null) {
+                            fallbackAddr = ip
+                        }
+                    }
+                }
+            }
+            if (fallbackAddr != null) return fallbackAddr
+        } catch (e: Exception) {
+            Log.e(TAG, "Error fallback getting network interfaces", e)
+        }
         return null
     }
 
     fun stopDiscovery() {
         Log.d(TAG, "stopDiscovery() called")
+        isDiscovering = false
+        harvestJob?.cancel()
+        harvestJob = null
         discoveryListeners.forEach { try { nsdManager.stopServiceDiscovery(it) } catch (_: Exception) {} }
         discoveryListeners.clear()
         scanJob?.cancel()
