@@ -56,7 +56,8 @@ class MonitorizeWindow(QMainWindow):
             self.setWindowIcon(QIcon(app_icon_path))
 
         
-        subprocess.Popen(["killall", "-9", "gst-launch-1.0"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.Popen(["pkill", "-9", "-f", "gst-launch-1.0.*port=7110"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.Popen(["pkill", "-9", "-f", "gst-launch-1.0.*port=7112"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         subprocess.Popen(["pkill", "-9", "-f", "Streamer_.*\\.py"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
         
@@ -83,6 +84,7 @@ class MonitorizeWindow(QMainWindow):
         self.process_krfb:          QProcess | None = None
         self.process_streamer:      QProcess | None = None
         self.process_input_bridge:  QProcess | None = None
+        self._gst_pids = set()
 
         self._proc_adb_dev:  QProcess | None = None
         self._proc_adb_fwd:  QProcess | None = None
@@ -290,7 +292,8 @@ class MonitorizeWindow(QMainWindow):
         appropriate DE-specific streamer subprocess."""
         self._is_wifi = is_wifi
         try:
-            self._stream_width, self._stream_height = map(int, res.split("x"))
+            clean_res = res.split()[0] if res else ""
+            self._stream_width, self._stream_height = map(int, clean_res.split("x"))
         except ValueError:
             self._stream_width, self._stream_height = 1920, 1200
         self._stream_fps = int(fps)
@@ -323,7 +326,14 @@ class MonitorizeWindow(QMainWindow):
         self._env        = env
 
         
-        subprocess.run(["killall", "-9", "gst-launch-1.0"], capture_output=True)
+        for pid in list(self._gst_pids):
+            try:
+                os.kill(pid, 9)
+            except OSError:
+                pass
+        self._gst_pids.clear()
+        subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7110"], capture_output=True)
+        subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7112"], capture_output=True)
         subprocess.run(["pkill", "-9", "-f", "Streamer_.*\\.py"], capture_output=True)
 
         self._cleanup_zeroconf()
@@ -491,7 +501,14 @@ class MonitorizeWindow(QMainWindow):
     def _gnome_restart_streamer(self):
         if not self.isStreaming:
             return
-        subprocess.run(["killall", "-9", "gst-launch-1.0"], capture_output=True)
+        for pid in list(self._gst_pids):
+            try:
+                os.kill(pid, 9)
+            except OSError:
+                pass
+        self._gst_pids.clear()
+        subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7110"], capture_output=True)
+        subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7112"], capture_output=True)
         self._launch_streamer()
         self.set_streaming_status("Status: Streaming…  (restarted)")
 
@@ -511,6 +528,16 @@ class MonitorizeWindow(QMainWindow):
             return
         raw = bytes(self.process_streamer.readAllStandardOutput()).decode("utf-8", errors="replace")
         self.append_log("STREAMER", raw)
+
+        
+        for line in raw.splitlines():
+            if "[GStreamer] PID:" in line:
+                try:
+                    pid = int(line.split("PID:")[1].strip())
+                    self._gst_pids.add(pid)
+                    print(f"[GUI] Tracked GStreamer PID: {pid}")
+                except Exception:
+                    pass
 
         if self._detected_de == "hyprland":
             if not getattr(self, "_input_bridge_launched", False):
@@ -562,6 +589,16 @@ class MonitorizeWindow(QMainWindow):
         self.process_streamer      = None
         self.process_input_bridge  = None
 
+        
+        for pid in list(self._gst_pids):
+            try:
+                os.kill(pid, 9)
+            except OSError:
+                pass
+        self._gst_pids.clear()
+        subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7110"], capture_output=True)
+        subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7112"], capture_output=True)
+
         if self._detected_de == "hyprland" and getattr(self, "created_headless_monitor", None):
             print(f"[Hyprland] Removing created headless monitor: {self.created_headless_monitor}")
             subprocess.run(["hyprctl", "output", "remove", self.created_headless_monitor], capture_output=True)
@@ -612,16 +649,18 @@ class MonitorizeWindow(QMainWindow):
 
     def _cleanup_zeroconf(self):
         """Clean up old registration and close Zeroconf instance if any."""
-        if hasattr(self, '_zc') and self._zc is not None:
-            if hasattr(self, '_info') and self._info is not None:
-                try:
-                    self._zc.unregister_service(self._info)
-                except Exception:
-                    pass
+        if self._zc is None:
+            return
+
+        if self._info is not None:
             try:
-                self._zc.close()
+                self._zc.unregister_service(self._info)
             except Exception:
                 pass
+        try:
+            self._zc.close()
+        except Exception:
+            pass
         self._zc = None
         self._info = None
 

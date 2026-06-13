@@ -10,7 +10,6 @@ class StreamReceiver(
     private val decoder: H264Decoder,
     private val width: Int,
     private val height: Int,
-    private val fps: Int,
     private val hostIp: String? = null
 ) {
     private var running = false
@@ -73,7 +72,7 @@ class StreamReceiver(
             controlSocket = socket
 
             onStatusChange?.invoke("Connected")
-            decoder.init(width, height, fps)
+            decoder.init(width, height)
             onStatusChange?.invoke("")
 
             processStreamLoop(socket.getInputStream(), streamType)

@@ -16,7 +16,31 @@ Item {
 
     Component.onCompleted: {
         let saved = backend.loadWifiSettings();
-        resCombo.currentIndex = resCombo.find(saved["resolution"] || "2560x1600");
+        let defaultRes = "2560x1600";
+        let savedRes = saved["resolution"] || defaultRes;
+        let foundIdx = -1;
+        let defaultIdx = -1;
+
+        for (let i = 0; i < resCombo.count; i++) {
+            let text = resCombo.textAt(i);
+            if (foundIdx === -1 && text.indexOf(savedRes) === 0) {
+                foundIdx = i;
+            }
+            if (defaultIdx === -1 && text.indexOf(defaultRes) === 0) {
+                defaultIdx = i;
+            }
+            if (foundIdx !== -1 && defaultIdx !== -1) {
+                break;
+            }
+        }
+
+        if (foundIdx !== -1) {
+            resCombo.currentIndex = foundIdx;
+        } else if (defaultIdx !== -1) {
+            resCombo.currentIndex = defaultIdx;
+        } else {
+            resCombo.currentIndex = (resCombo.count > 0) ? 0 : -1;
+        }
         if (saved["resolution"] === "Custom...") {
             customW.text = saved["custom_w"] || "";
             customH.text = saved["custom_h"] || "";
@@ -114,7 +138,7 @@ Item {
                 Text { text: "Resolution:"; color: "#b0b2d0"; font.pixelSize: 14 }
                 CustomComboBox {
                     id: resCombo
-                    model: ["1280x720", "1280x800", "1920x1080", "1920x1200", "2560x1440", "2560x1600", "3840x2160", "Custom..."]
+                    model: ["1280x720 (16:9)", "1280x800 (16:10)", "1920x1080 (16:9)", "1920x1200 (16:10)", "2560x1440 (16:9)", "2560x1600 (16:10)", "3840x2160 (16:9)", "Custom..."]
                 }
 
                 // Custom Res fields row
@@ -206,7 +230,7 @@ Item {
                     id: warningText
                     anchors.fill: parent
                     anchors.margins: 10
-                    text: "WARNING: The Resolution and FPS set here MUST EXACTLY MATCH the settings in the Android tablet app, or the stream will corrupt!"
+                    text: "WARNING: The Resolution set here MUST EXACTLY MATCH the settings in the Android tablet app, or the stream will corrupt!"
                     color: "#e8a840"
                     font.pixelSize: 12
                     font.weight: Font.DemiBold
@@ -251,10 +275,14 @@ Item {
                     implicitWidth: 200
                     implicitHeight: 44
                     onClicked: {
+                        let cleanRes = resCombo.currentText;
+                        if (cleanRes !== "Custom...") {
+                            cleanRes = cleanRes.split(" ")[0];
+                        }
                         // Save settings
                         backend.saveGeneralSettings(trayCheck.checked, touchCheck.checked);
                         backend.saveWifiSettings(
-                            resCombo.currentText,
+                            cleanRes,
                             resCombo.currentText === "Custom..." ? customW.text : "",
                             resCombo.currentText === "Custom..." ? customH.text : "",
                             fpsCombo.currentText,
@@ -266,7 +294,7 @@ Item {
                         // Start stream
                         let dt = displayTypeCombo.visible ? (displayTypeCombo.currentText || "Extend") : "Extend";
                         backend.startStreaming(
-                            resCombo.currentText === "Custom..." ? customW.text + "x" + customH.text : resCombo.currentText,
+                            resCombo.currentText === "Custom..." ? customW.text + "x" + customH.text : cleanRes,
                             fpsCombo.currentText === "Custom..." ? customFps.text : fpsCombo.currentText,
                             bitrateField.text,
                             dt,

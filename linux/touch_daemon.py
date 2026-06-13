@@ -119,13 +119,20 @@ def _get_virtual_monitor_rect_kde() -> tuple[float, float, float, float]:
         import subprocess, json
         res = subprocess.run(["kscreen-doctor", "-j"], capture_output=True, text=True)
         data = json.loads(res.stdout)
+        
         for output in data.get("outputs", []):
             if output.get("name") == "Virtual-TabletDisplay":
                 pos = output.get("pos", {"x": 0, "y": 0})
                 size = output.get("size", {"width": 1280, "height": 800})
                 scale = output.get("scale", 1.0)
-                
-                
+                return (float(pos["x"]), float(pos["y"]),
+                        float(size["width"]/scale), float(size["height"]/scale))
+        
+        for output in data.get("outputs", []):
+            if output.get("primary") or output.get("enabled"):
+                pos = output.get("pos", {"x": 0, "y": 0})
+                size = output.get("size", {"width": 1280, "height": 800})
+                scale = output.get("scale", 1.0)
                 return (float(pos["x"]), float(pos["y"]),
                         float(size["width"]/scale), float(size["height"]/scale))
     except Exception as e:
@@ -215,7 +222,10 @@ def _get_virtual_monitor_rect() -> tuple[float, float, float, float]:
 
     if result is not None:
         _virtual_monitor_cache = result
-    return result
+    else:
+        log.info("No virtual monitor found, caching default screen geometry: (0, 0, %d, %d)", SCREEN_W, SCREEN_H)
+        _virtual_monitor_cache = (0.0, 0.0, float(SCREEN_W), float(SCREEN_H))
+    return _virtual_monitor_cache
 
 def _scale(dev, nx: int, ny: int) -> tuple[float, float]:
     """Map Android 0-65535 normalised coords to the Virtual Monitor region."""
