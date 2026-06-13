@@ -326,6 +326,8 @@ class MonitorizeWindow(QMainWindow):
         subprocess.run(["killall", "-9", "gst-launch-1.0"], capture_output=True)
         subprocess.run(["pkill", "-9", "-f", "Streamer_.*\\.py"], capture_output=True)
 
+        self._cleanup_zeroconf()
+
         if self._is_wifi:
             subprocess.run(["adb", "reverse", "--remove", "tcp:7110"], capture_output=True)
             subprocess.run(["adb", "reverse", "--remove", "tcp:7111"], capture_output=True)
@@ -529,6 +531,7 @@ class MonitorizeWindow(QMainWindow):
         """Terminate all streaming subprocesses and return to the main menu."""
         self._kill_stream_procs()
         self.set_is_streaming(False)
+        self._setup_zeroconf()
 
     def _on_configure_display(self):
         """Launch nwg-displays for Hyprland display configuration."""
@@ -600,16 +603,27 @@ class MonitorizeWindow(QMainWindow):
     def _quit_app(self):
         """Hard quit from the tray menu — always terminates processes."""
         self._kill_stream_procs()
-        if hasattr(self, '_zc') and hasattr(self, '_info') and self._zc is not None and self._info is not None:
-            try:
-                self._zc.unregister_service(self._info)
-                self._zc.close()
-            except Exception: pass
+        self._cleanup_zeroconf()
         QApplication.quit()
 
     def _setup_zeroconf(self):
         """Initial Zeroconf setup."""
         self._update_zeroconf_registration(self._local_ip)
+
+    def _cleanup_zeroconf(self):
+        """Clean up old registration and close Zeroconf instance if any."""
+        if hasattr(self, '_zc') and self._zc is not None:
+            if hasattr(self, '_info') and self._info is not None:
+                try:
+                    self._zc.unregister_service(self._info)
+                except Exception:
+                    pass
+            try:
+                self._zc.close()
+            except Exception:
+                pass
+        self._zc = None
+        self._info = None
 
     def _update_zeroconf_registration(self, ip_addr):
         """Clean up old registration and register the service under the new IP."""
@@ -617,19 +631,7 @@ class MonitorizeWindow(QMainWindow):
             from zeroconf import ServiceInfo, Zeroconf
             import socket
 
-            
-            if self._info is not None and self._zc is not None:
-                try:
-                    self._zc.unregister_service(self._info)
-                except Exception:
-                    pass
-            if self._zc is not None:
-                try:
-                    self._zc.close()
-                except Exception:
-                    pass
-            self._zc = None
-            self._info = None
+            self._cleanup_zeroconf()
 
             
             hostname = socket.gethostname()
@@ -672,11 +674,7 @@ class MonitorizeWindow(QMainWindow):
             )
         else:
             self._kill_stream_procs()
-            if hasattr(self, '_zc') and hasattr(self, '_info') and self._zc is not None and self._info is not None:
-                try:
-                    self._zc.unregister_service(self._info)
-                    self._zc.close()
-                except Exception: pass
+            self._cleanup_zeroconf()
             event.accept()
 
     def _ask_desktop_environment(self) -> str:
