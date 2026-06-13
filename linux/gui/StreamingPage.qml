@@ -128,9 +128,17 @@ Item {
                 Item { Layout.fillWidth: true }
                 
                 Text {
-                    visible: backend.secondStreamActive
+                    text: "IP: " + backend.localIp
+                    color: "#e0e2ff"
+                    font.pixelSize: 13
+                    font.weight: Font.Bold
+                }
+                
+                Item { Layout.fillWidth: true }
+                
+                Text {
                     text: "📺 Display 2: Port 7114"
-                    color: "#f472b6"
+                    color: backend.secondStreamActive ? "#f472b6" : "transparent"
                     font.pixelSize: 12
                     font.weight: Font.Bold
                 }

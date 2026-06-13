@@ -92,6 +92,7 @@ class MonitorizeWindow(QMainWindow):
         self._discovery_browser = None
         self._discovery_zc = None
         self.process_receiver: QProcess | None = None
+        self._kde_inhibit_cookie = None
 
         
         self._second_stream_active = False
@@ -428,8 +429,12 @@ class MonitorizeWindow(QMainWindow):
         self.process_receiver.readyReadStandardOutput.connect(self._read_receiver)
         self.process_receiver.finished.connect(self._on_receiver_finished)
 
+        inhibit_prefix = ""
+        if shutil.which("systemd-inhibit"):
+            inhibit_prefix = 'systemd-inhibit --what=idle --who=Monitorize --why="Receiving screen stream" --mode=block '
+
         pipeline = (
-            f"gst-launch-1.0 -e "
+            f"{inhibit_prefix}gst-launch-1.0 -e "
             f"tcpclientsrc host={host_ip} port={port} ! "
             f"h264parse ! "
             f"avdec_h264 ! "
@@ -438,6 +443,7 @@ class MonitorizeWindow(QMainWindow):
             f"autovideosink sync=false"
         )
         self.receiverLogAppended.emit(f"Pipeline: {pipeline}")
+        self._inhibit_sleep()
         self.process_receiver.start("bash", ["-c", pipeline])
 
     @pyqtSlot()
@@ -471,6 +477,56 @@ class MonitorizeWindow(QMainWindow):
         self.process_receiver = None
         
         subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*tcpclientsrc"], capture_output=True)
+        self._uninhibit_sleep()
+
+    def _inhibit_sleep(self):
+        """Prevent the host system from sleeping/suspending during active receiving."""
+        try:
+            
+            if self._detected_de == "kde":
+                cmd = [
+                    "dbus-send", "--session", "--print-reply",
+                    "--dest=org.freedesktop.ScreenSaver",
+                    "/org/freedesktop/ScreenSaver",
+                    "org.freedesktop.ScreenSaver.Inhibit",
+                    "string:Monitorize", "string:Streaming display receiver active"
+                ]
+                res = subprocess.run(cmd, capture_output=True, text=True)
+                if res.returncode == 0:
+                    for line in res.stdout.splitlines():
+                        if "uint32" in line:
+                            cookie_str = line.split("uint32")[-1].strip()
+                            self._kde_inhibit_cookie = int(cookie_str)
+                            print(f"[Receiver] Sleep inhibited (KDE cookie: {self._kde_inhibit_cookie})")
+                            break
+            
+            elif self._detected_de == "hyprland":
+                subprocess.run(["pkill", "-USR1", "hypridle"], capture_output=True)
+                print("[Receiver] Sleep inhibited (Hyprland hypridle paused)")
+        except Exception as e:
+            print(f"[Receiver] Failed to inhibit sleep: {e}")
+
+    def _uninhibit_sleep(self):
+        """Restore default system sleep/suspend policies."""
+        try:
+            
+            if self._detected_de == "kde" and getattr(self, "_kde_inhibit_cookie", None) is not None:
+                cmd = [
+                    "dbus-send", "--session",
+                    "--dest=org.freedesktop.ScreenSaver",
+                    "/org/freedesktop/ScreenSaver",
+                    "org.freedesktop.ScreenSaver.UnInhibit",
+                    f"uint32:{self._kde_inhibit_cookie}"
+                ]
+                subprocess.run(cmd, capture_output=True)
+                print(f"[Receiver] Sleep uninhibited (KDE cookie {self._kde_inhibit_cookie} released)")
+                self._kde_inhibit_cookie = None
+            
+            elif self._detected_de == "hyprland":
+                subprocess.run(["pkill", "-USR2", "hypridle"], capture_output=True)
+                print("[Receiver] Sleep uninhibited (Hyprland hypridle resumed)")
+        except Exception as e:
+            print(f"[Receiver] Failed to uninhibit sleep: {e}")
 
     
 

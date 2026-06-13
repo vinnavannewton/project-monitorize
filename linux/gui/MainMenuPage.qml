@@ -8,7 +8,7 @@ Item {
     ColumnLayout {
         anchors.centerIn: parent
         spacing: 20
-        width: Math.min(parent.width - 40, 600)
+        width: Math.min(parent.width - 40, 760)
 
         Text {
             text: "Monitorize"
