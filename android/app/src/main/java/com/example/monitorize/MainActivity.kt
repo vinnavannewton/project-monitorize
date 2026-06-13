@@ -99,6 +99,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val configuration = LocalConfiguration.current
             val isTablet = configuration.smallestScreenWidthDp >= 600
+            val isLandscapeMobile = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE && !isTablet
 
             var currentScreen by remember { mutableStateOf(Screen.Home) }
             var isSettingsOpen by remember { mutableStateOf(false) }
@@ -178,7 +179,7 @@ class MainActivity : ComponentActivity() {
                             exit = slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(300)),
                             modifier = Modifier.align(Alignment.CenterEnd).zIndex(10f)
                         ) {
-                            val panelWidthFraction = if (isTablet) 0.45f else 0.85f
+                            val panelWidthFraction = if (isTablet || isLandscapeMobile) 0.45f else 0.85f
 
                             Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(panelWidthFraction).background(CardDark).border(1.dp, BorderDark)) {
                                 SettingsPanel(
@@ -304,16 +305,20 @@ fun HomeScreen(
     val isTablet = configuration.smallestScreenWidthDp >= 600
     val isLandscapeMobile = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE && !isTablet
 
-    val horizontalPadding = if (isTablet) 48.dp else 16.dp
+    val horizontalPadding = when {
+        isTablet -> 48.dp
+        isLandscapeMobile -> 36.dp
+        else -> 28.dp
+    }
     val topSpacerHeight = when {
         isTablet -> 100.dp
-        isLandscapeMobile -> 12.dp
-        else -> 32.dp
+        isLandscapeMobile -> 40.dp
+        else -> 60.dp
     }
-    val devicesSpacing = if (isLandscapeMobile) 6.dp else 10.dp
-    val settingsButtonPadding = if (isLandscapeMobile) 12.dp else 24.dp
-    val manualRowPadding = if (isLandscapeMobile) 12.dp else 32.dp
-    val manualSpacerHeight = if (isLandscapeMobile) 4.dp else 8.dp
+    val devicesSpacing = if (isLandscapeMobile) 10.dp else 14.dp
+    val settingsButtonPadding = if (isLandscapeMobile) 16.dp else 24.dp
+    val manualRowPadding = if (isLandscapeMobile) 16.dp else 32.dp
+    val manualSpacerHeight = if (isLandscapeMobile) 12.dp else 16.dp
     val manualFieldHeight = if (isLandscapeMobile) 48.dp else 56.dp
 
     LaunchedEffect(Unit) {
@@ -321,11 +326,13 @@ fun HomeScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        IconButton(
-            onClick = onSettingsToggle,
-            modifier = Modifier.align(Alignment.TopEnd).padding(settingsButtonPadding).size(48.dp).background(CardDark, CircleShape)
-        ) {
-            Icon(Icons.Default.Settings, contentDescription = "Settings", tint = TextPrimary)
+        if (isTablet) {
+            IconButton(
+                onClick = onSettingsToggle,
+                modifier = Modifier.align(Alignment.TopEnd).padding(settingsButtonPadding).size(48.dp).background(CardDark, CircleShape)
+            ) {
+                Icon(Icons.Default.Settings, contentDescription = "Settings", tint = TextPrimary)
+            }
         }
 
         Column(
@@ -345,20 +352,40 @@ fun HomeScreen(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 2.sp
                 )
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(AccentIndigo.copy(alpha = 0.15f))
-                        .border(1.dp, AccentIndigo.copy(alpha = 0.4f), RoundedCornerShape(6.dp))
-                        .clickable { onStartDiscovery() }
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = "REFRESH",
-                        color = AccentIndigo,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(AccentIndigo.copy(alpha = 0.15f))
+                            .border(1.dp, AccentIndigo.copy(alpha = 0.4f), RoundedCornerShape(6.dp))
+                            .clickable { onStartDiscovery() }
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = "REFRESH",
+                            color = AccentIndigo,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    if (!isTablet) {
+                        IconButton(
+                            onClick = onSettingsToggle,
+                            modifier = Modifier
+                                .size(if (isLandscapeMobile) 32.dp else 36.dp)
+                                .background(CardDark, CircleShape)
+                        ) {
+                            Icon(
+                                Icons.Default.Settings,
+                                contentDescription = "Settings",
+                                tint = TextPrimary,
+                                modifier = Modifier.size(if (isLandscapeMobile) 18.dp else 20.dp)
+                            )
+                        }
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(devicesSpacing))
@@ -425,8 +452,8 @@ fun DeviceItem(device: DiscoveredDevice, onClick: () -> Unit) {
     val isTablet = configuration.smallestScreenWidthDp >= 600
     val isLandscapeMobile = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE && !isTablet
 
-    val verticalPadding = if (isLandscapeMobile) 10.dp else 18.dp
-    val horizontalPadding = if (isLandscapeMobile) 14.dp else 18.dp
+    val verticalPadding = if (isLandscapeMobile) 14.dp else 18.dp
+    val horizontalPadding = if (isLandscapeMobile) 16.dp else 18.dp
     val titleFontSize = if (isLandscapeMobile) 16.sp else 18.sp
 
     Row(
@@ -478,10 +505,17 @@ fun ResolutionCard(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
+    val configuration = LocalConfiguration.current
+    val isTablet = configuration.smallestScreenWidthDp >= 600
+    val cardPadding = if (isTablet) 16.dp else 12.dp
+    val titleFontSize = if (isTablet) 16.sp else 14.sp
+    val subtitleFontSize = if (isTablet) 13.sp else 11.sp
+    val verticalPadding = if (isTablet) 6.dp else 4.dp
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp)
+            .padding(vertical = verticalPadding)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
@@ -493,19 +527,19 @@ fun ResolutionCard(
         )
     ) {
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier.padding(cardPadding)
         ) {
             Text(
                 text = title,
                 color = if (isSelected) Color.White else TextPrimary,
                 fontWeight = FontWeight.Bold,
-                fontSize = 16.sp
+                fontSize = titleFontSize
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = subtitle,
                 color = TextSecondary,
-                fontSize = 13.sp
+                fontSize = subtitleFontSize
             )
         }
     }
@@ -576,7 +610,9 @@ fun SettingsPanel(
 
     val configuration = LocalConfiguration.current
     val isTablet = configuration.smallestScreenWidthDp >= 600
-    val panelPadding = if (isTablet) 28.dp else 16.dp
+    val panelPadding = if (isTablet) 28.dp else 20.dp
+    val titleSize = if (isTablet) 22.sp else 18.sp
+    val spacingHeight = if (isTablet) 24.dp else 16.dp
 
     Column(
         modifier = Modifier
@@ -584,12 +620,12 @@ fun SettingsPanel(
             .padding(panelPadding)
             .verticalScroll(rememberScrollState())
     ) {
-        Text("Resolution Settings", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-        Spacer(modifier = Modifier.height(24.dp))
+        Text("Resolution Settings", fontSize = titleSize, fontWeight = FontWeight.Bold, color = TextPrimary)
+        Spacer(modifier = Modifier.height(spacingHeight))
 
         ResolutionCard(
             title = "Native",
-            subtitle = "${nativeW} × ${nativeH} (Tablet Screen)",
+            subtitle = "${nativeW} × ${nativeH} (${if (isTablet) "Tablet" else "Phone"} Screen)",
             isSelected = selectedOption == "native",
             onClick = { selectedOption = "native" }
         )
@@ -617,7 +653,7 @@ fun SettingsPanel(
 
         AnimatedVisibility(visible = selectedOption == "custom") {
             Column {
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(10.dp))
                 OutlinedTextField(
                     value = customWidthText,
                     onValueChange = { customWidthText = it },
@@ -629,7 +665,7 @@ fun SettingsPanel(
                         unfocusedBorderColor = BorderDark
                     )
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(10.dp))
                 OutlinedTextField(
                     value = customHeightText,
                     onValueChange = { customHeightText = it },
@@ -644,7 +680,7 @@ fun SettingsPanel(
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(spacingHeight))
 
         Button(
             onClick = {
@@ -662,7 +698,7 @@ fun SettingsPanel(
                 }
                 onSave(finalW, finalH)
             },
-            modifier = Modifier.fillMaxWidth().height(52.dp),
+            modifier = Modifier.fillMaxWidth().height(if (isTablet) 52.dp else 42.dp),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = AccentIndigo)
         ) {
