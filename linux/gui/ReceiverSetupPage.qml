@@ -150,7 +150,7 @@ Item {
                                     color: "#e0e2ff"
                                 }
                                 Text {
-                                    text: modelData.ip || ""
+                                    text: (modelData.ip || "") + (modelData.port ? ":" + modelData.port : "")
                                     font.pixelSize: 12
                                     color: "#6a6c96"
                                 }
@@ -181,7 +181,7 @@ Item {
                             anchors.fill: parent
                             hoverEnabled: true
                             onClicked: {
-                                backend.connectToHost(modelData.ip)
+                                backend.connectToHost(modelData.ip, modelData.port || 7110)
                             }
                         }
                     }
@@ -213,13 +213,22 @@ Item {
                 Layout.fillWidth: true
             }
 
+            CustomTextField {
+                id: manualPortField
+                placeholderText: "Port"
+                text: "7110"
+                implicitWidth: 80
+                validator: IntValidator { bottom: 1024; top: 65535 }
+            }
+
             CustomButton {
                 text: "▶  Connect"
                 implicitWidth: 130
                 implicitHeight: 38
                 onClicked: {
                     if (manualIpField.text.trim() !== "") {
-                        backend.connectToHost(manualIpField.text.trim())
+                        let p = parseInt(manualPortField.text.trim()) || 7110
+                        backend.connectToHost(manualIpField.text.trim(), p)
                     }
                 }
             }

@@ -364,11 +364,12 @@ class MonitorizeWindow(QMainWindow):
                     info = zc.get_service_info(type_, name)
                     if info and info.addresses:
                         ip = _socket.inet_ntoa(info.addresses[0])
+                        port = info.port
                         host_name = info.properties.get(b'name', b'Unknown').decode('utf-8', errors='replace')
                         
                         if ip == self._window._local_ip:
                             return
-                        QTimer.singleShot(0, lambda: self._window._add_discovered_device(host_name, ip))
+                        QTimer.singleShot(0, lambda: self._window._add_discovered_device(host_name, ip, port))
 
                 def remove_service(self, zc, type_, name):
                     pass
@@ -402,24 +403,25 @@ class MonitorizeWindow(QMainWindow):
                 pass
             self._discovery_zc = None
 
-    def _add_discovered_device(self, name, ip):
+    def _add_discovered_device(self, name, ip, port):
         """Add a discovered host to the list (called on main thread via QTimer)."""
         for dev in self._discovered_devices:
-            if dev.get('ip') == ip:
+            if dev.get('ip') == ip and dev.get('port') == port:
                 return  
-        self._discovered_devices.append({'name': name, 'ip': ip})
+        self._discovered_devices.append({'name': name, 'ip': ip, 'port': port})
         self.discoveredDevicesChanged.emit()
-        print(f"[Receiver] Discovered host: {name} ({ip})")
+        print(f"[Receiver] Discovered host: {name} ({ip}:{port})")
 
     @pyqtSlot(str)
-    def connectToHost(self, host_ip):
+    @pyqtSlot(str, int)
+    def connectToHost(self, host_ip, port=7110):
         """Launch the GStreamer receiver pipeline to display the remote stream."""
         self._stopHostDiscoveryInternal()
 
-        self.set_receiver_host_ip(host_ip)
-        self.set_receiver_status(f"Connecting to {host_ip}…")
+        self.set_receiver_host_ip(f"{host_ip}:{port}")
+        self.set_receiver_status(f"Connecting to {host_ip}:{port}…")
         self.set_is_receiving(True)
-        self.receiverLogAppended.emit(f"Connecting to {host_ip} on port 7110…")
+        self.receiverLogAppended.emit(f"Connecting to {host_ip} on port {port}…")
 
         self.process_receiver = QProcess(self)
         self.process_receiver.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
@@ -428,7 +430,7 @@ class MonitorizeWindow(QMainWindow):
 
         pipeline = (
             f"gst-launch-1.0 -e "
-            f"tcpclientsrc host={host_ip} port=7110 ! "
+            f"tcpclientsrc host={host_ip} port={port} ! "
             f"h264parse ! "
             f"avdec_h264 ! "
             f"queue max-size-buffers=2 leaky=downstream ! "
