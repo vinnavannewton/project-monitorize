@@ -25,7 +25,7 @@ class H264Decoder(private val surface: Surface) {
 
     
     
-    private val POOL_SIZE = 2
+    private val POOL_SIZE = 12
     private val chunkPool = ArrayBlockingQueue<FrameChunk>(POOL_SIZE)
     private val chunkQueue = LinkedBlockingQueue<FrameChunk>(POOL_SIZE)
     
