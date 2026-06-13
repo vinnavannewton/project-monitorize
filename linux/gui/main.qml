@@ -24,6 +24,18 @@ Rectangle {
         }
     }
 
+    // --- Navigate between pages when receiver state changes ---
+    Connections {
+        target: backend
+        function onIsReceivingChanged(receiving) {
+            if (receiving) {
+                stack.replace("ReceiverStreamingPage.qml")
+            } else {
+                stack.replace("MainMenuPage.qml", StackView.PopTransition)
+            }
+        }
+    }
+
     // --- Main StackView for page navigation ---
     StackView {
         id: stack

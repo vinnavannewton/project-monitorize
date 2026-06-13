@@ -42,6 +42,13 @@ class MonitorizeWindow(QMainWindow):
     streamingStatusChanged = pyqtSignal(str)
     logAppended = pyqtSignal(str, str) 
 
+    
+    isReceivingChanged = pyqtSignal(bool)
+    receiverStatusChanged = pyqtSignal(str)
+    receiverHostIpChanged = pyqtSignal(str)
+    discoveredDevicesChanged = pyqtSignal()
+    receiverLogAppended = pyqtSignal(str)
+
     def __init__(self):
         """Initialise the window, detect the desktop environment, set up
         the system tray, and load the QML interface."""
@@ -73,6 +80,15 @@ class MonitorizeWindow(QMainWindow):
         self._usb_busy = False
         self._is_streaming = False
         self._countdown = 0
+
+        
+        self._is_receiving = False
+        self._receiver_status = ""
+        self._receiver_host_ip = ""
+        self._discovered_devices = []
+        self._discovery_browser = None
+        self._discovery_zc = None
+        self.process_receiver: QProcess | None = None
         self._streaming_status = ""
 
         self.initial_headless_monitors = []
@@ -171,6 +187,22 @@ class MonitorizeWindow(QMainWindow):
     def streamingStatus(self):
         return self._streaming_status
 
+    @pyqtProperty(bool, notify=isReceivingChanged)
+    def isReceiving(self):
+        return self._is_receiving
+
+    @pyqtProperty(str, notify=receiverStatusChanged)
+    def receiverStatus(self):
+        return self._receiver_status
+
+    @pyqtProperty(str, notify=receiverHostIpChanged)
+    def receiverHostIp(self):
+        return self._receiver_host_ip
+
+    @pyqtProperty('QVariant', notify=discoveredDevicesChanged)
+    def discoveredDevices(self):
+        return self._discovered_devices
+
     
     def set_usb_status_text(self, text):
         self._usb_status_text = text
@@ -190,6 +222,18 @@ class MonitorizeWindow(QMainWindow):
 
     def append_log(self, type, msg):
         self.logAppended.emit(type, msg)
+
+    def set_is_receiving(self, receiving):
+        self._is_receiving = receiving
+        self.isReceivingChanged.emit(receiving)
+
+    def set_receiver_status(self, text):
+        self._receiver_status = text
+        self.receiverStatusChanged.emit(text)
+
+    def set_receiver_host_ip(self, ip):
+        self._receiver_host_ip = ip
+        self.receiverHostIpChanged.emit(ip)
 
     
     @pyqtSlot()
@@ -285,6 +329,133 @@ class MonitorizeWindow(QMainWindow):
     @pyqtSlot()
     def configureDisplay(self):
         self._on_configure_display()
+
+    
+
+    @pyqtSlot()
+    def startHostDiscovery(self):
+        """Start mDNS/Zeroconf browsing for other Monitorize hosts."""
+        self._stopHostDiscoveryInternal()
+        self._discovered_devices = []
+        self.discoveredDevicesChanged.emit()
+
+        try:
+            from zeroconf import Zeroconf, ServiceBrowser, ServiceListener
+            import socket as _socket
+
+            class _Listener(ServiceListener):
+                def __init__(self, window):
+                    self._window = window
+
+                def add_service(self, zc, type_, name):
+                    info = zc.get_service_info(type_, name)
+                    if info and info.addresses:
+                        ip = _socket.inet_ntoa(info.addresses[0])
+                        host_name = info.properties.get(b'name', b'Unknown').decode('utf-8', errors='replace')
+                        
+                        if ip == self._window._local_ip:
+                            return
+                        QTimer.singleShot(0, lambda: self._window._add_discovered_device(host_name, ip))
+
+                def remove_service(self, zc, type_, name):
+                    pass
+
+                def update_service(self, zc, type_, name):
+                    pass
+
+            self._discovery_zc = Zeroconf()
+            self._discovery_browser = ServiceBrowser(
+                self._discovery_zc,
+                "_monitorize._tcp.local.",
+                _Listener(self)
+            )
+            print("[Receiver] Host discovery started")
+        except Exception as e:
+            print(f"[Receiver] Discovery failed: {e}")
+
+    @pyqtSlot()
+    def stopHostDiscovery(self):
+        """Stop mDNS browsing."""
+        self._stopHostDiscoveryInternal()
+
+    def _stopHostDiscoveryInternal(self):
+        if self._discovery_browser is not None:
+            self._discovery_browser.cancel()
+            self._discovery_browser = None
+        if self._discovery_zc is not None:
+            try:
+                self._discovery_zc.close()
+            except Exception:
+                pass
+            self._discovery_zc = None
+
+    def _add_discovered_device(self, name, ip):
+        """Add a discovered host to the list (called on main thread via QTimer)."""
+        for dev in self._discovered_devices:
+            if dev.get('ip') == ip:
+                return  
+        self._discovered_devices.append({'name': name, 'ip': ip})
+        self.discoveredDevicesChanged.emit()
+        print(f"[Receiver] Discovered host: {name} ({ip})")
+
+    @pyqtSlot(str)
+    def connectToHost(self, host_ip):
+        """Launch the GStreamer receiver pipeline to display the remote stream."""
+        self._stopHostDiscoveryInternal()
+
+        self.set_receiver_host_ip(host_ip)
+        self.set_receiver_status(f"Connecting to {host_ip}…")
+        self.set_is_receiving(True)
+        self.receiverLogAppended.emit(f"Connecting to {host_ip} on port 7110…")
+
+        self.process_receiver = QProcess(self)
+        self.process_receiver.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+        self.process_receiver.readyReadStandardOutput.connect(self._read_receiver)
+        self.process_receiver.finished.connect(self._on_receiver_finished)
+
+        pipeline = (
+            f"gst-launch-1.0 -e "
+            f"tcpclientsrc host={host_ip} port=7110 ! "
+            f"queue max-size-buffers=1 leaky=downstream ! "
+            f"h264parse ! "
+            f"avdec_h264 ! "
+            f"videoconvert ! "
+            f"autovideosink sync=false"
+        )
+        self.receiverLogAppended.emit(f"Pipeline: {pipeline}")
+        self.process_receiver.start("bash", ["-c", pipeline])
+
+    @pyqtSlot()
+    def stopReceiving(self):
+        """Stop the receiver pipeline and return to the main menu."""
+        self._kill_receiver_proc()
+        self.set_is_receiving(False)
+
+    def _read_receiver(self):
+        if self.process_receiver is None:
+            return
+        raw = bytes(self.process_receiver.readAllStandardOutput()).decode('utf-8', errors='replace')
+        self.receiverLogAppended.emit(raw)
+        if "Playing" in raw or "PLAYING" in raw:
+            self.set_receiver_status("Receiving stream")
+            self.receiverLogAppended.emit("Stream connected and playing!")
+        elif "ERROR" in raw:
+            self.set_receiver_status("Error — see logs")
+
+    def _on_receiver_finished(self, code, _status):
+        self.receiverLogAppended.emit(f"Receiver process exited (code {code})")
+        if self._is_receiving:
+            self.set_receiver_status("Disconnected")
+            self.receiverLogAppended.emit("Stream ended. Click Disconnect to return.")
+
+    def _kill_receiver_proc(self):
+        if self.process_receiver is not None and self.process_receiver.state() != QProcess.ProcessState.NotRunning:
+            self.process_receiver.terminate()
+            if not self.process_receiver.waitForFinished(3000):
+                self.process_receiver.kill()
+        self.process_receiver = None
+        
+        subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*tcpclientsrc"], capture_output=True)
 
     @pyqtSlot(str, str, str, str, str, bool)
     def startStreaming(self, res, fps, bitrate, display_type, encoder, is_wifi):
@@ -638,6 +809,8 @@ class MonitorizeWindow(QMainWindow):
     def _quit_app(self):
         """Hard quit from the tray menu — always terminates processes."""
         self._kill_stream_procs()
+        self._kill_receiver_proc()
+        self._stopHostDiscoveryInternal()
         self._cleanup_zeroconf()
         QApplication.quit()
 
@@ -711,6 +884,8 @@ class MonitorizeWindow(QMainWindow):
             )
         else:
             self._kill_stream_procs()
+            self._kill_receiver_proc()
+            self._stopHostDiscoveryInternal()
             self._cleanup_zeroconf()
             event.accept()
 

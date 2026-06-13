@@ -151,6 +151,48 @@ Item {
                     }
                 }
             }
+
+            // Receiver Mode Card
+            Rectangle {
+                id: receiverCard
+                implicitWidth: 220
+                implicitHeight: 140
+                radius: 16
+                color: receiverMouseArea.containsMouse ? "#1c1e3a" : "#12142a"
+                border.color: receiverMouseArea.containsMouse ? "#7c3aed" : "#2a2d55"
+                border.width: 1
+                scale: receiverMouseArea.containsMouse ? 1.03 : 1.0
+                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+                Behavior on color { ColorAnimation { duration: 150 } }
+                Behavior on border.color { ColorAnimation { duration: 150 } }
+
+                ColumnLayout {
+                    anchors.centerIn: parent
+                    spacing: 12
+                    Image {
+                        source: "../assets/svg/receiver-logo.svg"
+                        sourceSize.width: 48
+                        sourceSize.height: 48
+                        Layout.alignment: Qt.AlignHCenter
+                    }
+                    Text {
+                        text: "Receiver Mode"
+                        font.pixelSize: 16
+                        font.weight: Font.Bold
+                        color: "#c0c2ee"
+                        Layout.alignment: Qt.AlignHCenter
+                    }
+                }
+
+                MouseArea {
+                    id: receiverMouseArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: {
+                        page.StackView.view.push("ReceiverSetupPage.qml")
+                    }
+                }
+            }
         }
 
         Item { Layout.preferredHeight: 30 }
