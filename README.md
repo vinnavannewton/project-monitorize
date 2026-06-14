@@ -2,13 +2,13 @@
   <h1>🖥️ Monitorize</h1>
   <p><strong>Turn your Android tablet into a smooth, low-latency secondary monitor for Linux.</strong></p>
 
-  <a href="https://www.gnu.org/licenses/agpl-3.0"><img src="https://img.shields.io/badge/License-AGPL%20v3-blue.svg" /></a>
-  <img src="https://img.shields.io/badge/Platform-Linux%20%7C%20Android-lightgrey" />
+<a href="https://www.gnu.org/licenses/agpl-3.0"><img src="https://img.shields.io/badge/License-AGPL%20v3-blue.svg" /></a>
+<img src="https://img.shields.io/badge/Platform-Linux%20%7C%20Android-lightgrey" />
 
 </div>
 
 > **Project Status: In alpha & Actively Being Developed**
-> Core pipeline is fully functional and tested on the latest Fedora KDE  and Arch hyprland.
+> Core pipeline is fully functional and tested on the latest Fedora KDE and Arch hyprland.
 
 ---
 
@@ -22,7 +22,7 @@ The pipeline is:
 
 ### ✨ What You Get
 
-- A **High resolution** and **High FPS** second display. 
+- A **High resolution** and **High FPS** second display.
 - **USB Mode** for lowest latency and most stable quality
 - **Wi-Fi Mode (Work In Progress)** for higher bitrates and multimonitor setups.
 - **User friendly desktop app made with pyqt** to guide you through.
@@ -232,11 +232,21 @@ sudo apt install -y \
   gstreamer1.0-plugins-bad \
   gstreamer1.0-plugins-ugly \
   gstreamer1.0-pipewire \
+  gstreamer1.0-vaapi \
+  intel-media-va-driver \
+  mesa-va-drivers \
   pipewire \
   wireplumber \
   python3-dbus \
   python3-gi \
-  adb
+  adb \
+  python3-pip \
+  python3-venv \
+  qt6-base-dev \
+  libxkbcommon0 \
+  psmisc \
+  liboeffis1 \
+  liboeffis-dev
 ```
 
 ### Step 3 — Install snegg build dependencies (Not needed for Hyprland)
@@ -259,7 +269,7 @@ sudo apt install -y \
 ### KDE Plasma:
 
 ```bash
-sudo apt install -y krfb
+sudo apt install -y krfb kscreen
 ```
 
 ### GNOME (Experimental):
@@ -312,21 +322,20 @@ sudo usermod -aG input $USER
 - Match the resolution and FPS set in the Android settings app to the desktop app settings.
 
 - If the USB device is not detected, make sure `android-tools` is installed and run:
-  
+
   ```bash
   adb devices
   ```
-  
-  to confirm the device is connected.
 
+  to confirm the device is connected.
 
 ### Android Tablet
 
-| Requirement       | Notes                                             |
-| ----------------- | ------------------------------------------------- |
-| Android 9+        | Tested on Samsung Galaxy Tab S7 FE                |
-| USB Debugging     | Enable in Developer Options                       |
-| 5GHz Wi-Fi (opt.) | Recommended if using Wi-Fi mode                   |
+| Requirement       | Notes                              |
+| ----------------- | ---------------------------------- |
+| Android 9+        | Tested on Samsung Galaxy Tab S7 FE |
+| USB Debugging     | Enable in Developer Options        |
+| 5GHz Wi-Fi (opt.) | Recommended if using Wi-Fi mode    |
 
 ---
 
@@ -352,7 +361,7 @@ Or run manually:
 Either:
 
 - Build from source:
-  
+
   ```bash
   cd android
   ./gradlew installDebug

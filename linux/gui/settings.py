@@ -19,7 +19,7 @@ def _get_settings() -> QSettings:
 
 def save_wifi_settings(*, resolution: str, custom_w: str, custom_h: str,
                        fps: str, custom_fps: str, bitrate: str,
-                       display_type: str, encoder: str):
+                       display_type: str, encoder: str, stream_type: str):
     s = _get_settings()
     s.beginGroup("wifi")
     s.setValue("resolution", resolution)
@@ -30,6 +30,7 @@ def save_wifi_settings(*, resolution: str, custom_w: str, custom_h: str,
     s.setValue("bitrate", bitrate)
     s.setValue("display_type", display_type)
     s.setValue("encoder", encoder)
+    s.setValue("stream_type", stream_type)
     s.endGroup()
     s.sync()
 
@@ -82,6 +83,7 @@ def load_wifi_settings() -> dict:
         "bitrate":      s.value("bitrate",      "8000"),
         "display_type": display_type,
         "encoder":      encoder,
+        "stream_type":  s.value("stream_type",  "Speed"),
     }
     s.endGroup()
     return data

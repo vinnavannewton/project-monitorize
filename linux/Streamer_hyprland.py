@@ -60,6 +60,10 @@ else:
                      f"{created_monitor},{WIDTH}x{HEIGHT}@{FPS},auto,1"],
                    capture_output=True)
     print(f"[Hyprland] Created virtual monitor: {created_monitor} at {WIDTH}x{HEIGHT}@{FPS}")
+    import time
+    print("[Hyprland] Waiting 2 seconds for monitor to initialize...")
+    time.sleep(2)
+
 
 
 DBusGMainLoop(set_as_default=True)

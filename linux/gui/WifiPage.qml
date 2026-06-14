@@ -66,6 +66,10 @@ Item {
             encIdx = encoderCombo.find("Software (CPU / x264enc)");
         }
         encoderCombo.currentIndex = (encIdx !== -1) ? encIdx : 2;
+        
+        let savedStreamType = saved["stream_type"] || "Speed";
+        let stIdx = streamTypeCombo.find(savedStreamType === "Speed" ? "Speed (Lowest Latency)" : "Stability (Low-spec Wi-Fi)");
+        streamTypeCombo.currentIndex = (stIdx !== -1) ? stIdx : 0;
 
         let gen = backend.loadGeneralSettings();
         trayCheck.checked = gen["minimize_to_tray"] || false;
@@ -189,6 +193,13 @@ Item {
                         "Software (CPU / x264enc)"
                     ]
                 }
+
+                Text { text: "Stream Type:"; color: "#b0b2d0"; font.pixelSize: 14 }
+                CustomComboBox {
+                    id: streamTypeCombo
+                    currentIndex: 0
+                    model: ["Speed (Lowest Latency)", "Stability (Low-spec Wi-Fi)"]
+                }
             }
 
             // Checkbox Settings row
@@ -279,7 +290,8 @@ Item {
                             fpsCombo.currentText === "Custom..." ? customFps.text : "",
                             bitrateField.text,
                             displayTypeCombo.visible ? displayTypeCombo.currentText : "Extend",
-                            encoderCombo.currentText
+                            encoderCombo.currentText,
+                            streamTypeCombo.currentText.indexOf("Speed") === 0 ? "Speed" : "Stability"
                         );
                         // Start stream
                         backend.startStreaming(
