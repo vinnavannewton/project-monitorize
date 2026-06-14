@@ -11,6 +11,14 @@ Item {
     // Local arrays to keep logs separated by category
     property var allLogs: []
 
+    property bool enableTouch: true
+
+    Component.onCompleted: {
+        let gen = backend.loadGeneralSettings();
+        trayCheck.checked = gen["minimize_to_tray"] || false;
+        page.enableTouch = gen["enable_touch"] || false;
+    }
+
     // Listen directly for log signals from the Python backend
     Connections {
         target: backend
@@ -298,6 +306,16 @@ Item {
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
+            }
+        }
+
+        CustomCheckBox {
+            id: trayCheck
+            text: "Minimize to tray on close"
+            Layout.alignment: Qt.AlignLeft
+            Layout.bottomMargin: 10
+            onCheckedChanged: {
+                backend.saveGeneralSettings(checked, page.enableTouch)
             }
         }
     }
