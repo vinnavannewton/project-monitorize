@@ -5,6 +5,8 @@ import QtQuick.Layouts
 Item {
     id: page
 
+    property bool minimizeToTray: false
+
     Transition {
         id: fastRebound
         SpringAnimation {
@@ -68,7 +70,7 @@ Item {
         encoderCombo.currentIndex = (encIdx !== -1) ? encIdx : 2;
 
         let gen = backend.loadGeneralSettings();
-        trayCheck.checked = gen["minimize_to_tray"] || false;
+        page.minimizeToTray = gen["minimize_to_tray"] || false;
         touchCheck.checked = gen["enable_touch"] || false;
 
         usbScroll.contentItem.rebound = fastRebound;
@@ -185,11 +187,6 @@ Item {
                 Layout.alignment: Qt.AlignHCenter
 
                 CustomCheckBox {
-                    id: trayCheck
-                    text: "Minimize to tray on close"
-                }
-
-                CustomCheckBox {
                     id: touchCheck
                     text: "Enable Touch Input"
                 }
@@ -258,7 +255,7 @@ Item {
                             cleanRes = cleanRes.split(" ")[0];
                         }
                         // Save settings
-                        backend.saveGeneralSettings(trayCheck.checked, touchCheck.checked);
+                        backend.saveGeneralSettings(page.minimizeToTray, touchCheck.checked);
                         backend.saveUsbSettings(
                             cleanRes,
                             resCombo.currentText === "Custom..." ? customW.text : "",
