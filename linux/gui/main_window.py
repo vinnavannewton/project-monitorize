@@ -323,8 +323,8 @@ class MonitorizeWindow(QMainWindow):
             encoder=encoder
         )
 
-    @pyqtSlot(str, str, str, str, str, str, str, str)
-    def saveWifiSettings(self, resolution, custom_w, custom_h, fps, custom_fps, bitrate, display_type, encoder):
+    @pyqtSlot(str, str, str, str, str, str, str, str, str)
+    def saveWifiSettings(self, resolution, custom_w, custom_h, fps, custom_fps, bitrate, display_type, encoder, stream_type):
         save_wifi_settings(
             resolution=resolution,
             custom_w=custom_w,
@@ -333,7 +333,8 @@ class MonitorizeWindow(QMainWindow):
             custom_fps=custom_fps,
             bitrate=bitrate,
             display_type=display_type,
-            encoder=encoder
+            encoder=encoder,
+            stream_type=stream_type
         )
 
     @pyqtSlot()
@@ -694,6 +695,14 @@ class MonitorizeWindow(QMainWindow):
         pref = encoder_map.get(self._selected_encoder, "cpu")
         env.insert("MONITORIZE_ENCODER", pref)
 
+        
+        if self._is_wifi:
+            wifi_settings = load_wifi_settings()
+            stream_type = wifi_settings.get("stream_type", "Speed")
+        else:
+            stream_type = "Speed"
+        env.insert("MONITORIZE_STREAM_TYPE", stream_type)
+
         self._script_dir = script_dir
         self._env        = env
 
@@ -764,7 +773,10 @@ class MonitorizeWindow(QMainWindow):
                 subprocess.run(["hyprctl", "eval", f"hl.monitor({{ output = '{new_name}', mode = '{self._stream_width}x{self._stream_height}@{self._stream_fps}', position = 'auto', scale = 1.0 }})"], capture_output=True)
                 print(f"[Hyprland] Created new headless monitor: {new_name} at {self._stream_width}x{self._stream_height}@{self._stream_fps}")
                 self.append_log("STREAMER", f"Created new headless monitor: {new_name} at {self._stream_width}x{self._stream_height}@{self._stream_fps}")
-                self._launch_streamer()
+                self.set_streaming_status("Waiting for virtual monitor to initialize…  2")
+                self._countdown = 2
+                self.countdownChanged.emit(self._countdown)
+                self._countdown_timer.start()
         else:
             self.set_streaming_status("Launching streamer…")
             self._launch_streamer()
