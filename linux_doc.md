@@ -63,25 +63,26 @@ The GUI manages the application state and interacts with QML elements using PySi
 
 ---
 
-### 2. Desktop Streamers (`Streamer_*.py`)
+### 2. Desktop Streamers & Virtual Display Setup (`Streamer_*.py`)
 
-Each supported desktop environment has a dedicated Python wrapper to set up the virtual monitor and capture session:
+Each desktop environment manages virtual monitor configuration differently depending on its Wayland architecture:
 
 #### A. KDE Plasma (`Streamer_kde.py`)
-* Leverages `krfb-virtualmonitor` to create a virtual monitor named `TabletDisplay`.
-* Requests screencast credentials from the Freedesktop ScreenCast portal (`org.freedesktop.portal.ScreenCast`).
-* Extracts the underlying PipeWire stream node ID and file descriptor (via `OpenPipeWireRemote`), then spawns GStreamer.
+* Leverages `krfb-virtualmonitor` to configure a virtual monitor named `TabletDisplay`.
+* The system establishes a local VNC loop on port 5900.
+* The wrapper queries the Freedesktop ScreenCast portal (`org.freedesktop.portal.ScreenCast`) to gain PipeWire credentials for `TabletDisplay`.
+* The PipeWire file descriptor (retrieved via `OpenPipeWireRemote`) and node ID are passed to start the GStreamer capture.
 
 #### B. Hyprland (`Streamer_hyprland.py`)
-* Uses `hyprctl output create headless` to spawn a headless display on demand.
-* Configures resolution and layout placement using `hyprctl keyword monitor`.
-* Obtains PipeWire screencast streams via `xdg-desktop-portal-hyprland`.
-* Destroys the virtual output dynamically during cleanup to restore the display layout.
+* Invokes `hyprctl output create headless` to request a headless monitor output.
+* Dynamically sets up logical size and positioning using `hyprctl keyword monitor <name>,<res>@<fps>,auto,1`.
+* Obtains PipeWire capture sources through the standard Freedesktop ScreenCast portal backed by `xdg-desktop-portal-hyprland`.
+* During exit, calls `hyprctl output remove <name>` to cleanly delete the headless monitor.
 
 #### C. GNOME (`Streamer_gnome.py`)
-* Interacts directly with Mutter's private D-Bus API (`org.gnome.Mutter.ScreenCast`).
-* Invokes `RecordVirtual` with logical configurations (logical resolution and position coordinates).
-* Listens to the `PipeWireStreamAdded` signal on the screen recording D-Bus interface to obtain the target PipeWire node.
+* Communicates directly with Mutter's private D-Bus API (`org.gnome.Mutter.ScreenCast`).
+* Invokes `RecordVirtual` with logical configurations (resolution struct, logical positioning offset, frame rate, and cursor mode).
+* Captures the `PipeWireStreamAdded` signal on the screen recording interface to capture the node ID.
 
 ---
 
@@ -94,16 +95,18 @@ This utility builds optimized `gst-launch-1.0` shell pipelines based on selected
   * **NVIDIA NVENC**: Uses `nvh264enc` with low-latency overrides (`zerolatency=true`, `rc-mode=cbr`, `preset=p1`, `bframes=0`).
 * **Software Video Encoder (CPU)**:
   * Falls back to `x264enc` optimized for real-time delivery (`tune=zerolatency`, `speed-preset=ultrafast`, `sliced-threads=false`, `threads=1`).
-* **Stream Optimization Modes**:
-  * **Speed**: Minimizes latency by reducing GOP (Group of Pictures) keyframe spacing dynamically based on current FPS (`key-int-max = max(fps // 2, 15)`).
-  * **Stability**: Uses constant small keyframe intervals (`15`) and H.264 intra-refresh (`intra-refresh=true`) to make streams resilient to Wi-Fi packet drops.
-* **Transmission Sink**:
-  * Streams raw H.264 video via `tcpserversink` with `sync=false` and `sync-method=2` (serves clients starting from the most recent keyframe).
-  * Quality of Service: Sets the socket's DSCP IP header bits to `48` (`qos-dscp=48` / network control priority).
+* **Optimized GStreamer Elements & Filters**:
+  * `pipewiresrc do-timestamp=true keepalive-time=1000`: Synchronizes GStreamer clocks with PipeWire timestamp metadata, keeping the PipeWire buffer stream alive if no new frames are pushed.
+  * `always-copy=true/false`: Configured to `false` for VAAPI pipelines to prevent copying video memory back to host memory prior to encoding.
+  * `tcpserversink sync=false sync-method=2 recover-policy=2 buffers-max=10 qos-dscp=48`:
+    * `sync=false`: Prevents the GStreamer pipeline clock from synchronizing with the video sink, avoiding network latency delays.
+    * `sync-method=2`: Sends frames starting immediately from the latest keyframe, ensuring newly connected client devices connect instantly without waiting for a GOP cycle.
+    * `recover-policy=2`: Implements a leaky downstream policy, dropping older unconsumed packets instead of stalling encoder operations when network congestion occurs.
+    * `qos-dscp=48`: Flags output IP packets with DSCP CS6 (Voice/Control class) to prioritize packets on network switches and router queues.
 
 ---
 
-### 4. Touch Input Injection Daemon (`touch_daemon.py`)
+### 4. Input Translation & Injection (`touch_daemon.py`)
 
 The touch daemon runs in the background, listening for incoming event payloads from the Android app, mapping the coordinates, and injecting them into the host.
 
@@ -119,11 +122,43 @@ The touch daemon runs in the background, listening for incoming event payloads f
     * Bypasses the RemoteDesktop portal (unsupported by `xdg-desktop-portal-hyprland`) by writing directly to `/dev/uinput` using `evdev` to create a virtual touchscreen device named `Monitorize-Touch`.
     * Utilizes `hyprctl keyword device:monitorize-touch:output` to map touch coordinates to the corresponding virtual headless monitor.
 * **Coordinate Mapping & Scaling**:
-  * Detects current virtual monitor positions and scaling by parsing output states from compositor tools:
-    * `kscreen-doctor -j` on KDE.
-    * `hyprctl monitors -j` on Hyprland.
-    * Mutter's D-Bus `DisplayConfig` properties on GNOME.
-  * Converts the normalized coordinate payload (`0-65535`) sent from Android into absolute pixel positions matching the compositor's layout.
+  * Android touch events transmit normalized coordinates ranging from `0` to `65535` (`COORD_MAX`).
+  * `touch_daemon.py` maps these values to physical coordinate offsets depending on the current desktop compositor layout:
+    1. **KDE**: Parses `kscreen-doctor -j` to query logical offsets `(x, y, w, h)` of `Virtual-TabletDisplay`.
+    2. **Hyprland**: Parses `hyprctl monitors -j` to query coordinates and DPI scaling of the `HEADLESS-N` output.
+    3. **GNOME**: Queries the logical display matrix using the Mutter `DisplayConfig` D-Bus interface.
+  * Coordinate Transformation:
+    $$\text{Host X} = \text{Offset X} + \left(\frac{\text{Android X}}{65535}\right) \times \text{Logical Width}$$
+    $$\text{Host Y} = \text{Offset Y} + \left(\frac{\text{Android Y}}{65535}\right) \times \text{Logical Height}$$
+
+---
+
+## 🛠️ Troubleshooting Guide
+
+### A. Touch Injection Fails on Hyprland (Permission Issues)
+* **Symptom**: `touch_daemon.py` reports `PermissionError: Cannot open /dev/uinput`.
+* **Fix**: Ensure udev permission rules are loaded and your user belongs to the `input` group:
+  ```bash
+  echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
+  sudo udevadm control --reload-rules && sudo udevadm trigger
+  sudo usermod -aG input $USER
+  # Log out and log back in for changes to apply
+  ```
+
+### B. Missing GStreamer Plugins (Black Screens/Codec Crashes)
+* **Symptom**: GStreamer launcher fails with `no element "x264enc"` or `no element "vah264enc"`.
+* **Fix**: Install the missing plugins on your host distribution:
+  * **Fedora**: Enable RPM Fusion and install `gstreamer1-plugins-ugly`, `gstreamer1-plugins-bad-freeworld`, and `gstreamer1-plugin-libav`.
+  * **Arch**: Install `gst-plugins-good`, `gst-plugins-bad`, and `gst-plugins-ugly`.
+  * **Debian/Ubuntu**: Install `gstreamer1.0-plugins-good`, `gstreamer1.0-plugins-bad`, and `gstreamer1.0-plugins-ugly`.
+
+### C. Touch Emulation Fails on KDE/GNOME (Portal Denied)
+* **Symptom**: Log reports `Portal session closed/denied by user` or `Portal timed out`.
+* **Fix**: When starting the stream, watch for the OS system modal dialog `"Allow Remote Control"` or `"Input Device Emulation Request"` and click **Allow**. If it fails to show up, verify that `xdg-desktop-portal-gtk` or similar desktop portals are running in your user session.
+
+### D. Wi-Fi Device Discovery Fails (mDNS / Multicast Blocking)
+* **Symptom**: Desktop app does not show up on the Android app, or manual IP connection fails.
+* **Fix**: Some home network routers block multicast DNS (mDNS) traffic. The Android client will perform a sequential parallel subnet scan on ports `7110` / `1714` to bypass this, but you should also verify that firewalls (such as `firewalld` or `ufw`) on the Linux host allow TCP traffic on port `7110` and `7111`.
 
 ---
 

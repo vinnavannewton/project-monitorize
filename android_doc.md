@@ -76,8 +76,8 @@ The discovery subsystem is responsible for finding compatible Monitorize desktop
 The `StreamReceiver` establishes the socket connections, handles low-latency OS socket tuning, and parses incoming streams.
 
 * **Network Tuning**:
-  * Disables Nagle's algorithm with `tcpNoDelay = true`.
-  * Sets the TCP receive buffer size to `1MB` (`receiveBufferSize = 1024 * 1024`).
+  * Disables Nagle's algorithm with `tcpNoDelay = true` to send frame packets instantly without accumulation buffering.
+  * Sets the TCP receive buffer size to `1MB` (`receiveBufferSize = 1024 * 1024`) to handle high-bitrate bursts.
   * Applies **Traffic Class / Quality of Service (QoS)**: Configures the socket's traffic class to `0xC0` (DSCP CS6 / Voice Class) to enforce high-priority routing at the Android OS kernel and local Wi-Fi chipset driver levels.
 * **Annex B Video Stream Parsing**:
   * Reads raw network bytes into a circular-style `4MB` data buffer.
@@ -142,10 +142,30 @@ Input feedback routes user touch, mouse, and stylus interactions from the Androi
 
 ---
 
+## 🔄 Lifecycle Management, Startup, and Recovery
+
+To deliver a robust display streaming experience, the application implements active recovery and thread management:
+
+* **Urgent Thread Priorities**:
+  The `StreamReceiver` network parsing loop runs on a dedicated thread named `MonitorizeReceiver` with its OS thread priority configured to `THREAD_PRIORITY_URGENT_DISPLAY`. This ensures display parsing packets are scheduled immediately by the Android kernel even under heavy system workloads.
+* **Stream Disconnection Recovery**:
+  When a stream drops (e.g. TCP connection reset, USB unplug, or server stopping), the receiver teardown cleans up resources and notifies `MainActivity`. The app displays a friendly warning overlay rather than crashing or freezing.
+* **Graceful Stack Restart (`triggerAppRestart`)**:
+  When critical screen settings change (such as resolution overrides or switching between USB/Wi-Fi modes), the app triggers a clean stack restart:
+  1. Releases all socket and decoder references.
+  2. Sets up a `PendingIntent` using `AlarmManager` targeting the launcher activity.
+  3. Schedules the alarm to fire in 100 milliseconds.
+  4. Force terminates the current process via `System.exit(0)`.
+  This guarantees that all system native media buffers, graphics frames, and background daemon threads are completely garbage collected and re-initialized cleanly.
+
+---
+
 ## 🛠️ Stream View Porting Note (`StreamScreen.kt` vs `MainActivity.kt`)
 
 * **`StreamScreen.kt`**: Contains a standard compose-wrapped `SurfaceView` template setting `setZOrderOnTop(false)`.
 * **Active View**: The operational stream rendering is performed by `StreamSurface()` defined in `MainActivity.kt` (lines 803-837). This component manages pointer touch / hover listeners directly and routes raw events directly to the `InputEventSender`.
+  * **Z-Order Rendering**: Calls `setZOrderOnTop(false)` and `setZOrderMediaOverlay(false)` so that Jetpack Compose overlays (such as status info, progress spinners, or settings dialogs) can render cleanly on top of the raw hardware-decoded surface frame.
+  * **Crisp Resolution Scaling**: The component intentionally avoids calling `setFixedSize()`. By matching the layout parameters to `MATCH_PARENT`, the size of the surface pixels is negotiated directly with the hardware decoder, avoiding a secondary software resizing pass that would introduce pixel artifacts.
 
 ---
 

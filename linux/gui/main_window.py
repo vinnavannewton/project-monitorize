@@ -1105,10 +1105,7 @@ class MonitorizeWindow(QMainWindow):
                 5000
             )
         else:
-            self._kill_stream_procs()
-            self._kill_receiver_proc()
-            self._stopHostDiscoveryInternal()
-            self._cleanup_zeroconf()
+            self._quit_app()
             event.accept()
 
     def _ask_desktop_environment(self) -> str:
