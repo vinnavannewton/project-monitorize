@@ -10,7 +10,8 @@ class StreamReceiver(
     private val decoder: H264Decoder,
     private val width: Int,
     private val height: Int,
-    private val hostIp: String? = null
+    private val hostIp: String? = null,
+    private val hostPort: Int = 7110
 ) {
     private var running = false
     private var controlSocket: Socket? = null
@@ -54,12 +55,12 @@ class StreamReceiver(
     private fun receiveLoopWifi(targetIp: String) {
         val streamType = if (targetIp == "127.0.0.1") "USB" else "WiFi"
         while (running) {
-            onStatusChange?.invoke(if (streamType == "USB") "Waiting for USB connection…" else "Connecting to $targetIp…")
+            onStatusChange?.invoke(if (streamType == "USB") "Waiting for USB connection…" else "Connecting to $targetIp:$hostPort…")
             var socket: Socket? = null
             while (running && socket == null) {
                 try {
                     socket = Socket()
-                    socket.connect(InetSocketAddress(targetIp, PORT), 2000)
+                    socket.connect(InetSocketAddress(targetIp, hostPort), 2000)
                 } catch (e: Exception) {
                     socket = null
                     Thread.sleep(1000)

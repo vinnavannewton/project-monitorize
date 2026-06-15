@@ -38,11 +38,13 @@ class ByteArrayPool(private val itemSize: Int) {
 }
 
 class InputEventSender(
-    private val hostIp: String? = null
+    private val hostIp: String? = null,
+    private val hostPort: Int = 7110
 ) {
+    private val portTcp = hostPort + 1
+    private val portUdp = hostPort + 3
+
     companion object {
-        private const val PORT_TCP = 7111
-        private const val PORT_UDP = 7113
         private const val HOST = "127.0.0.1"
     }
 
@@ -59,12 +61,12 @@ class InputEventSender(
                 while (isActive) {
                     var s: Socket? = null
                     try {
-                        s = Socket(HOST, PORT_TCP)
+                        s = Socket(HOST, portTcp)
                         s.tcpNoDelay = true
                         s.sendBufferSize = 64 * 1024
                         socket = s
                         out = s.getOutputStream()
-                        android.util.Log.i("InputEventSender", "Connected to touch_daemon TCP on $HOST:$PORT_TCP")
+                        android.util.Log.i("InputEventSender", "Connected to touch_daemon TCP on $HOST:$portTcp")
                         
                         val inputStream = s.getInputStream()
                         val buffer = ByteArray(16)
@@ -88,9 +90,9 @@ class InputEventSender(
                     val u = DatagramSocket()
                     val addr = InetAddress.getByName(hostIp)
                     udpSocket = u
-                    android.util.Log.i("InputEventSender", "UDP touch ready for $hostIp:$PORT_UDP")
+                    android.util.Log.i("InputEventSender", "UDP touch ready for $hostIp:$portUdp")
                     for (frame in sendChannel) {
-                        val packet = DatagramPacket(frame, frame.size, addr, PORT_UDP)
+                        val packet = DatagramPacket(frame, frame.size, addr, portUdp)
                         udpSocket?.send(packet)
                         pool.recycle(frame)
                     }

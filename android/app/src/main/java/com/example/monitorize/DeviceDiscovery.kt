@@ -87,7 +87,7 @@ class DeviceDiscovery(private val context: Context) {
         }
 
         
-        startSubnetScan()
+        
     }
 
     private fun startResolverJob(channel: Channel<NsdServiceInfo>) {
