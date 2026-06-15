@@ -23,7 +23,8 @@ from gui.utils import (
 from gui.settings import (
     load_general_settings, save_general_settings,
     load_usb_settings, save_usb_settings,
-    load_wifi_settings, save_wifi_settings
+    load_wifi_settings, save_wifi_settings,
+    load_second_display_settings, save_second_display_settings
 )
 
 
@@ -334,6 +335,19 @@ class MonitorizeWindow(QMainWindow):
             display_type=display_type,
             encoder=encoder,
             stream_type=stream_type
+        )
+
+    @pyqtSlot(result='QVariant')
+    def loadSecondDisplaySettings(self):
+        return load_second_display_settings()
+
+    @pyqtSlot(str, str, str, str)
+    def saveSecondDisplaySettings(self, resolution, fps, bitrate, encoder):
+        save_second_display_settings(
+            resolution=resolution,
+            fps=fps,
+            bitrate=bitrate,
+            encoder=encoder
         )
 
     @pyqtSlot()

@@ -17,6 +17,20 @@ Item {
         let gen = backend.loadGeneralSettings();
         trayCheck.checked = gen["minimize_to_tray"] || false;
         page.enableTouch = gen["enable_touch"] || false;
+
+        let s2 = backend.loadSecondDisplaySettings();
+        if (s2) {
+            let resIdx = s2ResCombo.find(s2["resolution"] || "1920x1080 (16:9)");
+            s2ResCombo.currentIndex = resIdx !== -1 ? resIdx : 2;
+
+            let fpsIdx = s2FpsCombo.find(s2["fps"] || "60");
+            s2FpsCombo.currentIndex = fpsIdx !== -1 ? fpsIdx : 1;
+
+            s2BitrateField.text = s2["bitrate"] || "8000";
+
+            let encIdx = s2EncoderCombo.find(s2["encoder"] || "Software (CPU / x264enc)");
+            s2EncoderCombo.currentIndex = encIdx !== -1 ? encIdx : 2;
+        }
     }
 
     // Listen directly for log signals from the Python backend
@@ -440,6 +454,12 @@ Item {
                         let cleanRes = s2ResCombo.currentText.split(" ")[0]
                         backend.startSecondStream(
                             cleanRes,
+                            s2FpsCombo.currentText,
+                            s2BitrateField.text,
+                            s2EncoderCombo.currentText
+                        )
+                        backend.saveSecondDisplaySettings(
+                            s2ResCombo.currentText,
                             s2FpsCombo.currentText,
                             s2BitrateField.text,
                             s2EncoderCombo.currentText

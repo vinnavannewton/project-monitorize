@@ -121,3 +121,27 @@ def load_general_settings() -> dict:
     }
     s.endGroup()
     return data
+
+
+def save_second_display_settings(*, resolution: str, fps: str, bitrate: str, encoder: str):
+    s = _get_settings()
+    s.beginGroup("second_display")
+    s.setValue("resolution", resolution)
+    s.setValue("fps", fps)
+    s.setValue("bitrate", bitrate)
+    s.setValue("encoder", encoder)
+    s.endGroup()
+    s.sync()
+
+
+def load_second_display_settings() -> dict:
+    s = _get_settings()
+    s.beginGroup("second_display")
+    data = {
+        "resolution": s.value("resolution", "1920x1080 (16:9)"),
+        "fps":        s.value("fps",        "60"),
+        "bitrate":    s.value("bitrate",    "8000"),
+        "encoder":    s.value("encoder",    "Software (CPU / x264enc)"),
+    }
+    s.endGroup()
+    return data
