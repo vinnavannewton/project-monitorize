@@ -159,7 +159,8 @@ class MainActivity : ComponentActivity() {
                                         coroutineScope.launch {
                                             
                                             kotlinx.coroutines.delay(400)
-                                            startStream(ip, surface, w, h) {
+                                            val port = selectedDevice?.port ?: 7110
+                                            startStream(ip, port, surface, w, h) {
                                                 runOnUiThread {
                                                     coroutineScope.launch { stopStream() }
                                                     triggerAppRestart(showDisconnected = true)
@@ -279,7 +280,7 @@ class MainActivity : ComponentActivity() {
         windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     }
 
-    private fun startStream(hostIp: String, surface: Surface, width: Int, height: Int, onDisconnect: () -> Unit) {
+    private fun startStream(hostIp: String, hostPort: Int, surface: Surface, width: Int, height: Int, onDisconnect: () -> Unit) {
         
         try {
             val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
@@ -300,13 +301,13 @@ class MainActivity : ComponentActivity() {
 
         val d = H264Decoder(surface)
         decoder = d
-        receiver = StreamReceiver(d, width, height, hostIp.takeIf { it.isNotBlank() }).also {
+        receiver = StreamReceiver(d, width, height, hostIp.takeIf { it.isNotBlank() }, hostPort).also {
             it.onStatusChange = { msg -> runOnUiThread { status.value = msg } }
             it.onDisconnect = onDisconnect
             it.start()
         }
         val metrics = resources.displayMetrics
-        inputSender = InputEventSender(hostIp.takeIf { it.isNotBlank() }).also { it.start() }
+        inputSender = InputEventSender(hostIp.takeIf { it.isNotBlank() }, hostPort).also { it.start() }
     }
 
     private var isStopping = false
@@ -453,6 +454,7 @@ fun HomeScreen(
             }
             
             var manualIp by remember { mutableStateOf("") }
+            var manualPort by remember { mutableStateOf("7110") }
             Spacer(modifier = Modifier.height(manualSpacerHeight))
             Row(
                 modifier = Modifier.fillMaxWidth().padding(bottom = manualRowPadding),
@@ -461,8 +463,20 @@ fun HomeScreen(
                 OutlinedTextField(
                     value = manualIp,
                     onValueChange = { manualIp = it },
-                    placeholder = { Text("Enter IP manually", color = TextMuted) },
-                    modifier = Modifier.weight(1f).height(manualFieldHeight),
+                    placeholder = { Text("Enter IP address", color = TextMuted) },
+                    modifier = Modifier.weight(1.5f).height(manualFieldHeight),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AccentIndigo,
+                        unfocusedBorderColor = BorderDark
+                    )
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                OutlinedTextField(
+                    value = manualPort,
+                    onValueChange = { manualPort = it },
+                    placeholder = { Text("Port", color = TextMuted) },
+                    modifier = Modifier.weight(0.8f).height(manualFieldHeight),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = AccentIndigo,
@@ -473,7 +487,9 @@ fun HomeScreen(
                 Button(
                     onClick = {
                         if (manualIp.isNotBlank()) {
-                            onDeviceSelected(DiscoveredDevice(name = "Manual WiFi", ip = manualIp.trim(), port = 7110, isUsb = false))
+                            val ip = manualIp.trim()
+                            val port = manualPort.trim().toIntOrNull() ?: 7110
+                            onDeviceSelected(DiscoveredDevice(name = "Manual WiFi", ip = ip, port = port, isUsb = false))
                         }
                     },
                     modifier = Modifier.height(manualFieldHeight),

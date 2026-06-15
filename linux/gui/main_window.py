@@ -123,7 +123,6 @@ class MonitorizeWindow(QMainWindow):
         
         self._zc = None
         self._info = None
-        QTimer.singleShot(0, self._setup_zeroconf)
 
         
         self._network_timer = QTimer(self)
@@ -833,6 +832,9 @@ class MonitorizeWindow(QMainWindow):
 
         self.process_streamer.start(sys.executable, args)
 
+        if self._is_wifi:
+            self._setup_zeroconf()
+
         if self._detected_de in ("kde", "gnome"):
             QTimer.singleShot(400, self._launch_input_bridge)
         elif self._detected_de == "hyprland":
@@ -942,7 +944,7 @@ class MonitorizeWindow(QMainWindow):
         """Terminate all streaming subprocesses and return to the main menu."""
         self._kill_stream_procs()
         self.set_is_streaming(False)
-        self._setup_zeroconf()
+        self._cleanup_zeroconf()
 
     def _on_configure_display(self):
         """Launch nwg-displays for Hyprland display configuration."""
@@ -1090,7 +1092,8 @@ class MonitorizeWindow(QMainWindow):
             print(f"[Network] IP changed from {self._local_ip} to {current_ip}")
             self._local_ip = current_ip
             self.localIpChanged.emit(current_ip)
-            self._update_zeroconf_registration(current_ip)
+            if self._is_streaming and self._is_wifi:
+                self._update_zeroconf_registration(current_ip)
 
     def closeEvent(self, event):
         gen = load_general_settings()
