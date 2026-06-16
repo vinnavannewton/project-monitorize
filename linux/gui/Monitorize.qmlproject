@@ -1,0 +1,19 @@
+import QmlProject 1.1
+
+Project {
+    mainFile: "main.qml"
+
+    /* Include all QML and JS files */
+    QmlFiles {
+        directory: "."
+    }
+
+    JavaScriptFiles {
+        directory: "."
+    }
+
+    /* Include image/SVG assets */
+    ImageFiles {
+        directory: "../assets"
+    }
+}

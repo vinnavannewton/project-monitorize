@@ -2,10 +2,15 @@ package com.example.monitorize.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Purple80 = Color(0xFFD0BCFF)
-val PurpleGrey80 = Color(0xFFCCC2DC)
-val Pink80 = Color(0xFFEFB8C8)
 
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
+
+
+
+
+
+
+val PrussianBlue  = Color(0xFF001D3C)
+val BalticBlue    = Color(0xFF005E83)
+val BondiBlue     = Color(0xFF0092BC)
+val SkySurge      = Color(0xFF45BED7)
+val ElectricAqua  = Color(0xFF8AE9F2)

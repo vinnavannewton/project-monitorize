@@ -48,14 +48,20 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 
-val BackgroundDark = Color(0xFF121214) 
-val CardDark       = Color(0xFF1C1C1E)
-val BorderDark     = Color(0xFF2C2C2E)
-val AccentIndigo   = Color(0xFF6366F1)
-val GreenAccent    = Color(0xFF10B981)
-val TextPrimary    = Color(0xFFF1F5F9)
-val TextSecondary  = Color(0xFF94A3B8)
-val TextMuted      = Color(0xFF475569)
+
+
+
+
+
+
+val BackgroundDark = Color(0xFF8AE9F2)  
+val CardDark       = Color(0xFF0092BC)  
+val BorderDark     = Color(0xFF45BED7)  
+val AccentIndigo   = Color(0xFF005E83)  
+val GreenAccent    = Color(0xFF001D3C)  
+val TextPrimary    = Color(0xFF001D3C)  
+val TextSecondary  = Color(0xFF005E83)  
+val TextMuted      = Color(0xFF0092BC)  
 
 enum class Screen { Home, Receive }
 
@@ -96,8 +102,11 @@ class MainActivity : ComponentActivity() {
             window.attributes.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         }
 
-        window.setBackgroundDrawableResource(android.R.color.black)
+        window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.parseColor("#8AE9F2")))
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        
+        WindowInsetsControllerCompat(window, window.decorView).isAppearanceLightStatusBars = true
 
         setContent {
             val configuration = LocalConfiguration.current
@@ -126,7 +135,16 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            MaterialTheme(colorScheme = darkColorScheme()) {
+            MaterialTheme(colorScheme = lightColorScheme(
+                primary = AccentIndigo,
+                onPrimary = Color.White,
+                secondary = GreenAccent,
+                onSecondary = Color.White,
+                background = BackgroundDark,
+                onBackground = TextPrimary,
+                surface = CardDark,
+                onSurface = Color.White
+            )) {
                 Surface(modifier = Modifier.fillMaxSize(), color = BackgroundDark) {
                     Box(modifier = Modifier.fillMaxSize()) {
                         when (currentScreen) {
@@ -239,7 +257,7 @@ class MainActivity : ComponentActivity() {
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Text(
                                         text = disconnectionMessage ?: "",
-                                        color = TextPrimary,
+                                        color = Color.White,
                                         fontSize = 14.sp,
                                         fontWeight = FontWeight.SemiBold
                                     )
@@ -373,7 +391,7 @@ fun HomeScreen(
                 onClick = onSettingsToggle,
                 modifier = Modifier.align(Alignment.TopEnd).padding(settingsButtonPadding).size(48.dp).background(CardDark, CircleShape)
             ) {
-                Icon(Icons.Default.Settings, contentDescription = "Settings", tint = TextPrimary)
+                Icon(Icons.Default.Settings, contentDescription = "Settings", tint = Color.White)
             }
         }
 
@@ -423,7 +441,7 @@ fun HomeScreen(
                             Icon(
                                 Icons.Default.Settings,
                                 contentDescription = "Settings",
-                                tint = TextPrimary,
+                                tint = Color.White,
                                 modifier = Modifier.size(if (isLandscapeMobile) 18.dp else 20.dp)
                             )
                         }
@@ -453,8 +471,10 @@ fun HomeScreen(
                 }
             }
             
-            var manualIp by remember { mutableStateOf("") }
-            var manualPort by remember { mutableStateOf("7110") }
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val prefs = remember { context.getSharedPreferences("monitorize_prefs", android.content.Context.MODE_PRIVATE) }
+            var manualIp by remember { mutableStateOf(prefs.getString("manual_ip", "") ?: "") }
+            var manualPort by remember { mutableStateOf(prefs.getString("manual_port", "7110") ?: "7110") }
             Spacer(modifier = Modifier.height(manualSpacerHeight))
             Row(
                 modifier = Modifier.fillMaxWidth().padding(bottom = manualRowPadding),
@@ -489,6 +509,11 @@ fun HomeScreen(
                         if (manualIp.isNotBlank()) {
                             val ip = manualIp.trim()
                             val port = manualPort.trim().toIntOrNull() ?: 7110
+                            prefs.edit().apply {
+                                putString("manual_ip", ip)
+                                putString("manual_port", manualPort.trim())
+                                apply()
+                            }
                             onDeviceSelected(DiscoveredDevice(name = "Manual WiFi", ip = ip, port = port, isUsb = false))
                         }
                     },
@@ -496,7 +521,7 @@ fun HomeScreen(
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = GreenAccent)
                 ) {
-                    Text("Connect", fontWeight = FontWeight.Bold, color = Color.Black)
+                    Text("Connect", fontWeight = FontWeight.Bold, color = Color.White)
                 }
             }
         }
@@ -526,14 +551,14 @@ fun DeviceItem(device: DiscoveredDevice, onClick: () -> Unit) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 device.name, 
-                color = TextPrimary, 
+                color = Color.White, 
                 fontWeight = FontWeight.Bold, 
                 fontSize = titleFontSize
             )
             
             Text(
                 device.ip, 
-                color = TextSecondary, 
+                color = Color.White.copy(alpha = 0.7f), 
                 fontSize = 13.sp,
                 modifier = Modifier.padding(top = 2.dp)
             )
@@ -542,12 +567,12 @@ fun DeviceItem(device: DiscoveredDevice, onClick: () -> Unit) {
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(4.dp))
-                .background(if (device.isUsb) AccentIndigo.copy(alpha = 0.2f) else GreenAccent.copy(alpha = 0.2f))
+                .background(Color.White.copy(alpha = 0.2f))
                 .padding(horizontal = 10.dp, vertical = 4.dp)
         ) {
             Text(
                 text = if (device.isUsb) "usb" else "wifi",
-                color = if (device.isUsb) AccentIndigo else GreenAccent,
+                color = Color.White,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.ExtraBold
             )
@@ -588,14 +613,14 @@ fun ResolutionCard(
         ) {
             Text(
                 text = title,
-                color = if (isSelected) Color.White else TextPrimary,
+                color = if (isSelected) Color.White else Color.White,
                 fontWeight = FontWeight.Bold,
                 fontSize = titleFontSize
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = subtitle,
-                color = TextSecondary,
+                color = Color.White.copy(alpha = 0.7f),
                 fontSize = subtitleFontSize
             )
         }
@@ -677,7 +702,7 @@ fun SettingsPanel(
             .padding(panelPadding)
             .verticalScroll(rememberScrollState())
     ) {
-        Text("Resolution Settings", fontSize = titleSize, fontWeight = FontWeight.Bold, color = TextPrimary)
+        Text("Resolution Settings", fontSize = titleSize, fontWeight = FontWeight.Bold, color = Color.White)
         Spacer(modifier = Modifier.height(spacingHeight))
 
         ResolutionCard(
@@ -763,7 +788,7 @@ fun SettingsPanel(
         }
         
         TextButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
-            Text("DISCARD", color = TextSecondary)
+            Text("DISCARD", color = Color.White.copy(alpha = 0.7f))
         }
     }
 }
@@ -809,7 +834,7 @@ fun ReceiveScreen(
                     .clickable { onBack() }
                     .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
-                Text(text = status, color = GreenAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Text(text = status, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -861,7 +886,7 @@ fun HomeScreenPreview() {
         DiscoveredDevice("Main Desktop", "192.168.1.100", 7110, false),
         DiscoveredDevice("Local PC (USB)", "127.0.0.1", 7110, true)
     )
-    MaterialTheme(colorScheme = darkColorScheme()) {
+    MaterialTheme(colorScheme = lightColorScheme()) {
         Surface(color = BackgroundDark) {
             HomeScreen(devices = mockDevices, onDeviceSelected = {}, onSettingsToggle = {})
         }

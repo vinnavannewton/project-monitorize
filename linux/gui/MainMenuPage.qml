@@ -14,14 +14,14 @@ Item {
             text: "Monitorize"
             font.pixelSize: 32
             font.weight: Font.ExtraBold
-            color: "#e0e2ff"
+            color: theme.textPrimary
             Layout.alignment: Qt.AlignHCenter
         }
 
         Text {
             text: "Linux → Android Display Bridge"
             font.pixelSize: 14
-            color: "#6a6c96"
+            color: theme.textSecondary
             Layout.alignment: Qt.AlignHCenter
         }
 
@@ -31,8 +31,8 @@ Item {
             implicitWidth: 180
             implicitHeight: 32
             radius: 16
-            color: "#161726"
-            border.color: "#2a2d55"
+            color: theme.surfaceAlt
+            border.color: theme.border
             border.width: 1
 
             RowLayout {
@@ -54,7 +54,7 @@ Item {
 
                 Text {
                     text: "Desktop: " + (backend.detectedDe === "kde" ? "KDE Plasma" : (backend.detectedDe === "gnome" ? "GNOME" : (backend.detectedDe === "hyprland" ? "Hyprland" : backend.detectedDe.toUpperCase())))
-                    color: "#6a6cbb"
+                    color: theme.cardTextPrimary
                     font.pixelSize: 12
                     font.weight: Font.Bold
                     Layout.alignment: Qt.AlignVCenter
@@ -74,8 +74,8 @@ Item {
                 implicitWidth: 220
                 implicitHeight: 140
                 radius: 16
-                color: usbMouseArea.containsMouse ? "#1c1e3a" : "#12142a"
-                border.color: usbMouseArea.containsMouse ? "#4c4fd0" : "#2a2d55"
+                color: usbMouseArea.containsMouse ? theme.surfaceAlt : theme.surface
+                border.color: usbMouseArea.containsMouse ? theme.borderHover : theme.border
                 border.width: 1
                 scale: usbMouseArea.containsMouse ? 1.03 : 1.0
                 Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
@@ -95,7 +95,7 @@ Item {
                         text: "USB Mode"
                         font.pixelSize: 16
                         font.weight: Font.Bold
-                        color: "#c0c2ee"
+                        color: theme.cardTextPrimary
                         Layout.alignment: Qt.AlignHCenter
                     }
                 }
@@ -116,8 +116,8 @@ Item {
                 implicitWidth: 220
                 implicitHeight: 140
                 radius: 16
-                color: wifiMouseArea.containsMouse ? "#1c1e3a" : "#12142a"
-                border.color: wifiMouseArea.containsMouse ? "#4c4fd0" : "#2a2d55"
+                color: wifiMouseArea.containsMouse ? theme.surfaceAlt : theme.surface
+                border.color: wifiMouseArea.containsMouse ? theme.borderHover : theme.border
                 border.width: 1
                 scale: wifiMouseArea.containsMouse ? 1.03 : 1.0
                 Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
@@ -137,7 +137,7 @@ Item {
                         text: "Wi-Fi Mode"
                         font.pixelSize: 16
                         font.weight: Font.Bold
-                        color: "#c0c2ee"
+                        color: theme.cardTextPrimary
                         Layout.alignment: Qt.AlignHCenter
                     }
                 }
@@ -158,8 +158,8 @@ Item {
                 implicitWidth: 220
                 implicitHeight: 140
                 radius: 16
-                color: receiverMouseArea.containsMouse ? "#1c1e3a" : "#12142a"
-                border.color: receiverMouseArea.containsMouse ? "#7c3aed" : "#2a2d55"
+                color: receiverMouseArea.containsMouse ? theme.surfaceAlt : theme.surface
+                border.color: receiverMouseArea.containsMouse ? theme.borderHover : theme.border
                 border.width: 1
                 scale: receiverMouseArea.containsMouse ? 1.03 : 1.0
                 Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
@@ -179,7 +179,7 @@ Item {
                         text: "Receiver Mode"
                         font.pixelSize: 16
                         font.weight: Font.Bold
-                        color: "#c0c2ee"
+                        color: theme.cardTextPrimary
                         Layout.alignment: Qt.AlignHCenter
                     }
                 }
@@ -200,7 +200,7 @@ Item {
         Text {
             text: "Select a connection mode to begin"
             font.pixelSize: 12
-            color: "#5a5c82"
+            color: theme.textMuted
             Layout.alignment: Qt.AlignHCenter
         }
     }

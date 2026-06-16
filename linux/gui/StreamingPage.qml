@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
+
 Item {
     id: page
 
@@ -15,8 +16,8 @@ Item {
 
     Component.onCompleted: {
         let gen = backend.loadGeneralSettings();
-        trayCheck.checked = gen["minimize_to_tray"] || false;
-        page.enableTouch = gen["enable_touch"] || false;
+        page.enableTouch = gen["enable_touch"] !== undefined ? gen["enable_touch"] : true;
+        trayCheck.checked = gen["minimize_to_tray"] !== undefined ? gen["minimize_to_tray"] : false;
 
         let s2 = backend.loadSecondDisplaySettings();
         if (s2) {
@@ -51,18 +52,18 @@ Item {
         for (let i = 0; i < allLogs.length; i++) {
             let log = allLogs[i]
             if (logFilter === "ALL" || log.type === logFilter) {
-                let categoryColor = "#7cc87c"
-                if (log.type === "STREAMER") categoryColor = "#5c9eff"
-                else if (log.type === "INPUT") categoryColor = "#e8a840"
+                let categoryColor = "#a3e635"
+                if (log.type === "STREAMER") categoryColor = "#60a5fa"
+                else if (log.type === "INPUT") categoryColor = "#fbbf24"
 
-                let msgColor = "#b8bad8"
+                let msgColor = "#e2e8f0"
                 let lowerMsg = log.message.toLowerCase()
                 if (lowerMsg.includes("warning") || lowerMsg.includes("warn")) {
-                    msgColor = "#e8a840"
+                    msgColor = "#fde047"
                 } else if (lowerMsg.includes("error") || lowerMsg.includes("exception") || lowerMsg.includes("failed") || lowerMsg.includes("denied") || lowerMsg.includes("crashed")) {
-                    msgColor = "#ff6b6b"
+                    msgColor = "#fca5a5"
                 } else if (lowerMsg.includes("success") || lowerMsg.includes("ready") || lowerMsg.includes("listening") || lowerMsg.includes("connected") || lowerMsg.includes("active")) {
-                    msgColor = "#4cd68d"
+                    msgColor = "#86efac"
                 }
 
                 let tag = "[" + log.type + "]"
@@ -83,8 +84,8 @@ Item {
             Layout.fillWidth: true
             implicitHeight: 60
             radius: 12
-            color: "#12142a"
-            border.color: "#2a2d55"
+            color: theme.surface
+            border.color: theme.border
             border.width: 1
 
             RowLayout {
@@ -98,7 +99,7 @@ Item {
                     width: 12
                     height: 12
                     radius: 6
-                    color: "#4cd68d"
+                    color: "#86efac"
 
                     OpacityAnimator {
                         target: parent.children[0]
@@ -114,13 +115,13 @@ Item {
                     text: backend.countdown > 0 ? ("Streaming starting in " + backend.countdown + "...") : "Streaming Active"
                     font.pixelSize: 18
                     font.weight: Font.Bold
-                    color: "#4cd68d"
+                    color: "#86efac"
                 }
 
                 Text {
                     text: backend.streamingStatus
                     font.pixelSize: 13
-                    color: "#8a8cc0"
+                    color: theme.cardTextSecondary
                     Layout.fillWidth: true
                 }
             }
@@ -131,8 +132,8 @@ Item {
             Layout.fillWidth: true
             implicitHeight: 40
             radius: 8
-            color: "#161726"
-            border.color: "#2a2d55"
+            color: theme.surfaceAlt
+            border.color: theme.border
             border.width: 1
 
             RowLayout {
@@ -142,7 +143,7 @@ Item {
                 
                 Text {
                     text: "📺 Display 1: Port 7110"
-                    color: "#a78bfa"
+                    color: theme.accent
                     font.pixelSize: 12
                     font.weight: Font.Bold
                 }
@@ -151,7 +152,7 @@ Item {
                 
                 Text {
                     text: "IP: " + backend.localIp
-                    color: "#e0e2ff"
+                    color: theme.cardTextPrimary
                     font.pixelSize: 13
                     font.weight: Font.Bold
                 }
@@ -184,13 +185,13 @@ Item {
                     background: Rectangle {
                         implicitWidth: 100
                         implicitHeight: 32
-                        color: isSelected ? "#3538b0" : "#12142a"
-                        border.color: isSelected ? "#4c4fd0" : "#2a2d55"
+                        color: isSelected ? theme.accent : theme.surface
+                        border.color: isSelected ? theme.accent : theme.border
                         radius: 6
                     }
                     contentItem: Text {
                         text: parent.text
-                        color: isSelected ? "#ffffff" : "#6a6c96"
+                        color: theme.cardTextPrimary
                         font.pixelSize: 11
                         font.weight: Font.Bold
                         horizontalAlignment: Text.AlignHCenter
@@ -205,8 +206,8 @@ Item {
         Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            color: "#080910"
-            border.color: "#1a1c30"
+            color: theme.logBoxBackground
+            border.color: theme.border
             border.width: 1
             radius: 8
 
@@ -221,7 +222,7 @@ Item {
                     textFormat: Text.RichText
                     font.family: "Fira Code, JetBrains Mono, DejaVu Sans Mono, Consolas, monospace"
                     font.pixelSize: 12
-                    color: "#b8bad8"
+                    color: theme.cardTextPrimary
                     readOnly: true
                     selectByMouse: true
                     wrapMode: Text.WrapAnywhere
@@ -253,14 +254,14 @@ Item {
                 background: Rectangle {
                     implicitWidth: 140
                     implicitHeight: 38
-                    color: parent.down ? "#16182a" : (parent.hovered ? "#222540" : "#1a1c30")
-                    border.color: "#2a2d55"
+                    color: parent.down ? theme.surfaceAlt : (parent.hovered ? theme.borderHover : theme.surface)
+                    border.color: theme.border
                     radius: 8
                     Behavior on color { ColorAnimation { duration: 150 } }
                 }
                 contentItem: Text {
                     text: parent.text
-                    color: "#b8bad8"
+                    color: theme.cardTextSecondary
                     font.pixelSize: 12
                     font.weight: Font.Bold
                     horizontalAlignment: Text.AlignHCenter
@@ -285,13 +286,13 @@ Item {
                     color: backend.secondStreamActive
                         ? (parent.down ? "#5a1010" : (parent.hovered ? "#c42830" : "#a82028"))
                         : (parent.down ? "#16182a" : (parent.hovered ? "#222540" : "#1a1c30"))
-                    border.color: backend.secondStreamActive ? "#c42830" : "#7c3aed"
+                    border.color: backend.secondStreamActive ? "#c42830" : theme.accent
                     radius: 8
                     Behavior on color { ColorAnimation { duration: 150 } }
                 }
                 contentItem: Text {
                     text: parent.text
-                    color: backend.secondStreamActive ? "#ffffff" : "#a78bfa"
+                    color: backend.secondStreamActive ? theme.textPrimary : theme.accent
                     font.pixelSize: 12
                     font.weight: Font.Bold
                     horizontalAlignment: Text.AlignHCenter
@@ -319,6 +320,8 @@ Item {
                     font.weight: Font.Bold
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
+                    focus: true
+                    antialiasing: true
                 }
             }
         }
@@ -345,8 +348,8 @@ Item {
         padding: 0
 
         background: Rectangle {
-            color: "#12142a"
-            border.color: "#2a2d55"
+            color: theme.surface
+            border.color: theme.border
             border.width: 1
             radius: 14
         }
@@ -366,18 +369,18 @@ Item {
                 text: "Add Second Display"
                 font.pixelSize: 18
                 font.weight: Font.ExtraBold
-                color: "#e0e2ff"
+                color: theme.cardTextPrimary
             }
 
             Text {
                 text: "Spawns a second virtual monitor streamed on port 7114.\nA KDE source picker will appear — select 'TabletDisplay2'."
                 font.pixelSize: 12
-                color: "#6a6c96"
+                color: theme.cardTextMuted
                 wrapMode: Text.Wrap
                 Layout.fillWidth: true
             }
 
-            Rectangle { Layout.fillWidth: true; height: 1; color: "#1a1c30" }
+            Rectangle { Layout.fillWidth: true; height: 1; color: theme.border }
 
             // Settings grid
             GridLayout {
@@ -386,28 +389,28 @@ Item {
                 rowSpacing: 10
                 Layout.fillWidth: true
 
-                Text { text: "Resolution:"; color: "#b0b2d0"; font.pixelSize: 13 }
+                Text { text: "Resolution:"; color: theme.cardTextSecondary; font.pixelSize: 13 }
                 CustomComboBox {
                     id: s2ResCombo
                     model: ["1280x720 (16:9)", "1280x800 (16:10)", "1920x1080 (16:9)", "1920x1200 (16:10)", "2560x1440 (16:9)", "2560x1600 (16:10)"]
                     currentIndex: 2
                 }
 
-                Text { text: "FPS:"; color: "#b0b2d0"; font.pixelSize: 13 }
+                Text { text: "FPS:"; color: theme.cardTextSecondary; font.pixelSize: 13 }
                 CustomComboBox {
                     id: s2FpsCombo
                     model: ["30", "60", "90", "120"]
                     currentIndex: 1
                 }
 
-                Text { text: "Bitrate (kbps):"; color: "#b0b2d0"; font.pixelSize: 13 }
+                Text { text: "Bitrate (kbps):"; color: theme.cardTextSecondary; font.pixelSize: 13 }
                 CustomTextField {
                     id: s2BitrateField
                     text: "8000"
                     maximumLength: 5
                 }
 
-                Text { text: "Encoder:"; color: "#b0b2d0"; font.pixelSize: 13 }
+                Text { text: "Encoder:"; color: theme.cardTextSecondary; font.pixelSize: 13 }
                 CustomComboBox {
                     id: s2EncoderCombo
                     currentIndex: 2
@@ -433,12 +436,12 @@ Item {
                         implicitWidth: 90
                         implicitHeight: 36
                         color: "transparent"
-                        border.color: "#2a2d55"
+                        border.color: theme.border
                         radius: 8
                     }
                     contentItem: Text {
                         text: parent.text
-                        color: "#6a6c90"
+                        color: theme.cardTextSecondary
                         font.pixelSize: 13
                         font.weight: Font.Bold
                         horizontalAlignment: Text.AlignHCenter

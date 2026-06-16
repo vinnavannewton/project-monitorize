@@ -35,7 +35,21 @@ def _make_tray_icon() -> QIcon:
     px.fill(Qt.GlobalColor.transparent)
     p = QPainter(px)
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setBrush(QColor("#4c4fd0"))
+    
+    accent_hex = "#005e83"
+    try:
+        theme_path = os.path.join(LINUX_DIR, "gui", "Theme.qml")
+        if os.path.exists(theme_path):
+            with open(theme_path, "r") as f:
+                content = f.read()
+            import re
+            match = re.search(r"property\s+color\s+accent\s*:\s*\"([^\"]+)\"", content)
+            if match:
+                accent_hex = match.group(1)
+    except Exception:
+        pass
+
+    p.setBrush(QColor(accent_hex))
     p.setPen(Qt.PenStyle.NoPen)
     p.drawEllipse(4, 4, 56, 56)
     p.setBrush(QColor("#ffffff"))

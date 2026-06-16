@@ -18,64 +18,44 @@ Item {
 
     Component.onCompleted: {
         let saved = backend.loadWifiSettings();
-        let defaultRes = "2560x1600";
-        let savedRes = saved["resolution"] || defaultRes;
-        let foundIdx = -1;
-        let defaultIdx = -1;
-
-        for (let i = 0; i < resCombo.count; i++) {
-            let text = resCombo.textAt(i);
-            if (foundIdx === -1 && text.indexOf(savedRes) === 0) {
-                foundIdx = i;
-            }
-            if (defaultIdx === -1 && text.indexOf(defaultRes) === 0) {
-                defaultIdx = i;
-            }
-            if (foundIdx !== -1 && defaultIdx !== -1) {
-                break;
-            }
-        }
-
-        if (foundIdx !== -1) {
-            resCombo.currentIndex = foundIdx;
-        } else if (defaultIdx !== -1) {
-            resCombo.currentIndex = defaultIdx;
-        } else {
-            resCombo.currentIndex = (resCombo.count > 0) ? 0 : -1;
+        
+        if (!resCombo.selectValue(saved["resolution"])) {
+            resCombo.selectValue("2560x1600");
         }
         if (saved["resolution"] === "Custom...") {
             customW.text = saved["custom_w"] || "";
             customH.text = saved["custom_h"] || "";
         }
-        fpsCombo.currentIndex = fpsCombo.find(saved["fps"] || "60");
+        
+        if (!fpsCombo.selectValue(saved["fps"], true)) {
+            fpsCombo.selectValue("60");
+        }
         if (saved["fps"] === "Custom...") {
             customFps.text = saved["custom_fps"] || "";
         }
+        
         bitrateField.text = saved["bitrate"] || "8000";
-        if (saved["display_type"] && displayTypeCombo) {
-            let idx = displayTypeCombo.find(saved["display_type"]);
-            if (idx === -1) {
-                idx = displayTypeCombo.find("Extend");
+        
+        if (displayTypeCombo) {
+            if (!displayTypeCombo.selectValue(saved["display_type"], true)) {
+                displayTypeCombo.selectValue("Extend");
             }
-            displayTypeCombo.currentIndex = (idx !== -1) ? idx : 0;
         }
+        
         let savedEnc = saved["encoder"] || "Software (CPU / x264enc)";
         if (savedEnc === "Auto-detect" || savedEnc === "Auto-detect (Recommended)") {
             savedEnc = "Software (CPU / x264enc)";
         }
-        let encIdx = encoderCombo.find(savedEnc);
-        if (encIdx === -1) {
-            encIdx = encoderCombo.find("Software (CPU / x264enc)");
+        if (!encoderCombo.selectValue(savedEnc, true)) {
+            encoderCombo.selectValue("Software (CPU / x264enc)");
         }
-        encoderCombo.currentIndex = (encIdx !== -1) ? encIdx : 2;
         
         let savedStreamType = saved["stream_type"] || "Speed";
-        let stIdx = streamTypeCombo.find(savedStreamType === "Speed" ? "Speed (Lowest Latency)" : "Stability (Low-spec Wi-Fi)");
-        streamTypeCombo.currentIndex = (stIdx !== -1) ? stIdx : 0;
+        streamTypeCombo.selectValue(savedStreamType === "Speed" ? "Speed" : "Stability");
 
         let gen = backend.loadGeneralSettings();
-        page.minimizeToTray = gen["minimize_to_tray"] || false;
-        touchCheck.checked = gen["enable_touch"] || false;
+        page.minimizeToTray = gen["minimize_to_tray"] !== undefined ? gen["minimize_to_tray"] : false;
+        touchCheck.checked = gen["enable_touch"] !== undefined ? gen["enable_touch"] : true;
 
         wifiScroll.contentItem.rebound = fastRebound;
     }
@@ -96,13 +76,13 @@ Item {
                 text: "Wi-Fi Mode Settings"
                 font.pixelSize: 12
                 font.weight: Font.Bold
-                color: "#5a5c82"
+                color: theme.textMuted
             }
 
             Rectangle {
                 Layout.fillWidth: true
                 height: 1
-                color: "#1a1c30"
+                color: theme.border
             }
 
             RowLayout {
@@ -113,14 +93,14 @@ Item {
                     text: "Your Local IP Address is: " + backend.localIp
                     font.pixelSize: 16
                     font.weight: Font.Bold
-                    color: "#4cd68d"
+                    color: "#2e7d32"
                 }
             }
 
             Text {
                 text: "Enter this IP in the Monitorize Android app and tap Receive."
                 font.pixelSize: 14
-                color: "#8a8cc0"
+                color: theme.textSecondary
                 Layout.alignment: Qt.AlignHCenter
             }
 
@@ -131,7 +111,7 @@ Item {
                 rowSpacing: 12
                 Layout.alignment: Qt.AlignHCenter
 
-                Text { text: "Resolution:"; color: "#b0b2d0"; font.pixelSize: 14 }
+                Text { text: "Resolution:"; color: theme.textSecondary; font.pixelSize: 14 }
                 CustomComboBox {
                     id: resCombo
                     model: ["1280x720 (16:9)", "1280x800 (16:10)", "1920x1080 (16:9)", "1920x1200 (16:10)", "2560x1440 (16:9)", "2560x1600 (16:10)", "3840x2160 (16:9)", "Custom..."]
@@ -144,12 +124,12 @@ Item {
                     visible: resCombo.currentText === "Custom..."
 
                     CustomTextField { id: customW; placeholderText: "Width"; maximumLength: 4 }
-                    Text { text: "×"; color: "#6a6c96"; font.pixelSize: 18; font.weight: Font.Bold }
+                    Text { text: "×"; color: theme.textSecondary; font.pixelSize: 18; font.weight: Font.Bold }
                     CustomTextField { id: customH; placeholderText: "Height"; maximumLength: 4 }
-                    Text { text: "(500 - 4000)"; color: "#4a4c70"; font.pixelSize: 11; font.italic: true }
+                    Text { text: "(500 - 4000)"; color: theme.textMuted; font.pixelSize: 11; font.italic: true }
                 }
 
-                Text { text: "FPS:"; color: "#b0b2d0"; font.pixelSize: 14 }
+                Text { text: "FPS:"; color: theme.textSecondary; font.pixelSize: 14 }
                 CustomComboBox {
                     id: fpsCombo
                     model: ["30", "60", "90", "120", "Custom..."]
@@ -162,10 +142,10 @@ Item {
                     visible: fpsCombo.currentText === "Custom..."
 
                     CustomTextField { id: customFps; placeholderText: "FPS"; maximumLength: 3 }
-                    Text { text: "(24 - 240)"; color: "#4a4c70"; font.pixelSize: 11; font.italic: true }
+                    Text { text: "(24 - 240)"; color: theme.textMuted; font.pixelSize: 11; font.italic: true }
                 }
 
-                Text { text: "Video Bitrate (kbps):"; color: "#b0b2d0"; font.pixelSize: 14 }
+                Text { text: "Video Bitrate (kbps):"; color: theme.textSecondary; font.pixelSize: 14 }
                 CustomTextField {
                     id: bitrateField
                     text: "8000"
@@ -175,7 +155,7 @@ Item {
                 // Display Type (only on KDE/GNOME/Hyprland)
                 Text {
                     text: "Display Type:"
-                    color: "#b0b2d0"
+                    color: theme.textSecondary
                     font.pixelSize: 14
                     visible: backend.detectedDe === "kde" || backend.detectedDe === "gnome" || backend.detectedDe === "hyprland"
                 }
@@ -185,7 +165,7 @@ Item {
                     model: ["Extend", "Mirror"]
                 }
 
-                Text { text: "Encoder:"; color: "#b0b2d0"; font.pixelSize: 14 }
+                Text { text: "Encoder:"; color: theme.textSecondary; font.pixelSize: 14 }
                 CustomComboBox {
                     id: encoderCombo
                     currentIndex: 2
@@ -196,7 +176,7 @@ Item {
                     ]
                 }
 
-                Text { text: "Stream Type:"; color: "#b0b2d0"; font.pixelSize: 14 }
+                Text { text: "Stream Type:"; color: theme.textSecondary; font.pixelSize: 14 }
                 CustomComboBox {
                     id: streamTypeCombo
                     currentIndex: 0
@@ -212,30 +192,14 @@ Item {
                 CustomCheckBox {
                     id: touchCheck
                     text: "Enable Touch Input"
+                    onCheckedChanged: {
+                        backend.saveGeneralSettings(page.minimizeToTray, checked)
+                    }
                 }
             }
 
-            // Warning card
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: warningText.implicitHeight + 20
-                radius: 8
-                color: "#161109"
-                border.color: "#3d2a0a"
-                border.width: 1
-
-                Text {
-                    id: warningText
-                    anchors.fill: parent
-                    anchors.margins: 10
-                    text: "WARNING: The Resolution set here MUST EXACTLY MATCH the settings in the Android tablet app, or the stream will corrupt!"
-                    color: "#e8a840"
-                    font.pixelSize: 12
-                    font.weight: Font.DemiBold
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                    wrapMode: Text.Wrap
-                }
+            WarningCard {
+                text: "WARNING: The Resolution set here MUST EXACTLY MATCH the settings in the Android tablet app, or the stream will corrupt!"
             }
 
             // Spacing
@@ -255,12 +219,12 @@ Item {
                         implicitWidth: 100
                         implicitHeight: 38
                         color: "transparent"
-                        border.color: "#2a2d55"
+                        border.color: theme.border
                         radius: 8
                     }
                     contentItem: Text {
                         text: parent.text
-                        color: "#6a6c90"
+                        color: theme.textSecondary
                         font.pixelSize: 13
                         font.weight: Font.Bold
                         horizontalAlignment: Text.AlignHCenter

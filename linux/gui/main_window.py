@@ -24,7 +24,8 @@ from gui.settings import (
     load_general_settings, save_general_settings,
     load_usb_settings, save_usb_settings,
     load_wifi_settings, save_wifi_settings,
-    load_second_display_settings, save_second_display_settings
+    load_second_display_settings, save_second_display_settings,
+    load_receiver_settings, save_receiver_settings
 )
 
 
@@ -211,7 +212,7 @@ class MonitorizeWindow(QMainWindow):
 
     @pyqtProperty('QVariant', notify=discoveredDevicesChanged)
     def discoveredDevices(self):
-        return self._discovered_devices
+        return list(self._discovered_devices)
 
     @pyqtProperty(bool, notify=secondStreamActiveChanged)
     def secondStreamActive(self):
@@ -350,6 +351,14 @@ class MonitorizeWindow(QMainWindow):
             encoder=encoder
         )
 
+    @pyqtSlot(result='QVariant')
+    def loadReceiverSettings(self):
+        return load_receiver_settings()
+
+    @pyqtSlot(str, str)
+    def saveReceiverSettings(self, ip, port):
+        save_receiver_settings(ip=ip, port=port)
+
     @pyqtSlot()
     def stopStreaming(self):
         self._on_stop_streaming()
@@ -381,9 +390,6 @@ class MonitorizeWindow(QMainWindow):
                         ip = _socket.inet_ntoa(info.addresses[0])
                         port = info.port
                         host_name = info.properties.get(b'name', b'Unknown').decode('utf-8', errors='replace')
-                        
-                        if ip == self._window._local_ip:
-                            return
                         QTimer.singleShot(0, lambda: self._window._add_discovered_device(host_name, ip, port))
 
                 def remove_service(self, zc, type_, name):
@@ -1180,20 +1186,35 @@ class MonitorizeWindow(QMainWindow):
         return selected_de
 
 
+def load_theme_color(property_name: str, default_color: str) -> str:
+    try:
+        theme_path = os.path.join(LINUX_DIR, "gui", "Theme.qml")
+        if os.path.exists(theme_path):
+            with open(theme_path, "r") as f:
+                content = f.read()
+            import re
+            match = re.search(rf"property\s+color\s+{property_name}\s*:\s*\"([^\"]+)\"", content)
+            if match:
+                return match.group(1)
+    except Exception:
+        pass
+    return default_color
+
+
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName("Monitorize")
     app.setDesktopFileName("monitorize")
 
     palette = QPalette()
-    palette.setColor(QPalette.ColorRole.Window,          QColor("#0c0d14"))
-    palette.setColor(QPalette.ColorRole.WindowText,      QColor("#d4d6f0"))
-    palette.setColor(QPalette.ColorRole.Base,            QColor("#12142a"))
-    palette.setColor(QPalette.ColorRole.AlternateBase,   QColor("#16182a"))
-    palette.setColor(QPalette.ColorRole.Button,          QColor("#16182a"))
-    palette.setColor(QPalette.ColorRole.ButtonText,      QColor("#d4d6f0"))
-    palette.setColor(QPalette.ColorRole.Highlight,       QColor("#3538b0"))
-    palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#ffffff"))
+    palette.setColor(QPalette.ColorRole.Window,          QColor(load_theme_color("background", "#8ae9f2")))
+    palette.setColor(QPalette.ColorRole.WindowText,      QColor(load_theme_color("textLight", "#001d3c")))
+    palette.setColor(QPalette.ColorRole.Base,            QColor(load_theme_color("surface", "#0092bc")))
+    palette.setColor(QPalette.ColorRole.AlternateBase,   QColor(load_theme_color("surfaceAlt", "#005e83")))
+    palette.setColor(QPalette.ColorRole.Button,          QColor(load_theme_color("surfaceAlt", "#005e83")))
+    palette.setColor(QPalette.ColorRole.ButtonText,      QColor(load_theme_color("textLight", "#001d3c")))
+    palette.setColor(QPalette.ColorRole.Highlight,       QColor(load_theme_color("accent", "#005e83")))
+    palette.setColor(QPalette.ColorRole.HighlightedText, QColor(load_theme_color("textPrimary", "#ffffff")))
     app.setPalette(palette)
 
     win = MonitorizeWindow()

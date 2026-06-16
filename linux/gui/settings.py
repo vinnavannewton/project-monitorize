@@ -145,3 +145,23 @@ def load_second_display_settings() -> dict:
     }
     s.endGroup()
     return data
+
+
+def save_receiver_settings(*, ip: str, port: str):
+    s = _get_settings()
+    s.beginGroup("receiver")
+    s.setValue("manual_ip", ip)
+    s.setValue("manual_port", port)
+    s.endGroup()
+    s.sync()
+
+
+def load_receiver_settings() -> dict:
+    s = _get_settings()
+    s.beginGroup("receiver")
+    data = {
+        "manual_ip": s.value("manual_ip", ""),
+        "manual_port": s.value("manual_port", "7110"),
+    }
+    s.endGroup()
+    return data

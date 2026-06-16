@@ -5,11 +5,15 @@ Rectangle {
     id: root
     width: 860
     height: 580
-    color: "#0c0d14"
+    Theme {
+        id: theme
+    }
+
+    color: theme.background
 
     gradient: Gradient {
-        GradientStop { position: 0.0; color: "#0c0d14" }
-        GradientStop { position: 1.0; color: "#06070a" }
+        GradientStop { position: 0.0; color: theme.background }
+        GradientStop { position: 1.0; color: theme.background }
     }
 
     // --- Navigate between pages when streaming state changes ---

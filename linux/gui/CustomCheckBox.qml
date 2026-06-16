@@ -9,8 +9,8 @@ CheckBox {
         x: chk.leftPadding
         y: parent.height / 2 - height / 2
         radius: 4
-        color: "#12142a"
-        border.color: chk.checked ? "#4c4fd0" : "#2a2d55"
+        color: chk.checked ? theme.accent : theme.surface
+        border.color: chk.checked ? theme.accent : theme.border
         border.width: 1
 
         Rectangle {
@@ -19,14 +19,14 @@ CheckBox {
             x: 4
             y: 4
             radius: 2
-            color: "#4c4fd0"
+            color: "#ffffff"
             visible: chk.checked
         }
     }
     contentItem: Text {
         text: chk.text
         font.pixelSize: 12
-        color: chk.hovered ? "#9a9cc0" : "#5a5c82"
+        color: chk.hovered ? theme.textSecondary : theme.textMuted
         leftPadding: chk.indicator.width + chk.spacing
         verticalAlignment: Text.AlignVCenter
     }

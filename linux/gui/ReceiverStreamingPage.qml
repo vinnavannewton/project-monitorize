@@ -23,16 +23,16 @@ Item {
         let text = ""
         for (let i = 0; i < allLogs.length; i++) {
             let logMsg = allLogs[i]
-            let msgColor = "#b8bad8"
+            let msgColor = "#e2e8f0"
             let lowerMsg = logMsg.toLowerCase()
             if (lowerMsg.includes("error") || lowerMsg.includes("failed")) {
-                msgColor = "#ff6b6b"
+                msgColor = "#fca5a5"
             } else if (lowerMsg.includes("connected") || lowerMsg.includes("playing") || lowerMsg.includes("receiving")) {
-                msgColor = "#4cd68d"
+                msgColor = "#86efac"
             } else if (lowerMsg.includes("connecting") || lowerMsg.includes("waiting")) {
-                msgColor = "#e8a840"
+                msgColor = "#fde047"
             }
-            text += "<b><font color='#a78bfa'>[RECEIVER]</font></b> &nbsp;<font color='" + msgColor + "'>" + logMsg + "</font><br>"
+            text += "<b><font color='#60a5fa'>[RECEIVER]</font></b> &nbsp;<font color='" + msgColor + "'>" + logMsg + "</font><br>"
         }
         logArea.text = text
         logScrollView.contentItem.contentY = Math.max(0, logArea.implicitHeight - logScrollView.height)
@@ -47,8 +47,8 @@ Item {
             Layout.fillWidth: true
             implicitHeight: 60
             radius: 12
-            color: "#12142a"
-            border.color: "#2a2d55"
+            color: theme.surface
+            border.color: theme.border
             border.width: 1
 
             RowLayout {
@@ -62,7 +62,7 @@ Item {
                     width: 12
                     height: 12
                     radius: 6
-                    color: "#a78bfa"
+                    color: theme.accent
 
                     SequentialAnimation on opacity {
                         running: backend.isReceiving
@@ -76,13 +76,13 @@ Item {
                     text: "Receiving Stream"
                     font.pixelSize: 18
                     font.weight: Font.Bold
-                    color: "#a78bfa"
+                    color: theme.accent
                 }
 
                 Text {
                     text: backend.receiverStatus
                     font.pixelSize: 13
-                    color: "#8a8cc0"
+                    color: theme.cardTextSecondary
                     Layout.fillWidth: true
                 }
             }
@@ -93,8 +93,8 @@ Item {
             Layout.fillWidth: true
             implicitHeight: infoCol.implicitHeight + 20
             radius: 8
-            color: "#161726"
-            border.color: "#2a2d55"
+            color: theme.surfaceAlt
+            border.color: theme.border
             border.width: 1
 
             ColumnLayout {
@@ -109,12 +109,12 @@ Item {
                     text: "Connected to: " + backend.receiverHostIp
                     font.pixelSize: 14
                     font.weight: Font.Bold
-                    color: "#c0c2ee"
+                    color: theme.cardTextPrimary
                 }
                 Text {
                     text: "The GStreamer player window should appear. Press Esc in that window to close it."
                     font.pixelSize: 12
-                    color: "#6a6c96"
+                    color: theme.cardTextMuted
                     wrapMode: Text.Wrap
                     Layout.fillWidth: true
                 }
@@ -125,8 +125,8 @@ Item {
         Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            color: "#080910"
-            border.color: "#1a1c30"
+            color: theme.logBoxBackground
+            border.color: theme.border
             border.width: 1
             radius: 8
 
@@ -141,7 +141,7 @@ Item {
                     textFormat: Text.RichText
                     font.family: "Fira Code, JetBrains Mono, DejaVu Sans Mono, Consolas, monospace"
                     font.pixelSize: 12
-                    color: "#b8bad8"
+                    color: theme.cardTextPrimary
                     readOnly: true
                     selectByMouse: true
                     wrapMode: Text.WrapAnywhere
