@@ -215,8 +215,7 @@ class MainActivity : ComponentActivity() {
                                         } else {
                                             isSettingsOpen = false
                                         }
-                                    },
-                                    onClose = { isSettingsOpen = false }
+                                    }
                                 )
                             }
                         }
@@ -642,8 +641,7 @@ private data class SettingsMetrics(
 fun SettingsPanel(
     initialWidth: Int,
     initialHeight: Int,
-    onSave: (Int, Int) -> Unit,
-    onClose: () -> Unit
+    onSave: (Int, Int) -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val metrics = remember(context, initialWidth, initialHeight) {
@@ -743,6 +741,11 @@ fun SettingsPanel(
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedLabelColor = Color.White.copy(alpha = 0.7f),
+                        unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
+                        cursorColor = Color.White,
                         focusedBorderColor = AccentIndigo,
                         unfocusedBorderColor = BorderDark
                     )
@@ -755,6 +758,11 @@ fun SettingsPanel(
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedLabelColor = Color.White.copy(alpha = 0.7f),
+                        unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
+                        cursorColor = Color.White,
                         focusedBorderColor = AccentIndigo,
                         unfocusedBorderColor = BorderDark
                     )
@@ -785,10 +793,6 @@ fun SettingsPanel(
             colors = ButtonDefaults.buttonColors(containerColor = AccentIndigo)
         ) {
             Text("SAVE & APPLY", fontWeight = FontWeight.Bold)
-        }
-        
-        TextButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
-            Text("DISCARD", color = Color.White.copy(alpha = 0.7f))
         }
     }
 }
@@ -856,7 +860,6 @@ fun StreamSurface(
                 isClickable = true
                 holder.addCallback(object : SurfaceHolder.Callback {
                     override fun surfaceCreated(holder: SurfaceHolder) {
-                        holder.setFixedSize(width, height)
                         onSurfaceCreated(hostIp, holder.surface, width, height)
                     }
                     override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, ht: Int) {}

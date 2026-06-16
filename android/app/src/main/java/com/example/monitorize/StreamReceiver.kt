@@ -23,6 +23,8 @@ class StreamReceiver(
     companion object {
         private const val TAG = "StreamReceiver"
         private const val PORT = 7110
+        private const val MAX_STREAM_BUFFER = 4 * 1024 * 1024
+        private const val MAX_ACCESS_UNIT = 2 * 1024 * 1024
     }
 
     fun start() {
@@ -90,10 +92,58 @@ class StreamReceiver(
 
     
     private fun processStreamLoop(input: java.io.InputStream, streamType: String) {
-        val buf = ByteArray(4 * 1024 * 1024)
+        val buf = ByteArray(MAX_STREAM_BUFFER)
         var writePos = 0
         val readBuf = ByteArray(128 * 1024)
         var hasReceivedVideo = false
+
+        val accessUnit = ByteArray(MAX_ACCESS_UNIT)
+        var accessUnitSize = 0
+        var accessUnitHasVcl = false
+        var accessUnitHasIdr = false
+
+        fun flushAccessUnit() {
+            if (accessUnitSize > 0 && accessUnitHasVcl) {
+                decoder.feedChunk(accessUnit, 0, accessUnitSize, accessUnitHasIdr)
+            }
+            accessUnitSize = 0
+            accessUnitHasVcl = false
+            accessUnitHasIdr = false
+        }
+
+        fun appendNalToAccessUnit(nalStart: Int, nalEnd: Int) {
+            val startCodeLen = startCodeLength(buf, nalStart, nalEnd)
+            val nalHeader = nalStart + startCodeLen
+            if (nalHeader >= nalEnd) return
+
+            val nalType = buf[nalHeader].toInt() and 0x1F
+            val isVcl = nalType in 1..5
+            val startsNewAccessUnit = accessUnitHasVcl && (
+                nalType in 6..9 ||
+                    (isVcl && isFirstSlice(buf, nalHeader + 1, nalEnd))
+                )
+
+            if (startsNewAccessUnit) {
+                flushAccessUnit()
+            }
+
+            val nalSize = nalEnd - nalStart
+            if (nalSize > accessUnit.size) {
+                Log.w(TAG, "$streamType NAL too large ($nalSize bytes), dropping")
+                accessUnitSize = 0
+                accessUnitHasVcl = false
+                accessUnitHasIdr = false
+                return
+            }
+            if (accessUnitSize + nalSize > accessUnit.size) {
+                flushAccessUnit()
+            }
+
+            System.arraycopy(buf, nalStart, accessUnit, accessUnitSize, nalSize)
+            accessUnitSize += nalSize
+            if (isVcl) accessUnitHasVcl = true
+            if (nalType == 5) accessUnitHasIdr = true
+        }
 
         while (running) {
             val bytesRead = try {
@@ -117,17 +167,29 @@ class StreamReceiver(
             }
 
             if (writePos + bytesRead > buf.size) {
-                writePos = 0
+                val keep = minOf(writePos, 4)
+                if (keep > 0) {
+                    System.arraycopy(buf, writePos - keep, buf, 0, keep)
+                }
+                writePos = keep
             }
             System.arraycopy(readBuf, 0, buf, writePos, bytesRead)
             writePos += bytesRead
 
             var readStart = 0
-            while (readStart < writePos - 4) {
+            while (readStart < writePos - 3) {
                 val sc1 = findStartCode(buf, readStart, writePos)
-                if (sc1 < 0) break
+                if (sc1 < 0) {
+                    val keep = minOf(writePos, 3)
+                    if (keep > 0) {
+                        System.arraycopy(buf, writePos - keep, buf, 0, keep)
+                    }
+                    writePos = keep
+                    readStart = 0
+                    break
+                }
 
-                val sc2 = findStartCode(buf, sc1 + 4, writePos)
+                val sc2 = findStartCode(buf, sc1 + startCodeLength(buf, sc1, writePos), writePos)
                 if (sc2 < 0) {
                     val remaining = writePos - sc1
                     if (sc1 > 0) {
@@ -138,7 +200,7 @@ class StreamReceiver(
                     break
                 }
 
-                decoder.feedChunk(buf, sc1, sc2 - sc1)
+                appendNalToAccessUnit(sc1, sc2)
                 readStart = sc2
             }
 
@@ -150,22 +212,99 @@ class StreamReceiver(
                 writePos = 0
             }
         }
+
+        flushAccessUnit()
     }
 
     private fun findStartCode(buf: ByteArray, from: Int, limit: Int): Int {
         val end = limit - 3
         var i = from
-        while (i < end) {
+        while (i <= end) {
             if (buf[i].toInt() != 0) {
                 i++
                 continue
             }
-            if (buf[i + 1].toInt() == 0 && buf[i + 2].toInt() == 0 && buf[i + 3].toInt() == 1) {
+            if (buf[i + 1].toInt() == 0 && buf[i + 2].toInt() == 1) {
+                return i
+            }
+            if (i + 3 < limit &&
+                buf[i + 1].toInt() == 0 &&
+                buf[i + 2].toInt() == 0 &&
+                buf[i + 3].toInt() == 1
+            ) {
                 return i
             }
             i++
         }
         return -1
+    }
+
+    private fun startCodeLength(buf: ByteArray, index: Int, limit: Int): Int {
+        return if (index + 3 < limit &&
+            buf[index].toInt() == 0 &&
+            buf[index + 1].toInt() == 0 &&
+            buf[index + 2].toInt() == 0 &&
+            buf[index + 3].toInt() == 1
+        ) {
+            4
+        } else {
+            3
+        }
+    }
+
+    private fun isFirstSlice(buf: ByteArray, rbspStart: Int, limit: Int): Boolean {
+        return H264BitReader(buf, rbspStart, limit).readUnsignedExpGolomb()?.let { it == 0 } ?: true
+    }
+
+    private class H264BitReader(
+        private val data: ByteArray,
+        private var pos: Int,
+        private val limit: Int
+    ) {
+        private var currentByte = 0
+        private var bitsLeft = 0
+        private var zeroCount = 0
+
+        fun readUnsignedExpGolomb(): Int? {
+            var leadingZeros = 0
+            while (true) {
+                val bit = readBit() ?: return null
+                if (bit == 1) break
+                leadingZeros++
+                if (leadingZeros > 30) return null
+            }
+
+            var value = (1 shl leadingZeros) - 1
+            for (i in 0 until leadingZeros) {
+                val bit = readBit() ?: return null
+                value += bit shl (leadingZeros - i - 1)
+            }
+            return value
+        }
+
+        private fun readBit(): Int? {
+            if (bitsLeft == 0) {
+                currentByte = readByteSkippingEmulation() ?: return null
+                bitsLeft = 8
+            }
+
+            bitsLeft--
+            return (currentByte shr bitsLeft) and 1
+        }
+
+        private fun readByteSkippingEmulation(): Int? {
+            while (pos < limit) {
+                val value = data[pos++].toInt() and 0xFF
+                if (zeroCount >= 2 && value == 0x03) {
+                    zeroCount = 0
+                    continue
+                }
+
+                zeroCount = if (value == 0) zeroCount + 1 else 0
+                return value
+            }
+            return null
+        }
     }
 
     private fun cleanup() {

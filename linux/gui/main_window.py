@@ -1117,7 +1117,7 @@ class MonitorizeWindow(QMainWindow):
 
     def closeEvent(self, event):
         gen = load_general_settings()
-        if gen.get("minimize_to_tray", False):
+        if gen.get("minimize_to_tray", False) and self._is_streaming:
             event.ignore()
             self.hide()
             self._tray.show()
