@@ -2,7 +2,7 @@
 
 Welcome to the internal architectural and implementation documentation of the **Monitorize Android App**. 
 
-This client is designed to turn any modern Android device (optimized for tablets, compatible with phones) into a high-performance, low-latency secondary display for Linux systems running KDE or Hyprland. It leverages hardware-accelerated video decoding and a custom low-overhead protocol to pipe touch/stylus inputs back to the host.
+This client is designed to turn any modern Android device (optimized for tablets, compatible with phones) into a high-performance, low-latency secondary display for Linux systems running KDE, GNOME, or Hyprland. It leverages hardware-accelerated video decoding and a custom low-overhead protocol to pipe touch/stylus inputs back to the host.
 
 ---
 
@@ -109,24 +109,39 @@ Input feedback routes user touch, mouse, and stylus interactions from the Androi
 * **Dual Protocol Transmitters**:
   * **UDP Mode (Wi-Fi)**: Binds to port `7113` for low-overhead, frame-independent event delivery.
   * **TCP Mode (USB)**: Connects to localhost port `7111` for guaranteed, ordered transmission over the USB tunnel.
-* **18-Byte Event Framing Protocol**:
-  Each event is packed into an 18-byte structure:
+* **MotionEvent Capture**:
+  * `ACTION_MOVE` sends every active pointer so multi-touch gestures remain continuous.
+  * `ACTION_CANCEL` sends release/cancel packets for every active pointer, allowing Android/tablet palm rejection to cleanly terminate accidental contacts.
+  * Stylus and eraser tools are detected using `MotionEvent.getToolType()`.
+  * Pressure comes from `getPressure()`, hover distance from `AXIS_DISTANCE`, tilt from `AXIS_TILT`, and tilt direction from `getOrientation()`.
+  * Android's single tilt magnitude plus orientation is converted into Linux-style `tiltX` and `tiltY` degree values.
+* **Input Event Framing Protocol**:
+  Touch events keep the legacy 18-byte frame. Stylus and eraser events use a 24-byte extended frame so pressure, tilt, distance, buttons, and cancel flags can be forwarded.
 
   | Byte Range | Type / Format | Field Description |
   | :--- | :--- | :--- |
-  | **0 - 3** | Big-Endian Int | Packet length header (always `0x0000000d` / 13 bytes payload) |
-  | **4** | Byte | Packet Type: `0x03` (Touch) \| `0x04` (Stylus/Eraser) |
+  | **0 - 3** | Big-Endian Int | Payload length: `13` for touch, `19` for extended pen |
+  | **4** | Byte | Packet Type: `0x03` (Touch) \| `0x05` (Extended Stylus/Eraser) |
   | **5** | Byte | Action: `0` (Down) \| `1` (Move) \| `2` (Up/Cancel) \| `3` (Hover) |
   | **6** | Byte | Tool Type: `0` (Finger/Generic) \| `1` (Stylus) \| `2` (Eraser) |
   | **7** | Byte | Contact Pointer ID (mapped modulo 256) |
   | **8 - 9** | Big-Endian Short | Mapped X coordinate (`0` to `65535` relative to view width) |
   | **10 - 11** | Big-Endian Short | Mapped Y coordinate (`0` to `65535` relative to view height) |
   | **12 - 13** | Big-Endian Short | Mapped Pressure value (`0` to `65535`) |
-  | **14 - 15** | Big-Endian Short | Mapped Tilt Angle (`-9000` to `9000`) |
-  | **16 - 17** | Big-Endian Short | Button States bitmask |
+  | **14 - 15** | Big-Endian Short | Extended pen only: X tilt in degrees (`-90` to `90`) |
+  | **16 - 17** | Big-Endian Short | Extended pen only: Y tilt in degrees (`-90` to `90`) |
+  | **18 - 19** | Big-Endian Short | Extended pen only: normalized hover distance (`0` to `1024`) |
+  | **20 - 21** | Big-Endian Short | Extended pen only: Android button state bitmask |
+  | **22 - 23** | Big-Endian Short | Extended pen only: cancel/hover flags |
 
 * **Zero-Allocation Pooling**:
-  Uses a `ByteArrayPool` that caches byte array buffers of size 18, recycling them upon socket writes, completely eliminating memory allocation overhead during fast touch gestures.
+  Uses a `ByteArrayPool` for the legacy touch frame and allocates extended pen frames only for stylus/eraser events.
+
+* **Stylus Semantics Sent to Linux**:
+  * Stylus packets use tool type `1`; eraser packets use tool type `2`.
+  * Extended pen flags include canceled input and hover enter/exit state.
+  * Android button state is forwarded so the Linux host can map stylus buttons to `BTN_STYLUS` and `BTN_STYLUS2`.
+  * Palm rejection is not reimplemented in the app; Android/device-generated cancel events are forwarded to the Linux daemon.
 
 ---
 
@@ -174,6 +189,7 @@ To deliver a robust display streaming experience, the application implements act
 ### Prerequisites
 * Android SDK 28+ (Android 9.0+)
 * Gradle 8.0+
+* JDK 17 or 21 recommended. The current Kotlin/Gradle stack may fail before project compilation on Java 25.
 
 ### Command Line Build
 To assemble and install the debug version of the application directly on your connected tablet/phone:

@@ -2,26 +2,26 @@ package com.example.monitorize.ui.theme
 
 import android.os.Build
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.lightColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
-private val MonitorizeLightScheme = lightColorScheme(
-    primary = BalticBlue,
+private val MonitorizeDarkScheme = darkColorScheme(
+    primary = BreezeAccent,
     onPrimary = Color.White,
-    secondary = BondiBlue,
+    secondary = BreezeButton,
     onSecondary = Color.White,
-    tertiary = SkySurge,
-    onTertiary = PrussianBlue,
-    background = ElectricAqua,
-    onBackground = PrussianBlue,
-    surface = BondiBlue,
-    onSurface = Color.White,
-    surfaceVariant = SkySurge,
-    onSurfaceVariant = PrussianBlue,
-    outline = SkySurge
+    tertiary = BreezeSurfaceAlt,
+    onTertiary = BreezeText,
+    background = BreezeBackground,
+    onBackground = BreezeText,
+    surface = BreezeSurface,
+    onSurface = BreezeText,
+    surfaceVariant = BreezeSurfaceAlt,
+    onSurfaceVariant = BreezeTextMuted,
+    outline = BreezeBorder
 )
 
 @Composable
@@ -31,9 +31,9 @@ fun MonitorizeTheme(
 ) {
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            dynamicLightColorScheme(LocalContext.current)
+            dynamicDarkColorScheme(LocalContext.current)
         }
-        else -> MonitorizeLightScheme
+        else -> MonitorizeDarkScheme
     }
 
     MaterialTheme(

@@ -28,6 +28,7 @@ CheckBox {
         font.pixelSize: 12
         color: chk.hovered ? theme.textSecondary : theme.textMuted
         leftPadding: chk.indicator.width + chk.spacing
+        wrapMode: Text.WordWrap
         verticalAlignment: Text.AlignVCenter
     }
 }

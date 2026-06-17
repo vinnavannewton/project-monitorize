@@ -13,10 +13,14 @@ Item {
     property var allLogs: []
 
     property bool enableTouch: true
+    property bool enableStylusFeatures: false
+    property bool stylusOnly: false
 
     Component.onCompleted: {
         let gen = backend.loadGeneralSettings();
         page.enableTouch = gen["enable_touch"] !== undefined ? gen["enable_touch"] : true;
+        page.enableStylusFeatures = gen["enable_stylus_features"] !== undefined ? gen["enable_stylus_features"] : false;
+        page.stylusOnly = gen["stylus_only"] !== undefined ? gen["stylus_only"] : false;
         trayCheck.checked = gen["minimize_to_tray"] !== undefined ? gen["minimize_to_tray"] : false;
 
         let s2 = backend.loadSecondDisplaySettings();
@@ -83,7 +87,7 @@ Item {
         Rectangle {
             Layout.fillWidth: true
             implicitHeight: 60
-            radius: 12
+            radius: theme.cardRadius
             color: theme.surface
             border.color: theme.border
             border.width: 1
@@ -271,7 +275,8 @@ Item {
 
             // Add / Remove Second Display button (KDE only)
             Button {
-                text: backend.secondStreamActive ? "✕ Remove Display 2" : "➕ Add Display"
+                id: displayActionButton
+                text: backend.secondStreamActive ? "Remove Display 2" : "Add Display"
                 visible: backend.detectedDe === "kde"
                 onClicked: {
                     if (backend.secondStreamActive) {
@@ -290,13 +295,33 @@ Item {
                     radius: 8
                     Behavior on color { ColorAnimation { duration: 150 } }
                 }
-                contentItem: Text {
-                    text: parent.text
-                    color: backend.secondStreamActive ? theme.textPrimary : theme.accent
-                    font.pixelSize: 12
-                    font.weight: Font.Bold
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
+                contentItem: Item {
+                    implicitWidth: displayActionContent.implicitWidth
+                    implicitHeight: 38
+
+                    Row {
+                        id: displayActionContent
+                        anchors.centerIn: parent
+                        spacing: 8
+
+                        Image {
+                            width: 16
+                            height: 16
+                            anchors.verticalCenter: parent.verticalCenter
+                            source: "../assets/svg/display-add.svg"
+                            sourceSize.width: 16
+                            sourceSize.height: 16
+                            visible: !backend.secondStreamActive
+                        }
+
+                        Text {
+                            text: displayActionButton.text
+                            color: backend.secondStreamActive ? theme.textPrimary : theme.accent
+                            font.pixelSize: 12
+                            font.weight: Font.Bold
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                    }
                 }
             }
 
@@ -332,7 +357,7 @@ Item {
             Layout.alignment: Qt.AlignLeft
             Layout.bottomMargin: 10
             onCheckedChanged: {
-                backend.saveGeneralSettings(checked, page.enableTouch)
+                backend.saveGeneralSettings(checked, page.enableTouch, page.enableStylusFeatures, page.stylusOnly)
             }
         }
     }
@@ -351,7 +376,7 @@ Item {
             color: theme.surface
             border.color: theme.border
             border.width: 1
-            radius: 14
+            radius: theme.cardRadius
         }
 
         // Dim overlay

@@ -14,6 +14,6 @@ TextField {
         color: theme.surface
         border.color: tf.hovered ? theme.accent : theme.border
         border.width: 1
-        radius: 8
+        radius: theme.controlRadius
     }
 }

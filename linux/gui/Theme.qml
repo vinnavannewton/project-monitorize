@@ -1,42 +1,43 @@
 import QtQuick
 
 QtObject {
-    // ── Palette Reference ────────────────────────────────────
-    // Prussian Blue  #001d3c  — darkest (buttons, primary text)
-    // Baltic Blue    #005e83  — accents, secondary text
-    // Bondi Blue     #0092bc  — interactive highlights
-    // Sky Surge      #45bed7  — decorative accents
-    // Electric Aqua  #8ae9f2  — page background (lightest)
+    // KDE Breeze-inspired dark utility palette.
+    // Keep the base quiet and reserve blue for actions and active states.
 
     // Backgrounds
-    readonly property color background: '#5b8ae9f2'
-    readonly property color surface: '#6793ae'
-    readonly property color surfaceAlt: "#315469"
-    readonly property color logBoxBackground: '#3e5f73'
+    readonly property color background: "#1b1e24"
+    readonly property color surface: "#232831"
+    readonly property color surfaceAlt: "#2b313b"
+    readonly property color logBoxBackground: "#171a20"
 
     // Accents
-    readonly property color accent: "#0092bc"
-    readonly property color accentAlpha20: "#200092bc"
-    readonly property color accentAlpha40: "#400092bc"
+    readonly property color accent: "#3daee9"
+    readonly property color accentAlpha20: "#203daee9"
+    readonly property color accentAlpha40: "#403daee9"
 
     // Borders
-    readonly property color border: "#45bed7"
-    readonly property color borderHover: "#0092bc"
+    readonly property color border: "#343b46"
+    readonly property color borderHover: "#4a5565"
 
     // Buttons
-    readonly property color buttonBackground: "#005e83"
-    readonly property color buttonBackgroundHover: "#001d3c"
-    readonly property color buttonBackgroundPressed: "#0092bc"
+    readonly property color buttonBackground: "#2f6f95"
+    readonly property color buttonBackgroundHover: "#3daee9"
+    readonly property color buttonBackgroundPressed: "#24749f"
     readonly property color buttonText: "#ffffff"
 
-    // Text on main background (Electric Aqua)
-    readonly property color textPrimary: "#001d3c"
-    readonly property color textSecondary: "#005e83"
-    readonly property color textMuted: "#1a6f8a"
-    readonly property color textLight: "#001d3c"
+    // Text
+    readonly property color textPrimary: "#eff0f1"
+    readonly property color textSecondary: "#c7d0d9"
+    readonly property color textMuted: "#8f9aa6"
+    readonly property color textLight: "#eff0f1"
 
-    // Text on cards (slate blue surface)
-    readonly property color cardTextPrimary: "#ffffff"
-    readonly property color cardTextSecondary: "#e0dcf0"
-    readonly property color cardTextMuted: "#b8aedd"
+    // Text on cards
+    readonly property color cardTextPrimary: "#eff0f1"
+    readonly property color cardTextSecondary: "#c7d0d9"
+    readonly property color cardTextMuted: "#8f9aa6"
+
+    // Shape
+    readonly property int controlRadius: 8
+    readonly property int cardRadius: 10
+    readonly property real hoverScale: 1.01
 }

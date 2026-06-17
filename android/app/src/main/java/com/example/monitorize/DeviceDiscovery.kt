@@ -1,7 +1,6 @@
 package com.example.monitorize
 
 import android.content.Context
-import android.net.ConnectivityManager
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 import android.net.wifi.WifiManager
@@ -9,8 +8,6 @@ import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
-import java.net.*
-import java.util.*
 
 data class DiscoveredDevice(
     val name: String,
@@ -31,7 +28,6 @@ class DeviceDiscovery(private val context: Context) {
 
     val devices = mutableStateListOf<DiscoveredDevice>()
     private val discoveryListeners = mutableListOf<NsdManager.DiscoveryListener>()
-    private var scanJob: Job? = null
     private var resolverJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -85,9 +81,6 @@ class DeviceDiscovery(private val context: Context) {
                 }
             }
         }
-
-        
-        
     }
 
     private fun startResolverJob(channel: Channel<NsdServiceInfo>) {
@@ -163,65 +156,6 @@ class DeviceDiscovery(private val context: Context) {
         }
     }
 
-    private fun startSubnetScan() {
-        scanJob = scope.launch {
-            val localIp = getLocalIpAddress()
-            if (localIp == null) {
-                Log.e(TAG, "No local IP found for subnet scan")
-                return@launch
-            }
-            
-            val prefix = localIp.substringBeforeLast(".")
-            Log.d(TAG, "Starting subnet scan on $prefix.0/24")
-
-            
-            (1..254).chunked(32).forEach { chunk ->
-                if (!isActive) return@launch
-                chunk.map { i ->
-                    async {
-                        val targetIp = "$prefix.$i"
-                        if (targetIp == localIp) return@async
-                        
-                        
-                        
-                        val ports = listOf(DEFAULT_PORT, 1714, 22, 80, 53)
-                        var foundAlive = false
-                        var isOurPort = false
-                        
-                        val checks = ports.map { port ->
-                            async { port to isPortOpen(targetIp, port, 300) }
-                        }.awaitAll()
-                        
-                        for ((port, open) in checks) {
-                            if (open) {
-                                foundAlive = true
-                                if (port == DEFAULT_PORT) isOurPort = true
-                                break
-                            }
-                        }
-
-                        if (foundAlive) {
-                            
-                            addDevice(DiscoveredDevice("WiFi Device", targetIp, DEFAULT_PORT, isMonitorizeService = isOurPort))
-                            
-                            
-                            launch {
-                                try {
-                                    val inet = InetAddress.getByName(targetIp)
-                                    val name = inet.hostName
-                                    if (name != null && name != targetIp) {
-                                        addDevice(DiscoveredDevice(name, targetIp, DEFAULT_PORT, isMonitorizeService = isOurPort))
-                                    }
-                                } catch (e: Exception) {}
-                            }
-                        }
-                    }
-                }.awaitAll()
-                delay(100)
-            }
-        }
-    }
-
     private fun addDevice(newDevice: DiscoveredDevice) {
         if (!isDiscovering) return
         if (newDevice.ip == "127.0.0.1" && !newDevice.isUsb) return
@@ -259,55 +193,6 @@ class DeviceDiscovery(private val context: Context) {
         return n == "wifi device" || n == "network device" || n == "monitorize device" || n.isEmpty()
     }
 
-    private fun isPortOpen(ip: String, port: Int, timeout: Int): Boolean {
-        return try {
-            Socket().use { it.connect(InetSocketAddress(ip, port), timeout); true }
-        } catch (_: Exception) {
-            false
-        }
-    }
-
-    private fun getLocalIpAddress(): String? {
-        try {
-            val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-            val activeNetwork = cm.activeNetwork
-            val lp = cm.getLinkProperties(activeNetwork)
-            for (la in lp?.linkAddresses ?: emptyList()) {
-                val addr = la.address
-                if (addr is Inet4Address && !addr.isLoopbackAddress) {
-                    return addr.hostAddress
-                }
-            }
-        } catch (_: Exception) {}
-
-        
-        try {
-            val interfaces = NetworkInterface.getNetworkInterfaces()
-            var fallbackAddr: String? = null
-            for (intf in Collections.list(interfaces)) {
-                if (!intf.isUp || intf.isLoopback) continue
-                val name = intf.name.lowercase()
-                val isWifiOrEthernet = name.contains("wlan") || name.contains("ap") || name.contains("p2p") || name.contains("eth")
-                
-                val addrs = intf.inetAddresses
-                for (addr in Collections.list(addrs)) {
-                    if (!addr.isLoopbackAddress && addr is Inet4Address) {
-                        val ip = addr.hostAddress
-                        if (isWifiOrEthernet) {
-                            return ip 
-                        } else if (fallbackAddr == null) {
-                            fallbackAddr = ip
-                        }
-                    }
-                }
-            }
-            if (fallbackAddr != null) return fallbackAddr
-        } catch (e: Exception) {
-            Log.e(TAG, "Error fallback getting network interfaces", e)
-        }
-        return null
-    }
-
     fun stopDiscovery() {
         Log.d(TAG, "stopDiscovery() called")
         isDiscovering = false
@@ -315,7 +200,6 @@ class DeviceDiscovery(private val context: Context) {
         harvestJob = null
         discoveryListeners.forEach { try { nsdManager.stopServiceDiscovery(it) } catch (_: Exception) {} }
         discoveryListeners.clear()
-        scanJob?.cancel()
         resolverJob?.cancel()
         resolveChannel?.close()
         resolveChannel = null

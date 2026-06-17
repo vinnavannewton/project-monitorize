@@ -30,7 +30,7 @@ Item {
             Layout.alignment: Qt.AlignHCenter
             implicitWidth: 180
             implicitHeight: 32
-            radius: 16
+            radius: theme.controlRadius
             color: theme.surfaceAlt
             border.color: theme.border
             border.width: 1
@@ -73,11 +73,11 @@ Item {
                 id: usbCard
                 implicitWidth: 220
                 implicitHeight: 140
-                radius: 16
+                radius: theme.cardRadius
                 color: usbMouseArea.containsMouse ? theme.surfaceAlt : theme.surface
                 border.color: usbMouseArea.containsMouse ? theme.borderHover : theme.border
                 border.width: 1
-                scale: usbMouseArea.containsMouse ? 1.03 : 1.0
+                scale: usbMouseArea.containsMouse ? theme.hoverScale : 1.0
                 Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
                 Behavior on color { ColorAnimation { duration: 150 } }
                 Behavior on border.color { ColorAnimation { duration: 150 } }
@@ -115,11 +115,11 @@ Item {
                 id: wifiCard
                 implicitWidth: 220
                 implicitHeight: 140
-                radius: 16
+                radius: theme.cardRadius
                 color: wifiMouseArea.containsMouse ? theme.surfaceAlt : theme.surface
                 border.color: wifiMouseArea.containsMouse ? theme.borderHover : theme.border
                 border.width: 1
-                scale: wifiMouseArea.containsMouse ? 1.03 : 1.0
+                scale: wifiMouseArea.containsMouse ? theme.hoverScale : 1.0
                 Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
                 Behavior on color { ColorAnimation { duration: 150 } }
                 Behavior on border.color { ColorAnimation { duration: 150 } }
@@ -157,11 +157,11 @@ Item {
                 id: receiverCard
                 implicitWidth: 220
                 implicitHeight: 140
-                radius: 16
+                radius: theme.cardRadius
                 color: receiverMouseArea.containsMouse ? theme.surfaceAlt : theme.surface
                 border.color: receiverMouseArea.containsMouse ? theme.borderHover : theme.border
                 border.width: 1
-                scale: receiverMouseArea.containsMouse ? 1.03 : 1.0
+                scale: receiverMouseArea.containsMouse ? theme.hoverScale : 1.0
                 Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
                 Behavior on color { ColorAnimation { duration: 150 } }
                 Behavior on border.color { ColorAnimation { duration: 150 } }

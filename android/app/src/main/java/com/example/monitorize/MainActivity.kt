@@ -44,6 +44,7 @@ import androidx.compose.ui.zIndex
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.example.monitorize.ui.theme.MonitorizeTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -54,14 +55,14 @@ import kotlinx.coroutines.launch
 
 
 
-val BackgroundDark = Color(0xFF8AE9F2)  
-val CardDark       = Color(0xFF0092BC)  
-val BorderDark     = Color(0xFF45BED7)  
-val AccentIndigo   = Color(0xFF005E83)  
-val GreenAccent    = Color(0xFF001D3C)  
-val TextPrimary    = Color(0xFF001D3C)  
-val TextSecondary  = Color(0xFF005E83)  
-val TextMuted      = Color(0xFF0092BC)  
+val BackgroundDark = Color(0xFF1B1E24)
+val CardDark       = Color(0xFF232831)
+val BorderDark     = Color(0xFF343B46)
+val AccentIndigo   = Color(0xFF3DAEE9)
+val GreenAccent    = Color(0xFF2F6F95)
+val TextPrimary    = Color(0xFFEFF0F1)
+val TextSecondary  = Color(0xFFC7D0D9)
+val TextMuted      = Color(0xFF8F9AA6)
 
 enum class Screen { Home, Receive }
 
@@ -102,11 +103,11 @@ class MainActivity : ComponentActivity() {
             window.attributes.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         }
 
-        window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.parseColor("#8AE9F2")))
+        window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.parseColor("#1B1E24")))
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         
-        WindowInsetsControllerCompat(window, window.decorView).isAppearanceLightStatusBars = true
+        WindowInsetsControllerCompat(window, window.decorView).isAppearanceLightStatusBars = false
 
         setContent {
             val configuration = LocalConfiguration.current
@@ -125,26 +126,16 @@ class MainActivity : ComponentActivity() {
             ) }
             
             val coroutineScope = rememberCoroutineScope()
-            val context = androidx.compose.ui.platform.LocalContext.current
 
             
             if (disconnectionMessage != null) {
                 LaunchedEffect(disconnectionMessage) {
-                    kotlinx.coroutines.delay(5000)
+                    delay(5000)
                     disconnectionMessage = null
                 }
             }
 
-            MaterialTheme(colorScheme = lightColorScheme(
-                primary = AccentIndigo,
-                onPrimary = Color.White,
-                secondary = GreenAccent,
-                onSecondary = Color.White,
-                background = BackgroundDark,
-                onBackground = TextPrimary,
-                surface = CardDark,
-                onSurface = Color.White
-            )) {
+            MonitorizeTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = BackgroundDark) {
                     Box(modifier = Modifier.fillMaxSize()) {
                         when (currentScreen) {
@@ -176,7 +167,7 @@ class MainActivity : ComponentActivity() {
                                     onSurfaceCreated = { ip, surface, w, h ->
                                         coroutineScope.launch {
                                             
-                                            kotlinx.coroutines.delay(400)
+                                            delay(400)
                                             val port = selectedDevice?.port ?: 7110
                                             startStream(ip, port, surface, w, h) {
                                                 runOnUiThread {

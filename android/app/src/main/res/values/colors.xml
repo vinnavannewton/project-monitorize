@@ -1,11 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Monitorize Palette -->
-    <color name="prussian_blue">#FF001D3C</color>
-    <color name="baltic_blue">#FF005E83</color>
-    <color name="bondi_blue">#FF0092BC</color>
-    <color name="sky_surge">#FF45BED7</color>
-    <color name="electric_aqua">#FF8AE9F2</color>
+    <!-- Breeze dark palette -->
+    <color name="breeze_background">#FF1B1E24</color>
+    <color name="breeze_surface">#FF232831</color>
+    <color name="breeze_surface_alt">#FF2B313B</color>
+    <color name="breeze_accent">#FF3DAEE9</color>
+    <color name="breeze_button">#FF2F6F95</color>
+    <color name="breeze_border">#FF343B46</color>
+    <color name="breeze_text">#FFEFF0F1</color>
+    <color name="breeze_text_muted">#FF8F9AA6</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 </resources>

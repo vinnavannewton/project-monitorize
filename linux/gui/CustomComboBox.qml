@@ -22,7 +22,7 @@ ComboBox {
         color: theme.surface
         border.color: cb.hovered ? theme.accent : theme.border
         border.width: 1
-        radius: 8
+        radius: theme.controlRadius
     }
     contentItem: Text {
         leftPadding: 12

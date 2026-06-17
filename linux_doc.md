@@ -47,9 +47,17 @@ The desktop codebase is written in Python and uses a decoupled architecture:
 
 ### 1. Control Panel & GUI Backend (`gui/main_window.py` & QML Pages)
 
-The GUI manages the application state and interacts with QML elements using PySide6/PyQt6 properties, slots, and signals.
+The GUI manages the application state and interacts with QML elements using PyQt6 properties, slots, and signals.
 
 * **Settings Persistence (`gui/settings.py`)**: Stores settings in `~/.config/monitorize/settings.ini` using `QSettings`. Supports profile configurations for both USB and Wi-Fi streaming.
+  * `general/minimize_to_tray`: Keep the app running in the tray when streaming.
+  * `general/enable_touch`: Start or skip the input bridge.
+  * `general/enable_stylus_features`: On KDE/GNOME/Hyprland, opt into uinput stylus features instead of the compatibility-only path.
+  * `general/stylus_only`: Drop finger-touch packets and accept only stylus/eraser packets.
+* **Theme and Controls**:
+  * `gui/Theme.qml` defines the shared modern dark palette, text colors, border colors, `controlRadius`, `cardRadius`, and `hoverScale`.
+  * Shared controls (`CustomButton`, `CustomTextField`, `CustomComboBox`, `CustomCheckBox`) consume these tokens so palette and shape changes stay centralized.
+  * The streaming page's KDE `Add Display` action uses `assets/svg/display-add.svg` instead of an emoji glyph so it renders consistently across desktop fonts.
 * **ADB Management & Port Forwarding**:
   * Scans for connected devices via `adb devices`.
   * Configures reverse port tunnels using:
@@ -113,20 +121,34 @@ The touch daemon runs in the background, listening for incoming event payloads f
 * **Network Receivers**:
   * **TCP (USB)**: Listens on port `7111` for ADB-forwarded touch input.
   * **UDP (Wi-Fi)**: Listens on port `7113` for direct, low-overhead Wi-Fi packet datagrams.
+* **Packet Protocol**:
+  * Touch packets keep the legacy `0x03` packet type with a 13-byte payload and 18-byte framed message.
+  * Legacy pen packets `0x04` remain accepted for compatibility.
+  * Extended pen packets `0x05` use a 19-byte payload and carry pressure, X/Y tilt, hover distance, Android button state, and cancel/hover flags.
+  * Palm rejection is delegated to Android/tablet input. The daemon treats cancel flags and `ACTION_CANCEL` as release/cancel events to avoid stuck stylus or touch state.
+  * Any stylus/eraser packet suppresses finger-touch packets for 5 seconds and releases active finger contacts. With `stylus_only`, finger-touch packets are always dropped.
 * **Injectors**:
-  * **KDE & GNOME (Wayland)**:
+  * **KDE & GNOME (Wayland, default)**:
     * Implements standard Wayland input emulation using `libei` (via `snegg` & `oeffis`).
     * Communicates with the `org.freedesktop.portal.RemoteDesktop` D-Bus API to request input control.
     * Dynamically creates virtual touchscreen and relative absolute pointer devices.
+  * **KDE & GNOME Stylus Features (optional)**:
+    * Uses `/dev/uinput` instead of libei to create `Monitorize-Touch` and `Monitorize-Stylus`.
+    * Exposes stylus pressure, X/Y tilt, distance, eraser, hover, and stylus buttons to drawing apps.
+    * On KDE, binds the uinput devices to `Virtual-TabletDisplay` through KWin's input-device `outputName` property.
+    * Uses uinput only in stylus-feature mode. If uinput permissions are missing or KDE cannot bind the touch device to the virtual output, input stops instead of opening the RemoteDesktop portal or emulating pen events as mouse input.
   * **Hyprland**:
     * Bypasses the RemoteDesktop portal (unsupported by `xdg-desktop-portal-hyprland`) by writing directly to `/dev/uinput` using `evdev` to create a virtual touchscreen device named `Monitorize-Touch`.
-    * Utilizes `hyprctl keyword device:monitorize-touch:output` to map touch coordinates to the corresponding virtual headless monitor.
+    * When stylus features are enabled, also creates `Monitorize-Stylus` with pressure, tilt, distance, eraser, hover, and stylus buttons.
+    * Utilizes `hyprctl keyword device:...:output` to map uinput devices to the corresponding virtual headless monitor.
 * **Coordinate Mapping & Scaling**:
   * Android touch events transmit normalized coordinates ranging from `0` to `65535` (`COORD_MAX`).
   * `touch_daemon.py` maps these values to physical coordinate offsets depending on the current desktop compositor layout:
     1. **KDE**: Parses `kscreen-doctor -j` to query logical offsets `(x, y, w, h)` of `Virtual-TabletDisplay`.
+       * In optional uinput stylus mode, KDE uinput devices are sized to the virtual display and mapped to `Virtual-TabletDisplay` through KWin.
     2. **Hyprland**: Parses `hyprctl monitors -j` to query coordinates and DPI scaling of the `HEADLESS-N` output.
     3. **GNOME**: Queries the logical display matrix using the Mutter `DisplayConfig` D-Bus interface.
+       * In optional uinput stylus mode, GNOME uinput devices are sized to full logical desktop bounds and events are offset into the Mutter virtual monitor.
   * Coordinate Transformation:
     $$\text{Host X} = \text{Offset X} + \left(\frac{\text{Android X}}{65535}\right) \times \text{Logical Width}$$
     $$\text{Host Y} = \text{Offset Y} + \left(\frac{\text{Android Y}}{65535}\right) \times \text{Logical Height}$$
@@ -135,7 +157,7 @@ The touch daemon runs in the background, listening for incoming event payloads f
 
 ## 🛠️ Troubleshooting Guide
 
-### A. Touch Injection Fails on Hyprland (Permission Issues)
+### A. uinput Touch/Stylus Injection Fails (Permission Issues)
 * **Symptom**: `touch_daemon.py` reports `PermissionError: Cannot open /dev/uinput`.
 * **Fix**: Ensure udev permission rules are loaded and your user belongs to the `input` group:
   ```bash
@@ -154,7 +176,7 @@ The touch daemon runs in the background, listening for incoming event payloads f
 
 ### C. Touch Emulation Fails on KDE/GNOME (Portal Denied)
 * **Symptom**: Log reports `Portal session closed/denied by user` or `Portal timed out`.
-* **Fix**: When starting the stream, watch for the OS system modal dialog `"Allow Remote Control"` or `"Input Device Emulation Request"` and click **Allow**. If it fails to show up, verify that `xdg-desktop-portal-gtk` or similar desktop portals are running in your user session.
+* **Fix**: KDE/GNOME default input uses the XDG RemoteDesktop portal. If the system shows an input-emulation permission prompt, approve it. If no prompt appears, verify that `xdg-desktop-portal-gtk` or a matching desktop portal is running in your user session.
 
 ### D. Wi-Fi Device Discovery Fails (mDNS / Multicast Blocking)
 * **Symptom**: Desktop app does not show up on the Android app, or manual IP connection fails.
@@ -182,4 +204,13 @@ To run the streamers in standalone mode (using defaults):
 ```bash
 # Example for Hyprland
 ./venv/bin/python3 Streamer_hyprland.py 2560 1600 60 8000 usb
+```
+
+To run the input bridge manually:
+```bash
+# Default input path for the current desktop environment
+./venv/bin/python3 touch_daemon.py 2560 1600
+
+# Optional pressure/tilt stylus path on KDE, GNOME, or Hyprland
+./venv/bin/python3 touch_daemon.py 2560 1600 --stylus-features
 ```

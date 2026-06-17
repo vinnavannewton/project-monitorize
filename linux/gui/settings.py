@@ -52,13 +52,19 @@ def save_usb_settings(*, resolution: str, custom_w: str, custom_h: str,
     s.sync()
 
 
-def save_general_settings(*, minimize_to_tray: bool = None, enable_touch: bool = None):
+def save_general_settings(*, minimize_to_tray: bool = None, enable_touch: bool = None,
+                          enable_stylus_features: bool = None,
+                          stylus_only: bool = None):
     s = _get_settings()
     s.beginGroup("general")
     if minimize_to_tray is not None:
         s.setValue("minimize_to_tray", minimize_to_tray)
     if enable_touch is not None:
         s.setValue("enable_touch", enable_touch)
+    if enable_stylus_features is not None:
+        s.setValue("enable_stylus_features", enable_stylus_features)
+    if stylus_only is not None:
+        s.setValue("stylus_only", stylus_only)
     s.endGroup()
     s.sync()
 
@@ -118,6 +124,8 @@ def load_general_settings() -> dict:
     data = {
         "minimize_to_tray": s.value("minimize_to_tray", False, type=bool),
         "enable_touch": s.value("enable_touch", True, type=bool),
+        "enable_stylus_features": s.value("enable_stylus_features", False, type=bool),
+        "stylus_only": s.value("stylus_only", False, type=bool),
     }
     s.endGroup()
     return data

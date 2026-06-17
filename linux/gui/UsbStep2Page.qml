@@ -6,6 +6,26 @@ Item {
     id: page
 
     property bool minimizeToTray: false
+    property bool enableStylusFeatures: false
+    property bool stylusOnly: false
+    property bool loadingSettings: true
+    readonly property bool stylusControlsVisible: (
+        backend.detectedDe === "kde"
+        || backend.detectedDe === "gnome"
+        || backend.detectedDe === "hyprland"
+    )
+
+    function saveGeneralSettings() {
+        if (page.loadingSettings) {
+            return
+        }
+        backend.saveGeneralSettings(
+            page.minimizeToTray,
+            touchCheck.checked,
+            stylusCheck.checked,
+            stylusOnlyCheck.checked
+        )
+    }
 
     Transition {
         id: fastRebound
@@ -52,7 +72,13 @@ Item {
 
         let gen = backend.loadGeneralSettings();
         page.minimizeToTray = gen["minimize_to_tray"] !== undefined ? gen["minimize_to_tray"] : false;
-        touchCheck.checked = gen["enable_touch"] !== undefined ? gen["enable_touch"] : true;
+        let enableTouch = gen["enable_touch"] !== undefined ? gen["enable_touch"] : true;
+        page.enableStylusFeatures = (gen["enable_stylus_features"] !== undefined ? gen["enable_stylus_features"] : false) && enableTouch;
+        page.stylusOnly = (gen["stylus_only"] !== undefined ? gen["stylus_only"] : false) && enableTouch && page.enableStylusFeatures;
+        stylusCheck.checked = page.enableStylusFeatures;
+        stylusOnlyCheck.checked = page.stylusOnly;
+        touchCheck.checked = enableTouch;
+        page.loadingSettings = false;
 
         usbScroll.contentItem.rebound = fastRebound;
     }
@@ -162,16 +188,48 @@ Item {
                 }
             }
 
-            // Checkbox Settings row
-            RowLayout {
-                spacing: 24
+            // Checkbox Settings
+            ColumnLayout {
+                spacing: 8
                 Layout.alignment: Qt.AlignHCenter
 
                 CustomCheckBox {
                     id: touchCheck
                     text: "Enable Touch Input"
                     onCheckedChanged: {
-                        backend.saveGeneralSettings(page.minimizeToTray, checked)
+                        if (!checked) {
+                            stylusCheck.checked = false
+                            stylusOnlyCheck.checked = false
+                        }
+                        page.enableStylusFeatures = stylusCheck.checked
+                        page.stylusOnly = stylusOnlyCheck.checked
+                        page.saveGeneralSettings()
+                    }
+                }
+
+                CustomCheckBox {
+                    id: stylusCheck
+                    text: "Enable Stylus Features"
+                    visible: page.stylusControlsVisible
+                    enabled: touchCheck.checked
+                    onCheckedChanged: {
+                        if (!checked) {
+                            stylusOnlyCheck.checked = false
+                        }
+                        page.enableStylusFeatures = checked
+                        page.stylusOnly = stylusOnlyCheck.checked
+                        page.saveGeneralSettings()
+                    }
+                }
+
+                CustomCheckBox {
+                    id: stylusOnlyCheck
+                    text: "Disable Touch and Only Enable Stylus"
+                    visible: page.stylusControlsVisible
+                    enabled: touchCheck.checked && stylusCheck.checked
+                    onCheckedChanged: {
+                        page.stylusOnly = checked
+                        page.saveGeneralSettings()
                     }
                 }
             }
@@ -220,7 +278,7 @@ Item {
                             cleanRes = cleanRes.split(" ")[0];
                         }
                         // Save settings
-                        backend.saveGeneralSettings(page.minimizeToTray, touchCheck.checked);
+                        page.saveGeneralSettings();
                         backend.saveUsbSettings(
                             cleanRes,
                             resCombo.currentText === "Custom..." ? customW.text : "",

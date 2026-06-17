@@ -36,7 +36,7 @@ def _make_tray_icon() -> QIcon:
     p = QPainter(px)
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
     
-    accent_hex = "#005e83"
+    accent_hex = "#3daee9"
     try:
         theme_path = os.path.join(LINUX_DIR, "gui", "Theme.qml")
         if os.path.exists(theme_path):

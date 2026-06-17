@@ -133,9 +133,9 @@ Item {
                     Rectangle {
                         Layout.fillWidth: true
                         implicitHeight: 60
-                        radius: 12
+                        radius: theme.cardRadius
                         color: devMouseArea.containsMouse ? theme.surfaceAlt : theme.surface
-                        border.color: devMouseArea.containsMouse ? theme.accent : theme.border
+                        border.color: devMouseArea.containsMouse ? theme.borderHover : theme.border
                         border.width: 1
                         Behavior on color { ColorAnimation { duration: 150 } }
                         Behavior on border.color { ColorAnimation { duration: 150 } }

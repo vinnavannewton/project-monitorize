@@ -9,7 +9,7 @@ Button {
         color: btn.down ? theme.buttonBackgroundPressed : (btn.hovered ? theme.buttonBackgroundHover : theme.buttonBackground)
         border.color: theme.border
         border.width: 1
-        radius: 8
+        radius: theme.controlRadius
         Behavior on color { ColorAnimation { duration: 150 } }
     }
     contentItem: Text {

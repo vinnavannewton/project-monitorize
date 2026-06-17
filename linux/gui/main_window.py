@@ -307,9 +307,14 @@ class MonitorizeWindow(QMainWindow):
     def loadGeneralSettings(self):
         return load_general_settings()
 
-    @pyqtSlot(bool, bool)
-    def saveGeneralSettings(self, minimize_to_tray, enable_touch):
-        save_general_settings(minimize_to_tray=minimize_to_tray, enable_touch=enable_touch)
+    @pyqtSlot(bool, bool, bool, bool)
+    def saveGeneralSettings(self, minimize_to_tray, enable_touch, enable_stylus_features, stylus_only):
+        save_general_settings(
+            minimize_to_tray=minimize_to_tray,
+            enable_touch=enable_touch,
+            enable_stylus_features=enable_stylus_features,
+            stylus_only=stylus_only,
+        )
 
     @pyqtSlot(str, str, str, str, str, str, str, str)
     def saveUsbSettings(self, resolution, custom_w, custom_h, fps, custom_fps, bitrate, display_type, encoder):
@@ -699,7 +704,7 @@ class MonitorizeWindow(QMainWindow):
 
     def _do_start_streaming(self):
         """Prepare the environment, kill stale processes, and trigger
-        the streamer launch (with optional virtual-monitor setup on KDE/Hyprland)."""
+        the streamer launch with desktop-specific virtual-monitor setup."""
         script_dir = LINUX_DIR
 
         env = QProcessEnvironment.systemEnvironment()
@@ -884,12 +889,22 @@ class MonitorizeWindow(QMainWindow):
         ]
         if getattr(self, "_is_wifi", False):
             args.append("--wifi")
+        stylus_features_enabled = (
+            gen.get("enable_stylus_features", False)
+            and self._detected_de in ("kde", "gnome", "hyprland")
+        )
+        if stylus_features_enabled:
+            args.append("--stylus-features")
+        if stylus_features_enabled and gen.get("stylus_only", False):
+            args.append("--stylus-only")
         self.process_input_bridge.start(sys.executable, args)
 
-        if self._detected_de == "hyprland":
+        if "--stylus-features" in args:
+            self.set_streaming_status("Stylus input starting via uinput…")
+        elif self._detected_de == "hyprland":
             self.set_streaming_status("Touch service starting via uinput…")
         else:
-            self.set_streaming_status("Touch service starting… Watch for 'Allow Remote Control' popup and click Allow")
+            self.set_streaming_status("Touch service starting…")
 
     def _on_streamer_finished(self, code, _status):
         self.append_log("STREAMER", f"Process exited (code {code})")
@@ -1207,14 +1222,14 @@ def main():
     app.setDesktopFileName("monitorize")
 
     palette = QPalette()
-    palette.setColor(QPalette.ColorRole.Window,          QColor(load_theme_color("background", "#8ae9f2")))
-    palette.setColor(QPalette.ColorRole.WindowText,      QColor(load_theme_color("textLight", "#001d3c")))
-    palette.setColor(QPalette.ColorRole.Base,            QColor(load_theme_color("surface", "#0092bc")))
-    palette.setColor(QPalette.ColorRole.AlternateBase,   QColor(load_theme_color("surfaceAlt", "#005e83")))
-    palette.setColor(QPalette.ColorRole.Button,          QColor(load_theme_color("surfaceAlt", "#005e83")))
-    palette.setColor(QPalette.ColorRole.ButtonText,      QColor(load_theme_color("textLight", "#001d3c")))
-    palette.setColor(QPalette.ColorRole.Highlight,       QColor(load_theme_color("accent", "#005e83")))
-    palette.setColor(QPalette.ColorRole.HighlightedText, QColor(load_theme_color("textPrimary", "#ffffff")))
+    palette.setColor(QPalette.ColorRole.Window,          QColor(load_theme_color("background", "#1b1e24")))
+    palette.setColor(QPalette.ColorRole.WindowText,      QColor(load_theme_color("textLight", "#eff0f1")))
+    palette.setColor(QPalette.ColorRole.Base,            QColor(load_theme_color("surface", "#232831")))
+    palette.setColor(QPalette.ColorRole.AlternateBase,   QColor(load_theme_color("surfaceAlt", "#2b313b")))
+    palette.setColor(QPalette.ColorRole.Button,          QColor(load_theme_color("surfaceAlt", "#2b313b")))
+    palette.setColor(QPalette.ColorRole.ButtonText,      QColor(load_theme_color("textLight", "#eff0f1")))
+    palette.setColor(QPalette.ColorRole.Highlight,       QColor(load_theme_color("accent", "#3daee9")))
+    palette.setColor(QPalette.ColorRole.HighlightedText, QColor(load_theme_color("textPrimary", "#eff0f1")))
     app.setPalette(palette)
 
     win = MonitorizeWindow()

@@ -4,13 +4,11 @@ import androidx.compose.ui.graphics.Color
 
 
 
-
-
-
-
-
-val PrussianBlue  = Color(0xFF001D3C)
-val BalticBlue    = Color(0xFF005E83)
-val BondiBlue     = Color(0xFF0092BC)
-val SkySurge      = Color(0xFF45BED7)
-val ElectricAqua  = Color(0xFF8AE9F2)
+val BreezeBackground = Color(0xFF1B1E24)
+val BreezeSurface    = Color(0xFF232831)
+val BreezeSurfaceAlt = Color(0xFF2B313B)
+val BreezeAccent     = Color(0xFF3DAEE9)
+val BreezeButton     = Color(0xFF2F6F95)
+val BreezeBorder     = Color(0xFF343B46)
+val BreezeText       = Color(0xFFEFF0F1)
+val BreezeTextMuted  = Color(0xFF8F9AA6)

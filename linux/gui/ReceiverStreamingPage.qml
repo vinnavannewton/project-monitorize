@@ -46,7 +46,7 @@ Item {
         Rectangle {
             Layout.fillWidth: true
             implicitHeight: 60
-            radius: 12
+            radius: theme.cardRadius
             color: theme.surface
             border.color: theme.border
             border.width: 1

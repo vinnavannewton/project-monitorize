@@ -94,6 +94,17 @@ KDE requires `krfb` to create the virtual monitor output:
 sudo dnf install -y krfb
 ```
 
+#### Stylus input permission (for `Enable Stylus Features`)
+
+KDE's default touch path uses libei, but the pressure/tilt stylus mode uses `/dev/uinput`. Enable uinput access before turning on `Enable Stylus Features`:
+
+```bash
+echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+sudo usermod -aG input $USER
+# Log out and back in for group change to take effect
+```
+
 ### GNOME (Experimental):
 
 No extra packages needed. However, you **must** disable hardware cursor rendering so the cursor is visible on the virtual monitor stream:
@@ -106,6 +117,17 @@ Log out and back in for the change to take effect. To revert:
 
 ```bash
 gsettings set org.gnome.mutter.wayland disable-hardware-cursor false
+```
+
+#### Stylus input permission (for `Enable Stylus Features`)
+
+GNOME's default touch path uses libei, but the pressure/tilt stylus mode uses `/dev/uinput`. Enable uinput access before turning on `Enable Stylus Features`:
+
+```bash
+echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+sudo usermod -aG input $USER
+# Log out and back in for group change to take effect
 ```
 
 ### Hyprland:
@@ -175,6 +197,17 @@ sudo pacman -S --needed \
 sudo pacman -S --needed krfb
 ```
 
+#### Stylus input permission (for `Enable Stylus Features`)
+
+KDE's default touch path uses libei, but the pressure/tilt stylus mode uses `/dev/uinput`. Enable uinput access before turning on `Enable Stylus Features`:
+
+```bash
+echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+sudo usermod -aG input $USER
+# Log out and back in for group change to take effect
+```
+
 ### GNOME (Experimental):
 
 No extra packages needed. However, you **must** disable hardware cursor rendering so the cursor is visible on the virtual monitor stream:
@@ -187,6 +220,17 @@ Log out and back in for the change to take effect. To revert:
 
 ```bash
 gsettings set org.gnome.mutter.wayland disable-hardware-cursor false
+```
+
+#### Stylus input permission (for `Enable Stylus Features`)
+
+GNOME's default touch path uses libei, but the pressure/tilt stylus mode uses `/dev/uinput`. Enable uinput access before turning on `Enable Stylus Features`:
+
+```bash
+echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+sudo usermod -aG input $USER
+# Log out and back in for group change to take effect
 ```
 
 ### Hyprland:
@@ -272,6 +316,17 @@ sudo apt install -y \
 sudo apt install -y krfb kscreen
 ```
 
+#### Stylus input permission (for `Enable Stylus Features`)
+
+KDE's default touch path uses libei, but the pressure/tilt stylus mode uses `/dev/uinput`. Enable uinput access before turning on `Enable Stylus Features`:
+
+```bash
+echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+sudo usermod -aG input $USER
+# Log out and back in for group change to take effect
+```
+
 ### GNOME (Experimental):
 
 No extra packages needed. However, you **must** disable hardware cursor rendering so the cursor is visible on the virtual monitor stream:
@@ -284,6 +339,17 @@ Log out and back in for the change to take effect. To revert:
 
 ```bash
 gsettings set org.gnome.mutter.wayland disable-hardware-cursor false
+```
+
+#### Stylus input permission (for `Enable Stylus Features`)
+
+GNOME's default touch path uses libei, but the pressure/tilt stylus mode uses `/dev/uinput`. Enable uinput access before turning on `Enable Stylus Features`:
+
+```bash
+echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+sudo usermod -aG input $USER
+# Log out and back in for group change to take effect
 ```
 
 ### Hyprland:
@@ -328,6 +394,9 @@ sudo usermod -aG input $USER
   ```
 
   to confirm the device is connected.
+
+- `Enable Stylus Features` uses `/dev/uinput` only on KDE, GNOME, and Hyprland to expose pressure, tilt, eraser, hover, and stylus buttons. It does not open the RemoteDesktop input portal or emulate stylus as mouse input in this mode. If uinput is unavailable, or KDE cannot bind the touch device to `Virtual-TabletDisplay`, input stops so the device cannot target the wrong output.
+- Stylus input suppresses finger touch for 5 seconds after the last stylus event. The `Disable Touch and Only Enable Stylus` option drops all finger-touch input while keeping stylus/eraser input active.
 
 ### Android Tablet
 
@@ -383,7 +452,7 @@ Or:
 - [x] Touch screen.
 - [ ] Stable nvidia encoder (waiting for driver 610.x which implemented proper DMA BUF).
 - [ ] On Sway DE.
-- [ ] Stylus support (stylus touch and hover works for now others will be implemented soon).
+- [x] Stylus support with pressure, tilt, eraser, hover, and stylus buttons via optional uinput mode.
 - [ ] Stable Wi-Fi mode (beta).
 - [ ] Flathub distribution.
 - [ ] use laptop as second screen.

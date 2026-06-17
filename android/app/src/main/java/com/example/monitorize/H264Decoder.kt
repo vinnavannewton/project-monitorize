@@ -9,7 +9,6 @@ import android.util.Log
 import android.view.Surface
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ArrayBlockingQueue
-import java.util.concurrent.atomic.AtomicLong
 
 
 class H264Decoder(private val surface: Surface) {
@@ -30,9 +29,6 @@ class H264Decoder(private val surface: Surface) {
     private val chunkPool = ArrayBlockingQueue<FrameChunk>(POOL_SIZE)
     private val chunkQueue = LinkedBlockingQueue<FrameChunk>(POOL_SIZE)
     
-    private val nextPts = AtomicLong(0L)
-    private var frameDurationUs = 16_667L
-
     init {
         for (i in 0 until POOL_SIZE) {
             chunkPool.offer(FrameChunk(ByteArray(MAX_INPUT)))
@@ -48,8 +44,6 @@ class H264Decoder(private val surface: Surface) {
         if (initialized) release()
         try {
             Log.i(TAG, "Init: ${width}×${height}")
-            frameDurationUs = 16_667L
-            nextPts.set(0L)
 
             val format = MediaFormat.createVideoFormat(
                 MediaFormat.MIMETYPE_VIDEO_AVC, width, height

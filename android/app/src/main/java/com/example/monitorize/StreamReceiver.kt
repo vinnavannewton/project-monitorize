@@ -2,8 +2,6 @@ package com.example.monitorize
 
 import android.util.Log
 import java.net.Socket
-import java.net.DatagramSocket
-import java.net.DatagramPacket
 import java.net.InetSocketAddress
 
 class StreamReceiver(
@@ -15,7 +13,6 @@ class StreamReceiver(
 ) {
     private var running = false
     private var controlSocket: Socket? = null
-    private var udpSocket: DatagramSocket? = null
 
     var onStatusChange: ((String) -> Unit)? = null
     var onDisconnect: (() -> Unit)? = null
@@ -309,9 +306,7 @@ class StreamReceiver(
 
     private fun cleanup() {
         try { controlSocket?.close() } catch (_: Exception) {}
-        try { udpSocket?.close() } catch (_: Exception) {}
         controlSocket = null
-        udpSocket = null
     }
 
     fun stop() {
