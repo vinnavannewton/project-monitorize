@@ -11,14 +11,14 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QSystemTrayIcon, QMenu, QDialog, QMessageBox
 )
 from PyQt6.QtCore import (
-    Qt, QProcess, QProcessEnvironment, QTimer, QSize, QUrl,
+    Qt, QProcess, QProcessEnvironment, QTimer, QUrl,
     pyqtSignal, pyqtProperty, pyqtSlot
 )
 from PyQt6.QtGui import QColor, QPalette, QIcon
 from PyQt6.QtQuickWidgets import QQuickWidget
 
 from gui.utils import (
-    _make_tray_icon, detect_desktop_environment, get_local_ip, LINUX_DIR
+    detect_desktop_environment, get_local_ip, LINUX_DIR
 )
 from gui.settings import (
     load_general_settings, save_general_settings,
@@ -134,7 +134,7 @@ class MonitorizeWindow(QMainWindow):
 
         
         self._tray = QSystemTrayIcon(self)
-        self._tray.setIcon(_make_tray_icon())
+        self._tray.setIcon(QIcon(os.path.join(LINUX_DIR, "assets", "tray", "icon_tray_white.svg")))
         self._tray.setToolTip("Monitorize")
 
         tray_menu = QMenu()
@@ -307,13 +307,12 @@ class MonitorizeWindow(QMainWindow):
     def loadGeneralSettings(self):
         return load_general_settings()
 
-    @pyqtSlot(bool, bool, bool, bool)
-    def saveGeneralSettings(self, minimize_to_tray, enable_touch, enable_stylus_features, stylus_only):
+    @pyqtSlot(bool, bool, bool)
+    def saveGeneralSettings(self, minimize_to_tray, enable_touch, enable_stylus_features):
         save_general_settings(
             minimize_to_tray=minimize_to_tray,
             enable_touch=enable_touch,
             enable_stylus_features=enable_stylus_features,
-            stylus_only=stylus_only,
         )
 
     @pyqtSlot(str, str, str, str, str, str, str, str)
@@ -726,6 +725,8 @@ class MonitorizeWindow(QMainWindow):
         else:
             stream_type = "Speed"
         env.insert("MONITORIZE_STREAM_TYPE", stream_type)
+        if self._detected_de in ("kde", "hyprland") and self._selected_display_type == "Extend":
+            env.insert("MONITORIZE_PRESERVE_SOURCE_SIZE", "1")
 
         self._script_dir = script_dir
         self._env        = env
@@ -871,9 +872,14 @@ class MonitorizeWindow(QMainWindow):
     def _launch_input_bridge(self):
         """Spawn touch_daemon.py to relay Android touch/pen events."""
         gen = load_general_settings()
-        if not gen.get("enable_touch", True):
-            self.append_log("INPUT", "ℹ️  Touch input is disabled in settings.")
-            self.set_streaming_status("Status: Streaming (Touch Disabled)")
+        touch_enabled = gen.get("enable_touch", True)
+        stylus_features_enabled = (
+            gen.get("enable_stylus_features", False)
+            and self._detected_de in ("kde", "gnome", "hyprland")
+        )
+        if not touch_enabled and not stylus_features_enabled:
+            self.append_log("INPUT", "Input is disabled in settings.")
+            self.set_streaming_status("Status: Streaming (Input Disabled)")
             return
 
         self.process_input_bridge = QProcess(self)
@@ -889,13 +895,9 @@ class MonitorizeWindow(QMainWindow):
         ]
         if getattr(self, "_is_wifi", False):
             args.append("--wifi")
-        stylus_features_enabled = (
-            gen.get("enable_stylus_features", False)
-            and self._detected_de in ("kde", "gnome", "hyprland")
-        )
         if stylus_features_enabled:
             args.append("--stylus-features")
-        if stylus_features_enabled and gen.get("stylus_only", False):
+        if stylus_features_enabled and not touch_enabled:
             args.append("--stylus-only")
         self.process_input_bridge.start(sys.executable, args)
 
@@ -932,11 +934,6 @@ class MonitorizeWindow(QMainWindow):
         subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7112"], capture_output=True)
         self._launch_streamer()
         self.set_streaming_status("Status: Streaming…  (restarted)")
-
-    def _gnome_restart_input_bridge(self):
-        if not self.isStreaming:
-            return
-        self._launch_input_bridge()
 
     def _read_krfb(self):
         if self.process_krfb is None:

@@ -11,7 +11,10 @@ import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ArrayBlockingQueue
 
 
-class H264Decoder(private val surface: Surface) {
+class H264Decoder(
+    private val surface: Surface,
+    private val onOutputSizeChanged: (Int, Int) -> Unit = { _, _ -> }
+) {
 
     private var codec: MediaCodec? = null
     private var frameCount = 0L
@@ -48,7 +51,10 @@ class H264Decoder(private val surface: Surface) {
             val format = MediaFormat.createVideoFormat(
                 MediaFormat.MIMETYPE_VIDEO_AVC, width, height
             ).apply {
+                val maxDimension = maxOf(width, height)
                 setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, MAX_INPUT)
+                setInteger(MediaFormat.KEY_MAX_WIDTH, maxDimension)
+                setInteger(MediaFormat.KEY_MAX_HEIGHT, maxDimension)
                 setInteger(MediaFormat.KEY_OPERATING_RATE, Short.MAX_VALUE.toInt())
                 setInteger(MediaFormat.KEY_PRIORITY, 0)
                 setInteger(MediaFormat.KEY_LOW_LATENCY, 1)
@@ -91,7 +97,30 @@ class H264Decoder(private val surface: Surface) {
 
                     override fun onError(mc: MediaCodec, e: MediaCodec.CodecException) {}
 
-                    override fun onOutputFormatChanged(mc: MediaCodec, format: MediaFormat) {}
+                    override fun onOutputFormatChanged(mc: MediaCodec, format: MediaFormat) {
+                        val outputWidth = if (
+                            format.containsKey(MediaFormat.KEY_CROP_LEFT) &&
+                            format.containsKey(MediaFormat.KEY_CROP_RIGHT)
+                        ) {
+                            format.getInteger(MediaFormat.KEY_CROP_RIGHT) -
+                                format.getInteger(MediaFormat.KEY_CROP_LEFT) + 1
+                        } else {
+                            format.getInteger(MediaFormat.KEY_WIDTH)
+                        }
+                        val outputHeight = if (
+                            format.containsKey(MediaFormat.KEY_CROP_TOP) &&
+                            format.containsKey(MediaFormat.KEY_CROP_BOTTOM)
+                        ) {
+                            format.getInteger(MediaFormat.KEY_CROP_BOTTOM) -
+                                format.getInteger(MediaFormat.KEY_CROP_TOP) + 1
+                        } else {
+                            format.getInteger(MediaFormat.KEY_HEIGHT)
+                        }
+                        if (outputWidth > 0 && outputHeight > 0) {
+                            Log.i(TAG, "Output: ${outputWidth}×${outputHeight}")
+                            onOutputSizeChanged(outputWidth, outputHeight)
+                        }
+                    }
                 }, handler)
 
                 it.configure(format, surface, null, 0)

@@ -75,6 +75,8 @@ out/
 # ==============================
 .vscode/
 *.code-workspace
+.qtcreator/
+*.qmlproject.qtds
 
 # ==============================
 #  OS generated files

@@ -4,58 +4,11 @@ Monitorize GUI — Utility functions.
 """
 
 import os
-from PyQt6.QtWidgets import QFrame
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor, QIcon, QPixmap, QPainter
+import subprocess
 
 
 
 LINUX_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-
-def hr() -> QFrame:
-    line = QFrame()
-    line.setObjectName("sep")
-    line.setFrameShape(QFrame.Shape.HLine)
-    return line
-
-def vspace(n: int) -> int:
-    return n  
-
-def _make_tray_icon() -> QIcon:
-    """Load the custom Monitorize tray icon (white variant) from assets.
-
-    Falls back to a programmatic icon if the PNG is missing.
-    """
-    icon_path = os.path.join(LINUX_DIR, "assets", "tray", "icon_tray_white.svg")
-    if os.path.exists(icon_path):
-        return QIcon(icon_path)
-
-    px = QPixmap(64, 64)
-    px.fill(Qt.GlobalColor.transparent)
-    p = QPainter(px)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    
-    accent_hex = "#3daee9"
-    try:
-        theme_path = os.path.join(LINUX_DIR, "gui", "Theme.qml")
-        if os.path.exists(theme_path):
-            with open(theme_path, "r") as f:
-                content = f.read()
-            import re
-            match = re.search(r"property\s+color\s+accent\s*:\s*\"([^\"]+)\"", content)
-            if match:
-                accent_hex = match.group(1)
-    except Exception:
-        pass
-
-    p.setBrush(QColor(accent_hex))
-    p.setPen(Qt.PenStyle.NoPen)
-    p.drawEllipse(4, 4, 56, 56)
-    p.setBrush(QColor("#ffffff"))
-    p.drawEllipse(20, 20, 24, 24)
-    p.end()
-    return QIcon(px)
 
 
 def detect_desktop_environment() -> str:
@@ -84,6 +37,20 @@ def detect_desktop_environment() -> str:
 
 def get_local_ip():
     import socket
+
+    try:
+        addresses = subprocess.check_output(
+            ["ip", "-4", "-o", "addr", "show", "scope", "global"],
+            text=True,
+            timeout=1,
+        ).splitlines()
+        for address in addresses:
+            fields = address.split()
+            if fields[1].startswith(("wl", "wlan")):
+                return fields[3].split("/")[0]
+    except (OSError, subprocess.SubprocessError, IndexError):
+        pass
+
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         s.connect(('10.255.255.255', 1))

@@ -18,7 +18,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:screenOrientation="landscape"
+            android:screenOrientation="fullSensor"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:keepScreenOn="true"
             android:label="@string/app_name"

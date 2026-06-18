@@ -19,7 +19,6 @@ class StreamReceiver(
 
     companion object {
         private const val TAG = "StreamReceiver"
-        private const val PORT = 7110
         private const val MAX_STREAM_BUFFER = 4 * 1024 * 1024
         private const val MAX_ACCESS_UNIT = 2 * 1024 * 1024
     }

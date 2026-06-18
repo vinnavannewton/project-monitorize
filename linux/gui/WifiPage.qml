@@ -7,7 +7,6 @@ Item {
 
     property bool minimizeToTray: false
     property bool enableStylusFeatures: false
-    property bool stylusOnly: false
     property bool loadingSettings: true
     readonly property bool stylusControlsVisible: (
         backend.detectedDe === "kde"
@@ -22,8 +21,23 @@ Item {
         backend.saveGeneralSettings(
             page.minimizeToTray,
             touchCheck.checked,
-            stylusCheck.checked,
-            stylusOnlyCheck.checked
+            stylusCheck.checked
+        )
+    }
+
+    function saveSettings() {
+        if (page.loadingSettings) return
+        let resolution = resCombo.currentText
+        backend.saveWifiSettings(
+            resolution === "Custom..." ? resolution : resolution.split(" ")[0],
+            resolution === "Custom..." ? customW.text : "",
+            resolution === "Custom..." ? customH.text : "",
+            fpsCombo.currentText,
+            fpsCombo.currentText === "Custom..." ? customFps.text : "",
+            bitrateField.text,
+            displayTypeCombo.visible ? displayTypeCombo.currentText : "Extend",
+            encoderCombo.currentText,
+            streamTypeCombo.currentText.indexOf("Speed") === 0 ? "Speed" : "Stability"
         )
     }
 
@@ -76,10 +90,8 @@ Item {
         let gen = backend.loadGeneralSettings();
         page.minimizeToTray = gen["minimize_to_tray"] !== undefined ? gen["minimize_to_tray"] : false;
         let enableTouch = gen["enable_touch"] !== undefined ? gen["enable_touch"] : true;
-        page.enableStylusFeatures = (gen["enable_stylus_features"] !== undefined ? gen["enable_stylus_features"] : false) && enableTouch;
-        page.stylusOnly = (gen["stylus_only"] !== undefined ? gen["stylus_only"] : false) && enableTouch && page.enableStylusFeatures;
+        page.enableStylusFeatures = gen["enable_stylus_features"] !== undefined ? gen["enable_stylus_features"] : false;
         stylusCheck.checked = page.enableStylusFeatures;
-        stylusOnlyCheck.checked = page.stylusOnly;
         touchCheck.checked = enableTouch;
         page.loadingSettings = false;
 
@@ -141,6 +153,7 @@ Item {
                 CustomComboBox {
                     id: resCombo
                     model: ["1280x720 (16:9)", "1280x800 (16:10)", "1920x1080 (16:9)", "1920x1200 (16:10)", "2560x1440 (16:9)", "2560x1600 (16:10)", "3840x2160 (16:9)", "Custom..."]
+                    onActivated: page.saveSettings()
                 }
 
                 // Custom Res fields row
@@ -149,9 +162,9 @@ Item {
                     spacing: 8
                     visible: resCombo.currentText === "Custom..."
 
-                    CustomTextField { id: customW; placeholderText: "Width"; maximumLength: 4 }
+                    CustomTextField { id: customW; placeholderText: "Width"; maximumLength: 4; onTextEdited: page.saveSettings() }
                     Text { text: "×"; color: theme.textSecondary; font.pixelSize: 18; font.weight: Font.Bold }
-                    CustomTextField { id: customH; placeholderText: "Height"; maximumLength: 4 }
+                    CustomTextField { id: customH; placeholderText: "Height"; maximumLength: 4; onTextEdited: page.saveSettings() }
                     Text { text: "(500 - 4000)"; color: theme.textMuted; font.pixelSize: 11; font.italic: true }
                 }
 
@@ -159,6 +172,7 @@ Item {
                 CustomComboBox {
                     id: fpsCombo
                     model: ["30", "60", "90", "120", "Custom..."]
+                    onActivated: page.saveSettings()
                 }
 
                 // Custom FPS field row
@@ -167,7 +181,7 @@ Item {
                     spacing: 8
                     visible: fpsCombo.currentText === "Custom..."
 
-                    CustomTextField { id: customFps; placeholderText: "FPS"; maximumLength: 3 }
+                    CustomTextField { id: customFps; placeholderText: "FPS"; maximumLength: 3; onTextEdited: page.saveSettings() }
                     Text { text: "(24 - 240)"; color: theme.textMuted; font.pixelSize: 11; font.italic: true }
                 }
 
@@ -176,6 +190,7 @@ Item {
                     id: bitrateField
                     text: "8000"
                     maximumLength: 5
+                    onTextEdited: page.saveSettings()
                 }
 
                 // Display Type (only on KDE/GNOME/Hyprland)
@@ -189,6 +204,7 @@ Item {
                     id: displayTypeCombo
                     visible: backend.detectedDe === "kde" || backend.detectedDe === "gnome" || backend.detectedDe === "hyprland"
                     model: ["Extend", "Mirror"]
+                    onActivated: page.saveSettings()
                 }
 
                 Text { text: "Encoder:"; color: theme.textSecondary; font.pixelSize: 14 }
@@ -200,6 +216,7 @@ Item {
                         "Intel/AMD VA-API (vah264enc)",
                         "Software (CPU / x264enc)"
                     ]
+                    onActivated: page.saveSettings()
                 }
 
                 Text { text: "Stream Type:"; color: theme.textSecondary; font.pixelSize: 14 }
@@ -207,6 +224,7 @@ Item {
                     id: streamTypeCombo
                     currentIndex: 0
                     model: ["Speed (Lowest Latency)", "Stability (Low-spec Wi-Fi)"]
+                    onActivated: page.saveSettings()
                 }
             }
 
@@ -219,12 +237,7 @@ Item {
                     id: touchCheck
                     text: "Enable Touch Input"
                     onCheckedChanged: {
-                        if (!checked) {
-                            stylusCheck.checked = false
-                            stylusOnlyCheck.checked = false
-                        }
                         page.enableStylusFeatures = stylusCheck.checked
-                        page.stylusOnly = stylusOnlyCheck.checked
                         page.saveGeneralSettings()
                     }
                 }
@@ -233,24 +246,8 @@ Item {
                     id: stylusCheck
                     text: "Enable Stylus Features"
                     visible: page.stylusControlsVisible
-                    enabled: touchCheck.checked
                     onCheckedChanged: {
-                        if (!checked) {
-                            stylusOnlyCheck.checked = false
-                        }
                         page.enableStylusFeatures = checked
-                        page.stylusOnly = stylusOnlyCheck.checked
-                        page.saveGeneralSettings()
-                    }
-                }
-
-                CustomCheckBox {
-                    id: stylusOnlyCheck
-                    text: "Disable Touch and Only Enable Stylus"
-                    visible: page.stylusControlsVisible
-                    enabled: touchCheck.checked && stylusCheck.checked
-                    onCheckedChanged: {
-                        page.stylusOnly = checked
                         page.saveGeneralSettings()
                     }
                 }
@@ -301,17 +298,7 @@ Item {
                         }
                         // Save settings
                         page.saveGeneralSettings();
-                        backend.saveWifiSettings(
-                            cleanRes,
-                            resCombo.currentText === "Custom..." ? customW.text : "",
-                            resCombo.currentText === "Custom..." ? customH.text : "",
-                            fpsCombo.currentText,
-                            fpsCombo.currentText === "Custom..." ? customFps.text : "",
-                            bitrateField.text,
-                            displayTypeCombo.visible ? displayTypeCombo.currentText : "Extend",
-                            encoderCombo.currentText,
-                            streamTypeCombo.currentText.indexOf("Speed") === 0 ? "Speed" : "Stability"
-                        );
+                        page.saveSettings();
                         // Start stream
                         backend.startStreaming(
                             resCombo.currentText === "Custom..." ? customW.text + "x" + customH.text : cleanRes,

@@ -14,13 +14,22 @@ Item {
 
     property bool enableTouch: true
     property bool enableStylusFeatures: false
-    property bool stylusOnly: false
+    property bool loadingSettings: true
+
+    function saveSecondDisplaySettings() {
+        if (page.loadingSettings) return
+        backend.saveSecondDisplaySettings(
+            s2ResCombo.currentText,
+            s2FpsCombo.currentText,
+            s2BitrateField.text,
+            s2EncoderCombo.currentText
+        )
+    }
 
     Component.onCompleted: {
         let gen = backend.loadGeneralSettings();
         page.enableTouch = gen["enable_touch"] !== undefined ? gen["enable_touch"] : true;
         page.enableStylusFeatures = gen["enable_stylus_features"] !== undefined ? gen["enable_stylus_features"] : false;
-        page.stylusOnly = gen["stylus_only"] !== undefined ? gen["stylus_only"] : false;
         trayCheck.checked = gen["minimize_to_tray"] !== undefined ? gen["minimize_to_tray"] : false;
 
         let s2 = backend.loadSecondDisplaySettings();
@@ -36,6 +45,7 @@ Item {
             let encIdx = s2EncoderCombo.find(s2["encoder"] || "Software (CPU / x264enc)");
             s2EncoderCombo.currentIndex = encIdx !== -1 ? encIdx : 2;
         }
+        page.loadingSettings = false;
     }
 
     // Listen directly for log signals from the Python backend
@@ -357,7 +367,8 @@ Item {
             Layout.alignment: Qt.AlignLeft
             Layout.bottomMargin: 10
             onCheckedChanged: {
-                backend.saveGeneralSettings(checked, page.enableTouch, page.enableStylusFeatures, page.stylusOnly)
+                if (!page.loadingSettings)
+                    backend.saveGeneralSettings(checked, page.enableTouch, page.enableStylusFeatures)
             }
         }
     }
@@ -419,6 +430,7 @@ Item {
                     id: s2ResCombo
                     model: ["1280x720 (16:9)", "1280x800 (16:10)", "1920x1080 (16:9)", "1920x1200 (16:10)", "2560x1440 (16:9)", "2560x1600 (16:10)"]
                     currentIndex: 2
+                    onActivated: page.saveSecondDisplaySettings()
                 }
 
                 Text { text: "FPS:"; color: theme.cardTextSecondary; font.pixelSize: 13 }
@@ -426,6 +438,7 @@ Item {
                     id: s2FpsCombo
                     model: ["30", "60", "90", "120"]
                     currentIndex: 1
+                    onActivated: page.saveSecondDisplaySettings()
                 }
 
                 Text { text: "Bitrate (kbps):"; color: theme.cardTextSecondary; font.pixelSize: 13 }
@@ -433,6 +446,7 @@ Item {
                     id: s2BitrateField
                     text: "8000"
                     maximumLength: 5
+                    onTextEdited: page.saveSecondDisplaySettings()
                 }
 
                 Text { text: "Encoder:"; color: theme.cardTextSecondary; font.pixelSize: 13 }
@@ -444,6 +458,7 @@ Item {
                         "Intel/AMD VA-API (vah264enc)",
                         "Software (CPU / x264enc)"
                     ]
+                    onActivated: page.saveSecondDisplaySettings()
                 }
             }
 
@@ -486,12 +501,7 @@ Item {
                             s2BitrateField.text,
                             s2EncoderCombo.currentText
                         )
-                        backend.saveSecondDisplaySettings(
-                            s2ResCombo.currentText,
-                            s2FpsCombo.currentText,
-                            s2BitrateField.text,
-                            s2EncoderCombo.currentText
-                        )
+                        page.saveSecondDisplaySettings()
                         addDisplayPopup.close()
                     }
                 }
