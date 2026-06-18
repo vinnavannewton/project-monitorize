@@ -12,37 +12,6 @@ import kotlinx.coroutines.channels.Channel
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
-import java.util.concurrent.atomic.AtomicInteger
-
-class ByteArrayPool(private val itemSize: Int) {
-    private val pool = java.util.concurrent.ConcurrentLinkedQueue<ByteArray>()
-    private val poolSize = AtomicInteger(0)
-
-    fun obtain(size: Int = itemSize): ByteArray {
-        if (size != itemSize) {
-            return ByteArray(size)
-        }
-        val fromPool = pool.poll()
-        return if (fromPool != null) {
-            poolSize.decrementAndGet()
-            fromPool
-        } else {
-            ByteArray(itemSize)
-        }
-    }
-
-    fun recycle(array: ByteArray) {
-        if (array.size != itemSize) {
-            return
-        }
-        
-        if (poolSize.get() < 32) {
-            if (pool.offer(array)) {
-                poolSize.incrementAndGet()
-            }
-        }
-    }
-}
 
 class InputEventSender(
     private val hostIp: String? = null,
@@ -69,7 +38,6 @@ class InputEventSender(
     private var udpSocket: DatagramSocket? = null
     private var out: OutputStream? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private val pool = ByteArrayPool(18)
     private val sendChannel = Channel<ByteArray>(capacity = 256, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
     fun start() {
@@ -111,7 +79,6 @@ class InputEventSender(
                     for (frame in sendChannel) {
                         val packet = DatagramPacket(frame, frame.size, addr, portUdp)
                         udpSocket?.send(packet)
-                        pool.recycle(frame)
                     }
                 } catch (e: Exception) {
                     android.util.Log.e("InputEventSender", "UDP error", e)
@@ -133,7 +100,6 @@ class InputEventSender(
                             socket = null
                         }
                     }
-                    pool.recycle(frame)
                 }
             }
         }
@@ -203,7 +169,7 @@ class InputEventSender(
             val distance = normalizedDistance(event, pointerIndex)
             val flags = penFlags(event, forceCanceled)
 
-            pool.obtain(PEN_EXT_FRAME_SIZE).also {
+            ByteArray(PEN_EXT_FRAME_SIZE).also {
                 it[0] = 0
                 it[1] = 0
                 it[2] = 0
@@ -222,7 +188,7 @@ class InputEventSender(
                 writeShort(it, 22, flags)
             }
         } else {
-            pool.obtain(LEGACY_FRAME_SIZE).also {
+            ByteArray(LEGACY_FRAME_SIZE).also {
                 it[0] = 0
                 it[1] = 0
                 it[2] = 0
@@ -239,10 +205,7 @@ class InputEventSender(
             }
         }
 
-        val sent = sendChannel.trySend(frame)
-        if (!sent.isSuccess) {
-            pool.recycle(frame)
-        }
+        sendChannel.trySend(frame)
     }
 
     private fun penFlags(event: MotionEvent, forceCanceled: Boolean): Int {

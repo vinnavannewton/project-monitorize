@@ -13,8 +13,7 @@ data class DiscoveredDevice(
     val name: String,
     val ip: String,
     val port: Int,
-    val isUsb: Boolean = false,
-    val isMonitorizeService: Boolean = false
+    val isUsb: Boolean = false
 )
 
 class DeviceDiscovery(private val context: Context) {
@@ -60,8 +59,8 @@ class DeviceDiscovery(private val context: Context) {
             if (!propName.isNullOrBlank()) {
                 usbName = "$propName (USB)"
             }
-        } catch (e: Exception) {}
-        addDevice(DiscoveredDevice(usbName, "127.0.0.1", DEFAULT_PORT, isUsb = true, isMonitorizeService = true))
+        } catch (_: Exception) {}
+        addDevice(DiscoveredDevice(usbName, "127.0.0.1", DEFAULT_PORT, isUsb = true))
 
         
         val channel = Channel<NsdServiceInfo>(Channel.UNLIMITED)
@@ -69,17 +68,9 @@ class DeviceDiscovery(private val context: Context) {
         startResolverJob(channel)
 
         
-        val harvestTypes = listOf(SERVICE_TYPE)
-        
         harvestJob = scope.launch {
-            harvestTypes.forEachIndexed { index, type ->
-                launch {
-                    delay(500L + index * 150L) 
-                    if (isDiscovering) {
-                        startNsdDiscovery(type)
-                    }
-                }
-            }
+            delay(500)
+            if (isDiscovering) startNsdDiscovery(SERVICE_TYPE)
         }
     }
 
@@ -113,14 +104,12 @@ class DeviceDiscovery(private val context: Context) {
                                         else if (attrs.containsKey("model")) resolvedName = String(attrs["model"]!!)
                                         else if (attrs.containsKey("name")) resolvedName = String(attrs["name"]!!)
                                     }
-                                } catch (e: Exception) {}
+                                } catch (_: Exception) {}
 
-                                val isOurService = resolved.serviceType.contains("monitorize") || resolved.port == DEFAULT_PORT
                                 addDevice(DiscoveredDevice(
                                     name = if (resolvedName.isEmpty()) "WiFi Device" else resolvedName,
                                     ip = ip,
-                                    port = if (isOurService) resolved.port else DEFAULT_PORT,
-                                    isMonitorizeService = isOurService
+                                    port = resolved.port
                                 ))
                             }
                             completer.complete(Unit)
@@ -171,19 +160,9 @@ class DeviceDiscovery(private val context: Context) {
                 val isNewGeneric = isGenericName(newDevice.name)
                 
                 val betterName = if (isExistingGeneric && !isNewGeneric) newDevice.name else existing.name
-                val betterService = existing.isMonitorizeService || newDevice.isMonitorizeService
-                
-                if (betterName != existing.name || betterService != existing.isMonitorizeService) {
-                    devices[index] = existing.copy(name = betterName, isMonitorizeService = betterService)
-                }
+                if (betterName != existing.name) devices[index] = existing.copy(name = betterName)
             } else {
-                
-                if (newDevice.isMonitorizeService) {
-                    val pos = if (devices.isNotEmpty() && devices[0].isUsb) 1 else 0
-                    if (pos <= devices.size) devices.add(pos, newDevice) else devices.add(newDevice)
-                } else {
-                    devices.add(newDevice)
-                }
+                devices.add(if (devices.firstOrNull()?.isUsb == true) 1 else 0, newDevice)
             }
         }
     }

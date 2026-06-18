@@ -35,7 +35,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -119,6 +118,8 @@ class MainActivity : ComponentActivity() {
 
             var width by remember { mutableIntStateOf(prefs.getInt("width", 1280)) }
             var height by remember { mutableIntStateOf(prefs.getInt("height", 800)) }
+            var decodedWidth by remember { mutableIntStateOf(width) }
+            var decodedHeight by remember { mutableIntStateOf(height) }
             
             var selectedDevice by remember { mutableStateOf<DiscoveredDevice?>(null) }
             var disconnectionMessage by remember { mutableStateOf<String?>(
@@ -144,6 +145,8 @@ class MainActivity : ComponentActivity() {
                                     devices = discovery.devices,
                                     onDeviceSelected = { device ->
                                         discovery.stopDiscovery()
+                                        decodedWidth = width
+                                        decodedHeight = height
                                         selectedDevice = device
                                         currentScreen = Screen.Receive
                                         disconnectionMessage = null 
@@ -157,6 +160,8 @@ class MainActivity : ComponentActivity() {
                                     hostIp = if (selectedDevice?.isUsb == true) "" else selectedDevice?.ip ?: "",
                                     width = width,
                                     height = height,
+                                    displayWidth = decodedWidth,
+                                    displayHeight = decodedHeight,
                                     status = status.value,
                                     onBack = {
                                         coroutineScope.launch {
@@ -169,12 +174,19 @@ class MainActivity : ComponentActivity() {
                                             
                                             delay(400)
                                             val port = selectedDevice?.port ?: 7110
-                                            startStream(ip, port, surface, w, h) {
-                                                runOnUiThread {
-                                                    coroutineScope.launch { stopStream() }
-                                                    triggerAppRestart(showDisconnected = true)
+                                            startStream(
+                                                ip, port, surface, w, h,
+                                                onDecodedSize = { decodedW, decodedH ->
+                                                    decodedWidth = decodedW
+                                                    decodedHeight = decodedH
+                                                },
+                                                onDisconnect = {
+                                                    runOnUiThread {
+                                                        coroutineScope.launch { stopStream() }
+                                                        triggerAppRestart(showDisconnected = true)
+                                                    }
                                                 }
-                                            }
+                                            )
                                         }
                                     },
                                     onSurfaceDestroyed = { 
@@ -288,7 +300,15 @@ class MainActivity : ComponentActivity() {
         windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     }
 
-    private fun startStream(hostIp: String, hostPort: Int, surface: Surface, width: Int, height: Int, onDisconnect: () -> Unit) {
+    private fun startStream(
+        hostIp: String,
+        hostPort: Int,
+        surface: Surface,
+        width: Int,
+        height: Int,
+        onDecodedSize: (Int, Int) -> Unit,
+        onDisconnect: () -> Unit
+    ) {
         
         try {
             val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
@@ -307,7 +327,9 @@ class MainActivity : ComponentActivity() {
             Log.e("MainActivity", "Failed to acquire Wi-Fi lock: ${e.message}")
         }
 
-        val d = H264Decoder(surface)
+        val d = H264Decoder(surface) { decodedWidth, decodedHeight ->
+            runOnUiThread { onDecodedSize(decodedWidth, decodedHeight) }
+        }
         decoder = d
         receiver = StreamReceiver(d, width, height, hostIp.takeIf { it.isNotBlank() }, hostPort).also {
             it.onStatusChange = { msg -> runOnUiThread { status.value = msg } }
@@ -793,6 +815,8 @@ fun ReceiveScreen(
     hostIp: String,
     width: Int,
     height: Int,
+    displayWidth: Int,
+    displayHeight: Int,
     status: String,
     onBack: () -> Unit,
     onSurfaceCreated: (String, Surface, Int, Int) -> Unit,
@@ -806,7 +830,7 @@ fun ReceiveScreen(
     ) {
         
         
-        Box(modifier = Modifier.aspectRatio(width.toFloat() / height.toFloat())) {
+        Box(modifier = Modifier.aspectRatio(displayWidth.toFloat() / displayHeight.toFloat())) {
             StreamSurface(
                 modifier = Modifier.fillMaxSize(),
                 width = width,
@@ -869,20 +893,4 @@ fun StreamSurface(
         },
         modifier = modifier
     )
-}
-
-
-
-@Preview(showBackground = true, widthDp = 800, heightDp = 480)
-@Composable
-fun HomeScreenPreview() {
-    val mockDevices = listOf(
-        DiscoveredDevice("Main Desktop", "192.168.1.100", 7110, false),
-        DiscoveredDevice("Local PC (USB)", "127.0.0.1", 7110, true)
-    )
-    MaterialTheme(colorScheme = lightColorScheme()) {
-        Surface(color = BackgroundDark) {
-            HomeScreen(devices = mockDevices, onDeviceSelected = {}, onSettingsToggle = {})
-        }
-    }
 }

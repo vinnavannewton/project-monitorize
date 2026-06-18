@@ -127,10 +127,6 @@ if command -v gtk-update-icon-cache &>/dev/null; then
     echo "✓ Icon cache updated"
 fi
 
-# Pre-compile Python files to .pyc to ensure maximum startup speed
-"${VENV_DIR}/bin/python3" -m compileall "${SCRIPT_DIR}" &>/dev/null || true
-echo "✓ Python bytecode pre-compiled"
-
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  ${APP_NAME} has been installed!"
