@@ -29,7 +29,6 @@ from gui.settings import (
     load_wifi_settings, save_wifi_settings,
     load_second_display_settings, save_second_display_settings,
     load_receiver_settings, save_receiver_settings,
-    load_receiver_rotation, save_receiver_rotation,
     load_receiver_credentials, save_receiver_credentials, clear_receiver_credentials,
 )
 
@@ -54,7 +53,6 @@ class MonitorizeWindow(QMainWindow):
     isReceivingChanged = pyqtSignal(bool)
     receiverStatusChanged = pyqtSignal(str)
     receiverHostIpChanged = pyqtSignal(str)
-    receiverRotationChanged = pyqtSignal(int)
     discoveredDevicesChanged = pyqtSignal()
     receiverLogAppended = pyqtSignal(str)
     receiverPairingRequired = pyqtSignal(str, int, str)
@@ -101,7 +99,6 @@ class MonitorizeWindow(QMainWindow):
         self._is_receiving = False
         self._receiver_status = ""
         self._receiver_host_ip = ""
-        self._receiver_rotation = load_receiver_rotation()
         self._discovered_devices = []
         self._discovery_browser = None
         self._discovery_zc = None
@@ -247,10 +244,6 @@ class MonitorizeWindow(QMainWindow):
     @pyqtProperty(str, notify=receiverHostIpChanged)
     def receiverHostIp(self):
         return self._receiver_host_ip
-
-    @pyqtProperty(int, notify=receiverRotationChanged)
-    def receiverRotation(self):
-        return self._receiver_rotation
 
     @pyqtProperty('QVariant', notify=discoveredDevicesChanged)
     def discoveredDevices(self):
@@ -570,21 +563,13 @@ class MonitorizeWindow(QMainWindow):
         self.process_receiver.finished.connect(self._on_receiver_finished)
         self.process_receiver.errorOccurred.connect(self._on_receiver_error)
 
-        self.process_receiver.start(sys.executable, [
-            os.path.join(LINUX_DIR, "receiver_player.py"),
-            host_ip, str(port), str(self._receiver_rotation),
-        ])
-
-    @pyqtSlot()
-    def rotateReceiver(self):
-        self._receiver_rotation = (self._receiver_rotation + 1) % 4
-        save_receiver_rotation(self._receiver_rotation)
-        self.receiverRotationChanged.emit(self._receiver_rotation)
-        if (
-            self.process_receiver is not None
-            and self.process_receiver.state() == QProcess.ProcessState.Running
-        ):
-            self.process_receiver.write(f"ROTATE {self._receiver_rotation}\n".encode())
+        args = [
+            "-e", "tcpclientsrc", f"host={host_ip}", f"port={port}", "!",
+            "h264parse", "!", "avdec_h264", "!",
+            "queue", "max-size-buffers=2", "leaky=downstream", "!",
+            "videoconvert", "!", "autovideosink", "sync=false",
+        ]
+        self.process_receiver.start("gst-launch-1.0", args)
 
     def _on_receiver_started(self):
         self.set_receiver_status(
@@ -599,6 +584,7 @@ class MonitorizeWindow(QMainWindow):
             and self.process_receiver.state() == QProcess.ProcessState.Running
         ):
             self._inhibit_sleep()
+            self._receiver_retry_count = 0
             self.set_is_receiving(True)
             self.set_receiver_status(f"Receiving from {self._receiver_host}:{self._receiver_port}")
             self.receiverLogAppended.emit("Stream connected and stable.")
@@ -662,12 +648,18 @@ class MonitorizeWindow(QMainWindow):
         self.receiverLogAppended.emit(f"Receiver process exited (code {code})")
         self._receiver_stable_timer.stop()
         elapsed = time.monotonic() - self._receiver_attempt_started
-        if not self._receiver_stopping and elapsed < 2.0 and self._receiver_retry_count < 9:
+        was_receiving = self._is_receiving
+        max_retries = 30 if was_receiving else 10
+        if (
+            not self._receiver_stopping
+            and (was_receiving or elapsed < 2.0)
+            and self._receiver_retry_count < max_retries - 1
+        ):
             self._receiver_retry_count += 1
             self._receiver_retry_pending = True
             self.set_receiver_status(
                 f"Waiting for {'Third' if self._receiver_port == 7114 else 'Second'} display stream… "
-                f"({self._receiver_retry_count}/10)"
+                f"({self._receiver_retry_count}/{max_retries})"
             )
             if (
                 self.process_receiver_tls is not None
