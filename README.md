@@ -36,7 +36,7 @@ The pipeline is:
 
 > **Note:** Python packages (`PyQt6`, `snegg`, `evdev`, `zeroconf`) are automatically installed inside a virtual environment when you run `install.sh`. You only need to install the system-level packages listed below.
 
-### Before running Monitorize, install the required packages for your distro and desktop environment. Follow your distro section below in order.
+### Before running Monitorize, install the required packages for your distro and desktop environment. Follow your distro section below.
 
 ---
 
@@ -450,12 +450,15 @@ Or:
 - [x] Fix stream corruption.
 - [x] desktop GUI.
 - [x] Touch screen.
-- [ ] Stable nvidia encoder (waiting for driver 610.x which implemented proper DMA BUF).
+- [x] Stylus support (stylus touch and hover works for now others will be implemented soon).
+- [x] Stable Wi-Fi mode (beta).
+- [ ] Stable nvidia encoder (waiting for driver 610.x which implements proper DMA BUF).
 - [ ] On Sway DE.
 - [x] Stylus support with pressure, tilt, eraser, hover, and stylus buttons via optional uinput mode.
 - [ ] Stable Wi-Fi mode (beta).
 - [ ] Flathub distribution.
 - [ ] use laptop as second screen.
+- [ ] Flathub distribution.
 - [ ] multi monitor setup.
 
 ---
