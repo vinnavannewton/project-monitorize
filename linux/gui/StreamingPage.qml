@@ -387,17 +387,17 @@ Item {
 
                     Button {
                         anchors.verticalCenter: parent.verticalCenter
-                        text: page.showPairingCode ? "👁" : "◉"
                         flat: true
                         onClicked: page.showPairingCode = !page.showPairingCode
                         ToolTip.visible: hovered
                         ToolTip.text: page.showPairingCode ? "Hide pairing code" : "Show pairing code"
-                        contentItem: Text {
-                            text: parent.text
-                            color: theme.cardTextSecondary
-                            font.pixelSize: 14
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
+                        contentItem: Image {
+                            source: page.showPairingCode
+                                ? "../assets/svg/eye-open.svg"
+                                : "../assets/svg/eye-closed.svg"
+                            sourceSize.width: 20
+                            sourceSize.height: 20
+                            fillMode: Image.PreserveAspectFit
                         }
                     }
                 }
