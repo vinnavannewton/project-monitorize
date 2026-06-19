@@ -40,6 +40,18 @@ class ProxyAuthTest(unittest.TestCase):
                 self.assertFalse(proxy.authenticate(FakeSocket("PAIR 000000")))
             self.assertTrue(proxy.authenticate(FakeSocket("PAIR 123456")))
 
+    def test_backend_connection_retries_until_stream_is_ready(self):
+        expected = object()
+        with (
+            patch(
+                "tls_proxy.socket.create_connection",
+                side_effect=[ConnectionRefusedError(), ConnectionRefusedError(), expected],
+            ) as connect,
+            patch("tls_proxy.time.sleep"),
+        ):
+            self.assertIs(tls_proxy._connect_backend(7115), expected)
+        self.assertEqual(connect.call_count, 3)
+
 
 if __name__ == "__main__":
     unittest.main()

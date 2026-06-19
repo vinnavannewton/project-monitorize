@@ -77,6 +77,17 @@ def _pipe(source: socket.socket, destination: socket.socket) -> None:
             pass
 
 
+def _connect_backend(port: int, timeout: float = 10) -> socket.socket:
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            return socket.create_connection(("127.0.0.1", port), timeout=1)
+        except OSError:
+            if time.monotonic() >= deadline:
+                raise
+            time.sleep(0.1)
+
+
 class Proxy:
     def __init__(self, pairing_code: str):
         self.pairing_code = pairing_code
@@ -113,7 +124,7 @@ class Proxy:
             if not self.authenticate(client):
                 return
             client.settimeout(None)
-            backend = socket.create_connection(("127.0.0.1", backend_port), timeout=10)
+            backend = _connect_backend(backend_port)
             backend.settimeout(None)
             client.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
             backend.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)

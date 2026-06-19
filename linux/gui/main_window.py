@@ -28,6 +28,7 @@ from gui.settings import (
     load_wifi_settings, save_wifi_settings,
     load_second_display_settings, save_second_display_settings,
     load_receiver_settings, save_receiver_settings,
+    load_receiver_rotation, save_receiver_rotation,
     load_receiver_credentials, save_receiver_credentials, clear_receiver_credentials,
 )
 
@@ -52,6 +53,7 @@ class MonitorizeWindow(QMainWindow):
     isReceivingChanged = pyqtSignal(bool)
     receiverStatusChanged = pyqtSignal(str)
     receiverHostIpChanged = pyqtSignal(str)
+    receiverRotationChanged = pyqtSignal(int)
     discoveredDevicesChanged = pyqtSignal()
     receiverLogAppended = pyqtSignal(str)
     receiverPairingRequired = pyqtSignal(str, int, str)
@@ -75,6 +77,8 @@ class MonitorizeWindow(QMainWindow):
         
         subprocess.Popen(["pkill", "-9", "-f", "gst-launch-1.0.*port=7110"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         subprocess.Popen(["pkill", "-9", "-f", "gst-launch-1.0.*port=7112"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.Popen(["pkill", "-9", "-f", "gst-launch-1.0.*port=7114"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.Popen(["pkill", "-9", "-f", "gst-launch-1.0.*port=7115"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         subprocess.Popen(["pkill", "-9", "-f", "Streamer_.*\\.py"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         subprocess.Popen(["pkill", "-9", "-f", "tls_proxy.py"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
@@ -96,6 +100,7 @@ class MonitorizeWindow(QMainWindow):
         self._is_receiving = False
         self._receiver_status = ""
         self._receiver_host_ip = ""
+        self._receiver_rotation = load_receiver_rotation()
         self._discovered_devices = []
         self._discovery_browser = None
         self._discovery_zc = None
@@ -241,6 +246,10 @@ class MonitorizeWindow(QMainWindow):
     @pyqtProperty(str, notify=receiverHostIpChanged)
     def receiverHostIp(self):
         return self._receiver_host_ip
+
+    @pyqtProperty(int, notify=receiverRotationChanged)
+    def receiverRotation(self):
+        return self._receiver_rotation
 
     @pyqtProperty('QVariant', notify=discoveredDevicesChanged)
     def discoveredDevices(self):
@@ -560,13 +569,21 @@ class MonitorizeWindow(QMainWindow):
         self.process_receiver.finished.connect(self._on_receiver_finished)
         self.process_receiver.errorOccurred.connect(self._on_receiver_error)
 
-        args = [
-            "-e", "tcpclientsrc", f"host={host_ip}", f"port={port}", "!",
-            "h264parse", "!", "avdec_h264", "!",
-            "queue", "max-size-buffers=2", "leaky=downstream", "!",
-            "videoconvert", "!", "autovideosink", "sync=false",
-        ]
-        self.process_receiver.start("gst-launch-1.0", args)
+        self.process_receiver.start(sys.executable, [
+            os.path.join(LINUX_DIR, "receiver_player.py"),
+            host_ip, str(port), str(self._receiver_rotation),
+        ])
+
+    @pyqtSlot()
+    def rotateReceiver(self):
+        self._receiver_rotation = (self._receiver_rotation + 1) % 4
+        save_receiver_rotation(self._receiver_rotation)
+        self.receiverRotationChanged.emit(self._receiver_rotation)
+        if (
+            self.process_receiver is not None
+            and self.process_receiver.state() == QProcess.ProcessState.Running
+        ):
+            self.process_receiver.write(f"ROTATE {self._receiver_rotation}\n".encode())
 
     def _on_receiver_started(self):
         self.set_receiver_status(
@@ -625,8 +642,6 @@ class MonitorizeWindow(QMainWindow):
     def _on_receiver_error(self, _error):
         if self.process_receiver is not None:
             self.set_receiver_status(self.process_receiver.errorString())
-        if self._is_receiving:
-            self.set_is_receiving(False)
 
     @pyqtSlot()
     def stopReceiving(self):
@@ -649,7 +664,6 @@ class MonitorizeWindow(QMainWindow):
         if not self._receiver_stopping and elapsed < 2.0 and self._receiver_retry_count < 9:
             self._receiver_retry_count += 1
             self._receiver_retry_pending = True
-            self.set_is_receiving(False)
             self.set_receiver_status(
                 f"Waiting for {'Third' if self._receiver_port == 7114 else 'Second'} display stream… "
                 f"({self._receiver_retry_count}/10)"
@@ -756,6 +770,9 @@ class MonitorizeWindow(QMainWindow):
         """Launch a second virtual monitor + streamer on port 7114 (KDE only)."""
         if self._second_stream_active:
             return
+
+        subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7114"], capture_output=True)
+        subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7115"], capture_output=True)
 
         try:
             clean_res = res.split()[0] if res else ""
@@ -899,6 +916,7 @@ class MonitorizeWindow(QMainWindow):
                 pass
         self._gst_pids2.clear()
         subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7114"], capture_output=True)
+        subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7115"], capture_output=True)
 
     @pyqtSlot(str, str, str, str, str, bool)
     def startStreaming(self, res, fps, bitrate, display_type, encoder, is_wifi):
@@ -1273,6 +1291,7 @@ class MonitorizeWindow(QMainWindow):
         subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7110"], capture_output=True)
         subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7112"], capture_output=True)
         subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7114"], capture_output=True)
+        subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7115"], capture_output=True)
         subprocess.run(["pkill", "-9", "-f", "tls_proxy.py"], capture_output=True)
 
         if self._detected_de == "hyprland" and getattr(self, "created_headless_monitor", None):

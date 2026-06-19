@@ -200,6 +200,16 @@ def load_receiver_settings() -> dict:
     return data
 
 
+def load_receiver_rotation() -> int:
+    return _get_settings().value("receiver/rotation", 0, type=int) % 4
+
+
+def save_receiver_rotation(rotation: int) -> None:
+    s = _get_settings()
+    s.setValue("receiver/rotation", rotation % 4)
+    s.sync()
+
+
 def load_receiver_credentials(host: str) -> tuple[str, str]:
     s = _get_settings()
     key = hashlib.sha256(host.encode()).hexdigest()

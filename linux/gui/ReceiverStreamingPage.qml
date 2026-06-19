@@ -165,6 +165,11 @@ Item {
             Layout.bottomMargin: 10
 
             Button {
+                text: "↻ Rotate " + (backend.receiverRotation * 90) + "°"
+                onClicked: backend.rotateReceiver()
+            }
+
+            Button {
                 text: "⏹ Disconnect"
                 onClicked: {
                     allLogs = []

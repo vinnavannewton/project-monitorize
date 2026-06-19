@@ -5,7 +5,6 @@ import argparse
 import hashlib
 import socket
 import ssl
-import threading
 
 
 def _read_line(sock: ssl.SSLSocket, limit: int = 256) -> str:
@@ -82,7 +81,6 @@ def main() -> None:
     local, _ = listener.accept()
     local.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
     remote.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-    threading.Thread(target=_pipe, args=(local, remote), daemon=True).start()
     _pipe(remote, local)
 
 
