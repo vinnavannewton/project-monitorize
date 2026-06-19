@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg width="800px" height="800px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect x="2" y="3" width="20" height="14" rx="2" stroke="url(#grad1)" stroke-width="1.5"/>
+<path d="M8 21H16" stroke="url(#grad1)" stroke-width="1.5" stroke-linecap="round"/>
+<path d="M12 17V21" stroke="url(#grad1)" stroke-width="1.5" stroke-linecap="round"/>
+<path d="M9 10L12 13L15 10" stroke="url(#grad1)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M12 7V13" stroke="url(#grad1)" stroke-width="1.5" stroke-linecap="round"/>
+<defs>
+<linearGradient id="grad1" x1="2" y1="3" x2="22" y2="21" gradientUnits="userSpaceOnUse">
+<stop stop-color="#a78bfa"/>
+<stop offset="1" stop-color="#7c3aed"/>
+</linearGradient>
+</defs>
+</svg>

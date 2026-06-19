@@ -1,14 +1,14 @@
-
 """
 touch_daemon.py — Monitorize Wayland touch injector.
 
-KDE / GNOME: uses libei via snegg + XDG RemoteDesktop portal.
+KDE / GNOME: uses libei via snegg + XDG RemoteDesktop portal by default,
+             or uinput-only when --stylus-features is enabled.
 Hyprland:    uses evdev/uinput (kernel-level virtual touchscreen),
              because xdg-desktop-portal-hyprland does NOT implement
              the RemoteDesktop portal.
 
 Usage:
-  python3 touch_daemon.py [width] [height] [--debug]
+  python3 touch_daemon.py [width] [height] [--wifi] [--stylus-features] [--stylus-only] [--debug]
   Defaults: 2560 1600
 
 Pass --debug for full verbose output (recommended when diagnosing touch issues).
@@ -61,6 +61,7 @@ COORD_MAX = 65535
 
 PKT_TOUCH    = 0x03
 PKT_PEN      = 0x04
+PKT_PEN_EXT  = 0x05
 ACTION_DOWN  = 0
 ACTION_MOVE  = 1
 ACTION_UP    = 2
@@ -68,6 +69,16 @@ ACTION_HOVER = 3
 
 PAYLOAD_FMT  = ">BBBHHHhh"
 PAYLOAD_SIZE = struct.calcsize(PAYLOAD_FMT)   
+PEN_EXT_FMT  = ">BBBHHHhhHHH"
+PEN_EXT_SIZE = struct.calcsize(PEN_EXT_FMT)
+
+PEN_FLAG_CANCELED   = 1
+PEN_FLAG_HOVER_EXIT = 1 << 1
+
+ANDROID_STYLUS_PRIMARY   = 0x20
+ANDROID_STYLUS_SECONDARY = 0x40
+DISTANCE_MAX = 1024
+STYLUS_TOUCH_SUPPRESSION_SECS = 5.0
 
 logging.basicConfig(
     level=logging.DEBUG if _DEBUG else logging.INFO,
@@ -78,19 +89,75 @@ if _DEBUG:
     log.debug("DEBUG mode enabled")
 
 
-_ei_ctx       = None   
-_touch_dev    = None   
-_pen_dev      = None   
-_uinput_dev   = None   
+_ei_ctx       = None
+_touch_dev    = None
+_pen_dev      = None
+_uinput_dev   = None
+_uinput_touch_dev = None
+_uinput_stylus_dev = None
+_uinput_max_x = SCREEN_W
+_uinput_max_y = SCREEN_H
+_uinput_target_x = 0.0
+_uinput_target_y = 0.0
+_uinput_target_w = float(SCREEN_W)
+_uinput_target_h = float(SCREEN_H)
 _ei_lock       = threading.Lock()
 _portal_ready  = threading.Event()
 _shutdown      = threading.Event()
 
-
-
-
 _active_touches: dict = {}
-_inject_fn = None   
+_stylus_active_tool = None
+_inject_fn = None
+_pen_inject_fn = None
+_STYLUS_FEATURES = "--stylus-features" in sys.argv
+_STYLUS_ONLY = "--stylus-only" in sys.argv
+_logged_dropped_pen = False
+_last_stylus_input_time = 0.0
+_active_finger_touches: dict[int, tuple[int, int]] = {}
+
+
+def _pen_touch_cid(cid: int) -> int:
+    """Keep pen-as-touch fallback slots separate from finger touch slots."""
+    return 10005 + (cid % 5)
+
+
+def _finger_touch_is_suppressed() -> bool:
+    if _STYLUS_ONLY:
+        return True
+    if _last_stylus_input_time <= 0:
+        return False
+    return (time.monotonic() - _last_stylus_input_time) < STYLUS_TOUCH_SUPPRESSION_SECS
+
+def _release_active_finger_touches() -> None:
+    if not _active_finger_touches or _inject_fn is None:
+        _active_finger_touches.clear()
+        return
+
+    items = list(_active_finger_touches.items())
+    for index, (cid, (nx, ny)) in enumerate(items):
+        _inject_fn(ACTION_UP, cid, nx, ny, frame=(index == len(items) - 1))
+    _active_finger_touches.clear()
+
+
+def _dispatch_touch_packet(action: int, cid: int, nx: int, ny: int, frame: bool = True) -> None:
+    if _inject_fn is None:
+        return
+
+    if _finger_touch_is_suppressed():
+        if cid in _active_finger_touches:
+            last_x, last_y = _active_finger_touches.pop(cid)
+            release_x = nx if action == ACTION_UP else last_x
+            release_y = ny if action == ACTION_UP else last_y
+            _inject_fn(ACTION_UP, cid, release_x, release_y, frame=frame)
+        return
+
+    _inject_fn(action, cid, nx, ny, frame=frame)
+    if action == ACTION_DOWN:
+        _active_finger_touches[cid] = (nx, ny)
+    elif action == ACTION_MOVE and cid in _active_finger_touches:
+        _active_finger_touches[cid] = (nx, ny)
+    elif action == ACTION_UP:
+        _active_finger_touches.pop(cid, None)
 
 
 def _detect_de() -> str:
@@ -202,6 +269,50 @@ def _get_virtual_monitor_rect_gnome() -> tuple[float, float, float, float]:
         log.warning("Failed to query GNOME Mutter DisplayConfig: %s", e)
     return None
 
+def _get_gnome_desktop_bounds() -> tuple[float, float, float, float]:
+    """Return GNOME logical desktop bounds as (min_x, min_y, width, height)."""
+    try:
+        import dbus
+        bus = dbus.SessionBus()
+        obj = bus.get_object('org.gnome.Mutter.DisplayConfig', '/org/gnome/Mutter/DisplayConfig')
+        dc = dbus.Interface(obj, 'org.gnome.Mutter.DisplayConfig')
+        serial_num, pms, lms, props = dc.GetCurrentState()
+
+        connector_sizes = {}
+        for pm in pms:
+            connector = str(pm[0][0])
+            for mode in pm[1]:
+                if mode[6].get('is-current'):
+                    connector_sizes[connector] = (float(mode[1]), float(mode[2]))
+                    break
+            if connector not in connector_sizes and pm[1]:
+                connector_sizes[connector] = (float(pm[1][0][1]), float(pm[1][0][2]))
+
+        min_x = min_y = None
+        max_x = max_y = None
+        for lm in lms:
+            x = float(lm[0])
+            y = float(lm[1])
+            scale = float(lm[2]) or 1.0
+            width = height = 0.0
+            for mon in lm[5]:
+                size = connector_sizes.get(str(mon[0]))
+                if size:
+                    width = max(width, size[0] / scale)
+                    height = max(height, size[1] / scale)
+            if width <= 0 or height <= 0:
+                continue
+            min_x = x if min_x is None else min(min_x, x)
+            min_y = y if min_y is None else min(min_y, y)
+            max_x = x + width if max_x is None else max(max_x, x + width)
+            max_y = y + height if max_y is None else max(max_y, y + height)
+
+        if min_x is not None and min_y is not None and max_x is not None and max_y is not None:
+            return (min_x, min_y, max_x - min_x, max_y - min_y)
+    except Exception as e:
+        log.warning("Failed to query GNOME desktop bounds: %s", e)
+    return None
+
 def _get_virtual_monitor_rect() -> tuple[float, float, float, float]:
     """Return (x, y, width, height) of the virtual monitor, dispatching by DE."""
     global _virtual_monitor_cache
@@ -227,22 +338,157 @@ def _get_virtual_monitor_rect() -> tuple[float, float, float, float]:
         _virtual_monitor_cache = (0.0, 0.0, float(SCREEN_W), float(SCREEN_H))
     return _virtual_monitor_cache
 
+def _configure_uinput_geometry() -> None:
+    """Configure absolute uinput coordinates for the active compositor."""
+    global _uinput_max_x, _uinput_max_y
+    global _uinput_target_x, _uinput_target_y, _uinput_target_w, _uinput_target_h
+
+    rx, ry, rw, rh = _get_virtual_monitor_rect()
+    if _DETECTED_DE == "gnome":
+        bounds = _get_gnome_desktop_bounds()
+        if bounds:
+            bx, by, bw, bh = bounds
+            _uinput_max_x = max(1, int(round(bw)))
+            _uinput_max_y = max(1, int(round(bh)))
+            _uinput_target_x = rx - bx
+            _uinput_target_y = ry - by
+            _uinput_target_w = rw
+            _uinput_target_h = rh
+            log.info(
+                "%s uinput desktop bounds %.0fx%.0f; target offset=(%.0f, %.0f) size=%.0fx%.0f",
+                _DETECTED_DE.upper(), bw, bh, _uinput_target_x, _uinput_target_y, rw, rh
+            )
+            return
+
+    _uinput_max_x = max(1, int(round(rw)))
+    _uinput_max_y = max(1, int(round(rh)))
+    _uinput_target_x = 0.0
+    _uinput_target_y = 0.0
+    _uinput_target_w = rw
+    _uinput_target_h = rh
+    log.info(
+        "%s uinput target size %.0fx%.0f",
+        _DETECTED_DE.upper(), _uinput_target_w, _uinput_target_h
+    )
+
+def _uinput_coords(nx: int, ny: int) -> tuple[int, int]:
+    x = _uinput_target_x + (nx / COORD_MAX) * _uinput_target_w
+    y = _uinput_target_y + (ny / COORD_MAX) * _uinput_target_h
+    return (
+        max(0, min(_uinput_max_x, int(round(x)))),
+        max(0, min(_uinput_max_y, int(round(y)))),
+    )
+
+def _get_hyprland_uinput_monitor_name() -> Optional[str]:
+    try:
+        import subprocess, json
+        res = subprocess.run(["hyprctl", "monitors", "-j"], capture_output=True, text=True)
+        if res.returncode == 0:
+            monitors = json.loads(res.stdout)
+            for mon in monitors:
+                name = mon.get("name", "")
+                if name.startswith("HEADLESS") or name.lower().startswith("virtual-tabletdisplay"):
+                    return name
+    except Exception as e:
+        log.warning("Failed to query monitor name for uinput mapping: %s", e)
+    return None
+
+def _map_hyprland_uinput_device(device_name: str, monitor_name: Optional[str]) -> None:
+    if _DETECTED_DE != "hyprland":
+        return
+    try:
+        import subprocess
+        output = monitor_name or "HEADLESS-1"
+        device_key = device_name.lower()
+        log.info("Mapping uinput device '%s' to monitor '%s'", device_key, output)
+        res = subprocess.run(
+            ["hyprctl", "keyword", f"device:{device_key}:output", output],
+            capture_output=True,
+            text=True,
+        )
+        log.info("hyprctl mapping output: stdout=%r stderr=%r", res.stdout, res.stderr)
+    except Exception as e:
+        log.warning("Failed to map uinput device '%s': %s", device_name, e)
+
+def _map_kde_uinput_devices_to_output(devices: list) -> set[str]:
+    if _DETECTED_DE != "kde":
+        return set()
+
+    target_output = "Virtual-TabletDisplay"
+    event_names = []
+    for dev in devices:
+        if not dev:
+            continue
+        path = getattr(getattr(dev, "device", None), "path", "")
+        event_name = os.path.basename(path)
+        if event_name:
+            event_names.append(event_name)
+
+    if not event_names:
+        log.warning("KDE uinput output mapping skipped: no event device paths found")
+        return set()
+
+    try:
+        import dbus
+        bus = dbus.SessionBus()
+        manager_obj = bus.get_object("org.kde.KWin", "/org/kde/KWin/InputDevice")
+        manager_props = dbus.Interface(manager_obj, "org.freedesktop.DBus.Properties")
+        kwin_obj = bus.get_object("org.kde.KWin", "/KWin")
+        kwin = dbus.Interface(kwin_obj, "org.kde.KWin")
+
+        deadline = time.monotonic() + 5.0
+        pending = set(event_names)
+        mapped = set()
+        while pending and time.monotonic() < deadline and not _shutdown.is_set():
+            try:
+                known = {str(name) for name in manager_props.Get("org.kde.KWin.InputDeviceManager", "devicesSysNames")}
+            except Exception:
+                known = set()
+
+            for event_name in list(pending):
+                if known and event_name not in known:
+                    continue
+
+                path = f"/org/kde/KWin/InputDevice/{event_name}"
+                obj = bus.get_object("org.kde.KWin", path)
+                props = dbus.Interface(obj, "org.freedesktop.DBus.Properties")
+                name = str(props.Get("org.kde.KWin.InputDevice", "name"))
+                props.Set("org.kde.KWin.InputDevice", "outputName", dbus.String(target_output))
+                mapped.add(event_name)
+                pending.remove(event_name)
+                log.info("Mapped KDE uinput device %s (%s) to output %s", event_name, name, target_output)
+
+            if pending:
+                time.sleep(0.1)
+
+        if mapped:
+            try:
+                kwin.reconfigure()
+            except Exception as exc:
+                log.debug("KWin reconfigure after uinput mapping failed: %s", exc)
+
+        if pending:
+            log.warning(
+                "KDE uinput output mapping timed out for %s; those devices may stay mapped to the primary output",
+                ", ".join(sorted(pending)),
+            )
+        return mapped
+    except Exception as e:
+        log.warning("Failed to map KDE uinput devices to %s: %s", target_output, e)
+        return set()
+
 def _scale(dev, nx: int, ny: int) -> tuple[float, float]:
-    """Map Android 0-65535 normalised coords to the Virtual Monitor region."""
-    
-    
+    """Map Android 0-65535 normalised coords to the virtual monitor region."""
     vm_rect = _get_virtual_monitor_rect()
     target_rx, target_ry = 0.0, 0.0
-    
     if vm_rect:
         target_rx, target_ry, _, _ = vm_rect
-    
-    
+
     best_reg = None
     best_rx, best_ry, best_rw, best_rh = 0.0, 0.0, float(SCREEN_W), float(SCREEN_H)
-    
+
     if dev.regions:
-        best_reg = dev.regions[0] 
+        best_reg = dev.regions[0]
         for reg in dev.regions:
             rw, rh = reg.dimension
             rx, ry = 0.0, 0.0
@@ -251,13 +497,11 @@ def _scale(dev, nx: int, ny: int) -> tuple[float, float]:
                 ry = float(_libei.region_get_y(reg._cobject))
             except Exception:
                 pass
-            
-            
+
             if abs(rx - target_rx) < 5 and abs(ry - target_ry) < 5:
                 best_rx, best_ry, best_rw, best_rh = rx, ry, rw, rh
                 break
         else:
-            
             try:
                 best_rx = float(_libei.region_get_x(best_reg._cobject))
                 best_ry = float(_libei.region_get_y(best_reg._cobject))
@@ -335,19 +579,11 @@ def _inject_touch_libei(action: int, cid: int, nx: int, ny: int, frame: bool = T
 
 def _inject_touch_uinput(action: int, cid: int, nx: int, ny: int, frame: bool = True) -> None:
     """Inject touch via evdev/uinput virtual touchscreen (Hyprland backend)."""
-    ui = _uinput_dev
+    ui = _uinput_touch_dev or _uinput_dev
     if ui is None:
         return
 
-    
-    vm = _get_virtual_monitor_rect()
-    if vm:
-        _, _, vw, vh = vm
-    else:
-        vw, vh = float(SCREEN_W), float(SCREEN_H)
-
-    abs_x = int((nx / COORD_MAX) * vw)
-    abs_y = int((ny / COORD_MAX) * vh)
+    abs_x, abs_y = _uinput_coords(nx, ny)
     slot = cid % 10   
 
     try:
@@ -390,6 +626,85 @@ def _inject_touch_uinput(action: int, cid: int, nx: int, ny: int, frame: bool = 
 
     except Exception as exc:
         log.error("inject_touch_uinput error cid=%d action=%d: %s", cid, action, exc, exc_info=True)
+
+def _inject_stylus_uinput(
+    action: int,
+    tool: int,
+    nx: int,
+    ny: int,
+    pressure: int,
+    tilt_x: int,
+    tilt_y: int,
+    distance: int,
+    btn_state: int,
+    flags: int,
+    frame: bool = True,
+) -> None:
+    """Inject a real uinput tablet/stylus event with pressure and tilt."""
+    global _stylus_active_tool
+
+    ui = _uinput_stylus_dev
+    if ui is None:
+        return
+
+    abs_x, abs_y = _uinput_coords(nx, ny)
+    tool_code = e_codes.BTN_TOOL_RUBBER if tool == 2 else e_codes.BTN_TOOL_PEN
+    other_tool = e_codes.BTN_TOOL_PEN if tool_code == e_codes.BTN_TOOL_RUBBER else e_codes.BTN_TOOL_RUBBER
+    canceled = (flags & PEN_FLAG_CANCELED) != 0
+    hover_exit = (flags & PEN_FLAG_HOVER_EXIT) != 0
+
+    pressure = max(0, min(COORD_MAX, int(pressure)))
+    tilt_x = max(-90, min(90, int(tilt_x)))
+    tilt_y = max(-90, min(90, int(tilt_y)))
+    distance = max(0, min(DISTANCE_MAX, int(distance)))
+    primary_button = (btn_state & ANDROID_STYLUS_PRIMARY) != 0
+    secondary_button = (btn_state & ANDROID_STYLUS_SECONDARY) != 0
+
+    try:
+        with _ei_lock:
+            if _stylus_active_tool is not None and _stylus_active_tool != tool_code:
+                ui.write(e_codes.EV_KEY, _stylus_active_tool, 0)
+
+            ui.write(e_codes.EV_ABS, e_codes.ABS_X, abs_x)
+            ui.write(e_codes.EV_ABS, e_codes.ABS_Y, abs_y)
+            ui.write(e_codes.EV_ABS, e_codes.ABS_TILT_X, tilt_x)
+            ui.write(e_codes.EV_ABS, e_codes.ABS_TILT_Y, tilt_y)
+            ui.write(e_codes.EV_ABS, e_codes.ABS_DISTANCE, distance)
+
+            if action == ACTION_UP or canceled or hover_exit:
+                ui.write(e_codes.EV_ABS, e_codes.ABS_PRESSURE, 0)
+                ui.write(e_codes.EV_KEY, e_codes.BTN_TOUCH, 0)
+                ui.write(e_codes.EV_KEY, e_codes.BTN_STYLUS, 0)
+                ui.write(e_codes.EV_KEY, e_codes.BTN_STYLUS2, 0)
+                ui.write(e_codes.EV_KEY, tool_code, 0)
+                ui.write(e_codes.EV_KEY, other_tool, 0)
+                _stylus_active_tool = None
+                if action == ACTION_UP or canceled:
+                    log.info("[UINPUT PEN] UP coords=(%d, %d) tool=%d canceled=%s", abs_x, abs_y, tool, canceled)
+            else:
+                ui.write(e_codes.EV_KEY, tool_code, 1)
+                ui.write(e_codes.EV_KEY, other_tool, 0)
+                _stylus_active_tool = tool_code
+                ui.write(e_codes.EV_KEY, e_codes.BTN_STYLUS, 1 if primary_button else 0)
+                ui.write(e_codes.EV_KEY, e_codes.BTN_STYLUS2, 1 if secondary_button else 0)
+
+                if action in (ACTION_DOWN, ACTION_MOVE):
+                    ui.write(e_codes.EV_ABS, e_codes.ABS_PRESSURE, pressure)
+                    ui.write(e_codes.EV_KEY, e_codes.BTN_TOUCH, 1)
+                    if action == ACTION_DOWN:
+                        log.info(
+                            "[UINPUT PEN] DOWN coords=(%d, %d) pressure=%d tilt=(%d, %d) tool=%d",
+                            abs_x, abs_y, pressure, tilt_x, tilt_y, tool
+                        )
+                elif action == ACTION_HOVER:
+                    ui.write(e_codes.EV_ABS, e_codes.ABS_PRESSURE, 0)
+                    ui.write(e_codes.EV_KEY, e_codes.BTN_TOUCH, 0)
+
+            if frame:
+                ui.syn()
+
+    except Exception as exc:
+        log.error("inject_stylus_uinput error action=%d: %s", action, exc, exc_info=True)
 
 def _inject_pen(action: int, tool: int, nx: int, ny: int, pressure: int, tx: int, btn_state: int, frame: bool = True) -> None:
     global _pen_dev, _touch_dev
@@ -445,8 +760,7 @@ def _setup_libei() -> None:
         _shutdown.set()
         return
 
-    log.info("Requesting TOUCHSCREEN/POINTER permissions via XDG RemoteDesktop portal…")
-    log.info("▶  Watch for the compositor popup 'Allow Remote Control' and click Allow.")
+    log.info("Requesting touch and pointer permissions via XDG RemoteDesktop portal…")
 
     devices_to_try = [
         oeffis.DeviceType.TOUCHSCREEN | oeffis.DeviceType.POINTER,
@@ -483,7 +797,7 @@ def _setup_libei() -> None:
             continue
 
     if eis_fd is None:
-        log.error("Portal timed out, connection failed, or permission denied — user must click Allow on the popup.")
+        log.error("Portal timed out, connection failed, or permission denied.")
         
         
         
@@ -567,90 +881,142 @@ def _setup_libei() -> None:
                 ctx.dispatch()
 
 
-def _setup_uinput() -> None:
-    """Create a virtual multitouch device via evdev/uinput for Hyprland.
+def _close_uinput_devices() -> None:
+    global _uinput_dev, _uinput_touch_dev, _uinput_stylus_dev
+    for dev in (_uinput_stylus_dev, _uinput_touch_dev, _uinput_dev):
+        if dev:
+            try:
+                dev.close()
+            except Exception:
+                pass
+    _uinput_dev = None
+    _uinput_touch_dev = None
+    _uinput_stylus_dev = None
 
-    This bypasses the XDG RemoteDesktop portal entirely — Hyprland picks up
-    the uinput device through libinput like any physical touchscreen.
-    Requires write access to /dev/uinput (root or udev rule).
-    """
-    global _uinput_dev
+def _close_uinput_stylus_device() -> None:
+    global _uinput_stylus_dev
+    if _uinput_stylus_dev:
+        try:
+            _uinput_stylus_dev.close()
+        except Exception:
+            pass
+    _uinput_stylus_dev = None
+
+def _setup_uinput(stylus_features: bool = False) -> None:
+    """Create virtual uinput devices for touch and optional real stylus axes."""
+    global _uinput_dev, _uinput_touch_dev, _uinput_stylus_dev, _pen_inject_fn
 
     if not _HAS_EVDEV:
-        log.error("python-evdev not installed — uinput backend unavailable.")
+        msg = "python-evdev not installed — uinput backend unavailable."
+        log.error("%s", msg)
         log.error("Install it:  pip install evdev   (or pacman -S python-evdev)")
         _shutdown.set()
         return
 
-    vm = _get_virtual_monitor_rect()
-    if vm:
-        _, _, vw, vh = vm
-    else:
-        vw, vh = float(SCREEN_W), float(SCREEN_H)
-    max_x, max_y = int(vw), int(vh)
+    _configure_uinput_geometry()
+    log.info("Creating uinput virtual touchscreen: %dx%d", _uinput_max_x, _uinput_max_y)
 
-    log.info("Creating uinput virtual touchscreen: %dx%d", max_x, max_y)
-
-    
-    monitor_name = None
-    try:
-        import subprocess, json
-        res = subprocess.run(["hyprctl", "monitors", "-j"], capture_output=True, text=True)
-        if res.returncode == 0:
-            monitors = json.loads(res.stdout)
-            for mon in monitors:
-                name = mon.get("name", "")
-                if name.startswith("HEADLESS") or name.lower().startswith("virtual-tabletdisplay"):
-                    monitor_name = name
-                    break
-    except Exception as e:
-        log.warning("Failed to query monitor name for uinput mapping: %s", e)
-
-    cap = {
+    direct_props = [e_codes.INPUT_PROP_DIRECT] if hasattr(e_codes, "INPUT_PROP_DIRECT") else None
+    touch_cap = {
         e_codes.EV_ABS: [
-            (e_codes.ABS_X,               evdev.AbsInfo(value=0, min=0, max=max_x, fuzz=0, flat=0, resolution=0)),
-            (e_codes.ABS_Y,               evdev.AbsInfo(value=0, min=0, max=max_y, fuzz=0, flat=0, resolution=0)),
-            (e_codes.ABS_MT_SLOT,         evdev.AbsInfo(value=0, min=0, max=9, fuzz=0, flat=0, resolution=0)),
-            (e_codes.ABS_MT_TRACKING_ID,  evdev.AbsInfo(value=0, min=0, max=65535, fuzz=0, flat=0, resolution=0)),
-            (e_codes.ABS_MT_POSITION_X,   evdev.AbsInfo(value=0, min=0, max=max_x, fuzz=0, flat=0, resolution=0)),
-            (e_codes.ABS_MT_POSITION_Y,   evdev.AbsInfo(value=0, min=0, max=max_y, fuzz=0, flat=0, resolution=0)),
+            (e_codes.ABS_X,              evdev.AbsInfo(value=0, min=0, max=_uinput_max_x, fuzz=0, flat=0, resolution=0)),
+            (e_codes.ABS_Y,              evdev.AbsInfo(value=0, min=0, max=_uinput_max_y, fuzz=0, flat=0, resolution=0)),
+            (e_codes.ABS_MT_SLOT,        evdev.AbsInfo(value=0, min=0, max=9, fuzz=0, flat=0, resolution=0)),
+            (e_codes.ABS_MT_TRACKING_ID, evdev.AbsInfo(value=0, min=0, max=65535, fuzz=0, flat=0, resolution=0)),
+            (e_codes.ABS_MT_POSITION_X,  evdev.AbsInfo(value=0, min=0, max=_uinput_max_x, fuzz=0, flat=0, resolution=0)),
+            (e_codes.ABS_MT_POSITION_Y,  evdev.AbsInfo(value=0, min=0, max=_uinput_max_y, fuzz=0, flat=0, resolution=0)),
         ],
         e_codes.EV_KEY: [e_codes.BTN_TOUCH],
     }
 
+    stylus_cap = {
+        e_codes.EV_ABS: [
+            (e_codes.ABS_X,        evdev.AbsInfo(value=0, min=0, max=_uinput_max_x, fuzz=0, flat=0, resolution=0)),
+            (e_codes.ABS_Y,        evdev.AbsInfo(value=0, min=0, max=_uinput_max_y, fuzz=0, flat=0, resolution=0)),
+            (e_codes.ABS_PRESSURE, evdev.AbsInfo(value=0, min=0, max=COORD_MAX, fuzz=0, flat=0, resolution=0)),
+            (e_codes.ABS_DISTANCE, evdev.AbsInfo(value=0, min=0, max=DISTANCE_MAX, fuzz=0, flat=0, resolution=0)),
+            (e_codes.ABS_TILT_X,   evdev.AbsInfo(value=0, min=-90, max=90, fuzz=0, flat=0, resolution=0)),
+            (e_codes.ABS_TILT_Y,   evdev.AbsInfo(value=0, min=-90, max=90, fuzz=0, flat=0, resolution=0)),
+        ],
+        e_codes.EV_KEY: [
+            e_codes.BTN_TOUCH,
+            e_codes.BTN_TOOL_PEN,
+            e_codes.BTN_TOOL_RUBBER,
+            e_codes.BTN_STYLUS,
+            e_codes.BTN_STYLUS2,
+        ],
+    }
+
     try:
-        ui = UInput(cap, name="Monitorize-Touch", bustype=e_codes.BUS_USB)
-        _uinput_dev = ui
-        log.info("uinput device created: %s  (fd=%d)", ui.device.path, ui.fd)
+        touch_ui = UInput(
+            touch_cap,
+            name="Monitorize-Touch",
+            bustype=e_codes.BUS_USB,
+            input_props=direct_props,
+        )
+        _uinput_touch_dev = touch_ui
+        _uinput_dev = touch_ui
+        log.info("uinput touch device created: %s  (fd=%d)", touch_ui.device.path, touch_ui.fd)
 
-        
-        if monitor_name:
-            log.info("Mapping touch device 'monitorize-touch' to monitor '%s'", monitor_name)
-            res = subprocess.run(["hyprctl", "keyword", "device:monitorize-touch:output", monitor_name], capture_output=True, text=True)
-            log.info("hyprctl mapping output: stdout=%r stderr=%r", res.stdout, res.stderr)
-        else:
-            log.info("No headless monitor found, mapping to default 'HEADLESS-1'")
-            res = subprocess.run(["hyprctl", "keyword", "device:monitorize-touch:output", "HEADLESS-1"], capture_output=True, text=True)
-            log.info("hyprctl mapping output: stdout=%r stderr=%r", res.stdout, res.stderr)
+        if stylus_features:
+            stylus_ui = UInput(
+                stylus_cap,
+                name="Monitorize-Stylus",
+                bustype=e_codes.BUS_USB,
+                input_props=direct_props,
+            )
+            _uinput_stylus_dev = stylus_ui
+            log.info("uinput stylus device created: %s  (fd=%d)", stylus_ui.device.path, stylus_ui.fd)
 
-        log.info("Waiting 2.0 seconds for compositor to detect and configure the new touch device...")
+        if _DETECTED_DE == "hyprland":
+            monitor_name = _get_hyprland_uinput_monitor_name()
+            _map_hyprland_uinput_device("monitorize-touch", monitor_name)
+            if stylus_features:
+                _map_hyprland_uinput_device("monitorize-stylus", monitor_name)
+
+        log.info("Waiting 2.0 seconds for compositor to detect and configure uinput devices...")
         time.sleep(2.0)
+        if _DETECTED_DE == "kde":
+            touch_event = os.path.basename(getattr(touch_ui.device, "path", ""))
+            stylus_event = os.path.basename(getattr(getattr(_uinput_stylus_dev, "device", None), "path", ""))
+            mapped_events = _map_kde_uinput_devices_to_output([touch_ui, _uinput_stylus_dev])
+            if touch_event and touch_event not in mapped_events:
+                msg = "KDE could not bind Monitorize uinput devices to Virtual-TabletDisplay."
+                log.error("%s Refusing to continue with stylus features enabled to avoid targeting the primary output.", msg)
+                _close_uinput_devices()
+                _shutdown.set()
+                return
+            if stylus_event and stylus_event not in mapped_events:
+                log.warning(
+                    "KDE did not expose/bind Monitorize-Stylus (%s). Pen packets will use Monitorize-Touch without pressure/tilt to avoid mouse emulation.",
+                    stylus_event,
+                )
+                _close_uinput_stylus_device()
+                _pen_inject_fn = _inject_touch_uinput
 
-        log.info("Touch daemon ready (uinput) — screen %dx%d", SCREEN_W, SCREEN_H)
+        log.info(
+            "Touch daemon ready (uinput%s) — screen %dx%d",
+            " + stylus" if stylus_features else "",
+            SCREEN_W,
+            SCREEN_H,
+        )
         _portal_ready.set()
 
-        
         while not _shutdown.is_set():
             time.sleep(0.5)
 
     except PermissionError:
-        log.error("Cannot open /dev/uinput — run touch_daemon as root or add a udev rule:")
+        msg = (
+            "Cannot open /dev/uinput — add a udev rule and ensure the user is in the input group."
+        )
+        log.error("%s", msg)
         log.error('  echo \'KERNEL=="uinput", MODE="0660", GROUP="input"\' | sudo tee /etc/udev/rules.d/99-uinput.rules')
         log.error("  sudo udevadm control --reload-rules && sudo udevadm trigger")
-        log.error("  # Then add your user to the 'input' group:  sudo usermod -aG input $USER")
+        log.error("  sudo usermod -aG input $USER  # then log out and back in")
         _shutdown.set()
     except Exception as exc:
-        log.error("Failed to create uinput device: %s", exc, exc_info=True)
+        msg = f"Failed to create uinput device: {exc}"
+        log.error("%s", msg, exc_info=True)
         _shutdown.set()
 
 
@@ -662,6 +1028,91 @@ def _read_exact(sock: socket.socket, n: int) -> bytes:
             return bytes()
         buf.extend(chunk)
     return bytes(buf)
+
+def _pop_framed_packets(buffer: bytearray) -> list[tuple[int, bytes]]:
+    packets = []
+    valid_lengths = (PAYLOAD_SIZE, PEN_EXT_SIZE)
+    while len(buffer) >= 5:
+        payload_len = int.from_bytes(buffer[0:4], byteorder="big", signed=False)
+        if payload_len not in valid_lengths:
+            del buffer[0]
+            continue
+        total_len = 5 + payload_len
+        if len(buffer) < total_len:
+            break
+        pkt_type = buffer[4]
+        payload = bytes(buffer[5:total_len])
+        packets.append((pkt_type, payload))
+        del buffer[0:total_len]
+    return packets
+
+def _parse_udp_packets(data: bytes) -> list[tuple[int, bytes]]:
+    if len(data) >= 5:
+        payload_len = int.from_bytes(data[0:4], byteorder="big", signed=False)
+        if payload_len in (PAYLOAD_SIZE, PEN_EXT_SIZE) and len(data) >= 5 + payload_len:
+            return [(data[4], data[5:5 + payload_len])]
+
+    if len(data) >= 1 + PAYLOAD_SIZE and data[0] in (PKT_TOUCH, PKT_PEN):
+        return [(data[0], data[1:1 + PAYLOAD_SIZE])]
+
+    return []
+
+def _dispatch_pen_packet(
+    action: int,
+    tool: int,
+    cid: int,
+    nx: int,
+    ny: int,
+    pressure: int,
+    tilt_x: int,
+    tilt_y: int,
+    distance: int,
+    btn_state: int,
+    flags: int,
+    frame: bool = True,
+) -> None:
+    global _logged_dropped_pen, _last_stylus_input_time
+
+    _last_stylus_input_time = time.monotonic()
+    _release_active_finger_touches()
+
+    if _pen_inject_fn == _inject_stylus_uinput and _uinput_stylus_dev is not None:
+        _inject_stylus_uinput(action, tool, nx, ny, pressure, tilt_x, tilt_y, distance, btn_state, flags, frame=frame)
+    elif _pen_inject_fn in (_inject_touch_uinput, _inject_touch_libei):
+        if action != ACTION_HOVER:
+            _pen_inject_fn(action, _pen_touch_cid(cid), nx, ny, frame=frame)
+    elif _pen_inject_fn == _inject_pen and not _STYLUS_FEATURES:
+        _inject_pen(action, tool, nx, ny, pressure, tilt_x, btn_state, frame=frame)
+    elif not _logged_dropped_pen:
+        log.warning("Dropping pen packets because no non-mouse stylus backend is available.")
+        _logged_dropped_pen = True
+
+def _dispatch_input_packet(pkt_type: int, payload: bytes, frame: bool = True) -> bool:
+    if pkt_type == PKT_TOUCH and len(payload) == PAYLOAD_SIZE:
+        action, tool, cid, nx, ny, pressure, tx, ty = struct.unpack(PAYLOAD_FMT, payload)
+        _dispatch_touch_packet(action, cid, nx, ny, frame=frame)
+        return True
+
+    if pkt_type == PKT_PEN and len(payload) == PAYLOAD_SIZE:
+        action, tool, cid, nx, ny, pressure, tx, btn_state = struct.unpack(PAYLOAD_FMT, payload)
+        _dispatch_pen_packet(
+            action, tool, cid, nx, ny, pressure,
+            max(-90, min(90, tx)), 0, 0, btn_state & 0xffff, 0,
+            frame=frame,
+        )
+        return True
+
+    if pkt_type == PKT_PEN_EXT and len(payload) == PEN_EXT_SIZE:
+        action, tool, cid, nx, ny, pressure, tilt_x, tilt_y, distance, btn_state, flags = struct.unpack(PEN_EXT_FMT, payload)
+        _dispatch_pen_packet(
+            action, tool, cid, nx, ny, pressure,
+            tilt_x, tilt_y, distance, btn_state, flags,
+            frame=frame,
+        )
+        return True
+
+    log.warning("Unknown or malformed packet type=0x%02x len=%d", pkt_type, len(payload))
+    return False
 
 def _handle_client(client: socket.socket, addr: tuple) -> None:
     log.info("Android connected from %s", addr)
@@ -678,42 +1129,18 @@ def _handle_client(client: socket.socket, addr: tuple) -> None:
                 break
             buffer.extend(chunk)
 
-            
-            
-            packets_to_process = []
-            while len(buffer) >= 18:
-                if buffer[0:4] == b'\x00\x00\x00\x0d':
-                    pkt_type = buffer[4]
-                    payload = buffer[5:18]
-                    packets_to_process.append((pkt_type, payload))
-                    del buffer[0:18]
-                else:
-                    
-                    del buffer[0]
+            packets_to_process = _pop_framed_packets(buffer)
 
             if packets_to_process:
                 num_packets = len(packets_to_process)
                 for idx, (pkt_type, payload) in enumerate(packets_to_process):
-                    if pkt_type not in (PKT_TOUCH, PKT_PEN):
-                        log.warning("Unknown packet type 0x%02x, skipping.", pkt_type)
-                        continue
-
-                    unpacked = struct.unpack(PAYLOAD_FMT, payload)
-                    action, tool, cid, nx, ny, pressure, tx, ty = unpacked
                     pkt_count += 1
 
                     if pkt_count == 1:
                         log.info("[TCP] First packet parsed successfully! type=0x%02x", pkt_type)
 
-                    log.debug("[TCP] pkt#%d type=0x%02x action=%d cid=%d norm=(%d,%d)",
-                              pkt_count, pkt_type, action, cid, nx, ny)
-
-                    
                     is_last = (idx == num_packets - 1)
-                    if pkt_type == PKT_TOUCH or _DETECTED_DE == "hyprland":
-                        _inject_fn(action, cid, nx, ny, frame=is_last)
-                    else:
-                        _inject_pen(action, tool, nx, ny, pressure, tx, ty, frame=is_last)
+                    _dispatch_input_packet(pkt_type, payload, frame=is_last)
 
     except Exception as e:
         if not _shutdown.is_set():
@@ -798,24 +1225,12 @@ def _run_udp_server() -> None:
                 _virtual_monitor_cache = None
             last_packet_time = current_time
 
-            if len(data) >= 13:
-                
-                offset = 4 if data[0] == 0x00 else 0
-                if len(data) >= offset + 14:
-                    payload = data[offset:offset+14]
-                    pkt_type = payload[0]
-                    if pkt_type in (PKT_TOUCH, PKT_PEN):
-                        action, tool, cid, nx, ny, pr, tx, btn = struct.unpack(PAYLOAD_FMT, payload[1:14])
-                        
-                        pkt_count += 1
-                        if pkt_count % 100 == 1 and _DEBUG:
-                            log.debug("[UDP] pkt#%d type=%d action=%d cid=%d nx=%d ny=%d",
-                                      pkt_count, pkt_type, action, cid, nx, ny)
-                        
-                        if pkt_type == PKT_TOUCH or _DETECTED_DE == "hyprland":
-                            _inject_fn(action, cid, nx, ny)
-                        else:
-                            _inject_pen(action, tool, nx, ny, pr, tx, btn)
+            packets = _parse_udp_packets(data)
+            for pkt_type, payload in packets:
+                pkt_count += 1
+                if pkt_count % 100 == 1 and _DEBUG:
+                    log.debug("[UDP] pkt#%d type=%d payload_len=%d", pkt_count, pkt_type, len(payload))
+                _dispatch_input_packet(pkt_type, payload)
         except socket.timeout:
             continue
         except Exception as e:
@@ -824,33 +1239,43 @@ def _run_udp_server() -> None:
     server.close()
 
 
-
-
 def _cleanup(sig=None, frame=None):
     log.info("Shutting down…")
     _shutdown.set()
     if _touch_dev:
         try: _touch_dev.stop_emulating()
         except Exception: pass
-    if _uinput_dev:
-        try: _uinput_dev.close()
-        except Exception: pass
+    _close_uinput_devices()
     sys.exit(0)
 
 def main():
-    global _inject_fn
+    global _inject_fn, _pen_inject_fn
     signal.signal(signal.SIGINT,  _cleanup)
     signal.signal(signal.SIGTERM, _cleanup)
 
-    log.info("touch_daemon.py — screen %dx%d  DE=%s", SCREEN_W, SCREEN_H, _DETECTED_DE)
+    stylus_features = _STYLUS_FEATURES and _DETECTED_DE in ("kde", "gnome", "hyprland")
+    log.info(
+        "touch_daemon.py — screen %dx%d  DE=%s  stylus_features=%s",
+        SCREEN_W, SCREEN_H, _DETECTED_DE, stylus_features
+    )
 
     if _DETECTED_DE == "hyprland":
-        log.info("Using uinput backend (Hyprland does not support RemoteDesktop portal)")
+        log.info(
+            "Using uinput backend%s (Hyprland does not support RemoteDesktop portal)",
+            " with stylus features" if stylus_features else ""
+        )
         _inject_fn = _inject_touch_uinput
-        threading.Thread(target=_setup_uinput, daemon=True).start()
+        _pen_inject_fn = _inject_stylus_uinput if stylus_features else _inject_touch_uinput
+        threading.Thread(target=_setup_uinput, args=(stylus_features,), daemon=True).start()
+    elif _DETECTED_DE in ("kde", "gnome") and stylus_features:
+        log.info("Using uinput-only backend with stylus features")
+        _inject_fn = _inject_touch_uinput
+        _pen_inject_fn = _inject_stylus_uinput
+        threading.Thread(target=_setup_uinput, args=(True,), daemon=True).start()
     else:
         log.info("Using libei backend (XDG RemoteDesktop portal)")
         _inject_fn = _inject_touch_libei
+        _pen_inject_fn = _inject_pen
         threading.Thread(target=_setup_libei, daemon=True).start()
 
     if "--wifi" in sys.argv:

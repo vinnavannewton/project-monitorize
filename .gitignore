@@ -75,6 +75,8 @@ out/
 # ==============================
 .vscode/
 *.code-workspace
+.qtcreator/
+*.qmlproject.qtds
 
 # ==============================
 #  OS generated files
@@ -128,3 +130,4 @@ gradle/wrapper/gradle-wrapper.jar
 
 # Gemini / AI tool caches
 .gemini/
+skills-lock.json
