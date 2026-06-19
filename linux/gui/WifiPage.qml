@@ -311,11 +311,12 @@ Item {
                         page.saveGeneralSettings();
                         page.saveSettings();
                         // Start stream
+                        let dt = displayTypeCombo.visible ? (displayTypeCombo.currentText || "Extend") : "Extend";
                         backend.startStreaming(
                             resCombo.currentText === "Custom..." ? customW.text + "x" + customH.text : cleanRes,
                             fpsCombo.currentText === "Custom..." ? customFps.text : fpsCombo.currentText,
                             bitrateField.text,
-                            displayTypeCombo.visible ? displayTypeCombo.currentText : "Extend",
+                            dt,
                             encoderCombo.currentText,
                             true // isWifi = true
                         );

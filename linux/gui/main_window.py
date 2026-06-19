@@ -923,7 +923,9 @@ class MonitorizeWindow(QMainWindow):
             self._stream_width, self._stream_height = 1920, 1200
         self._stream_fps = int(fps)
         self._stream_bitrate = int(bitrate)
-        self._selected_display_type = display_type
+        # Normalise: if QML sends an empty or unexpected display_type
+        # (e.g. due to ComboBox initialisation race), fall back to "Extend".
+        self._selected_display_type = display_type if display_type in ("Extend", "Mirror") else "Extend"
         self._selected_encoder = encoder
 
         self._do_start_streaming()
