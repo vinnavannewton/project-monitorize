@@ -85,7 +85,7 @@ tcpclientsrc -> h264parse -> avdec_h264 -> videoconvert -> autovideosink
 - Extend mode starts `krfb-virtualmonitor` with an output named `TabletDisplay`.
 - The ScreenCast portal asks the user to select the source.
 - Mirror mode skips virtual-monitor creation and captures a source selected through the portal.
-- KDE can create a second Wi-Fi display named `TabletDisplay2`, streamed on port `7114`.
+- KDE can create a third-display stream named `TabletDisplay2` on port `7114`.
 - Default touch injection uses libei through the XDG RemoteDesktop portal.
 - Stylus-feature mode uses `/dev/uinput` and maps the generated devices to `Virtual-TabletDisplay`.
 
@@ -268,4 +268,3 @@ Use `gst-inspect-1.0 <element>` to confirm the selected encoder and required par
 - Confirm `adb devices` lists an authorized device.
 - Run the GUI's USB setup again.
 - Verify both reverse mappings with `adb reverse --list`.
-

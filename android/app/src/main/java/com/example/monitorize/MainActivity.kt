@@ -125,8 +125,19 @@ class MainActivity : ComponentActivity() {
             var disconnectionMessage by remember { mutableStateOf<String?>(
                 if (intent.getBooleanExtra("SHOW_DISCONNECTED", false)) "Disconnected" else null
             ) }
+            var pairingSubmit by remember { mutableStateOf<((String) -> Unit)?>(null) }
+            var pairingCode by remember { mutableStateOf("") }
             
             val coroutineScope = rememberCoroutineScope()
+            fun cancelPairing() {
+                pairingSubmit?.invoke("")
+                pairingSubmit = null
+                pairingCode = ""
+                selectedDevice = null
+                currentScreen = Screen.Home
+                status.value = ""
+                coroutineScope.launch { stopStream() }
+            }
 
             
             if (disconnectionMessage != null) {
@@ -176,6 +187,13 @@ class MainActivity : ComponentActivity() {
                                             val port = selectedDevice?.port ?: 7110
                                             startStream(
                                                 ip, port, surface, w, h,
+                                                device = selectedDevice,
+                                                onPairingRequired = { submit ->
+                                                    runOnUiThread {
+                                                        pairingCode = ""
+                                                        pairingSubmit = submit
+                                                    }
+                                                },
                                                 onDecodedSize = { decodedW, decodedH ->
                                                     decodedWidth = decodedW
                                                     decodedHeight = decodedH
@@ -231,6 +249,42 @@ class MainActivity : ComponentActivity() {
                                     .background(Color.Black.copy(alpha = 0.6f))
                                     .clickable { isSettingsOpen = false }
                                     .zIndex(9f)
+                            )
+                        }
+
+                        if (pairingSubmit != null) {
+                            AlertDialog(
+                                onDismissRequest = {
+                                    cancelPairing()
+                                },
+                                title = { Text("Pair encrypted connection") },
+                                text = {
+                                    Column {
+                                        Text("Enter the 6-digit code shown in the Linux app.")
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        OutlinedTextField(
+                                            value = pairingCode,
+                                            onValueChange = { pairingCode = it.filter(Char::isDigit).take(6) },
+                                            singleLine = true,
+                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                            label = { Text("Pairing code") }
+                                        )
+                                    }
+                                },
+                                confirmButton = {
+                                    TextButton(
+                                        enabled = pairingCode.length == 6,
+                                        onClick = {
+                                            pairingSubmit?.invoke(pairingCode)
+                                            pairingSubmit = null
+                                        }
+                                    ) { Text("Pair") }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = {
+                                        cancelPairing()
+                                    }) { Text("Cancel") }
+                                }
                             )
                         }
 
@@ -306,6 +360,8 @@ class MainActivity : ComponentActivity() {
         surface: Surface,
         width: Int,
         height: Int,
+        device: DiscoveredDevice?,
+        onPairingRequired: ((String) -> Unit) -> Unit,
         onDecodedSize: (Int, Int) -> Unit,
         onDisconnect: () -> Unit
     ) {
@@ -331,13 +387,44 @@ class MainActivity : ComponentActivity() {
             runOnUiThread { onDecodedSize(decodedWidth, decodedHeight) }
         }
         decoder = d
-        receiver = StreamReceiver(d, width, height, hostIp.takeIf { it.isNotBlank() }, hostPort).also {
+        val encrypted = device?.let { it.encrypted && !it.isUsb } == true
+        val advertisedFingerprint = device?.fingerprint
+        val savedFingerprint = advertisedFingerprint?.takeIf {
+            prefs.getString("tls_token_$it", null) != null
+        } ?: prefs.getString("tls_host_$hostIp", null)
+        val savedToken = savedFingerprint?.let { prefs.getString("tls_token_$it", null) }
+        var inputStarted = false
+
+        receiver = StreamReceiver(
+            d, width, height, hostIp.takeIf { it.isNotBlank() }, hostPort,
+            encrypted, savedFingerprint, savedToken
+        ).also {
             it.onStatusChange = { msg -> runOnUiThread { status.value = msg } }
             it.onDisconnect = onDisconnect
+            it.onPairingRequired = onPairingRequired
+            it.onCredentials = { fingerprint, token ->
+                if (fingerprint.isEmpty() || token.isEmpty()) {
+                    prefs.edit().remove("tls_host_$hostIp").apply()
+                } else {
+                    prefs.edit()
+                        .putString("tls_host_$hostIp", fingerprint)
+                        .putString("tls_token_$fingerprint", token)
+                        .apply()
+                    if (!inputStarted) {
+                        inputStarted = true
+                        inputSender = InputEventSender(
+                            hostIp, hostPort, true, fingerprint, token
+                        ).also { sender -> sender.start() }
+                    }
+                }
+            }
             it.start()
         }
-        val metrics = resources.displayMetrics
-        inputSender = InputEventSender(hostIp.takeIf { it.isNotBlank() }, hostPort).also { it.start() }
+        if (!encrypted) {
+            inputSender = InputEventSender(
+                hostIp.takeIf { it.isNotBlank() }, hostPort
+            ).also { it.start() }
+        }
     }
 
     private var isStopping = false
@@ -487,7 +574,21 @@ fun HomeScreen(
             val prefs = remember { context.getSharedPreferences("monitorize_prefs", android.content.Context.MODE_PRIVATE) }
             var manualIp by remember { mutableStateOf(prefs.getString("manual_ip", "") ?: "") }
             var manualPort by remember { mutableStateOf(prefs.getString("manual_port", "7110") ?: "7110") }
+            var manualEncrypted by remember { mutableStateOf(prefs.getBoolean("manual_encrypted", true)) }
             Spacer(modifier = Modifier.height(manualSpacerHeight))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Checkbox(
+                    checked = manualEncrypted,
+                    onCheckedChange = {
+                        manualEncrypted = it
+                        prefs.edit().putBoolean("manual_encrypted", it).apply()
+                    }
+                )
+                Text("Use encryption", color = TextSecondary)
+            }
             Row(
                 modifier = Modifier.fillMaxWidth().padding(bottom = manualRowPadding),
                 verticalAlignment = Alignment.CenterVertically
@@ -526,7 +627,10 @@ fun HomeScreen(
                                 putString("manual_port", manualPort.trim())
                                 apply()
                             }
-                            onDeviceSelected(DiscoveredDevice(name = "Manual WiFi", ip = ip, port = port, isUsb = false))
+                            onDeviceSelected(DiscoveredDevice(
+                                name = "Manual WiFi", ip = ip, port = port,
+                                isUsb = false, encrypted = manualEncrypted
+                            ))
                         }
                     },
                     modifier = Modifier.height(manualFieldHeight),

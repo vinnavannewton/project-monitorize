@@ -3,6 +3,7 @@ Monitorize GUI — Persistent settings stored in ~/.config/monitorize/settings.i
 """
 
 import os
+import hashlib
 from PyQt6.QtCore import QSettings
 
 CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".config", "monitorize")
@@ -37,7 +38,8 @@ def _get_settings() -> QSettings:
 
 def save_wifi_settings(*, resolution: str, custom_w: str, custom_h: str,
                        fps: str, custom_fps: str, bitrate: str,
-                       display_type: str, encoder: str, stream_type: str):
+                       display_type: str, encoder: str, stream_type: str,
+                       use_encryption: bool):
     s = _get_settings()
     s.beginGroup("wifi")
     s.setValue("resolution", resolution)
@@ -49,6 +51,7 @@ def save_wifi_settings(*, resolution: str, custom_w: str, custom_h: str,
     s.setValue("display_type", display_type)
     s.setValue("encoder", encoder)
     s.setValue("stream_type", stream_type)
+    s.setValue("use_encryption", use_encryption)
     s.endGroup()
     s.sync()
 
@@ -106,6 +109,7 @@ def load_wifi_settings() -> dict:
         "display_type": display_type,
         "encoder":      encoder,
         "stream_type":  s.value("stream_type",  "Speed"),
+        "use_encryption": s.value("use_encryption", True, type=bool),
     }
     s.endGroup()
     return data
@@ -174,11 +178,12 @@ def load_second_display_settings() -> dict:
     return data
 
 
-def save_receiver_settings(*, ip: str, port: str):
+def save_receiver_settings(*, ip: str, port: str, use_encryption: bool = True):
     s = _get_settings()
     s.beginGroup("receiver")
     s.setValue("manual_ip", ip)
     s.setValue("manual_port", port)
+    s.setValue("use_encryption", use_encryption)
     s.endGroup()
     s.sync()
 
@@ -189,6 +194,32 @@ def load_receiver_settings() -> dict:
     data = {
         "manual_ip": s.value("manual_ip", ""),
         "manual_port": s.value("manual_port", "7110"),
+        "use_encryption": s.value("use_encryption", True, type=bool),
     }
     s.endGroup()
     return data
+
+
+def load_receiver_credentials(host: str) -> tuple[str, str]:
+    s = _get_settings()
+    key = hashlib.sha256(host.encode()).hexdigest()
+    return (
+        s.value(f"receiver_trust/{key}/fingerprint", ""),
+        s.value(f"receiver_trust/{key}/token", ""),
+    )
+
+
+def save_receiver_credentials(host: str, fingerprint: str, token: str) -> None:
+    s = _get_settings()
+    key = hashlib.sha256(host.encode()).hexdigest()
+    s.setValue(f"receiver_trust/{key}/fingerprint", fingerprint)
+    s.setValue(f"receiver_trust/{key}/token", token)
+    s.sync()
+    os.chmod(CONFIG_FILE, 0o600)
+
+
+def clear_receiver_credentials(host: str) -> None:
+    s = _get_settings()
+    key = hashlib.sha256(host.encode()).hexdigest()
+    s.remove(f"receiver_trust/{key}")
+    s.sync()

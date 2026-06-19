@@ -3,19 +3,26 @@ package com.example.monitorize
 import android.util.Log
 import java.net.Socket
 import java.net.InetSocketAddress
+import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.TimeUnit
 
 class StreamReceiver(
     private val decoder: H264Decoder,
     private val width: Int,
     private val height: Int,
     private val hostIp: String? = null,
-    private val hostPort: Int = 7110
+    private val hostPort: Int = 7110,
+    private val encrypted: Boolean = false,
+    private val trustedFingerprint: String? = null,
+    private val authToken: String? = null
 ) {
     private var running = false
     private var controlSocket: Socket? = null
 
     var onStatusChange: ((String) -> Unit)? = null
     var onDisconnect: (() -> Unit)? = null
+    var onPairingRequired: (((String) -> Unit) -> Unit)? = null
+    var onCredentials: ((String, String) -> Unit)? = null
 
     companion object {
         private const val TAG = "StreamReceiver"
@@ -52,14 +59,59 @@ class StreamReceiver(
 
     private fun receiveLoopWifi(targetIp: String) {
         val streamType = if (targetIp == "127.0.0.1") "USB" else "WiFi"
+        var expectedFingerprint = trustedFingerprint
+        var token = authToken
         while (running) {
             onStatusChange?.invoke(if (streamType == "USB") "Waiting for USB connection…" else "Connecting to $targetIp:$hostPort…")
             var socket: Socket? = null
             while (running && socket == null) {
                 try {
-                    socket = Socket()
-                    socket.connect(InetSocketAddress(targetIp, hostPort), 2000)
+                    if (encrypted && streamType == "WiFi") {
+                        val secure = connectTls(targetIp, hostPort, expectedFingerprint)
+                        socket = secure.socket
+                        val output = secure.socket.outputStream
+                        if (token == null) {
+                            val submitted = ArrayBlockingQueue<String>(1)
+                            onPairingRequired?.invoke { submitted.offer(it) }
+                                ?: throw SecurityException("Pairing UI unavailable")
+                            val code = submitted.poll(30, TimeUnit.SECONDS)
+                                ?: throw SecurityException("Pairing timed out")
+                            if (code.isEmpty()) {
+                                running = false
+                                socket.close()
+                                return
+                            }
+                            output.write("PAIR $code\n".toByteArray(Charsets.US_ASCII))
+                        } else {
+                            output.write("AUTH $token\n".toByteArray(Charsets.US_ASCII))
+                        }
+                        output.flush()
+                        val response = readAsciiLine(secure.socket)
+                        if (!response.startsWith("OK")) {
+                            token = null
+                            socket.close()
+                            socket = null
+                            continue
+                        }
+                        if (token == null) {
+                            token = response.substringAfter("OK ", "").takeIf { it.length == 64 }
+                                ?: throw SecurityException("Invalid pairing response")
+                        }
+                        expectedFingerprint = secure.fingerprint
+                        onCredentials?.invoke(secure.fingerprint, token!!)
+                    } else {
+                        socket = Socket()
+                        socket.connect(InetSocketAddress(targetIp, hostPort), 2000)
+                    }
+                } catch (e: SecurityException) {
+                    expectedFingerprint = null
+                    token = null
+                    onCredentials?.invoke("", "")
+                    try { socket?.close() } catch (_: Exception) {}
+                    socket = null
+                    Thread.sleep(1000)
                 } catch (e: Exception) {
+                    try { socket?.close() } catch (_: Exception) {}
                     socket = null
                     Thread.sleep(1000)
                 }

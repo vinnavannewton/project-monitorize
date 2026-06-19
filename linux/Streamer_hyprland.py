@@ -20,9 +20,9 @@ BITRATE = int(sys.argv[4]) if len(sys.argv) > 4 else 8000
 MODE    = sys.argv[5] if len(sys.argv) > 5 else "usb"
 
 server_mode = (MODE == "wifi")
-host = "0.0.0.0" if server_mode else "127.0.0.1"
+host = os.environ.get("MONITORIZE_HOST", "0.0.0.0" if server_mode else "127.0.0.1")
 
-PORT    = 7110 if server_mode else 7112
+PORT = int(os.environ.get("MONITORIZE_PORT", 7110 if server_mode else 7112))
 
 print(f"[Streamer Hyprland] Resolution={WIDTH}x{HEIGHT}  FPS={FPS}  Bitrate={BITRATE}  Mode={MODE}")
 

@@ -156,7 +156,7 @@ Item {
                 anchors.rightMargin: 16
                 
                 Text {
-                    text: "📺 Display 1: Port 7110"
+                    text: "📺 Second display: Port 7110"
                     color: theme.accent
                     font.pixelSize: 12
                     font.weight: Font.Bold
@@ -174,7 +174,7 @@ Item {
                 Item { Layout.fillWidth: true }
                 
                 Text {
-                    text: "📺 Display 2: Port 7114"
+                    text: "📺 Third display: Port 7114"
                     color: backend.secondStreamActive ? "#f472b6" : "transparent"
                     font.pixelSize: 12
                     font.weight: Font.Bold
@@ -283,10 +283,10 @@ Item {
                 }
             }
 
-            // Add / Remove Second Display button (KDE only)
+            // Add / Remove Third Display button (KDE only)
             Button {
                 id: displayActionButton
-                text: backend.secondStreamActive ? "Remove Display 2" : "Add Display"
+                text: backend.secondStreamActive ? "Remove Third Display" : "Add Third Display"
                 visible: backend.detectedDe === "kde"
                 onClicked: {
                     if (backend.secondStreamActive) {
@@ -336,6 +336,27 @@ Item {
             }
 
             Button {
+                text: "Pair another device"
+                visible: backend.canPairDevices
+                onClicked: backend.generatePairingCode()
+                background: Rectangle {
+                    implicitWidth: 170
+                    implicitHeight: 38
+                    color: parent.down ? theme.surfaceAlt : (parent.hovered ? theme.borderHover : theme.surface)
+                    border.color: theme.accent
+                    radius: 8
+                }
+                contentItem: Text {
+                    text: parent.text
+                    color: theme.accent
+                    font.pixelSize: 12
+                    font.weight: Font.Bold
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+            }
+
+            Button {
                 text: "⏹ Stop Streaming"
                 onClicked: {
                     allLogs = []
@@ -357,6 +378,26 @@ Item {
                     verticalAlignment: Text.AlignVCenter
                     focus: true
                     antialiasing: true
+                }
+            }
+
+            Item { Layout.fillWidth: true }
+
+            Rectangle {
+                visible: backend.pairingCode !== ""
+                implicitWidth: pairingText.implicitWidth + 24
+                implicitHeight: 38
+                radius: 8
+                color: theme.surface
+                border.color: theme.accent
+
+                Text {
+                    id: pairingText
+                    anchors.centerIn: parent
+                    text: "Pairing code: " + backend.pairingCode
+                    color: theme.accent
+                    font.pixelSize: 13
+                    font.weight: Font.Bold
                 }
             }
         }
@@ -402,14 +443,14 @@ Item {
             spacing: 14
 
             Text {
-                text: "Add Second Display"
+                text: "Add Third Display"
                 font.pixelSize: 18
                 font.weight: Font.ExtraBold
                 color: theme.cardTextPrimary
             }
 
             Text {
-                text: "Spawns a second virtual monitor streamed on port 7114.\nA KDE source picker will appear — select 'TabletDisplay2'."
+                text: "Spawns the third display stream on port 7114.\nA KDE source picker will appear — select 'TabletDisplay2'."
                 font.pixelSize: 12
                 color: theme.cardTextMuted
                 wrapMode: Text.Wrap
@@ -490,7 +531,7 @@ Item {
                 }
 
                 CustomButton {
-                    text: "▶  Start Display 2"
+                    text: "▶  Start Third Display"
                     implicitWidth: 170
                     implicitHeight: 36
                     onClicked: {

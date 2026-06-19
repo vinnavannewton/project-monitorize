@@ -6,6 +6,7 @@ import sys
 import os
 import subprocess
 import shutil
+import secrets
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QSystemTrayIcon, QMenu, QDialog, QMessageBox
@@ -25,7 +26,8 @@ from gui.settings import (
     load_usb_settings, save_usb_settings,
     load_wifi_settings, save_wifi_settings,
     load_second_display_settings, save_second_display_settings,
-    load_receiver_settings, save_receiver_settings
+    load_receiver_settings, save_receiver_settings,
+    load_receiver_credentials, save_receiver_credentials, clear_receiver_credentials,
 )
 
 
@@ -42,6 +44,7 @@ class MonitorizeWindow(QMainWindow):
     isStreamingChanged = pyqtSignal(bool)
     countdownChanged = pyqtSignal(int)
     streamingStatusChanged = pyqtSignal(str)
+    pairingCodeChanged = pyqtSignal(str)
     logAppended = pyqtSignal(str, str) 
 
     
@@ -50,6 +53,7 @@ class MonitorizeWindow(QMainWindow):
     receiverHostIpChanged = pyqtSignal(str)
     discoveredDevicesChanged = pyqtSignal()
     receiverLogAppended = pyqtSignal(str)
+    receiverPairingRequired = pyqtSignal(str, int, str)
 
     
     secondStreamActiveChanged = pyqtSignal(bool)
@@ -62,7 +66,7 @@ class MonitorizeWindow(QMainWindow):
         self.setMinimumSize(760, 520)
         self.resize(860, 580)
 
-        
+
         app_icon_path = os.path.join(LINUX_DIR, "assets", "monitorize-icon.png")
         if os.path.exists(app_icon_path):
             self.setWindowIcon(QIcon(app_icon_path))
@@ -71,6 +75,7 @@ class MonitorizeWindow(QMainWindow):
         subprocess.Popen(["pkill", "-9", "-f", "gst-launch-1.0.*port=7110"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         subprocess.Popen(["pkill", "-9", "-f", "gst-launch-1.0.*port=7112"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         subprocess.Popen(["pkill", "-9", "-f", "Streamer_.*\\.py"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.Popen(["pkill", "-9", "-f", "tls_proxy.py"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
         
         detected = detect_desktop_environment()
@@ -94,6 +99,11 @@ class MonitorizeWindow(QMainWindow):
         self._discovery_browser = None
         self._discovery_zc = None
         self.process_receiver: QProcess | None = None
+        self.process_receiver_tls: QProcess | None = None
+        self._receiver_tls_buffer = ""
+        self._receiver_auth_failed = False
+        self._receiver_host = ""
+        self._receiver_port = 7110
         self._kde_inhibit_cookie = None
 
         
@@ -102,6 +112,8 @@ class MonitorizeWindow(QMainWindow):
         self.process_streamer2: QProcess | None = None
         self._gst_pids2 = set()
         self._streaming_status = ""
+        self._pairing_code = ""
+        self._tls_proxy_buffer = ""
 
         self.initial_headless_monitors = []
         if self._detected_de == "hyprland":
@@ -112,6 +124,7 @@ class MonitorizeWindow(QMainWindow):
         self.process_krfb:          QProcess | None = None
         self.process_streamer:      QProcess | None = None
         self.process_input_bridge:  QProcess | None = None
+        self.process_tls_proxy:     QProcess | None = None
         self._gst_pids = set()
 
         self._proc_adb_dev:  QProcess | None = None
@@ -197,6 +210,19 @@ class MonitorizeWindow(QMainWindow):
     @pyqtProperty(str, notify=streamingStatusChanged)
     def streamingStatus(self):
         return self._streaming_status
+
+    @pyqtProperty(str, notify=pairingCodeChanged)
+    def pairingCode(self):
+        return self._pairing_code
+
+    @pyqtProperty(bool, notify=pairingCodeChanged)
+    def canPairDevices(self):
+        return bool(
+            self._is_streaming
+            and getattr(self, "_is_wifi", False)
+            and getattr(self, "_wifi_encryption", False)
+            and self.process_tls_proxy is not None
+        )
 
     @pyqtProperty(bool, notify=isReceivingChanged)
     def isReceiving(self):
@@ -328,8 +354,8 @@ class MonitorizeWindow(QMainWindow):
             encoder=encoder
         )
 
-    @pyqtSlot(str, str, str, str, str, str, str, str, str)
-    def saveWifiSettings(self, resolution, custom_w, custom_h, fps, custom_fps, bitrate, display_type, encoder, stream_type):
+    @pyqtSlot(str, str, str, str, str, str, str, str, str, bool)
+    def saveWifiSettings(self, resolution, custom_w, custom_h, fps, custom_fps, bitrate, display_type, encoder, stream_type, use_encryption):
         save_wifi_settings(
             resolution=resolution,
             custom_w=custom_w,
@@ -339,7 +365,8 @@ class MonitorizeWindow(QMainWindow):
             bitrate=bitrate,
             display_type=display_type,
             encoder=encoder,
-            stream_type=stream_type
+            stream_type=stream_type,
+            use_encryption=use_encryption,
         )
 
     @pyqtSlot(result='QVariant')
@@ -359,9 +386,14 @@ class MonitorizeWindow(QMainWindow):
     def loadReceiverSettings(self):
         return load_receiver_settings()
 
-    @pyqtSlot(str, str)
-    def saveReceiverSettings(self, ip, port):
-        save_receiver_settings(ip=ip, port=port)
+    @pyqtSlot(str, str, bool)
+    def saveReceiverSettings(self, ip, port, use_encryption):
+        save_receiver_settings(ip=ip, port=port, use_encryption=use_encryption)
+
+    @pyqtSlot(str, str, result=bool)
+    def receiverNeedsPairing(self, host, advertised_fingerprint):
+        fingerprint, token = load_receiver_credentials(host)
+        return not token or bool(advertised_fingerprint and fingerprint != advertised_fingerprint)
 
     @pyqtSlot()
     def stopStreaming(self):
@@ -394,13 +426,24 @@ class MonitorizeWindow(QMainWindow):
                         ip = _socket.inet_ntoa(info.addresses[0])
                         port = info.port
                         host_name = info.properties.get(b'name', b'Unknown').decode('utf-8', errors='replace')
-                        QTimer.singleShot(0, lambda: self._window._add_discovered_device(host_name, ip, port))
+                        encrypted = info.properties.get(b'encrypted', b'0') == b'1'
+                        fingerprint = info.properties.get(b'fingerprint', b'').decode('ascii', errors='ignore')
+                        third_value = info.properties.get(b'third_available')
+                        third_available = None if third_value is None else third_value == b'1'
+                        third_port = int(info.properties.get(b'third_port', b'7114'))
+                        QTimer.singleShot(
+                            0,
+                            lambda: self._window._add_discovered_device(
+                                host_name, ip, port, encrypted, fingerprint,
+                                third_available, third_port,
+                            )
+                        )
 
                 def remove_service(self, zc, type_, name):
                     pass
 
                 def update_service(self, zc, type_, name):
-                    pass
+                    self.add_service(zc, type_, name)
 
             self._discovery_zc = Zeroconf()
             self._discovery_browser = ServiceBrowser(
@@ -428,47 +471,124 @@ class MonitorizeWindow(QMainWindow):
                 pass
             self._discovery_zc = None
 
-    def _add_discovered_device(self, name, ip, port):
+    def _add_discovered_device(
+        self, name, ip, port, encrypted=False, fingerprint="",
+        third_available=False, third_port=7114,
+    ):
         """Add a discovered host to the list (called on main thread via QTimer)."""
         for dev in self._discovered_devices:
             if dev.get('ip') == ip and dev.get('port') == port:
+                dev.update({
+                    'name': name,
+                    'encrypted': encrypted,
+                    'fingerprint': fingerprint,
+                    'thirdAvailable': third_available,
+                    'thirdPort': third_port,
+                })
+                self.discoveredDevicesChanged.emit()
                 return  
-        self._discovered_devices.append({'name': name, 'ip': ip, 'port': port})
+        self._discovered_devices.append({
+            'name': name, 'ip': ip, 'port': port,
+            'encrypted': encrypted, 'fingerprint': fingerprint,
+            'thirdAvailable': third_available, 'thirdPort': third_port,
+        })
         self.discoveredDevicesChanged.emit()
         print(f"[Receiver] Discovered host: {name} ({ip}:{port})")
 
-    @pyqtSlot(str)
-    @pyqtSlot(str, int)
-    def connectToHost(self, host_ip, port=7110):
+    @pyqtSlot(str, int, bool, str, str)
+    def connectToHost(self, host_ip, port=7110, encrypted=False, fingerprint="", pairing_code=""):
         """Launch the GStreamer receiver pipeline to display the remote stream."""
         self._stopHostDiscoveryInternal()
+        self._kill_receiver_proc()
 
+        self._receiver_host = host_ip
+        self._receiver_port = port
+        self._receiver_auth_failed = False
         self.set_receiver_host_ip(f"{host_ip}:{port}")
         self.set_receiver_status(f"Connecting to {host_ip}:{port}…")
-        self.set_is_receiving(True)
         self.receiverLogAppended.emit(f"Connecting to {host_ip} on port {port}…")
 
+        if encrypted:
+            saved_fingerprint, token = load_receiver_credentials(host_ip)
+            if pairing_code:
+                saved_fingerprint, token = fingerprint, ""
+            self.process_receiver_tls = QProcess(self)
+            self.process_receiver_tls.setWorkingDirectory(LINUX_DIR)
+            self.process_receiver_tls.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+            self.process_receiver_tls.readyReadStandardOutput.connect(self._read_receiver_tls)
+            self.process_receiver_tls.finished.connect(self._on_receiver_tls_finished)
+            args = [
+                os.path.join(LINUX_DIR, "tls_receiver.py"),
+                host_ip, str(port),
+            ]
+            if saved_fingerprint:
+                args += ["--fingerprint", saved_fingerprint]
+            if token:
+                args += ["--token", token]
+            elif pairing_code:
+                args += ["--code", pairing_code]
+            self.process_receiver_tls.start(sys.executable, args)
+            return
+
+        self._launch_receiver_pipeline(host_ip, port)
+
+    def _launch_receiver_pipeline(self, host_ip, port):
         self.process_receiver = QProcess(self)
         self.process_receiver.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+        self.process_receiver.started.connect(self._on_receiver_started)
         self.process_receiver.readyReadStandardOutput.connect(self._read_receiver)
         self.process_receiver.finished.connect(self._on_receiver_finished)
+        self.process_receiver.errorOccurred.connect(self._on_receiver_error)
 
-        inhibit_prefix = ""
-        if shutil.which("systemd-inhibit"):
-            inhibit_prefix = 'systemd-inhibit --what=idle --who=Monitorize --why="Receiving screen stream" --mode=block '
+        args = [
+            "-e", "tcpclientsrc", f"host={host_ip}", f"port={port}", "!",
+            "h264parse", "!", "avdec_h264", "!",
+            "queue", "max-size-buffers=2", "leaky=downstream", "!",
+            "videoconvert", "!", "autovideosink", "sync=false",
+        ]
+        self.process_receiver.start("gst-launch-1.0", args)
 
-        pipeline = (
-            f"{inhibit_prefix}gst-launch-1.0 -e "
-            f"tcpclientsrc host={host_ip} port={port} ! "
-            f"h264parse ! "
-            f"avdec_h264 ! "
-            f"queue max-size-buffers=2 leaky=downstream ! "
-            f"videoconvert ! "
-            f"autovideosink sync=false"
-        )
-        self.receiverLogAppended.emit(f"Pipeline: {pipeline}")
+    def _on_receiver_started(self):
         self._inhibit_sleep()
-        self.process_receiver.start("bash", ["-c", pipeline])
+        self.set_is_receiving(True)
+        self.set_receiver_status(f"Receiving from {self._receiver_host}:{self._receiver_port}")
+
+    def _read_receiver_tls(self):
+        if self.process_receiver_tls is None:
+            return
+        raw = bytes(self.process_receiver_tls.readAllStandardOutput()).decode("utf-8", errors="replace")
+        self._receiver_tls_buffer += raw
+        lines = self._receiver_tls_buffer.split("\n")
+        self._receiver_tls_buffer = lines.pop() if not self._receiver_tls_buffer.endswith("\n") else ""
+        for line in lines:
+            if line == "[TLS RECEIVER] READY" and self.process_receiver is None:
+                self._launch_receiver_pipeline("127.0.0.1", 17110)
+            elif line.startswith("[TLS RECEIVER] CREDENTIALS "):
+                fingerprint, token = line.removeprefix("[TLS RECEIVER] CREDENTIALS ").split()
+                save_receiver_credentials(self._receiver_host, fingerprint, token)
+                self.set_receiver_status("Authenticated; starting encrypted stream…")
+            elif line.startswith("[TLS RECEIVER] AUTH_FAILED"):
+                self._receiver_auth_failed = True
+                fingerprint = line.removeprefix("[TLS RECEIVER] AUTH_FAILED").strip()
+                clear_receiver_credentials(self._receiver_host)
+                self.set_receiver_status("Pairing required")
+                self.receiverPairingRequired.emit(
+                    self._receiver_host, self._receiver_port, fingerprint
+                )
+            elif line.startswith("[TLS RECEIVER] ERROR "):
+                self.set_receiver_status(line.removeprefix("[TLS RECEIVER] ERROR "))
+            elif line:
+                self.receiverLogAppended.emit(line)
+
+    def _on_receiver_tls_finished(self, code, _status):
+        if code != 0 and not self._receiver_auth_failed and not self._is_receiving:
+            self.set_receiver_status("Encrypted connection failed")
+
+    def _on_receiver_error(self, _error):
+        if self.process_receiver is not None:
+            self.set_receiver_status(self.process_receiver.errorString())
+        if self._is_receiving:
+            self.set_is_receiving(False)
 
     @pyqtSlot()
     def stopReceiving(self):
@@ -499,6 +619,13 @@ class MonitorizeWindow(QMainWindow):
             if not self.process_receiver.waitForFinished(3000):
                 self.process_receiver.kill()
         self.process_receiver = None
+        if self.process_receiver_tls is not None and self.process_receiver_tls.state() != QProcess.ProcessState.NotRunning:
+            self.process_receiver_tls.terminate()
+            if not self.process_receiver_tls.waitForFinished(3000):
+                self.process_receiver_tls.kill()
+        self.process_receiver_tls = None
+        self._receiver_tls_buffer = ""
+        self._receiver_auth_failed = False
         
         subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*tcpclientsrc"], capture_output=True)
         self._uninhibit_sleep()
@@ -552,6 +679,16 @@ class MonitorizeWindow(QMainWindow):
         except Exception as e:
             print(f"[Receiver] Failed to uninhibit sleep: {e}")
 
+    def _start_krfb(self, process, resolution, name, port):
+        password = secrets.token_urlsafe(6)
+        args = [
+            "--resolution", resolution,
+            "--name", name,
+            "--password", password,
+            "--port", str(port),
+        ]
+        process.start("krfb-virtualmonitor", args)
+
     
 
     @pyqtSlot(str, str, str, str)
@@ -578,6 +715,9 @@ class MonitorizeWindow(QMainWindow):
         }
         pref = encoder_map.get(encoder, "cpu")
         env.insert("MONITORIZE_ENCODER", pref)
+        if getattr(self, "_wifi_encryption", False):
+            env.insert("MONITORIZE_HOST", "127.0.0.1")
+            env.insert("MONITORIZE_PORT", "7115")
 
         self._s2_w = s2_w
         self._s2_h = s2_h
@@ -588,7 +728,7 @@ class MonitorizeWindow(QMainWindow):
         self._second_stream_active = True
         self.secondStreamActiveChanged.emit(True)
 
-        self.append_log("STREAMER", f"[Display 2] Spawning virtual monitor: {s2_w}x{s2_h}")
+        self.append_log("STREAMER", f"[Third display] Spawning virtual monitor: {s2_w}x{s2_h}")
 
         
         self.process_krfb2 = QProcess(self)
@@ -597,15 +737,12 @@ class MonitorizeWindow(QMainWindow):
         self.process_krfb2.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
         self.process_krfb2.readyReadStandardOutput.connect(self._read_krfb2)
         self.process_krfb2.finished.connect(
-            lambda code, _: self.append_log("STREAMER", f"[Display 2] KRFB exited (code {code})")
+            lambda code, _: self.append_log("STREAMER", f"[Third display] KRFB exited (code {code})")
         )
 
-        self.process_krfb2.start("krfb-virtualmonitor", [
-            "--resolution", f"{s2_w}x{s2_h}",
-            "--name",       "TabletDisplay2",
-            "--password",   "test123",
-            "--port",       "5901",
-        ])
+        self._start_krfb(
+            self.process_krfb2, f"{s2_w}x{s2_h}", "TabletDisplay2", 5901
+        )
 
         
         QTimer.singleShot(5000, self._launch_second_streamer)
@@ -614,7 +751,7 @@ class MonitorizeWindow(QMainWindow):
         if self.process_krfb2 is None:
             return
         raw = bytes(self.process_krfb2.readAllStandardOutput()).decode("utf-8", errors="replace")
-        self.append_log("STREAMER", f"[Display 2 KRFB] {raw}")
+        self.append_log("STREAMER", f"[Third display KRFB] {raw}")
 
     def _launch_second_streamer(self):
         """Launch second Streamer_kde.py on port 7114."""
@@ -625,6 +762,7 @@ class MonitorizeWindow(QMainWindow):
         self.process_streamer2.setWorkingDirectory(LINUX_DIR)
         self.process_streamer2.setProcessEnvironment(self._s2_env)
         self.process_streamer2.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+        self.process_streamer2.started.connect(self._on_second_streamer_started)
         self.process_streamer2.readyReadStandardOutput.connect(self._read_streamer2)
         self.process_streamer2.finished.connect(self._on_streamer2_finished)
 
@@ -639,24 +777,33 @@ class MonitorizeWindow(QMainWindow):
             "7114",  
         ]
         self.process_streamer2.start(sys.executable, args)
-        self.append_log("STREAMER", "[Display 2] Streamer launched on port 7114. Select 'TabletDisplay2' in the KDE picker.")
+        self.append_log("STREAMER", "[Third display] Streamer launched on port 7114. Select 'TabletDisplay2' in the KDE picker.")
+
+    def _on_second_streamer_started(self):
+        if self._is_streaming and self._is_wifi:
+            self._update_zeroconf_registration(self._local_ip)
 
     def _read_streamer2(self):
         if self.process_streamer2 is None:
             return
         raw = bytes(self.process_streamer2.readAllStandardOutput()).decode("utf-8", errors="replace")
-        self.append_log("STREAMER", f"[Display 2] {raw}")
+        self.append_log("STREAMER", f"[Third display] {raw}")
         for line in raw.splitlines():
             if "[GStreamer] PID:" in line:
                 try:
                     pid = int(line.split("PID:")[1].strip())
                     self._gst_pids2.add(pid)
-                    print(f"[GUI] Tracked GStreamer PID (Display 2): {pid}")
+                    print(f"[GUI] Tracked GStreamer PID (third display): {pid}")
                 except Exception:
                     pass
 
     def _on_streamer2_finished(self, code, _status):
-        self.append_log("STREAMER", f"[Display 2] Streamer exited (code {code})")
+        self.append_log("STREAMER", f"[Third display] Streamer exited (code {code})")
+        if self._second_stream_active:
+            self._second_stream_active = False
+            self.secondStreamActiveChanged.emit(False)
+        if self._is_streaming and self._is_wifi:
+            self._update_zeroconf_registration(self._local_ip)
 
     @pyqtSlot()
     def stopSecondStream(self):
@@ -664,7 +811,9 @@ class MonitorizeWindow(QMainWindow):
         self._kill_second_stream_procs()
         self._second_stream_active = False
         self.secondStreamActiveChanged.emit(False)
-        self.append_log("STREAMER", "[Display 2] Stopped.")
+        if self._is_streaming and self._is_wifi:
+            self._update_zeroconf_registration(self._local_ip)
+        self.append_log("STREAMER", "[Third display] Stopped.")
 
     def _kill_second_stream_procs(self):
         """Terminate second display processes."""
@@ -722,9 +871,14 @@ class MonitorizeWindow(QMainWindow):
         if self._is_wifi:
             wifi_settings = load_wifi_settings()
             stream_type = wifi_settings.get("stream_type", "Speed")
+            self._wifi_encryption = wifi_settings.get("use_encryption", True)
         else:
             stream_type = "Speed"
+            self._wifi_encryption = False
         env.insert("MONITORIZE_STREAM_TYPE", stream_type)
+        if self._wifi_encryption:
+            env.insert("MONITORIZE_HOST", "127.0.0.1")
+            env.insert("MONITORIZE_PORT", "7112")
         if self._detected_de in ("kde", "hyprland") and self._selected_display_type == "Extend":
             env.insert("MONITORIZE_PRESERVE_SOURCE_SIZE", "1")
 
@@ -741,12 +895,15 @@ class MonitorizeWindow(QMainWindow):
         subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7110"], capture_output=True)
         subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7112"], capture_output=True)
         subprocess.run(["pkill", "-9", "-f", "Streamer_.*\\.py"], capture_output=True)
+        subprocess.run(["pkill", "-9", "-f", "tls_proxy.py"], capture_output=True)
 
         self._cleanup_zeroconf()
 
         if self._is_wifi:
             subprocess.run(["adb", "reverse", "--remove", "tcp:7110"], capture_output=True)
             subprocess.run(["adb", "reverse", "--remove", "tcp:7111"], capture_output=True)
+            if self._wifi_encryption:
+                self._launch_tls_proxy()
 
         
         self.set_is_streaming(True)
@@ -767,12 +924,12 @@ class MonitorizeWindow(QMainWindow):
                 )
                 subprocess.run(["killall", "krfb-virtualmonitor"], capture_output=True)
 
-                self.process_krfb.start("krfb-virtualmonitor", [
-                    "--resolution", f"{self._stream_width}x{self._stream_height}",
-                    "--name",       "TabletDisplay",
-                    "--password",   "test123",
-                    "--port",       "5900",
-                ])
+                self._start_krfb(
+                    self.process_krfb,
+                    f"{self._stream_width}x{self._stream_height}",
+                    "TabletDisplay",
+                    5900,
+                )
                 self._countdown = 1
                 self.countdownChanged.emit(self._countdown)
                 self._countdown_timer.start()
@@ -869,6 +1026,36 @@ class MonitorizeWindow(QMainWindow):
 
         self.set_streaming_status("Status: Streaming…")
 
+    def _launch_tls_proxy(self):
+        self.process_tls_proxy = QProcess(self)
+        self.process_tls_proxy.setWorkingDirectory(LINUX_DIR)
+        self.process_tls_proxy.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+        self.process_tls_proxy.readyReadStandardOutput.connect(self._read_tls_proxy)
+        self.process_tls_proxy.start(sys.executable, [os.path.join(LINUX_DIR, "tls_proxy.py")])
+
+    @pyqtSlot()
+    def generatePairingCode(self):
+        if self.process_tls_proxy is not None and self.process_tls_proxy.state() == QProcess.ProcessState.Running:
+            self.process_tls_proxy.write(b"PAIR\n")
+
+    def _read_tls_proxy(self):
+        if self.process_tls_proxy is None:
+            return
+        raw = bytes(self.process_tls_proxy.readAllStandardOutput()).decode("utf-8", errors="replace")
+        self._tls_proxy_buffer += raw
+        lines = self._tls_proxy_buffer.split("\n")
+        self._tls_proxy_buffer = lines.pop() if not self._tls_proxy_buffer.endswith("\n") else ""
+        for line in lines:
+            if line.startswith("[TLS CONTROL] PAIRING_CODE "):
+                code = line.removeprefix("[TLS CONTROL] PAIRING_CODE ").strip()
+                self._pairing_code = code
+                self.pairingCodeChanged.emit(code)
+            elif "Pairing accepted" in line or line == "[TLS CONTROL] PAIRING_DISABLED":
+                self._pairing_code = ""
+                self.pairingCodeChanged.emit("")
+            if "Pairing accepted" in line or "Client authenticated" in line:
+                self.set_streaming_status("Status: Streaming securely")
+
     def _launch_input_bridge(self):
         """Spawn touch_daemon.py to relay Android touch/pen events."""
         gen = load_general_settings()
@@ -893,7 +1080,7 @@ class MonitorizeWindow(QMainWindow):
             str(self._stream_width),
             str(self._stream_height),
         ]
-        if getattr(self, "_is_wifi", False):
+        if getattr(self, "_is_wifi", False) and not getattr(self, "_wifi_encryption", False):
             args.append("--wifi")
         if stylus_features_enabled:
             args.append("--stylus-features")
@@ -1004,7 +1191,7 @@ class MonitorizeWindow(QMainWindow):
             self._second_stream_active = False
             self.secondStreamActiveChanged.emit(False)
 
-        for proc in (self.process_krfb, self.process_streamer, self.process_input_bridge):
+        for proc in (self.process_krfb, self.process_streamer, self.process_input_bridge, self.process_tls_proxy):
             if proc is not None and proc.state() != QProcess.ProcessState.NotRunning:
                 proc.terminate()
                 if not proc.waitForFinished(3000):
@@ -1012,6 +1199,10 @@ class MonitorizeWindow(QMainWindow):
         self.process_krfb          = None
         self.process_streamer      = None
         self.process_input_bridge  = None
+        self.process_tls_proxy     = None
+        self._tls_proxy_buffer     = ""
+        self._pairing_code         = ""
+        self.pairingCodeChanged.emit("")
 
         
         for pid in list(self._gst_pids):
@@ -1023,6 +1214,7 @@ class MonitorizeWindow(QMainWindow):
         subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7110"], capture_output=True)
         subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7112"], capture_output=True)
         subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7114"], capture_output=True)
+        subprocess.run(["pkill", "-9", "-f", "tls_proxy.py"], capture_output=True)
 
         if self._detected_de == "hyprland" and getattr(self, "created_headless_monitor", None):
             print(f"[Hyprland] Removing created headless monitor: {self.created_headless_monitor}")
@@ -1102,7 +1294,19 @@ class MonitorizeWindow(QMainWindow):
             
             hostname = socket.gethostname()
             self._zc = Zeroconf()
-            desc = {'name': hostname, 'port': 7110}
+            desc = {
+                'name': hostname,
+                'port': 7110,
+                'encrypted': '1' if getattr(self, "_wifi_encryption", False) else '0',
+                'third_available': '1' if (
+                    self.process_streamer2 is not None
+                    and self.process_streamer2.state() == QProcess.ProcessState.Running
+                ) else '0',
+                'third_port': '7114',
+            }
+            if getattr(self, "_wifi_encryption", False):
+                from tls_proxy import certificate_fingerprint
+                desc['fingerprint'] = certificate_fingerprint()
 
             self._info = ServiceInfo(
                 "_monitorize._tcp.local.",

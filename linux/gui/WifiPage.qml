@@ -37,7 +37,8 @@ Item {
             bitrateField.text,
             displayTypeCombo.visible ? displayTypeCombo.currentText : "Extend",
             encoderCombo.currentText,
-            streamTypeCombo.currentText.indexOf("Speed") === 0 ? "Speed" : "Stability"
+            streamTypeCombo.currentText.indexOf("Speed") === 0 ? "Speed" : "Stability",
+            encryptionCheck.checked
         )
     }
 
@@ -86,6 +87,7 @@ Item {
         
         let savedStreamType = saved["stream_type"] || "Speed";
         streamTypeCombo.selectValue(savedStreamType === "Speed" ? "Speed" : "Stability");
+        encryptionCheck.checked = saved["use_encryption"] !== false;
 
         let gen = backend.loadGeneralSettings();
         page.minimizeToTray = gen["minimize_to_tray"] !== undefined ? gen["minimize_to_tray"] : false;
@@ -234,6 +236,13 @@ Item {
                 Layout.alignment: Qt.AlignHCenter
 
                 CustomCheckBox {
+                    id: encryptionCheck
+                    text: "Use encryption (recommended)"
+                    checked: true
+                    onCheckedChanged: page.saveSettings()
+                }
+
+                CustomCheckBox {
                     id: touchCheck
                     text: "Enable Touch Input"
                     onCheckedChanged: {
@@ -254,7 +263,9 @@ Item {
             }
 
             WarningCard {
-                text: "WARNING: The Resolution set here MUST EXACTLY MATCH the settings in the Android tablet app, or the stream will corrupt!"
+                text: encryptionCheck.checked
+                    ? "Encrypted mode requires the 6-digit pairing code shown after streaming starts."
+                    : "WARNING: Encryption is off. Other devices on this network may view the stream or inject input."
             }
 
             // Spacing
