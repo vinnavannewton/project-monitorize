@@ -7,6 +7,7 @@ import os
 import subprocess
 import shutil
 import secrets
+import time
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QSystemTrayIcon, QMenu, QDialog, QMessageBox
@@ -104,10 +105,24 @@ class MonitorizeWindow(QMainWindow):
         self._receiver_auth_failed = False
         self._receiver_host = ""
         self._receiver_port = 7110
+        self._receiver_encrypted = False
+        self._receiver_fingerprint = ""
+        self._receiver_pairing_code = ""
+        self._receiver_retry_count = 0
+        self._receiver_retry_pending = False
+        self._receiver_stopping = False
+        self._receiver_attempt_started = 0.0
+        self._receiver_stable_timer = QTimer(self)
+        self._receiver_stable_timer.setSingleShot(True)
+        self._receiver_stable_timer.timeout.connect(self._mark_receiver_stable)
+        self._receiver_retry_timer = QTimer(self)
+        self._receiver_retry_timer.setSingleShot(True)
+        self._receiver_retry_timer.timeout.connect(self._start_receiver_attempt)
         self._kde_inhibit_cookie = None
 
         
         self._second_stream_active = False
+        self._third_stream_ready = False
         self.process_krfb2:     QProcess | None = None
         self.process_streamer2: QProcess | None = None
         self._gst_pids2 = set()
@@ -214,15 +229,6 @@ class MonitorizeWindow(QMainWindow):
     @pyqtProperty(str, notify=pairingCodeChanged)
     def pairingCode(self):
         return self._pairing_code
-
-    @pyqtProperty(bool, notify=pairingCodeChanged)
-    def canPairDevices(self):
-        return bool(
-            self._is_streaming
-            and getattr(self, "_is_wifi", False)
-            and getattr(self, "_wifi_encryption", False)
-            and self.process_tls_proxy is not None
-        )
 
     @pyqtProperty(bool, notify=isReceivingChanged)
     def isReceiving(self):
@@ -501,17 +507,30 @@ class MonitorizeWindow(QMainWindow):
         self._stopHostDiscoveryInternal()
         self._kill_receiver_proc()
 
+        self._receiver_stopping = False
         self._receiver_host = host_ip
         self._receiver_port = port
+        self._receiver_encrypted = encrypted
+        self._receiver_fingerprint = fingerprint
+        self._receiver_pairing_code = pairing_code
+        self._receiver_retry_count = 0
+        self._receiver_retry_pending = False
         self._receiver_auth_failed = False
         self.set_receiver_host_ip(f"{host_ip}:{port}")
         self.set_receiver_status(f"Connecting to {host_ip}:{port}…")
         self.receiverLogAppended.emit(f"Connecting to {host_ip} on port {port}…")
 
-        if encrypted:
+        self._start_receiver_attempt()
+
+    def _start_receiver_attempt(self):
+        self._receiver_retry_pending = False
+        self._receiver_auth_failed = False
+        if self._receiver_encrypted:
+            host_ip = self._receiver_host
+            port = self._receiver_port
             saved_fingerprint, token = load_receiver_credentials(host_ip)
-            if pairing_code:
-                saved_fingerprint, token = fingerprint, ""
+            if self._receiver_pairing_code:
+                saved_fingerprint, token = self._receiver_fingerprint, ""
             self.process_receiver_tls = QProcess(self)
             self.process_receiver_tls.setWorkingDirectory(LINUX_DIR)
             self.process_receiver_tls.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
@@ -525,14 +544,15 @@ class MonitorizeWindow(QMainWindow):
                 args += ["--fingerprint", saved_fingerprint]
             if token:
                 args += ["--token", token]
-            elif pairing_code:
-                args += ["--code", pairing_code]
+            elif self._receiver_pairing_code:
+                args += ["--code", self._receiver_pairing_code]
             self.process_receiver_tls.start(sys.executable, args)
             return
 
-        self._launch_receiver_pipeline(host_ip, port)
+        self._launch_receiver_pipeline(self._receiver_host, self._receiver_port)
 
     def _launch_receiver_pipeline(self, host_ip, port):
+        self._receiver_attempt_started = time.monotonic()
         self.process_receiver = QProcess(self)
         self.process_receiver.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
         self.process_receiver.started.connect(self._on_receiver_started)
@@ -549,9 +569,21 @@ class MonitorizeWindow(QMainWindow):
         self.process_receiver.start("gst-launch-1.0", args)
 
     def _on_receiver_started(self):
-        self._inhibit_sleep()
-        self.set_is_receiving(True)
-        self.set_receiver_status(f"Receiving from {self._receiver_host}:{self._receiver_port}")
+        self.set_receiver_status(
+            "Waiting for Third display stream…"
+            if self._receiver_port == 7114 else "Waiting for Second display stream…"
+        )
+        self._receiver_stable_timer.start(2000)
+
+    def _mark_receiver_stable(self):
+        if (
+            self.process_receiver is not None
+            and self.process_receiver.state() == QProcess.ProcessState.Running
+        ):
+            self._inhibit_sleep()
+            self.set_is_receiving(True)
+            self.set_receiver_status(f"Receiving from {self._receiver_host}:{self._receiver_port}")
+            self.receiverLogAppended.emit("Stream connected and stable.")
 
     def _read_receiver_tls(self):
         if self.process_receiver_tls is None:
@@ -566,6 +598,7 @@ class MonitorizeWindow(QMainWindow):
             elif line.startswith("[TLS RECEIVER] CREDENTIALS "):
                 fingerprint, token = line.removeprefix("[TLS RECEIVER] CREDENTIALS ").split()
                 save_receiver_credentials(self._receiver_host, fingerprint, token)
+                self._receiver_pairing_code = ""
                 self.set_receiver_status("Authenticated; starting encrypted stream…")
             elif line.startswith("[TLS RECEIVER] AUTH_FAILED"):
                 self._receiver_auth_failed = True
@@ -581,7 +614,12 @@ class MonitorizeWindow(QMainWindow):
                 self.receiverLogAppended.emit(line)
 
     def _on_receiver_tls_finished(self, code, _status):
-        if code != 0 and not self._receiver_auth_failed and not self._is_receiving:
+        if (
+            code != 0
+            and not self._receiver_auth_failed
+            and not self._is_receiving
+            and not self._receiver_retry_pending
+        ):
             self.set_receiver_status("Encrypted connection failed")
 
     def _on_receiver_error(self, _error):
@@ -601,19 +639,40 @@ class MonitorizeWindow(QMainWindow):
             return
         raw = bytes(self.process_receiver.readAllStandardOutput()).decode('utf-8', errors='replace')
         self.receiverLogAppended.emit(raw)
-        if "Playing" in raw or "PLAYING" in raw:
-            self.set_receiver_status("Receiving stream")
-            self.receiverLogAppended.emit("Stream connected and playing!")
-        elif "ERROR" in raw:
+        if "ERROR" in raw:
             self.set_receiver_status("Error — see logs")
 
     def _on_receiver_finished(self, code, _status):
         self.receiverLogAppended.emit(f"Receiver process exited (code {code})")
+        self._receiver_stable_timer.stop()
+        elapsed = time.monotonic() - self._receiver_attempt_started
+        if not self._receiver_stopping and elapsed < 2.0 and self._receiver_retry_count < 9:
+            self._receiver_retry_count += 1
+            self._receiver_retry_pending = True
+            self.set_is_receiving(False)
+            self.set_receiver_status(
+                f"Waiting for {'Third' if self._receiver_port == 7114 else 'Second'} display stream… "
+                f"({self._receiver_retry_count}/10)"
+            )
+            if (
+                self.process_receiver_tls is not None
+                and self.process_receiver_tls.state() != QProcess.ProcessState.NotRunning
+            ):
+                self.process_receiver_tls.terminate()
+            self.process_receiver = None
+            self.process_receiver_tls = None
+            self._receiver_retry_timer.start(1000)
+            return
         if self._is_receiving:
             self.set_receiver_status("Disconnected")
             self.receiverLogAppended.emit("Stream ended. Click Disconnect to return.")
+        else:
+            self.set_receiver_status("Unable to start stream after 10 attempts")
 
     def _kill_receiver_proc(self):
+        self._receiver_stopping = True
+        self._receiver_stable_timer.stop()
+        self._receiver_retry_timer.stop()
         if self.process_receiver is not None and self.process_receiver.state() != QProcess.ProcessState.NotRunning:
             self.process_receiver.terminate()
             if not self.process_receiver.waitForFinished(3000):
@@ -626,6 +685,7 @@ class MonitorizeWindow(QMainWindow):
         self.process_receiver_tls = None
         self._receiver_tls_buffer = ""
         self._receiver_auth_failed = False
+        self._receiver_retry_pending = False
         
         subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*tcpclientsrc"], capture_output=True)
         self._uninhibit_sleep()
@@ -726,6 +786,7 @@ class MonitorizeWindow(QMainWindow):
         self._s2_env = env
 
         self._second_stream_active = True
+        self._third_stream_ready = False
         self.secondStreamActiveChanged.emit(True)
 
         self.append_log("STREAMER", f"[Third display] Spawning virtual monitor: {s2_w}x{s2_h}")
@@ -762,7 +823,6 @@ class MonitorizeWindow(QMainWindow):
         self.process_streamer2.setWorkingDirectory(LINUX_DIR)
         self.process_streamer2.setProcessEnvironment(self._s2_env)
         self.process_streamer2.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
-        self.process_streamer2.started.connect(self._on_second_streamer_started)
         self.process_streamer2.readyReadStandardOutput.connect(self._read_streamer2)
         self.process_streamer2.finished.connect(self._on_streamer2_finished)
 
@@ -779,16 +839,20 @@ class MonitorizeWindow(QMainWindow):
         self.process_streamer2.start(sys.executable, args)
         self.append_log("STREAMER", "[Third display] Streamer launched on port 7114. Select 'TabletDisplay2' in the KDE picker.")
 
-    def _on_second_streamer_started(self):
-        if self._is_streaming and self._is_wifi:
-            self._update_zeroconf_registration(self._local_ip)
-
     def _read_streamer2(self):
         if self.process_streamer2 is None:
             return
         raw = bytes(self.process_streamer2.readAllStandardOutput()).decode("utf-8", errors="replace")
         self.append_log("STREAMER", f"[Third display] {raw}")
         for line in raw.splitlines():
+            if "Setting pipeline to PLAYING" in line or "New clock:" in line:
+                self._third_stream_ready = True
+                if self._is_streaming and self._is_wifi:
+                    self._update_zeroconf_registration(self._local_ip)
+            elif "Got EOS" in line or "[GStreamer] EXITED:" in line:
+                self._third_stream_ready = False
+                if self._is_streaming and self._is_wifi:
+                    self._update_zeroconf_registration(self._local_ip)
             if "[GStreamer] PID:" in line:
                 try:
                     pid = int(line.split("PID:")[1].strip())
@@ -799,6 +863,7 @@ class MonitorizeWindow(QMainWindow):
 
     def _on_streamer2_finished(self, code, _status):
         self.append_log("STREAMER", f"[Third display] Streamer exited (code {code})")
+        self._third_stream_ready = False
         if self._second_stream_active:
             self._second_stream_active = False
             self.secondStreamActiveChanged.emit(False)
@@ -810,6 +875,7 @@ class MonitorizeWindow(QMainWindow):
         """Stop the second display stream."""
         self._kill_second_stream_procs()
         self._second_stream_active = False
+        self._third_stream_ready = False
         self.secondStreamActiveChanged.emit(False)
         if self._is_streaming and self._is_wifi:
             self._update_zeroconf_registration(self._local_ip)
@@ -824,6 +890,7 @@ class MonitorizeWindow(QMainWindow):
                     proc.kill()
         self.process_krfb2 = None
         self.process_streamer2 = None
+        self._third_stream_ready = False
 
         for pid in list(self._gst_pids2):
             try:
@@ -1033,11 +1100,6 @@ class MonitorizeWindow(QMainWindow):
         self.process_tls_proxy.readyReadStandardOutput.connect(self._read_tls_proxy)
         self.process_tls_proxy.start(sys.executable, [os.path.join(LINUX_DIR, "tls_proxy.py")])
 
-    @pyqtSlot()
-    def generatePairingCode(self):
-        if self.process_tls_proxy is not None and self.process_tls_proxy.state() == QProcess.ProcessState.Running:
-            self.process_tls_proxy.write(b"PAIR\n")
-
     def _read_tls_proxy(self):
         if self.process_tls_proxy is None:
             return
@@ -1050,9 +1112,6 @@ class MonitorizeWindow(QMainWindow):
                 code = line.removeprefix("[TLS CONTROL] PAIRING_CODE ").strip()
                 self._pairing_code = code
                 self.pairingCodeChanged.emit(code)
-            elif "Pairing accepted" in line or line == "[TLS CONTROL] PAIRING_DISABLED":
-                self._pairing_code = ""
-                self.pairingCodeChanged.emit("")
             if "Pairing accepted" in line or "Client authenticated" in line:
                 self.set_streaming_status("Status: Streaming securely")
 
@@ -1298,10 +1357,7 @@ class MonitorizeWindow(QMainWindow):
                 'name': hostname,
                 'port': 7110,
                 'encrypted': '1' if getattr(self, "_wifi_encryption", False) else '0',
-                'third_available': '1' if (
-                    self.process_streamer2 is not None
-                    and self.process_streamer2.state() == QProcess.ProcessState.Running
-                ) else '0',
+                'third_available': '1' if self._third_stream_ready else '0',
                 'third_port': '7114',
             }
             if getattr(self, "_wifi_encryption", False):

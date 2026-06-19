@@ -15,6 +15,7 @@ Item {
     property bool enableTouch: true
     property bool enableStylusFeatures: false
     property bool loadingSettings: true
+    property bool showPairingCode: true
 
     function saveSecondDisplaySettings() {
         if (page.loadingSettings) return
@@ -336,27 +337,6 @@ Item {
             }
 
             Button {
-                text: "Pair another device"
-                visible: backend.canPairDevices
-                onClicked: backend.generatePairingCode()
-                background: Rectangle {
-                    implicitWidth: 170
-                    implicitHeight: 38
-                    color: parent.down ? theme.surfaceAlt : (parent.hovered ? theme.borderHover : theme.surface)
-                    border.color: theme.accent
-                    radius: 8
-                }
-                contentItem: Text {
-                    text: parent.text
-                    color: theme.accent
-                    font.pixelSize: 12
-                    font.weight: Font.Bold
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
-            }
-
-            Button {
                 text: "⏹ Stop Streaming"
                 onClicked: {
                     allLogs = []
@@ -385,19 +365,41 @@ Item {
 
             Rectangle {
                 visible: backend.pairingCode !== ""
-                implicitWidth: pairingText.implicitWidth + 24
+                implicitWidth: pairingCodeRow.implicitWidth + 24
                 implicitHeight: 38
                 radius: 8
                 color: theme.surface
                 border.color: theme.accent
 
-                Text {
-                    id: pairingText
+                Row {
+                    id: pairingCodeRow
                     anchors.centerIn: parent
-                    text: "Pairing code: " + backend.pairingCode
-                    color: theme.accent
-                    font.pixelSize: 13
-                    font.weight: Font.Bold
+                    spacing: 8
+
+                    Text {
+                        id: pairingText
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "Pairing code: " + (page.showPairingCode ? backend.pairingCode : "••••••")
+                        color: theme.accent
+                        font.pixelSize: 13
+                        font.weight: Font.Bold
+                    }
+
+                    Button {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: page.showPairingCode ? "👁" : "◉"
+                        flat: true
+                        onClicked: page.showPairingCode = !page.showPairingCode
+                        ToolTip.visible: hovered
+                        ToolTip.text: page.showPairingCode ? "Hide pairing code" : "Show pairing code"
+                        contentItem: Text {
+                            text: parent.text
+                            color: theme.cardTextSecondary
+                            font.pixelSize: 14
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                    }
                 }
             }
         }

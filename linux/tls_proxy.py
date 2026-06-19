@@ -8,8 +8,8 @@ import secrets
 import socket
 import ssl
 import subprocess
-import sys
 import threading
+import time
 from pathlib import Path
 
 CONFIG_DIR = Path.home() / ".config" / "monitorize"
@@ -80,19 +80,13 @@ def _pipe(source: socket.socket, destination: socket.socket) -> None:
 class Proxy:
     def __init__(self, pairing_code: str):
         self.pairing_code = pairing_code
-        self.pairing_attempts = 0
         self.tokens = _load_tokens()
         self.lock = threading.Lock()
-
-    def generate_pairing_code(self) -> str:
-        with self.lock:
-            self.pairing_code = f"{secrets.randbelow(1_000_000):06d}"
-            self.pairing_attempts = 0
-            return self.pairing_code
 
     def authenticate(self, client: ssl.SSLSocket) -> bool:
         line = _read_line(client)
         command, _, value = line.partition(" ")
+        failed_pairing = False
         with self.lock:
             if command == "AUTH" and any(secrets.compare_digest(value, token) for token in self.tokens):
                 client.sendall(b"OK\n")
@@ -102,16 +96,13 @@ class Proxy:
                 token = secrets.token_hex(32)
                 self.tokens.add(token)
                 _save_tokens(self.tokens)
-                self.pairing_code = ""
                 client.sendall(f"OK {token}\n".encode("ascii"))
-                print("[TLS] Pairing accepted; code invalidated.", flush=True)
+                print("[TLS] Pairing accepted.", flush=True)
                 return True
             if command == "PAIR":
-                self.pairing_attempts += 1
-                if self.pairing_attempts >= 5:
-                    self.pairing_code = ""
-                    print("[TLS] Pairing disabled after 5 failed attempts.", flush=True)
-                    print("[TLS CONTROL] PAIRING_DISABLED", flush=True)
+                failed_pairing = True
+        if failed_pairing:
+            time.sleep(1)
         client.sendall(b"ERR\n")
         return False
 
@@ -153,12 +144,6 @@ class Proxy:
                 continue
             threading.Thread(target=self.handle, args=(client, backend_port), daemon=True).start()
 
-def _control_loop(proxy: Proxy) -> None:
-    for line in sys.stdin:
-        if line.strip().upper() == "PAIR":
-            print(f"[TLS CONTROL] PAIRING_CODE {proxy.generate_pairing_code()}", flush=True)
-
-
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--video-port", type=int, default=7110)
@@ -174,11 +159,10 @@ def main() -> None:
     context.minimum_version = ssl.TLSVersion.TLSv1_3
     context.load_cert_chain(cert, key)
 
-    proxy = Proxy("")
-    code = proxy.generate_pairing_code()
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    proxy = Proxy(code)
     print(f"[TLS] Fingerprint: {certificate_fingerprint()}", flush=True)
     print(f"[TLS CONTROL] PAIRING_CODE {code}", flush=True)
-    threading.Thread(target=_control_loop, args=(proxy,), daemon=True).start()
     threading.Thread(
         target=proxy.serve, args=(context, args.video_port, args.video_backend), daemon=True
     ).start()

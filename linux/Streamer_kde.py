@@ -64,6 +64,9 @@ def launch_streaming(fd, node_id):
         hw_encoder=HW_ENCODER, pass_fds=(fd,),
         host=host, server_mode=server_mode,
     )
+    code = gst_proc.wait()
+    print(f"[GStreamer] EXITED: {code}", flush=True)
+    GLib.idle_add(loop.quit)
 
 def on_response(response, results, **kw):
     if response != 0:
