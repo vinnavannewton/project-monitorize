@@ -16,6 +16,7 @@ from PyQt6.QtCore import (
     Qt, QProcess, QProcessEnvironment, QTimer, QUrl,
     pyqtSignal, pyqtProperty, pyqtSlot
 )
+from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtGui import QColor, QPalette, QIcon
 from PyQt6.QtQuickWidgets import QQuickWidget
 
@@ -1330,6 +1331,7 @@ class MonitorizeWindow(QMainWindow):
     def _restore_from_tray(self):
         self._tray.hide()
         self.showNormal()
+        self.raise_()
         self.activateWindow()
 
     def _quit_app(self):
@@ -1497,6 +1499,19 @@ def main():
     app.setApplicationName("Monitorize")
     app.setDesktopFileName("monitorize")
 
+    socket = QLocalSocket()
+    socket.connectToServer("monitorize")
+    if socket.waitForConnected(250):
+        socket.write(b"show")
+        socket.waitForBytesWritten(250)
+        return
+
+    QLocalServer.removeServer("monitorize")
+    server = QLocalServer(app)
+    server.setSocketOptions(QLocalServer.SocketOption.UserAccessOption)
+    if not server.listen("monitorize"):
+        return
+
     palette = QPalette()
     palette.setColor(QPalette.ColorRole.Window,          QColor(load_theme_color("background", "#1b1e24")))
     palette.setColor(QPalette.ColorRole.WindowText,      QColor(load_theme_color("textLight", "#eff0f1")))
@@ -1509,6 +1524,7 @@ def main():
     app.setPalette(palette)
 
     win = MonitorizeWindow()
+    server.newConnection.connect(lambda: (server.nextPendingConnection().deleteLater(), win._restore_from_tray()))
     win.show()
     sys.exit(app.exec())
 
