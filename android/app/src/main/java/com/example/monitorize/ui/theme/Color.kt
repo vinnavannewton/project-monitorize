@@ -2,10 +2,13 @@ package com.example.monitorize.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Purple80 = Color(0xFFD0BCFF)
-val PurpleGrey80 = Color(0xFFCCC2DC)
-val Pink80 = Color(0xFFEFB8C8)
 
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
+
+val BreezeBackground = Color(0xFF1B1E24)
+val BreezeSurface    = Color(0xFF232831)
+val BreezeSurfaceAlt = Color(0xFF2B313B)
+val BreezeAccent     = Color(0xFF3DAEE9)
+val BreezeButton     = Color(0xFF2F6F95)
+val BreezeBorder     = Color(0xFF343B46)
+val BreezeText       = Color(0xFFEFF0F1)
+val BreezeTextMuted  = Color(0xFF8F9AA6)

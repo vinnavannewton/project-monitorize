@@ -21,7 +21,7 @@ Item {
             text: "USB Mode  ·  Step 1 of 2"
             font.pixelSize: 12
             font.weight: Font.Bold
-            color: "#5a5c82"
+            color: theme.textMuted
             Layout.alignment: Qt.AlignHCenter
         }
 
@@ -29,7 +29,7 @@ Item {
             text: !hasStartedScan ? "Is the tablet connected via USB?" : (isScanSuccessful ? "Connection Established!" : "Scanning for Connected Android Device...")
             font.pixelSize: 18
             font.weight: Font.Bold
-            color: "#d4d6f0"
+            color: theme.textPrimary
             Layout.alignment: Qt.AlignHCenter
         }
 
@@ -38,7 +38,7 @@ Item {
                 ? "Please connect your Android tablet to this computer using a USB cable, and ensure that USB Debugging is enabled in Settings."
                 : backend.usbStatusText
             font.pixelSize: 13
-            color: !hasStartedScan ? "#6a6c96" : (isScanSuccessful ? "#4cd68d" : "#8a8cc0")
+            color: !hasStartedScan ? theme.textSecondary : (isScanSuccessful ? "#2e7d32" : "#c62828")
             Layout.alignment: Qt.AlignHCenter
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.Wrap
@@ -58,7 +58,7 @@ Item {
                 anchors.fill: parent
                 radius: 30
                 color: "transparent"
-                border.color: "#1a1c30"
+                border.color: theme.border
                 border.width: 4
             }
 
@@ -68,14 +68,14 @@ Item {
                 height: 60
                 radius: 30
                 color: "transparent"
-                border.color: "#4c4fd0"
+                border.color: theme.accent
                 border.width: 4
                 clip: true
 
                 Rectangle {
                     width: 60
                     height: 30
-                    color: "#0c0d14"
+                    color: theme.background
                     anchors.bottom: parent.bottom
                     visible: !backend.usbBusy
                 }
@@ -105,12 +105,12 @@ Item {
                     implicitWidth: 100
                     implicitHeight: 38
                     color: "transparent"
-                    border.color: "#2a2d55"
+                    border.color: theme.border
                     radius: 8
                 }
                 contentItem: Text {
                     text: parent.text
-                    color: "#6a6c90"
+                    color: theme.textSecondary
                     font.pixelSize: 13
                     font.weight: Font.Bold
                     horizontalAlignment: Text.AlignHCenter

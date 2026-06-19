@@ -6,15 +6,15 @@ Button {
     background: Rectangle {
         implicitWidth: 120
         implicitHeight: 38
-        color: btn.down ? "#2a2c98" : (btn.hovered ? "#4042c8" : "#3538b0")
-        border.color: "#2a2d55"
+        color: btn.down ? theme.buttonBackgroundPressed : (btn.hovered ? theme.buttonBackgroundHover : theme.buttonBackground)
+        border.color: theme.border
         border.width: 1
-        radius: 8
+        radius: theme.controlRadius
         Behavior on color { ColorAnimation { duration: 150 } }
     }
     contentItem: Text {
         text: btn.text
-        color: "#ffffff"
+        color: theme.buttonText
         font.pixelSize: 13
         font.weight: Font.Bold
         horizontalAlignment: Text.AlignHCenter
