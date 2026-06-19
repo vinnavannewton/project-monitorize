@@ -15,7 +15,10 @@ import kotlin.math.sin
 
 class InputEventSender(
     private val hostIp: String? = null,
-    private val hostPort: Int = 7110
+    private val hostPort: Int = 7110,
+    private val encrypted: Boolean = false,
+    private val fingerprint: String? = null,
+    private val authToken: String? = null
 ) {
     private val portTcp = hostPort + 1
     private val portUdp = hostPort + 3
@@ -41,17 +44,26 @@ class InputEventSender(
     private val sendChannel = Channel<ByteArray>(capacity = 256, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
     fun start() {
-        scope.launch {
-            if (hostIp.isNullOrEmpty()) {
+        if (hostIp.isNullOrEmpty() || encrypted) {
+            scope.launch {
                 while (isActive) {
                     var s: Socket? = null
                     try {
-                        s = Socket(HOST, portTcp)
+                        s = if (encrypted) {
+                            val secure = connectTls(hostIp!!, portUdp, fingerprint)
+                            secure.socket.apply {
+                                outputStream.write("AUTH $authToken\n".toByteArray(Charsets.US_ASCII))
+                                outputStream.flush()
+                                if (readAsciiLine(this) != "OK") throw SecurityException("Input authentication failed")
+                            }
+                        } else {
+                            Socket(HOST, portTcp)
+                        }
                         s.tcpNoDelay = true
                         s.sendBufferSize = 64 * 1024
                         socket = s
                         out = s.getOutputStream()
-                        android.util.Log.i("InputEventSender", "Connected to touch_daemon TCP on $HOST:$portTcp")
+                        android.util.Log.i("InputEventSender", "Secure input connected")
                         
                         val inputStream = s.getInputStream()
                         val buffer = ByteArray(16)
@@ -70,23 +82,7 @@ class InputEventSender(
                         delay(2000)
                     }
                 }
-            } else {
-                try {
-                    val u = DatagramSocket()
-                    val addr = InetAddress.getByName(hostIp)
-                    udpSocket = u
-                    android.util.Log.i("InputEventSender", "UDP touch ready for $hostIp:$portUdp")
-                    for (frame in sendChannel) {
-                        val packet = DatagramPacket(frame, frame.size, addr, portUdp)
-                        udpSocket?.send(packet)
-                    }
-                } catch (e: Exception) {
-                    android.util.Log.e("InputEventSender", "UDP error", e)
-                }
             }
-        }
-
-        if (hostIp.isNullOrEmpty()) {
             scope.launch {
                 for (frame in sendChannel) {
                     val currentOut = out
@@ -102,11 +98,26 @@ class InputEventSender(
                     }
                 }
             }
+        } else {
+            scope.launch {
+                try {
+                    val u = DatagramSocket()
+                    val addr = InetAddress.getByName(hostIp)
+                    udpSocket = u
+                    android.util.Log.i("InputEventSender", "UDP touch ready for $hostIp:$portUdp")
+                    for (frame in sendChannel) {
+                        val packet = DatagramPacket(frame, frame.size, addr, portUdp)
+                        udpSocket?.send(packet)
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("InputEventSender", "UDP error", e)
+                }
+            }
         }
     }
 
     fun send(event: MotionEvent, viewW: Float, viewH: Float) {
-        val notConnected = (hostIp.isNullOrEmpty() && out == null) || (!hostIp.isNullOrEmpty() && udpSocket == null)
+        val notConnected = if (hostIp.isNullOrEmpty() || encrypted) out == null else udpSocket == null
         if (notConnected) return
 
         when (event.actionMasked) {
@@ -155,8 +166,8 @@ class InputEventSender(
         val w = viewW.coerceAtLeast(1f)
         val h = viewH.coerceAtLeast(1f)
         
-        val x  = ((rawX / w) * 65535f).toInt().coerceIn(0, 65535).toShort()
-        val y  = ((rawY / h) * 65535f).toInt().coerceIn(0, 65535).toShort()
+        val x = ((rawX / w) * 65535f).toInt().coerceIn(0, 65535)
+        val y = ((rawY / h) * 65535f).toInt().coerceIn(0, 65535)
         val pr = (event.getPressure(pointerIndex) * 65535f).toInt().coerceIn(0, 65535).toShort()
         val btnState = event.buttonState.toShort()
 
@@ -178,8 +189,8 @@ class InputEventSender(
                 it[5] = action.toByte()
                 it[6] = tool
                 it[7] = contactId
-                writeShort(it, 8, x.toInt())
-                writeShort(it, 10, y.toInt())
+                writeShort(it, 8, x)
+                writeShort(it, 10, y)
                 writeShort(it, 12, pr.toInt())
                 writeShort(it, 14, tiltX)
                 writeShort(it, 16, tiltY)
@@ -197,8 +208,8 @@ class InputEventSender(
                 it[5] = action.toByte()
                 it[6] = tool
                 it[7] = contactId
-                writeShort(it, 8, x.toInt())
-                writeShort(it, 10, y.toInt())
+                writeShort(it, 8, x)
+                writeShort(it, 10, y)
                 writeShort(it, 12, pr.toInt())
                 writeShort(it, 14, 0)
                 writeShort(it, 16, btnState.toInt())

@@ -13,7 +13,9 @@ data class DiscoveredDevice(
     val name: String,
     val ip: String,
     val port: Int,
-    val isUsb: Boolean = false
+    val isUsb: Boolean = false,
+    val encrypted: Boolean = false,
+    val fingerprint: String? = null
 )
 
 class DeviceDiscovery(private val context: Context) {
@@ -98,18 +100,24 @@ class DeviceDiscovery(private val context: Context) {
                                 }
                                 
                                 
+                                var encrypted = false
+                                var fingerprint: String? = null
                                 try {
                                     resolved.attributes?.let { attrs ->
                                         if (attrs.containsKey("fn")) resolvedName = String(attrs["fn"]!!)
                                         else if (attrs.containsKey("model")) resolvedName = String(attrs["model"]!!)
                                         else if (attrs.containsKey("name")) resolvedName = String(attrs["name"]!!)
+                                        encrypted = attrs["encrypted"]?.let { String(it) == "1" } == true
+                                        fingerprint = attrs["fingerprint"]?.let { String(it) }
                                     }
                                 } catch (_: Exception) {}
 
                                 addDevice(DiscoveredDevice(
                                     name = if (resolvedName.isEmpty()) "WiFi Device" else resolvedName,
                                     ip = ip,
-                                    port = resolved.port
+                                    port = resolved.port,
+                                    encrypted = encrypted,
+                                    fingerprint = fingerprint
                                 ))
                             }
                             completer.complete(Unit)
@@ -160,7 +168,11 @@ class DeviceDiscovery(private val context: Context) {
                 val isNewGeneric = isGenericName(newDevice.name)
                 
                 val betterName = if (isExistingGeneric && !isNewGeneric) newDevice.name else existing.name
-                if (betterName != existing.name) devices[index] = existing.copy(name = betterName)
+                devices[index] = existing.copy(
+                    name = betterName,
+                    encrypted = existing.encrypted || newDevice.encrypted,
+                    fingerprint = newDevice.fingerprint ?: existing.fingerprint,
+                )
             } else {
                 devices.add(if (devices.firstOrNull()?.isUsb == true) 1 else 0, newDevice)
             }

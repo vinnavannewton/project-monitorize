@@ -4,13 +4,55 @@ import QtQuick.Layouts
 
 Item {
     id: page
+    property var pendingDevice: null
+    property string setupMessage: ""
+
+    function selectedPort(device) {
+        return displayCombo.currentIndex === 1
+            ? (device.thirdPort || 7114)
+            : (device.port || 7110)
+    }
+
+    function connectDevice(device, code) {
+        backend.connectToHost(
+            device.ip,
+            device.port,
+            device.encrypted === true,
+            device.fingerprint || "",
+            code || ""
+        )
+    }
+
+    function requestConnection(device) {
+        let target = {
+            "ip": device.ip,
+            "port": selectedPort(device),
+            "encrypted": device.encrypted === true,
+            "fingerprint": device.fingerprint || ""
+        }
+        if (displayCombo.currentIndex === 1
+                && device.thirdAvailable === false) {
+            setupMessage = "Third display is not active on this host."
+            return
+        }
+        setupMessage = ""
+        if (target.encrypted
+                && backend.receiverNeedsPairing(target.ip, target.fingerprint)) {
+            pendingDevice = target
+            pairingCodeField.text = ""
+            pairingPopup.open()
+        } else {
+            connectDevice(target, "")
+        }
+    }
 
     Component.onCompleted: {
         backend.startHostDiscovery()
         let rec = backend.loadReceiverSettings()
         if (rec) {
             manualIpField.text = rec["manual_ip"] || ""
-            manualPortField.text = rec["manual_port"] || "7110"
+            displayCombo.currentIndex = (rec["manual_port"] || "7110") === "7114" ? 1 : 0
+            encryptionCheck.checked = rec["use_encryption"] !== false
         }
     }
 
@@ -24,6 +66,17 @@ Item {
             let devs = backend.discoveredDevices
             deviceRepeater.model = null
             deviceRepeater.model = devs
+        }
+        function onReceiverPairingRequired(host, port, fingerprint) {
+            page.setupMessage = "Saved authorization was rejected. Enter a new pairing code."
+            pendingDevice = {
+                "ip": host,
+                "port": port,
+                "encrypted": true,
+                "fingerprint": fingerprint
+            }
+            pairingCodeField.text = ""
+            pairingPopup.open()
         }
     }
 
@@ -82,7 +135,7 @@ Item {
         }
 
         Text {
-            text: "Connect to another PC running Monitorize to use this laptop as a second screen"
+            text: "Connect this laptop to one of the host's virtual displays"
             font.pixelSize: 13
             color: theme.textSecondary
             wrapMode: Text.Wrap
@@ -157,7 +210,9 @@ Item {
                                     color: theme.cardTextPrimary
                                 }
                                 Text {
-                                    text: (modelData.ip || "") + (modelData.port ? ":" + modelData.port : "")
+                                    text: (modelData.ip || "")
+                                        + "  •  Second display"
+                                        + (modelData.thirdAvailable ? "  •  Third display available" : "")
                                     font.pixelSize: 12
                                     color: theme.cardTextMuted
                                 }
@@ -175,7 +230,7 @@ Item {
                                 Text {
                                     id: badgeText
                                     anchors.centerIn: parent
-                                    text: "wifi"
+                                    text: modelData.encrypted === true ? "encrypted" : "wifi"
                                     font.pixelSize: 10
                                     font.weight: Font.ExtraBold
                                     color: theme.accent
@@ -188,7 +243,7 @@ Item {
                             anchors.fill: parent
                             hoverEnabled: true
                             onClicked: {
-                                backend.connectToHost(modelData.ip, modelData.port || 7110)
+                                page.requestConnection(modelData)
                             }
                         }
                     }
@@ -214,26 +269,40 @@ Item {
             spacing: 12
             Layout.fillWidth: true
 
+            Text {
+                text: "Receive:"
+                color: theme.cardTextSecondary
+                font.pixelSize: 13
+            }
+
+            CustomComboBox {
+                id: displayCombo
+                model: ["Second display", "Third display"]
+                Layout.preferredWidth: 180
+                onActivated: backend.saveReceiverSettings(
+                    manualIpField.text.trim(),
+                    currentIndex === 1 ? "7114" : "7110",
+                    encryptionCheck.checked
+                )
+            }
+
+            Item { Layout.fillWidth: true }
+        }
+
+        RowLayout {
+            spacing: 12
+            Layout.fillWidth: true
+
             CustomTextField {
                 id: manualIpField
                 placeholderText: "Enter host IP address"
                 Layout.fillWidth: true
                 onTextEdited: {
-                    backend.saveReceiverSettings(text.trim(), manualPortField.text.trim())
-                }
-                onAccepted: {
-                    connectButton.clicked()
-                }
-            }
-
-            CustomTextField {
-                id: manualPortField
-                placeholderText: "Port"
-                text: "7110"
-                implicitWidth: 80
-                validator: IntValidator { bottom: 1024; top: 65535 }
-                onTextEdited: {
-                    backend.saveReceiverSettings(manualIpField.text.trim(), text.trim())
+                    backend.saveReceiverSettings(
+                        text.trim(),
+                        displayCombo.currentIndex === 1 ? "7114" : "7110",
+                        encryptionCheck.checked
+                    )
                 }
                 onAccepted: {
                     connectButton.clicked()
@@ -248,12 +317,40 @@ Item {
                 onClicked: {
                     if (manualIpField.text.trim() !== "") {
                         let ip = manualIpField.text.trim()
-                        let p = parseInt(manualPortField.text.trim()) || 7110
-                        backend.saveReceiverSettings(ip, manualPortField.text.trim())
-                        backend.connectToHost(ip, p)
+                        let p = displayCombo.currentIndex === 1 ? 7114 : 7110
+                        backend.saveReceiverSettings(ip, p.toString(), encryptionCheck.checked)
+                        page.requestConnection({
+                            "ip": ip,
+                            "port": 7110,
+                            "thirdPort": 7114,
+                            "encrypted": encryptionCheck.checked,
+                            "fingerprint": "",
+                            "thirdAvailable": true
+                        })
                     }
                 }
             }
+        }
+
+        CustomCheckBox {
+            id: encryptionCheck
+            text: "Use encryption"
+            checked: true
+            onCheckedChanged: backend.saveReceiverSettings(
+                manualIpField.text.trim(),
+                displayCombo.currentIndex === 1 ? "7114" : "7110",
+                checked
+            )
+        }
+
+        Text {
+            id: backendStatus
+            text: page.setupMessage !== "" ? page.setupMessage : backend.receiverStatus
+            color: text.toLowerCase().includes("failed") || text.toLowerCase().includes("not active")
+                ? "#fca5a5" : theme.textMuted
+            font.pixelSize: 12
+            wrapMode: Text.Wrap
+            Layout.fillWidth: true
         }
 
         // Bottom Navigation
@@ -278,6 +375,59 @@ Item {
                 font.weight: Font.Bold
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
+            }
+        }
+    }
+
+    Popup {
+        id: pairingPopup
+        modal: true
+        anchors.centerIn: parent
+        width: 360
+        height: 190
+
+        background: Rectangle {
+            color: theme.surface
+            border.color: theme.border
+            radius: theme.cardRadius
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 20
+            spacing: 12
+
+            Text {
+                text: "Enter the pairing code shown on the host"
+                color: theme.cardTextPrimary
+                font.weight: Font.Bold
+            }
+
+            CustomTextField {
+                id: pairingCodeField
+                placeholderText: "6-digit code"
+                maximumLength: 6
+                validator: IntValidator { bottom: 0; top: 999999 }
+                Layout.fillWidth: true
+            }
+
+            RowLayout {
+                Layout.alignment: Qt.AlignRight
+                Button {
+                    text: "Cancel"
+                    onClicked: {
+                        pairingPopup.close()
+                        page.pendingDevice = null
+                    }
+                }
+                CustomButton {
+                    text: "Pair"
+                    enabled: pairingCodeField.text.length === 6
+                    onClicked: {
+                        pairingPopup.close()
+                        page.connectDevice(page.pendingDevice, pairingCodeField.text)
+                    }
+                }
             }
         }
     }
