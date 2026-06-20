@@ -32,12 +32,14 @@ class UInputBackend:
         self.max_x = geometry.screen_w
         self.max_y = geometry.screen_h
         self.target = (0.0, 0.0, float(self.max_x), float(self.max_y))
+        self.rotation = 0
 
     def setup(self, stylus_features=False):
         if not evdev:
             raise RuntimeError("python-evdev not installed — uinput backend unavailable")
         self.max_x, self.max_y, x, y, width, height = self.geometry.uinput_bounds()
         self.target = x, y, width, height
+        self.rotation = self.geometry.rotation()
         direct = [ecodes.INPUT_PROP_DIRECT] if hasattr(ecodes, "INPUT_PROP_DIRECT") else None
         self.touch = UInput(
             self._touch_capabilities(),
@@ -106,9 +108,12 @@ class UInputBackend:
 
     def _coords(self, x, y):
         tx, ty, width, height = self.target
+        nx, ny = x / COORD_MAX, y / COORD_MAX
+        if self.rotation == 90:
+            nx, ny = 1 - ny, nx
         return (
-            max(0, min(self.max_x, round(tx + x / COORD_MAX * width))),
-            max(0, min(self.max_y, round(ty + y / COORD_MAX * height))),
+            max(0, min(self.max_x, round(tx + nx * width))),
+            max(0, min(self.max_y, round(ty + ny * height))),
         )
 
     def inject_touch(self, action, cid, x, y, frame=True):
@@ -192,4 +197,3 @@ class UInputBackend:
                 except Exception:
                     pass
         self.stylus = self.touch = None
-

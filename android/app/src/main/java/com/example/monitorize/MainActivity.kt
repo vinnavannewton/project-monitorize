@@ -118,6 +118,9 @@ class MainActivity : ComponentActivity() {
             var height by remember { mutableIntStateOf(prefs.getInt("height", 800)) }
             var decodedWidth by remember { mutableIntStateOf(width) }
             var decodedHeight by remember { mutableIntStateOf(height) }
+            var manualEncrypted by remember {
+                mutableStateOf(prefs.getBoolean("manual_encrypted", true))
+            }
             
             var selectedDevice by remember { mutableStateOf<DiscoveredDevice?>(null) }
             var disconnectionMessage by remember { mutableStateOf<String?>(
@@ -161,7 +164,8 @@ class MainActivity : ComponentActivity() {
                                         disconnectionMessage = null 
                                     },
                                     onSettingsToggle = { isSettingsOpen = true },
-                                    onStartDiscovery = { discovery.startDiscovery() }
+                                    onStartDiscovery = { discovery.startDiscovery() },
+                                    manualEncrypted = manualEncrypted
                                 )
                             }
                             Screen.Receive -> {
@@ -226,6 +230,11 @@ class MainActivity : ComponentActivity() {
                                 SettingsPanel(
                                     initialWidth = width,
                                     initialHeight = height,
+                                    useEncryption = manualEncrypted,
+                                    onEncryptionChanged = { enabled ->
+                                        manualEncrypted = enabled
+                                        prefs.edit().putBoolean("manual_encrypted", enabled).apply()
+                                    },
                                     onSave = { w, h ->
                                         if (w != width || h != height) {
                                             prefs.edit().putInt("width", w).putInt("height", h).apply()
@@ -456,7 +465,8 @@ fun HomeScreen(
     devices: List<DiscoveredDevice>,
     onDeviceSelected: (DiscoveredDevice) -> Unit,
     onSettingsToggle: () -> Unit,
-    onStartDiscovery: () -> Unit = {}
+    onStartDiscovery: () -> Unit = {},
+    manualEncrypted: Boolean
 ) {
     val configuration = LocalConfiguration.current
     val isTablet = configuration.smallestScreenWidthDp >= 600
@@ -477,6 +487,14 @@ fun HomeScreen(
     val manualRowPadding = if (isLandscapeMobile) 16.dp else 32.dp
     val manualSpacerHeight = if (isLandscapeMobile) 12.dp else 16.dp
     val manualFieldHeight = if (isLandscapeMobile) 48.dp else 56.dp
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val prefs = remember {
+        context.getSharedPreferences(
+            "monitorize_prefs", android.content.Context.MODE_PRIVATE
+        )
+    }
+    var manualIp by remember { mutableStateOf(prefs.getString("manual_ip", "") ?: "") }
+    var manualPort by remember { mutableStateOf(prefs.getString("manual_port", "7110") ?: "7110") }
 
     LaunchedEffect(Unit) {
         onStartDiscovery()
@@ -568,25 +586,7 @@ fun HomeScreen(
                 }
             }
             
-            val context = androidx.compose.ui.platform.LocalContext.current
-            val prefs = remember { context.getSharedPreferences("monitorize_prefs", android.content.Context.MODE_PRIVATE) }
-            var manualIp by remember { mutableStateOf(prefs.getString("manual_ip", "") ?: "") }
-            var manualPort by remember { mutableStateOf(prefs.getString("manual_port", "7110") ?: "7110") }
-            var manualEncrypted by remember { mutableStateOf(prefs.getBoolean("manual_encrypted", true)) }
             Spacer(modifier = Modifier.height(manualSpacerHeight))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Checkbox(
-                    checked = manualEncrypted,
-                    onCheckedChange = {
-                        manualEncrypted = it
-                        prefs.edit().putBoolean("manual_encrypted", it).apply()
-                    }
-                )
-                Text("Use encryption", color = TextSecondary)
-            }
             Row(
                 modifier = Modifier.fillMaxWidth().padding(bottom = manualRowPadding),
                 verticalAlignment = Alignment.CenterVertically
@@ -756,6 +756,8 @@ private data class SettingsMetrics(
 fun SettingsPanel(
     initialWidth: Int,
     initialHeight: Int,
+    useEncryption: Boolean,
+    onEncryptionChanged: (Boolean) -> Unit,
     onSave: (Int, Int) -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -869,6 +871,25 @@ fun SettingsPanel(
                     )
                 )
             }
+        }
+
+        Spacer(modifier = Modifier.height(spacingHeight))
+
+        Text("Connection", fontSize = titleSize, fontWeight = FontWeight.Bold, color = Color.White)
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .clickable { onEncryptionChanged(!useEncryption) }
+                .padding(end = 12.dp)
+        ) {
+            Checkbox(
+                checked = useEncryption,
+                onCheckedChange = onEncryptionChanged
+            )
+            Text("Use encryption", color = TextSecondary)
         }
 
         Spacer(modifier = Modifier.height(spacingHeight))

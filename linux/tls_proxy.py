@@ -128,6 +128,9 @@ class Proxy:
             backend.settimeout(None)
             client.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
             backend.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            if backend_port == 7111:
+                client.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4096)
+                backend.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 4096)
             threading.Thread(target=_pipe, args=(client, backend), daemon=True).start()
             _pipe(backend, client)
         except (OSError, ValueError, ssl.SSLError) as exc:

@@ -13,6 +13,8 @@ log = logging.getLogger("TouchDaemon")
 
 def handle_client(client, addr, dispatcher, shutdown):
     log.info("Android connected from %s", addr)
+    client.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+    client.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4096)
     buffer = bytearray()
     try:
         while not shutdown.is_set():
@@ -70,6 +72,7 @@ def run_tcp_server(dispatcher, shutdown, port=7111):
 
 def run_udp_server(dispatcher, shutdown, geometry, port=7113):
     server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4096)
     try:
         server.bind(("0.0.0.0", port))
     except OSError as exc:
@@ -92,4 +95,3 @@ def run_udp_server(dispatcher, shutdown, geometry, port=7113):
             if not shutdown.is_set():
                 log.error("UDP receive error: %s", exc)
     server.close()
-

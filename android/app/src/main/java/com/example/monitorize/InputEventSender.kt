@@ -6,8 +6,9 @@ import java.net.Socket
 import java.net.DatagramSocket
 import java.net.DatagramPacket
 import java.net.InetAddress
+import java.util.ArrayDeque
+import java.util.concurrent.Executors
 import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import kotlin.math.cos
 import kotlin.math.roundToInt
@@ -41,7 +42,42 @@ class InputEventSender(
     private var udpSocket: DatagramSocket? = null
     private var out: OutputStream? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private val sendChannel = Channel<ByteArray>(capacity = 256, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+    private val sendDispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
+    private val sendScope = CoroutineScope(sendDispatcher + SupervisorJob())
+    private val pendingFrames = ArrayDeque<ByteArray>()
+    private val sendWake = Channel<Unit>(Channel.CONFLATED)
+
+    private fun queueFrame(frame: ByteArray) {
+        synchronized(pendingFrames) {
+            val action = frame[5].toInt()
+            if (action == 1 || action == 3) {
+                val iterator = pendingFrames.iterator()
+                while (iterator.hasNext()) {
+                    val queued = iterator.next()
+                    if (queued[4] == frame[4] && queued[7] == frame[7] &&
+                        (queued[5].toInt() == 1 || queued[5].toInt() == 3)
+                    ) {
+                        iterator.remove()
+                    }
+                }
+            }
+            pendingFrames.addLast(frame)
+        }
+        sendWake.trySend(Unit)
+    }
+
+    private fun nextFrame(): ByteArray? = synchronized(pendingFrames) {
+        if (pendingFrames.isEmpty()) null else pendingFrames.removeFirst()
+    }
+
+    private suspend fun sendQueued(send: (ByteArray) -> Unit) {
+        for (ignored in sendWake) {
+            while (true) {
+                val frame = nextFrame() ?: break
+                send(frame)
+            }
+        }
+    }
 
     fun start() {
         if (hostIp.isNullOrEmpty() || encrypted) {
@@ -60,7 +96,8 @@ class InputEventSender(
                             Socket(HOST, portTcp)
                         }
                         s.tcpNoDelay = true
-                        s.sendBufferSize = 64 * 1024
+                        s.sendBufferSize = 4 * 1024
+                        try { s.trafficClass = 0xB8 } catch (_: Exception) {}
                         socket = s
                         out = s.getOutputStream()
                         android.util.Log.i("InputEventSender", "Secure input connected")
@@ -83,13 +120,13 @@ class InputEventSender(
                     }
                 }
             }
-            scope.launch {
-                for (frame in sendChannel) {
+            sendScope.launch {
+                android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_DISPLAY)
+                sendQueued { frame ->
                     val currentOut = out
                     if (currentOut != null) {
                         try {
                             currentOut.write(frame)
-                            currentOut.flush()
                         } catch (e: Exception) {
                             out = null
                             try { socket?.close() } catch (_: Exception) {}
@@ -99,15 +136,18 @@ class InputEventSender(
                 }
             }
         } else {
-            scope.launch {
+            sendScope.launch {
+                android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_DISPLAY)
                 try {
                     val u = DatagramSocket()
+                    u.sendBufferSize = 4 * 1024
+                    try { u.trafficClass = 0xB8 } catch (_: Exception) {}
                     val addr = InetAddress.getByName(hostIp)
                     udpSocket = u
                     android.util.Log.i("InputEventSender", "UDP touch ready for $hostIp:$portUdp")
-                    for (frame in sendChannel) {
+                    sendQueued { frame ->
                         val packet = DatagramPacket(frame, frame.size, addr, portUdp)
-                        udpSocket?.send(packet)
+                        u.send(packet)
                     }
                 } catch (e: Exception) {
                     android.util.Log.e("InputEventSender", "UDP error", e)
@@ -216,7 +256,7 @@ class InputEventSender(
             }
         }
 
-        sendChannel.trySend(frame)
+        queueFrame(frame)
     }
 
     private fun penFlags(event: MotionEvent, forceCanceled: Boolean): Int {
@@ -250,6 +290,8 @@ class InputEventSender(
 
     fun stop() {
         scope.cancel()
+        sendScope.cancel()
+        sendDispatcher.close()
         try { socket?.close() } catch (_: Exception) {}
         try { udpSocket?.close() } catch (_: Exception) {}
         socket = null

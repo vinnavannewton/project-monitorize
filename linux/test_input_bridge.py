@@ -3,6 +3,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from input_bridge.dispatcher import InputDispatcher
+from input_bridge.uinput_backend import UInputBackend
 from input_bridge.protocol import (
     ACTION_DOWN,
     ACTION_HOVER,
@@ -86,6 +87,35 @@ class DispatcherTest(unittest.TestCase):
     def test_malformed_packet_is_rejected(self):
         dispatcher = InputDispatcher(Mock())
         self.assertFalse(dispatcher.dispatch_packet(PKT_TOUCH, b"x" * (PAYLOAD_SIZE - 1)))
+
+
+class UInputCoordinatesTest(unittest.TestCase):
+    def backend(self):
+        geometry = Mock(screen_w=1600, screen_h=1000)
+        backend = UInputBackend(geometry, Mock())
+        backend.max_x = 1600
+        backend.max_y = 1000
+        backend.target = (0, 0, 1600, 1000)
+        return backend
+
+    def test_surface_coordinates_are_not_rotated_again(self):
+        backend = self.backend()
+        self.assertEqual(backend._coords(0, 0), (0, 0))
+        self.assertEqual(backend._coords(65535, 65535), (1600, 1000))
+        self.assertEqual(backend._coords(32768, 32768), (800, 500))
+
+    def test_right_rotated_output_gets_clockwise_correction(self):
+        backend = self.backend()
+        backend.rotation = 90
+        self.assertEqual(backend._coords(0, 0), (1600, 0))
+        self.assertEqual(backend._coords(65535, 0), (1600, 1000))
+        self.assertEqual(backend._coords(0, 65535), (0, 0))
+
+    def test_coordinate_hot_path_does_not_query_compositor(self):
+        backend = self.backend()
+        backend._coords(100, 200)
+        backend._coords(300, 400)
+        backend.geometry.rotation.assert_not_called()
 
 
 if __name__ == "__main__":

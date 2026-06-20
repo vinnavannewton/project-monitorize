@@ -57,6 +57,20 @@ class Geometry:
                 self._cache = (0.0, 0.0, float(self.screen_w), float(self.screen_h))
         return self._cache
 
+    def rotation(self):
+        if self.de == "kde":
+            outputs = json_command(["kscreen-doctor", "-j"]).get("outputs", [])
+            output = next(
+                (item for item in outputs if item.get("name") == "Virtual-TabletDisplay"),
+                None,
+            )
+            value = output.get("rotation", 1) if output else 1
+            return {
+                1: 0, 2: 270, 4: 180, 8: 90,
+                "None": 0, "Left": 270, "Inverted": 180, "Right": 90,
+            }.get(value, 0)
+        return 0
+
     def _fallback_rect(self):
         return (
             self._rect_hyprland()
