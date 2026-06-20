@@ -131,3 +131,6 @@ gradle/wrapper/gradle-wrapper.jar
 # Gemini / AI tool caches
 .gemini/
 skills-lock.json
+.agents/
+.claude/
+.codex/
