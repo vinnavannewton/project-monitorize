@@ -3,9 +3,8 @@ touch_daemon.py — Monitorize Wayland touch injector.
 
 KDE / GNOME: uses libei via snegg + XDG RemoteDesktop portal by default,
              or uinput-only when --stylus-features is enabled.
-Hyprland:    uses evdev/uinput (kernel-level virtual touchscreen),
-             because xdg-desktop-portal-hyprland does NOT implement
-             the RemoteDesktop portal.
+Hyprland/Sway: use evdev/uinput because their portal backends do not implement
+               the RemoteDesktop portal.
 
 Usage:
   python3 touch_daemon.py [width] [height] [--wifi] [--stylus-features] [--stylus-only] [--debug]
@@ -15,6 +14,8 @@ Pass --debug for full verbose output (recommended when diagnosing touch issues).
 """
 
 import sys, os, select, struct, socket, signal, logging, threading, time, ctypes
+import json
+import subprocess
 from typing import Optional
 
 _DEBUG = "--debug" in sys.argv
@@ -161,13 +162,16 @@ def _dispatch_touch_packet(action: int, cid: int, nx: int, ny: int, frame: bool 
 
 
 def _detect_de() -> str:
-    """Detect desktop environment. Returns 'kde', 'gnome', 'hyprland', or 'unknown'."""
+    """Detect desktop environment."""
     hypr = os.environ.get("HYPRLAND_INSTANCE_SIGNATURE", "")
+    sway = os.environ.get("SWAYSOCK", "")
     xdg  = os.environ.get("XDG_CURRENT_DESKTOP", "").lower()
     dsess = os.environ.get("DESKTOP_SESSION", "").lower()
     combined = xdg + " " + dsess
     if hypr or "hyprland" in combined:
         return "hyprland"
+    if sway or "sway" in combined:
+        return "sway"
     if "kde" in combined:
         return "kde"
     if "gnome" in combined:
@@ -180,12 +184,27 @@ log.info("Detected DE: %s", _DETECTED_DE)
 
 _virtual_monitor_cache = None
 
+
+def _json_command(args):
+    result = subprocess.run(args, capture_output=True, text=True)
+    return json.loads(result.stdout) if result.returncode == 0 else []
+
+
+def _headless_output(outputs):
+    return next(
+        (
+            output for output in outputs
+            if output.get("name", "").startswith("HEADLESS")
+            or output.get("name", "").lower().startswith("virtual-tabletdisplay")
+        ),
+        None,
+    )
+
+
 def _get_virtual_monitor_rect_kde() -> tuple[float, float, float, float]:
     """Return (x, y, width, height) of Virtual-TabletDisplay from kscreen-doctor."""
     try:
-        import subprocess, json
-        res = subprocess.run(["kscreen-doctor", "-j"], capture_output=True, text=True)
-        data = json.loads(res.stdout)
+        data = _json_command(["kscreen-doctor", "-j"])
         
         for output in data.get("outputs", []):
             if output.get("name") == "Virtual-TabletDisplay":
@@ -209,25 +228,44 @@ def _get_virtual_monitor_rect_kde() -> tuple[float, float, float, float]:
 def _get_virtual_monitor_rect_hyprland() -> tuple[float, float, float, float]:
     """Return (x, y, width, height) of the headless virtual monitor from hyprctl."""
     try:
-        import subprocess, json
-        res = subprocess.run(["hyprctl", "monitors", "-j"], capture_output=True, text=True)
-        monitors = json.loads(res.stdout)
-        for mon in monitors:
-            name = mon.get("name", "")
-            
-            
-            if name.startswith("HEADLESS") or name.lower().startswith("virtual-tabletdisplay"):
-                x = float(mon.get("x", 0))
-                y = float(mon.get("y", 0))
-                w = float(mon.get("width", SCREEN_W))
-                h = float(mon.get("height", SCREEN_H))
-                scale = float(mon.get("scale", 1.0))
-                
-                log.info("Found Hyprland headless monitor %s at (%.0f, %.0f) %dx%d scale=%.1f",
-                         name, x, y, int(w), int(h), scale)
-                return (x, y, w / scale, h / scale)
+        monitor = _headless_output(_json_command(["hyprctl", "monitors", "-j"]))
+        if monitor:
+            x = float(monitor.get("x", 0))
+            y = float(monitor.get("y", 0))
+            w = float(monitor.get("width", SCREEN_W))
+            h = float(monitor.get("height", SCREEN_H))
+            scale = float(monitor.get("scale", 1.0))
+            log.info(
+                "Found Hyprland headless monitor %s at (%.0f, %.0f) %dx%d scale=%.1f",
+                monitor.get("name", ""), x, y, int(w), int(h), scale,
+            )
+            return (x, y, w / scale, h / scale)
     except Exception as e:
         log.warning("Failed to query hyprctl monitors: %s", e)
+    return None
+
+def _get_virtual_monitor_rect_sway() -> tuple[float, float, float, float]:
+    try:
+        output_name = os.environ.get("MONITORIZE_OUTPUT", "")
+        outputs = _json_command(["swaymsg", "-t", "get_outputs", "-r"])
+        target = next(
+            (
+                output for output in outputs
+                if output.get("name") == output_name
+                or (not output_name and output.get("name", "").startswith("HEADLESS"))
+            ),
+            None,
+        )
+        if target:
+            rect = target.get("rect", {})
+            return (
+                float(rect.get("x", 0)),
+                float(rect.get("y", 0)),
+                float(rect.get("width", SCREEN_W)),
+                float(rect.get("height", SCREEN_H)),
+            )
+    except Exception as e:
+        log.warning("Failed to query Sway outputs: %s", e)
     return None
 
 def _get_virtual_monitor_rect_gnome() -> tuple[float, float, float, float]:
@@ -321,6 +359,8 @@ def _get_virtual_monitor_rect() -> tuple[float, float, float, float]:
 
     if _DETECTED_DE == "hyprland":
         result = _get_virtual_monitor_rect_hyprland()
+    elif _DETECTED_DE == "sway":
+        result = _get_virtual_monitor_rect_sway()
     elif _DETECTED_DE == "kde":
         result = _get_virtual_monitor_rect_kde()
     elif _DETECTED_DE == "gnome":
@@ -328,6 +368,7 @@ def _get_virtual_monitor_rect() -> tuple[float, float, float, float]:
     else:
         
         result = (_get_virtual_monitor_rect_hyprland()
+                  or _get_virtual_monitor_rect_sway()
                   or _get_virtual_monitor_rect_kde()
                   or _get_virtual_monitor_rect_gnome())
 
@@ -381,14 +422,8 @@ def _uinput_coords(nx: int, ny: int) -> tuple[int, int]:
 
 def _get_hyprland_uinput_monitor_name() -> Optional[str]:
     try:
-        import subprocess, json
-        res = subprocess.run(["hyprctl", "monitors", "-j"], capture_output=True, text=True)
-        if res.returncode == 0:
-            monitors = json.loads(res.stdout)
-            for mon in monitors:
-                name = mon.get("name", "")
-                if name.startswith("HEADLESS") or name.lower().startswith("virtual-tabletdisplay"):
-                    return name
+        monitor = _headless_output(_json_command(["hyprctl", "monitors", "-j"]))
+        return monitor.get("name") if monitor else None
     except Exception as e:
         log.warning("Failed to query monitor name for uinput mapping: %s", e)
     return None
@@ -397,7 +432,6 @@ def _map_hyprland_uinput_device(device_name: str, monitor_name: Optional[str]) -
     if _DETECTED_DE != "hyprland":
         return
     try:
-        import subprocess
         output = monitor_name or "HEADLESS-1"
         device_key = device_name.lower()
         log.info("Mapping uinput device '%s' to monitor '%s'", device_key, output)
@@ -409,6 +443,43 @@ def _map_hyprland_uinput_device(device_name: str, monitor_name: Optional[str]) -
         log.info("hyprctl mapping output: stdout=%r stderr=%r", res.stdout, res.stderr)
     except Exception as e:
         log.warning("Failed to map uinput device '%s': %s", device_name, e)
+
+def _map_sway_uinput_devices(device_names: list[str]) -> bool:
+    if _DETECTED_DE != "sway":
+        return False
+    output = os.environ.get("MONITORIZE_OUTPUT", "")
+    if not output:
+        log.error("MONITORIZE_OUTPUT is missing; refusing to map Sway input")
+        return False
+    try:
+        deadline = time.monotonic() + 5
+        normalize = lambda value: value.lower().replace("-", " ").replace("_", " ")
+        pending = {normalize(name) for name in device_names}
+        while pending and time.monotonic() < deadline:
+            inputs = _json_command(["swaymsg", "-t", "get_inputs", "-r"])
+            for item in inputs:
+                name = normalize(item.get("name", ""))
+                match = next((wanted for wanted in pending if wanted == name), None)
+                if not match:
+                    continue
+                identifier = item.get("identifier", "")
+                mapped = subprocess.run(
+                    ["swaymsg", "input", identifier, "map_to_output", output],
+                    capture_output=True, text=True,
+                )
+                if mapped.returncode == 0:
+                    pending.remove(match)
+                else:
+                    log.error("Sway input mapping failed: %s", mapped.stderr.strip())
+            if pending:
+                time.sleep(0.2)
+        if pending:
+            log.error("Sway did not expose uinput devices: %s", ", ".join(sorted(pending)))
+            return False
+        return True
+    except Exception as e:
+        log.error("Failed to map Sway uinput devices: %s", e)
+        return False
 
 def _map_kde_uinput_devices_to_output(devices: list) -> set[str]:
     if _DETECTED_DE != "kde":
@@ -973,6 +1044,14 @@ def _setup_uinput(stylus_features: bool = False) -> None:
             _map_hyprland_uinput_device("monitorize-touch", monitor_name)
             if stylus_features:
                 _map_hyprland_uinput_device("monitorize-stylus", monitor_name)
+        elif _DETECTED_DE == "sway":
+            names = ["monitorize-touch"]
+            if stylus_features:
+                names.append("monitorize-stylus")
+            if not _map_sway_uinput_devices(names):
+                _close_uinput_devices()
+                _shutdown.set()
+                return
 
         log.info("Waiting 2.0 seconds for compositor to detect and configure uinput devices...")
         time.sleep(2.0)
@@ -1253,16 +1332,17 @@ def main():
     signal.signal(signal.SIGINT,  _cleanup)
     signal.signal(signal.SIGTERM, _cleanup)
 
-    stylus_features = _STYLUS_FEATURES and _DETECTED_DE in ("kde", "gnome", "hyprland")
+    stylus_features = _STYLUS_FEATURES and _DETECTED_DE in ("kde", "gnome", "hyprland", "sway")
     log.info(
         "touch_daemon.py — screen %dx%d  DE=%s  stylus_features=%s",
         SCREEN_W, SCREEN_H, _DETECTED_DE, stylus_features
     )
 
-    if _DETECTED_DE == "hyprland":
+    if _DETECTED_DE in ("hyprland", "sway"):
         log.info(
-            "Using uinput backend%s (Hyprland does not support RemoteDesktop portal)",
+            "Using uinput backend%s (%s portal does not support RemoteDesktop)",
             " with stylus features" if stylus_features else ""
+            , _DETECTED_DE
         )
         _inject_fn = _inject_touch_uinput
         _pen_inject_fn = _inject_stylus_uinput if stylus_features else _inject_touch_uinput

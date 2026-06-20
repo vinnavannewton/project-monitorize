@@ -43,6 +43,13 @@ import androidx.compose.ui.zIndex
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.example.monitorize.ui.theme.BreezeAccent as AccentIndigo
+import com.example.monitorize.ui.theme.BreezeBackground as BackgroundDark
+import com.example.monitorize.ui.theme.BreezeBorder as BorderDark
+import com.example.monitorize.ui.theme.BreezeButton as GreenAccent
+import com.example.monitorize.ui.theme.BreezeSurface as CardDark
+import com.example.monitorize.ui.theme.BreezeTextMuted as TextMuted
+import com.example.monitorize.ui.theme.BreezeTextSecondary as TextSecondary
 import com.example.monitorize.ui.theme.MonitorizeTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -53,15 +60,6 @@ import kotlinx.coroutines.launch
 
 
 
-
-val BackgroundDark = Color(0xFF1B1E24)
-val CardDark       = Color(0xFF232831)
-val BorderDark     = Color(0xFF343B46)
-val AccentIndigo   = Color(0xFF3DAEE9)
-val GreenAccent    = Color(0xFF2F6F95)
-val TextPrimary    = Color(0xFFEFF0F1)
-val TextSecondary  = Color(0xFFC7D0D9)
-val TextMuted      = Color(0xFF8F9AA6)
 
 enum class Screen { Home, Receive }
 
@@ -820,33 +818,19 @@ fun SettingsPanel(
         Text("Resolution Settings", fontSize = titleSize, fontWeight = FontWeight.Bold, color = Color.White)
         Spacer(modifier = Modifier.height(spacingHeight))
 
-        ResolutionCard(
-            title = "Native",
-            subtitle = "${nativeW} × ${nativeH} (${if (isTablet) "Tablet" else "Phone"} Screen)",
-            isSelected = selectedOption == "native",
-            onClick = { selectedOption = "native" }
-        )
-
-        ResolutionCard(
-            title = "Medium",
-            subtitle = "${mediumW} × ${mediumH} (0.75x Scale)",
-            isSelected = selectedOption == "medium",
-            onClick = { selectedOption = "medium" }
-        )
-
-        ResolutionCard(
-            title = "Low",
-            subtitle = "${lowW} × ${lowH} (0.5x Scale)",
-            isSelected = selectedOption == "low",
-            onClick = { selectedOption = "low" }
-        )
-
-        ResolutionCard(
-            title = "Custom",
-            subtitle = "Manually enter dimensions",
-            isSelected = selectedOption == "custom",
-            onClick = { selectedOption = "custom" }
-        )
+        listOf(
+            Triple("Native", "${nativeW} × ${nativeH} (${if (isTablet) "Tablet" else "Phone"} Screen)", "native"),
+            Triple("Medium", "${mediumW} × ${mediumH} (0.75x Scale)", "medium"),
+            Triple("Low", "${lowW} × ${lowH} (0.5x Scale)", "low"),
+            Triple("Custom", "Manually enter dimensions", "custom"),
+        ).forEach { (title, subtitle, option) ->
+            ResolutionCard(
+                title = title,
+                subtitle = subtitle,
+                isSelected = selectedOption == option,
+                onClick = { selectedOption = option },
+            )
+        }
 
         AnimatedVisibility(visible = selectedOption == "custom") {
             Column {

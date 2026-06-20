@@ -28,7 +28,7 @@ class DeviceDiscovery(private val context: Context) {
     private val DEFAULT_PORT = 7110
 
     val devices = mutableStateListOf<DiscoveredDevice>()
-    private val discoveryListeners = mutableListOf<NsdManager.DiscoveryListener>()
+    private var discoveryListener: NsdManager.DiscoveryListener? = null
     private var resolverJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -145,10 +145,11 @@ class DeviceDiscovery(private val context: Context) {
             }
             override fun onServiceLost(si: NsdServiceInfo) {}
         }
-        discoveryListeners.add(listener)
+        discoveryListener = listener
         try {
             nsdManager.discoverServices(type, NsdManager.PROTOCOL_DNS_SD, listener)
         } catch (e: Exception) {
+            discoveryListener = null
             Log.e(TAG, "Discovery launch error for $type", e)
         }
     }
@@ -189,8 +190,10 @@ class DeviceDiscovery(private val context: Context) {
         isDiscovering = false
         harvestJob?.cancel()
         harvestJob = null
-        discoveryListeners.forEach { try { nsdManager.stopServiceDiscovery(it) } catch (_: Exception) {} }
-        discoveryListeners.clear()
+        discoveryListener?.let {
+            try { nsdManager.stopServiceDiscovery(it) } catch (_: Exception) {}
+        }
+        discoveryListener = null
         resolverJob?.cancel()
         resolveChannel?.close()
         resolveChannel = null

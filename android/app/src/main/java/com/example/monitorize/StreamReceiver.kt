@@ -35,7 +35,7 @@ class StreamReceiver(
         Thread({
             android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_DISPLAY)
             try {
-                receiveLoop()
+                receiveLoopWifi(hostIp.takeUnless { it.isNullOrEmpty() } ?: "127.0.0.1")
             } catch (e: Exception) {
                 Log.e(TAG, "receiveLoop crashed", e)
             } finally {
@@ -47,14 +47,6 @@ class StreamReceiver(
                 cleanup()
             }
         }, "MonitorizeReceiver").start()
-    }
-
-    private fun receiveLoop() {
-        if (hostIp.isNullOrEmpty()) {
-            receiveLoopWifi("127.0.0.1")
-        } else {
-            receiveLoopWifi(hostIp)
-        }
     }
 
     private fun receiveLoopWifi(targetIp: String) {

@@ -29,8 +29,96 @@ from gui.settings import (
     load_wifi_settings, save_wifi_settings,
     load_second_display_settings, save_second_display_settings,
     load_receiver_settings, save_receiver_settings,
+    load_sway_output, save_sway_output,
     load_receiver_credentials, save_receiver_credentials, clear_receiver_credentials,
 )
+
+
+def _gst_has_element(name):
+    return shutil.which("gst-inspect-1.0") is not None and subprocess.run(
+        ["gst-inspect-1.0", name], capture_output=True
+    ).returncode == 0
+
+
+def _kill_process_patterns(*patterns):
+    for pattern in patterns:
+        subprocess.run(
+            ["pkill", "-9", "-f", pattern],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+
+def _sway_outputs():
+    try:
+        import json
+        result = subprocess.run(
+            ["swaymsg", "-t", "get_outputs", "-r"],
+            capture_output=True, text=True,
+        )
+        return json.loads(result.stdout) if result.returncode == 0 else []
+    except (OSError, ValueError):
+        return []
+
+
+def _prepare_sway_output(width, height, fps, saved=""):
+    outputs = _sway_outputs()
+    names = {output.get("name") for output in outputs}
+    output_name = ""
+    if saved:
+        subprocess.run(
+            ["swaymsg", "output", saved, "enable"],
+            capture_output=True, text=True,
+        )
+        outputs = _sway_outputs()
+        names = {output.get("name") for output in outputs}
+        if saved in names:
+            output_name = saved
+    if not output_name:
+        created = subprocess.run(
+            ["swaymsg", "create_output"], capture_output=True, text=True
+        )
+        if created.returncode != 0:
+            return "", created.stderr.strip()
+        output_name = next(
+            (
+                output.get("name") for output in _sway_outputs()
+                if output.get("name") not in names
+            ),
+            "",
+        )
+        if not output_name:
+            return "", "Sway created no detectable output."
+
+    right = max(
+        (
+            output.get("rect", {}).get("x", 0)
+            + output.get("rect", {}).get("width", 0)
+            for output in outputs
+            if output.get("active") and output.get("name") != output_name
+        ),
+        default=0,
+    )
+    commands = (
+        ["output", output_name, "enable"],
+        ["output", output_name, "custom_mode", f"{width}x{height}@{fps}Hz"],
+        ["output", output_name, "scale", "1"],
+        ["output", output_name, "pos", str(right), "0"],
+    )
+    for command in commands:
+        result = subprocess.run(
+            ["swaymsg", *command], capture_output=True, text=True
+        )
+        if result.returncode != 0:
+            return "", result.stderr.strip()
+    return output_name, ""
+
+
+def _disable_sway_output(output):
+    return subprocess.run(
+        ["swaymsg", "output", output, "disable"],
+        capture_output=True,
+    ).returncode == 0
 
 
 class MonitorizeWindow(QMainWindow):
@@ -74,12 +162,14 @@ class MonitorizeWindow(QMainWindow):
             self.setWindowIcon(QIcon(app_icon_path))
 
         
-        subprocess.Popen(["pkill", "-9", "-f", "gst-launch-1.0.*port=7110"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        subprocess.Popen(["pkill", "-9", "-f", "gst-launch-1.0.*port=7112"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        subprocess.Popen(["pkill", "-9", "-f", "gst-launch-1.0.*port=7114"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        subprocess.Popen(["pkill", "-9", "-f", "gst-launch-1.0.*port=7115"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        subprocess.Popen(["pkill", "-9", "-f", "Streamer_.*\\.py"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        subprocess.Popen(["pkill", "-9", "-f", "tls_proxy.py"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        _kill_process_patterns(
+            "gst-launch-1.0.*port=7110",
+            "gst-launch-1.0.*port=7112",
+            "gst-launch-1.0.*port=7114",
+            "gst-launch-1.0.*port=7115",
+            "Streamer_.*\\.py",
+            "tls_proxy.py",
+        )
 
         
         detected = detect_desktop_environment()
@@ -133,10 +223,6 @@ class MonitorizeWindow(QMainWindow):
         self._pairing_code = ""
         self._tls_proxy_buffer = ""
 
-        self.initial_headless_monitors = []
-        if self._detected_de == "hyprland":
-            self.initial_headless_monitors = self._get_current_headless_monitors()
-            print(f"[Hyprland] Initial virtual monitors detected: {self.initial_headless_monitors}")
         self.created_headless_monitor = None
 
         self.process_krfb:          QProcess | None = None
@@ -145,9 +231,7 @@ class MonitorizeWindow(QMainWindow):
         self.process_tls_proxy:     QProcess | None = None
         self._gst_pids = set()
 
-        self._proc_adb_dev:  QProcess | None = None
-        self._proc_adb_fwd:  QProcess | None = None
-        self._proc_adb_fwd2:  QProcess | None = None
+        self._proc_adb: QProcess | None = None
 
         self._countdown_timer = QTimer(self)
         self._countdown_timer.setInterval(1000)
@@ -292,9 +376,12 @@ class MonitorizeWindow(QMainWindow):
         self.set_usb_busy(True)
         self.set_usb_status_text("Running adb devices…")
 
-        self._proc_adb_dev = QProcess(self)
-        self._proc_adb_dev.finished.connect(self._adb_devices_done)
-        self._proc_adb_dev.start("adb", ["devices"])
+        self._start_adb(["devices"], self._adb_devices_done)
+
+    def _start_adb(self, args, callback):
+        self._proc_adb = QProcess(self)
+        self._proc_adb.finished.connect(callback)
+        self._proc_adb.start("adb", args)
 
     def _adb_devices_done(self, exit_code, _status):
         if exit_code != 0:
@@ -303,9 +390,7 @@ class MonitorizeWindow(QMainWindow):
             return
 
         self.set_usb_status_text("Setting up reverse proxy tcp:7110 (video)…")
-        self._proc_adb_fwd = QProcess(self)
-        self._proc_adb_fwd.finished.connect(self._adb_forward_done)
-        self._proc_adb_fwd.start("adb", ["reverse", "tcp:7110", "tcp:7112"])
+        self._start_adb(["reverse", "tcp:7110", "tcp:7112"], self._adb_forward_done)
 
     def _adb_forward_done(self, exit_code, _status):
         if exit_code != 0:
@@ -314,9 +399,7 @@ class MonitorizeWindow(QMainWindow):
             return
 
         self.set_usb_status_text("Setting up reverse proxy tcp:7111 (touch)…")
-        self._proc_adb_fwd2 = QProcess(self)
-        self._proc_adb_fwd2.finished.connect(self._adb_forward2_done)
-        self._proc_adb_fwd2.start("adb", ["reverse", "tcp:7111", "tcp:7111"])
+        self._start_adb(["reverse", "tcp:7111", "tcp:7111"], self._adb_forward2_done)
 
     def _adb_forward2_done(self, exit_code, _status):
         if exit_code != 0:
@@ -395,9 +478,11 @@ class MonitorizeWindow(QMainWindow):
     def loadReceiverSettings(self):
         return load_receiver_settings()
 
-    @pyqtSlot(str, str, bool)
-    def saveReceiverSettings(self, ip, port, use_encryption):
-        save_receiver_settings(ip=ip, port=port, use_encryption=use_encryption)
+    @pyqtSlot(str, str, bool, str)
+    def saveReceiverSettings(self, ip, port, use_encryption, decoder):
+        save_receiver_settings(
+            ip=ip, port=port, use_encryption=use_encryption, decoder=decoder
+        )
 
     @pyqtSlot(str, str, result=bool)
     def receiverNeedsPairing(self, host, advertised_fingerprint):
@@ -504,8 +589,11 @@ class MonitorizeWindow(QMainWindow):
         self.discoveredDevicesChanged.emit()
         print(f"[Receiver] Discovered host: {name} ({ip}:{port})")
 
-    @pyqtSlot(str, int, bool, str, str)
-    def connectToHost(self, host_ip, port=7110, encrypted=False, fingerprint="", pairing_code=""):
+    @pyqtSlot(str, int, bool, str, str, str)
+    def connectToHost(
+        self, host_ip, port=7110, encrypted=False, fingerprint="",
+        pairing_code="", decoder="Software",
+    ):
         """Launch the GStreamer receiver pipeline to display the remote stream."""
         self._stopHostDiscoveryInternal()
         self._kill_receiver_proc()
@@ -516,6 +604,28 @@ class MonitorizeWindow(QMainWindow):
         self._receiver_encrypted = encrypted
         self._receiver_fingerprint = fingerprint
         self._receiver_pairing_code = pairing_code
+        self._receiver_decoder = decoder
+        self._receiver_sink = "glimagesink" if _gst_has_element("glimagesink") else "autovideosink"
+        if decoder == "Hardware":
+            hardware_decoder = next((
+                name for name in ("vah264dec", "vaapih264dec")
+                if _gst_has_element(name)
+            ), None)
+            if hardware_decoder is None:
+                self.set_receiver_status(
+                    "Hardware decoder unavailable — install the GStreamer VA-API decoder"
+                )
+                self.receiverLogAppended.emit(
+                    "ERROR: Hardware mode requires vah264dec or vaapih264dec."
+                )
+                return
+            self._receiver_decoder_args = [hardware_decoder]
+            self._receiver_decoder_label = f"VA-API {hardware_decoder}"
+        else:
+            self._receiver_decoder_args = [
+                "avdec_h264", "max-threads=1", "thread-type=slice"
+            ]
+            self._receiver_decoder_label = "Software avdec_h264"
         self._receiver_retry_count = 0
         self._receiver_retry_pending = False
         self._receiver_auth_failed = False
@@ -565,10 +675,17 @@ class MonitorizeWindow(QMainWindow):
 
         args = [
             "-e", "tcpclientsrc", f"host={host_ip}", f"port={port}", "!",
-            "h264parse", "!", "avdec_h264", "!",
-            "queue", "max-size-buffers=2", "leaky=downstream", "!",
-            "videoconvert", "!", "autovideosink", "sync=false",
+            "h264parse", "!",
+            "queue", "max-size-buffers=1", "max-size-time=0",
+            "max-size-bytes=0", "leaky=downstream", "!",
+            *self._receiver_decoder_args, "!",
+            "queue", "max-size-buffers=1", "max-size-time=0",
+            "max-size-bytes=0", "leaky=downstream", "!",
+            self._receiver_sink, "sync=false",
         ]
+        self.receiverLogAppended.emit(
+            f"Decoder: {self._receiver_decoder_label}; sink: {self._receiver_sink}"
+        )
         self.process_receiver.start("gst-launch-1.0", args)
 
     def _on_receiver_started(self):
@@ -764,8 +881,10 @@ class MonitorizeWindow(QMainWindow):
         if self._second_stream_active:
             return
 
-        subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7114"], capture_output=True)
-        subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7115"], capture_output=True)
+        _kill_process_patterns(
+            "gst-launch-1.0.*port=7114",
+            "gst-launch-1.0.*port=7115",
+        )
 
         try:
             clean_res = res.split()[0] if res else ""
@@ -893,23 +1012,16 @@ class MonitorizeWindow(QMainWindow):
 
     def _kill_second_stream_procs(self):
         """Terminate second display processes."""
-        for proc in (self.process_krfb2, self.process_streamer2):
-            if proc is not None and proc.state() != QProcess.ProcessState.NotRunning:
-                proc.terminate()
-                if not proc.waitForFinished(3000):
-                    proc.kill()
+        self._stop_processes(self.process_krfb2, self.process_streamer2)
         self.process_krfb2 = None
         self.process_streamer2 = None
         self._third_stream_ready = False
 
-        for pid in list(self._gst_pids2):
-            try:
-                os.kill(pid, 9)
-            except OSError:
-                pass
-        self._gst_pids2.clear()
-        subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7114"], capture_output=True)
-        subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7115"], capture_output=True)
+        self._kill_tracked_pids(self._gst_pids2)
+        _kill_process_patterns(
+            "gst-launch-1.0.*port=7114",
+            "gst-launch-1.0.*port=7115",
+        )
 
     @pyqtSlot(str, str, str, str, str, bool)
     def startStreaming(self, res, fps, bitrate, display_type, encoder, is_wifi):
@@ -932,6 +1044,7 @@ class MonitorizeWindow(QMainWindow):
         """Prepare the environment, kill stale processes, and trigger
         the streamer launch with desktop-specific virtual-monitor setup."""
         script_dir = LINUX_DIR
+        self._kill_stream_procs()
 
         env = QProcessEnvironment.systemEnvironment()
         env.insert("PYTHONUNBUFFERED", "1")
@@ -957,23 +1070,11 @@ class MonitorizeWindow(QMainWindow):
         if self._wifi_encryption:
             env.insert("MONITORIZE_HOST", "127.0.0.1")
             env.insert("MONITORIZE_PORT", "7112")
-        if self._detected_de in ("kde", "hyprland") and self._selected_display_type == "Extend":
+        if self._detected_de in ("kde", "hyprland", "sway") and self._selected_display_type == "Extend":
             env.insert("MONITORIZE_PRESERVE_SOURCE_SIZE", "1")
 
         self._script_dir = script_dir
         self._env        = env
-
-        
-        for pid in list(self._gst_pids):
-            try:
-                os.kill(pid, 9)
-            except OSError:
-                pass
-        self._gst_pids.clear()
-        subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7110"], capture_output=True)
-        subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7112"], capture_output=True)
-        subprocess.run(["pkill", "-9", "-f", "Streamer_.*\\.py"], capture_output=True)
-        subprocess.run(["pkill", "-9", "-f", "tls_proxy.py"], capture_output=True)
 
         self._cleanup_zeroconf()
 
@@ -986,60 +1087,96 @@ class MonitorizeWindow(QMainWindow):
         
         self.set_is_streaming(True)
 
-        if self._detected_de == "kde":
-            if self._selected_display_type == "Mirror":
-                self.set_streaming_status("Launching streamer (Mirror mode)…")
-                self._launch_streamer()
-            else:
-                self.set_streaming_status("Starting virtual monitor…  5")
-                self.process_krfb = QProcess(self)
-                self.process_krfb.setWorkingDirectory(script_dir)
-                self.process_krfb.setProcessEnvironment(env)
-                self.process_krfb.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
-                self.process_krfb.readyReadStandardOutput.connect(self._read_krfb)
-                self.process_krfb.finished.connect(
-                    lambda code, _: self.append_log("KRFB", f"Process exited (code {code})")
-                )
-                subprocess.run(["killall", "krfb-virtualmonitor"], capture_output=True)
+        if (
+            self._selected_display_type == "Mirror"
+            and self._detected_de in ("kde", "hyprland")
+        ):
+            self.set_streaming_status("Launching streamer (Mirror mode)…")
+            self._launch_streamer()
+        elif self._detected_de == "kde":
+            self.set_streaming_status("Starting virtual monitor…  5")
+            self.process_krfb = QProcess(self)
+            self.process_krfb.setWorkingDirectory(script_dir)
+            self.process_krfb.setProcessEnvironment(env)
+            self.process_krfb.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+            self.process_krfb.readyReadStandardOutput.connect(self._read_krfb)
+            self.process_krfb.finished.connect(
+                lambda code, _: self.append_log("KRFB", f"Process exited (code {code})")
+            )
+            subprocess.run(["killall", "krfb-virtualmonitor"], capture_output=True)
 
-                self._start_krfb(
-                    self.process_krfb,
-                    f"{self._stream_width}x{self._stream_height}",
-                    "TabletDisplay",
-                    5900,
-                )
-                self._countdown = 1
-                self.countdownChanged.emit(self._countdown)
-                self._countdown_timer.start()
+            self._start_krfb(
+                self.process_krfb,
+                f"{self._stream_width}x{self._stream_height}",
+                "TabletDisplay",
+                5900,
+            )
+            self._start_countdown(1)
         elif self._detected_de == "hyprland":
+            self.set_streaming_status("Setting up virtual monitor on Hyprland…")
+            old_monitors = set(self._get_current_headless_monitors())
+            subprocess.run(["hyprctl", "output", "create", "headless"], capture_output=True)
+
+            new_monitors = set(self._get_current_headless_monitors())
+            new_name = next(iter(new_monitors - old_monitors), "HEADLESS-1")
+            self.created_headless_monitor = new_name
+
+            subprocess.run(["hyprctl", "keyword", "monitor", f"{new_name},{self._stream_width}x{self._stream_height}@{self._stream_fps},auto,1"], capture_output=True)
+            subprocess.run(["hyprctl", "eval", f"hl.monitor({{ output = '{new_name}', mode = '{self._stream_width}x{self._stream_height}@{self._stream_fps}', position = 'auto', scale = 1.0 }})"], capture_output=True)
+            print(f"[Hyprland] Created new headless monitor: {new_name} at {self._stream_width}x{self._stream_height}@{self._stream_fps}")
+            self.append_log("STREAMER", f"Created new headless monitor: {new_name} at {self._stream_width}x{self._stream_height}@{self._stream_fps}")
+            self.set_streaming_status("Waiting for virtual monitor to initialize…  2")
+            self._start_countdown(2)
+        elif self._detected_de == "sway":
             if self._selected_display_type == "Mirror":
+                outputs = _sway_outputs()
+                target = next(
+                    (output for output in outputs if output.get("focused")),
+                    next((output for output in outputs if output.get("active")), None),
+                )
+                if not target:
+                    self.set_streaming_status("Sway has no active output to mirror")
+                    self.append_log("STREAMER", "ERROR: No active Sway output found.")
+                    self.set_is_streaming(False)
+                    return
+                self._env.insert("MONITORIZE_OUTPUT", target.get("name", ""))
                 self.set_streaming_status("Launching streamer (Mirror mode)…")
                 self._launch_streamer()
+            elif shutil.which("swaymsg") is None:
+                self.set_streaming_status("Sway support requires swaymsg")
+                self.append_log("STREAMER", "ERROR: swaymsg is not installed.")
+                self.set_is_streaming(False)
             else:
-                self.set_streaming_status("Setting up virtual monitor on Hyprland…")
-                old_monitors = set(self._get_current_headless_monitors())
-                subprocess.run(["hyprctl", "output", "create", "headless"], capture_output=True)
-
-                new_monitors = set(self._get_current_headless_monitors())
-                diff = new_monitors - old_monitors
-                if diff:
-                    new_name = list(diff)[0]
-                else:
-                    new_name = "HEADLESS-1"
+                self.set_streaming_status("Setting up virtual monitor on Sway…")
+                saved = load_sway_output()
+                new_name, error = _prepare_sway_output(
+                    self._stream_width, self._stream_height,
+                    self._stream_fps, saved,
+                )
+                if error:
+                    self.append_log("STREAMER", f"ERROR: {error}")
+                    self.set_streaming_status("Failed to configure Sway virtual output")
+                    self.set_is_streaming(False)
+                    return
+                if new_name != saved:
+                    save_sway_output(new_name)
 
                 self.created_headless_monitor = new_name
-
-                subprocess.run(["hyprctl", "keyword", "monitor", f"{new_name},{self._stream_width}x{self._stream_height}@{self._stream_fps},auto,1"], capture_output=True)
-                subprocess.run(["hyprctl", "eval", f"hl.monitor({{ output = '{new_name}', mode = '{self._stream_width}x{self._stream_height}@{self._stream_fps}', position = 'auto', scale = 1.0 }})"], capture_output=True)
-                print(f"[Hyprland] Created new headless monitor: {new_name} at {self._stream_width}x{self._stream_height}@{self._stream_fps}")
-                self.append_log("STREAMER", f"Created new headless monitor: {new_name} at {self._stream_width}x{self._stream_height}@{self._stream_fps}")
-                self.set_streaming_status("Waiting for virtual monitor to initialize…  2")
-                self._countdown = 2
-                self.countdownChanged.emit(self._countdown)
-                self._countdown_timer.start()
+                self._env.insert("MONITORIZE_OUTPUT", new_name)
+                self.append_log(
+                    "STREAMER",
+                    f"Created Sway output {new_name}: "
+                    f"{self._stream_width}x{self._stream_height}@{self._stream_fps}",
+                )
+                self._start_countdown(2)
         else:
             self.set_streaming_status("Launching streamer…")
             self._launch_streamer()
+
+    def _start_countdown(self, seconds):
+        self._countdown = seconds
+        self.countdownChanged.emit(seconds)
+        self._countdown_timer.start()
 
     def _countdown_tick(self):
         self._countdown -= 1
@@ -1065,6 +1202,7 @@ class MonitorizeWindow(QMainWindow):
             "kde":      "Streamer_kde.py",
             "gnome":    "Streamer_gnome.py",
             "hyprland": "Streamer_hyprland.py",
+            "sway":     "Streamer_hyprland.py",
         }
         script_name = _streamer_map.get(self._detected_de, "Streamer_gnome.py")
         script_path = os.path.join(self._script_dir, script_name)
@@ -1081,7 +1219,7 @@ class MonitorizeWindow(QMainWindow):
         else:
             args.append("usb")
 
-        if self._detected_de == "hyprland":
+        if self._detected_de in ("hyprland", "sway"):
             if getattr(self, "created_headless_monitor", None):
                 args.append(self.created_headless_monitor)
             else:
@@ -1094,11 +1232,11 @@ class MonitorizeWindow(QMainWindow):
         self.process_streamer.start(sys.executable, args)
 
         if self._is_wifi:
-            self._setup_zeroconf()
+            self._update_zeroconf_registration(self._local_ip)
 
         if self._detected_de in ("kde", "gnome"):
             QTimer.singleShot(400, self._launch_input_bridge)
-        elif self._detected_de == "hyprland":
+        elif self._detected_de in ("hyprland", "sway"):
             self._input_bridge_launched = False
             self._streamer_buffer = ""
 
@@ -1132,7 +1270,7 @@ class MonitorizeWindow(QMainWindow):
         touch_enabled = gen.get("enable_touch", True)
         stylus_features_enabled = (
             gen.get("enable_stylus_features", False)
-            and self._detected_de in ("kde", "gnome", "hyprland")
+            and self._detected_de in ("kde", "gnome", "hyprland", "sway")
         )
         if not touch_enabled and not stylus_features_enabled:
             self.append_log("INPUT", "Input is disabled in settings.")
@@ -1160,13 +1298,18 @@ class MonitorizeWindow(QMainWindow):
 
         if "--stylus-features" in args:
             self.set_streaming_status("Stylus input starting via uinput…")
-        elif self._detected_de == "hyprland":
+        elif self._detected_de in ("hyprland", "sway"):
             self.set_streaming_status("Touch service starting via uinput…")
         else:
             self.set_streaming_status("Touch service starting…")
 
     def _on_streamer_finished(self, code, _status):
         self.append_log("STREAMER", f"Process exited (code {code})")
+
+        if self._detected_de == "sway" and code != 0 and self.isStreaming:
+            self.set_streaming_status(
+                "Sway capture failed — check xdg-desktop-portal-wlr"
+            )
 
         if (self._detected_de == "gnome" and code != 0 and self.isStreaming):
             self.append_log("STREAMER", "↺  GNOME streamer crashed — auto-restarting in 2s…")
@@ -1181,14 +1324,11 @@ class MonitorizeWindow(QMainWindow):
     def _gnome_restart_streamer(self):
         if not self.isStreaming:
             return
-        for pid in list(self._gst_pids):
-            try:
-                os.kill(pid, 9)
-            except OSError:
-                pass
-        self._gst_pids.clear()
-        subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7110"], capture_output=True)
-        subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7112"], capture_output=True)
+        self._kill_tracked_pids(self._gst_pids)
+        _kill_process_patterns(
+            "gst-launch-1.0.*port=7110",
+            "gst-launch-1.0.*port=7112",
+        )
         self._launch_streamer()
         self.set_streaming_status("Status: Streaming…  (restarted)")
 
@@ -1214,7 +1354,7 @@ class MonitorizeWindow(QMainWindow):
                 except Exception:
                     pass
 
-        if self._detected_de == "hyprland":
+        if self._detected_de in ("hyprland", "sway"):
             if not getattr(self, "_input_bridge_launched", False):
                 if not hasattr(self, "_streamer_buffer"):
                     self._streamer_buffer = ""
@@ -1250,6 +1390,24 @@ class MonitorizeWindow(QMainWindow):
             else:
                 QMessageBox.warning(self, "Error", f"Failed to run nwg-displays:\n{str(e)}")
 
+    @staticmethod
+    def _stop_processes(*processes):
+        for process in processes:
+            if process is None or process.state() == QProcess.ProcessState.NotRunning:
+                continue
+            process.terminate()
+            if not process.waitForFinished(3000):
+                process.kill()
+
+    @staticmethod
+    def _kill_tracked_pids(pids):
+        for pid in list(pids):
+            try:
+                os.kill(pid, 9)
+            except OSError:
+                pass
+        pids.clear()
+
     def _kill_stream_procs(self):
         """Terminate and clean up all streaming-related QProcess instances."""
         self._countdown_timer.stop()
@@ -1261,11 +1419,12 @@ class MonitorizeWindow(QMainWindow):
             self._second_stream_active = False
             self.secondStreamActiveChanged.emit(False)
 
-        for proc in (self.process_krfb, self.process_streamer, self.process_input_bridge, self.process_tls_proxy):
-            if proc is not None and proc.state() != QProcess.ProcessState.NotRunning:
-                proc.terminate()
-                if not proc.waitForFinished(3000):
-                    proc.kill()
+        self._stop_processes(
+            self.process_krfb,
+            self.process_streamer,
+            self.process_input_bridge,
+            self.process_tls_proxy,
+        )
         self.process_krfb          = None
         self.process_streamer      = None
         self.process_input_bridge  = None
@@ -1275,21 +1434,22 @@ class MonitorizeWindow(QMainWindow):
         self.pairingCodeChanged.emit("")
 
         
-        for pid in list(self._gst_pids):
-            try:
-                os.kill(pid, 9)
-            except OSError:
-                pass
-        self._gst_pids.clear()
-        subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7110"], capture_output=True)
-        subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7112"], capture_output=True)
-        subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7114"], capture_output=True)
-        subprocess.run(["pkill", "-9", "-f", "gst-launch-1.0.*port=7115"], capture_output=True)
-        subprocess.run(["pkill", "-9", "-f", "tls_proxy.py"], capture_output=True)
+        self._kill_tracked_pids(self._gst_pids)
+        _kill_process_patterns(
+            "gst-launch-1.0.*port=7110",
+            "gst-launch-1.0.*port=7112",
+            "gst-launch-1.0.*port=7114",
+            "gst-launch-1.0.*port=7115",
+            "Streamer_.*\\.py",
+            "tls_proxy.py",
+        )
 
         if self._detected_de == "hyprland" and getattr(self, "created_headless_monitor", None):
             print(f"[Hyprland] Removing created headless monitor: {self.created_headless_monitor}")
             subprocess.run(["hyprctl", "output", "remove", self.created_headless_monitor], capture_output=True)
+            self.created_headless_monitor = None
+        elif self._detected_de == "sway" and getattr(self, "created_headless_monitor", None):
+            _disable_sway_output(self.created_headless_monitor)
             self.created_headless_monitor = None
 
     def _get_current_headless_monitors(self):
@@ -1333,10 +1493,6 @@ class MonitorizeWindow(QMainWindow):
         self._stopHostDiscoveryInternal()
         self._cleanup_zeroconf()
         QApplication.quit()
-
-    def _setup_zeroconf(self):
-        """Initial Zeroconf setup."""
-        self._update_zeroconf_registration(self._local_ip)
 
     def _cleanup_zeroconf(self):
         """Clean up old registration and close Zeroconf instance if any."""
@@ -1444,10 +1600,13 @@ class MonitorizeWindow(QMainWindow):
         row2 = QHBoxLayout()
         row2.setSpacing(14)
         hypr_btn = QPushButton("Hyprland")
-        other_btn = QPushButton("Other (WIP)")
+        sway_btn = QPushButton("Sway")
         row2.addWidget(hypr_btn)
-        row2.addWidget(other_btn)
+        row2.addWidget(sway_btn)
         layout.addLayout(row2)
+
+        other_btn = QPushButton("Other (WIP)")
+        layout.addWidget(other_btn)
 
         selected_de = "gnome"
 
@@ -1459,6 +1618,7 @@ class MonitorizeWindow(QMainWindow):
         kde_btn.clicked.connect(lambda: pick("kde"))
         gnome_btn.clicked.connect(lambda: pick("gnome"))
         hypr_btn.clicked.connect(lambda: pick("hyprland"))
+        sway_btn.clicked.connect(lambda: pick("sway"))
         other_btn.clicked.connect(lambda: pick("other"))
 
         dlg.exec()

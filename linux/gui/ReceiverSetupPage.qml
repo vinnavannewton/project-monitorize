@@ -19,7 +19,8 @@ Item {
             device.port,
             device.encrypted === true,
             device.fingerprint || "",
-            code || ""
+            code || "",
+            device.decoder || decoderCombo.currentText
         )
     }
 
@@ -28,7 +29,8 @@ Item {
             "ip": device.ip,
             "port": selectedPort(device),
             "encrypted": device.encrypted === true,
-            "fingerprint": device.fingerprint || ""
+            "fingerprint": device.fingerprint || "",
+            "decoder": decoderCombo.currentText
         }
         if (displayCombo.currentIndex === 1
                 && device.thirdAvailable === false) {
@@ -52,6 +54,7 @@ Item {
         if (rec) {
             manualIpField.text = rec["manual_ip"] || ""
             displayCombo.currentIndex = (rec["manual_port"] || "7110") === "7114" ? 1 : 0
+            decoderCombo.currentIndex = rec["decoder"] === "Hardware" ? 1 : 0
             encryptionCheck.checked = rec["use_encryption"] !== false
         }
     }
@@ -73,7 +76,8 @@ Item {
                 "ip": host,
                 "port": port,
                 "encrypted": true,
-                "fingerprint": fingerprint
+                "fingerprint": fingerprint,
+                "decoder": decoderCombo.currentText
             }
             pairingCodeField.text = ""
             pairingPopup.open()
@@ -282,7 +286,33 @@ Item {
                 onActivated: backend.saveReceiverSettings(
                     manualIpField.text.trim(),
                     currentIndex === 1 ? "7114" : "7110",
-                    encryptionCheck.checked
+                    encryptionCheck.checked,
+                    decoderCombo.currentText
+                )
+            }
+
+            Item { Layout.fillWidth: true }
+        }
+
+        RowLayout {
+            spacing: 12
+            Layout.fillWidth: true
+
+            Text {
+                text: "Decoder:"
+                color: theme.cardTextSecondary
+                font.pixelSize: 13
+            }
+
+            CustomComboBox {
+                id: decoderCombo
+                model: ["Software", "Hardware"]
+                Layout.preferredWidth: 180
+                onActivated: backend.saveReceiverSettings(
+                    manualIpField.text.trim(),
+                    displayCombo.currentIndex === 1 ? "7114" : "7110",
+                    encryptionCheck.checked,
+                    currentText
                 )
             }
 
@@ -301,7 +331,8 @@ Item {
                     backend.saveReceiverSettings(
                         text.trim(),
                         displayCombo.currentIndex === 1 ? "7114" : "7110",
-                        encryptionCheck.checked
+                        encryptionCheck.checked,
+                        decoderCombo.currentText
                     )
                 }
                 onAccepted: {
@@ -318,7 +349,10 @@ Item {
                     if (manualIpField.text.trim() !== "") {
                         let ip = manualIpField.text.trim()
                         let p = displayCombo.currentIndex === 1 ? 7114 : 7110
-                        backend.saveReceiverSettings(ip, p.toString(), encryptionCheck.checked)
+                        backend.saveReceiverSettings(
+                            ip, p.toString(), encryptionCheck.checked,
+                            decoderCombo.currentText
+                        )
                         page.requestConnection({
                             "ip": ip,
                             "port": 7110,
@@ -339,7 +373,8 @@ Item {
             onCheckedChanged: backend.saveReceiverSettings(
                 manualIpField.text.trim(),
                 displayCombo.currentIndex === 1 ? "7114" : "7110",
-                checked
+                checked,
+                decoderCombo.currentText
             )
         }
 

@@ -8,7 +8,7 @@
 </div>
 
 > **Project Status: In alpha & Actively Being Developed**
-> Core pipeline is fully functional and tested on the latest Fedora KDE and Arch hyprland.
+> Core pipeline is fully functional on KDE and Hyprland. Sway support is available and GNOME support is experimental.
 
 ---
 
@@ -16,7 +16,7 @@
 
 **Monitorize** turns your Android tablet into a secondary monitor for your Linux desktop.
 
-Currently works only on Kde and hyprland, Gnome is experimental.
+Supported desktop environments are KDE Plasma, Hyprland, and Sway. GNOME is experimental.
 
 The pipeline is:
 
@@ -67,7 +67,7 @@ sudo dnf install -y --skip-unavailable \
   android-tools
 ```
 
-### Step 3 — Install snegg build dependencies (Not needed for Hyprland)
+### Step 3 — Install snegg build dependencies (Not needed for Hyprland or Sway)
 
 These system packages are required so that `snegg` (libei Python bindings) can be compiled inside the virtual environment by `install.sh`.
 
@@ -153,6 +153,26 @@ sudo usermod -aG input $USER
 # Log out and back in for group change to take effect
 ```
 
+### Sway:
+
+Install the extra portal dependencies required by Monitorize:
+
+```bash
+sudo dnf install -y \
+  xdg-desktop-portal \
+  xdg-desktop-portal-wlr \
+  xdg-desktop-portal-gtk
+```
+
+Sway input uses `/dev/uinput` because the wlroots portal does not provide RemoteDesktop input:
+
+```bash
+echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+sudo usermod -aG input $USER
+# Log out and back in for group change to take effect
+```
+
 ---
 
 ## <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/13/Arch_Linux_%22Crystal%22_icon.svg/330px-Arch_Linux_%22Crystal%22_icon.svg.png" height="28" alt="Arch Linux"> Arch Linux (Pacman)
@@ -175,7 +195,7 @@ sudo pacman -S --needed \
   android-tools
 ```
 
-### Step 2 — Install snegg build dependencies (Not needed for Hyprland)
+### Step 2 — Install snegg build dependencies (Not needed for Hyprland or Sway)
 
 These system packages are required so that `snegg` (libei Python bindings) can be compiled inside the virtual environment by `install.sh`.
 
@@ -254,6 +274,24 @@ sudo usermod -aG input $USER
 # Log out and back in for group change to take effect
 ```
 
+### Sway:
+
+```bash
+sudo pacman -S --needed \
+  xdg-desktop-portal \
+  xdg-desktop-portal-wlr \
+  xdg-desktop-portal-gtk
+```
+
+Enable uinput access:
+
+```bash
+echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+sudo usermod -aG input $USER
+# Log out and back in for group change to take effect
+```
+
 ## <img src="https://upload.wikimedia.org/wikipedia/commons/4/4a/Debian-OpenLogo.svg" height="28" alt="Debian"> Debian / Ubuntu (APT)
 
 ### Step 1 — Enable non-free repos (Debian only, skip on Ubuntu)
@@ -293,7 +331,7 @@ sudo apt install -y \
   liboeffis-dev
 ```
 
-### Step 3 — Install snegg build dependencies (Not needed for Hyprland)
+### Step 3 — Install snegg build dependencies (Not needed for Hyprland or Sway)
 
 These system packages are required so that `snegg` (libei Python bindings) can be compiled inside the virtual environment by `install.sh`.
 
@@ -375,6 +413,24 @@ sudo usermod -aG input $USER
 
 > **Note:** `xdg-desktop-portal-hyprland` may not be in older Debian/Ubuntu repos. If not found, build from source: [xdg-desktop-portal-hyprland](https://github.com/hyprwm/xdg-desktop-portal-hyprland)
 
+### Sway:
+
+```bash
+sudo apt install -y \
+  xdg-desktop-portal \
+  xdg-desktop-portal-wlr \
+  xdg-desktop-portal-gtk
+```
+
+Enable uinput access:
+
+```bash
+echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+sudo usermod -aG input $USER
+# Log out and back in for group change to take effect
+```
+
 ---
 
 ## Running the Application
@@ -395,7 +451,7 @@ sudo usermod -aG input $USER
 
   to confirm the device is connected.
 
-- `Enable Stylus Features` uses `/dev/uinput` only on KDE, GNOME, and Hyprland to expose pressure, tilt, eraser, hover, and stylus buttons. It does not open the RemoteDesktop input portal or emulate stylus as mouse input in this mode. If uinput is unavailable, or KDE cannot bind the touch device to `Virtual-TabletDisplay`, input stops so the device cannot target the wrong output.
+- `Enable Stylus Features` uses `/dev/uinput` on KDE, GNOME, Hyprland, and Sway to expose pressure, tilt, eraser, hover, and stylus buttons. Hyprland and Sway always use uinput because their portal backends do not provide RemoteDesktop input. If uinput is unavailable, or the compositor cannot bind the device to the streamed output, input stops so it cannot target the wrong display.
 - Stylus input suppresses finger touch for 5 seconds after the last stylus event. The `Disable Touch and Only Enable Stylus` option drops all finger-touch input while keeping stylus/eraser input active.
 
 ### Android Tablet

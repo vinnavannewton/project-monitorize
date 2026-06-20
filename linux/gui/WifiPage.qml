@@ -5,6 +5,7 @@ import QtQuick.Layouts
 Item {
     id: page
 
+    property bool isWifi: true
     property bool minimizeToTray: false
     property bool enableStylusFeatures: false
     property bool loadingSettings: true
@@ -12,6 +13,7 @@ Item {
         backend.detectedDe === "kde"
         || backend.detectedDe === "gnome"
         || backend.detectedDe === "hyprland"
+        || backend.detectedDe === "sway"
     )
 
     function saveGeneralSettings() {
@@ -28,7 +30,7 @@ Item {
     function saveSettings() {
         if (page.loadingSettings) return
         let resolution = resCombo.currentText
-        backend.saveWifiSettings(
+        let args = [
             resolution === "Custom..." ? resolution : resolution.split(" ")[0],
             resolution === "Custom..." ? customW.text : "",
             resolution === "Custom..." ? customH.text : "",
@@ -36,10 +38,17 @@ Item {
             fpsCombo.currentText === "Custom..." ? customFps.text : "",
             bitrateField.text,
             displayTypeCombo.visible ? displayTypeCombo.currentText : "Extend",
-            encoderCombo.currentText,
-            streamTypeCombo.currentText.indexOf("Speed") === 0 ? "Speed" : "Stability",
-            encryptionCheck.checked
-        )
+            encoderCombo.currentText
+        ]
+        if (page.isWifi) {
+            backend.saveWifiSettings(
+                ...args,
+                streamTypeCombo.currentText.indexOf("Speed") === 0 ? "Speed" : "Stability",
+                encryptionCheck.checked
+            )
+        } else {
+            backend.saveUsbSettings(...args)
+        }
     }
 
     Transition {
@@ -52,7 +61,7 @@ Item {
     }
 
     Component.onCompleted: {
-        let saved = backend.loadWifiSettings();
+        let saved = page.isWifi ? backend.loadWifiSettings() : backend.loadUsbSettings();
         
         if (!resCombo.selectValue(saved["resolution"])) {
             resCombo.selectValue("2560x1600");
@@ -85,9 +94,11 @@ Item {
             encoderCombo.selectValue("Software (CPU / x264enc)");
         }
         
-        let savedStreamType = saved["stream_type"] || "Speed";
-        streamTypeCombo.selectValue(savedStreamType === "Speed" ? "Speed" : "Stability");
-        encryptionCheck.checked = saved["use_encryption"] !== false;
+        if (page.isWifi) {
+            let savedStreamType = saved["stream_type"] || "Speed";
+            streamTypeCombo.selectValue(savedStreamType === "Speed" ? "Speed" : "Stability");
+            encryptionCheck.checked = saved["use_encryption"] !== false;
+        }
 
         let gen = backend.loadGeneralSettings();
         page.minimizeToTray = gen["minimize_to_tray"] !== undefined ? gen["minimize_to_tray"] : false;
@@ -113,7 +124,7 @@ Item {
             spacing: 16
 
             Text {
-                text: "Wi-Fi Mode Settings"
+                text: page.isWifi ? "Wi-Fi Mode Settings" : "USB Mode  ·  Step 2 of 2"
                 font.pixelSize: 12
                 font.weight: Font.Bold
                 color: theme.textMuted
@@ -126,6 +137,7 @@ Item {
             }
 
             RowLayout {
+                visible: page.isWifi
                 Layout.alignment: Qt.AlignHCenter
                 spacing: 10
                 Text { text: "📶"; font.pixelSize: 22 }
@@ -138,7 +150,9 @@ Item {
             }
 
             Text {
-                text: "Enter this IP in the Monitorize Android app and tap Receive."
+                text: page.isWifi
+                    ? "Enter this IP in the Monitorize Android app and tap Receive."
+                    : "Please open the Monitorize app on your tablet."
                 font.pixelSize: 14
                 color: theme.textSecondary
                 Layout.alignment: Qt.AlignHCenter
@@ -200,11 +214,11 @@ Item {
                     text: "Display Type:"
                     color: theme.textSecondary
                     font.pixelSize: 14
-                    visible: backend.detectedDe === "kde" || backend.detectedDe === "gnome" || backend.detectedDe === "hyprland"
+                    visible: backend.detectedDe === "kde" || backend.detectedDe === "gnome" || backend.detectedDe === "hyprland" || backend.detectedDe === "sway"
                 }
                 CustomComboBox {
                     id: displayTypeCombo
-                    visible: backend.detectedDe === "kde" || backend.detectedDe === "gnome" || backend.detectedDe === "hyprland"
+                    visible: backend.detectedDe === "kde" || backend.detectedDe === "gnome" || backend.detectedDe === "hyprland" || backend.detectedDe === "sway"
                     model: ["Extend", "Mirror"]
                     onActivated: page.saveSettings()
                 }
@@ -221,9 +235,10 @@ Item {
                     onActivated: page.saveSettings()
                 }
 
-                Text { text: "Stream Type:"; color: theme.textSecondary; font.pixelSize: 14 }
+                Text { text: "Stream Type:"; visible: page.isWifi; color: theme.textSecondary; font.pixelSize: 14 }
                 CustomComboBox {
                     id: streamTypeCombo
+                    visible: page.isWifi
                     currentIndex: 0
                     model: ["Speed (Lowest Latency)", "Stability (Low-spec Wi-Fi)"]
                     onActivated: page.saveSettings()
@@ -237,6 +252,7 @@ Item {
 
                 CustomCheckBox {
                     id: encryptionCheck
+                    visible: page.isWifi
                     text: "Use encryption (recommended)"
                     checked: true
                     onCheckedChanged: page.saveSettings()
@@ -263,9 +279,11 @@ Item {
             }
 
             WarningCard {
-                text: encryptionCheck.checked
-                    ? "Encrypted mode requires the 6-digit pairing code shown after streaming starts."
-                    : "WARNING: Encryption is off. Other devices on this network may view the stream or inject input."
+                text: page.isWifi
+                    ? (encryptionCheck.checked
+                        ? "Encrypted mode requires the 6-digit pairing code shown after streaming starts."
+                        : "WARNING: Encryption is off. Other devices on this network may view the stream or inject input.")
+                    : "WARNING: The Resolution set here MUST EXACTLY MATCH the settings in the Android tablet app, or the stream will corrupt!"
             }
 
             // Spacing
@@ -317,7 +335,7 @@ Item {
                             bitrateField.text,
                             displayTypeCombo.visible ? displayTypeCombo.currentText : "Extend",
                             encoderCombo.currentText,
-                            true // isWifi = true
+                            page.isWifi
                         );
                     }
                 }

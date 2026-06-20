@@ -34,55 +34,53 @@ def _get_settings() -> QSettings:
     return settings
 
 
+def _save_group(group: str, values: dict) -> None:
+    s = _get_settings()
+    s.beginGroup(group)
+    for key, value in values.items():
+        if value is not None:
+            s.setValue(key, value)
+    s.endGroup()
+    s.sync()
 
+
+def _load_group(group: str, defaults: dict, bool_keys=()) -> dict:
+    s = _get_settings()
+    s.beginGroup(group)
+    data = {
+        key: s.value(key, default, type=bool) if key in bool_keys
+        else s.value(key, default)
+        for key, default in defaults.items()
+    }
+    s.endGroup()
+    return data
+
+
+def _normalize_stream_settings(data: dict) -> dict:
+    if data["display_type"] == "Extend Right":
+        data["display_type"] = "Extend"
+    if data["encoder"] in ("Auto-detect", "Auto-detect (Recommended)"):
+        data["encoder"] = "Software (CPU / x264enc)"
+    return data
 
 def save_wifi_settings(*, resolution: str, custom_w: str, custom_h: str,
                        fps: str, custom_fps: str, bitrate: str,
                        display_type: str, encoder: str, stream_type: str,
                        use_encryption: bool):
-    s = _get_settings()
-    s.beginGroup("wifi")
-    s.setValue("resolution", resolution)
-    s.setValue("custom_w", custom_w)
-    s.setValue("custom_h", custom_h)
-    s.setValue("fps", fps)
-    s.setValue("custom_fps", custom_fps)
-    s.setValue("bitrate", bitrate)
-    s.setValue("display_type", display_type)
-    s.setValue("encoder", encoder)
-    s.setValue("stream_type", stream_type)
-    s.setValue("use_encryption", use_encryption)
-    s.endGroup()
-    s.sync()
+    _save_group("wifi", locals())
 
 
 def save_usb_settings(*, resolution: str, custom_w: str, custom_h: str,
                       fps: str, custom_fps: str, bitrate: str,
                       display_type: str, encoder: str):
-    s = _get_settings()
-    s.beginGroup("usb")
-    s.setValue("resolution", resolution)
-    s.setValue("custom_w", custom_w)
-    s.setValue("custom_h", custom_h)
-    s.setValue("fps", fps)
-    s.setValue("custom_fps", custom_fps)
-    s.setValue("bitrate", bitrate)
-    s.setValue("display_type", display_type)
-    s.setValue("encoder", encoder)
-    s.endGroup()
-    s.sync()
+    _save_group("usb", locals())
 
 
 def save_general_settings(*, minimize_to_tray: bool = None, enable_touch: bool = None,
                           enable_stylus_features: bool = None):
+    _save_group("general", locals())
     s = _get_settings()
     s.beginGroup("general")
-    if minimize_to_tray is not None:
-        s.setValue("minimize_to_tray", minimize_to_tray)
-    if enable_touch is not None:
-        s.setValue("enable_touch", enable_touch)
-    if enable_stylus_features is not None:
-        s.setValue("enable_stylus_features", enable_stylus_features)
     s.remove("stylus_only")
     s.endGroup()
     s.sync()
@@ -90,114 +88,87 @@ def save_general_settings(*, minimize_to_tray: bool = None, enable_touch: bool =
 
 
 
+STREAM_DEFAULTS = {
+    "resolution": "2560x1600",
+    "custom_w": "",
+    "custom_h": "",
+    "fps": "60",
+    "custom_fps": "",
+    "bitrate": "8000",
+    "display_type": "Extend",
+    "encoder": "Software (CPU / x264enc)",
+}
+
+
 def load_wifi_settings() -> dict:
-    s = _get_settings()
-    s.beginGroup("wifi")
-    display_type = s.value("display_type", "Extend")
-    if display_type == "Extend Right":
-        display_type = "Extend"
-    encoder = s.value("encoder", "Software (CPU / x264enc)")
-    if encoder in ("Auto-detect", "Auto-detect (Recommended)"):
-        encoder = "Software (CPU / x264enc)"
-    data = {
-        "resolution":   s.value("resolution",   "2560x1600"),
-        "custom_w":     s.value("custom_w",     ""),
-        "custom_h":     s.value("custom_h",     ""),
-        "fps":          s.value("fps",          "60"),
-        "custom_fps":   s.value("custom_fps",   ""),
-        "bitrate":      s.value("bitrate",      "8000"),
-        "display_type": display_type,
-        "encoder":      encoder,
-        "stream_type":  s.value("stream_type",  "Speed"),
-        "use_encryption": s.value("use_encryption", True, type=bool),
-    }
-    s.endGroup()
-    return data
+    return _normalize_stream_settings(_load_group(
+        "wifi",
+        {**STREAM_DEFAULTS, "stream_type": "Speed", "use_encryption": True},
+        ("use_encryption",),
+    ))
 
 
 def load_usb_settings() -> dict:
-    s = _get_settings()
-    s.beginGroup("usb")
-    display_type = s.value("display_type", "Extend")
-    if display_type == "Extend Right":
-        display_type = "Extend"
-    encoder = s.value("encoder", "Software (CPU / x264enc)")
-    if encoder in ("Auto-detect", "Auto-detect (Recommended)"):
-        encoder = "Software (CPU / x264enc)"
-    data = {
-        "resolution":   s.value("resolution",   "2560x1600"),
-        "custom_w":     s.value("custom_w",     ""),
-        "custom_h":     s.value("custom_h",     ""),
-        "fps":          s.value("fps",          "60"),
-        "custom_fps":   s.value("custom_fps",   ""),
-        "bitrate":      s.value("bitrate",      "8000"),
-        "display_type": display_type,
-        "encoder":      encoder,
-    }
-    s.endGroup()
-    return data
+    return _normalize_stream_settings(_load_group("usb", STREAM_DEFAULTS))
 
 
 def load_general_settings() -> dict:
-    s = _get_settings()
-    s.beginGroup("general")
-    enable_stylus = s.value("enable_stylus_features", False, type=bool)
-    enable_touch = s.value("enable_touch", True, type=bool)
-    if enable_stylus and s.value("stylus_only", False, type=bool):
+    data = _load_group(
+        "general",
+        {
+            "minimize_to_tray": False,
+            "enable_touch": True,
+            "enable_stylus_features": False,
+            "stylus_only": False,
+        },
+        ("minimize_to_tray", "enable_touch", "enable_stylus_features", "stylus_only"),
+    )
+    enable_stylus = data.pop("enable_stylus_features")
+    enable_touch = data.pop("enable_touch")
+    if enable_stylus and data.pop("stylus_only"):
         enable_touch = False
-    data = {
-        "minimize_to_tray": s.value("minimize_to_tray", False, type=bool),
-        "enable_touch": enable_touch,
-        "enable_stylus_features": enable_stylus,
-    }
-    s.endGroup()
+    data.update(enable_touch=enable_touch, enable_stylus_features=enable_stylus)
     return data
 
 
 def save_second_display_settings(*, resolution: str, fps: str, bitrate: str, encoder: str):
-    s = _get_settings()
-    s.beginGroup("second_display")
-    s.setValue("resolution", resolution)
-    s.setValue("fps", fps)
-    s.setValue("bitrate", bitrate)
-    s.setValue("encoder", encoder)
-    s.endGroup()
-    s.sync()
+    _save_group("second_display", locals())
 
 
 def load_second_display_settings() -> dict:
-    s = _get_settings()
-    s.beginGroup("second_display")
-    data = {
-        "resolution": s.value("resolution", "1920x1080 (16:9)"),
-        "fps":        s.value("fps",        "60"),
-        "bitrate":    s.value("bitrate",    "8000"),
-        "encoder":    s.value("encoder",    "Software (CPU / x264enc)"),
-    }
-    s.endGroup()
-    return data
+    return _load_group("second_display", {
+        "resolution": "1920x1080 (16:9)",
+        "fps": "60",
+        "bitrate": "8000",
+        "encoder": "Software (CPU / x264enc)",
+    })
 
 
-def save_receiver_settings(*, ip: str, port: str, use_encryption: bool = True):
-    s = _get_settings()
-    s.beginGroup("receiver")
-    s.setValue("manual_ip", ip)
-    s.setValue("manual_port", port)
-    s.setValue("use_encryption", use_encryption)
-    s.endGroup()
-    s.sync()
+def save_receiver_settings(*, ip: str, port: str, use_encryption: bool = True,
+                           decoder: str = "Software"):
+    _save_group("receiver", {
+        "manual_ip": ip,
+        "manual_port": port,
+        "use_encryption": use_encryption,
+        "decoder": decoder,
+    })
 
 
 def load_receiver_settings() -> dict:
-    s = _get_settings()
-    s.beginGroup("receiver")
-    data = {
-        "manual_ip": s.value("manual_ip", ""),
-        "manual_port": s.value("manual_port", "7110"),
-        "use_encryption": s.value("use_encryption", True, type=bool),
-    }
-    s.endGroup()
-    return data
+    return _load_group("receiver", {
+        "manual_ip": "",
+        "manual_port": "7110",
+        "use_encryption": True,
+        "decoder": "Software",
+    }, ("use_encryption",))
+
+
+def load_sway_output() -> str:
+    return _get_settings().value("sway/output", "")
+
+
+def save_sway_output(output: str) -> None:
+    _save_group("sway", {"output": output})
 
 
 def load_receiver_credentials(host: str) -> tuple[str, str]:
