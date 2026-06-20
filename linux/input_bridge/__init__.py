@@ -1,0 +1,2 @@
+"""Monitorize input bridge package."""
+
