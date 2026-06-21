@@ -1,7 +1,5 @@
-<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<!-- Uploaded to: SVG Repo, www.svgrepo.com, Transformed by: SVG Repo Mixer Tools -->
-<svg width="800px" height="800px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-<g id="SVGRepo_bgCarrier" stroke-width="0"/>
-<g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"/>
-<g id="SVGRepo_iconCarrier"> <path d="M7 21H17M6.2 17H17.8C18.9201 17 19.4802 17 19.908 16.782C20.2843 16.5903 20.5903 16.2843 20.782 15.908C21 15.4802 21 14.9201 21 13.8V6.2C21 5.0799 21 4.51984 20.782 4.09202C20.5903 3.71569 20.2843 3.40973 19.908 3.21799C19.4802 3 18.9201 3 17.8 3H6.2C5.0799 3 4.51984 3 4.09202 3.21799C3.71569 3.40973 3.40973 3.71569 3.21799 4.09202C3 4.51984 3 5.07989 3 6.2V13.8C3 14.9201 3 15.4802 3.21799 15.908C3.40973 16.2843 3.71569 16.5903 4.09202 16.782C4.51984 17 5.07989 17 6.2 17Z" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/> </g>
-</svg>
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800" role="img" aria-label="Monitor icon">
+  <path fill="#FFFFFF" fill-rule="evenodd" d="M 15.81 102.914 C 15.81 90.888 22.214 84.875 35.024 84.875 L 765.158 84.875 C 777.968 84.875 784.372 90.888 784.372 102.914 L 784.372 576.426 C 784.372 588.451 777.968 594.465 765.158 594.465 L 499.364 594.465 L 520.179 683.154 L 598.636 683.154 L 598.636 714.722 L 201.546 714.722 L 201.546 683.154 L 280.004 683.154 L 300.818 594.465 L 35.024 594.465 C 22.214 594.465 15.81 588.451 15.81 576.426 L 15.81 102.914 Z M 47.834 116.443 L 47.834 546.361 L 752.35 546.361 L 752.35 116.443 L 47.834 116.443 Z" style=""/>
+  <rect x="47.834" y="116.443" width="704.516" height="429.919" rx="5" ry="5" fill="#3DAEE9" style=""/>
+</svg>
