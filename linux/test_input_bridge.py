@@ -5,7 +5,7 @@ import types
 from unittest.mock import Mock, patch
 
 from input_bridge import daemon as daemon_module
-from input_bridge import libei_backend, transport, uinput_backend
+from input_bridge import geometry, libei_backend, transport, uinput_backend
 from input_bridge.dispatcher import InputDispatcher
 from input_bridge.uinput_backend import UInputBackend
 from input_bridge.protocol import (
@@ -205,6 +205,57 @@ class TransportTest(unittest.TestCase):
         state.replace(new, dispatcher)
         dispatcher.release_all.assert_called_once_with("tcp reconnect")
         old.close.assert_called_once()
+
+
+class KdeGeometryTest(unittest.TestCase):
+    def test_kde_virtual_output_accepts_portal_created_virtual_name(self):
+        outputs = [
+            {"name": "eDP-1", "enabled": True, "connected": True},
+            {"name": "Virtual-1", "enabled": True, "connected": True},
+        ]
+        self.assertEqual(geometry.kde_virtual_output(outputs)["name"], "Virtual-1")
+
+    def test_kde_rect_uses_detected_virtual_output(self):
+        geom = geometry.Geometry("kde", 2560, 1600)
+        outputs = {
+            "outputs": [
+                {
+                    "name": "Virtual-1",
+                    "enabled": True,
+                    "connected": True,
+                    "pos": {"x": 1463, "y": 0},
+                    "size": {"width": 2560, "height": 1600},
+                    "scale": 1,
+                }
+            ]
+        }
+        with patch("input_bridge.geometry.json_command", return_value=outputs):
+            self.assertEqual(geom._rect_kde(), (1463.0, 0.0, 2560.0, 1600.0))
+
+    def test_kde_portal_geometry_does_not_fallback_to_primary_output(self):
+        geom = geometry.Geometry("kde", 1920, 1200)
+        outputs = {
+            "outputs": [
+                {
+                    "name": "eDP-1",
+                    "enabled": True,
+                    "connected": True,
+                    "priority": 1,
+                    "pos": {"x": 100, "y": 200},
+                    "size": {"width": 2560, "height": 1600},
+                    "scale": 1.5,
+                },
+            ]
+        }
+        with (
+            patch.dict(
+                geometry.os.environ,
+                {"MONITORIZE_PORTAL_SOURCE_TYPE": "4"},
+                clear=False,
+            ),
+            patch("input_bridge.geometry.json_command", return_value=outputs),
+        ):
+            self.assertIsNone(geom._rect_kde())
 
 
 class UInputCoordinatesTest(unittest.TestCase):
