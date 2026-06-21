@@ -1,5 +1,7 @@
 different steps and workings for kde version < 6.7 and kde>=6.7
 
+normal discovery in android connect then desktop option encrypt or no encrypt is applied but if connected via typing ip address then its always gonna be unencrypted
+
 
 
 
