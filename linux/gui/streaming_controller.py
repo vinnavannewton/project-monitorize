@@ -252,7 +252,10 @@ class StreamingController(QObject):
             return "5900"
 
     def _kde_connected_output_names(self):
-        return active_kde_output_names() or None
+        try:
+            return active_kde_output_names() or None
+        except (FileNotFoundError, OSError, subprocess.TimeoutExpired, ValueError):
+            return None
 
     def _configure_legacy_kde_display(self, generation=None, on_done=None):
         generation = self.generation if generation is None else generation

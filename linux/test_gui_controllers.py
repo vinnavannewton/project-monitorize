@@ -554,6 +554,18 @@ class StreamingControllerTest(unittest.TestCase):
         ):
             self.assertTrue(controller._kde_virtual_display_visible())
 
+    def test_kde_readiness_falls_back_when_output_probe_fails(self):
+        controller = self.kde_controller()
+        controller.kde_ready_fallback_at = 0
+        with (
+            patch(
+                "gui.streaming_controller.active_kde_output_names",
+                side_effect=OSError("no display"),
+            ),
+            patch("gui.streaming_controller.QGuiApplication.instance", return_value=None),
+        ):
+            self.assertTrue(controller._kde_virtual_display_visible())
+
     def test_kde_startup_failure_before_streaming_does_not_emit_false(self):
         controller = self.kde_controller()
         controller.streaming = False
@@ -928,7 +940,10 @@ class PipelineBuilderTest(unittest.TestCase):
         argv = popen.call_args.args[0]
         self.assertIsInstance(argv, list)
         self.assertIn("gst-launch-1.0", argv)
-        self.assertIn("config-interval=1", argv)
+        config_interval_args = [
+            arg for arg in argv if arg.startswith("config-interval=")
+        ]
+        self.assertEqual(["config-interval=1"], config_interval_args)
         self.assertFalse(popen.call_args.kwargs["shell"])
 
     def test_hardware_launch_falls_back_to_cpu_on_immediate_failure(self):
