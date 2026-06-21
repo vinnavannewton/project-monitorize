@@ -1,3 +1,11 @@
+different steps and workings for kde version < 6.7 and kde>=6.7
+
+
+
+
+
+
+
 # Monitorize Linux Application
 
 The Linux application creates or captures a display, encodes it as a low-latency H.264 stream, sends it to an Android device, and injects returned touch or stylus input into the desktop session.

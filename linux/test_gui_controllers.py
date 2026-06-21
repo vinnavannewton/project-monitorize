@@ -12,6 +12,7 @@ from subprocess import TimeoutExpired
 from PyQt6.QtCore import QCoreApplication, QProcess
 
 import pipeline_builder
+import portal_streamer
 from gui import kde_virtual_monitor, process_utils, settings
 from gui.discovery_service import DiscoveryService
 from gui.backend import MonitorizeBackend
@@ -394,92 +395,28 @@ class StreamingControllerTest(unittest.TestCase):
         controller.env = Mock()
         controller.env.value.return_value = "4"
         process = process_mock()
-        process.readAllStandardOutput.return_value = b"[Portal] Got PipeWire node=42 fd=9\n"
+        process.readAllStandardOutput.return_value = (
+            b"[Portal] Virtual output ready name=Virtual-1 mode=1920x1200@60\n"
+            b"[Portal] Got PipeWire node=42 fd=9\n"
+        )
         controller.streamer = process
-        with (
-            patch.object(controller, "_configure_kde_portal_virtual_display") as configure,
-            patch("gui.streaming_controller.QTimer.singleShot") as single_shot,
-        ):
+        with patch("gui.streaming_controller.QTimer.singleShot") as single_shot:
             controller._read_streamer(7, process)
             self.assertTrue(controller.input_launched)
-            configure.assert_called_once()
-            self.assertIn("on_done", configure.call_args.kwargs)
-            single_shot.assert_not_called()
-            configure.call_args.kwargs["on_done"]()
             single_shot.assert_called_once()
-
-    def test_kde_virtual_portal_configures_created_output_resolution(self):
-        controller = self.kde_controller()
-        controller.kde_display_baseline = {
-            "ids": {"1"},
-            "names": {"eDP-1"},
-            "outputs": {},
-        }
-        controller.env.value.return_value = "4"
-        outputs = {
-            "outputs": [
-                {
-                    "id": 1, "name": "eDP-1", "connected": True,
-                    "enabled": True, "priority": 1,
-                },
-                {
-                    "id": 2, "name": "Virtual-1", "connected": True,
-                    "enabled": True, "priority": 2,
-                },
-            ]
-        }
-
-        def fake_run(args, **_kwargs):
-            if args == ["kscreen-doctor", "-j"]:
-                return Mock(returncode=0, stdout=json.dumps(outputs), stderr="")
-            return Mock(returncode=0, stdout="", stderr="")
-
-        with patch("gui.streaming_controller.subprocess.run", side_effect=fake_run) as run:
-            controller._configure_kde_portal_virtual_display(controller.generation)
-        commands = [call.args[0] for call in run.call_args_list]
-        self.assertEqual(
-            commands[1:],
-            [
-                [
-                    "kscreen-doctor",
-                    "output.Virtual-1.addCustomMode.1920.1200.60000.full",
-                ],
-                ["kscreen-doctor", "output.Virtual-1.mode.1920x1200@60"],
-                ["kscreen-doctor", "output.Virtual-1.scale.1.0"],
-            ],
-        )
         controller.env.insert.assert_called_with("MONITORIZE_OUTPUT", "Virtual-1")
 
-    def test_kde_virtual_mode_apply_runs_even_if_custom_mode_exists(self):
+    def test_kde_legacy_virtual_mode_apply_runs_even_if_custom_mode_exists(self):
         controller = self.kde_controller()
-        controller.kde_display_baseline = {
-            "ids": {"1"},
-            "names": {"eDP-1"},
-            "outputs": {},
-        }
         controller.env.value.return_value = ""
-        outputs = {
-            "outputs": [
-                {
-                    "id": 1, "name": "eDP-1", "connected": True,
-                    "enabled": True, "priority": 1,
-                },
-                {
-                    "id": 2, "name": "Virtual-monitorize", "connected": True,
-                    "enabled": True, "priority": 2,
-                },
-            ]
-        }
 
         def fake_run(args, **_kwargs):
-            if args == ["kscreen-doctor", "-j"]:
-                return Mock(returncode=0, stdout=json.dumps(outputs), stderr="")
             if "addCustomMode" in args[1]:
                 return Mock(returncode=1, stdout="", stderr="mode already exists")
             return Mock(returncode=0, stdout="", stderr="")
 
         with patch("gui.streaming_controller.subprocess.run", side_effect=fake_run) as run:
-            controller._configure_kde_virtual_display(controller.generation)
+            controller._configure_legacy_kde_display(controller.generation)
         commands = [call.args[0] for call in run.call_args_list]
         self.assertIn(
             ["kscreen-doctor", "output.Virtual-monitorize.mode.1920x1200@60"],
@@ -490,100 +427,18 @@ class StreamingControllerTest(unittest.TestCase):
             commands,
         )
 
-    def test_kde_portal_missing_baseline_never_configures_primary_output(self):
-        controller = self.kde_controller()
-        controller.kde_display_baseline = None
-        controller.env.value.return_value = "4"
-        outputs = {
-            "outputs": [
-                {
-                    "id": 1, "name": "eDP-1", "connected": True,
-                    "enabled": True, "priority": 1, "scale": 1.5,
-                },
-            ]
-        }
-
-        def fake_run(args, **_kwargs):
-            if args == ["kscreen-doctor", "-j"]:
-                return Mock(returncode=0, stdout=json.dumps(outputs), stderr="")
-            return Mock(returncode=0, stdout="", stderr="")
-
-        with (
-            patch("gui.streaming_controller.subprocess.run", side_effect=fake_run) as run,
-            patch("gui.streaming_controller.QTimer.singleShot"),
-        ):
-            controller._configure_kde_portal_virtual_display(
-                controller.generation, attempt=16
-            )
-        commands = [call.args[0] for call in run.call_args_list]
-        self.assertEqual(commands, [["kscreen-doctor", "-j"]])
-        self.assertFalse(any("eDP-1" in " ".join(command) for command in commands))
-
-    def test_kde_portal_ignores_physical_output_with_changed_id(self):
-        controller = self.kde_controller()
-        controller.kde_display_baseline = {
-            "ids": {"1"},
-            "names": {"eDP-1"},
-            "outputs": {},
-        }
-        controller.env.value.return_value = "4"
-        outputs = [
-            {
-                "id": 9, "name": "eDP-1", "connected": True,
-                "enabled": True, "priority": 1,
-            },
-        ]
-        with patch.object(controller, "_kde_outputs_json", return_value=outputs):
-            self.assertIsNone(controller._kde_portal_virtual_output())
-
-    def test_kde_portal_selects_only_new_virtual_output(self):
-        controller = self.kde_controller()
-        controller.kde_display_baseline = {
-            "ids": {"1", "2"},
-            "names": {"eDP-1", "Virtual-1"},
-            "outputs": {},
-        }
-        controller.env.value.return_value = "4"
-        outputs = [
-            {
-                "id": 1, "name": "eDP-1", "connected": True,
-                "enabled": True, "priority": 1,
-            },
-            {
-                "id": 2, "name": "Virtual-1", "connected": True,
-                "enabled": True, "priority": 2,
-            },
-            {
-                "id": 3, "name": "Virtual-2", "connected": True,
-                "enabled": True, "priority": 3,
-            },
-        ]
-        with patch.object(controller, "_kde_outputs_json", return_value=outputs):
-            self.assertEqual(
-                controller._kde_portal_virtual_output()["name"],
-                "Virtual-2",
-            )
-
-    def test_kde_portal_does_not_guess_between_virtual_outputs(self):
-        controller = self.kde_controller()
-        controller.kde_display_baseline = {
-            "ids": {"1"},
-            "names": {"eDP-1"},
-            "outputs": {},
-        }
-        controller.env.value.return_value = "4"
-        outputs = [
-            {
-                "id": 2, "name": "Virtual-1", "connected": True,
-                "enabled": True, "priority": 2,
-            },
-            {
-                "id": 3, "name": "Virtual-2", "connected": True,
-                "enabled": True, "priority": 3,
-            },
-        ]
-        with patch.object(controller, "_kde_outputs_json", return_value=outputs):
-            self.assertIsNone(controller._kde_portal_virtual_output())
+    def test_kde_portal_output_ready_rejects_non_virtual_name(self):
+        controller = StreamingController("kde", "10.0.0.1", Mock())
+        controller.streaming = True
+        controller.generation = 7
+        controller.env = Mock()
+        process = process_mock()
+        process.readAllStandardOutput.return_value = (
+            b"[Portal] Virtual output ready name=eDP-1 mode=1920x1200@60\n"
+        )
+        controller.streamer = process
+        controller._read_streamer(7, process)
+        controller.env.insert.assert_not_called()
 
     def test_invalid_stream_settings_are_sanitized_before_start(self):
         controller = StreamingController("sway", "10.0.0.1", Mock())
@@ -667,7 +522,7 @@ class StreamingControllerTest(unittest.TestCase):
             patch.dict(os.environ, {"MONITORIZE_KDE_USE_KRFB": "1"}),
             patch("gui.streaming_controller.QProcess", return_value=krfb),
             patch.object(controller, "_kde_virtual_display_visible", side_effect=[False, True]),
-            patch.object(controller, "_configure_kde_virtual_display") as configure,
+            patch.object(controller, "_configure_legacy_kde_display") as configure,
             patch.object(controller, "_launch_streamer") as launch,
         ):
             controller._prepare_display()
@@ -683,7 +538,7 @@ class StreamingControllerTest(unittest.TestCase):
 
     def test_kde_readiness_accepts_new_output_with_different_name(self):
         controller = self.kde_controller()
-        controller.kde_display_baseline = {"1"}
+        controller.kde_output_baseline = {"eDP-1"}
         kscreen = (
             "Output: 1 eDP-1\n"
             "\tenabled\n"
@@ -825,6 +680,149 @@ class ProcessUtilsTest(unittest.TestCase):
 
 
 class KdeVirtualMonitorCompatTest(unittest.TestCase):
+    @staticmethod
+    def portal_outputs(mode_registered=False, mode_active=False):
+        modes = [
+            {
+                "id": "1",
+                "name": "1920x1080@60",
+                "refreshRate": 60.0,
+                "size": {"width": 1920, "height": 1080},
+            }
+        ]
+        if mode_registered:
+            modes.append({
+                "id": "2",
+                "name": "1920x1200@60",
+                "refreshRate": 59.885,
+                "size": {"width": 1920, "height": 1200},
+            })
+        return [
+            {
+                "id": 1,
+                "name": "Virtual-virtual-xdp-kde-monitorize",
+                "connected": True,
+                "enabled": True,
+                "priority": 2,
+                "currentModeId": "2" if mode_active else "1",
+                "scale": 1.5,
+                "rotation": 8,
+                "modes": modes,
+            },
+            {
+                "id": 2,
+                "name": "eDP-1",
+                "connected": True,
+                "enabled": True,
+                "priority": 1,
+                "scale": 1.5,
+                "modes": [],
+            },
+        ]
+
+    def test_portal_output_detection_uses_name_when_ids_are_reused(self):
+        output = kde_virtual_monitor._new_portal_virtual_output(
+            {"eDP-1"},
+            self.portal_outputs(),
+        )
+        self.assertEqual(output["name"], "Virtual-virtual-xdp-kde-monitorize")
+        self.assertEqual(output["id"], 1)
+
+    def test_portal_mode_registration_selects_discovered_mode_id(self):
+        state = {"registered": False, "active": False}
+
+        def fake_run(args, **_kwargs):
+            if args == ["kscreen-doctor", "-j"]:
+                outputs = self.portal_outputs(
+                    mode_registered=state["registered"],
+                    mode_active=state["active"],
+                )
+                return Mock(
+                    returncode=0,
+                    stdout=json.dumps({"outputs": outputs}),
+                    stderr="",
+                )
+            if "addCustomMode.1920.1200.60000.full" in args[1]:
+                state["registered"] = True
+                return Mock(returncode=0, stdout="", stderr="")
+            if args[1].endswith(".mode.2"):
+                state["active"] = True
+                return Mock(returncode=0, stdout="", stderr="")
+            raise AssertionError(f"Unexpected command: {args}")
+
+        with (
+            patch(
+                "gui.kde_virtual_monitor.subprocess.run",
+                side_effect=fake_run,
+            ) as run,
+            patch("gui.kde_virtual_monitor.time.sleep"),
+        ):
+            ok, output_name, message = (
+                kde_virtual_monitor.configure_portal_virtual_output(
+                    {"eDP-1"},
+                    1920,
+                    1200,
+                    60,
+                    attempts=2,
+                    delay=0,
+                )
+            )
+
+        self.assertTrue(ok, message)
+        self.assertEqual(output_name, "Virtual-virtual-xdp-kde-monitorize")
+        commands = [call.args[0] for call in run.call_args_list]
+        self.assertIn(
+            [
+                "kscreen-doctor",
+                (
+                    "output.Virtual-virtual-xdp-kde-monitorize."
+                    "addCustomMode.1920.1200.60000.full"
+                ),
+            ],
+            commands,
+        )
+        self.assertIn(
+            [
+                "kscreen-doctor",
+                "output.Virtual-virtual-xdp-kde-monitorize.mode.2",
+            ],
+            commands,
+        )
+        self.assertFalse(any(".scale." in " ".join(command) for command in commands))
+        self.assertFalse(any("output.eDP-1" in " ".join(command) for command in commands))
+
+    def test_portal_mode_configuration_rejects_ambiguous_virtual_outputs(self):
+        outputs = self.portal_outputs()
+        outputs.insert(1, {
+            "id": 3,
+            "name": "Virtual-other",
+            "connected": True,
+            "enabled": True,
+            "priority": 3,
+            "modes": [],
+        })
+        with (
+            patch(
+                "gui.kde_virtual_monitor.kde_outputs",
+                return_value=outputs,
+            ),
+            patch("gui.kde_virtual_monitor.time.sleep"),
+            patch("gui.kde_virtual_monitor.subprocess.run") as run,
+        ):
+            ok, output_name, _message = (
+                kde_virtual_monitor.configure_portal_virtual_output(
+                    {"eDP-1"},
+                    1920,
+                    1200,
+                    60,
+                    attempts=1,
+                    delay=0,
+                )
+            )
+        self.assertFalse(ok)
+        self.assertEqual(output_name, "")
+        run.assert_not_called()
+
     def test_kde_version_parser_handles_common_outputs(self):
         self.assertEqual(
             kde_virtual_monitor.parse_kde_version("kwin 6.6.5"),
@@ -958,6 +956,85 @@ class PipelineBuilderTest(unittest.TestCase):
         second_argv = popen.call_args_list[1].args[0]
         self.assertIn("vah264enc", first_argv)
         self.assertIn("x264enc", second_argv)
+
+
+class PortalStreamerTest(unittest.TestCase):
+    def test_prepares_virtual_output_before_opening_pipewire(self):
+        events = []
+        screen_cast = Mock()
+        screen_cast.OpenPipeWireRemote.side_effect = lambda *_args: (
+            events.append("open-pipewire")
+            or Mock(take=Mock(return_value=9))
+        )
+        session_interface = Mock()
+
+        class FakeBus:
+            callback = None
+
+            def get_object(self, _service, _path):
+                return Mock()
+
+            def add_signal_receiver(self, callback, **_kwargs):
+                self.callback = callback
+
+        bus = FakeBus()
+
+        class FakeLoop:
+            def run(self):
+                bus.callback(0, {"session_handle": "/session"})
+                bus.callback(0, {})
+                bus.callback(0, {"streams": [(42, {})]})
+
+            def is_running(self):
+                return False
+
+            def quit(self):
+                pass
+
+        class FakeThread:
+            def __init__(self, **_kwargs):
+                pass
+
+            def start(self):
+                events.append("gstreamer-thread")
+
+        def fake_interface(_object, interface_name):
+            if interface_name == "org.freedesktop.portal.ScreenCast":
+                return screen_cast
+            return session_interface
+
+        def prepare():
+            events.append("prepare-mode")
+            return True, "Virtual-1", "configured"
+
+        with (
+            patch("portal_streamer.DBusGMainLoop"),
+            patch("portal_streamer.dbus.SessionBus", return_value=bus),
+            patch("portal_streamer.dbus.Interface", side_effect=fake_interface),
+            patch("portal_streamer.GLib.MainLoop", return_value=FakeLoop()),
+            patch("portal_streamer.threading.Thread", FakeThread),
+            patch("portal_streamer.signal.signal"),
+        ):
+            portal_streamer.run_portal_streamer(
+                "KDE",
+                "Create virtual screen",
+                1920,
+                1200,
+                60,
+                8000,
+                "wifi",
+                7110,
+                "vah264enc",
+                "127.0.0.1",
+                source_type=4,
+                prepare_stream=prepare,
+            )
+
+        self.assertLess(events.index("prepare-mode"), events.index("open-pipewire"))
+        self.assertLess(
+            events.index("open-pipewire"),
+            events.index("gstreamer-thread"),
+        )
 
 
 class UsbControllerTest(unittest.TestCase):
