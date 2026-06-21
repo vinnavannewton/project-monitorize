@@ -111,17 +111,18 @@ Item {
 
                 // Pulsing Active Indicator
                 Rectangle {
+                    id: activeIndicator
                     width: 12
                     height: 12
                     radius: 6
                     color: "#86efac"
 
                     OpacityAnimator {
-                        target: parent.children[0]
+                        target: activeIndicator
                         from: 0.3
                         to: 1.0
                         duration: 800
-                        running: backend.isStreaming
+                        running: backend ? backend.isStreaming : false
                         loops: Animation.Infinite
                     }
                 }

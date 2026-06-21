@@ -4,6 +4,7 @@ import QtQuick.Layouts
 
 Item {
     id: page
+    readonly property string detectedDe: backend ? backend.detectedDe : ""
 
     ColumnLayout {
         anchors.centerIn: parent
@@ -41,9 +42,9 @@ Item {
 
                 Image {
                     source: {
-                        if (backend.detectedDe === "kde") return "../assets/svg/kde-logo.svg"
-                        if (backend.detectedDe === "gnome") return "../assets/svg/gnome-logo.svg"
-                        if (backend.detectedDe === "hyprland") return "../assets/svg/hyprland-logo.svg"
+                        if (page.detectedDe === "kde") return "../assets/svg/kde-logo.svg"
+                        if (page.detectedDe === "gnome") return "../assets/svg/gnome-logo.svg"
+                        if (page.detectedDe === "hyprland") return "../assets/svg/hyprland-logo.svg"
                         return ""
                     }
                     sourceSize.width: 14
@@ -53,7 +54,7 @@ Item {
                 }
 
                 Text {
-                    text: "Desktop: " + (backend.detectedDe === "kde" ? "KDE Plasma" : (backend.detectedDe === "gnome" ? "GNOME" : (backend.detectedDe === "hyprland" ? "Hyprland" : (backend.detectedDe === "sway" ? "Sway" : backend.detectedDe.toUpperCase()))))
+                    text: "Desktop: " + (page.detectedDe === "kde" ? "KDE Plasma" : (page.detectedDe === "gnome" ? "GNOME" : (page.detectedDe === "hyprland" ? "Hyprland" : (page.detectedDe === "sway" ? "Sway" : page.detectedDe.toUpperCase()))))
                     color: theme.cardTextPrimary
                     font.pixelSize: 12
                     font.weight: Font.Bold
