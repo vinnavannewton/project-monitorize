@@ -1,4 +1,4 @@
-
+#!/usr/bin/env python3
 """Shared ScreenCast portal runner for KDE and wlroots compositors."""
 
 import signal
@@ -15,12 +15,12 @@ from pipeline_builder import launch_with_fallback
 
 def run_portal_streamer(
     compositor, selector_hint, width, height, fps, bitrate, mode, port,
-    encoder, host,
+    encoder, host, source_type=1,
 ):
     server_mode = mode == "wifi"
     print(
         f"[Streamer {compositor}] Resolution={width}x{height}  FPS={fps}  "
-        f"Bitrate={bitrate}  Mode={mode}  Port={port}"
+        f"Bitrate={bitrate}  Mode={mode}  Port={port}  SourceType={source_type}"
     )
 
     DBusGMainLoop(set_as_default=True)
@@ -82,7 +82,7 @@ def run_portal_streamer(
             state["session"] = str(results["session_handle"])
             state["step"] = "select_sources"
             screen_cast.SelectSources(state["session"], {
-                "types": dbus.UInt32(1),
+                "types": dbus.UInt32(source_type),
                 "multiple": dbus.Boolean(False),
                 "cursor_mode": dbus.UInt32(2),
                 "handle_token": dbus.String("tok2"),

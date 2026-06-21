@@ -1,7 +1,9 @@
 """Primary stream, TLS proxy and input bridge lifecycle."""
 
+import json
 import os
 import secrets
+import socket
 import subprocess
 import sys
 import time
@@ -10,6 +12,10 @@ from PyQt6.QtCore import QObject, QProcess, QProcessEnvironment, QTimer, pyqtSig
 from PyQt6.QtGui import QGuiApplication
 
 from gui.display_controller import DisplayController
+from gui.kde_virtual_monitor import (
+    ensure_krfb_virtualmonitor_desktop_entry,
+    should_use_legacy_krfb,
+)
 from gui.process_utils import kill_patterns, kill_tracked_pids, stop_processes
 from gui.settings import load_general_settings, load_wifi_settings
 from gui.third_stream_controller import ThirdStreamController
@@ -51,11 +57,14 @@ class StreamingController(QObject):
         self.krfb = self.streamer = self.input_bridge = self.tls_proxy = None
         self.gst_pids = set()
         self.tls_buffer = ""
+        self.input_launched = False
         self.generation = 0
-        self.kde_display_name = "TabletDisplay"
+        self.kde_display_name = "monitorize"
+        self.kde_display_baseline = None
         self.kde_ready_generation = None
         self.kde_ready_process = None
         self.kde_ready_deadline = 0.0
+        self.kde_ready_fallback_at = 0.0
         self.streamer_has_pipewire_node = False
         self.countdown_timer = QTimer(self)
         self.countdown_timer.setInterval(1000)
@@ -65,6 +74,8 @@ class StreamingController(QObject):
         self.kde_ready_timer.timeout.connect(self._check_kde_virtual_display)
 
     def _set_streaming(self, value):
+        if self.streaming == value:
+            return
         self.streaming = value
         self.streamingChanged.emit(value)
 
@@ -104,40 +115,30 @@ class StreamingController(QObject):
             subprocess.run(["adb", "reverse", "--remove", "tcp:7111"], capture_output=True)
             if self.encrypted:
                 self._launch_tls()
-        self._set_streaming(True)
+        defer_streaming_ui = self.de == "kde" and self.display_type == "Extend"
+        if not defer_streaming_ui:
+            self._set_streaming(True)
         self._prepare_display()
 
     def _prepare_display(self):
         if self.display_type == "Mirror" and self.de in ("kde", "hyprland"):
             self._launch_streamer()
         elif self.de == "kde":
-            self._set_status("Starting KDE virtual monitor…")
-            self.krfb = QProcess(self)
-            self.krfb.setWorkingDirectory(LINUX_DIR)
-            self.krfb.setProcessEnvironment(self.env)
-            self.krfb.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
-            generation = self.generation
-            process = self.krfb
-            self.krfb.readyReadStandardOutput.connect(
-                lambda: self._read_krfb(generation, process)
-            )
-            self.krfb.finished.connect(
-                lambda code, status: self._krfb_finished(code, status, generation, process)
-            )
-            self.krfb.errorOccurred.connect(
-                lambda _error: self._krfb_error(generation, process)
-            )
-            self.krfb.start("krfb-virtualmonitor", [
-                "--resolution", f"{self.width}x{self.height}",
-                "--name", self.kde_display_name,
-                "--password", secrets.token_urlsafe(6),
-                "--port", "5900",
-            ])
-            self.logAppended.emit(
-                "KRFB",
-                f"Started KDE virtual display helper for {self.kde_display_name}.",
-            )
-            self._start_kde_virtual_display_wait(generation, process)
+            if self._use_legacy_kde_krfb():
+                self._prepare_kde_krfb_virtual_display()
+            else:
+                self.kde_display_baseline = (
+                    self._kde_output_snapshot()
+                    or self._kde_connected_output_ids()
+                )
+                self.env.insert("MONITORIZE_PORTAL_SOURCE_TYPE", "4")
+                self.env.insert(
+                    "MONITORIZE_PORTAL_SELECTOR_HINT",
+                    "KDE will create a virtual monitor for Monitorize.",
+                )
+                self._set_status("Opening KDE virtual display portal…")
+                self._set_streaming(True)
+                self._launch_streamer()
         elif self.de == "hyprland":
             self._set_status("Setting up virtual monitor on Hyprland…")
             output, error = self.display.prepare_hyprland(
@@ -169,6 +170,47 @@ class StreamingController(QObject):
         else:
             self._launch_streamer()
 
+    def _use_legacy_kde_krfb(self):
+        return should_use_legacy_krfb(
+            lambda message: self.logAppended.emit("KRFB", message)
+        )
+
+    def _prepare_kde_krfb_virtual_display(self):
+        self._set_status("Starting KDE virtual monitor…")
+        alias_message = ensure_krfb_virtualmonitor_desktop_entry()
+        if alias_message:
+            self.logAppended.emit("KRFB", alias_message)
+        self.kde_display_baseline = (
+            self._kde_output_snapshot()
+            or self._kde_connected_output_ids()
+        )
+        self.krfb = QProcess(self)
+        self.krfb.setWorkingDirectory(LINUX_DIR)
+        self.krfb.setProcessEnvironment(self.env)
+        self.krfb.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+        generation = self.generation
+        process = self.krfb
+        self.krfb.readyReadStandardOutput.connect(
+            lambda: self._read_krfb(generation, process)
+        )
+        self.krfb.finished.connect(
+            lambda code, status: self._krfb_finished(code, status, generation, process)
+        )
+        self.krfb.errorOccurred.connect(
+            lambda _error: self._krfb_error(generation, process)
+        )
+        self.krfb.start("krfb-virtualmonitor", [
+            "--resolution", f"{self.width}x{self.height}",
+            "--name", self.kde_display_name,
+            "--password", secrets.token_urlsafe(6),
+            "--port", self._allocate_kde_virtual_monitor_port(),
+        ])
+        self.logAppended.emit(
+            "KRFB",
+            f"Started KDE virtual display helper for {self.kde_display_name}.",
+        )
+        self._start_kde_virtual_display_wait(generation, process)
+
     def _fail(self, message):
         self.logAppended.emit("STREAMER", f"ERROR: {message}")
         self._set_status(message)
@@ -193,11 +235,44 @@ class StreamingController(QObject):
         self.countdownChanged.emit(0)
         self.kde_ready_generation = generation
         self.kde_ready_process = process
-        self.kde_ready_deadline = time.monotonic() + 8.0
+        now = time.monotonic()
+        self.kde_ready_deadline = now + 8.0
+        self.kde_ready_fallback_at = now + 2.0
         self._set_status(f"Waiting for KDE virtual display {self.kde_display_name}…")
         self.kde_ready_timer.start()
 
-    def _kde_virtual_display_visible(self):
+    @staticmethod
+    def _allocate_kde_virtual_monitor_port():
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.bind(("127.0.0.1", 0))
+                return str(sock.getsockname()[1])
+        except OSError:
+            return "5900"
+
+    @staticmethod
+    def _parse_kscreen_outputs(raw):
+        outputs = set()
+        current = None
+        connected = enabled = False
+        for line in raw.splitlines():
+            if line.startswith("Output:"):
+                if current and connected and enabled:
+                    outputs.add(current)
+                parts = line.split()
+                current = parts[1] if len(parts) > 1 else line
+                connected = enabled = False
+            elif current:
+                stripped = line.strip().lower()
+                if stripped == "connected":
+                    connected = True
+                elif stripped == "enabled":
+                    enabled = True
+        if current and connected and enabled:
+            outputs.add(current)
+        return outputs
+
+    def _kde_connected_output_ids(self):
         try:
             result = subprocess.run(
                 ["kscreen-doctor", "-o"],
@@ -205,13 +280,211 @@ class StreamingController(QObject):
                 text=True,
                 timeout=1,
             )
-            if result.returncode == 0 and self.kde_display_name in result.stdout:
-                return True
+            if result.returncode == 0:
+                return self._parse_kscreen_outputs(result.stdout)
         except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
             pass
+        return None
+
+    def _kde_outputs_json(self):
+        try:
+            result = subprocess.run(
+                ["kscreen-doctor", "-j"],
+                capture_output=True,
+                text=True,
+                timeout=2,
+            )
+            if result.returncode == 0:
+                return json.loads(result.stdout).get("outputs", [])
+        except (FileNotFoundError, OSError, subprocess.TimeoutExpired, ValueError):
+            pass
+        return []
+
+    def _kde_output_snapshot(self):
+        outputs = self._kde_outputs_json()
+        if not outputs:
+            return None
+        return {
+            "ids": {
+                str(output.get("id"))
+                for output in outputs
+                if output.get("connected") and output.get("enabled")
+            },
+            "names": {
+                str(output.get("name"))
+                for output in outputs
+                if output.get("connected") and output.get("enabled")
+            },
+            "outputs": {
+                str(output.get("name")): {
+                    "id": str(output.get("id")),
+                    "type": output.get("type"),
+                    "priority": output.get("priority"),
+                    "currentModeId": output.get("currentModeId"),
+                    "scale": output.get("scale"),
+                }
+                for output in outputs
+                if output.get("connected") and output.get("enabled")
+            },
+        }
+
+    @staticmethod
+    def _is_kde_virtual_output(output):
+        name = str(output.get("name", "")).lower()
+        return name.startswith("virtual-")
+
+    @staticmethod
+    def _is_safe_kde_virtual_output(output):
+        name = str(output.get("name", ""))
+        if not name.lower().startswith("virtual-"):
+            return False
+        if not output.get("connected") or not output.get("enabled"):
+            return False
+        if output.get("primary") is True or output.get("priority") == 1:
+            return False
+        return True
+
+    def _kde_baseline_ids_and_names(self):
+        baseline = self.kde_display_baseline
+        if not baseline:
+            return None, None
+        if isinstance(baseline, dict):
+            return set(baseline.get("ids", ())), set(baseline.get("names", ()))
+        values = {str(value) for value in baseline}
+        return values, values
+
+    def _kde_portal_virtual_output(self):
+        outputs = [
+            output for output in self._kde_outputs_json()
+            if output.get("connected") and output.get("enabled")
+        ]
+        if not outputs:
+            return None
+        portal_virtual = self.env.value("MONITORIZE_PORTAL_SOURCE_TYPE") == "4"
+        if not portal_virtual:
+            expected_name = f"Virtual-{self.kde_display_name}".lower()
+            return next(
+                (
+                    output for output in outputs
+                    if self._is_safe_kde_virtual_output(output)
+                    and str(output.get("name", "")).lower() == expected_name
+                ),
+                None,
+            )
+
+        baseline_ids, baseline_names = self._kde_baseline_ids_and_names()
+        if baseline_ids is None or baseline_names is None:
+            return None
+        candidates = [
+            output for output in outputs
+            if self._is_safe_kde_virtual_output(output)
+            and str(output.get("id")) not in baseline_ids
+            and str(output.get("name")) not in baseline_names
+        ]
+        return candidates[0] if len(candidates) == 1 else None
+
+    def _configure_kde_virtual_display(self, generation=None, attempt=0, on_done=None):
+        generation = self.generation if generation is None else generation
+        if generation != self.generation:
+            return
+        output = self._kde_portal_virtual_output()
+        if not output:
+            if attempt < 16:
+                QTimer.singleShot(
+                    300,
+                    lambda: self._configure_kde_virtual_display(
+                        generation, attempt + 1, on_done
+                    ),
+                )
+            else:
+                self.logAppended.emit(
+                    "KRFB",
+                    (
+                        "KDE virtual output could not be identified safely; "
+                        "continuing without changing any display mode or scale."
+                    ),
+                )
+                if callable(on_done) and generation == self.generation:
+                    on_done()
+            return
+
+        output_ref = str(output.get("name") or output.get("id"))
+        output_name = str(output.get("name") or output_ref)
+        self.env.insert("MONITORIZE_OUTPUT", output_name)
+        mode = f"{self.width}x{self.height}@{self.fps}"
+        refresh_mhz = self.fps * 1000
+        add_mode_command = [
+            "kscreen-doctor",
+            (
+                f"output.{output_ref}.addCustomMode."
+                f"{self.width}.{self.height}.{refresh_mhz}.full"
+            ),
+        ]
+        mode_command = ["kscreen-doctor", f"output.{output_ref}.mode.{mode}"]
+        scale_command = ["kscreen-doctor", f"output.{output_ref}.scale.1.0"]
+        try:
+            add_mode = subprocess.run(
+                add_mode_command, capture_output=True, text=True, timeout=3
+            )
+            if add_mode.returncode != 0:
+                warning = add_mode.stderr.strip() or add_mode.stdout.strip()
+                self.logAppended.emit(
+                    "KRFB",
+                    (
+                        f"KDE custom mode registration returned "
+                        f"{add_mode.returncode} for {output_name}: {warning}"
+                    ),
+                )
+            mode_result = subprocess.run(
+                mode_command, capture_output=True, text=True, timeout=3
+            )
+            scale_result = subprocess.run(
+                scale_command, capture_output=True, text=True, timeout=3
+            )
+            if mode_result.returncode == 0 and scale_result.returncode == 0:
+                self.logAppended.emit(
+                    "KRFB",
+                    f"Configured KDE virtual output {output_name} to {mode} scale 1.0.",
+                )
+            else:
+                error = (
+                    mode_result.stderr.strip()
+                    or scale_result.stderr.strip()
+                    or mode_result.stdout.strip()
+                    or scale_result.stdout.strip()
+                )
+                self.logAppended.emit(
+                    "KRFB",
+                    f"Could not set KDE virtual output {output_name} to {mode}: {error}",
+                )
+        except (FileNotFoundError, OSError, subprocess.TimeoutExpired) as exc:
+            self.logAppended.emit(
+                "KRFB",
+                f"Could not configure KDE virtual output {output_name}: {exc}",
+            )
+        finally:
+            if callable(on_done) and generation == self.generation:
+                on_done()
+
+    def _configure_kde_portal_virtual_display(self, generation=None, attempt=0, on_done=None):
+        self._configure_kde_virtual_display(generation, attempt, on_done)
+
+    def _kde_virtual_display_visible(self):
+        outputs = self._kde_connected_output_ids()
+        if outputs is not None:
+            baseline = self.kde_display_baseline
+            if isinstance(baseline, dict):
+                baseline = set(baseline.get("ids", ()))
+            if baseline is not None and outputs - set(baseline):
+                return True
+            if any(self.kde_display_name in output for output in outputs):
+                return True
+            return False
         app = QGuiApplication.instance()
         screens = app.screens() if app and hasattr(app, "screens") else []
-        return any(self.kde_display_name in (screen.name() or "") for screen in screens)
+        if any(self.kde_display_name in (screen.name() or "") for screen in screens):
+            return True
+        return time.monotonic() >= self.kde_ready_fallback_at
 
     def _check_kde_virtual_display(self):
         generation = self.kde_ready_generation
@@ -219,7 +492,6 @@ class StreamingController(QObject):
         if (
             generation != self.generation
             or process is not self.krfb
-            or not self.streaming
         ):
             self.kde_ready_timer.stop()
             return
@@ -236,9 +508,13 @@ class StreamingController(QObject):
                 f"KDE virtual display {self.kde_display_name} is active.",
             )
             self._set_status(
-                f"KDE virtual display {self.kde_display_name} is ready; opening picker…"
+                f"KDE virtual display {self.kde_display_name} is ready; applying mode…"
             )
-            self._launch_streamer(generation)
+            self._set_streaming(True)
+            self._configure_kde_virtual_display(
+                generation,
+                on_done=lambda: self._launch_streamer(generation),
+            )
             return
         if time.monotonic() >= self.kde_ready_deadline:
             self._fail_kde_virtual_display(
@@ -248,6 +524,7 @@ class StreamingController(QObject):
     def _fail_kde_virtual_display(self, message, process=None):
         self.kde_ready_timer.stop()
         self.kde_ready_generation = self.kde_ready_process = None
+        self.kde_display_baseline = None
         self.countdown_timer.stop()
         krfb = self.krfb if process is None or process is self.krfb else None
         if krfb is not None:
@@ -300,7 +577,9 @@ class StreamingController(QObject):
             args += ["1.0", self.display_type.replace(" ", "_")]
         self.streamer.start(sys.executable, args)
         self._advertise()
-        if self.de in ("kde", "gnome"):
+        if self.de == "kde" and self.env.value("MONITORIZE_PORTAL_SOURCE_TYPE") == "4":
+            self.input_launched = False
+        elif self.de in ("kde", "gnome"):
             QTimer.singleShot(400, lambda: self._launch_input(generation))
         else:
             self.input_launched = False
@@ -443,7 +722,11 @@ class StreamingController(QObject):
                     pass
             if self.de == "kde":
                 if "[Portal] Creating session" in line:
-                    if self._kde_virtual_display_visible():
+                    if self.env.value("MONITORIZE_PORTAL_SOURCE_TYPE") == "4":
+                        self._set_status(
+                            "KDE portal opened — approve the virtual display."
+                        )
+                    elif self._kde_virtual_display_visible():
                         self._set_status(
                             f"KDE picker opened — select {self.kde_display_name}."
                         )
@@ -454,6 +737,20 @@ class StreamingController(QObject):
                 elif "[Portal] Got PipeWire node=" in line:
                     self.streamer_has_pipewire_node = True
                     self._set_status("KDE display selected; stream pipeline starting…")
+                    if (
+                        self.env.value("MONITORIZE_PORTAL_SOURCE_TYPE") == "4"
+                        and not self.input_launched
+                    ):
+                        self.input_launched = True
+                        current_generation = self.generation
+                        self._configure_kde_portal_virtual_display(
+                            current_generation,
+                            on_done=lambda: QTimer.singleShot(
+                                500, lambda: self._launch_input(current_generation)
+                            ),
+                        )
+                    else:
+                        self._configure_kde_portal_virtual_display(self.generation)
                 elif "[ERROR] No streams" in line:
                     self._set_status(
                         "KDE portal returned no display; the virtual display may have disappeared"
@@ -545,6 +842,7 @@ class StreamingController(QObject):
         self.countdown_timer.stop()
         self.kde_ready_timer.stop()
         self.kde_ready_generation = self.kde_ready_process = None
+        self.kde_display_baseline = None
         self.streamer_has_pipewire_node = False
         self.third.stop()
         stop_processes(self.krfb, self.streamer, self.input_bridge, self.tls_proxy)

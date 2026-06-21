@@ -39,6 +39,24 @@ def headless_output(outputs):
     ), None)
 
 
+def kde_virtual_output(outputs):
+    exact = next(
+        (item for item in outputs if item.get("name") == "Virtual-TabletDisplay"),
+        None,
+    )
+    if exact:
+        return exact
+    return next(
+        (
+            item for item in outputs
+            if item.get("enabled")
+            and item.get("connected", True)
+            and str(item.get("name", "")).lower().startswith("virtual")
+        ),
+        None,
+    )
+
+
 class Geometry:
     def __init__(self, de: str, screen_w: int, screen_h: int):
         self.de = de
@@ -60,10 +78,7 @@ class Geometry:
     def rotation(self):
         if self.de == "kde":
             outputs = json_command(["kscreen-doctor", "-j"]).get("outputs", [])
-            output = next(
-                (item for item in outputs if item.get("name") == "Virtual-TabletDisplay"),
-                None,
-            )
+            output = kde_virtual_output(outputs)
             value = output.get("rotation", 1) if output else 1
             return {
                 1: 0, 2: 270, 4: 180, 8: 90,
@@ -82,10 +97,15 @@ class Geometry:
     def _rect_kde(self):
         try:
             outputs = json_command(["kscreen-doctor", "-j"]).get("outputs", [])
-            target = next(
-                (item for item in outputs if item.get("name") == "Virtual-TabletDisplay"),
-                next((item for item in outputs if item.get("primary") or item.get("enabled")), None),
-            )
+            target = kde_virtual_output(outputs)
+            if (
+                target is None
+                and os.environ.get("MONITORIZE_PORTAL_SOURCE_TYPE") != "4"
+            ):
+                target = next(
+                    (item for item in outputs if item.get("primary") or item.get("enabled")),
+                    None,
+                )
             if target:
                 pos = target.get("pos", {})
                 size = target.get("size", {})
@@ -240,6 +260,11 @@ class Geometry:
         } - {""}
         if not event_names:
             return set()
+        target_output = (
+            os.environ.get("MONITORIZE_OUTPUT")
+            or (kde_virtual_output(json_command(["kscreen-doctor", "-j"]).get("outputs", [])) or {}).get("name")
+            or "Virtual-TabletDisplay"
+        )
         try:
             import dbus
             bus = dbus.SessionBus()
@@ -261,7 +286,7 @@ class Geometry:
                     props.Set(
                         "org.kde.KWin.InputDevice",
                         "outputName",
-                        dbus.String("Virtual-TabletDisplay"),
+                        dbus.String(target_output),
                     )
                     pending.remove(event_name)
                     mapped.add(event_name)

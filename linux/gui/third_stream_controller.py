@@ -6,6 +6,10 @@ import sys
 
 from PyQt6.QtCore import QObject, QProcess, QProcessEnvironment, QTimer, pyqtSignal
 
+from gui.kde_virtual_monitor import (
+    ensure_krfb_virtualmonitor_desktop_entry,
+    should_use_legacy_krfb,
+)
 from gui.process_utils import kill_patterns, kill_tracked_pids, stop_processes
 from gui.utils import LINUX_DIR
 from gui.validation import (
@@ -59,21 +63,36 @@ class ThirdStreamController(QObject):
         self.logAppended.emit(
             "STREAMER", f"[Third display] Spawning virtual monitor: {width}x{height}"
         )
-        self.krfb = QProcess(self)
-        self.krfb.setWorkingDirectory(LINUX_DIR)
-        self.krfb.setProcessEnvironment(self.env)
-        self.krfb.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
-        krfb = self.krfb
-        self.krfb.readyReadStandardOutput.connect(
-            lambda: self._read_krfb(generation, krfb)
-        )
-        self.krfb.start("krfb-virtualmonitor", [
-            "--resolution", f"{width}x{height}",
-            "--name", "TabletDisplay2",
-            "--password", secrets.token_urlsafe(6),
-            "--port", "5901",
-        ])
-        QTimer.singleShot(5000, lambda: self._launch_streamer(generation))
+        if should_use_legacy_krfb(
+            lambda message: self.logAppended.emit(
+                "STREAMER", f"[Third display KRFB] {message}"
+            )
+        ):
+            alias_message = ensure_krfb_virtualmonitor_desktop_entry()
+            if alias_message:
+                self.logAppended.emit("STREAMER", f"[Third display KRFB] {alias_message}")
+            self.krfb = QProcess(self)
+            self.krfb.setWorkingDirectory(LINUX_DIR)
+            self.krfb.setProcessEnvironment(self.env)
+            self.krfb.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+            krfb = self.krfb
+            self.krfb.readyReadStandardOutput.connect(
+                lambda: self._read_krfb(generation, krfb)
+            )
+            self.krfb.start("krfb-virtualmonitor", [
+                "--resolution", f"{width}x{height}",
+                "--name", "TabletDisplay2",
+                "--password", secrets.token_urlsafe(6),
+                "--port", "5901",
+            ])
+            QTimer.singleShot(5000, lambda: self._launch_streamer(generation))
+        else:
+            self.env.insert("MONITORIZE_PORTAL_SOURCE_TYPE", "4")
+            self.env.insert(
+                "MONITORIZE_PORTAL_SELECTOR_HINT",
+                "KDE will create a second virtual monitor for Monitorize.",
+            )
+            QTimer.singleShot(0, lambda: self._launch_streamer(generation))
 
     def _launch_streamer(self, generation=None):
         generation = self.generation if generation is None else generation
