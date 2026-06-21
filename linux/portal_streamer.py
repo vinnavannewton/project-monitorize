@@ -3,7 +3,6 @@
 
 import signal
 import subprocess
-import sys
 import threading
 
 import dbus
@@ -15,7 +14,7 @@ from pipeline_builder import launch_with_fallback
 
 def run_portal_streamer(
     compositor, selector_hint, width, height, fps, bitrate, mode, port,
-    encoder, host, source_type=1,
+    encoder, host, source_type=1, prepare_stream=None,
 ):
     server_mode = mode == "wifi"
     print(
@@ -34,6 +33,23 @@ def run_portal_streamer(
     process = {"gst": None}
     cleaning_up = False
 
+    def close_session():
+        session = state.get("session")
+        if not session:
+            return
+        state["session"] = None
+        try:
+            session_object = bus.get_object(
+                "org.freedesktop.portal.Desktop",
+                session,
+            )
+            dbus.Interface(
+                session_object,
+                "org.freedesktop.portal.Session",
+            ).Close()
+        except Exception:
+            pass
+
     def cleanup(*_args):
         nonlocal cleaning_up
         if cleaning_up:
@@ -47,6 +63,7 @@ def run_portal_streamer(
                 gst.wait(timeout=3)
             except subprocess.TimeoutExpired:
                 gst.kill()
+        close_session()
         if loop.is_running():
             loop.quit()
 
@@ -98,6 +115,17 @@ def run_portal_streamer(
                 print("[ERROR] No streams from portal.")
                 loop.quit()
                 return
+            if prepare_stream:
+                ok, output_name, message = prepare_stream()
+                if not ok:
+                    print(f"[ERROR] KDE virtual display configuration failed: {message}")
+                    loop.quit()
+                    return
+                print(
+                    f"[Portal] Virtual output ready name={output_name} "
+                    f"mode={width}x{height}@{fps}"
+                )
+                print(f"[Portal] {message}")
             node_id = int(streams[0][0])
             fd = screen_cast.OpenPipeWireRemote(state["session"], {}).take()
             print(f"[Portal] Got PipeWire node={node_id} fd={fd}")

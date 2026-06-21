@@ -49,7 +49,6 @@ import com.example.monitorize.ui.theme.BreezeBorder as BorderDark
 import com.example.monitorize.ui.theme.BreezeButton as GreenAccent
 import com.example.monitorize.ui.theme.BreezeSurface as CardDark
 import com.example.monitorize.ui.theme.BreezeTextMuted as TextMuted
-import com.example.monitorize.ui.theme.BreezeTextSecondary as TextSecondary
 import com.example.monitorize.ui.theme.MonitorizeTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -136,10 +135,6 @@ class MainActivity : ComponentActivity() {
             var height by remember { mutableIntStateOf(initialDimensions.height) }
             var decodedWidth by remember { mutableIntStateOf(width) }
             var decodedHeight by remember { mutableIntStateOf(height) }
-            var manualEncrypted by remember {
-                mutableStateOf(prefs.getBoolean("manual_encrypted", true))
-            }
-            
             var selectedDevice by remember { mutableStateOf<DiscoveredDevice?>(null) }
             var disconnectionMessage by remember { mutableStateOf<String?>(
                 if (intent.getBooleanExtra("SHOW_DISCONNECTED", false)) "Disconnected" else null
@@ -201,8 +196,7 @@ class MainActivity : ComponentActivity() {
                                         disconnectionMessage = null 
                                     },
                                     onSettingsToggle = { isSettingsOpen = true },
-                                    onStartDiscovery = { discovery.startDiscovery() },
-                                    manualEncrypted = manualEncrypted
+                                    onStartDiscovery = { discovery.startDiscovery() }
                                 )
                             }
                             Screen.Receive -> {
@@ -275,11 +269,6 @@ class MainActivity : ComponentActivity() {
                                 SettingsPanel(
                                     initialWidth = width,
                                     initialHeight = height,
-                                    useEncryption = manualEncrypted,
-                                    onEncryptionChanged = { enabled ->
-                                        manualEncrypted = enabled
-                                        prefs.edit().putBoolean("manual_encrypted", enabled).apply()
-                                    },
                                     onSave = { w, h ->
                                         val sanitized = sanitizeStreamDimensions(w, h)
                                         if (sanitized.width != width || sanitized.height != height) {
@@ -648,8 +637,7 @@ fun HomeScreen(
     devices: List<DiscoveredDevice>,
     onDeviceSelected: (DiscoveredDevice) -> Unit,
     onSettingsToggle: () -> Unit,
-    onStartDiscovery: () -> Unit = {},
-    manualEncrypted: Boolean
+    onStartDiscovery: () -> Unit = {}
 ) {
     val configuration = LocalConfiguration.current
     val isTablet = configuration.smallestScreenWidthDp >= 600
@@ -807,7 +795,7 @@ fun HomeScreen(
                         )
                     )
                     Spacer(modifier = Modifier.width(12.dp))
-                    Button(m
+                    Button(
                         onClick = {
                             val ip = manualIp.trim()
                             val portText = manualPort.trim()
@@ -827,7 +815,7 @@ fun HomeScreen(
                                     }
                                     onDeviceSelected(DiscoveredDevice(
                                         name = "Manual WiFi", ip = ip, port = port,
-                                        isUsb = false, encrypted = manualEncrypted
+                                        isUsb = false, encrypted = false
                                     ))
                                 }
                             }
@@ -962,8 +950,6 @@ private data class SettingsMetrics(
 fun SettingsPanel(
     initialWidth: Int,
     initialHeight: Int,
-    useEncryption: Boolean,
-    onEncryptionChanged: (Boolean) -> Unit,
     onSave: (Int, Int) -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -1077,25 +1063,6 @@ fun SettingsPanel(
                     )
                 )
             }
-        }
-
-        Spacer(modifier = Modifier.height(spacingHeight))
-
-        Text("Connection", fontSize = titleSize, fontWeight = FontWeight.Bold, color = Color.White)
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp))
-                .clickable { onEncryptionChanged(!useEncryption) }
-                .padding(end = 12.dp)
-        ) {
-            Checkbox(
-                checked = useEncryption,
-                onCheckedChange = onEncryptionChanged
-            )
-            Text("Use encryption", color = TextSecondary)
         }
 
         Spacer(modifier = Modifier.height(spacingHeight))
