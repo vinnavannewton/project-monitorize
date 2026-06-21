@@ -39,9 +39,12 @@ class MonitorizeWindow(QMainWindow):
         self.setWindowTitle("Monitorize")
         self.setMinimumSize(760, 520)
         self.resize(860, 580)
-        icon = os.path.join(LINUX_DIR, "assets", "monitorize-icon.png")
+        icon = os.path.join(LINUX_DIR, "assets", "monitorize_desktop_logo.png")
         if os.path.exists(icon):
-            self.setWindowIcon(QIcon(icon))
+            self.app_icon = QIcon(icon)
+            self.setWindowIcon(self.app_icon)
+        else:
+            self.app_icon = QIcon()
         kill_patterns(
             "gst-launch-1.0.*port=7110",
             "gst-launch-1.0.*port=7112",
