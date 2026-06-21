@@ -539,23 +539,29 @@ class StreamingControllerTest(unittest.TestCase):
     def test_kde_readiness_accepts_new_output_with_different_name(self):
         controller = self.kde_controller()
         controller.kde_output_baseline = {"eDP-1"}
-        kscreen = (
-            "Output: 1 eDP-1\n"
-            "\tenabled\n"
-            "\tconnected\n"
-            "Output: 2 Virtual-1\n"
-            "\tenabled\n"
-            "\tconnected\n"
-        )
-        result = Mock(returncode=0, stdout=kscreen)
-        with patch("gui.streaming_controller.subprocess.run", return_value=result):
+        with patch(
+            "gui.streaming_controller.active_kde_output_names",
+            return_value={"eDP-1", "Virtual-1"},
+        ):
             self.assertTrue(controller._kde_virtual_display_visible())
 
     def test_kde_readiness_falls_back_when_kscreen_is_unusable(self):
         controller = self.kde_controller()
         controller.kde_ready_fallback_at = 0
         with (
-            patch("gui.streaming_controller.subprocess.run", side_effect=OSError("no display")),
+            patch("gui.streaming_controller.active_kde_output_names", return_value=set()),
+            patch("gui.streaming_controller.QGuiApplication.instance", return_value=None),
+        ):
+            self.assertTrue(controller._kde_virtual_display_visible())
+
+    def test_kde_readiness_falls_back_when_output_probe_fails(self):
+        controller = self.kde_controller()
+        controller.kde_ready_fallback_at = 0
+        with (
+            patch(
+                "gui.streaming_controller.active_kde_output_names",
+                side_effect=OSError("no display"),
+            ),
             patch("gui.streaming_controller.QGuiApplication.instance", return_value=None),
         ):
             self.assertTrue(controller._kde_virtual_display_visible())
@@ -934,6 +940,10 @@ class PipelineBuilderTest(unittest.TestCase):
         argv = popen.call_args.args[0]
         self.assertIsInstance(argv, list)
         self.assertIn("gst-launch-1.0", argv)
+        config_interval_args = [
+            arg for arg in argv if arg.startswith("config-interval=")
+        ]
+        self.assertEqual(["config-interval=1"], config_interval_args)
         self.assertFalse(popen.call_args.kwargs["shell"])
 
     def test_hardware_launch_falls_back_to_cpu_on_immediate_failure(self):

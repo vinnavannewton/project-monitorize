@@ -125,15 +125,10 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
         convert = f"videoconvert n-threads=4{scale} ! video/x-raw,format=I420{dimensions}"
         encoder = _cpu_encoder_params(bitrate, key_int, intra_refresh=intra_refresh)
 
-    
+    parse = "h264parse config-interval=1"
     if hw_encoder:
-        parse = "h264parse config-interval=1"
         caps_out = "video/x-h264,stream-format=byte-stream,alignment=au"
     else:
-        
-        
-        parse = "h264parse config-interval=-1"
-        
         caps_out = "video/x-h264,profile=baseline,stream-format=byte-stream,alignment=au"
 
     
