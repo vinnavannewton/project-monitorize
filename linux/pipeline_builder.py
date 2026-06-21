@@ -130,10 +130,7 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
         parse = "h264parse config-interval=1"
         caps_out = "video/x-h264,stream-format=byte-stream,alignment=au"
     else:
-        
-        
-        parse = "h264parse config-interval=-1"
-        
+        parse = "h264parse config-interval=1"
         caps_out = "video/x-h264,profile=baseline,stream-format=byte-stream,alignment=au"
 
     

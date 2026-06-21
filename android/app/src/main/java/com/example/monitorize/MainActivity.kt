@@ -1,6 +1,7 @@
 package com.example.monitorize
 
 import android.content.Context
+import android.content.Intent
 import android.net.wifi.WifiManager
 import android.util.Log
 import android.os.Build
@@ -77,6 +78,7 @@ class MainActivity : ComponentActivity() {
     private val streamMutex = Mutex()
     private var activeStreamSession = 0L
     private var surfaceGeneration = 0L
+    private var restartingAfterDisconnect = false
     private val status = mutableStateOf("")
     private lateinit var discovery: DeviceDiscovery
 
@@ -208,14 +210,8 @@ class MainActivity : ComponentActivity() {
                                     displayHeight = decodedHeight,
                                     status = status.value,
                                     onBack = {
-                                        coroutineScope.launch {
-                                            clearPairingState(invokeCancel = true)
-                                            stopStream()
-                                            selectedDevice = null
-                                            currentScreen = Screen.Home
-                                            disconnectionMessage = null
-                                            status.value = ""
-                                        }
+                                        clearPairingState(invokeCancel = true)
+                                        restartApp()
                                     },
                                     onSurfaceCreated = { ip, surface, w, h ->
                                         val generation = registerSurfaceCreated()
@@ -392,6 +388,16 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
         clearPairingUi?.invoke(false)
         closeStreamResourcesBlocking(snapshotAndClearStreamResources(invalidateSurface = true))
+    }
+
+    private fun restartApp() {
+        if (restartingAfterDisconnect) return
+        restartingAfterDisconnect = true
+        startActivity(
+            Intent(this, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        )
+        finish()
     }
 
     private fun applyImmersiveMode() {
