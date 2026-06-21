@@ -6,8 +6,11 @@ import java.net.Socket
 import java.net.DatagramSocket
 import java.net.DatagramPacket
 import java.net.InetAddress
+import java.net.InetSocketAddress
 import java.util.ArrayDeque
+import java.util.LinkedHashMap
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlin.math.cos
@@ -36,50 +39,124 @@ class InputEventSender(
         private const val PEN_FLAG_HOVER_EXIT = 1 shl 1
         private const val PEN_FLAG_HOVER_ENTER = 1 shl 2
         private const val ANDROID_FLAG_CANCELED = 0x20
+        private const val MAX_PENDING_FRAMES = 128
     }
 
-    private var socket: Socket? = null
-    private var udpSocket: DatagramSocket? = null
-    private var out: OutputStream? = null
+    @Volatile private var socket: Socket? = null
+    @Volatile private var udpSocket: DatagramSocket? = null
+    @Volatile private var out: OutputStream? = null
+    private val started = AtomicBoolean(false)
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val sendDispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
     private val sendScope = CoroutineScope(sendDispatcher + SupervisorJob())
     private val pendingFrames = ArrayDeque<ByteArray>()
+    private val activeContactFrames = LinkedHashMap<Byte, ByteArray>()
     private val sendWake = Channel<Unit>(Channel.CONFLATED)
 
     private fun queueFrame(frame: ByteArray) {
         synchronized(pendingFrames) {
             val action = frame[5].toInt()
+            val contactId = frame[7]
             if (action == 1 || action == 3) {
                 val iterator = pendingFrames.iterator()
                 while (iterator.hasNext()) {
                     val queued = iterator.next()
-                    if (queued[4] == frame[4] && queued[7] == frame[7] &&
+                    if (queued[4] == frame[4] && queued[7] == contactId &&
                         (queued[5].toInt() == 1 || queued[5].toInt() == 3)
                     ) {
                         iterator.remove()
                     }
                 }
             }
+            when (action) {
+                0, 1 -> activeContactFrames[contactId] = frame.copyOf()
+                2 -> activeContactFrames.remove(contactId)
+            }
+            while (pendingFrames.size >= MAX_PENDING_FRAMES) {
+                if (!dropQueuedFrameFor(action)) break
+            }
             pendingFrames.addLast(frame)
         }
         sendWake.trySend(Unit)
     }
 
-    private fun nextFrame(): ByteArray? = synchronized(pendingFrames) {
-        if (pendingFrames.isEmpty()) null else pendingFrames.removeFirst()
+    private fun dropQueuedFrameFor(newAction: Int): Boolean {
+        if (pendingFrames.isEmpty()) return false
+        if (newAction == 2) {
+            val iterator = pendingFrames.iterator()
+            while (iterator.hasNext()) {
+                val queued = iterator.next()
+                if (queued[5].toInt() != 2) {
+                    iterator.remove()
+                    return true
+                }
+            }
+        }
+        pendingFrames.removeFirst()
+        return true
     }
 
-    private suspend fun sendQueued(send: (ByteArray) -> Unit) {
+    private fun peekFrame(): ByteArray? = synchronized(pendingFrames) {
+        pendingFrames.firstOrNull()
+    }
+
+    private fun removePeekedFrame(frame: ByteArray) = synchronized(pendingFrames) {
+        if (pendingFrames.firstOrNull() === frame) {
+            pendingFrames.removeFirst()
+        } else {
+            pendingFrames.remove(frame)
+        }
+    }
+
+    private fun synthesizeCancelFrames() {
+        synchronized(pendingFrames) {
+            if (activeContactFrames.isEmpty()) return@synchronized
+            val cancelFrames = activeContactFrames.values.map { frame ->
+                frame.copyOf().also {
+                    it[5] = 2
+                    if (it.size >= PEN_EXT_FRAME_SIZE) {
+                        writeShort(it, 22, PEN_FLAG_CANCELED)
+                    }
+                }
+            }
+            activeContactFrames.clear()
+            for (frame in cancelFrames.asReversed()) {
+                while (pendingFrames.size >= MAX_PENDING_FRAMES) {
+                    if (!dropQueuedFrameFor(2)) break
+                }
+                pendingFrames.addFirst(frame)
+            }
+        }
+        sendWake.trySend(Unit)
+    }
+
+    private suspend fun sendQueuedPersistent(send: (ByteArray) -> Boolean) {
         for (ignored in sendWake) {
             while (true) {
-                val frame = nextFrame() ?: break
-                send(frame)
+                val frame = peekFrame() ?: break
+                if (!send(frame)) break
+                removePeekedFrame(frame)
+            }
+        }
+    }
+
+    private suspend fun sendQueuedUntilFailure(send: (ByteArray) -> Boolean) {
+        for (ignored in sendWake) {
+            while (true) {
+                val frame = peekFrame() ?: break
+                if (!send(frame)) return
+                removePeekedFrame(frame)
             }
         }
     }
 
     fun start() {
+        if (!started.compareAndSet(false, true)) return
+        if (encrypted && (hostIp.isNullOrBlank() || fingerprint.isNullOrBlank() || authToken.isNullOrBlank())) {
+            android.util.Log.e("InputEventSender", "Encrypted input requires host, fingerprint, and token")
+            started.set(false)
+            return
+        }
         if (hostIp.isNullOrEmpty() || encrypted) {
             scope.launch {
                 while (isActive) {
@@ -91,16 +168,21 @@ class InputEventSender(
                                 outputStream.write("AUTH $authToken\n".toByteArray(Charsets.US_ASCII))
                                 outputStream.flush()
                                 if (readAsciiLine(this) != "OK") throw SecurityException("Input authentication failed")
+                                soTimeout = 0
                             }
                         } else {
-                            Socket(HOST, portTcp)
+                            Socket().apply {
+                                connect(InetSocketAddress(HOST, portTcp), 2500)
+                            }
                         }
                         s.tcpNoDelay = true
+                        s.keepAlive = true
                         s.sendBufferSize = 4 * 1024
                         try { s.trafficClass = 0xB8 } catch (_: Exception) {}
                         socket = s
                         out = s.getOutputStream()
-                        android.util.Log.i("InputEventSender", "Secure input connected")
+                        android.util.Log.i("InputEventSender", "Input connected")
+                        sendWake.trySend(Unit)
                         
                         val inputStream = s.getInputStream()
                         val buffer = ByteArray(16)
@@ -111,8 +193,11 @@ class InputEventSender(
                             }
                         }
                     } catch (e: Exception) {
-                        
+                        if (isActive) {
+                            android.util.Log.w("InputEventSender", "Input connection lost: ${e.message}")
+                        }
                     } finally {
+                        if (isActive) synthesizeCancelFrames()
                         out = null
                         socket = null
                         try { s?.close() } catch (_: Exception) {}
@@ -122,44 +207,59 @@ class InputEventSender(
             }
             sendScope.launch {
                 android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_DISPLAY)
-                sendQueued { frame ->
+                sendQueuedPersistent { frame ->
                     val currentOut = out
                     if (currentOut != null) {
                         try {
                             currentOut.write(frame)
+                            true
                         } catch (e: Exception) {
                             out = null
                             try { socket?.close() } catch (_: Exception) {}
                             socket = null
+                            false
                         }
+                    } else {
+                        false
                     }
                 }
             }
         } else {
             sendScope.launch {
                 android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_DISPLAY)
-                try {
-                    val u = DatagramSocket()
-                    u.sendBufferSize = 4 * 1024
-                    try { u.trafficClass = 0xB8 } catch (_: Exception) {}
-                    val addr = InetAddress.getByName(hostIp)
-                    udpSocket = u
-                    android.util.Log.i("InputEventSender", "UDP touch ready for $hostIp:$portUdp")
-                    sendQueued { frame ->
-                        val packet = DatagramPacket(frame, frame.size, addr, portUdp)
-                        u.send(packet)
+                while (isActive) {
+                    var u: DatagramSocket? = null
+                    try {
+                        u = DatagramSocket()
+                        u.sendBufferSize = 4 * 1024
+                        try { u.trafficClass = 0xB8 } catch (_: Exception) {}
+                        val addr = InetAddress.getByName(hostIp)
+                        udpSocket = u
+                        android.util.Log.i("InputEventSender", "UDP touch ready for $hostIp:$portUdp")
+                        sendWake.trySend(Unit)
+                        sendQueuedUntilFailure { frame ->
+                            try {
+                                val packet = DatagramPacket(frame, frame.size, addr, portUdp)
+                                u.send(packet)
+                                true
+                            } catch (e: Exception) {
+                                android.util.Log.w("InputEventSender", "UDP send failed: ${e.message}")
+                                false
+                            }
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("InputEventSender", "UDP error", e)
+                    } finally {
+                        if (udpSocket === u) udpSocket = null
+                        try { u?.close() } catch (_: Exception) {}
                     }
-                } catch (e: Exception) {
-                    android.util.Log.e("InputEventSender", "UDP error", e)
+                    delay(2000)
                 }
             }
         }
     }
 
     fun send(event: MotionEvent, viewW: Float, viewH: Float) {
-        val notConnected = if (hostIp.isNullOrEmpty() || encrypted) out == null else udpSocket == null
-        if (notConnected) return
-
         when (event.actionMasked) {
             MotionEvent.ACTION_MOVE -> {
                 for (i in 0 until event.pointerCount) {
@@ -289,6 +389,7 @@ class InputEventSender(
     }
 
     fun stop() {
+        if (!started.getAndSet(false)) return
         scope.cancel()
         sendScope.cancel()
         sendDispatcher.close()

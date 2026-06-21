@@ -8,6 +8,7 @@ import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ChannelResult
 
 data class DiscoveredDevice(
     val name: String,
@@ -15,7 +16,8 @@ data class DiscoveredDevice(
     val port: Int,
     val isUsb: Boolean = false,
     val encrypted: Boolean = false,
-    val fingerprint: String? = null
+    val fingerprint: String? = null,
+    val serviceName: String = ""
 )
 
 class DeviceDiscovery(private val context: Context) {
@@ -26,6 +28,7 @@ class DeviceDiscovery(private val context: Context) {
     private val TAG = "DeviceDiscovery"
     private val SERVICE_TYPE = "_monitorize._tcp."
     private val DEFAULT_PORT = 7110
+    private val RESOLVE_QUEUE_CAPACITY = 64
 
     val devices = mutableStateListOf<DiscoveredDevice>()
     private var discoveryListener: NsdManager.DiscoveryListener? = null
@@ -36,10 +39,14 @@ class DeviceDiscovery(private val context: Context) {
     var isDiscovering = false
         private set
     private var harvestJob: Job? = null
+    private var generation = 0
+    private val pendingResolveLock = Any()
+    private val pendingResolveNames = mutableSetOf<String>()
 
     fun startDiscovery() {
         Log.d(TAG, "startDiscovery() called")
         stopDiscovery()
+        val currentGeneration = ++generation
         isDiscovering = true
         
         
@@ -62,24 +69,32 @@ class DeviceDiscovery(private val context: Context) {
                 usbName = "$propName (USB)"
             }
         } catch (_: Exception) {}
-        addDevice(DiscoveredDevice(usbName, "127.0.0.1", DEFAULT_PORT, isUsb = true))
+        addDevice(
+            DiscoveredDevice(usbName, "127.0.0.1", DEFAULT_PORT, isUsb = true),
+            currentGeneration
+        )
 
         
-        val channel = Channel<NsdServiceInfo>(Channel.UNLIMITED)
+        val channel = Channel<NsdServiceInfo>(RESOLVE_QUEUE_CAPACITY)
         resolveChannel = channel
-        startResolverJob(channel)
+        startResolverJob(channel, currentGeneration)
 
         
         harvestJob = scope.launch {
             delay(500)
-            if (isDiscovering) startNsdDiscovery(SERVICE_TYPE)
+            if (isDiscovering && generation == currentGeneration) {
+                startNsdDiscovery(SERVICE_TYPE, currentGeneration)
+            }
         }
     }
 
-    private fun startResolverJob(channel: Channel<NsdServiceInfo>) {
+    private fun startResolverJob(
+        channel: Channel<NsdServiceInfo>,
+        currentGeneration: Int
+    ) {
         resolverJob = scope.launch {
             for (si in channel) {
-                if (!isActive) break
+                if (!isActive || generation != currentGeneration) break
                 try {
                     val completer = CompletableDeferred<Unit>()
                     Log.d(TAG, "Resolving: ${si.serviceName} (${si.serviceType})")
@@ -90,6 +105,10 @@ class DeviceDiscovery(private val context: Context) {
                             completer.complete(Unit)
                         }
                         override fun onServiceResolved(resolved: NsdServiceInfo) {
+                            if (!isDiscovering || generation != currentGeneration) {
+                                completer.complete(Unit)
+                                return
+                            }
                             val ip = resolved.host?.hostAddress ?: ""
                             if (ip.isNotEmpty() && !ip.contains(":")) {
                                 var resolvedName = resolved.serviceName.replace(Regex("\\[.*\\]"), "").trim()
@@ -117,8 +136,9 @@ class DeviceDiscovery(private val context: Context) {
                                     ip = ip,
                                     port = resolved.port,
                                     encrypted = encrypted,
-                                    fingerprint = fingerprint
-                                ))
+                                    fingerprint = fingerprint,
+                                    serviceName = resolved.serviceName
+                                ), currentGeneration)
                             }
                             completer.complete(Unit)
                         }
@@ -129,21 +149,39 @@ class DeviceDiscovery(private val context: Context) {
                 } catch (e: Exception) {
                     if (e is CancellationException) throw e
                     Log.e(TAG, "Resolver job error", e)
+                } finally {
+                    synchronized(pendingResolveLock) {
+                        pendingResolveNames.remove(si.serviceName)
+                    }
                 }
             }
         }
     }
 
-    private fun startNsdDiscovery(type: String) {
+    private fun startNsdDiscovery(type: String, currentGeneration: Int) {
         val listener = object : NsdManager.DiscoveryListener {
-            override fun onStartDiscoveryFailed(t: String?, errorCode: Int) { Log.e(TAG, "NSD Start failed $t: $errorCode") }
+            override fun onStartDiscoveryFailed(t: String?, errorCode: Int) {
+                Log.e(TAG, "NSD Start failed $t: $errorCode")
+                failDiscovery(currentGeneration)
+            }
             override fun onStopDiscoveryFailed(t: String?, errorCode: Int) {}
             override fun onDiscoveryStarted(t: String?) {}
             override fun onDiscoveryStopped(t: String?) {}
             override fun onServiceFound(si: NsdServiceInfo) {
-                scope.launch { resolveChannel?.send(si) }
+                if (generation == currentGeneration) {
+                    enqueueResolve(si, currentGeneration)
+                }
             }
-            override fun onServiceLost(si: NsdServiceInfo) {}
+            override fun onServiceLost(si: NsdServiceInfo) {
+                if (generation != currentGeneration) return
+                scope.launch(Dispatchers.Main) {
+                    if (generation == currentGeneration) {
+                        devices.removeAll {
+                            !it.isUsb && it.serviceName == si.serviceName
+                        }
+                    }
+                }
+            }
         }
         discoveryListener = listener
         try {
@@ -151,15 +189,57 @@ class DeviceDiscovery(private val context: Context) {
         } catch (e: Exception) {
             discoveryListener = null
             Log.e(TAG, "Discovery launch error for $type", e)
+            failDiscovery(currentGeneration)
         }
     }
 
-    private fun addDevice(newDevice: DiscoveredDevice) {
-        if (!isDiscovering) return
+    private fun enqueueResolve(si: NsdServiceInfo, currentGeneration: Int) {
+        val channel = resolveChannel ?: return
+        val serviceName = si.serviceName
+        synchronized(pendingResolveLock) {
+            if (!pendingResolveNames.add(serviceName)) return
+        }
+        val result: ChannelResult<Unit> = channel.trySend(si)
+        if (result.isFailure) {
+            synchronized(pendingResolveLock) {
+                pendingResolveNames.remove(serviceName)
+            }
+            Log.w(TAG, "Resolve queue full; dropping $serviceName")
+        }
+        if (generation != currentGeneration) {
+            synchronized(pendingResolveLock) {
+                pendingResolveNames.remove(serviceName)
+            }
+        }
+    }
+
+    private fun failDiscovery(currentGeneration: Int) {
+        if (generation != currentGeneration) return
+        generation += 1
+        isDiscovering = false
+        harvestJob?.cancel()
+        harvestJob = null
+        resolverJob?.cancel()
+        resolverJob = null
+        resolveChannel?.close()
+        resolveChannel = null
+        discoveryListener = null
+        synchronized(pendingResolveLock) {
+            pendingResolveNames.clear()
+        }
+        scope.launch(Dispatchers.Main) {
+            devices.removeAll { !it.isUsb }
+        }
+        try { if (multicastLock?.isHeld == true) multicastLock?.release() } catch (_: Exception) {}
+        multicastLock = null
+    }
+
+    private fun addDevice(newDevice: DiscoveredDevice, currentGeneration: Int) {
+        if (!isDiscovering || generation != currentGeneration) return
         if (newDevice.ip == "127.0.0.1" && !newDevice.isUsb) return
         
         scope.launch(Dispatchers.Main) {
-            if (!isDiscovering) return@launch
+            if (!isDiscovering || generation != currentGeneration) return@launch
             val index = devices.indexOfFirst { it.ip == newDevice.ip }
             if (index != -1) {
                 val existing = devices[index]
@@ -171,8 +251,10 @@ class DeviceDiscovery(private val context: Context) {
                 val betterName = if (isExistingGeneric && !isNewGeneric) newDevice.name else existing.name
                 devices[index] = existing.copy(
                     name = betterName,
-                    encrypted = existing.encrypted || newDevice.encrypted,
-                    fingerprint = newDevice.fingerprint ?: existing.fingerprint,
+                    port = newDevice.port,
+                    encrypted = newDevice.encrypted,
+                    fingerprint = newDevice.fingerprint,
+                    serviceName = newDevice.serviceName,
                 )
             } else {
                 devices.add(if (devices.firstOrNull()?.isUsb == true) 1 else 0, newDevice)
@@ -187,6 +269,7 @@ class DeviceDiscovery(private val context: Context) {
 
     fun stopDiscovery() {
         Log.d(TAG, "stopDiscovery() called")
+        generation += 1
         isDiscovering = false
         harvestJob?.cancel()
         harvestJob = null
@@ -197,6 +280,9 @@ class DeviceDiscovery(private val context: Context) {
         resolverJob?.cancel()
         resolveChannel?.close()
         resolveChannel = null
+        synchronized(pendingResolveLock) {
+            pendingResolveNames.clear()
+        }
         devices.clear()
         try { if (multicastLock?.isHeld == true) multicastLock?.release() } catch (_: Exception) {}
         multicastLock = null

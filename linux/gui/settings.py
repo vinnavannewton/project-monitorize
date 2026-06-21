@@ -6,6 +6,19 @@ import os
 import hashlib
 from PyQt6.QtCore import QSettings
 
+from gui.validation import (
+    credential_host_key,
+    normalize_host,
+    sanitize_bitrate,
+    sanitize_decoder,
+    sanitize_display_type,
+    sanitize_encoder,
+    sanitize_fps,
+    sanitize_port,
+    sanitize_resolution,
+    sanitize_stream_type,
+)
+
 CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".config", "monitorize")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "settings.ini")
 
@@ -13,6 +26,10 @@ CONFIG_FILE = os.path.join(CONFIG_DIR, "settings.ini")
 def _get_settings() -> QSettings:
     """Return a QSettings object backed by the INI file."""
     os.makedirs(CONFIG_DIR, exist_ok=True)
+    try:
+        os.chmod(CONFIG_DIR, 0o700)
+    except OSError:
+        pass
     settings = QSettings(CONFIG_FILE, QSettings.Format.IniFormat)
 
     if any(key.startswith("General/") for key in settings.allKeys()):
@@ -42,6 +59,10 @@ def _save_group(group: str, values: dict) -> None:
             s.setValue(key, value)
     s.endGroup()
     s.sync()
+    try:
+        os.chmod(CONFIG_FILE, 0o600)
+    except OSError:
+        pass
 
 
 def _load_group(group: str, defaults: dict, bool_keys=()) -> dict:
@@ -61,19 +82,61 @@ def _normalize_stream_settings(data: dict) -> dict:
         data["display_type"] = "Extend"
     if data["encoder"] in ("Auto-detect", "Auto-detect (Recommended)"):
         data["encoder"] = "Software (CPU / x264enc)"
+    data["display_type"] = sanitize_display_type(data["display_type"])
+    data["encoder"] = sanitize_encoder(data["encoder"])
+    data["stream_type"] = sanitize_stream_type(data.get("stream_type", "Speed"))
+    data["fps"] = str(sanitize_fps(data["fps"]))
+    data["custom_fps"] = (
+        str(sanitize_fps(data["custom_fps"]))
+        if data.get("custom_fps") else ""
+    )
+    data["bitrate"] = str(sanitize_bitrate(data["bitrate"]))
+    if data["resolution"] == "Custom...":
+        width, height = sanitize_resolution(
+            f"{data.get('custom_w', '')}x{data.get('custom_h', '')}"
+        )
+        data["custom_w"] = str(width)
+        data["custom_h"] = str(height)
     return data
 
 def save_wifi_settings(*, resolution: str, custom_w: str, custom_h: str,
                        fps: str, custom_fps: str, bitrate: str,
                        display_type: str, encoder: str, stream_type: str,
                        use_encryption: bool):
-    _save_group("wifi", locals())
+    values = locals()
+    values["display_type"] = sanitize_display_type(display_type)
+    values["encoder"] = sanitize_encoder(encoder)
+    values["stream_type"] = sanitize_stream_type(stream_type)
+    values["fps"] = str(sanitize_fps(fps))
+    values["custom_fps"] = str(sanitize_fps(custom_fps)) if custom_fps else ""
+    values["bitrate"] = str(sanitize_bitrate(bitrate))
+    if resolution == "Custom...":
+        width, height = sanitize_resolution(f"{custom_w}x{custom_h}")
+        values["custom_w"] = str(width)
+        values["custom_h"] = str(height)
+    else:
+        values["custom_w"] = ""
+        values["custom_h"] = ""
+    _save_group("wifi", values)
 
 
 def save_usb_settings(*, resolution: str, custom_w: str, custom_h: str,
                       fps: str, custom_fps: str, bitrate: str,
                       display_type: str, encoder: str):
-    _save_group("usb", locals())
+    values = locals()
+    values["display_type"] = sanitize_display_type(display_type)
+    values["encoder"] = sanitize_encoder(encoder)
+    values["fps"] = str(sanitize_fps(fps))
+    values["custom_fps"] = str(sanitize_fps(custom_fps)) if custom_fps else ""
+    values["bitrate"] = str(sanitize_bitrate(bitrate))
+    if resolution == "Custom...":
+        width, height = sanitize_resolution(f"{custom_w}x{custom_h}")
+        values["custom_w"] = str(width)
+        values["custom_h"] = str(height)
+    else:
+        values["custom_w"] = ""
+        values["custom_h"] = ""
+    _save_group("usb", values)
 
 
 def save_general_settings(*, minimize_to_tray: bool = None, enable_touch: bool = None,
@@ -132,35 +195,48 @@ def load_general_settings() -> dict:
 
 
 def save_second_display_settings(*, resolution: str, fps: str, bitrate: str, encoder: str):
-    _save_group("second_display", locals())
+    _save_group("second_display", {
+        "resolution": resolution,
+        "fps": str(sanitize_fps(fps)),
+        "bitrate": str(sanitize_bitrate(bitrate)),
+        "encoder": sanitize_encoder(encoder),
+    })
 
 
 def load_second_display_settings() -> dict:
-    return _load_group("second_display", {
+    data = _load_group("second_display", {
         "resolution": "1920x1080 (16:9)",
         "fps": "60",
         "bitrate": "8000",
         "encoder": "Software (CPU / x264enc)",
     })
+    data["fps"] = str(sanitize_fps(data["fps"]))
+    data["bitrate"] = str(sanitize_bitrate(data["bitrate"]))
+    data["encoder"] = sanitize_encoder(data["encoder"])
+    return data
 
 
 def save_receiver_settings(*, ip: str, port: str, use_encryption: bool = True,
                            decoder: str = "Software"):
     _save_group("receiver", {
-        "manual_ip": ip,
-        "manual_port": port,
+        "manual_ip": normalize_host(ip),
+        "manual_port": str(sanitize_port(port)),
         "use_encryption": use_encryption,
-        "decoder": decoder,
+        "decoder": sanitize_decoder(decoder),
     })
 
 
 def load_receiver_settings() -> dict:
-    return _load_group("receiver", {
+    data = _load_group("receiver", {
         "manual_ip": "",
         "manual_port": "7110",
         "use_encryption": True,
         "decoder": "Software",
     }, ("use_encryption",))
+    data["manual_ip"] = normalize_host(data["manual_ip"])
+    data["manual_port"] = str(sanitize_port(data["manual_port"]))
+    data["decoder"] = sanitize_decoder(data["decoder"])
+    return data
 
 
 def load_sway_output() -> str:
@@ -173,7 +249,7 @@ def save_sway_output(output: str) -> None:
 
 def load_receiver_credentials(host: str) -> tuple[str, str]:
     s = _get_settings()
-    key = hashlib.sha256(host.encode()).hexdigest()
+    key = hashlib.sha256(credential_host_key(host).encode()).hexdigest()
     return (
         s.value(f"receiver_trust/{key}/fingerprint", ""),
         s.value(f"receiver_trust/{key}/token", ""),
@@ -182,15 +258,15 @@ def load_receiver_credentials(host: str) -> tuple[str, str]:
 
 def save_receiver_credentials(host: str, fingerprint: str, token: str) -> None:
     s = _get_settings()
-    key = hashlib.sha256(host.encode()).hexdigest()
-    s.setValue(f"receiver_trust/{key}/fingerprint", fingerprint)
-    s.setValue(f"receiver_trust/{key}/token", token)
+    key = hashlib.sha256(credential_host_key(host).encode()).hexdigest()
+    s.setValue(f"receiver_trust/{key}/fingerprint", str(fingerprint or "").strip())
+    s.setValue(f"receiver_trust/{key}/token", str(token or "").strip())
     s.sync()
     os.chmod(CONFIG_FILE, 0o600)
 
 
 def clear_receiver_credentials(host: str) -> None:
     s = _get_settings()
-    key = hashlib.sha256(host.encode()).hexdigest()
+    key = hashlib.sha256(credential_host_key(host).encode()).hexdigest()
     s.remove(f"receiver_trust/{key}")
     s.sync()

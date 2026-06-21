@@ -27,6 +27,12 @@ DESKTOP_DIR="${HOME}/.local/share/applications"
 ICON_DIR="${HOME}/.local/share/icons/hicolor/192x192/apps"
 ICON_DEST="${ICON_DIR}/${APP_ID}.png"
 
+desktop_quote() {
+    local value="${1//\\/\\\\}"
+    value="${value//\"/\\\"}"
+    printf '"%s"' "${value}"
+}
+
 # ── Uninstall ────────────────────────────────────────────────────────
 if [[ "${1:-}" == "remove" || "${1:-}" == "uninstall" ]]; then
     echo "Removing ${APP_NAME} desktop entry…"
@@ -96,13 +102,15 @@ echo "✓ Icon installed to ${ICON_DEST}"
 
 # ── Create .desktop file ─────────────────────────────────────────────
 mkdir -p "${DESKTOP_DIR}"
+EXEC_PY="$(desktop_quote "${VENV_DIR}/bin/python3")"
+EXEC_ENTRY="$(desktop_quote "${ENTRY_POINT}")"
 
 cat > "${DESKTOP_DIR}/${DESKTOP_FILE}" <<EOF
 [Desktop Entry]
 Type=Application
 Name=${APP_NAME}
 Comment=Linux to Android Display Bridge — extend or mirror your desktop to a tablet
-Exec=${VENV_DIR}/bin/python3 ${ENTRY_POINT}
+Exec=${EXEC_PY} ${EXEC_ENTRY}
 Icon=${APP_ID}
 Terminal=false
 Categories=Utility;System;

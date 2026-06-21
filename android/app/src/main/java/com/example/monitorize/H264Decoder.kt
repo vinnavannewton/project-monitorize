@@ -9,6 +9,8 @@ import android.util.Log
 import android.view.Surface
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 
 class H264Decoder(
@@ -20,6 +22,8 @@ class H264Decoder(
     private var frameCount = 0L
     @Volatile private var initialized = false
     private var callbackThread: HandlerThread? = null
+    private val decoderGeneration = AtomicInteger(0)
+    private val fatalError = AtomicBoolean(false)
 
     class FrameChunk(val data: ByteArray) {
         var size: Int = 0
@@ -43,8 +47,11 @@ class H264Decoder(
         private const val MAX_INPUT = 2 * 1024 * 1024
     }
 
+    @Synchronized
     fun init(width: Int, height: Int) {
-        if (initialized) release()
+        release()
+        val generation = decoderGeneration.incrementAndGet()
+        fatalError.set(false)
         try {
             Log.i(TAG, "Init: ${width}×${height}")
 
@@ -75,29 +82,38 @@ class H264Decoder(
             codec = MediaCodec.createDecoderByType(MediaFormat.MIMETYPE_VIDEO_AVC).also {
                 it.setCallback(object : MediaCodec.Callback() {
                     override fun onInputBufferAvailable(mc: MediaCodec, inputBufferId: Int) {
-                        if (!initialized) return
+                        if (!isCurrent(generation)) return
                         val chunk = chunkQueue.poll()
                         if (chunk == null) {
-                            pendingInputBuffers.offer(inputBufferId)
+                            if (!pendingInputBuffers.offer(inputBufferId)) {
+                                queueEmptyInputBuffer(mc, inputBufferId)
+                            }
                             return
                         }
-                        fillInputBuffer(mc, inputBufferId, chunk)
+                        if (!fillInputBuffer(mc, inputBufferId, chunk)) {
+                            markFatal("Failed to fill input buffer")
+                        }
                         recycleChunk(chunk)
                     }
 
                     override fun onOutputBufferAvailable(
                         mc: MediaCodec, outputBufferId: Int, info: MediaCodec.BufferInfo
                     ) {
-                        if (!initialized) return
+                        if (!isCurrent(generation)) return
                         try {
                             mc.releaseOutputBuffer(outputBufferId, true)
                             frameCount++
                         } catch (e: Exception) {}
                     }
 
-                    override fun onError(mc: MediaCodec, e: MediaCodec.CodecException) {}
+                    override fun onError(mc: MediaCodec, e: MediaCodec.CodecException) {
+                        if (!isCurrent(generation)) return
+                        Log.e(TAG, "Decoder error: ${e.diagnosticInfo}", e)
+                        markFatal("Codec error")
+                    }
 
                     override fun onOutputFormatChanged(mc: MediaCodec, format: MediaFormat) {
+                        if (!isCurrent(generation)) return
                         val outputWidth = if (
                             format.containsKey(MediaFormat.KEY_CROP_LEFT) &&
                             format.containsKey(MediaFormat.KEY_CROP_RIGHT)
@@ -124,17 +140,28 @@ class H264Decoder(
                 }, handler)
 
                 it.configure(format, surface, null, 0)
+                initialized = true
                 it.start()
             }
             frameCount = 0
-            initialized = true
         } catch (e: Exception) {
             Log.e(TAG, "Init failed", e)
-            initialized = false
+            fatalError.set(true)
+            release()
         }
     }
 
     private val pendingInputBuffers = LinkedBlockingQueue<Int>(16)
+
+    private fun isCurrent(generation: Int): Boolean {
+        return initialized && !fatalError.get() && decoderGeneration.get() == generation
+    }
+
+    private fun markFatal(reason: String) {
+        fatalError.set(true)
+        initialized = false
+        Log.e(TAG, reason)
+    }
 
     private fun recycleChunk(chunk: FrameChunk) {
         chunk.size = 0
@@ -177,21 +204,34 @@ class H264Decoder(
         return dropOldestNonKeyFrame()
     }
 
-    private fun fillInputBuffer(mc: MediaCodec, idx: Int, chunk: FrameChunk) {
-        try {
-            val buf = mc.getInputBuffer(idx) ?: return
+    private fun fillInputBuffer(mc: MediaCodec, idx: Int, chunk: FrameChunk): Boolean {
+        return try {
+            val buf = mc.getInputBuffer(idx) ?: return false
             buf.clear()
             val sz = chunk.size.coerceAtMost(buf.remaining())
             buf.put(chunk.data, 0, sz)
             val pts = System.nanoTime() / 1000
             mc.queueInputBuffer(idx, 0, sz, pts, 0)
-        } catch (e: Exception) {}
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Input queue failed", e)
+            false
+        }
     }
 
-    fun feedChunk(data: ByteArray, offset: Int, size: Int, isKeyFrame: Boolean = false) {
-        if (!initialized) return
+    private fun queueEmptyInputBuffer(mc: MediaCodec, idx: Int) {
+        try {
+            mc.queueInputBuffer(idx, 0, 0, System.nanoTime() / 1000, 0)
+        } catch (e: Exception) {
+            Log.e(TAG, "Empty input queue failed", e)
+            markFatal("Failed to return input buffer")
+        }
+    }
 
-        val chunk = obtainChunk(isKeyFrame) ?: return
+    fun feedChunk(data: ByteArray, offset: Int, size: Int, isKeyFrame: Boolean = false): Boolean {
+        if (!initialized || fatalError.get()) return false
+
+        val chunk = obtainChunk(isKeyFrame) ?: return true
 
         val actualSize = size.coerceAtMost(chunk.data.size)
         System.arraycopy(data, offset, chunk.data, 0, actualSize)
@@ -203,11 +243,11 @@ class H264Decoder(
             val mc = codec
             if (mc == null) {
                 recycleChunk(chunk)
-                return
+                return false
             }
-            fillInputBuffer(mc, pendingIdx, chunk)
+            val queued = fillInputBuffer(mc, pendingIdx, chunk)
             recycleChunk(chunk)
-            return
+            return queued
         }
 
         if (!chunkQueue.offer(chunk)) {
@@ -221,16 +261,30 @@ class H264Decoder(
                 recycleChunk(chunk)
             }
         }
+        return !fatalError.get()
     }
 
+    @Synchronized
     fun release() {
+        decoderGeneration.incrementAndGet()
         initialized = false
+        fatalError.set(false)
         drainQueuedFrames()?.let { recycleChunk(it) }
         pendingInputBuffers.clear()
         try { codec?.stop(); codec?.release() } catch (_: Exception) {}
         codec = null
-        try { callbackThread?.quitSafely(); callbackThread?.join(2000) }
-        catch (_: InterruptedException) { Thread.currentThread().interrupt() }
+        try {
+            val thread = callbackThread
+            thread?.quitSafely()
+            if (thread != null && Thread.currentThread() !== thread) {
+                thread.join(2000)
+            }
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+        }
         callbackThread = null
+        while (chunkPool.size < POOL_SIZE) {
+            if (!chunkPool.offer(FrameChunk(ByteArray(MAX_INPUT)))) break
+        }
     }
 }

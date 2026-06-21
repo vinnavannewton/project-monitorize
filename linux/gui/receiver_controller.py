@@ -14,6 +14,7 @@ from gui.settings import (
     save_receiver_credentials,
 )
 from gui.utils import LINUX_DIR
+from gui.validation import normalize_host, sanitize_decoder, sanitize_port, valid_host, valid_port
 
 
 class ReceiverController(QObject):
@@ -39,12 +40,18 @@ class ReceiverController(QObject):
         self.retry_pending = False
         self.attempt_started = 0.0
         self.inhibit_cookie = None
+        self.generation = 0
+        self.stable_generation = None
+        self.stable_process = None
+        self.retry_generation = None
         self.stable_timer = QTimer(self)
         self.stable_timer.setSingleShot(True)
-        self.stable_timer.timeout.connect(self._mark_stable)
+        self.stable_timer.timeout.connect(
+            lambda: self._mark_stable(self.stable_generation, self.stable_process)
+        )
         self.retry_timer = QTimer(self)
         self.retry_timer.setSingleShot(True)
-        self.retry_timer.timeout.connect(self._start_attempt)
+        self.retry_timer.timeout.connect(lambda: self._start_attempt(self.retry_generation))
 
     def _set_receiving(self, value):
         self.receiving = value
@@ -57,6 +64,15 @@ class ReceiverController(QObject):
     def connect(self, host, port, encrypted, fingerprint, pairing_code, decoder):
         self.discovery.stop_browsing()
         self.stop()
+        host = normalize_host(host)
+        if not valid_host(host) or not valid_port(port):
+            self._set_status("Invalid host or port")
+            self.logAppended.emit("ERROR: Invalid receiver host or port.")
+            return
+        port = sanitize_port(port)
+        decoder = sanitize_decoder(decoder)
+        self.generation += 1
+        generation = self.generation
         self.stopping = False
         self.host = host
         self.port = port
@@ -90,22 +106,30 @@ class ReceiverController(QObject):
         self.hostChanged.emit(self.host_label)
         self._set_status(f"Connecting to {host}:{port}…")
         self.logAppended.emit(f"Connecting to {host} on port {port}…")
-        self._start_attempt()
+        self._start_attempt(generation)
 
-    def _start_attempt(self):
+    def _start_attempt(self, generation=None):
+        generation = self.generation if generation is None else generation
+        if self.stopping or generation != self.generation:
+            return
         self.retry_pending = False
         self.auth_failed = False
         if not self.encrypted:
-            self._launch_pipeline(self.host, self.port)
+            self._launch_pipeline(self.host, self.port, generation)
             return
         fingerprint, token = load_receiver_credentials(self.host)
         if self.pairing_code:
             fingerprint, token = self.fingerprint, ""
         self.tls_process = QProcess(self)
+        process = self.tls_process
         self.tls_process.setWorkingDirectory(LINUX_DIR)
         self.tls_process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
-        self.tls_process.readyReadStandardOutput.connect(self._read_tls)
-        self.tls_process.finished.connect(self._tls_finished)
+        self.tls_process.readyReadStandardOutput.connect(
+            lambda: self._read_tls(process, generation)
+        )
+        self.tls_process.finished.connect(
+            lambda code, status: self._tls_finished(code, status, process, generation)
+        )
         args = [os.path.join(LINUX_DIR, "tls_receiver.py"), self.host, str(self.port)]
         if fingerprint:
             args += ["--fingerprint", fingerprint]
@@ -115,15 +139,23 @@ class ReceiverController(QObject):
             args += ["--code", self.pairing_code]
         self.tls_process.start(sys.executable, args)
 
-    def _launch_pipeline(self, host, port):
+    def _launch_pipeline(self, host, port, generation=None):
+        generation = self.generation if generation is None else generation
+        if self.stopping or generation != self.generation:
+            return
         self.attempt_started = time.monotonic()
         self.process = QProcess(self)
+        process = self.process
         self.process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
-        self.process.started.connect(self._started)
-        self.process.readyReadStandardOutput.connect(self._read_pipeline)
-        self.process.finished.connect(self._finished)
+        self.process.started.connect(lambda: self._started(process, generation))
+        self.process.readyReadStandardOutput.connect(
+            lambda: self._read_pipeline(process, generation)
+        )
+        self.process.finished.connect(
+            lambda code, status: self._finished(code, status, process, generation)
+        )
         self.process.errorOccurred.connect(
-            lambda _error: self._set_status(self.process.errorString())
+            lambda _error: self._pipeline_error(process, generation)
         )
         args = [
             "-e", "tcpclientsrc", f"host={host}", f"port={port}", "!",
@@ -136,21 +168,35 @@ class ReceiverController(QObject):
         self.logAppended.emit(f"Decoder: {self.decoder_label}; sink: {self.sink}")
         self.process.start("gst-launch-1.0", args)
 
-    def _started(self):
+    def _started(self, process=None, generation=None):
+        process = self.process if process is None else process
+        generation = self.generation if generation is None else generation
+        if generation != self.generation or process is not self.process:
+            return
         display = "Third" if self.port == 7114 else "Second"
         self._set_status(f"Waiting for {display} display stream…")
+        self.stable_generation = generation
+        self.stable_process = process
         self.stable_timer.start(2000)
 
-    def _mark_stable(self):
-        if self.process and self.process.state() == QProcess.ProcessState.Running:
+    def _mark_stable(self, generation=None, process=None):
+        generation = self.generation if generation is None else generation
+        process = self.process if process is None else process
+        if generation != self.generation or process is not self.process:
+            return
+        if process and process.state() == QProcess.ProcessState.Running:
             self._inhibit_sleep()
             self.retry_count = 0
             self._set_receiving(True)
             self._set_status(f"Receiving from {self.host}:{self.port}")
             self.logAppended.emit("Stream connected and stable.")
 
-    def _read_tls(self):
-        raw = bytes(self.tls_process.readAllStandardOutput()).decode(
+    def _read_tls(self, process=None, generation=None):
+        process = self.tls_process if process is None else process
+        generation = self.generation if generation is None else generation
+        if generation != self.generation or process is not self.tls_process:
+            return
+        raw = bytes(process.readAllStandardOutput()).decode(
             "utf-8", errors="replace"
         )
         self.tls_buffer += raw
@@ -158,7 +204,7 @@ class ReceiverController(QObject):
         self.tls_buffer = lines.pop() if not self.tls_buffer.endswith("\n") else ""
         for line in lines:
             if line == "[TLS RECEIVER] READY" and self.process is None:
-                self._launch_pipeline("127.0.0.1", 17110)
+                self._launch_pipeline("127.0.0.1", 17110, generation)
             elif line.startswith("[TLS RECEIVER] CREDENTIALS "):
                 fingerprint, token = line.removeprefix(
                     "[TLS RECEIVER] CREDENTIALS "
@@ -177,19 +223,38 @@ class ReceiverController(QObject):
             elif line:
                 self.logAppended.emit(line)
 
-    def _tls_finished(self, code, _status):
+    def _tls_finished(self, code, _status, process=None, generation=None):
+        process = self.tls_process if process is None else process
+        generation = self.generation if generation is None else generation
+        if generation != self.generation or process is not self.tls_process:
+            return
         if code and not self.auth_failed and not self.receiving and not self.retry_pending:
             self._set_status("Encrypted connection failed")
 
-    def _read_pipeline(self):
-        raw = bytes(self.process.readAllStandardOutput()).decode(
+    def _read_pipeline(self, process=None, generation=None):
+        process = self.process if process is None else process
+        generation = self.generation if generation is None else generation
+        if generation != self.generation or process is not self.process:
+            return
+        raw = bytes(process.readAllStandardOutput()).decode(
             "utf-8", errors="replace"
         )
         self.logAppended.emit(raw)
         if "ERROR" in raw:
             self._set_status("Error — see logs")
 
-    def _finished(self, code, _status):
+    def _pipeline_error(self, process=None, generation=None):
+        process = self.process if process is None else process
+        generation = self.generation if generation is None else generation
+        if generation != self.generation or process is not self.process:
+            return
+        self._set_status(process.errorString())
+
+    def _finished(self, code, _status, process=None, generation=None):
+        process = self.process if process is None else process
+        generation = self.generation if generation is None else generation
+        if generation != self.generation or process is not self.process:
+            return
         self.logAppended.emit(f"Receiver process exited (code {code})")
         self.stable_timer.stop()
         elapsed = time.monotonic() - self.attempt_started
@@ -208,6 +273,7 @@ class ReceiverController(QObject):
             )
             stop_processes(self.tls_process)
             self.process = self.tls_process = None
+            self.retry_generation = generation
             self.retry_timer.start(1000)
             return
         if self.receiving:
@@ -217,6 +283,7 @@ class ReceiverController(QObject):
             self._set_status("Unable to start stream after 10 attempts")
 
     def stop(self):
+        self.generation += 1
         self.stopping = True
         self.stable_timer.stop()
         self.retry_timer.stop()
@@ -224,6 +291,7 @@ class ReceiverController(QObject):
         self.process = self.tls_process = None
         self.tls_buffer = ""
         self.auth_failed = self.retry_pending = False
+        self.stable_generation = self.stable_process = self.retry_generation = None
         kill_patterns("gst-launch-1.0.*tcpclientsrc")
         self._uninhibit_sleep()
         self._set_receiving(False)
@@ -262,4 +330,3 @@ class ReceiverController(QObject):
                 subprocess.run(["pkill", "-USR2", "hypridle"], capture_output=True)
         except Exception as exc:
             print(f"[Receiver] Failed to uninhibit sleep: {exc}")
-
