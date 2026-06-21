@@ -340,6 +340,18 @@ Item {
                     }
                 }
             }
+
+            Text {
+                Layout.fillWidth: true
+                visible: !backend.isStreaming && backend.streamingStatus.length > 0
+                text: backend.streamingStatus
+                color: backend.streamingStatus.indexOf("did not") >= 0 || backend.streamingStatus.indexOf("ERROR") >= 0
+                       ? "#fca5a5"
+                       : theme.textMuted
+                font.pixelSize: 12
+                horizontalAlignment: Text.AlignRight
+                wrapMode: Text.WordWrap
+            }
         }
     }
 }
