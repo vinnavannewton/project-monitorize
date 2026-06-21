@@ -4,6 +4,8 @@ import socket
 
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 
+from gui.validation import sanitize_port, valid_port
+
 
 class DiscoveryService(QObject):
     devicesChanged = pyqtSignal()
@@ -15,10 +17,37 @@ class DiscoveryService(QObject):
         self.discovery_zc = None
         self.advertisement_zc = None
         self.advertisement = None
+        self.advertisement_state = None
+        self.service_names = {}
+
+    @staticmethod
+    def _prop(props, key, default=b""):
+        value = props.get(key, default)
+        return value if isinstance(value, bytes) else str(value).encode()
+
+    @staticmethod
+    def _decode(value, encoding="utf-8"):
+        return value.decode(encoding, errors="replace")
+
+    @staticmethod
+    def _ipv4(addresses):
+        for address in addresses:
+            if len(address) == 4:
+                return socket.inet_ntoa(address)
+        return ""
+
+    @staticmethod
+    def _safe_port(value, default=7114):
+        try:
+            port = int(value)
+        except (TypeError, ValueError):
+            return default
+        return sanitize_port(port, default) if valid_port(port) else default
 
     def start(self):
         self.stop_browsing()
         self.devices = []
+        self.service_names = {}
         self.devicesChanged.emit()
         try:
             from zeroconf import Zeroconf, ServiceBrowser, ServiceListener
@@ -30,14 +59,19 @@ class DiscoveryService(QObject):
                     if not info or not info.addresses:
                         return
                     props = info.properties
+                    ip = service._ipv4(info.addresses)
+                    if not ip or not valid_port(info.port):
+                        return
                     values = (
-                        props.get(b"name", b"Unknown").decode("utf-8", errors="replace"),
-                        socket.inet_ntoa(info.addresses[0]),
-                        info.port,
-                        props.get(b"encrypted", b"0") == b"1",
-                        props.get(b"fingerprint", b"").decode("ascii", errors="ignore"),
-                        None if b"third_available" not in props else props[b"third_available"] == b"1",
-                        int(props.get(b"third_port", b"7114")),
+                        service._decode(service._prop(props, b"name", b"Unknown")),
+                        ip,
+                        int(info.port),
+                        service._prop(props, b"encrypted", b"0") == b"1",
+                        service._decode(service._prop(props, b"fingerprint"), "ascii"),
+                        None if b"third_available" not in props
+                        else service._prop(props, b"third_available") == b"1",
+                        service._safe_port(service._prop(props, b"third_port", b"7114")),
+                        name,
                     )
                     QTimer.singleShot(0, lambda: service.add_device(*values))
 
@@ -45,7 +79,7 @@ class DiscoveryService(QObject):
                     self.add_service(zc, type_, name)
 
                 def remove_service(self, zc, type_, name):
-                    pass
+                    QTimer.singleShot(0, lambda: service.remove_device(name))
 
             self.discovery_zc = Zeroconf()
             self.browser = ServiceBrowser(
@@ -55,11 +89,23 @@ class DiscoveryService(QObject):
             )
         except Exception as exc:
             print(f"[Receiver] Discovery failed: {exc}")
+            self.stop_browsing()
 
     def add_device(
         self, name, ip, port, encrypted=False, fingerprint="",
-        third_available=False, third_port=7114,
+        third_available=False, third_port=7114, service_name=None,
     ):
+        if not ip or not valid_port(port):
+            return
+        port = sanitize_port(port)
+        third_port = sanitize_port(third_port, 7114)
+        existing = None
+        if service_name and service_name in self.service_names:
+            old_ip, old_port = self.service_names[service_name]
+            existing = next((
+                device for device in self.devices
+                if device.get("ip") == old_ip and device.get("port") == old_port
+            ), None)
         data = {
             "name": name,
             "ip": ip,
@@ -69,7 +115,7 @@ class DiscoveryService(QObject):
             "thirdAvailable": third_available,
             "thirdPort": third_port,
         }
-        existing = next((
+        existing = existing or next((
             device for device in self.devices
             if device.get("ip") == ip and device.get("port") == port
         ), None)
@@ -77,7 +123,22 @@ class DiscoveryService(QObject):
             existing.update(data)
         else:
             self.devices.append(data)
+        if service_name:
+            self.service_names[service_name] = (ip, port)
         self.devicesChanged.emit()
+
+    def remove_device(self, service_name):
+        target = self.service_names.pop(service_name, None)
+        if not target:
+            return
+        ip, port = target
+        before = len(self.devices)
+        self.devices = [
+            device for device in self.devices
+            if not (device.get("ip") == ip and device.get("port") == port)
+        ]
+        if len(self.devices) != before:
+            self.devicesChanged.emit()
 
     def stop_browsing(self):
         if self.browser is not None:
@@ -93,7 +154,6 @@ class DiscoveryService(QObject):
     def advertise(self, ip, encrypted, third_available):
         try:
             from zeroconf import ServiceInfo, Zeroconf
-            self.stop_advertising()
             hostname = socket.gethostname()
             properties = {
                 "name": hostname,
@@ -105,6 +165,10 @@ class DiscoveryService(QObject):
             if encrypted:
                 from tls_proxy import certificate_fingerprint
                 properties["fingerprint"] = certificate_fingerprint()
+            state = (ip, bool(encrypted), bool(third_available), tuple(sorted(properties.items())))
+            if self.advertisement_zc is not None and state == self.advertisement_state:
+                return
+            self.stop_advertising()
             self.advertisement_zc = Zeroconf()
             self.advertisement = ServiceInfo(
                 "_monitorize._tcp.local.",
@@ -115,8 +179,10 @@ class DiscoveryService(QObject):
                 server=f"{hostname}.local.",
             )
             self.advertisement_zc.register_service(self.advertisement)
+            self.advertisement_state = state
         except Exception as exc:
             print("Zeroconf registration/update failed:", exc)
+            self.stop_advertising()
 
     def stop_advertising(self):
         if self.advertisement_zc is None:
@@ -132,8 +198,8 @@ class DiscoveryService(QObject):
             pass
         self.advertisement_zc = None
         self.advertisement = None
+        self.advertisement_state = None
 
     def close(self):
         self.stop_browsing()
         self.stop_advertising()
-

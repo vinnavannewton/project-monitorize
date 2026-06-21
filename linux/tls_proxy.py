@@ -4,6 +4,7 @@
 import argparse
 import hashlib
 import os
+import re
 import secrets
 import socket
 import ssl
@@ -16,10 +17,33 @@ CONFIG_DIR = Path.home() / ".config" / "monitorize"
 CERT_FILE = CONFIG_DIR / "tls-cert.pem"
 KEY_FILE = CONFIG_DIR / "tls-key.pem"
 TOKEN_FILE = CONFIG_DIR / "tls-client-token"
+TOKEN_RE = re.compile(r"^[0-9a-fA-F]{64}$")
+
+
+def _valid_port(value: int) -> bool:
+    return 1 <= int(value) <= 65535
+
+
+def _port_arg(value: str) -> int:
+    try:
+        port = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("port must be an integer") from exc
+    if not _valid_port(port):
+        raise argparse.ArgumentTypeError("port must be in 1..65535")
+    return port
+
+
+def _secure_config_dir() -> None:
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        os.chmod(CONFIG_DIR, 0o700)
+    except OSError:
+        pass
 
 
 def ensure_identity() -> tuple[Path, Path]:
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    _secure_config_dir()
     if not CERT_FILE.exists() or not KEY_FILE.exists():
         subprocess.run([
             "openssl", "req", "-x509", "-newkey", "ec",
@@ -41,15 +65,29 @@ def certificate_fingerprint() -> str:
 def _load_tokens() -> set[str]:
     if TOKEN_FILE.exists():
         return {
-            token for token in TOKEN_FILE.read_text().splitlines()
-            if len(token) == 64
+            stripped.lower() for token in TOKEN_FILE.read_text().splitlines()
+            if TOKEN_RE.fullmatch(stripped := token.strip())
         }
     return set()
 
 
 def _save_tokens(tokens: set[str]) -> None:
-    TOKEN_FILE.write_text("\n".join(sorted(tokens)))
-    os.chmod(TOKEN_FILE, 0o600)
+    _secure_config_dir()
+    clean = sorted({
+        stripped.lower() for token in tokens
+        if TOKEN_RE.fullmatch(stripped := str(token).strip())
+    })
+    tmp = TOKEN_FILE.with_name(f"{TOKEN_FILE.name}.tmp")
+    tmp.write_text("\n".join(clean))
+    os.chmod(tmp, 0o600)
+    os.replace(tmp, TOKEN_FILE)
+
+
+def create_server_context(cert: Path, key: Path) -> ssl.SSLContext:
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
+    context.load_cert_chain(cert, key)
+    return context
 
 
 def _read_line(sock: ssl.SSLSocket, limit: int = 128) -> str:
@@ -99,7 +137,9 @@ class Proxy:
         command, _, value = line.partition(" ")
         failed_pairing = False
         with self.lock:
-            if command == "AUTH" and any(secrets.compare_digest(value, token) for token in self.tokens):
+            if command == "AUTH" and any(
+                secrets.compare_digest(value.lower(), token) for token in self.tokens
+            ):
                 client.sendall(b"OK\n")
                 print("[TLS] Client authenticated.", flush=True)
                 return True
@@ -144,34 +184,44 @@ class Proxy:
                         pass
 
     def serve(self, context: ssl.SSLContext, public_port: int, backend_port: int) -> None:
-        listener = socket.socket()
-        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        listener.bind(("0.0.0.0", public_port))
-        listener.listen(4)
-        print(f"[TLS] 0.0.0.0:{public_port} -> 127.0.0.1:{backend_port}", flush=True)
-        while True:
-            raw, _ = listener.accept()
-            try:
-                client = context.wrap_socket(raw, server_side=True)
-            except ssl.SSLError:
-                raw.close()
-                continue
-            threading.Thread(target=self.handle, args=(client, backend_port), daemon=True).start()
+        listener = None
+        try:
+            listener = socket.socket()
+            listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            listener.bind(("0.0.0.0", public_port))
+            listener.listen(4)
+            print(f"[TLS] 0.0.0.0:{public_port} -> 127.0.0.1:{backend_port}", flush=True)
+            while True:
+                raw, _ = listener.accept()
+                try:
+                    client = context.wrap_socket(raw, server_side=True)
+                except (OSError, ssl.SSLError):
+                    raw.close()
+                    continue
+                threading.Thread(
+                    target=self.handle, args=(client, backend_port), daemon=True
+                ).start()
+        except OSError as exc:
+            print(f"[TLS] ERROR listen {public_port}: {exc}", flush=True)
+        finally:
+            if listener:
+                try:
+                    listener.close()
+                except OSError:
+                    pass
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--video-port", type=int, default=7110)
-    parser.add_argument("--video-backend", type=int, default=7112)
-    parser.add_argument("--input-port", type=int, default=7113)
-    parser.add_argument("--input-backend", type=int, default=7111)
-    parser.add_argument("--second-video-port", type=int, default=7114)
-    parser.add_argument("--second-video-backend", type=int, default=7115)
+    parser.add_argument("--video-port", type=_port_arg, default=7110)
+    parser.add_argument("--video-backend", type=_port_arg, default=7112)
+    parser.add_argument("--input-port", type=_port_arg, default=7113)
+    parser.add_argument("--input-backend", type=_port_arg, default=7111)
+    parser.add_argument("--second-video-port", type=_port_arg, default=7114)
+    parser.add_argument("--second-video-backend", type=_port_arg, default=7115)
     args = parser.parse_args()
 
     cert, key = ensure_identity()
-    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-    context.minimum_version = ssl.TLSVersion.TLSv1_3
-    context.load_cert_chain(cert, key)
+    context = create_server_context(cert, key)
 
     code = f"{secrets.randbelow(1_000_000):06d}"
     proxy = Proxy(code)

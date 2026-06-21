@@ -3,8 +3,10 @@ package com.example.monitorize
 import android.util.Log
 import java.net.Socket
 import java.net.InetSocketAddress
+import java.net.SocketTimeoutException
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 class StreamReceiver(
     private val decoder: H264Decoder,
@@ -16,7 +18,9 @@ class StreamReceiver(
     private val trustedFingerprint: String? = null,
     private val authToken: String? = null
 ) {
-    private var running = false
+    private val running = AtomicBoolean(false)
+    @Volatile private var worker: Thread? = null
+    @Volatile
     private var controlSocket: Socket? = null
 
     var onStatusChange: ((String) -> Unit)? = null
@@ -28,35 +32,41 @@ class StreamReceiver(
         private const val TAG = "StreamReceiver"
         private const val MAX_STREAM_BUFFER = 4 * 1024 * 1024
         private const val MAX_ACCESS_UNIT = 2 * 1024 * 1024
+        private const val CONNECT_TIMEOUT_MS = 2500
+        private const val STREAM_IDLE_TIMEOUT_MS = 5000
+        private const val MAX_IDLE_READS = 6
+        private const val RETRY_DELAY_MS = 750L
     }
 
+    @Synchronized
     fun start() {
-        running = true
-        Thread({
+        if (!running.compareAndSet(false, true)) return
+        worker = Thread({
             android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_DISPLAY)
             try {
                 receiveLoopWifi(hostIp.takeUnless { it.isNullOrEmpty() } ?: "127.0.0.1")
             } catch (e: Exception) {
-                Log.e(TAG, "receiveLoop crashed", e)
-            } finally {
-                
-                if (running) {
-                    running = false
+                if (running.get()) {
+                    Log.e(TAG, "Receiver stopped unexpectedly", e)
                     onDisconnect?.invoke()
                 }
+            } finally {
+                running.set(false)
                 cleanup()
+                worker = null
             }
-        }, "MonitorizeReceiver").start()
+        }, "MonitorizeReceiver").also { it.start() }
     }
 
     private fun receiveLoopWifi(targetIp: String) {
         val streamType = if (targetIp == "127.0.0.1") "USB" else "WiFi"
         var expectedFingerprint = trustedFingerprint
         var token = authToken
-        while (running) {
+        var hasConnected = false
+        while (running.get()) {
             onStatusChange?.invoke(if (streamType == "USB") "Waiting for USB connection…" else "Connecting to $targetIp:$hostPort…")
             var socket: Socket? = null
-            while (running && socket == null) {
+            while (running.get() && socket == null) {
                 try {
                     if (encrypted && streamType == "WiFi") {
                         val secure = connectTls(targetIp, hostPort, expectedFingerprint)
@@ -69,7 +79,7 @@ class StreamReceiver(
                             val code = submitted.poll(30, TimeUnit.SECONDS)
                                 ?: throw SecurityException("Pairing timed out")
                             if (code.isEmpty()) {
-                                running = false
+                                running.set(false)
                                 socket.close()
                                 return
                             }
@@ -93,7 +103,7 @@ class StreamReceiver(
                         onCredentials?.invoke(secure.fingerprint, token!!)
                     } else {
                         socket = Socket()
-                        socket.connect(InetSocketAddress(targetIp, hostPort), 2000)
+                        socket.connect(InetSocketAddress(targetIp, hostPort), CONNECT_TIMEOUT_MS)
                     }
                 } catch (e: SecurityException) {
                     expectedFingerprint = null
@@ -101,16 +111,18 @@ class StreamReceiver(
                     onCredentials?.invoke("", "")
                     try { socket?.close() } catch (_: Exception) {}
                     socket = null
-                    Thread.sleep(1000)
+                    sleepBeforeRetry()
                 } catch (e: Exception) {
                     try { socket?.close() } catch (_: Exception) {}
                     socket = null
-                    Thread.sleep(1000)
+                    sleepBeforeRetry()
                 }
             }
-            if (socket == null || !running) break
+            if (socket == null || !running.get()) break
 
             socket.tcpNoDelay = true
+            socket.keepAlive = true
+            socket.soTimeout = STREAM_IDLE_TIMEOUT_MS
             socket.receiveBufferSize = 1024 * 1024
             try {
                 
@@ -120,31 +132,52 @@ class StreamReceiver(
             }
             controlSocket = socket
 
-            onStatusChange?.invoke("Connected")
+            onStatusChange?.invoke(if (hasConnected) "Reconnected" else "Connected")
             decoder.init(width, height)
             onStatusChange?.invoke("")
+            hasConnected = true
 
             processStreamLoop(socket.getInputStream(), streamType)
             try { socket.close() } catch (e: Exception) {}
+            if (controlSocket === socket) controlSocket = null
+            if (running.get()) {
+                onStatusChange?.invoke("Connection lost. Reconnecting…")
+                sleepBeforeRetry()
+            }
         }
     }
 
+    private fun sleepBeforeRetry() {
+        try {
+            Thread.sleep(RETRY_DELAY_MS)
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+        }
+    }
 
-    
     private fun processStreamLoop(input: java.io.InputStream, streamType: String) {
         val buf = ByteArray(MAX_STREAM_BUFFER)
         var writePos = 0
         val readBuf = ByteArray(128 * 1024)
-        var hasReceivedVideo = false
-
         val accessUnit = ByteArray(MAX_ACCESS_UNIT)
         var accessUnitSize = 0
         var accessUnitHasVcl = false
         var accessUnitHasIdr = false
+        var idleReads = 0
+        var decoderFailed = false
 
         fun flushAccessUnit() {
+            if (decoderFailed) {
+                accessUnitSize = 0
+                accessUnitHasVcl = false
+                accessUnitHasIdr = false
+                return
+            }
             if (accessUnitSize > 0 && accessUnitHasVcl) {
-                decoder.feedChunk(accessUnit, 0, accessUnitSize, accessUnitHasIdr)
+                if (!decoder.feedChunk(accessUnit, 0, accessUnitSize, accessUnitHasIdr)) {
+                    Log.w(TAG, "$streamType decoder rejected frame; reconnecting")
+                    decoderFailed = true
+                }
             }
             accessUnitSize = 0
             accessUnitHasVcl = false
@@ -152,6 +185,7 @@ class StreamReceiver(
         }
 
         fun appendNalToAccessUnit(nalStart: Int, nalEnd: Int) {
+            if (decoderFailed) return
             val startCodeLen = startCodeLength(buf, nalStart, nalEnd)
             val nalHeader = nalStart + startCodeLen
             if (nalHeader >= nalEnd) return
@@ -177,6 +211,8 @@ class StreamReceiver(
             }
             if (accessUnitSize + nalSize > accessUnit.size) {
                 flushAccessUnit()
+                if (decoderFailed) return
+                if (nalSize > accessUnit.size) return
             }
 
             System.arraycopy(buf, nalStart, accessUnit, accessUnitSize, nalSize)
@@ -185,25 +221,30 @@ class StreamReceiver(
             if (nalType == 5) accessUnitHasIdr = true
         }
 
-        while (running) {
+        while (running.get()) {
             val bytesRead = try {
                 input.read(readBuf)
+            } catch (e: SocketTimeoutException) {
+                idleReads++
+                if (idleReads < MAX_IDLE_READS) {
+                    onStatusChange?.invoke("Waiting for frames…")
+                    continue
+                }
+                Log.w(TAG, "$streamType stream idle for ${STREAM_IDLE_TIMEOUT_MS * MAX_IDLE_READS}ms")
+                -1
             } catch (e: Exception) {
-                Log.w(TAG, "$streamType stream read error: ${e.message}")
+                if (running.get()) Log.w(TAG, "$streamType stream read error: ${e.message}")
                 -1
             }
             
-            if (bytesRead > 0) {
-                hasReceivedVideo = true
-            } else if (bytesRead <= 0) {
-                if (hasReceivedVideo && running) {
-                    Log.w(TAG, "$streamType stream ended permanently.")
-                    running = false
-                    onDisconnect?.invoke()
-                } else {
-                    Log.w(TAG, "$streamType stream probe ended. Re-listening...")
-                }
+            if (bytesRead <= 0) {
+                if (running.get()) Log.w(TAG, "$streamType stream ended. Reconnecting…")
                 break
+            }
+
+            if (idleReads > 0) {
+                idleReads = 0
+                onStatusChange?.invoke("")
             }
 
             if (writePos + bytesRead > buf.size) {
@@ -241,8 +282,10 @@ class StreamReceiver(
                 }
 
                 appendNalToAccessUnit(sc1, sc2)
+                if (decoderFailed) break
                 readStart = sc2
             }
+            if (decoderFailed) break
 
             if (readStart > 0 && readStart < writePos) {
                 val remaining = writePos - readStart
@@ -352,8 +395,18 @@ class StreamReceiver(
         controlSocket = null
     }
 
+    @Synchronized
     fun stop() {
-        running = false
+        if (!running.getAndSet(false)) return
         cleanup()
+        worker?.interrupt()
+        if (Thread.currentThread() !== worker) {
+            try {
+                worker?.join(2000)
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+            }
+        }
+        worker = null
     }
 }

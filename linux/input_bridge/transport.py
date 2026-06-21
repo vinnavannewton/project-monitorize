@@ -2,7 +2,6 @@
 
 import logging
 import socket
-import subprocess
 import threading
 import time
 
@@ -11,7 +10,34 @@ from .protocol import parse_udp_packets, pop_framed_packets
 log = logging.getLogger("TouchDaemon")
 
 
-def handle_client(client, addr, dispatcher, shutdown):
+class ActiveTcpClient:
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.client = None
+
+    def replace(self, client, dispatcher):
+        with self.lock:
+            old = self.client
+            if old is not None and old is not client:
+                dispatcher.release_all("tcp reconnect")
+                try:
+                    old.shutdown(socket.SHUT_RDWR)
+                except OSError:
+                    pass
+                try:
+                    old.close()
+                except OSError:
+                    pass
+            self.client = client
+
+    def clear(self, client, dispatcher, reason):
+        with self.lock:
+            if self.client is client:
+                self.client = None
+                dispatcher.release_all(reason)
+
+
+def handle_client(client, addr, dispatcher, shutdown, active_client=None):
     log.info("Android connected from %s", addr)
     client.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
     client.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4096)
@@ -29,19 +55,19 @@ def handle_client(client, addr, dispatcher, shutdown):
         if not shutdown.is_set():
             log.error("Client error: %s", exc)
     finally:
-        client.close()
-        dispatcher.active_fingers.clear()
+        try:
+            client.close()
+        except OSError:
+            pass
+        if active_client is not None:
+            active_client.clear(client, dispatcher, "tcp disconnect")
+        else:
+            dispatcher.release_all("tcp disconnect")
 
 
 def run_tcp_server(dispatcher, shutdown, port=7111):
-    subprocess.run(["fuser", "-k", f"{port}/tcp"], capture_output=True)
-    time.sleep(0.5)
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    try:
-        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-    except AttributeError:
-        pass
     for attempt in range(8):
         try:
             server.bind(("127.0.0.1", port))
@@ -51,15 +77,18 @@ def run_tcp_server(dispatcher, shutdown, port=7111):
             time.sleep(1)
     else:
         log.error("Could not bind TCP port %d", port)
+        server.close()
         return
-    server.listen(2)
+    server.listen(1)
     server.settimeout(1)
+    active_client = ActiveTcpClient()
     while not shutdown.is_set():
         try:
             conn, addr = server.accept()
+            active_client.replace(conn, dispatcher)
             threading.Thread(
                 target=handle_client,
-                args=(conn, addr, dispatcher, shutdown),
+                args=(conn, addr, dispatcher, shutdown, active_client),
                 daemon=True,
             ).start()
         except socket.timeout:
@@ -80,17 +109,21 @@ def run_udp_server(dispatcher, shutdown, geometry, port=7113):
         return
     server.settimeout(1)
     last_packet = 0.0
+    idle_released = False
     while not shutdown.is_set():
         try:
             data, _addr = server.recvfrom(64)
             now = time.monotonic()
             if now - last_packet > 3:
                 geometry.invalidate()
+                idle_released = False
             last_packet = now
             for pkt_type, payload in parse_udp_packets(data):
                 dispatcher.dispatch_packet(pkt_type, payload)
         except socket.timeout:
-            pass
+            if last_packet and not idle_released and time.monotonic() - last_packet > 3:
+                dispatcher.release_all("udp idle")
+                idle_released = True
         except Exception as exc:
             if not shutdown.is_set():
                 log.error("UDP receive error: %s", exc)

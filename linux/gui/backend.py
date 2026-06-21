@@ -20,6 +20,13 @@ from gui.settings import (
 from gui.streaming_controller import StreamingController
 from gui.usb_controller import UsbController
 from gui.utils import get_local_ip
+from gui.validation import (
+    normalize_host,
+    sanitize_decoder,
+    sanitize_port,
+    valid_host,
+    valid_port,
+)
 
 
 class MonitorizeBackend(QObject):
@@ -205,7 +212,18 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot(str, int, bool, str, str, str)
     def connectToHost(self, host, port, encrypted, fingerprint, code, decoder):
-        self.receiver.connect(host, port, encrypted, fingerprint, code, decoder)
+        host = normalize_host(host)
+        if not valid_host(host) or not valid_port(port):
+            self.receiver._set_status("Invalid host or port")
+            return
+        self.receiver.connect(
+            host,
+            sanitize_port(port),
+            encrypted,
+            fingerprint,
+            code,
+            sanitize_decoder(decoder),
+        )
 
     @pyqtSlot()
     def stopReceiving(self):
@@ -242,4 +260,3 @@ class MonitorizeBackend(QObject):
         self.streaming.stop()
         self.receiver.stop()
         self.discovery.close()
-

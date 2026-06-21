@@ -26,6 +26,7 @@ class LibeiBackend:
         self.pen = None
         self.io_fd = None
         self.active = {}
+        self.pointer_buttons_down = set()
         self.lock = threading.Lock()
         self._libei = ei.libei if ei else None
         if self._libei:
@@ -119,11 +120,14 @@ class LibeiBackend:
             rw, rh = best.dimension
         return rx + x / 65535 * rw, ry + y / 65535 * rh
 
+    def _is_touch_device(self, device):
+        return bool(ei and ei.DeviceCapability.TOUCH in device.capabilities)
+
     def inject_touch(self, action, cid, x, y, frame=True):
         if not self.touch:
             return
         px, py = self._scale(self.touch, x, y)
-        is_touch = ei.DeviceCapability.TOUCH in self.touch.capabilities
+        is_touch = self._is_touch_device(self.touch)
         with self.lock:
             if is_touch:
                 if action == ACTION_DOWN:
@@ -139,14 +143,19 @@ class LibeiBackend:
             else:
                 if action == ACTION_DOWN:
                     self.touch.pointer_motion_absolute(px, py)
-                    self.touch.button_button(0x110, True)
-                    self.active[cid] = True
-                elif action == ACTION_MOVE:
+                    if not self.active:
+                        self.touch.button_button(0x110, True)
+                        self.pointer_buttons_down.add(0x110)
+                    self.active[cid] = (px, py)
+                elif action == ACTION_MOVE and cid in self.active:
                     self.touch.pointer_motion_absolute(px, py)
-                elif action == ACTION_UP:
+                    self.active[cid] = (px, py)
+                elif action == ACTION_UP and cid in self.active:
                     self.active.pop(cid, None)
                     self.touch.pointer_motion_absolute(px, py)
-                    self.touch.button_button(0x110, False)
+                    if not self.active:
+                        self.touch.button_button(0x110, False)
+                        self.pointer_buttons_down.discard(0x110)
             if frame:
                 self.touch.frame()
                 self.ctx.dispatch()
@@ -165,15 +174,46 @@ class LibeiBackend:
             device.pointer_motion_absolute(px, py)
             if action == ACTION_DOWN:
                 device.button_button(button, True)
+                self.pointer_buttons_down.add(button)
             elif action == ACTION_UP:
                 device.button_button(button, False)
                 device.button_button(0x110 if secondary else 0x111, False)
+                self.pointer_buttons_down.discard(button)
+                self.pointer_buttons_down.discard(0x110 if secondary else 0x111)
             if frame:
                 device.frame()
                 self.ctx.dispatch()
         return action in (ACTION_DOWN, ACTION_MOVE, ACTION_UP, ACTION_HOVER)
 
+    def release_all(self):
+        device = self.touch or self.pen
+        if not device:
+            return
+        with self.lock:
+            is_touch_device = self._is_touch_device(device)
+            if is_touch_device:
+                for contact in list(self.active.values()):
+                    try:
+                        contact.up()
+                    except Exception:
+                        pass
+            button_device = self.pen or device
+            buttons_to_release = set(self.pointer_buttons_down)
+            if not is_touch_device and self.active:
+                buttons_to_release.add(0x110)
+            for button in sorted(buttons_to_release):
+                button_device.button_button(button, False)
+            self.active.clear()
+            self.pointer_buttons_down.clear()
+            try:
+                button_device.frame()
+                if self.ctx:
+                    self.ctx.dispatch()
+            except Exception:
+                pass
+
     def close(self):
+        self.release_all()
         if self.touch:
             try:
                 self.touch.stop_emulating()
@@ -181,4 +221,3 @@ class LibeiBackend:
                 pass
         if self.io_fd:
             self.io_fd.close()
-

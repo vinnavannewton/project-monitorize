@@ -6,6 +6,7 @@ Falls back to optimised x264enc if no hardware encoder is found.
 """
 
 import subprocess
+import shlex
 
 
 def get_encoder(preference: str = "cpu") -> str | None:
@@ -74,7 +75,7 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
                    hw_encoder=None, host="127.0.0.1", stream_type="Speed",
                    wifi_mode=False, preserve_source_size=False):
     """
-    Build a full gst-launch-1.0 pipeline string.
+    Build a full gst-launch-1.0 argv list.
 
     Parameters
     ----------
@@ -139,20 +140,41 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
     
     sink = f"tcpserversink host={host} port={port} sync=false sync-method=2 recover-policy=2 buffers-max=10 buffers-soft-max=5 qos-dscp=48"
 
-    taskset_prefix = ""
+    taskset_prefix = []
     if not hw_encoder:
         import os
         cores = os.cpu_count() or 1
         if cores > 1:
-            taskset_prefix = f"taskset -c 1-{cores - 1} "
+            taskset_prefix = ["taskset", "-c", f"1-{cores - 1}"]
 
     elements = [src]
     if rate_filter:
         elements.append(rate_filter)
     elements.extend([queue, convert, encoder, parse, caps_out, sink])
 
-    pipeline = f"exec {taskset_prefix}gst-launch-1.0 -e " + " ! ".join(elements)
+    pipeline = [*taskset_prefix, "gst-launch-1.0", "-e"]
+    for index, element in enumerate(elements):
+        pipeline.extend(shlex.split(element))
+        if index != len(elements) - 1:
+            pipeline.append("!")
     return pipeline
+
+
+def _launch(argv, pass_fds=None):
+    kwargs = {"shell": False}
+    if pass_fds:
+        kwargs["pass_fds"] = pass_fds
+    proc = subprocess.Popen(argv, **kwargs)
+    print(f"[GStreamer] PID: {proc.pid}")
+    return proc
+
+
+def _failed_immediately(proc, timeout=0.25):
+    try:
+        proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return False
+    return proc.returncode not in (None, 0)
 
 
 def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
@@ -174,12 +196,17 @@ def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
     )
     label = hw_encoder or "x264enc (CPU)"
     print(f"\n[Pipeline] Encoder: {label}")
-    print(f"[GStreamer] {pipeline}\n")
+    print(f"[GStreamer] {shlex.join(pipeline)}\n")
 
-    kwargs = {"shell": True}
-    if pass_fds:
-        kwargs["pass_fds"] = pass_fds
-
-    proc = subprocess.Popen(pipeline, **kwargs)
-    print(f"[GStreamer] PID: {proc.pid}")
+    proc = _launch(pipeline, pass_fds=pass_fds)
+    if hw_encoder and _failed_immediately(proc):
+        print("[Pipeline] Hardware encoder failed immediately; retrying CPU x264enc")
+        pipeline = build_pipeline(
+            pw_fd=pw_fd, node_id=node_id,
+            width=width, height=height, fps=fps, bitrate=bitrate, port=port,
+            hw_encoder=None, host=host, stream_type=stream_type,
+            wifi_mode=server_mode, preserve_source_size=preserve_source_size,
+        )
+        print(f"[GStreamer] {shlex.join(pipeline)}\n")
+        proc = _launch(pipeline, pass_fds=pass_fds)
     return proc

@@ -19,17 +19,29 @@ fun connectTls(host: String, port: Int, expectedFingerprint: String? = null): Se
     })
     val context = SSLContext.getInstance("TLS").apply { init(null, trustAll, SecureRandom()) }
     val socket = context.socketFactory.createSocket() as SSLSocket
-    socket.enabledProtocols = socket.supportedProtocols.filter { it == "TLSv1.3" }.toTypedArray()
-    socket.connect(InetSocketAddress(host, port), 3000)
-    socket.startHandshake()
-    val certificate = socket.session.peerCertificates.first().encoded
-    val fingerprint = MessageDigest.getInstance("SHA-256")
-        .digest(certificate).joinToString("") { "%02X".format(it) }
-    if (expectedFingerprint != null && !fingerprint.equals(expectedFingerprint, ignoreCase = true)) {
-        socket.close()
-        throw SecurityException("Server certificate changed")
+    try {
+        val protocols = listOf("TLSv1.3", "TLSv1.2")
+            .filter { it in socket.supportedProtocols }
+            .toTypedArray()
+        if (protocols.isNotEmpty()) {
+            socket.enabledProtocols = protocols
+        }
+        socket.connect(InetSocketAddress(host, port), 3000)
+        socket.keepAlive = true
+        socket.soTimeout = 6000
+        socket.startHandshake()
+        val certificate = socket.session.peerCertificates.first().encoded
+        val fingerprint = MessageDigest.getInstance("SHA-256")
+            .digest(certificate).joinToString("") { "%02X".format(it) }
+        if (expectedFingerprint != null && !fingerprint.equals(expectedFingerprint, ignoreCase = true)) {
+            try { socket.close() } catch (_: Exception) {}
+            throw SecurityException("Server certificate changed")
+        }
+        return SecureConnection(socket, fingerprint)
+    } catch (e: Exception) {
+        try { socket.close() } catch (_: Exception) {}
+        throw e
     }
-    return SecureConnection(socket, fingerprint)
 }
 
 fun readAsciiLine(socket: SSLSocket, limit: Int = 256): String {

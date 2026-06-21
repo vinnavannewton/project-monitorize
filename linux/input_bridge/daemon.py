@@ -35,7 +35,8 @@ class InputDaemon:
     def run(self):
         signal.signal(signal.SIGINT, self.close)
         signal.signal(signal.SIGTERM, self.close)
-        threading.Thread(target=self._setup_backend, daemon=True).start()
+        if not self._setup_backend():
+            return
         transport = run_udp_server if self.wifi else run_tcp_server
         args = (
             (self.dispatcher, self.shutdown, self.geometry)
@@ -48,9 +49,11 @@ class InputDaemon:
     def _setup_backend(self):
         try:
             self.backend.setup(self.stylus_features)
+            return True
         except Exception as exc:
             log.error("%s", exc)
             self.shutdown.set()
+            return False
 
     def close(self, *_args):
         self.shutdown.set()

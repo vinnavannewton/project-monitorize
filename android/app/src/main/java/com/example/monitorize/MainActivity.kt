@@ -51,8 +51,12 @@ import com.example.monitorize.ui.theme.BreezeSurface as CardDark
 import com.example.monitorize.ui.theme.BreezeTextMuted as TextMuted
 import com.example.monitorize.ui.theme.BreezeTextSecondary as TextSecondary
 import com.example.monitorize.ui.theme.MonitorizeTheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 
 
@@ -65,26 +69,34 @@ enum class Screen { Home, Receive }
 
 class MainActivity : ComponentActivity() {
 
-    private var decoder: H264Decoder? = null
-    private var receiver: StreamReceiver? = null
-    private var inputSender: InputEventSender? = null
-    private var wifiLock: WifiManager.WifiLock? = null
+    @Volatile private var decoder: H264Decoder? = null
+    @Volatile private var receiver: StreamReceiver? = null
+    @Volatile private var inputSender: InputEventSender? = null
+    @Volatile private var wifiLock: WifiManager.WifiLock? = null
+    @Volatile private var clearPairingUi: ((Boolean) -> Unit)? = null
+    private val streamStateLock = Any()
+    private val streamMutex = Mutex()
+    private var activeStreamSession = 0L
+    private var surfaceGeneration = 0L
     private val status = mutableStateOf("")
     private lateinit var discovery: DeviceDiscovery
 
     private val prefs by lazy { getSharedPreferences("monitorize_prefs", Context.MODE_PRIVATE) }
 
-    private fun triggerAppRestart(showDisconnected: Boolean = false) {
-        runOnUiThread {
-            val intent = android.content.Intent(this@MainActivity, MainActivity::class.java).apply {
-                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                if (showDisconnected) {
-                    putExtra("SHOW_DISCONNECTED", true)
-                }
-            }
-            startActivity(intent)
-            finish()
-        }
+    private data class StreamDimensions(val width: Int, val height: Int)
+
+    private data class StreamResources(
+        val receiver: StreamReceiver?,
+        val decoder: H264Decoder?,
+        val inputSender: InputEventSender?,
+        val wifiLock: WifiManager.WifiLock?
+    )
+
+    companion object {
+        private const val DEFAULT_STREAM_WIDTH = 1280
+        private const val DEFAULT_STREAM_HEIGHT = 800
+        private const val MIN_STREAM_DIMENSION = 2
+        private const val MAX_STREAM_DIMENSION = 7680
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -114,8 +126,14 @@ class MainActivity : ComponentActivity() {
             var currentScreen by remember { mutableStateOf(Screen.Home) }
             var isSettingsOpen by remember { mutableStateOf(false) }
 
-            var width by remember { mutableIntStateOf(prefs.getInt("width", 1280)) }
-            var height by remember { mutableIntStateOf(prefs.getInt("height", 800)) }
+            val initialDimensions = remember {
+                sanitizeStreamDimensions(
+                    prefs.getInt("width", DEFAULT_STREAM_WIDTH),
+                    prefs.getInt("height", DEFAULT_STREAM_HEIGHT)
+                )
+            }
+            var width by remember { mutableIntStateOf(initialDimensions.width) }
+            var height by remember { mutableIntStateOf(initialDimensions.height) }
             var decodedWidth by remember { mutableIntStateOf(width) }
             var decodedHeight by remember { mutableIntStateOf(height) }
             var manualEncrypted by remember {
@@ -130,10 +148,29 @@ class MainActivity : ComponentActivity() {
             var pairingCode by remember { mutableStateOf("") }
             
             val coroutineScope = rememberCoroutineScope()
-            fun cancelPairing() {
-                pairingSubmit?.invoke("")
+            fun clearPairingState(invokeCancel: Boolean) {
+                if (invokeCancel) {
+                    pairingSubmit?.invoke("")
+                }
                 pairingSubmit = null
                 pairingCode = ""
+            }
+
+            SideEffect {
+                clearPairingUi = { invokeCancel ->
+                    clearPairingState(invokeCancel)
+                }
+            }
+            DisposableEffect(Unit) {
+                onDispose {
+                    if (clearPairingUi != null) {
+                        clearPairingUi = null
+                    }
+                }
+            }
+
+            fun cancelPairing() {
+                clearPairingState(invokeCancel = true)
                 selectedDevice = null
                 currentScreen = Screen.Home
                 status.value = ""
@@ -178,17 +215,21 @@ class MainActivity : ComponentActivity() {
                                     status = status.value,
                                     onBack = {
                                         coroutineScope.launch {
+                                            clearPairingState(invokeCancel = true)
                                             stopStream()
+                                            selectedDevice = null
+                                            currentScreen = Screen.Home
+                                            disconnectionMessage = null
+                                            status.value = ""
                                         }
-                                        triggerAppRestart(showDisconnected = true)
                                     },
                                     onSurfaceCreated = { ip, surface, w, h ->
+                                        val generation = registerSurfaceCreated()
                                         coroutineScope.launch {
-                                            
-                                            delay(400)
                                             val port = selectedDevice?.port ?: 7110
                                             startStream(
                                                 ip, port, surface, w, h,
+                                                surfaceGeneration = generation,
                                                 device = selectedDevice,
                                                 onPairingRequired = { submit ->
                                                     runOnUiThread {
@@ -202,15 +243,19 @@ class MainActivity : ComponentActivity() {
                                                 },
                                                 onDisconnect = {
                                                     runOnUiThread {
-                                                        coroutineScope.launch { stopStream() }
-                                                        triggerAppRestart(showDisconnected = true)
+                                                        disconnectionMessage = "Connection stopped"
+                                                        status.value = "Unable to keep the connection alive"
                                                     }
                                                 }
                                             )
                                         }
+                                        generation
                                     },
-                                    onSurfaceDestroyed = { 
-                                        coroutineScope.launch { stopStream() } 
+                                    onSurfaceDestroyed = { generation ->
+                                        clearPairingState(invokeCancel = false)
+                                        coroutineScope.launch {
+                                            stopStream(surfaceGeneration = generation)
+                                        }
                                     },
                                     onInputEvent = { event, viewW, viewH -> inputSender?.send(event, viewW, viewH) }
                                 )
@@ -236,10 +281,17 @@ class MainActivity : ComponentActivity() {
                                         prefs.edit().putBoolean("manual_encrypted", enabled).apply()
                                     },
                                     onSave = { w, h ->
-                                        if (w != width || h != height) {
-                                            prefs.edit().putInt("width", w).putInt("height", h).apply()
+                                        val sanitized = sanitizeStreamDimensions(w, h)
+                                        if (sanitized.width != width || sanitized.height != height) {
+                                            prefs.edit()
+                                                .putInt("width", sanitized.width)
+                                                .putInt("height", sanitized.height)
+                                                .apply()
+                                            width = sanitized.width
+                                            height = sanitized.height
+                                            decodedWidth = sanitized.width
+                                            decodedHeight = sanitized.height
                                             isSettingsOpen = false
-                                            triggerAppRestart(showDisconnected = false)
                                         } else {
                                             isSettingsOpen = false
                                         }
@@ -343,16 +395,14 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         discovery.stopDiscovery()
+        clearPairingUi?.invoke(false)
+        closeStreamResourcesBlocking(snapshotAndClearStreamResources(invalidateSurface = true))
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        try {
-            if (wifiLock?.isHeld == true) {
-                wifiLock?.release()
-            }
-        } catch (_: Exception) {}
-        wifiLock = null
+        clearPairingUi?.invoke(false)
+        closeStreamResourcesBlocking(snapshotAndClearStreamResources(invalidateSurface = true))
     }
 
     private fun applyImmersiveMode() {
@@ -361,19 +411,72 @@ class MainActivity : ComponentActivity() {
         windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     }
 
-    private fun startStream(
-        hostIp: String,
-        hostPort: Int,
-        surface: Surface,
-        width: Int,
-        height: Int,
-        device: DiscoveredDevice?,
-        onPairingRequired: ((String) -> Unit) -> Unit,
-        onDecodedSize: (Int, Int) -> Unit,
-        onDisconnect: () -> Unit
-    ) {
-        
+    private fun sanitizeStreamDimensions(width: Int, height: Int): StreamDimensions {
+        return StreamDimensions(
+            sanitizeStreamDimension(width, DEFAULT_STREAM_WIDTH),
+            sanitizeStreamDimension(height, DEFAULT_STREAM_HEIGHT)
+        )
+    }
+
+    private fun sanitizeStreamDimension(value: Int, fallback: Int): Int {
+        val bounded = value.takeIf { it >= MIN_STREAM_DIMENSION }
+            ?: fallback
+        val clamped = bounded.coerceIn(MIN_STREAM_DIMENSION, MAX_STREAM_DIMENSION)
+        val even = if (clamped % 2 == 0) clamped else clamped - 1
+        return even.coerceAtLeast(MIN_STREAM_DIMENSION)
+    }
+
+    private fun registerSurfaceCreated(): Long = synchronized(streamStateLock) {
+        surfaceGeneration += 1
+        surfaceGeneration
+    }
+
+    private fun isSurfaceCurrent(generation: Long): Boolean = synchronized(streamStateLock) {
+        surfaceGeneration == generation
+    }
+
+    private fun isActiveStream(sessionId: Long, expectedReceiver: StreamReceiver? = null): Boolean =
+        synchronized(streamStateLock) {
+            activeStreamSession == sessionId &&
+                (expectedReceiver == null || receiver === expectedReceiver)
+        }
+
+    private fun snapshotAndClearStreamResources(invalidateSurface: Boolean = false): StreamResources =
+        synchronized(streamStateLock) {
+            activeStreamSession += 1
+            if (invalidateSurface) {
+                surfaceGeneration += 1
+            }
+            val resources = StreamResources(receiver, decoder, inputSender, wifiLock)
+            receiver = null
+            decoder = null
+            inputSender = null
+            wifiLock = null
+            resources
+        }
+
+    private suspend fun closeStreamResources(resources: StreamResources) {
+        withContext(Dispatchers.IO) {
+            closeStreamResourcesBlocking(resources)
+        }
+    }
+
+    private fun closeStreamResourcesBlocking(resources: StreamResources) {
+        resources.receiver?.stop()
+        resources.inputSender?.stop()
+        resources.decoder?.release()
         try {
+            if (resources.wifiLock?.isHeld == true) {
+                resources.wifiLock.release()
+                Log.i("MainActivity", "Released low latency Wi-Fi lock")
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to release Wi-Fi lock: ${e.message}")
+        }
+    }
+
+    private fun acquireLowLatencyWifiLock(): WifiManager.WifiLock? {
+        return try {
             val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
             val lockType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 WifiManager.WIFI_MODE_FULL_LOW_LATENCY
@@ -381,19 +484,53 @@ class MainActivity : ComponentActivity() {
                 @Suppress("DEPRECATION")
                 WifiManager.WIFI_MODE_FULL_HIGH_PERF
             }
-            wifiLock = wifiManager.createWifiLock(lockType, "Monitorize:LowLatencyLock").apply {
+            wifiManager.createWifiLock(lockType, "Monitorize:LowLatencyLock").apply {
                 setReferenceCounted(false)
                 acquire()
+                Log.i("MainActivity", "Acquired low latency Wi-Fi lock")
             }
-            Log.i("MainActivity", "Acquired low latency Wi-Fi lock")
         } catch (e: Exception) {
             Log.e("MainActivity", "Failed to acquire Wi-Fi lock: ${e.message}")
+            null
+        }
+    }
+
+    private suspend fun startStream(
+        hostIp: String,
+        hostPort: Int,
+        surface: Surface,
+        width: Int,
+        height: Int,
+        surfaceGeneration: Long,
+        device: DiscoveredDevice?,
+        onPairingRequired: ((String) -> Unit) -> Unit,
+        onDecodedSize: (Int, Int) -> Unit,
+        onDisconnect: () -> Unit
+    ) = streamMutex.withLock {
+        if (!isSurfaceCurrent(surfaceGeneration)) {
+            return@withLock
         }
 
-        val d = H264Decoder(surface) { decodedWidth, decodedHeight ->
-            runOnUiThread { onDecodedSize(decodedWidth, decodedHeight) }
+        closeStreamResources(snapshotAndClearStreamResources())
+        if (!isSurfaceCurrent(surfaceGeneration)) {
+            return@withLock
         }
-        decoder = d
+
+        val streamDimensions = sanitizeStreamDimensions(width, height)
+        val sessionId = synchronized(streamStateLock) {
+            activeStreamSession += 1
+            activeStreamSession
+        }
+        val newWifiLock = acquireLowLatencyWifiLock()
+        val d = H264Decoder(surface) { decodedWidth, decodedHeight ->
+            if (isActiveStream(sessionId)) {
+                runOnUiThread {
+                    if (isActiveStream(sessionId)) {
+                        onDecodedSize(decodedWidth, decodedHeight)
+                    }
+                }
+            }
+        }
         val encrypted = device?.let { it.encrypted && !it.isUsb } == true
         val advertisedFingerprint = device?.fingerprint
         val savedFingerprint = advertisedFingerprint?.takeIf {
@@ -402,59 +539,105 @@ class MainActivity : ComponentActivity() {
         val savedToken = savedFingerprint?.let { prefs.getString("tls_token_$it", null) }
         var inputStarted = false
 
-        receiver = StreamReceiver(
-            d, width, height, hostIp.takeIf { it.isNotBlank() }, hostPort,
+        val streamReceiver = StreamReceiver(
+            d, streamDimensions.width, streamDimensions.height, hostIp.takeIf { it.isNotBlank() }, hostPort,
             encrypted, savedFingerprint, savedToken
-        ).also {
-            it.onStatusChange = { msg -> runOnUiThread { status.value = msg } }
-            it.onDisconnect = onDisconnect
-            it.onPairingRequired = onPairingRequired
-            it.onCredentials = { fingerprint, token ->
-                if (fingerprint.isEmpty() || token.isEmpty()) {
-                    prefs.edit().remove("tls_host_$hostIp").apply()
-                } else {
-                    prefs.edit()
-                        .putString("tls_host_$hostIp", fingerprint)
-                        .putString("tls_token_$fingerprint", token)
-                        .apply()
-                    if (!inputStarted) {
-                        inputStarted = true
-                        inputSender = InputEventSender(
-                            hostIp, hostPort, true, fingerprint, token
-                        ).also { sender -> sender.start() }
+        )
+        streamReceiver.apply {
+            onStatusChange = { msg ->
+                if (isActiveStream(sessionId, streamReceiver)) {
+                    runOnUiThread {
+                        if (isActiveStream(sessionId, streamReceiver)) {
+                            status.value = msg
+                        }
                     }
                 }
             }
-            it.start()
+            this.onDisconnect = {
+                if (isActiveStream(sessionId, streamReceiver)) {
+                    onDisconnect()
+                }
+            }
+            this.onPairingRequired = { submit ->
+                if (isActiveStream(sessionId, streamReceiver)) {
+                    onPairingRequired { code ->
+                        if (isActiveStream(sessionId, streamReceiver)) {
+                            submit(code)
+                        } else {
+                            submit("")
+                        }
+                    }
+                } else {
+                    submit("")
+                }
+            }
+            onCredentials = credentials@ { fingerprint, token ->
+                if (!isActiveStream(sessionId, streamReceiver)) {
+                    return@credentials
+                }
+                if (fingerprint.isEmpty() || token.isEmpty()) {
+                    prefs.edit().remove("tls_host_$hostIp").apply()
+                    return@credentials
+                }
+
+                prefs.edit()
+                    .putString("tls_host_$hostIp", fingerprint)
+                    .putString("tls_token_$fingerprint", token)
+                    .apply()
+                if (!inputStarted) {
+                    val sender = InputEventSender(hostIp, hostPort, true, fingerprint, token)
+                    val assigned = synchronized(streamStateLock) {
+                        if (activeStreamSession == sessionId && receiver === streamReceiver && inputSender == null) {
+                            inputStarted = true
+                            inputSender = sender
+                            sender.start()
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    if (!assigned) {
+                        sender.stop()
+                    }
+                }
+            }
         }
-        if (!encrypted) {
-            inputSender = InputEventSender(
-                hostIp.takeIf { it.isNotBlank() }, hostPort
-            ).also { it.start() }
+
+        val unencryptedInputSender = if (!encrypted) {
+            InputEventSender(hostIp.takeIf { it.isNotBlank() }, hostPort)
+        } else {
+            null
+        }
+        val registered = synchronized(streamStateLock) {
+            if (activeStreamSession == sessionId && this.surfaceGeneration == surfaceGeneration) {
+                decoder = d
+                receiver = streamReceiver
+                wifiLock = newWifiLock
+                if (unencryptedInputSender != null) {
+                    inputSender = unencryptedInputSender
+                    unencryptedInputSender.start()
+                }
+                streamReceiver.start()
+                true
+            } else {
+                false
+            }
+        }
+        if (!registered) {
+            unencryptedInputSender?.stop()
+            streamReceiver.stop()
+            d.release()
+            closeStreamResourcesBlocking(StreamResources(null, null, null, newWifiLock))
         }
     }
 
-    private var isStopping = false
-
-    private suspend fun stopStream() {
-        if (isStopping) return
-        isStopping = true
-        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            receiver?.stop(); receiver = null
-            decoder?.release(); decoder = null
-            inputSender?.stop(); inputSender = null
-        }
-        
-        try {
-            if (wifiLock?.isHeld == true) {
-                wifiLock?.release()
+    private suspend fun stopStream(surfaceGeneration: Long? = null) {
+        streamMutex.withLock {
+            if (surfaceGeneration != null && !isSurfaceCurrent(surfaceGeneration)) {
+                return@withLock
             }
-            Log.i("MainActivity", "Released low latency Wi-Fi lock")
-        } catch (e: Exception) {
-            Log.e("MainActivity", "Failed to release Wi-Fi lock: ${e.message}")
+            closeStreamResources(snapshotAndClearStreamResources(invalidateSurface = true))
         }
-        wifiLock = null
-        isStopping = false
     }
 }
 
@@ -495,6 +678,7 @@ fun HomeScreen(
     }
     var manualIp by remember { mutableStateOf(prefs.getString("manual_ip", "") ?: "") }
     var manualPort by remember { mutableStateOf(prefs.getString("manual_port", "7110") ?: "7110") }
+    var manualError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
         onStartDiscovery()
@@ -587,55 +771,77 @@ fun HomeScreen(
             }
             
             Spacer(modifier = Modifier.height(manualSpacerHeight))
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(bottom = manualRowPadding),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedTextField(
-                    value = manualIp,
-                    onValueChange = { manualIp = it },
-                    placeholder = { Text("Enter IP address", color = TextMuted) },
-                    modifier = Modifier.weight(1.5f).height(manualFieldHeight),
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AccentIndigo,
-                        unfocusedBorderColor = BorderDark
-                    )
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                OutlinedTextField(
-                    value = manualPort,
-                    onValueChange = { manualPort = it },
-                    placeholder = { Text("Port", color = TextMuted) },
-                    modifier = Modifier.weight(0.8f).height(manualFieldHeight),
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AccentIndigo,
-                        unfocusedBorderColor = BorderDark
-                    )
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Button(
-                    onClick = {
-                        if (manualIp.isNotBlank()) {
-                            val ip = manualIp.trim()
-                            val port = manualPort.trim().toIntOrNull() ?: 7110
-                            prefs.edit().apply {
-                                putString("manual_ip", ip)
-                                putString("manual_port", manualPort.trim())
-                                apply()
-                            }
-                            onDeviceSelected(DiscoveredDevice(
-                                name = "Manual WiFi", ip = ip, port = port,
-                                isUsb = false, encrypted = manualEncrypted
-                            ))
-                        }
-                    },
-                    modifier = Modifier.height(manualFieldHeight),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = GreenAccent)
+            Column(modifier = Modifier.fillMaxWidth().padding(bottom = manualRowPadding)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Connect", fontWeight = FontWeight.Bold, color = Color.White)
+                    OutlinedTextField(
+                        value = manualIp,
+                        onValueChange = {
+                            manualIp = it
+                            manualError = null
+                        },
+                        placeholder = { Text("Enter IP address", color = TextMuted) },
+                        modifier = Modifier.weight(1.5f).height(manualFieldHeight),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AccentIndigo,
+                            unfocusedBorderColor = BorderDark
+                        )
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    OutlinedTextField(
+                        value = manualPort,
+                        onValueChange = {
+                            manualPort = it.filter(Char::isDigit).take(5)
+                            manualError = null
+                        },
+                        placeholder = { Text("Port", color = TextMuted) },
+                        modifier = Modifier.weight(0.8f).height(manualFieldHeight),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AccentIndigo,
+                            unfocusedBorderColor = BorderDark
+                        )
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Button(m
+                        onClick = {
+                            val ip = manualIp.trim()
+                            val portText = manualPort.trim()
+                            val port = portText.toIntOrNull()
+                            when {
+                                ip.isBlank() -> manualError = "Enter a host or IP address."
+                                port == null || port !in 1..65532 ->
+                                    manualError = "Port must be between 1 and 65532."
+                                else -> {
+                                    manualError = null
+                                    manualIp = ip
+                                    manualPort = port.toString()
+                                    prefs.edit().apply {
+                                        putString("manual_ip", ip)
+                                        putString("manual_port", port.toString())
+                                        apply()
+                                    }
+                                    onDeviceSelected(DiscoveredDevice(
+                                        name = "Manual WiFi", ip = ip, port = port,
+                                        isUsb = false, encrypted = manualEncrypted
+                                    ))
+                                }
+                            }
+                        },
+                        modifier = Modifier.height(manualFieldHeight),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = GreenAccent)
+                    ) {
+                        Text("Connect", fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                }
+                manualError?.let { error ->
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(error, color = Color(0xFFFF6B6B), fontSize = 12.sp)
                 }
             }
         }
@@ -928,8 +1134,8 @@ fun ReceiveScreen(
     displayHeight: Int,
     status: String,
     onBack: () -> Unit,
-    onSurfaceCreated: (String, Surface, Int, Int) -> Unit,
-    onSurfaceDestroyed: () -> Unit,
+    onSurfaceCreated: (String, Surface, Int, Int) -> Long,
+    onSurfaceDestroyed: (Long) -> Unit,
     onInputEvent: (android.view.MotionEvent, Float, Float) -> Unit
 ) {
     BackHandler(onBack = onBack)
@@ -974,8 +1180,8 @@ fun StreamSurface(
     width: Int,
     height: Int,
     hostIp: String,
-    onSurfaceCreated: (String, Surface, Int, Int) -> Unit,
-    onSurfaceDestroyed: () -> Unit,
+    onSurfaceCreated: (String, Surface, Int, Int) -> Long,
+    onSurfaceDestroyed: (Long) -> Unit,
     onInputEvent: (android.view.MotionEvent, Float, Float) -> Unit
 ) {
     AndroidView(
@@ -983,11 +1189,13 @@ fun StreamSurface(
             android.view.SurfaceView(ctx).apply {
                 isClickable = true
                 holder.addCallback(object : SurfaceHolder.Callback {
+                    private var surfaceGeneration = 0L
+
                     override fun surfaceCreated(holder: SurfaceHolder) {
-                        onSurfaceCreated(hostIp, holder.surface, width, height)
+                        surfaceGeneration = onSurfaceCreated(hostIp, holder.surface, width, height)
                     }
                     override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, ht: Int) {}
-                    override fun surfaceDestroyed(h: SurfaceHolder) { onSurfaceDestroyed() }
+                    override fun surfaceDestroyed(h: SurfaceHolder) { onSurfaceDestroyed(surfaceGeneration) }
                 })
                 setOnTouchListener { v, event ->
                     if (event.action == android.view.MotionEvent.ACTION_DOWN) v.performClick()

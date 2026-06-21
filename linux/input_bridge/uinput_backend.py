@@ -27,6 +27,7 @@ class UInputBackend:
         self.touch = None
         self.stylus = None
         self.active = {}
+        self.slot_to_cid = {}
         self.active_tool = None
         self.lock = threading.Lock()
         self.max_x = geometry.screen_w
@@ -111,19 +112,41 @@ class UInputBackend:
         nx, ny = x / COORD_MAX, y / COORD_MAX
         if self.rotation == 90:
             nx, ny = 1 - ny, nx
+        elif self.rotation == 180:
+            nx, ny = 1 - nx, 1 - ny
+        elif self.rotation == 270:
+            nx, ny = ny, 1 - nx
         return (
             max(0, min(self.max_x, round(tx + nx * width))),
             max(0, min(self.max_y, round(ty + ny * height))),
         )
 
+    def _allocate_slot(self, cid):
+        if cid in self.active:
+            return self.active[cid]
+        for slot in range(10):
+            if slot not in self.slot_to_cid:
+                self.active[cid] = slot
+                self.slot_to_cid[slot] = cid
+                return slot
+        log.warning("Ignoring touch contact %s: no free multitouch slots", cid)
+        return None
+
+    def _release_slot(self, cid):
+        slot = self.active.pop(cid, None)
+        if slot is not None:
+            self.slot_to_cid.pop(slot, None)
+        return slot
+
     def inject_touch(self, action, cid, x, y, frame=True):
         if not self.touch:
             return
         px, py = self._coords(x, y)
-        slot = cid % 10
         with self.lock:
             if action == ACTION_DOWN:
-                self.active[cid] = slot
+                slot = self._allocate_slot(cid)
+                if slot is None:
+                    return
                 self.touch.write(ecodes.EV_ABS, ecodes.ABS_MT_SLOT, slot)
                 self.touch.write(ecodes.EV_ABS, ecodes.ABS_MT_TRACKING_ID, cid & 0xffff)
                 self._write_touch_position(slot, px, py)
@@ -131,7 +154,7 @@ class UInputBackend:
             elif action == ACTION_MOVE and cid in self.active:
                 self._write_touch_position(self.active[cid], px, py)
             elif action == ACTION_UP:
-                active_slot = self.active.pop(cid, None)
+                active_slot = self._release_slot(cid)
                 if active_slot is not None:
                     self.touch.write(ecodes.EV_ABS, ecodes.ABS_MT_SLOT, active_slot)
                     self.touch.write(ecodes.EV_ABS, ecodes.ABS_MT_TRACKING_ID, -1)
@@ -189,7 +212,28 @@ class UInputBackend:
                 self.stylus.syn()
         return True
 
+    def release_all(self):
+        with self.lock:
+            if self.touch:
+                for cid in list(self.active):
+                    active_slot = self._release_slot(cid)
+                    if active_slot is not None:
+                        self.touch.write(ecodes.EV_ABS, ecodes.ABS_MT_SLOT, active_slot)
+                        self.touch.write(ecodes.EV_ABS, ecodes.ABS_MT_TRACKING_ID, -1)
+                self.touch.write(ecodes.EV_KEY, ecodes.BTN_TOUCH, 0)
+                self.touch.syn()
+            if self.stylus:
+                for code in (
+                    ecodes.BTN_TOUCH, ecodes.BTN_STYLUS, ecodes.BTN_STYLUS2,
+                    ecodes.BTN_TOOL_PEN, ecodes.BTN_TOOL_RUBBER,
+                ):
+                    self.stylus.write(ecodes.EV_KEY, code, 0)
+                self.stylus.write(ecodes.EV_ABS, ecodes.ABS_PRESSURE, 0)
+                self.stylus.syn()
+                self.active_tool = None
+
     def close(self):
+        self.release_all()
         for device in (self.stylus, self.touch):
             if device:
                 try:
@@ -197,3 +241,5 @@ class UInputBackend:
                 except Exception:
                     pass
         self.stylus = self.touch = None
+        self.active.clear()
+        self.slot_to_cid.clear()
