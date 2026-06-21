@@ -1,6 +1,8 @@
 package com.example.monitorize
 
 import android.content.Context
+import android.net.wifi.WifiManager
+import android.util.Log
 import android.os.Build
 import android.os.Bundle
 import android.view.Surface
@@ -33,93 +35,152 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.zIndex
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.example.monitorize.ui.theme.BreezeAccent as AccentIndigo
+import com.example.monitorize.ui.theme.BreezeBackground as BackgroundDark
+import com.example.monitorize.ui.theme.BreezeBorder as BorderDark
+import com.example.monitorize.ui.theme.BreezeButton as GreenAccent
+import com.example.monitorize.ui.theme.BreezeSurface as CardDark
+import com.example.monitorize.ui.theme.BreezeTextMuted as TextMuted
+import com.example.monitorize.ui.theme.MonitorizeTheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
-// ── UI Constants (Modern Dark Theme) ─────────────────────────────────────────
-val BackgroundDark = Color(0xFF121214) // Modern deep grey (not pitch black)
-val CardDark       = Color(0xFF1C1C1E)
-val BorderDark     = Color(0xFF2C2C2E)
-val AccentIndigo   = Color(0xFF6366F1)
-val GreenAccent    = Color(0xFF10B981)
-val TextPrimary    = Color(0xFFF1F5F9)
-val TextSecondary  = Color(0xFF94A3B8)
-val TextMuted      = Color(0xFF475569)
+
+
+
+
+
+
 
 enum class Screen { Home, Receive }
 
 class MainActivity : ComponentActivity() {
 
-    private var decoder: H264Decoder? = null
-    private var receiver: StreamReceiver? = null
-    private var inputSender: InputEventSender? = null
+    @Volatile private var decoder: H264Decoder? = null
+    @Volatile private var receiver: StreamReceiver? = null
+    @Volatile private var inputSender: InputEventSender? = null
+    @Volatile private var wifiLock: WifiManager.WifiLock? = null
+    @Volatile private var clearPairingUi: ((Boolean) -> Unit)? = null
+    private val streamStateLock = Any()
+    private val streamMutex = Mutex()
+    private var activeStreamSession = 0L
+    private var surfaceGeneration = 0L
     private val status = mutableStateOf("")
     private lateinit var discovery: DeviceDiscovery
 
     private val prefs by lazy { getSharedPreferences("monitorize_prefs", Context.MODE_PRIVATE) }
 
-    private fun triggerAppRestart(showDisconnected: Boolean = false) {
-        runOnUiThread {
-            val intent = android.content.Intent(this@MainActivity, MainActivity::class.java).apply {
-                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                if (showDisconnected) {
-                    putExtra("SHOW_DISCONNECTED", true)
-                }
-            }
-            startActivity(intent)
-            finish()
-        }
+    private data class StreamDimensions(val width: Int, val height: Int)
+
+    private data class StreamResources(
+        val receiver: StreamReceiver?,
+        val decoder: H264Decoder?,
+        val inputSender: InputEventSender?,
+        val wifiLock: WifiManager.WifiLock?
+    )
+
+    companion object {
+        private const val DEFAULT_STREAM_WIDTH = 1280
+        private const val DEFAULT_STREAM_HEIGHT = 800
+        private const val MIN_STREAM_DIMENSION = 2
+        private const val MAX_STREAM_DIMENSION = 7680
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         discovery = DeviceDiscovery(this)
 
-        // Force Full Screen & Immersive Mode
+        
         WindowCompat.setDecorFitsSystemWindows(window, false)
         applyImmersiveMode()
 
-        // Handle cutout (notch)
+        
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             window.attributes.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         }
 
-        window.setBackgroundDrawableResource(android.R.color.black)
+        window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.parseColor("#1B1E24")))
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
+        
+        WindowInsetsControllerCompat(window, window.decorView).isAppearanceLightStatusBars = false
+
         setContent {
+            val configuration = LocalConfiguration.current
+            val isTablet = configuration.smallestScreenWidthDp >= 600
+            val isLandscapeMobile = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE && !isTablet
+
             var currentScreen by remember { mutableStateOf(Screen.Home) }
             var isSettingsOpen by remember { mutableStateOf(false) }
 
-            var width by remember { mutableIntStateOf(prefs.getInt("width", 1280)) }
-            var height by remember { mutableIntStateOf(prefs.getInt("height", 800)) }
-            var fps by remember { mutableIntStateOf(prefs.getInt("fps", 60)) }
-            
+            val initialDimensions = remember {
+                sanitizeStreamDimensions(
+                    prefs.getInt("width", DEFAULT_STREAM_WIDTH),
+                    prefs.getInt("height", DEFAULT_STREAM_HEIGHT)
+                )
+            }
+            var width by remember { mutableIntStateOf(initialDimensions.width) }
+            var height by remember { mutableIntStateOf(initialDimensions.height) }
+            var decodedWidth by remember { mutableIntStateOf(width) }
+            var decodedHeight by remember { mutableIntStateOf(height) }
             var selectedDevice by remember { mutableStateOf<DiscoveredDevice?>(null) }
             var disconnectionMessage by remember { mutableStateOf<String?>(
                 if (intent.getBooleanExtra("SHOW_DISCONNECTED", false)) "Disconnected" else null
             ) }
+            var pairingSubmit by remember { mutableStateOf<((String) -> Unit)?>(null) }
+            var pairingCode by remember { mutableStateOf("") }
             
             val coroutineScope = rememberCoroutineScope()
-            val context = androidx.compose.ui.platform.LocalContext.current
+            fun clearPairingState(invokeCancel: Boolean) {
+                if (invokeCancel) {
+                    pairingSubmit?.invoke("")
+                }
+                pairingSubmit = null
+                pairingCode = ""
+            }
 
-            // Auto-clear disconnection message after 5 seconds
+            SideEffect {
+                clearPairingUi = { invokeCancel ->
+                    clearPairingState(invokeCancel)
+                }
+            }
+            DisposableEffect(Unit) {
+                onDispose {
+                    if (clearPairingUi != null) {
+                        clearPairingUi = null
+                    }
+                }
+            }
+
+            fun cancelPairing() {
+                clearPairingState(invokeCancel = true)
+                selectedDevice = null
+                currentScreen = Screen.Home
+                status.value = ""
+                coroutineScope.launch { stopStream() }
+            }
+
+            
             if (disconnectionMessage != null) {
                 LaunchedEffect(disconnectionMessage) {
-                    kotlinx.coroutines.delay(5000)
+                    delay(5000)
                     disconnectionMessage = null
                 }
             }
 
-            MaterialTheme(colorScheme = darkColorScheme()) {
+            MonitorizeTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = BackgroundDark) {
                     Box(modifier = Modifier.fillMaxSize()) {
                         when (currentScreen) {
@@ -127,9 +188,12 @@ class MainActivity : ComponentActivity() {
                                 HomeScreen(
                                     devices = discovery.devices,
                                     onDeviceSelected = { device ->
+                                        discovery.stopDiscovery()
+                                        decodedWidth = width
+                                        decodedHeight = height
                                         selectedDevice = device
                                         currentScreen = Screen.Receive
-                                        disconnectionMessage = null // Clear any existing message
+                                        disconnectionMessage = null 
                                     },
                                     onSettingsToggle = { isSettingsOpen = true },
                                     onStartDiscovery = { discovery.startDiscovery() }
@@ -140,61 +204,92 @@ class MainActivity : ComponentActivity() {
                                     hostIp = if (selectedDevice?.isUsb == true) "" else selectedDevice?.ip ?: "",
                                     width = width,
                                     height = height,
-                                    fps = fps,
+                                    displayWidth = decodedWidth,
+                                    displayHeight = decodedHeight,
                                     status = status.value,
                                     onBack = {
                                         coroutineScope.launch {
+                                            clearPairingState(invokeCancel = true)
                                             stopStream()
+                                            selectedDevice = null
+                                            currentScreen = Screen.Home
+                                            disconnectionMessage = null
+                                            status.value = ""
                                         }
-                                        triggerAppRestart(showDisconnected = true)
                                     },
-                                    onSurfaceCreated = { ip, surface, w, h, f ->
+                                    onSurfaceCreated = { ip, surface, w, h ->
+                                        val generation = registerSurfaceCreated()
                                         coroutineScope.launch {
-                                            // Allow hardware media server to fully tear down any previous codec
-                                            kotlinx.coroutines.delay(400)
-                                            startStream(ip, surface, w, h, f) {
-                                                runOnUiThread {
-                                                    coroutineScope.launch { stopStream() }
-                                                    triggerAppRestart(showDisconnected = true)
+                                            val port = selectedDevice?.port ?: 7110
+                                            startStream(
+                                                ip, port, surface, w, h,
+                                                surfaceGeneration = generation,
+                                                device = selectedDevice,
+                                                onPairingRequired = { submit ->
+                                                    runOnUiThread {
+                                                        pairingCode = ""
+                                                        pairingSubmit = submit
+                                                    }
+                                                },
+                                                onDecodedSize = { decodedW, decodedH ->
+                                                    decodedWidth = decodedW
+                                                    decodedHeight = decodedH
+                                                },
+                                                onDisconnect = {
+                                                    runOnUiThread {
+                                                        disconnectionMessage = "Connection stopped"
+                                                        status.value = "Unable to keep the connection alive"
+                                                    }
                                                 }
-                                            }
+                                            )
                                         }
+                                        generation
                                     },
-                                    onSurfaceDestroyed = { 
-                                        coroutineScope.launch { stopStream() } 
+                                    onSurfaceDestroyed = { generation ->
+                                        clearPairingState(invokeCancel = false)
+                                        coroutineScope.launch {
+                                            stopStream(surfaceGeneration = generation)
+                                        }
                                     },
                                     onInputEvent = { event, viewW, viewH -> inputSender?.send(event, viewW, viewH) }
                                 )
                             }
                         }
 
-                        // Sliding Settings Panel Overlay (Right to Left)
+                        
                         AnimatedVisibility(
                             visible = isSettingsOpen,
                             enter = slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300)),
                             exit = slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(300)),
                             modifier = Modifier.align(Alignment.CenterEnd).zIndex(10f)
                         ) {
-                            Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(0.45f).background(CardDark).border(1.dp, BorderDark)) {
+                            val panelWidthFraction = if (isTablet || isLandscapeMobile) 0.45f else 0.85f
+
+                            Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(panelWidthFraction).background(CardDark).border(1.dp, BorderDark)) {
                                 SettingsPanel(
                                     initialWidth = width,
                                     initialHeight = height,
-                                    initialFps = fps,
-                                    onSave = { w, h, f ->
-                                        if (w != width || h != height || f != fps) {
-                                            prefs.edit().putInt("width", w).putInt("height", h).putInt("fps", f).apply()
+                                    onSave = { w, h ->
+                                        val sanitized = sanitizeStreamDimensions(w, h)
+                                        if (sanitized.width != width || sanitized.height != height) {
+                                            prefs.edit()
+                                                .putInt("width", sanitized.width)
+                                                .putInt("height", sanitized.height)
+                                                .apply()
+                                            width = sanitized.width
+                                            height = sanitized.height
+                                            decodedWidth = sanitized.width
+                                            decodedHeight = sanitized.height
                                             isSettingsOpen = false
-                                            triggerAppRestart(showDisconnected = false)
                                         } else {
                                             isSettingsOpen = false
                                         }
-                                    },
-                                    onClose = { isSettingsOpen = false }
+                                    }
                                 )
                             }
                         }
                         
-                        // Scrim to dim the background when settings is open
+                        
                         if (isSettingsOpen) {
                             Box(
                                 modifier = Modifier
@@ -205,7 +300,43 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // Custom 5-second Toast Notification for Disconnection
+                        if (pairingSubmit != null) {
+                            AlertDialog(
+                                onDismissRequest = {
+                                    cancelPairing()
+                                },
+                                title = { Text("Pair encrypted connection") },
+                                text = {
+                                    Column {
+                                        Text("Enter the 6-digit code shown in the Linux app.")
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        OutlinedTextField(
+                                            value = pairingCode,
+                                            onValueChange = { pairingCode = it.filter(Char::isDigit).take(6) },
+                                            singleLine = true,
+                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                            label = { Text("Pairing code") }
+                                        )
+                                    }
+                                },
+                                confirmButton = {
+                                    TextButton(
+                                        enabled = pairingCode.length == 6,
+                                        onClick = {
+                                            pairingSubmit?.invoke(pairingCode)
+                                            pairingSubmit = null
+                                        }
+                                    ) { Text("Pair") }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = {
+                                        cancelPairing()
+                                    }) { Text("Cancel") }
+                                }
+                            )
+                        }
+
+                        
                         AnimatedVisibility(
                             visible = disconnectionMessage != null,
                             enter = fadeIn() + expandVertically(expandFrom = Alignment.Bottom),
@@ -230,7 +361,7 @@ class MainActivity : ComponentActivity() {
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Text(
                                         text = disconnectionMessage ?: "",
-                                        color = TextPrimary,
+                                        color = Color.White,
                                         fontSize = 14.sp,
                                         fontWeight = FontWeight.SemiBold
                                     )
@@ -250,39 +381,256 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onStop() {
+        super.onStop()
+        discovery.stopDiscovery()
+        clearPairingUi?.invoke(false)
+        closeStreamResourcesBlocking(snapshotAndClearStreamResources(invalidateSurface = true))
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        clearPairingUi?.invoke(false)
+        closeStreamResourcesBlocking(snapshotAndClearStreamResources(invalidateSurface = true))
+    }
+
     private fun applyImmersiveMode() {
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
         windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     }
 
-    private fun startStream(hostIp: String, surface: Surface, width: Int, height: Int, fps: Int, onDisconnect: () -> Unit) {
-        val d = H264Decoder(surface)
-        decoder = d
-        receiver = StreamReceiver(d, width, height, fps, hostIp.takeIf { it.isNotBlank() }).also {
-            it.onStatusChange = { msg -> runOnUiThread { status.value = msg } }
-            it.onDisconnect = onDisconnect
-            it.start()
-        }
-        val metrics = resources.displayMetrics
-        inputSender = InputEventSender(hostIp.takeIf { it.isNotBlank() }).also { it.start() }
+    private fun sanitizeStreamDimensions(width: Int, height: Int): StreamDimensions {
+        return StreamDimensions(
+            sanitizeStreamDimension(width, DEFAULT_STREAM_WIDTH),
+            sanitizeStreamDimension(height, DEFAULT_STREAM_HEIGHT)
+        )
     }
 
-    private var isStopping = false
+    private fun sanitizeStreamDimension(value: Int, fallback: Int): Int {
+        val bounded = value.takeIf { it >= MIN_STREAM_DIMENSION }
+            ?: fallback
+        val clamped = bounded.coerceIn(MIN_STREAM_DIMENSION, MAX_STREAM_DIMENSION)
+        val even = if (clamped % 2 == 0) clamped else clamped - 1
+        return even.coerceAtLeast(MIN_STREAM_DIMENSION)
+    }
 
-    private suspend fun stopStream() {
-        if (isStopping) return
-        isStopping = true
-        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            receiver?.stop(); receiver = null
-            decoder?.release(); decoder = null
-            inputSender?.stop(); inputSender = null
+    private fun registerSurfaceCreated(): Long = synchronized(streamStateLock) {
+        surfaceGeneration += 1
+        surfaceGeneration
+    }
+
+    private fun isSurfaceCurrent(generation: Long): Boolean = synchronized(streamStateLock) {
+        surfaceGeneration == generation
+    }
+
+    private fun isActiveStream(sessionId: Long, expectedReceiver: StreamReceiver? = null): Boolean =
+        synchronized(streamStateLock) {
+            activeStreamSession == sessionId &&
+                (expectedReceiver == null || receiver === expectedReceiver)
         }
-        isStopping = false
+
+    private fun snapshotAndClearStreamResources(invalidateSurface: Boolean = false): StreamResources =
+        synchronized(streamStateLock) {
+            activeStreamSession += 1
+            if (invalidateSurface) {
+                surfaceGeneration += 1
+            }
+            val resources = StreamResources(receiver, decoder, inputSender, wifiLock)
+            receiver = null
+            decoder = null
+            inputSender = null
+            wifiLock = null
+            resources
+        }
+
+    private suspend fun closeStreamResources(resources: StreamResources) {
+        withContext(Dispatchers.IO) {
+            closeStreamResourcesBlocking(resources)
+        }
+    }
+
+    private fun closeStreamResourcesBlocking(resources: StreamResources) {
+        resources.receiver?.stop()
+        resources.inputSender?.stop()
+        resources.decoder?.release()
+        try {
+            if (resources.wifiLock?.isHeld == true) {
+                resources.wifiLock.release()
+                Log.i("MainActivity", "Released low latency Wi-Fi lock")
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to release Wi-Fi lock: ${e.message}")
+        }
+    }
+
+    private fun acquireLowLatencyWifiLock(): WifiManager.WifiLock? {
+        return try {
+            val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            val lockType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                WifiManager.WIFI_MODE_FULL_LOW_LATENCY
+            } else {
+                @Suppress("DEPRECATION")
+                WifiManager.WIFI_MODE_FULL_HIGH_PERF
+            }
+            wifiManager.createWifiLock(lockType, "Monitorize:LowLatencyLock").apply {
+                setReferenceCounted(false)
+                acquire()
+                Log.i("MainActivity", "Acquired low latency Wi-Fi lock")
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to acquire Wi-Fi lock: ${e.message}")
+            null
+        }
+    }
+
+    private suspend fun startStream(
+        hostIp: String,
+        hostPort: Int,
+        surface: Surface,
+        width: Int,
+        height: Int,
+        surfaceGeneration: Long,
+        device: DiscoveredDevice?,
+        onPairingRequired: ((String) -> Unit) -> Unit,
+        onDecodedSize: (Int, Int) -> Unit,
+        onDisconnect: () -> Unit
+    ) = streamMutex.withLock {
+        if (!isSurfaceCurrent(surfaceGeneration)) {
+            return@withLock
+        }
+
+        closeStreamResources(snapshotAndClearStreamResources())
+        if (!isSurfaceCurrent(surfaceGeneration)) {
+            return@withLock
+        }
+
+        val streamDimensions = sanitizeStreamDimensions(width, height)
+        val sessionId = synchronized(streamStateLock) {
+            activeStreamSession += 1
+            activeStreamSession
+        }
+        val newWifiLock = acquireLowLatencyWifiLock()
+        val d = H264Decoder(surface) { decodedWidth, decodedHeight ->
+            if (isActiveStream(sessionId)) {
+                runOnUiThread {
+                    if (isActiveStream(sessionId)) {
+                        onDecodedSize(decodedWidth, decodedHeight)
+                    }
+                }
+            }
+        }
+        val encrypted = device?.let { it.encrypted && !it.isUsb } == true
+        val advertisedFingerprint = device?.fingerprint
+        val savedFingerprint = advertisedFingerprint?.takeIf {
+            prefs.getString("tls_token_$it", null) != null
+        } ?: prefs.getString("tls_host_$hostIp", null)
+        val savedToken = savedFingerprint?.let { prefs.getString("tls_token_$it", null) }
+        var inputStarted = false
+
+        val streamReceiver = StreamReceiver(
+            d, streamDimensions.width, streamDimensions.height, hostIp.takeIf { it.isNotBlank() }, hostPort,
+            encrypted, savedFingerprint, savedToken
+        )
+        streamReceiver.apply {
+            onStatusChange = { msg ->
+                if (isActiveStream(sessionId, streamReceiver)) {
+                    runOnUiThread {
+                        if (isActiveStream(sessionId, streamReceiver)) {
+                            status.value = msg
+                        }
+                    }
+                }
+            }
+            this.onDisconnect = {
+                if (isActiveStream(sessionId, streamReceiver)) {
+                    onDisconnect()
+                }
+            }
+            this.onPairingRequired = { submit ->
+                if (isActiveStream(sessionId, streamReceiver)) {
+                    onPairingRequired { code ->
+                        if (isActiveStream(sessionId, streamReceiver)) {
+                            submit(code)
+                        } else {
+                            submit("")
+                        }
+                    }
+                } else {
+                    submit("")
+                }
+            }
+            onCredentials = credentials@ { fingerprint, token ->
+                if (!isActiveStream(sessionId, streamReceiver)) {
+                    return@credentials
+                }
+                if (fingerprint.isEmpty() || token.isEmpty()) {
+                    prefs.edit().remove("tls_host_$hostIp").apply()
+                    return@credentials
+                }
+
+                prefs.edit()
+                    .putString("tls_host_$hostIp", fingerprint)
+                    .putString("tls_token_$fingerprint", token)
+                    .apply()
+                if (!inputStarted) {
+                    val sender = InputEventSender(hostIp, hostPort, true, fingerprint, token)
+                    val assigned = synchronized(streamStateLock) {
+                        if (activeStreamSession == sessionId && receiver === streamReceiver && inputSender == null) {
+                            inputStarted = true
+                            inputSender = sender
+                            sender.start()
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    if (!assigned) {
+                        sender.stop()
+                    }
+                }
+            }
+        }
+
+        val unencryptedInputSender = if (!encrypted) {
+            InputEventSender(hostIp.takeIf { it.isNotBlank() }, hostPort)
+        } else {
+            null
+        }
+        val registered = synchronized(streamStateLock) {
+            if (activeStreamSession == sessionId && this.surfaceGeneration == surfaceGeneration) {
+                decoder = d
+                receiver = streamReceiver
+                wifiLock = newWifiLock
+                if (unencryptedInputSender != null) {
+                    inputSender = unencryptedInputSender
+                    unencryptedInputSender.start()
+                }
+                streamReceiver.start()
+                true
+            } else {
+                false
+            }
+        }
+        if (!registered) {
+            unencryptedInputSender?.stop()
+            streamReceiver.stop()
+            d.release()
+            closeStreamResourcesBlocking(StreamResources(null, null, null, newWifiLock))
+        }
+    }
+
+    private suspend fun stopStream(surfaceGeneration: Long? = null) {
+        streamMutex.withLock {
+            if (surfaceGeneration != null && !isSurfaceCurrent(surfaceGeneration)) {
+                return@withLock
+            }
+            closeStreamResources(snapshotAndClearStreamResources(invalidateSurface = true))
+        }
     }
 }
 
-// ── UI Components ─────────────────────────────────────────────────────────────
+
 
 @Composable
 fun HomeScreen(
@@ -291,33 +639,103 @@ fun HomeScreen(
     onSettingsToggle: () -> Unit,
     onStartDiscovery: () -> Unit = {}
 ) {
+    val configuration = LocalConfiguration.current
+    val isTablet = configuration.smallestScreenWidthDp >= 600
+    val isLandscapeMobile = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE && !isTablet
+
+    val horizontalPadding = when {
+        isTablet -> 48.dp
+        isLandscapeMobile -> 36.dp
+        else -> 28.dp
+    }
+    val topSpacerHeight = when {
+        isTablet -> 100.dp
+        isLandscapeMobile -> 40.dp
+        else -> 60.dp
+    }
+    val devicesSpacing = if (isLandscapeMobile) 10.dp else 14.dp
+    val settingsButtonPadding = if (isLandscapeMobile) 16.dp else 24.dp
+    val manualRowPadding = if (isLandscapeMobile) 16.dp else 32.dp
+    val manualSpacerHeight = if (isLandscapeMobile) 12.dp else 16.dp
+    val manualFieldHeight = if (isLandscapeMobile) 48.dp else 56.dp
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val prefs = remember {
+        context.getSharedPreferences(
+            "monitorize_prefs", android.content.Context.MODE_PRIVATE
+        )
+    }
+    var manualIp by remember { mutableStateOf(prefs.getString("manual_ip", "") ?: "") }
+    var manualPort by remember { mutableStateOf(prefs.getString("manual_port", "7110") ?: "7110") }
+    var manualError by remember { mutableStateOf<String?>(null) }
+
     LaunchedEffect(Unit) {
         onStartDiscovery()
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Settings Icon Top Right
-        IconButton(
-            onClick = onSettingsToggle,
-            modifier = Modifier.align(Alignment.TopEnd).padding(24.dp).size(48.dp).background(CardDark, CircleShape)
-        ) {
-            Icon(Icons.Default.Settings, contentDescription = "Settings", tint = TextPrimary)
+        if (isTablet) {
+            IconButton(
+                onClick = onSettingsToggle,
+                modifier = Modifier.align(Alignment.TopEnd).padding(settingsButtonPadding).size(48.dp).background(CardDark, CircleShape)
+            ) {
+                Icon(Icons.Default.Settings, contentDescription = "Settings", tint = Color.White)
+            }
         }
 
         Column(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 48.dp)
+            modifier = Modifier.fillMaxSize().padding(horizontal = horizontalPadding)
         ) {
-            Spacer(modifier = Modifier.height(100.dp))
+            Spacer(modifier = Modifier.height(topSpacerHeight))
             
-            // "Hint-type" header
-            Text(
-                "YOU SHOULD SEE A LIST OF DEVICES HERE",
-                fontSize = 11.sp,
-                color = TextMuted,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 2.sp
-            )
-            Spacer(modifier = Modifier.height(24.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "DEVICES:",
+                    fontSize = 11.sp,
+                    color = TextMuted,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 2.sp
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(AccentIndigo.copy(alpha = 0.15f))
+                            .border(1.dp, AccentIndigo.copy(alpha = 0.4f), RoundedCornerShape(6.dp))
+                            .clickable { onStartDiscovery() }
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = "REFRESH",
+                            color = AccentIndigo,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    if (!isTablet) {
+                        IconButton(
+                            onClick = onSettingsToggle,
+                            modifier = Modifier
+                                .size(if (isLandscapeMobile) 32.dp else 36.dp)
+                                .background(CardDark, CircleShape)
+                        ) {
+                            Icon(
+                                Icons.Default.Settings,
+                                contentDescription = "Settings",
+                                tint = Color.White,
+                                modifier = Modifier.size(if (isLandscapeMobile) 18.dp else 20.dp)
+                            )
+                        }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(devicesSpacing))
 
             if (devices.isEmpty()) {
                 Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -331,7 +749,7 @@ fun HomeScreen(
             } else {
                 LazyColumn(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(devicesSpacing),
                     contentPadding = PaddingValues(bottom = 16.dp)
                 ) {
                     items(devices) { device ->
@@ -340,36 +758,78 @@ fun HomeScreen(
                 }
             }
             
-            // Manual IP Entry
-            var manualIp by remember { mutableStateOf("") }
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedTextField(
-                    value = manualIp,
-                    onValueChange = { manualIp = it },
-                    placeholder = { Text("Enter PC IP manually", color = TextMuted) },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AccentIndigo,
-                        unfocusedBorderColor = BorderDark
-                    )
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Button(
-                    onClick = {
-                        if (manualIp.isNotBlank()) {
-                            onDeviceSelected(DiscoveredDevice(name = "Manual WiFi", ip = manualIp.trim(), port = 7110, isUsb = false))
-                        }
-                    },
-                    modifier = Modifier.height(56.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = GreenAccent)
+            Spacer(modifier = Modifier.height(manualSpacerHeight))
+            Column(modifier = Modifier.fillMaxWidth().padding(bottom = manualRowPadding)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Connect", fontWeight = FontWeight.Bold, color = Color.Black)
+                    OutlinedTextField(
+                        value = manualIp,
+                        onValueChange = {
+                            manualIp = it
+                            manualError = null
+                        },
+                        placeholder = { Text("Enter IP address", color = TextMuted) },
+                        modifier = Modifier.weight(1.5f).height(manualFieldHeight),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AccentIndigo,
+                            unfocusedBorderColor = BorderDark
+                        )
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    OutlinedTextField(
+                        value = manualPort,
+                        onValueChange = {
+                            manualPort = it.filter(Char::isDigit).take(5)
+                            manualError = null
+                        },
+                        placeholder = { Text("Port", color = TextMuted) },
+                        modifier = Modifier.weight(0.8f).height(manualFieldHeight),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AccentIndigo,
+                            unfocusedBorderColor = BorderDark
+                        )
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Button(
+                        onClick = {
+                            val ip = manualIp.trim()
+                            val portText = manualPort.trim()
+                            val port = portText.toIntOrNull()
+                            when {
+                                ip.isBlank() -> manualError = "Enter a host or IP address."
+                                port == null || port !in 1..65532 ->
+                                    manualError = "Port must be between 1 and 65532."
+                                else -> {
+                                    manualError = null
+                                    manualIp = ip
+                                    manualPort = port.toString()
+                                    prefs.edit().apply {
+                                        putString("manual_ip", ip)
+                                        putString("manual_port", port.toString())
+                                        apply()
+                                    }
+                                    onDeviceSelected(DiscoveredDevice(
+                                        name = "Manual WiFi", ip = ip, port = port,
+                                        isUsb = false, encrypted = false
+                                    ))
+                                }
+                            }
+                        },
+                        modifier = Modifier.height(manualFieldHeight),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = GreenAccent)
+                    ) {
+                        Text("Connect", fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                }
+                manualError?.let { error ->
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(error, color = Color(0xFFFF6B6B), fontSize = 12.sp)
                 }
             }
         }
@@ -378,6 +838,14 @@ fun HomeScreen(
 
 @Composable
 fun DeviceItem(device: DiscoveredDevice, onClick: () -> Unit) {
+    val configuration = LocalConfiguration.current
+    val isTablet = configuration.smallestScreenWidthDp >= 600
+    val isLandscapeMobile = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE && !isTablet
+
+    val verticalPadding = if (isLandscapeMobile) 14.dp else 18.dp
+    val horizontalPadding = if (isLandscapeMobile) 16.dp else 18.dp
+    val titleFontSize = if (isLandscapeMobile) 16.sp else 18.sp
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -385,21 +853,20 @@ fun DeviceItem(device: DiscoveredDevice, onClick: () -> Unit) {
             .background(CardDark)
             .border(1.dp, BorderDark, RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
-            .padding(18.dp),
+            .padding(horizontal = horizontalPadding, vertical = verticalPadding),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            // Main Device Name
             Text(
                 device.name, 
-                color = TextPrimary, 
+                color = Color.White, 
                 fontWeight = FontWeight.Bold, 
-                fontSize = 18.sp
+                fontSize = titleFontSize
             )
-            // IP address shown directly under the name
+            
             Text(
                 device.ip, 
-                color = TextSecondary, 
+                color = Color.White.copy(alpha = 0.7f), 
                 fontSize = 13.sp,
                 modifier = Modifier.padding(top = 2.dp)
             )
@@ -408,12 +875,12 @@ fun DeviceItem(device: DiscoveredDevice, onClick: () -> Unit) {
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(4.dp))
-                .background(if (device.isUsb) AccentIndigo.copy(alpha = 0.2f) else GreenAccent.copy(alpha = 0.2f))
+                .background(Color.White.copy(alpha = 0.2f))
                 .padding(horizontal = 10.dp, vertical = 4.dp)
         ) {
             Text(
                 text = if (device.isUsb) "usb" else "wifi",
-                color = if (device.isUsb) AccentIndigo else GreenAccent,
+                color = Color.White,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.ExtraBold
             )
@@ -421,66 +888,206 @@ fun DeviceItem(device: DiscoveredDevice, onClick: () -> Unit) {
     }
 }
 
+@Composable
+fun ResolutionCard(
+    title: String,
+    subtitle: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val configuration = LocalConfiguration.current
+    val isTablet = configuration.smallestScreenWidthDp >= 600
+    val cardPadding = if (isTablet) 16.dp else 12.dp
+    val titleFontSize = if (isTablet) 16.sp else 14.sp
+    val subtitleFontSize = if (isTablet) 13.sp else 11.sp
+    val verticalPadding = if (isTablet) 6.dp else 4.dp
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = verticalPadding)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) AccentIndigo.copy(alpha = 0.15f) else CardDark
+        ),
+        border = BorderStroke(
+            width = if (isSelected) 2.dp else 1.dp,
+            color = if (isSelected) AccentIndigo else BorderDark
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(cardPadding)
+        ) {
+            Text(
+                text = title,
+                color = if (isSelected) Color.White else Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = titleFontSize
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = subtitle,
+                color = Color.White.copy(alpha = 0.7f),
+                fontSize = subtitleFontSize
+            )
+        }
+    }
+}
+
+private data class SettingsMetrics(
+    val nativeW: Int,
+    val nativeH: Int,
+    val mediumW: Int,
+    val mediumH: Int,
+    val lowW: Int,
+    val lowH: Int,
+    val initialSelected: String
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsPanel(
     initialWidth: Int,
     initialHeight: Int,
-    initialFps: Int,
-    onSave: (Int, Int, Int) -> Unit,
-    onClose: () -> Unit
+    onSave: (Int, Int) -> Unit
 ) {
-    var wText by remember { mutableStateOf(initialWidth.toString()) }
-    var hText by remember { mutableStateOf(initialHeight.toString()) }
-    var fText by remember { mutableStateOf(initialFps.toString()) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val metrics = remember(context, initialWidth, initialHeight) {
+        val wm = context.getSystemService(android.content.Context.WINDOW_SERVICE) as android.view.WindowManager
+        val (rawW, rawH) = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            val bounds = wm.maximumWindowMetrics.bounds
+            Pair(bounds.width(), bounds.height())
+        } else {
+            val dm = android.util.DisplayMetrics()
+            @Suppress("DEPRECATION")
+            wm.defaultDisplay.getRealMetrics(dm)
+            Pair(dm.widthPixels, dm.heightPixels)
+        }
+        val nativeW = maxOf(rawW, rawH)
+        val nativeH = minOf(rawW, rawH)
+
+        fun getNearestMultipleOf16(value: Int): Int {
+            return ((value + 8) / 16) * 16
+        }
+
+        val mediumW = getNearestMultipleOf16((nativeW * 0.75f).toInt())
+        val mediumH = getNearestMultipleOf16((nativeH * 0.75f).toInt())
+        val lowW = getNearestMultipleOf16((nativeW * 0.5f).toInt())
+        val lowH = getNearestMultipleOf16((nativeH * 0.5f).toInt())
+
+        val initialSelected = when {
+            initialWidth == nativeW && initialHeight == nativeH -> "native"
+            initialWidth == mediumW && initialHeight == mediumH -> "medium"
+            initialWidth == lowW && initialHeight == lowH -> "low"
+            else -> "custom"
+        }
+        SettingsMetrics(nativeW, nativeH, mediumW, mediumH, lowW, lowH, initialSelected)
+    }
+
+    val nativeW = metrics.nativeW
+    val nativeH = metrics.nativeH
+    val mediumW = metrics.mediumW
+    val mediumH = metrics.mediumH
+    val lowW = metrics.lowW
+    val lowH = metrics.lowH
+    val initialSelected = metrics.initialSelected
+
+    var selectedOption by remember { mutableStateOf(initialSelected) }
+    var customWidthText by remember { mutableStateOf(if (initialSelected == "custom") initialWidth.toString() else "") }
+    var customHeightText by remember { mutableStateOf(if (initialSelected == "custom") initialHeight.toString() else "") }
+
+    val configuration = LocalConfiguration.current
+    val isTablet = configuration.smallestScreenWidthDp >= 600
+    val panelPadding = if (isTablet) 28.dp else 20.dp
+    val titleSize = if (isTablet) 22.sp else 18.sp
+    val spacingHeight = if (isTablet) 24.dp else 16.dp
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(28.dp)
+            .padding(panelPadding)
             .verticalScroll(rememberScrollState())
     ) {
-        Text("Current Settings", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-        Spacer(modifier = Modifier.height(32.dp))
+        Text("Resolution Settings", fontSize = titleSize, fontWeight = FontWeight.Bold, color = Color.White)
+        Spacer(modifier = Modifier.height(spacingHeight))
 
-        OutlinedTextField(
-            value = wText, onValueChange = { wText = it },
-            label = { Text("Stream Width") },
-            modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentIndigo, unfocusedBorderColor = BorderDark)
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        OutlinedTextField(
-            value = hText, onValueChange = { hText = it },
-            label = { Text("Stream Height") },
-            modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentIndigo, unfocusedBorderColor = BorderDark)
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        OutlinedTextField(
-            value = fText, onValueChange = { fText = it },
-            label = { Text("Stream FPS") },
-            modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentIndigo, unfocusedBorderColor = BorderDark)
-        )
+        listOf(
+            Triple("Native", "${nativeW} × ${nativeH} (${if (isTablet) "Tablet" else "Phone"} Screen)", "native"),
+            Triple("Medium", "${mediumW} × ${mediumH} (0.75x Scale)", "medium"),
+            Triple("Low", "${lowW} × ${lowH} (0.5x Scale)", "low"),
+            Triple("Custom", "Manually enter dimensions", "custom"),
+        ).forEach { (title, subtitle, option) ->
+            ResolutionCard(
+                title = title,
+                subtitle = subtitle,
+                isSelected = selectedOption == option,
+                onClick = { selectedOption = option },
+            )
+        }
 
-        Spacer(modifier = Modifier.weight(1f))
-        Spacer(modifier = Modifier.height(40.dp))
+        AnimatedVisibility(visible = selectedOption == "custom") {
+            Column {
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = customWidthText,
+                    onValueChange = { customWidthText = it },
+                    label = { Text("Stream Width") },
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedLabelColor = Color.White.copy(alpha = 0.7f),
+                        unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
+                        cursorColor = Color.White,
+                        focusedBorderColor = AccentIndigo,
+                        unfocusedBorderColor = BorderDark
+                    )
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = customHeightText,
+                    onValueChange = { customHeightText = it },
+                    label = { Text("Stream Height") },
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedLabelColor = Color.White.copy(alpha = 0.7f),
+                        unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
+                        cursorColor = Color.White,
+                        focusedBorderColor = AccentIndigo,
+                        unfocusedBorderColor = BorderDark
+                    )
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(spacingHeight))
 
         Button(
             onClick = {
-                onSave(wText.toIntOrNull() ?: 1280, hText.toIntOrNull() ?: 800, fText.toIntOrNull() ?: 60)
+                val finalW = when (selectedOption) {
+                    "native" -> nativeW
+                    "medium" -> mediumW
+                    "low" -> lowW
+                    else -> customWidthText.toIntOrNull() ?: 1280
+                }
+                val finalH = when (selectedOption) {
+                    "native" -> nativeH
+                    "medium" -> mediumH
+                    "low" -> lowH
+                    else -> customHeightText.toIntOrNull() ?: 800
+                }
+                onSave(finalW, finalH)
             },
-            modifier = Modifier.fillMaxWidth().height(52.dp),
+            modifier = Modifier.fillMaxWidth().height(if (isTablet) 52.dp else 42.dp),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = AccentIndigo)
-        ) { Text("SAVE & APPLY", fontWeight = FontWeight.Bold) }
-        
-        TextButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
-            Text("DISCARD", color = TextSecondary)
+        ) {
+            Text("SAVE & APPLY", fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -490,11 +1097,12 @@ fun ReceiveScreen(
     hostIp: String,
     width: Int,
     height: Int,
-    fps: Int,
+    displayWidth: Int,
+    displayHeight: Int,
     status: String,
     onBack: () -> Unit,
-    onSurfaceCreated: (String, Surface, Int, Int, Int) -> Unit,
-    onSurfaceDestroyed: () -> Unit,
+    onSurfaceCreated: (String, Surface, Int, Int) -> Long,
+    onSurfaceDestroyed: (Long) -> Unit,
     onInputEvent: (android.view.MotionEvent, Float, Float) -> Unit
 ) {
     BackHandler(onBack = onBack)
@@ -502,46 +1110,21 @@ fun ReceiveScreen(
         modifier = Modifier.fillMaxSize().background(Color.Black),
         contentAlignment = Alignment.Center
     ) {
-        // Inner box locked perfectly to the stream's aspect ratio.
-        // This ensures the touch overlay never extends over the black letterbox bars.
-        Box(modifier = Modifier.aspectRatio(width.toFloat() / height.toFloat())) {
+        
+        
+        Box(modifier = Modifier.aspectRatio(displayWidth.toFloat() / displayHeight.toFloat())) {
             StreamSurface(
                 modifier = Modifier.fillMaxSize(),
-                onSurfaceReady = { sv ->
-                    sv.holder.addCallback(object : SurfaceHolder.Callback {
-                        override fun surfaceCreated(holder: SurfaceHolder) {
-                            holder.setFixedSize(width, height)
-                            onSurfaceCreated(hostIp, holder.surface, width, height, fps)
-                        }
-                        override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, ht: Int) {}
-                        override fun surfaceDestroyed(h: SurfaceHolder) { onSurfaceDestroyed() }
-                    })
-                }
-            )
-
-            // Input layer perfectly layered over the aspect-locked Box
-            AndroidView(
-                factory = { ctx ->
-                    android.view.View(ctx).apply {
-                        layoutParams = android.view.ViewGroup.LayoutParams(
-                            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                            android.view.ViewGroup.LayoutParams.MATCH_PARENT
-                        )
-                        setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                        isClickable = true
-                        setOnTouchListener { v, event -> 
-                            if (event.action == android.view.MotionEvent.ACTION_DOWN) v.performClick()
-                            onInputEvent(event, v.width.toFloat(), v.height.toFloat())
-                            true 
-                        }
-                        setOnHoverListener { v, event -> onInputEvent(event, v.width.toFloat(), v.height.toFloat()); true }
-                    }
-                },
-                modifier = Modifier.fillMaxSize().zIndex(2f)
+                width = width,
+                height = height,
+                hostIp = hostIp,
+                onSurfaceCreated = onSurfaceCreated,
+                onSurfaceDestroyed = onSurfaceDestroyed,
+                onInputEvent = onInputEvent
             )
         }
 
-        // Small status badge (Clickable to exit)
+        
         if (status.isNotEmpty()) {
             Box(
                 modifier = Modifier
@@ -552,32 +1135,46 @@ fun ReceiveScreen(
                     .clickable { onBack() }
                     .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
-                Text(text = status, color = GreenAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Text(text = status, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
 }
 
 @Composable
-fun StreamSurface(modifier: Modifier, onSurfaceReady: (android.view.SurfaceView) -> Unit) {
+fun StreamSurface(
+    modifier: Modifier,
+    width: Int,
+    height: Int,
+    hostIp: String,
+    onSurfaceCreated: (String, Surface, Int, Int) -> Long,
+    onSurfaceDestroyed: (Long) -> Unit,
+    onInputEvent: (android.view.MotionEvent, Float, Float) -> Unit
+) {
     AndroidView(
-        factory = { ctx -> android.view.SurfaceView(ctx).also { onSurfaceReady(it) } },
+        factory = { ctx ->
+            android.view.SurfaceView(ctx).apply {
+                isClickable = true
+                holder.addCallback(object : SurfaceHolder.Callback {
+                    private var surfaceGeneration = 0L
+
+                    override fun surfaceCreated(holder: SurfaceHolder) {
+                        surfaceGeneration = onSurfaceCreated(hostIp, holder.surface, width, height)
+                    }
+                    override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, ht: Int) {}
+                    override fun surfaceDestroyed(h: SurfaceHolder) { onSurfaceDestroyed(surfaceGeneration) }
+                })
+                setOnTouchListener { v, event ->
+                    if (event.action == android.view.MotionEvent.ACTION_DOWN) v.performClick()
+                    onInputEvent(event, v.width.toFloat(), v.height.toFloat())
+                    true
+                }
+                setOnHoverListener { v, event ->
+                    onInputEvent(event, v.width.toFloat(), v.height.toFloat())
+                    true
+                }
+            }
+        },
         modifier = modifier
     )
-}
-
-// ── PREVIEWS ─────────────────────────────────────────────────────────────
-
-@Preview(showBackground = true, widthDp = 800, heightDp = 480)
-@Composable
-fun HomeScreenPreview() {
-    val mockDevices = listOf(
-        DiscoveredDevice("Main Desktop", "192.168.1.100", 7110, false),
-        DiscoveredDevice("Local PC (USB)", "127.0.0.1", 7110, true)
-    )
-    MaterialTheme(colorScheme = darkColorScheme()) {
-        Surface(color = BackgroundDark) {
-            HomeScreen(devices = mockDevices, onDeviceSelected = {}, onSettingsToggle = {})
-        }
-    }
 }

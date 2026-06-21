@@ -1,7 +1,6 @@
 package com.example.monitorize
 
 import android.content.Context
-import android.net.ConnectivityManager
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 import android.net.wifi.WifiManager
@@ -9,15 +8,16 @@ import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
-import java.net.*
-import java.util.*
+import kotlinx.coroutines.channels.ChannelResult
 
 data class DiscoveredDevice(
     val name: String,
     val ip: String,
     val port: Int,
     val isUsb: Boolean = false,
-    val isMonitorizeService: Boolean = false
+    val encrypted: Boolean = false,
+    val fingerprint: String? = null,
+    val serviceName: String = ""
 )
 
 class DeviceDiscovery(private val context: Context) {
@@ -28,30 +28,38 @@ class DeviceDiscovery(private val context: Context) {
     private val TAG = "DeviceDiscovery"
     private val SERVICE_TYPE = "_monitorize._tcp."
     private val DEFAULT_PORT = 7110
+    private val RESOLVE_QUEUE_CAPACITY = 64
 
     val devices = mutableStateListOf<DiscoveredDevice>()
-    private val discoveryListeners = mutableListOf<NsdManager.DiscoveryListener>()
-    private var scanJob: Job? = null
+    private var discoveryListener: NsdManager.DiscoveryListener? = null
     private var resolverJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private var resolveChannel: Channel<NsdServiceInfo>? = null
+    var isDiscovering = false
+        private set
+    private var harvestJob: Job? = null
+    private var generation = 0
+    private val pendingResolveLock = Any()
+    private val pendingResolveNames = mutableSetOf<String>()
 
     fun startDiscovery() {
         Log.d(TAG, "startDiscovery() called")
         stopDiscovery()
+        val currentGeneration = ++generation
+        isDiscovering = true
         
-        // 1. Enable Multicast to receive name broadcasts (Linux/Avahi and Android/Google)
+        
         try {
             multicastLock = wifiManager.createMulticastLock("monitorize_discovery").apply {
-                setReferenceCounted(true)
+                setReferenceCounted(false)
                 acquire()
             }
         } catch (e: Exception) {
             Log.e(TAG, "Multicast lock error", e)
         }
 
-        // 2. Add USB fallback immediately
+        
         var usbName = "Local PC (USB)"
         try {
             val process = Runtime.getRuntime().exec("getprop debug.monitorize.pc_name")
@@ -60,40 +68,33 @@ class DeviceDiscovery(private val context: Context) {
             if (!propName.isNullOrBlank()) {
                 usbName = "$propName (USB)"
             }
-        } catch (e: Exception) {}
-        addDevice(DiscoveredDevice(usbName, "127.0.0.1", DEFAULT_PORT, isUsb = true, isMonitorizeService = true))
-
-        // 3. Start Sequential Resolver Job for mDNS
-        val channel = Channel<NsdServiceInfo>(Channel.UNLIMITED)
-        resolveChannel = channel
-        startResolverJob(channel)
-
-        // 4. Start NSD harvesting for many common service types to find hostnames
-        val harvestTypes = listOf(
-            SERVICE_TYPE,
-            "_workstation._tcp.", 
-            "_googlecast._tcp.", 
-            "_ssh._tcp.",
-            "_http._tcp.",
-            "_ipp._tcp.",
-            "_kdeconnect._udp."
+        } catch (_: Exception) {}
+        addDevice(
+            DiscoveredDevice(usbName, "127.0.0.1", DEFAULT_PORT, isUsb = true),
+            currentGeneration
         )
+
         
-        harvestTypes.forEachIndexed { index, type ->
-            scope.launch {
-                delay(index * 150L) // Stagger to keep NsdManager happy
-                startNsdDiscovery(type)
+        val channel = Channel<NsdServiceInfo>(RESOLVE_QUEUE_CAPACITY)
+        resolveChannel = channel
+        startResolverJob(channel, currentGeneration)
+
+        
+        harvestJob = scope.launch {
+            delay(500)
+            if (isDiscovering && generation == currentGeneration) {
+                startNsdDiscovery(SERVICE_TYPE, currentGeneration)
             }
         }
-
-        // 5. Start Robust Subnet Scan to find all devices even if they don't broadcast names
-        startSubnetScan()
     }
 
-    private fun startResolverJob(channel: Channel<NsdServiceInfo>) {
+    private fun startResolverJob(
+        channel: Channel<NsdServiceInfo>,
+        currentGeneration: Int
+    ) {
         resolverJob = scope.launch {
             for (si in channel) {
-                if (!isActive) break
+                if (!isActive || generation != currentGeneration) break
                 try {
                     val completer = CompletableDeferred<Unit>()
                     Log.d(TAG, "Resolving: ${si.serviceName} (${si.serviceType})")
@@ -104,6 +105,10 @@ class DeviceDiscovery(private val context: Context) {
                             completer.complete(Unit)
                         }
                         override fun onServiceResolved(resolved: NsdServiceInfo) {
+                            if (!isDiscovering || generation != currentGeneration) {
+                                completer.complete(Unit)
+                                return
+                            }
                             val ip = resolved.host?.hostAddress ?: ""
                             if (ip.isNotEmpty() && !ip.contains(":")) {
                                 var resolvedName = resolved.serviceName.replace(Regex("\\[.*\\]"), "").trim()
@@ -113,22 +118,27 @@ class DeviceDiscovery(private val context: Context) {
                                     resolvedName = hostName
                                 }
                                 
-                                // Harvest friendly names from TXT records if available
+                                
+                                var encrypted = false
+                                var fingerprint: String? = null
                                 try {
                                     resolved.attributes?.let { attrs ->
                                         if (attrs.containsKey("fn")) resolvedName = String(attrs["fn"]!!)
                                         else if (attrs.containsKey("model")) resolvedName = String(attrs["model"]!!)
                                         else if (attrs.containsKey("name")) resolvedName = String(attrs["name"]!!)
+                                        encrypted = attrs["encrypted"]?.let { String(it) == "1" } == true
+                                        fingerprint = attrs["fingerprint"]?.let { String(it) }
                                     }
-                                } catch (e: Exception) {}
+                                } catch (_: Exception) {}
 
-                                val isOurService = resolved.serviceType.contains("monitorize") || resolved.port == DEFAULT_PORT
                                 addDevice(DiscoveredDevice(
                                     name = if (resolvedName.isEmpty()) "WiFi Device" else resolvedName,
                                     ip = ip,
-                                    port = if (isOurService) resolved.port else DEFAULT_PORT,
-                                    isMonitorizeService = isOurService
-                                ))
+                                    port = resolved.port,
+                                    encrypted = encrypted,
+                                    fingerprint = fingerprint,
+                                    serviceName = resolved.serviceName
+                                ), currentGeneration)
                             }
                             completer.complete(Unit)
                         }
@@ -139,118 +149,115 @@ class DeviceDiscovery(private val context: Context) {
                 } catch (e: Exception) {
                     if (e is CancellationException) throw e
                     Log.e(TAG, "Resolver job error", e)
+                } finally {
+                    synchronized(pendingResolveLock) {
+                        pendingResolveNames.remove(si.serviceName)
+                    }
                 }
             }
         }
     }
 
-    private fun startNsdDiscovery(type: String) {
+    private fun startNsdDiscovery(type: String, currentGeneration: Int) {
         val listener = object : NsdManager.DiscoveryListener {
-            override fun onStartDiscoveryFailed(t: String?, errorCode: Int) { Log.e(TAG, "NSD Start failed $t: $errorCode") }
+            override fun onStartDiscoveryFailed(t: String?, errorCode: Int) {
+                Log.e(TAG, "NSD Start failed $t: $errorCode")
+                failDiscovery(currentGeneration)
+            }
             override fun onStopDiscoveryFailed(t: String?, errorCode: Int) {}
             override fun onDiscoveryStarted(t: String?) {}
             override fun onDiscoveryStopped(t: String?) {}
             override fun onServiceFound(si: NsdServiceInfo) {
-                scope.launch { resolveChannel?.send(si) }
+                if (generation == currentGeneration) {
+                    enqueueResolve(si, currentGeneration)
+                }
             }
-            override fun onServiceLost(si: NsdServiceInfo) {}
+            override fun onServiceLost(si: NsdServiceInfo) {
+                if (generation != currentGeneration) return
+                scope.launch(Dispatchers.Main) {
+                    if (generation == currentGeneration) {
+                        devices.removeAll {
+                            !it.isUsb && it.serviceName == si.serviceName
+                        }
+                    }
+                }
+            }
         }
-        discoveryListeners.add(listener)
+        discoveryListener = listener
         try {
             nsdManager.discoverServices(type, NsdManager.PROTOCOL_DNS_SD, listener)
         } catch (e: Exception) {
+            discoveryListener = null
             Log.e(TAG, "Discovery launch error for $type", e)
+            failDiscovery(currentGeneration)
         }
     }
 
-    private fun startSubnetScan() {
-        scanJob = scope.launch {
-            val localIp = getLocalIpAddress()
-            if (localIp == null) {
-                Log.e(TAG, "No local IP found for subnet scan")
-                return@launch
+    private fun enqueueResolve(si: NsdServiceInfo, currentGeneration: Int) {
+        val channel = resolveChannel ?: return
+        val serviceName = si.serviceName
+        synchronized(pendingResolveLock) {
+            if (!pendingResolveNames.add(serviceName)) return
+        }
+        val result: ChannelResult<Unit> = channel.trySend(si)
+        if (result.isFailure) {
+            synchronized(pendingResolveLock) {
+                pendingResolveNames.remove(serviceName)
             }
-            
-            val prefix = localIp.substringBeforeLast(".")
-            Log.d(TAG, "Starting subnet scan on $prefix.0/24")
-
-            // Scan in chunks to avoid overwhelming the system
-            (1..254).chunked(32).forEach { chunk ->
-                if (!isActive) return@launch
-                chunk.map { i ->
-                    async {
-                        val targetIp = "$prefix.$i"
-                        if (targetIp == localIp) return@async
-                        
-                        // Check common ports to find any device that is "alive"
-                        // 7110: monitorize, 22: ssh, 80: http, 1714: kde connect, 5555: adb
-                        val ports = listOf(DEFAULT_PORT, 22, 80, 1714, 5555)
-                        var foundAlive = false
-                        var isOurPort = false
-                        
-                        for (port in ports) {
-                            if (isPortOpen(targetIp, port, 450)) {
-                                foundAlive = true
-                                if (port == DEFAULT_PORT) isOurPort = true
-                                break
-                            }
-                        }
-                        
-                        if (!foundAlive) {
-                            try {
-                                val inet = InetAddress.getByName(targetIp)
-                                if (inet.isReachable(600)) foundAlive = true
-                            } catch (_: Exception) {}
-                        }
-
-                        if (foundAlive) {
-                            // Add immediately with fallback name
-                            addDevice(DiscoveredDevice("WiFi Device", targetIp, DEFAULT_PORT, isMonitorizeService = isOurPort))
-                            
-                            // Try name resolution check in background
-                            launch {
-                                try {
-                                    val inet = InetAddress.getByName(targetIp)
-                                    val name = inet.hostName
-                                    if (name != null && name != targetIp) {
-                                        addDevice(DiscoveredDevice(name, targetIp, DEFAULT_PORT, isMonitorizeService = isOurPort))
-                                    }
-                                } catch (e: Exception) {}
-                            }
-                        }
-                    }
-                }.awaitAll()
-                delay(100)
+            Log.w(TAG, "Resolve queue full; dropping $serviceName")
+        }
+        if (generation != currentGeneration) {
+            synchronized(pendingResolveLock) {
+                pendingResolveNames.remove(serviceName)
             }
         }
     }
 
-    private fun addDevice(newDevice: DiscoveredDevice) {
+    private fun failDiscovery(currentGeneration: Int) {
+        if (generation != currentGeneration) return
+        generation += 1
+        isDiscovering = false
+        harvestJob?.cancel()
+        harvestJob = null
+        resolverJob?.cancel()
+        resolverJob = null
+        resolveChannel?.close()
+        resolveChannel = null
+        discoveryListener = null
+        synchronized(pendingResolveLock) {
+            pendingResolveNames.clear()
+        }
+        scope.launch(Dispatchers.Main) {
+            devices.removeAll { !it.isUsb }
+        }
+        try { if (multicastLock?.isHeld == true) multicastLock?.release() } catch (_: Exception) {}
+        multicastLock = null
+    }
+
+    private fun addDevice(newDevice: DiscoveredDevice, currentGeneration: Int) {
+        if (!isDiscovering || generation != currentGeneration) return
         if (newDevice.ip == "127.0.0.1" && !newDevice.isUsb) return
         
         scope.launch(Dispatchers.Main) {
+            if (!isDiscovering || generation != currentGeneration) return@launch
             val index = devices.indexOfFirst { it.ip == newDevice.ip }
             if (index != -1) {
                 val existing = devices[index]
                 
-                // Priority: Keep a specific name over fallback "WiFi Device"
+                
                 val isExistingGeneric = isGenericName(existing.name)
                 val isNewGeneric = isGenericName(newDevice.name)
                 
                 val betterName = if (isExistingGeneric && !isNewGeneric) newDevice.name else existing.name
-                val betterService = existing.isMonitorizeService || newDevice.isMonitorizeService
-                
-                if (betterName != existing.name || betterService != existing.isMonitorizeService) {
-                    devices[index] = existing.copy(name = betterName, isMonitorizeService = betterService)
-                }
+                devices[index] = existing.copy(
+                    name = betterName,
+                    port = newDevice.port,
+                    encrypted = newDevice.encrypted,
+                    fingerprint = newDevice.fingerprint,
+                    serviceName = newDevice.serviceName,
+                )
             } else {
-                // New device insertion. Priority: USB at top (0), then Monitorize servers, then others.
-                if (newDevice.isMonitorizeService) {
-                    val pos = if (devices.isNotEmpty() && devices[0].isUsb) 1 else 0
-                    if (pos <= devices.size) devices.add(pos, newDevice) else devices.add(newDevice)
-                } else {
-                    devices.add(newDevice)
-                }
+                devices.add(if (devices.firstOrNull()?.isUsb == true) 1 else 0, newDevice)
             }
         }
     }
@@ -260,37 +267,22 @@ class DeviceDiscovery(private val context: Context) {
         return n == "wifi device" || n == "network device" || n == "monitorize device" || n.isEmpty()
     }
 
-    private fun isPortOpen(ip: String, port: Int, timeout: Int): Boolean {
-        return try {
-            Socket().use { it.connect(InetSocketAddress(ip, port), timeout); true }
-        } catch (_: Exception) {
-            false
-        }
-    }
-
-    private fun getLocalIpAddress(): String? {
-        try {
-            val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-            val activeNetwork = cm.activeNetwork
-            val lp = cm.getLinkProperties(activeNetwork)
-            for (la in lp?.linkAddresses ?: emptyList()) {
-                val addr = la.address
-                if (addr is Inet4Address && !addr.isLoopbackAddress) {
-                    return addr.hostAddress
-                }
-            }
-        } catch (_: Exception) {}
-        return null
-    }
-
     fun stopDiscovery() {
         Log.d(TAG, "stopDiscovery() called")
-        discoveryListeners.forEach { try { nsdManager.stopServiceDiscovery(it) } catch (_: Exception) {} }
-        discoveryListeners.clear()
-        scanJob?.cancel()
+        generation += 1
+        isDiscovering = false
+        harvestJob?.cancel()
+        harvestJob = null
+        discoveryListener?.let {
+            try { nsdManager.stopServiceDiscovery(it) } catch (_: Exception) {}
+        }
+        discoveryListener = null
         resolverJob?.cancel()
         resolveChannel?.close()
         resolveChannel = null
+        synchronized(pendingResolveLock) {
+            pendingResolveNames.clear()
+        }
         devices.clear()
         try { if (multicastLock?.isHeld == true) multicastLock?.release() } catch (_: Exception) {}
         multicastLock = null

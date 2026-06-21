@@ -9,31 +9,33 @@ import android.util.Log
 import android.view.Surface
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ArrayBlockingQueue
-import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
-/**
- * H.264 hardware decoder — zero-allocation minimal latency configuration.
- */
-class H264Decoder(private val surface: Surface) {
+
+class H264Decoder(
+    private val surface: Surface,
+    private val onOutputSizeChanged: (Int, Int) -> Unit = { _, _ -> }
+) {
 
     private var codec: MediaCodec? = null
     private var frameCount = 0L
     @Volatile private var initialized = false
     private var callbackThread: HandlerThread? = null
+    private val decoderGeneration = AtomicInteger(0)
+    private val fatalError = AtomicBoolean(false)
 
     class FrameChunk(val data: ByteArray) {
         var size: Int = 0
+        var isKeyFrame: Boolean = false
     }
 
-    // Object pool for zero-allocation
-    // Tight queue — only 2 frames max to minimise backlog latency.
-    private val POOL_SIZE = 2
+    
+    
+    private val POOL_SIZE = 3
     private val chunkPool = ArrayBlockingQueue<FrameChunk>(POOL_SIZE)
     private val chunkQueue = LinkedBlockingQueue<FrameChunk>(POOL_SIZE)
     
-    private val nextPts = AtomicLong(0L)
-    private var frameDurationUs = 16_667L
-
     init {
         for (i in 0 until POOL_SIZE) {
             chunkPool.offer(FrameChunk(ByteArray(MAX_INPUT)))
@@ -45,17 +47,21 @@ class H264Decoder(private val surface: Surface) {
         private const val MAX_INPUT = 2 * 1024 * 1024
     }
 
-    fun init(width: Int, height: Int, fps: Int = 60) {
-        if (initialized) release()
+    @Synchronized
+    fun init(width: Int, height: Int) {
+        release()
+        val generation = decoderGeneration.incrementAndGet()
+        fatalError.set(false)
         try {
-            Log.i(TAG, "Init: ${width}×${height}@${fps}fps")
-            frameDurationUs = if (fps > 0) 1_000_000L / fps else 16_667L
-            nextPts.set(0L)
+            Log.i(TAG, "Init: ${width}×${height}")
 
             val format = MediaFormat.createVideoFormat(
                 MediaFormat.MIMETYPE_VIDEO_AVC, width, height
             ).apply {
+                val maxDimension = maxOf(width, height)
                 setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, MAX_INPUT)
+                setInteger(MediaFormat.KEY_MAX_WIDTH, maxDimension)
+                setInteger(MediaFormat.KEY_MAX_HEIGHT, maxDimension)
                 setInteger(MediaFormat.KEY_OPERATING_RATE, Short.MAX_VALUE.toInt())
                 setInteger(MediaFormat.KEY_PRIORITY, 0)
                 setInteger(MediaFormat.KEY_LOW_LATENCY, 1)
@@ -76,90 +82,209 @@ class H264Decoder(private val surface: Surface) {
             codec = MediaCodec.createDecoderByType(MediaFormat.MIMETYPE_VIDEO_AVC).also {
                 it.setCallback(object : MediaCodec.Callback() {
                     override fun onInputBufferAvailable(mc: MediaCodec, inputBufferId: Int) {
-                        if (!initialized) return
+                        if (!isCurrent(generation)) return
                         val chunk = chunkQueue.poll()
                         if (chunk == null) {
-                            pendingInputBuffers.offer(inputBufferId)
+                            if (!pendingInputBuffers.offer(inputBufferId)) {
+                                queueEmptyInputBuffer(mc, inputBufferId)
+                            }
                             return
                         }
-                        fillInputBuffer(mc, inputBufferId, chunk)
-                        chunkPool.offer(chunk) // Return to pool
+                        if (!fillInputBuffer(mc, inputBufferId, chunk)) {
+                            markFatal("Failed to fill input buffer")
+                        }
+                        recycleChunk(chunk)
                     }
 
                     override fun onOutputBufferAvailable(
                         mc: MediaCodec, outputBufferId: Int, info: MediaCodec.BufferInfo
                     ) {
-                        if (!initialized) return
+                        if (!isCurrent(generation)) return
                         try {
                             mc.releaseOutputBuffer(outputBufferId, true)
                             frameCount++
                         } catch (e: Exception) {}
                     }
 
-                    override fun onError(mc: MediaCodec, e: MediaCodec.CodecException) {}
+                    override fun onError(mc: MediaCodec, e: MediaCodec.CodecException) {
+                        if (!isCurrent(generation)) return
+                        Log.e(TAG, "Decoder error: ${e.diagnosticInfo}", e)
+                        markFatal("Codec error")
+                    }
 
-                    override fun onOutputFormatChanged(mc: MediaCodec, format: MediaFormat) {}
+                    override fun onOutputFormatChanged(mc: MediaCodec, format: MediaFormat) {
+                        if (!isCurrent(generation)) return
+                        val outputWidth = if (
+                            format.containsKey(MediaFormat.KEY_CROP_LEFT) &&
+                            format.containsKey(MediaFormat.KEY_CROP_RIGHT)
+                        ) {
+                            format.getInteger(MediaFormat.KEY_CROP_RIGHT) -
+                                format.getInteger(MediaFormat.KEY_CROP_LEFT) + 1
+                        } else {
+                            format.getInteger(MediaFormat.KEY_WIDTH)
+                        }
+                        val outputHeight = if (
+                            format.containsKey(MediaFormat.KEY_CROP_TOP) &&
+                            format.containsKey(MediaFormat.KEY_CROP_BOTTOM)
+                        ) {
+                            format.getInteger(MediaFormat.KEY_CROP_BOTTOM) -
+                                format.getInteger(MediaFormat.KEY_CROP_TOP) + 1
+                        } else {
+                            format.getInteger(MediaFormat.KEY_HEIGHT)
+                        }
+                        if (outputWidth > 0 && outputHeight > 0) {
+                            Log.i(TAG, "Output: ${outputWidth}×${outputHeight}")
+                            onOutputSizeChanged(outputWidth, outputHeight)
+                        }
+                    }
                 }, handler)
 
                 it.configure(format, surface, null, 0)
+                initialized = true
                 it.start()
             }
             frameCount = 0
-            initialized = true
         } catch (e: Exception) {
             Log.e(TAG, "Init failed", e)
-            initialized = false
+            fatalError.set(true)
+            release()
         }
     }
 
     private val pendingInputBuffers = LinkedBlockingQueue<Int>(16)
 
-    private fun fillInputBuffer(mc: MediaCodec, idx: Int, chunk: FrameChunk) {
-        try {
-            val buf = mc.getInputBuffer(idx) ?: return
+    private fun isCurrent(generation: Int): Boolean {
+        return initialized && !fatalError.get() && decoderGeneration.get() == generation
+    }
+
+    private fun markFatal(reason: String) {
+        fatalError.set(true)
+        initialized = false
+        Log.e(TAG, reason)
+    }
+
+    private fun recycleChunk(chunk: FrameChunk) {
+        chunk.size = 0
+        chunk.isKeyFrame = false
+        chunkPool.offer(chunk)
+    }
+
+    private fun dropOldestNonKeyFrame(): FrameChunk? {
+        val iterator = chunkQueue.iterator()
+        while (iterator.hasNext()) {
+            val chunk = iterator.next()
+            if (!chunk.isKeyFrame) {
+                iterator.remove()
+                return chunk
+            }
+        }
+        return null
+    }
+
+    private fun drainQueuedFrames(reusable: FrameChunk? = null): FrameChunk? {
+        var candidate = reusable
+        while (true) {
+            val dropped = chunkQueue.poll() ?: break
+            if (candidate == null) {
+                candidate = dropped
+            } else {
+                recycleChunk(dropped)
+            }
+        }
+        return candidate
+    }
+
+    private fun obtainChunk(isKeyFrame: Boolean): FrameChunk? {
+        chunkPool.poll()?.let { return it }
+
+        if (isKeyFrame) {
+            return drainQueuedFrames()
+        }
+
+        return dropOldestNonKeyFrame()
+    }
+
+    private fun fillInputBuffer(mc: MediaCodec, idx: Int, chunk: FrameChunk): Boolean {
+        return try {
+            val buf = mc.getInputBuffer(idx) ?: return false
             buf.clear()
             val sz = chunk.size.coerceAtMost(buf.remaining())
             buf.put(chunk.data, 0, sz)
-            val pts = nextPts.getAndAdd(frameDurationUs)
+            val pts = System.nanoTime() / 1000
             mc.queueInputBuffer(idx, 0, sz, pts, 0)
-        } catch (e: Exception) {}
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Input queue failed", e)
+            false
+        }
     }
 
-    fun feedChunk(data: ByteArray, offset: Int, size: Int) {
-        if (!initialized) return
-
-        var chunk = chunkPool.poll()
-        if (chunk == null) {
-            // Drop oldest from queue to prefer newest data (lowest latency)
-            chunk = chunkQueue.poll()
-            if (chunk == null) {
-                chunk = FrameChunk(ByteArray(MAX_INPUT))
-            }
+    private fun queueEmptyInputBuffer(mc: MediaCodec, idx: Int) {
+        try {
+            mc.queueInputBuffer(idx, 0, 0, System.nanoTime() / 1000, 0)
+        } catch (e: Exception) {
+            Log.e(TAG, "Empty input queue failed", e)
+            markFatal("Failed to return input buffer")
         }
+    }
+
+    fun feedChunk(data: ByteArray, offset: Int, size: Int, isKeyFrame: Boolean = false): Boolean {
+        if (!initialized || fatalError.get()) return false
+
+        val chunk = obtainChunk(isKeyFrame) ?: return true
 
         val actualSize = size.coerceAtMost(chunk.data.size)
         System.arraycopy(data, offset, chunk.data, 0, actualSize)
         chunk.size = actualSize
+        chunk.isKeyFrame = isKeyFrame
 
         val pendingIdx = pendingInputBuffers.poll()
         if (pendingIdx != null) {
-            val mc = codec ?: return
-            fillInputBuffer(mc, pendingIdx, chunk)
-            chunkPool.offer(chunk) // Return to pool
-            return
+            val mc = codec
+            if (mc == null) {
+                recycleChunk(chunk)
+                return false
+            }
+            val queued = fillInputBuffer(mc, pendingIdx, chunk)
+            recycleChunk(chunk)
+            return queued
         }
 
-        chunkQueue.offer(chunk) // Put into queue
+        if (!chunkQueue.offer(chunk)) {
+            if (isKeyFrame) {
+                drainQueuedFrames()?.let { recycleChunk(it) }
+            } else {
+                dropOldestNonKeyFrame()?.let { recycleChunk(it) }
+            }
+
+            if (!chunkQueue.offer(chunk)) {
+                recycleChunk(chunk)
+            }
+        }
+        return !fatalError.get()
     }
 
+    @Synchronized
     fun release() {
+        decoderGeneration.incrementAndGet()
         initialized = false
-        chunkQueue.clear()
+        fatalError.set(false)
+        drainQueuedFrames()?.let { recycleChunk(it) }
         pendingInputBuffers.clear()
         try { codec?.stop(); codec?.release() } catch (_: Exception) {}
         codec = null
-        try { callbackThread?.quitSafely(); callbackThread?.join(2000) }
-        catch (_: InterruptedException) { Thread.currentThread().interrupt() }
+        try {
+            val thread = callbackThread
+            thread?.quitSafely()
+            if (thread != null && Thread.currentThread() !== thread) {
+                thread.join(2000)
+            }
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+        }
         callbackThread = null
+        while (chunkPool.size < POOL_SIZE) {
+            if (!chunkPool.offer(FrameChunk(ByteArray(MAX_INPUT)))) break
+        }
     }
 }
