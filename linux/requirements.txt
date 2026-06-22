@@ -2,3 +2,4 @@ PyQt6
 zeroconf
 snegg
 evdev
+cryptography

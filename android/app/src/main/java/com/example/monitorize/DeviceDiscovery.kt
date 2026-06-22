@@ -17,6 +17,7 @@ data class DiscoveredDevice(
     val isUsb: Boolean = false,
     val encrypted: Boolean = false,
     val fingerprint: String? = null,
+    val inputTransport: String? = null,
     val serviceName: String = ""
 )
 
@@ -121,6 +122,7 @@ class DeviceDiscovery(private val context: Context) {
                                 
                                 var encrypted = false
                                 var fingerprint: String? = null
+                                var inputTransport: String? = null
                                 try {
                                     resolved.attributes?.let { attrs ->
                                         if (attrs.containsKey("fn")) resolvedName = String(attrs["fn"]!!)
@@ -128,6 +130,7 @@ class DeviceDiscovery(private val context: Context) {
                                         else if (attrs.containsKey("name")) resolvedName = String(attrs["name"]!!)
                                         encrypted = attrs["encrypted"]?.let { String(it) == "1" } == true
                                         fingerprint = attrs["fingerprint"]?.let { String(it) }
+                                        inputTransport = attrs["input_transport"]?.let { String(it) }
                                     }
                                 } catch (_: Exception) {}
 
@@ -137,6 +140,7 @@ class DeviceDiscovery(private val context: Context) {
                                     port = resolved.port,
                                     encrypted = encrypted,
                                     fingerprint = fingerprint,
+                                    inputTransport = inputTransport,
                                     serviceName = resolved.serviceName
                                 ), currentGeneration)
                             }
@@ -254,6 +258,7 @@ class DeviceDiscovery(private val context: Context) {
                     port = newDevice.port,
                     encrypted = newDevice.encrypted,
                     fingerprint = newDevice.fingerprint,
+                    inputTransport = newDevice.inputTransport,
                     serviceName = newDevice.serviceName,
                 )
             } else {

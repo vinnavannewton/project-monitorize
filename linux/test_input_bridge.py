@@ -13,10 +13,13 @@ from input_bridge.protocol import (
     ACTION_HOVER,
     ACTION_MOVE,
     ACTION_UP,
+    PEN_EXT_FMT,
     PAYLOAD_FMT,
     PAYLOAD_SIZE,
     PKT_PEN,
+    PKT_PEN_EXT,
     PKT_TOUCH,
+    TOOL_MOUSE,
     parse_udp_packets,
     pop_framed_packets,
 )
@@ -58,6 +61,92 @@ class ProtocolTest(unittest.TestCase):
             [(PKT_PEN, self.payload)],
         )
         self.assertEqual(parse_udp_packets(b"bad"), [])
+
+
+class TransportCoalescingTest(unittest.TestCase):
+    @staticmethod
+    def payload(action, cid, x):
+        return struct.pack(PAYLOAD_FMT, action, 0, cid, x, 200, 300, 0, 0)
+
+    @staticmethod
+    def pen_ext_payload(action, cid, x):
+        return struct.pack(PEN_EXT_FMT, action, 1, cid, x, 200, 300, 0, 0, 0, 0, 0)
+
+    @staticmethod
+    def actions(packets):
+        return [struct.unpack(PAYLOAD_FMT, payload)[0] for _pkt_type, payload in packets]
+
+    @staticmethod
+    def contacts_and_x(packets):
+        return [
+            (struct.unpack(PAYLOAD_FMT, payload)[2], struct.unpack(PAYLOAD_FMT, payload)[3])
+            for _pkt_type, payload in packets
+        ]
+
+    def test_coalesces_multiple_moves_for_same_contact(self):
+        packets = [
+            (PKT_TOUCH, self.payload(ACTION_MOVE, 1, 100)),
+            (PKT_TOUCH, self.payload(ACTION_MOVE, 1, 200)),
+            (PKT_TOUCH, self.payload(ACTION_MOVE, 1, 300)),
+        ]
+
+        self.assertEqual(
+            self.contacts_and_x(transport.coalesce_motion_packets(packets)),
+            [(1, 300)],
+        )
+
+    def test_keeps_down_latest_move_and_up(self):
+        packets = [
+            (PKT_TOUCH, self.payload(ACTION_DOWN, 1, 100)),
+            (PKT_TOUCH, self.payload(ACTION_MOVE, 1, 200)),
+            (PKT_TOUCH, self.payload(ACTION_MOVE, 1, 300)),
+            (PKT_TOUCH, self.payload(ACTION_UP, 1, 300)),
+        ]
+
+        result = transport.coalesce_motion_packets(packets)
+
+        self.assertEqual(self.actions(result), [ACTION_DOWN, ACTION_MOVE, ACTION_UP])
+        self.assertEqual(self.contacts_and_x(result), [(1, 100), (1, 300), (1, 300)])
+
+    def test_keeps_latest_move_per_contact(self):
+        packets = [
+            (PKT_TOUCH, self.payload(ACTION_MOVE, 1, 100)),
+            (PKT_TOUCH, self.payload(ACTION_MOVE, 2, 200)),
+            (PKT_TOUCH, self.payload(ACTION_MOVE, 1, 300)),
+        ]
+
+        self.assertEqual(
+            self.contacts_and_x(transport.coalesce_motion_packets(packets)),
+            [(2, 200), (1, 300)],
+        )
+
+    def test_coalesces_pen_and_pen_ext_motion(self):
+        packets = [
+            (PKT_PEN, self.payload(ACTION_MOVE, 1, 100)),
+            (PKT_PEN, self.payload(ACTION_MOVE, 1, 200)),
+            (PKT_PEN_EXT, self.pen_ext_payload(ACTION_HOVER, 1, 300)),
+            (PKT_PEN_EXT, self.pen_ext_payload(ACTION_HOVER, 1, 400)),
+        ]
+
+        result = transport.coalesce_motion_packets(packets)
+
+        self.assertEqual([pkt_type for pkt_type, _payload in result], [PKT_PEN, PKT_PEN_EXT])
+        self.assertEqual(struct.unpack(PAYLOAD_FMT, result[0][1])[3], 200)
+        self.assertEqual(struct.unpack(PEN_EXT_FMT, result[1][1])[3], 400)
+
+    def test_dispatch_batch_frames_only_last_packet(self):
+        dispatcher = Mock()
+        packets = [
+            (PKT_TOUCH, self.payload(ACTION_MOVE, 1, 100)),
+            (PKT_TOUCH, self.payload(ACTION_MOVE, 2, 200)),
+        ]
+
+        transport.dispatch_packet_batch(dispatcher, packets)
+
+        self.assertEqual(
+            [call.args[2] for call in dispatcher.dispatch_packet.call_args_list],
+            [False, True],
+        )
 
 
 class DispatcherTest(unittest.TestCase):
@@ -104,6 +193,34 @@ class DispatcherTest(unittest.TestCase):
             (ACTION_UP, 1, 110, 210),
         )
         self.assertEqual(dispatcher.active_fingers, {})
+
+    def test_mouse_packet_uses_pointer_instead_of_touch(self):
+        payload = struct.pack(
+            PAYLOAD_FMT, ACTION_HOVER, TOOL_MOUSE, 2, 100, 200, 0, 0, 0
+        )
+        backend = Mock()
+        dispatcher = InputDispatcher(backend)
+
+        self.assertTrue(dispatcher.dispatch_packet(PKT_TOUCH, payload))
+
+        backend.inject_pointer.assert_called_once_with(ACTION_HOVER, 100, 200, 0, True)
+        backend.inject_touch.assert_not_called()
+
+    def test_mouse_packet_releases_same_contact_finger_first(self):
+        payload = struct.pack(
+            PAYLOAD_FMT, ACTION_HOVER, TOOL_MOUSE, 2, 300, 400, 0, 0, 0
+        )
+        backend = Mock()
+        dispatcher = InputDispatcher(backend)
+        dispatcher.dispatch_touch(ACTION_DOWN, 2, 100, 200)
+
+        self.assertTrue(dispatcher.dispatch_packet(PKT_TOUCH, payload))
+
+        self.assertEqual(
+            backend.inject_touch.call_args_list[-1].args,
+            (ACTION_UP, 2, 100, 200, False),
+        )
+        backend.inject_pointer.assert_called_once_with(ACTION_HOVER, 300, 400, 0, True)
 
 
 class DaemonStartupTest(unittest.TestCase):
@@ -344,6 +461,97 @@ class UInputSlotTest(unittest.TestCase):
 
 
 class LibeiPointerFallbackTest(unittest.TestCase):
+    class FakeEvent:
+        def __init__(self, event_type, device=None, sequence=None):
+            self._type = event_type
+            self._cobject = self
+            self.device = device
+            self.emulating_sequence = sequence
+
+    class FakeDevice:
+        regions = []
+
+        def __init__(self, capabilities):
+            self.capabilities = capabilities
+            self.start_sequences = []
+
+        def start_emulating(self, sequence=None):
+            self.start_sequences.append(sequence)
+
+    class FakeContext:
+        fd = 7
+
+        def __init__(self, batches):
+            self.batches = list(batches)
+            self.events = []
+            self.dispatch_calls = 0
+
+        def dispatch(self):
+            self.dispatch_calls += 1
+            self.events = self.batches.pop(0) if self.batches else []
+
+    def pointer_backend(self):
+        shutdown = Mock()
+        shutdown.is_set.return_value = False
+        backend = libei_backend.LibeiBackend(Mock(screen_w=1600, screen_h=1000), shutdown)
+        backend.ctx = Mock()
+        backend.geometry.virtual_rect.return_value = (0, 0, 1600, 1000)
+        backend.pointer = Mock()
+        backend.pointer.regions = []
+        return backend
+
+    def test_mouse_hover_moves_pointer_without_left_button(self):
+        backend = self.pointer_backend()
+
+        backend.inject_pointer(ACTION_HOVER, 100, 100, 0)
+
+        backend.pointer.pointer_motion_absolute.assert_called_once()
+        backend.pointer.button_button.assert_not_called()
+
+    def test_mouse_primary_drag_presses_and_releases_left_button(self):
+        backend = self.pointer_backend()
+
+        backend.inject_pointer(ACTION_DOWN, 100, 100, 1)
+        backend.inject_pointer(ACTION_MOVE, 200, 200, 1)
+        backend.inject_pointer(ACTION_UP, 200, 200, 0)
+
+        self.assertEqual(
+            [
+                call.args for call in backend.pointer.button_button.call_args_list
+            ],
+            [(0x110, True), (0x110, False)],
+        )
+
+    def test_discovery_flushes_start_emulating_before_accepting_device(self):
+        touch_cap = "touch"
+        pointer_cap = "pointer_absolute"
+        device = self.FakeDevice([touch_cap, pointer_cap])
+        shutdown = Mock()
+        shutdown.is_set.return_value = False
+        backend = libei_backend.LibeiBackend(Mock(screen_w=1600, screen_h=1000), shutdown)
+        backend.ctx = self.FakeContext([
+            [self.FakeEvent(1), self.FakeEvent(5, device=device)],
+        ])
+        backend._libei = Mock(event_get_type=lambda event: event._type)
+        with (
+            patch.object(
+                libei_backend,
+                "ei",
+                types.SimpleNamespace(
+                    DeviceCapability=types.SimpleNamespace(
+                        TOUCH=touch_cap,
+                        POINTER_ABSOLUTE=pointer_cap,
+                    )
+                ),
+            ),
+            patch("input_bridge.libei_backend.select.select", return_value=([7], [], [])),
+        ):
+            backend._discover_devices()
+        self.assertEqual(device.start_sequences, [1])
+        self.assertGreaterEqual(backend.ctx.dispatch_calls, 2)
+        self.assertIs(backend.touch, device)
+        self.assertIs(backend.pointer, device)
+
     def test_pointer_button_stays_down_until_last_contact_releases(self):
         backend = libei_backend.LibeiBackend(Mock(screen_w=1600, screen_h=1000), Mock())
         backend.ctx = Mock()
