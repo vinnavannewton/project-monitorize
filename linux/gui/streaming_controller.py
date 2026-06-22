@@ -489,8 +489,10 @@ class StreamingController(QObject):
             )
         )
         args = [os.path.join(LINUX_DIR, "touch_daemon.py"), str(self.width), str(self.height)]
-        if self.wifi and not self.encrypted:
+        if self.wifi:
             args.append("--wifi")
+            if self.encrypted:
+                args.append("--local-udp")
         if stylus:
             args.append("--stylus-features")
         if stylus and not touch:

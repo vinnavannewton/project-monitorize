@@ -13,6 +13,12 @@ import threading
 import time
 from pathlib import Path
 
+from input_bridge.protocol import parse_udp_packets
+from input_bridge.transport import (
+    UDP_DRAIN_CAP, UDP_RCVBUF, append_udp_batch, coalesce_motion_packets,
+)
+from secure_udp import SecureUdpError, decrypt_packet
+
 CONFIG_DIR = Path.home() / ".config" / "monitorize"
 CERT_FILE = CONFIG_DIR / "tls-cert.pem"
 KEY_FILE = CONFIG_DIR / "tls-key.pem"
@@ -127,10 +133,17 @@ def _connect_backend(port: int, timeout: float = 10) -> socket.socket:
 
 
 class Proxy:
-    def __init__(self, pairing_code: str):
+    def __init__(self, pairing_code: str, debug: bool = False):
         self.pairing_code = pairing_code
         self.tokens = _load_tokens()
         self.lock = threading.Lock()
+        self.udp_replay_state = {}
+        self.debug = debug
+        self.udp_received = 0
+        self.udp_rejected = 0
+        self.udp_replayed = 0
+        self.udp_forwarded = 0
+        self.udp_coalesced = 0
 
     def authenticate(self, client: ssl.SSLSocket) -> bool:
         line = _read_line(client)
@@ -210,32 +223,140 @@ class Proxy:
                 except OSError:
                     pass
 
+    @staticmethod
+    def _frame_packet(pkt_type: int, payload: bytes) -> bytes:
+        return len(payload).to_bytes(4, "big") + bytes([pkt_type]) + payload
+
+    def _debug_udp_stats(self) -> None:
+        if self.debug:
+            print(
+                "[TLS UDP] stats "
+                f"received={self.udp_received} rejected={self.udp_rejected} "
+                f"replayed={self.udp_replayed} coalesced={self.udp_coalesced} "
+                f"forwarded={self.udp_forwarded}",
+                flush=True,
+            )
+
+    def _decrypt_udp_packet(self, data: bytes, addr, fingerprint: str) -> bytes | None:
+        with self.lock:
+            tokens = set(self.tokens)
+        try:
+            self.udp_received += 1
+            return decrypt_packet(
+                data, tokens, fingerprint, self.udp_replay_state, addr
+            )
+        except SecureUdpError as exc:
+            self.udp_rejected += 1
+            if "replay" in str(exc).lower():
+                self.udp_replayed += 1
+            return None
+
+    def _forward_udp_packets(self, packets, backend: socket.socket, backend_addr) -> int:
+        before = len(packets)
+        coalesced = coalesce_motion_packets(packets)
+        self.udp_coalesced += before - len(coalesced)
+        sent = 0
+        for pkt_type, payload in coalesced:
+            backend.sendto(self._frame_packet(pkt_type, payload), backend_addr)
+            sent += 1
+        self.udp_forwarded += sent
+        return sent
+
+    def handle_udp_datagrams(
+        self, datagrams, backend: socket.socket, backend_addr, fingerprint: str
+    ) -> int:
+        batches = []
+        for packet, packet_addr in datagrams:
+            payload = self._decrypt_udp_packet(packet, packet_addr, fingerprint)
+            if payload:
+                append_udp_batch(batches, packet_addr, parse_udp_packets(payload))
+        sent = 0
+        for _addr, packets in batches:
+            sent += self._forward_udp_packets(packets, backend, backend_addr)
+        return sent
+
+    def handle_udp_packet(
+        self, data: bytes, addr, backend: socket.socket, backend_addr, fingerprint: str
+    ) -> bool:
+        try:
+            return self.handle_udp_datagrams(
+                [(data, addr)], backend, backend_addr, fingerprint
+            ) > 0
+        except OSError:
+            return False
+
+    def serve_udp(self, public_port: int, backend_port: int, fingerprint: str) -> None:
+        listener = None
+        backend = None
+        try:
+            listener = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            listener.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, UDP_RCVBUF)
+            listener.bind(("0.0.0.0", public_port))
+            backend = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            backend_addr = ("127.0.0.1", backend_port)
+            print(
+                f"[TLS UDP] 0.0.0.0:{public_port} -> 127.0.0.1:{backend_port}",
+                flush=True,
+            )
+            while True:
+                data, addr = listener.recvfrom(2048)
+                datagrams = [(data, addr)]
+                listener.setblocking(False)
+                try:
+                    for _ in range(UDP_DRAIN_CAP):
+                        datagrams.append(listener.recvfrom(2048))
+                except BlockingIOError:
+                    pass
+                finally:
+                    listener.setblocking(True)
+                try:
+                    self.handle_udp_datagrams(
+                        datagrams, backend, backend_addr, fingerprint
+                    )
+                except OSError:
+                    pass
+                self._debug_udp_stats()
+        except OSError as exc:
+            print(f"[TLS UDP] ERROR listen {public_port}: {exc}", flush=True)
+        finally:
+            for sock in (backend, listener):
+                if sock:
+                    try:
+                        sock.close()
+                    except OSError:
+                        pass
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--video-port", type=_port_arg, default=7110)
     parser.add_argument("--video-backend", type=_port_arg, default=7112)
     parser.add_argument("--input-port", type=_port_arg, default=7113)
-    parser.add_argument("--input-backend", type=_port_arg, default=7111)
+    parser.add_argument("--input-backend", type=_port_arg, default=7116)
     parser.add_argument("--second-video-port", type=_port_arg, default=7114)
     parser.add_argument("--second-video-backend", type=_port_arg, default=7115)
+    parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
 
     cert, key = ensure_identity()
     context = create_server_context(cert, key)
 
     code = f"{secrets.randbelow(1_000_000):06d}"
-    proxy = Proxy(code)
-    print(f"[TLS] Fingerprint: {certificate_fingerprint()}", flush=True)
+    proxy = Proxy(code, debug=args.debug)
+    fingerprint = certificate_fingerprint()
+    print(f"[TLS] Fingerprint: {fingerprint}", flush=True)
     print(f"[TLS CONTROL] PAIRING_CODE {code}", flush=True)
-    threading.Thread(
-        target=proxy.serve, args=(context, args.video_port, args.video_backend), daemon=True
-    ).start()
     threading.Thread(
         target=proxy.serve,
         args=(context, args.second_video_port, args.second_video_backend),
         daemon=True,
     ).start()
-    proxy.serve(context, args.input_port, args.input_backend)
+    threading.Thread(
+        target=proxy.serve_udp,
+        args=(args.input_port, args.input_backend, fingerprint),
+        daemon=True,
+    ).start()
+    proxy.serve(context, args.video_port, args.video_backend)
 
 
 if __name__ == "__main__":

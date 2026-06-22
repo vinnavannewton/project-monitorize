@@ -1,11 +1,14 @@
 import argparse
 import os
+import struct
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
 import tls_proxy
+import secure_udp
+from input_bridge.protocol import ACTION_MOVE, PAYLOAD_FMT, PKT_TOUCH
 
 
 class FakeSocket:
@@ -25,6 +28,14 @@ class FakeSocket:
 
     def close(self):
         self.closed = True
+
+
+def framed(packet_type, payload):
+    return len(payload).to_bytes(4, "big") + bytes([packet_type]) + payload
+
+
+def touch_payload(action, cid, x):
+    return struct.pack(PAYLOAD_FMT, action, 0, cid, x, 200, 300, 0, 0)
 
 
 class ProxyAuthTest(unittest.TestCase):
@@ -126,6 +137,107 @@ class ProxyAuthTest(unittest.TestCase):
         with patch("tls_proxy.time.sleep"):
             tls_proxy.Proxy("123456").handle(client, 7111)
         self.assertTrue(client.closed)
+
+    def test_secure_udp_round_trip_and_tamper_rejection(self):
+        token = "a" * 64
+        fingerprint = "B" * 64
+        packet = secure_udp.encrypt_packet(b"frame", token, fingerprint, b"abcd", 1)
+        self.assertEqual(
+            secure_udp.decrypt_packet(packet, {token}, fingerprint),
+            b"frame",
+        )
+        tampered = bytearray(packet)
+        tampered[-1] ^= 1
+        with self.assertRaises(secure_udp.SecureUdpError):
+            secure_udp.decrypt_packet(bytes(tampered), {token}, fingerprint)
+
+    def test_secure_udp_rejects_replayed_counter(self):
+        token = "a" * 64
+        fingerprint = "B" * 64
+        packet = secure_udp.encrypt_packet(b"frame", token, fingerprint, b"abcd", 1)
+        replay_state = {}
+        self.assertEqual(
+            secure_udp.decrypt_packet(packet, {token}, fingerprint, replay_state, ("host", 1)),
+            b"frame",
+        )
+        with self.assertRaises(secure_udp.SecureUdpError):
+            secure_udp.decrypt_packet(packet, {token}, fingerprint, replay_state, ("host", 1))
+
+    def test_udp_proxy_forwards_valid_packet_only(self):
+        token = "a" * 64
+        fingerprint = "B" * 64
+        frame = framed(PKT_TOUCH, touch_payload(ACTION_MOVE, 1, 100))
+        packet = secure_udp.encrypt_packet(frame, token, fingerprint, b"abcd", 1)
+        proxy = tls_proxy.Proxy("123456")
+        proxy.tokens = {token}
+        backend = Mock()
+        self.assertTrue(
+            proxy.handle_udp_packet(
+                packet, ("client", 9999), backend, ("127.0.0.1", 7116), fingerprint
+            )
+        )
+        backend.sendto.assert_called_once_with(frame, ("127.0.0.1", 7116))
+        self.assertFalse(
+            proxy.handle_udp_packet(
+                b"bad", ("client", 9999), backend, ("127.0.0.1", 7116), fingerprint
+            )
+        )
+
+    def test_udp_proxy_coalesces_decrypted_burst(self):
+        token = "a" * 64
+        fingerprint = "B" * 64
+        first = framed(PKT_TOUCH, touch_payload(ACTION_MOVE, 1, 100))
+        latest = framed(PKT_TOUCH, touch_payload(ACTION_MOVE, 1, 300))
+        datagrams = [
+            (
+                secure_udp.encrypt_packet(first, token, fingerprint, b"abcd", 1),
+                ("client", 9999),
+            ),
+            (
+                secure_udp.encrypt_packet(latest, token, fingerprint, b"abcd", 2),
+                ("client", 9999),
+            ),
+        ]
+        proxy = tls_proxy.Proxy("123456")
+        proxy.tokens = {token}
+        backend = Mock()
+
+        sent = proxy.handle_udp_datagrams(
+            datagrams, backend, ("127.0.0.1", 7116), fingerprint
+        )
+
+        self.assertEqual(sent, 1)
+        backend.sendto.assert_called_once_with(latest, ("127.0.0.1", 7116))
+        self.assertEqual(proxy.udp_coalesced, 1)
+
+    def test_udp_proxy_does_not_coalesce_across_peers(self):
+        token = "a" * 64
+        fingerprint = "B" * 64
+        first = framed(PKT_TOUCH, touch_payload(ACTION_MOVE, 1, 100))
+        second = framed(PKT_TOUCH, touch_payload(ACTION_MOVE, 1, 300))
+        datagrams = [
+            (
+                secure_udp.encrypt_packet(first, token, fingerprint, b"abcd", 1),
+                ("client-a", 9999),
+            ),
+            (
+                secure_udp.encrypt_packet(second, token, fingerprint, b"wxyz", 1),
+                ("client-b", 9999),
+            ),
+        ]
+        proxy = tls_proxy.Proxy("123456")
+        proxy.tokens = {token}
+        backend = Mock()
+
+        sent = proxy.handle_udp_datagrams(
+            datagrams, backend, ("127.0.0.1", 7116), fingerprint
+        )
+
+        self.assertEqual(sent, 2)
+        self.assertEqual(
+            [call.args[0] for call in backend.sendto.call_args_list],
+            [first, second],
+        )
 
 
 if __name__ == "__main__":

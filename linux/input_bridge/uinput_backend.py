@@ -171,6 +171,9 @@ class UInputBackend:
             self.touch.write(ecodes.EV_ABS, ecodes.ABS_X, x)
             self.touch.write(ecodes.EV_ABS, ecodes.ABS_Y, y)
 
+    def inject_pointer(self, *_args):
+        return False
+
     def inject_pen(
         self, action, tool, x, y, pressure, tilt_x, tilt_y,
         distance, buttons, flags, frame=True,

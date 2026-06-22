@@ -70,6 +70,31 @@ class DiscoveryServiceTest(unittest.TestCase):
         self.assertEqual(registered[0].properties["encrypted"], "0")
         self.assertEqual(registered[0].properties["third_available"], "1")
 
+    def test_encrypted_advertisement_declares_udp_input_transport(self):
+        registered = []
+
+        class FakeZeroconf:
+            def register_service(self, info):
+                registered.append(info)
+
+            def close(self):
+                pass
+
+        class FakeInfo:
+            def __init__(self, *args, **kwargs):
+                self.properties = kwargs["properties"]
+
+        fake_module = types.SimpleNamespace(
+            ServiceInfo=FakeInfo, Zeroconf=FakeZeroconf
+        )
+        service = DiscoveryService()
+        with (
+            patch.dict(sys.modules, {"zeroconf": fake_module}),
+            patch("tls_proxy.certificate_fingerprint", return_value="FP"),
+        ):
+            service.advertise("127.0.0.1", True, False)
+        self.assertEqual(registered[0].properties["input_transport"], "udp-aesgcm-v1")
+
     def test_lost_service_removes_device(self):
         service = DiscoveryService()
         service.add_device("Host", "10.0.0.2", 7110, service_name="svc")
@@ -363,6 +388,22 @@ class StreamingControllerTest(unittest.TestCase):
         with patch("gui.streaming_controller.QProcess") as process:
             controller._launch_input(generation=3)
         process.assert_not_called()
+
+    def test_encrypted_wifi_input_uses_local_udp(self):
+        controller = self.kde_controller()
+        controller.encrypted = True
+        process = process_mock()
+        with (
+            patch("gui.streaming_controller.QProcess", return_value=process),
+            patch(
+                "gui.streaming_controller.load_general_settings",
+                return_value={"enable_touch": True, "enable_stylus_features": False},
+            ),
+        ):
+            controller._launch_input(generation=3)
+        args = process.start.call_args.args[1]
+        self.assertIn("--wifi", args)
+        self.assertIn("--local-udp", args)
 
     def test_stale_streamer_exit_does_not_restart_gnome(self):
         controller = StreamingController("gnome", "10.0.0.1", Mock())
