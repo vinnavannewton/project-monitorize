@@ -36,6 +36,7 @@ class StreamingController(QObject):
     countdownChanged = pyqtSignal(int)
     pairingCodeChanged = pyqtSignal(str)
     secondStreamChanged = pyqtSignal(bool)
+    primaryReadyChanged = pyqtSignal(bool)
     logAppended = pyqtSignal(str, str)
 
     def __init__(self, de, local_ip, discovery, parent=None):
@@ -66,6 +67,9 @@ class StreamingController(QObject):
         self.kde_ready_deadline = 0.0
         self.kde_ready_fallback_at = 0.0
         self.streamer_has_pipewire_node = False
+        self.primary_ready = False
+        self.runtime_general = None
+        self.pending_third = None
         self.countdown_timer = QTimer(self)
         self.countdown_timer.setInterval(1000)
         self.countdown_timer.timeout.connect(self._countdown_tick)
@@ -87,9 +91,10 @@ class StreamingController(QObject):
         self.local_ip = value
         self._advertise()
 
-    def start(self, res, fps, bitrate, display_type, encoder, wifi):
+    def start(self, res, fps, bitrate, display_type, encoder, wifi, options=None):
         self.stop()
         self.generation += 1
+        options = options or {}
         self.wifi = wifi
         width, height = sanitize_resolution(res, DEFAULT_PRIMARY_RESOLUTION)
         self.width, self.height = width, height
@@ -102,9 +107,11 @@ class StreamingController(QObject):
             "NVIDIA NVENC (nvh264enc)": "nvidia",
             "Intel/AMD VA-API (vah264enc)": "vaapi",
         }.get(self.encoder, "cpu"))
-        settings = load_wifi_settings() if wifi else {}
+        settings = options.get("wifi") or (load_wifi_settings() if wifi else {})
         self.encrypted = settings.get("use_encryption", True) if wifi else False
         self.env.insert("MONITORIZE_STREAM_TYPE", settings.get("stream_type", "Speed"))
+        self.runtime_general = options.get("general")
+        self.pending_third = options.get("third")
         if self.encrypted:
             self.env.insert("MONITORIZE_HOST", "127.0.0.1")
             self.env.insert("MONITORIZE_PORT", "7112")
@@ -464,7 +471,7 @@ class StreamingController(QObject):
             and self.input_bridge.state() != QProcess.ProcessState.NotRunning
         ):
             return
-        general = load_general_settings()
+        general = self.runtime_general or load_general_settings()
         touch = general.get("enable_touch", True)
         stylus = (
             general.get("enable_stylus_features", False)
@@ -552,6 +559,8 @@ class StreamingController(QObject):
         self.logAppended.emit("STREAMER", raw)
         for line in raw.splitlines():
             self._track_gst_pid(line)
+            if "Setting pipeline to PLAYING" in line or "New clock:" in line:
+                self._set_primary_ready(True)
             if self.de == "kde":
                 self._handle_kde_streamer_line(line, generation)
         self._maybe_start_wlroots_input(raw, generation)
@@ -673,6 +682,59 @@ class StreamingController(QObject):
     def start_third(self, res, fps, bitrate, encoder):
         self.third.start(res, fps, bitrate, encoder, self.encrypted)
 
+    def _set_primary_ready(self, value):
+        if self.primary_ready == value:
+            return
+        self.primary_ready = value
+        self.primaryReadyChanged.emit(value)
+        if value and self.pending_third:
+            third = self.pending_third
+            self.pending_third = None
+            if self.de == "kde":
+                self.start_third(
+                    third["resolution"],
+                    third["fps"],
+                    third["bitrate"],
+                    third["encoder"],
+                )
+            else:
+                self.logAppended.emit(
+                    "STREAMER",
+                    "Saved additional display skipped: it is only supported on KDE.",
+                )
+
+    def active_configuration(self):
+        general = dict(self.runtime_general or load_general_settings())
+        third = {"enabled": self.third.active or bool(self.pending_third)}
+        if self.third.active:
+            third.update({
+                "resolution": f"{self.third.width}x{self.third.height}",
+                "fps": str(self.third.fps),
+                "bitrate": str(self.third.bitrate),
+                "encoder": self.third.encoder,
+            })
+        elif self.pending_third:
+            third.update(self.pending_third)
+        config = {
+            "version": 1,
+            "mode": "wifi" if self.wifi else "usb",
+            "primary": {
+                "resolution": f"{self.width}x{self.height}",
+                "fps": str(self.fps),
+                "bitrate": str(self.bitrate),
+                "display_type": self.display_type,
+                "encoder": self.encoder,
+            },
+            "general": general,
+            "third": third,
+        }
+        if self.wifi:
+            config["wifi"] = {
+                "stream_type": self.env.value("MONITORIZE_STREAM_TYPE"),
+                "use_encryption": self.encrypted,
+            }
+        return config
+
     def stop_third(self):
         self.third.stop()
         self._advertise()
@@ -689,6 +751,9 @@ class StreamingController(QObject):
         self.kde_ready_generation = self.kde_ready_process = None
         self.kde_output_baseline.clear()
         self.streamer_has_pipewire_node = False
+        self._set_primary_ready(False)
+        self.runtime_general = None
+        self.pending_third = None
         self.third.stop()
         stop_processes(self.krfb, self.streamer, self.input_bridge, self.tls_proxy)
         self.krfb = self.streamer = self.input_bridge = self.tls_proxy = None

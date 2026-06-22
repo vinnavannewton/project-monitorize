@@ -16,6 +16,7 @@ Item {
     property bool enableStylusFeatures: false
     property bool loadingSettings: true
     property bool showPairingCode: true
+    property int duplicatePresetIndex: -1
 
     function saveSecondDisplaySettings() {
         if (page.loadingSettings) return
@@ -337,6 +338,32 @@ Item {
             }
 
             Button {
+                text: "Save Preset"
+                onClicked: {
+                    presetNameField.text = ""
+                    presetSaveError.text = ""
+                    replacePresetCombo.currentIndex = 0
+                    savePresetPopup.open()
+                    presetNameField.forceActiveFocus()
+                }
+                background: Rectangle {
+                    implicitWidth: 120
+                    implicitHeight: 38
+                    color: parent.down ? theme.surfaceAlt : (parent.hovered ? theme.borderHover : theme.surface)
+                    border.color: theme.accent
+                    radius: 8
+                }
+                contentItem: Text {
+                    text: parent.text
+                    color: theme.accent
+                    font.pixelSize: 12
+                    font.weight: Font.Bold
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+            }
+
+            Button {
                 text: "⏹ Stop Streaming"
                 onClicked: {
                     allLogs = []
@@ -412,6 +439,136 @@ Item {
             onCheckedChanged: {
                 if (!page.loadingSettings)
                     backend.saveGeneralSettings(checked, page.enableTouch, page.enableStylusFeatures)
+            }
+        }
+    }
+
+    Popup {
+        id: savePresetPopup
+        modal: true
+        x: (page.width - width) / 2
+        y: (page.height - height) / 2
+        width: 410
+        height: savePresetContent.implicitHeight + 48
+        padding: 0
+        background: Rectangle {
+            color: theme.surface
+            border.color: theme.border
+            border.width: 1
+            radius: theme.cardRadius
+        }
+        Overlay.modal: Rectangle { color: "#80000000" }
+
+        ColumnLayout {
+            id: savePresetContent
+            anchors.fill: parent
+            anchors.margins: 24
+            spacing: 12
+
+            Text {
+                text: "Save as Preset"
+                color: theme.cardTextPrimary
+                font.pixelSize: 18
+                font.weight: Font.Bold
+            }
+            Text {
+                Layout.fillWidth: true
+                text: "Saves this stream, input options, and the active additional display."
+                color: theme.cardTextMuted
+                font.pixelSize: 12
+                wrapMode: Text.WordWrap
+            }
+            CustomTextField {
+                id: presetNameField
+                Layout.fillWidth: true
+                placeholderText: "Preset name"
+                maximumLength: 32
+                onAccepted: savePresetButton.clicked()
+            }
+            Text {
+                text: "Replace:"
+                visible: backend.presets.length >= 4
+                color: theme.cardTextSecondary
+                font.pixelSize: 12
+            }
+            CustomComboBox {
+                id: replacePresetCombo
+                Layout.fillWidth: true
+                visible: backend.presets.length >= 4
+                model: backend.presets.map(function(item) { return item["name"] })
+            }
+            Text {
+                id: presetSaveError
+                Layout.fillWidth: true
+                color: "#fca5a5"
+                font.pixelSize: 11
+                wrapMode: Text.WordWrap
+            }
+            RowLayout {
+                Layout.alignment: Qt.AlignRight
+                Button { text: "Cancel"; onClicked: savePresetPopup.close() }
+                CustomButton {
+                    id: savePresetButton
+                    text: backend.presets.length >= 4 ? "Replace" : "Save"
+                    onClicked: {
+                        let replaceIndex = backend.presets.length >= 4
+                            ? replacePresetCombo.currentIndex : -1
+                        let result = backend.saveCurrentPreset(
+                            presetNameField.text, replaceIndex
+                        )
+                        if (result.indexOf("duplicate:") === 0) {
+                            page.duplicatePresetIndex = parseInt(result.split(":")[1])
+                            duplicateConfirm.open()
+                        } else if (result === "full") {
+                            presetSaveError.text = "Choose a preset to replace."
+                        } else {
+                            presetSaveError.text = result
+                            if (result.length === 0) savePresetPopup.close()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Popup {
+        id: duplicateConfirm
+        modal: true
+        x: (page.width - width) / 2
+        y: (page.height - height) / 2
+        width: 380
+        height: 165
+        padding: 22
+        background: Rectangle {
+            color: theme.surface
+            border.color: theme.border
+            radius: theme.cardRadius
+        }
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 14
+            Text {
+                Layout.fillWidth: true
+                text: "A preset with this name already exists. Replace it?"
+                color: theme.cardTextPrimary
+                font.pixelSize: 14
+                font.weight: Font.Bold
+                wrapMode: Text.WordWrap
+            }
+            RowLayout {
+                Layout.alignment: Qt.AlignRight
+                Button { text: "Cancel"; onClicked: duplicateConfirm.close() }
+                CustomButton {
+                    text: "Replace"
+                    onClicked: {
+                        let result = backend.saveCurrentPreset(
+                            presetNameField.text, page.duplicatePresetIndex
+                        )
+                        presetSaveError.text = result
+                        duplicateConfirm.close()
+                        if (result.length === 0) savePresetPopup.close()
+                    }
+                }
             }
         }
     }

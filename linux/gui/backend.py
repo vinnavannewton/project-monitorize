@@ -5,13 +5,16 @@ from PyQt6.QtCore import QObject, QTimer, pyqtProperty, pyqtSignal, pyqtSlot
 from gui.discovery_service import DiscoveryService
 from gui.receiver_controller import ReceiverController
 from gui.settings import (
+    MAX_PRESETS,
     load_general_settings,
+    load_presets,
     load_receiver_credentials,
     load_receiver_settings,
     load_second_display_settings,
     load_usb_settings,
     load_wifi_settings,
     save_general_settings,
+    save_presets,
     save_receiver_settings,
     save_second_display_settings,
     save_usb_settings,
@@ -47,6 +50,8 @@ class MonitorizeBackend(QObject):
     receiverPairingRequired = pyqtSignal(str, int, str)
     secondStreamActiveChanged = pyqtSignal(bool)
     configureDisplayRequested = pyqtSignal()
+    presetsChanged = pyqtSignal()
+    presetLaunchStatusChanged = pyqtSignal(str)
 
     def __init__(self, de, parent=None):
         super().__init__(parent)
@@ -56,6 +61,10 @@ class MonitorizeBackend(QObject):
         self.usb = UsbController(self)
         self.receiver = ReceiverController(de, self.discovery, self)
         self.streaming = StreamingController(de, self._local_ip, self.discovery, self)
+        self._presets = load_presets()
+        self._pending_usb_preset = None
+        self._preset_launch_status = ""
+        self._preset_minimize_to_tray = None
         self._wire_signals()
         self.network_timer = QTimer(self)
         self.network_timer.setInterval(5000)
@@ -65,6 +74,7 @@ class MonitorizeBackend(QObject):
     def _wire_signals(self):
         self.usb.statusChanged.connect(self.usbStatusTextChanged)
         self.usb.busyChanged.connect(self.usbBusyChanged)
+        self.usb.scanFinished.connect(self._finish_usb_preset_launch)
         self.discovery.devicesChanged.connect(self.discoveredDevicesChanged)
         self.receiver.receivingChanged.connect(self.isReceivingChanged)
         self.receiver.statusChanged.connect(self.receiverStatusChanged)
@@ -77,6 +87,7 @@ class MonitorizeBackend(QObject):
         self.streaming.pairingCodeChanged.connect(self.pairingCodeChanged)
         self.streaming.secondStreamChanged.connect(self.secondStreamActiveChanged)
         self.streaming.logAppended.connect(self.logAppended)
+        self.streaming.streamingChanged.connect(self._streaming_state_changed)
 
     @pyqtProperty(str, notify=detectedDeChanged)
     def detectedDe(self):
@@ -130,8 +141,17 @@ class MonitorizeBackend(QObject):
     def secondStreamActive(self):
         return self.streaming.third.active
 
+    @pyqtProperty("QVariant", notify=presetsChanged)
+    def presets(self):
+        return list(self._presets)
+
+    @pyqtProperty(str, notify=presetLaunchStatusChanged)
+    def presetLaunchStatus(self):
+        return self._preset_launch_status
+
     @pyqtSlot()
     def startUsbScan(self):
+        self._pending_usb_preset = None
         self.usb.start()
 
     @pyqtSlot()
@@ -148,6 +168,8 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot(result="QVariant")
     def loadGeneralSettings(self):
+        if self.streaming.runtime_general is not None:
+            return dict(self.streaming.runtime_general)
         return load_general_settings()
 
     @pyqtSlot(bool, bool, bool)
@@ -231,10 +253,12 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot(str, str, str, str, str, bool)
     def startStreaming(self, res, fps, bitrate, display_type, encoder, wifi):
+        self._pending_usb_preset = None
         self.streaming.start(res, fps, bitrate, display_type, encoder, wifi)
 
     @pyqtSlot()
     def stopStreaming(self):
+        self._pending_usb_preset = None
         self.streaming.stop()
 
     @pyqtSlot(str, str, str, str)
@@ -248,6 +272,128 @@ class MonitorizeBackend(QObject):
     @pyqtSlot()
     def configureDisplay(self):
         self.configureDisplayRequested.emit()
+
+    @pyqtSlot(str, int, result=str)
+    def saveCurrentPreset(self, name, replace_index=-1):
+        name = name.strip()
+        if not self.streaming.streaming:
+            return "No active stream to save."
+        if not name:
+            return "Enter a preset name."
+        if len(name) > 32:
+            return "Preset names can contain at most 32 characters."
+        duplicate = next(
+            (
+                index for index, preset in enumerate(self._presets)
+                if preset["name"].casefold() == name.casefold()
+                and index != replace_index
+            ),
+            -1,
+        )
+        if duplicate >= 0:
+            return f"duplicate:{duplicate}"
+        if replace_index < -1 or replace_index >= len(self._presets):
+            return "Invalid preset selection."
+        if replace_index == -1 and len(self._presets) >= MAX_PRESETS:
+            return "full"
+        preset = self.streaming.active_configuration()
+        preset["name"] = name
+        if replace_index >= 0:
+            self._presets[replace_index] = preset
+        else:
+            self._presets.append(preset)
+        save_presets(self._presets)
+        self._presets = load_presets()
+        self.presetsChanged.emit()
+        return ""
+
+    @pyqtSlot(int)
+    def launchPreset(self, index):
+        if index < 0 or index >= len(self._presets):
+            self._set_preset_launch_status("Preset no longer exists.")
+            return
+        preset = self._presets[index]
+        self._pending_usb_preset = None
+        if preset["mode"] == "usb":
+            self._pending_usb_preset = preset
+            self._set_preset_launch_status("Checking USB device...")
+            if not self.usb.busy:
+                self.usb.start()
+            return
+        self._set_preset_launch_status("")
+        self._start_preset(preset)
+
+    @pyqtSlot(int, str, result=str)
+    def renamePreset(self, index, name):
+        name = name.strip()
+        if index < 0 or index >= len(self._presets):
+            return "Preset no longer exists."
+        if not name:
+            return "Enter a preset name."
+        if len(name) > 32:
+            return "Preset names can contain at most 32 characters."
+        if any(
+            preset["name"].casefold() == name.casefold()
+            for preset_index, preset in enumerate(self._presets)
+            if preset_index != index
+        ):
+            return "A preset with that name already exists."
+        self._presets[index]["name"] = name
+        save_presets(self._presets)
+        self._presets = load_presets()
+        self.presetsChanged.emit()
+        return ""
+
+    @pyqtSlot(int)
+    def deletePreset(self, index):
+        if index < 0 or index >= len(self._presets):
+            return
+        self._presets.pop(index)
+        save_presets(self._presets)
+        self.presetsChanged.emit()
+
+    def _finish_usb_preset_launch(self, success):
+        preset = self._pending_usb_preset
+        self._pending_usb_preset = None
+        if preset is None:
+            return
+        if not success:
+            self._set_preset_launch_status(self.usb.status)
+            return
+        self._set_preset_launch_status("")
+        self._start_preset(preset)
+
+    def _start_preset(self, preset):
+        primary = preset["primary"]
+        self.streaming.start(
+            primary["resolution"],
+            primary["fps"],
+            primary["bitrate"],
+            primary["display_type"],
+            primary["encoder"],
+            preset["mode"] == "wifi",
+            {
+                "wifi": preset.get("wifi", {}),
+                "general": preset["general"],
+                "third": preset["third"] if preset["third"]["enabled"] else None,
+            },
+        )
+        self._preset_minimize_to_tray = preset["general"]["minimize_to_tray"]
+
+    def _streaming_state_changed(self, streaming):
+        if not streaming:
+            self._preset_minimize_to_tray = None
+
+    def should_minimize_to_tray(self):
+        if self._preset_minimize_to_tray is not None:
+            return self._preset_minimize_to_tray
+        return load_general_settings().get("minimize_to_tray", False)
+
+    def _set_preset_launch_status(self, value):
+        if self._preset_launch_status == value:
+            return
+        self._preset_launch_status = value
+        self.presetLaunchStatusChanged.emit(value)
 
     def _check_network_ip(self):
         current = get_local_ip()

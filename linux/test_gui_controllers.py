@@ -326,6 +326,61 @@ class ReceiverControllerTest(unittest.TestCase):
             finally:
                 settings.CONFIG_DIR, settings.CONFIG_FILE = old_dir, old_file
 
+    def test_presets_round_trip_and_limit_to_four(self):
+        old_dir, old_file = settings.CONFIG_DIR, settings.CONFIG_FILE
+        with tempfile.TemporaryDirectory() as directory:
+            try:
+                settings.CONFIG_DIR = directory
+                settings.CONFIG_FILE = str(Path(directory) / "settings.ini")
+                presets = []
+                for index in range(5):
+                    presets.append({
+                        "version": 1,
+                        "name": f"Preset {index}",
+                        "mode": "wifi",
+                        "primary": {
+                            "resolution": "2560x1600",
+                            "fps": "60",
+                            "bitrate": "14000",
+                            "display_type": "Extend",
+                            "encoder": "Intel/AMD VA-API (vah264enc)",
+                        },
+                        "wifi": {
+                            "stream_type": "Speed",
+                            "use_encryption": True,
+                        },
+                        "general": {
+                            "minimize_to_tray": True,
+                            "enable_touch": True,
+                            "enable_stylus_features": False,
+                        },
+                        "third": {"enabled": False},
+                    })
+                settings.save_presets(presets)
+                loaded = settings.load_presets()
+                self.assertEqual(len(loaded), 4)
+                self.assertEqual(loaded[0]["name"], "Preset 0")
+                self.assertTrue(loaded[0]["wifi"]["use_encryption"])
+                self.assertTrue(loaded[0]["general"]["minimize_to_tray"])
+            finally:
+                settings.CONFIG_DIR, settings.CONFIG_FILE = old_dir, old_file
+
+    def test_corrupt_presets_are_ignored(self):
+        old_dir, old_file = settings.CONFIG_DIR, settings.CONFIG_FILE
+        with tempfile.TemporaryDirectory() as directory:
+            try:
+                settings.CONFIG_DIR = directory
+                settings.CONFIG_FILE = str(Path(directory) / "settings.ini")
+                settings._save_group("presets", {
+                    "items": json.dumps([
+                        {"version": 99, "name": "Old"},
+                        "not-a-preset",
+                    ])
+                })
+                self.assertEqual(settings.load_presets(), [])
+            finally:
+                settings.CONFIG_DIR, settings.CONFIG_FILE = old_dir, old_file
+
 
 class StreamingControllerTest(unittest.TestCase):
     def kde_controller(self):
@@ -404,6 +459,57 @@ class StreamingControllerTest(unittest.TestCase):
         args = process.start.call_args.args[1]
         self.assertIn("--wifi", args)
         self.assertIn("--local-udp", args)
+
+    def test_runtime_general_settings_override_saved_defaults(self):
+        controller = self.kde_controller()
+        controller.runtime_general = {
+            "enable_touch": False,
+            "enable_stylus_features": False,
+            "minimize_to_tray": True,
+        }
+        with (
+            patch("gui.streaming_controller.load_general_settings") as load,
+            patch("gui.streaming_controller.QProcess") as process,
+        ):
+            controller._launch_input(generation=3)
+        load.assert_not_called()
+        process.assert_not_called()
+
+    def test_primary_ready_launches_saved_third_display(self):
+        controller = self.kde_controller()
+        controller.pending_third = {
+            "resolution": "1920x1080",
+            "fps": "60",
+            "bitrate": "8000",
+            "encoder": "Software (CPU / x264enc)",
+        }
+        with patch.object(controller, "start_third") as start:
+            controller._set_primary_ready(True)
+        start.assert_called_once_with(
+            "1920x1080", "60", "8000", "Software (CPU / x264enc)"
+        )
+        self.assertIsNone(controller.pending_third)
+
+    def test_active_configuration_includes_running_third_display(self):
+        controller = self.kde_controller()
+        controller.encoder = "Intel/AMD VA-API (vah264enc)"
+        controller.env.value.return_value = "Speed"
+        controller.runtime_general = {
+            "minimize_to_tray": True,
+            "enable_touch": True,
+            "enable_stylus_features": True,
+        }
+        controller.third.active = True
+        controller.third.width = 1280
+        controller.third.height = 800
+        controller.third.fps = 60
+        controller.third.bitrate = 6000
+        controller.third.encoder = "Software (CPU / x264enc)"
+        config = controller.active_configuration()
+        self.assertEqual(config["primary"]["resolution"], "1920x1200")
+        self.assertEqual(config["wifi"]["stream_type"], "Speed")
+        self.assertEqual(config["third"]["resolution"], "1280x800")
+        self.assertTrue(config["general"]["enable_stylus_features"])
 
     def test_stale_streamer_exit_does_not_restart_gnome(self):
         controller = StreamingController("gnome", "10.0.0.1", Mock())
@@ -1123,10 +1229,12 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertTrue({
             "detectedDe", "localIp", "isStreaming", "isReceiving",
             "discoveredDevices", "pairingCode", "secondStreamActive",
+            "presets", "presetLaunchStatus",
         } <= properties)
         self.assertTrue({
             "startStreaming", "stopStreaming", "connectToHost",
             "startHostDiscovery", "startUsbScan", "startSecondStream",
+            "saveCurrentPreset", "launchPreset", "renamePreset", "deletePreset",
         } <= methods)
         backend.network_timer.stop()
 
@@ -1138,6 +1246,86 @@ class BackendFacadeTest(unittest.TestCase):
             backend.connectToHost("host", 70000, False, "", "", "Software")
         connect.assert_not_called()
         self.assertEqual(backend.receiver.status, "Invalid host or port")
+        backend.network_timer.stop()
+
+    def test_usb_preset_scans_before_launching(self):
+        preset = {
+            "version": 1,
+            "name": "Desk",
+            "mode": "usb",
+            "primary": {
+                "resolution": "1920x1200",
+                "fps": "60",
+                "bitrate": "8000",
+                "display_type": "Extend",
+                "encoder": "Software (CPU / x264enc)",
+            },
+            "general": {
+                "minimize_to_tray": False,
+                "enable_touch": True,
+                "enable_stylus_features": False,
+            },
+            "third": {"enabled": False},
+        }
+        with (
+            patch("gui.backend.get_local_ip", return_value="127.0.0.1"),
+            patch("gui.backend.load_presets", return_value=[preset]),
+        ):
+            backend = MonitorizeBackend("kde")
+        with (
+            patch.object(backend.usb, "start") as scan,
+            patch.object(backend.streaming, "start") as start,
+        ):
+            backend.launchPreset(0)
+            scan.assert_called_once()
+            start.assert_not_called()
+            backend._finish_usb_preset_launch(True)
+            start.assert_called_once()
+        backend.network_timer.stop()
+
+    def test_save_current_preset_replaces_selected_slot(self):
+        existing = {
+            "version": 1,
+            "name": "Old",
+            "mode": "usb",
+            "primary": {},
+            "general": {},
+            "third": {"enabled": False},
+        }
+        snapshot = {
+            "version": 1,
+            "mode": "wifi",
+            "primary": {
+                "resolution": "2560x1600",
+                "fps": "60",
+                "bitrate": "14000",
+                "display_type": "Extend",
+                "encoder": "Intel/AMD VA-API (vah264enc)",
+            },
+            "wifi": {"stream_type": "Speed", "use_encryption": True},
+            "general": {
+                "minimize_to_tray": True,
+                "enable_touch": True,
+                "enable_stylus_features": False,
+            },
+            "third": {"enabled": False},
+        }
+        with (
+            patch("gui.backend.get_local_ip", return_value="127.0.0.1"),
+            patch("gui.backend.load_presets", return_value=[existing]),
+        ):
+            backend = MonitorizeBackend("kde")
+        backend.streaming.streaming = True
+        backend.streaming.active_configuration = Mock(return_value=snapshot)
+        with (
+            patch("gui.backend.save_presets") as save,
+            patch("gui.backend.load_presets", return_value=[
+                {**snapshot, "name": "New"}
+            ]),
+        ):
+            result = backend.saveCurrentPreset("New", 0)
+        self.assertEqual(result, "")
+        self.assertEqual(save.call_args.args[0][0]["name"], "New")
         backend.network_timer.stop()
 
 

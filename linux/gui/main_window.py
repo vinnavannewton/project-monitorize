@@ -29,7 +29,6 @@ from gui.display_controller import (
     sway_outputs as _sway_outputs,
 )
 from gui.process_utils import kill_patterns
-from gui.settings import load_general_settings
 from gui.utils import LINUX_DIR, detect_desktop_environment
 
 
@@ -109,7 +108,7 @@ class MonitorizeWindow(QMainWindow):
             QMessageBox.warning(self, "Error", "Failed to run nwg-displays.")
 
     def closeEvent(self, event):
-        minimize = load_general_settings().get("minimize_to_tray", False)
+        minimize = self.backend.should_minimize_to_tray()
         if minimize and self.backend.isStreaming:
             event.ignore()
             self.hide()

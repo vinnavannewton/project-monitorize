@@ -46,6 +46,7 @@ class ThirdStreamController(QObject):
         self.width, self.height = width, height
         self.fps, self.bitrate = sanitize_fps(fps), sanitize_bitrate(bitrate)
         encoder = sanitize_encoder(encoder)
+        self.encoder = encoder
         self.encrypted = encrypted
         self.env = QProcessEnvironment.systemEnvironment()
         self.env.insert("PYTHONUNBUFFERED", "1")

@@ -4,6 +4,7 @@ Monitorize GUI — Persistent settings stored in ~/.config/monitorize/settings.i
 
 import os
 import hashlib
+import json
 from PyQt6.QtCore import QSettings
 
 from gui.validation import (
@@ -21,6 +22,8 @@ from gui.validation import (
 
 CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".config", "monitorize")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "settings.ini")
+MAX_PRESETS = 4
+PRESET_VERSION = 1
 
 
 def _get_settings() -> QSettings:
@@ -214,6 +217,89 @@ def load_second_display_settings() -> dict:
     data["bitrate"] = str(sanitize_bitrate(data["bitrate"]))
     data["encoder"] = sanitize_encoder(data["encoder"])
     return data
+
+
+def _normalize_preset(raw: dict) -> dict | None:
+    if not isinstance(raw, dict) or raw.get("version") != PRESET_VERSION:
+        return None
+    name = str(raw.get("name", "")).strip()[:32]
+    mode = raw.get("mode")
+    primary = raw.get("primary")
+    general = raw.get("general")
+    third = raw.get("third", {})
+    if not name or mode not in ("wifi", "usb"):
+        return None
+    if not isinstance(primary, dict) or not isinstance(general, dict):
+        return None
+    width, height = sanitize_resolution(primary.get("resolution", ""))
+    preset = {
+        "version": PRESET_VERSION,
+        "name": name,
+        "mode": mode,
+        "primary": {
+            "resolution": f"{width}x{height}",
+            "fps": str(sanitize_fps(primary.get("fps", 60))),
+            "bitrate": str(sanitize_bitrate(primary.get("bitrate", 8000))),
+            "display_type": sanitize_display_type(
+                primary.get("display_type", "Extend")
+            ),
+            "encoder": sanitize_encoder(primary.get("encoder", "")),
+        },
+        "general": {
+            "minimize_to_tray": bool(general.get("minimize_to_tray", False)),
+            "enable_touch": bool(general.get("enable_touch", True)),
+            "enable_stylus_features": bool(
+                general.get("enable_stylus_features", False)
+            ),
+        },
+        "third": {"enabled": bool(third.get("enabled", False))},
+    }
+    if mode == "wifi":
+        wifi = raw.get("wifi", {})
+        preset["wifi"] = {
+            "stream_type": sanitize_stream_type(wifi.get("stream_type", "Speed")),
+            "use_encryption": bool(wifi.get("use_encryption", True)),
+        }
+    if preset["third"]["enabled"]:
+        width, height = sanitize_resolution(
+            third.get("resolution", ""), (1920, 1080)
+        )
+        preset["third"].update({
+            "resolution": f"{width}x{height}",
+            "fps": str(sanitize_fps(third.get("fps", 60))),
+            "bitrate": str(sanitize_bitrate(third.get("bitrate", 8000))),
+            "encoder": sanitize_encoder(third.get("encoder", "")),
+        })
+    return preset
+
+
+def load_presets() -> list[dict]:
+    raw = _get_settings().value("presets/items", "[]")
+    try:
+        values = json.loads(raw)
+    except (TypeError, json.JSONDecodeError):
+        return []
+    if not isinstance(values, list):
+        return []
+    presets = []
+    for value in values:
+        preset = _normalize_preset(value)
+        if preset is not None:
+            presets.append(preset)
+        if len(presets) == MAX_PRESETS:
+            break
+    return presets
+
+
+def save_presets(presets: list[dict]) -> None:
+    normalized = []
+    for value in presets:
+        preset = _normalize_preset(value)
+        if preset is not None:
+            normalized.append(preset)
+        if len(normalized) == MAX_PRESETS:
+            break
+    _save_group("presets", {"items": json.dumps(normalized, separators=(",", ":"))})
 
 
 def save_receiver_settings(*, ip: str, port: str, use_encryption: bool = True,
