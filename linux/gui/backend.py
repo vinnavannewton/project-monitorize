@@ -2,6 +2,7 @@
 
 from PyQt6.QtCore import QObject, QTimer, pyqtProperty, pyqtSignal, pyqtSlot
 
+from gui import app_log, autostart
 from gui.discovery_service import DiscoveryService
 from gui.receiver_controller import ReceiverController
 from gui.settings import (
@@ -64,7 +65,6 @@ class MonitorizeBackend(QObject):
         self._presets = load_presets()
         self._pending_usb_preset = None
         self._preset_launch_status = ""
-        self._preset_minimize_to_tray = None
         self._wire_signals()
         self.network_timer = QTimer(self)
         self.network_timer.setInterval(5000)
@@ -79,6 +79,9 @@ class MonitorizeBackend(QObject):
         self.receiver.receivingChanged.connect(self.isReceivingChanged)
         self.receiver.statusChanged.connect(self.receiverStatusChanged)
         self.receiver.hostChanged.connect(self.receiverHostIpChanged)
+        self.receiver.logAppended.connect(
+            lambda message: app_log.write("RECEIVER", message)
+        )
         self.receiver.logAppended.connect(self.receiverLogAppended)
         self.receiver.pairingRequired.connect(self.receiverPairingRequired)
         self.streaming.streamingChanged.connect(self.isStreamingChanged)
@@ -86,8 +89,8 @@ class MonitorizeBackend(QObject):
         self.streaming.countdownChanged.connect(self.countdownChanged)
         self.streaming.pairingCodeChanged.connect(self.pairingCodeChanged)
         self.streaming.secondStreamChanged.connect(self.secondStreamActiveChanged)
+        self.streaming.logAppended.connect(app_log.write)
         self.streaming.logAppended.connect(self.logAppended)
-        self.streaming.streamingChanged.connect(self._streaming_state_changed)
 
     @pyqtProperty(str, notify=detectedDeChanged)
     def detectedDe(self):
@@ -168,8 +171,6 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot(result="QVariant")
     def loadGeneralSettings(self):
-        if self.streaming.runtime_general is not None:
-            return dict(self.streaming.runtime_general)
         return load_general_settings()
 
     @pyqtSlot(bool, bool, bool)
@@ -179,6 +180,14 @@ class MonitorizeBackend(QObject):
             enable_touch=touch,
             enable_stylus_features=stylus,
         )
+
+    @pyqtSlot(result=bool)
+    def isAutostartEnabled(self):
+        return autostart.is_enabled()
+
+    @pyqtSlot(bool, result=str)
+    def setAutostartEnabled(self, enabled):
+        return autostart.set_enabled(enabled)
 
     @pyqtSlot(str, str, str, str, str, str, str, str)
     def saveUsbSettings(self, resolution, custom_w, custom_h, fps, custom_fps, bitrate, display_type, encoder):
@@ -378,15 +387,8 @@ class MonitorizeBackend(QObject):
                 "third": preset["third"] if preset["third"]["enabled"] else None,
             },
         )
-        self._preset_minimize_to_tray = preset["general"]["minimize_to_tray"]
-
-    def _streaming_state_changed(self, streaming):
-        if not streaming:
-            self._preset_minimize_to_tray = None
 
     def should_minimize_to_tray(self):
-        if self._preset_minimize_to_tray is not None:
-            return self._preset_minimize_to_tray
         return load_general_settings().get("minimize_to_tray", False)
 
     def _set_preset_launch_status(self, value):

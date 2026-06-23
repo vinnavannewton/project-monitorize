@@ -22,6 +22,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
+from gui import app_log
 from gui.backend import MonitorizeBackend
 from gui.display_controller import (
     disable_sway_output as _disable_sway_output,
@@ -76,10 +77,27 @@ class MonitorizeWindow(QMainWindow):
         self.tray.setToolTip("Monitorize")
         menu = QMenu()
         menu.addAction("Show").triggered.connect(self._restore_from_tray)
+        self.presets_menu = menu.addMenu("Presets")
+        self._update_tray_presets()
+        self.backend.presetsChanged.connect(self._update_tray_presets)
         menu.addSeparator()
         menu.addAction("Quit").triggered.connect(self._quit_app)
         self.tray.setContextMenu(menu)
         self.tray.activated.connect(self._tray_activated)
+
+    def _update_tray_presets(self):
+        self.presets_menu.clear()
+        presets = self.backend.presets
+        if not presets:
+            action = self.presets_menu.addAction("No saved presets")
+            action.setEnabled(False)
+            return
+        for index, preset in enumerate(presets):
+            action = self.presets_menu.addAction(preset["name"])
+            action.triggered.connect(
+                lambda _checked=False, preset_index=index:
+                    self.backend.launchPreset(preset_index)
+            )
 
     def _tray_activated(self, reason):
         if reason in (
@@ -95,7 +113,9 @@ class MonitorizeWindow(QMainWindow):
         self.activateWindow()
 
     def _quit_app(self):
+        app_log.write("APP", "Application shutting down.")
         self.backend.close()
+        app_log.close()
         QApplication.quit()
 
     def _configure_display(self):
@@ -109,16 +129,10 @@ class MonitorizeWindow(QMainWindow):
 
     def closeEvent(self, event):
         minimize = self.backend.should_minimize_to_tray()
-        if minimize and self.backend.isStreaming:
+        if minimize and QSystemTrayIcon.isSystemTrayAvailable():
             event.ignore()
             self.hide()
             self.tray.show()
-            self.tray.showMessage(
-                "Monitorize",
-                "Running in the background. Double-click the tray icon to restore.",
-                QSystemTrayIcon.MessageIcon.Information,
-                5000,
-            )
             return
         self._quit_app()
         event.accept()
@@ -195,30 +209,57 @@ def _set_palette(app):
     app.setPalette(palette)
 
 
+def _start_in_tray_requested(argv):
+    return "--start-in-tray" in argv
+
+
+def _show_initial_window(window, start_in_tray):
+    if start_in_tray and QSystemTrayIcon.isSystemTrayAvailable():
+        QApplication.setQuitOnLastWindowClosed(False)
+        window.tray.show()
+        app_log.write("APP", "Started hidden in system tray.")
+        return False
+    window.show()
+    return True
+
+
+def _handle_instance_command(server, window):
+    connection = server.nextPendingConnection()
+    command = ""
+    if connection.waitForReadyRead(250):
+        command = bytes(connection.readAll()).decode("utf-8", "ignore")
+    connection.deleteLater()
+    if command == "show":
+        window._restore_from_tray()
+
+
 def main():
+    start_in_tray = _start_in_tray_requested(sys.argv)
+    log_path = app_log.configure()
+    app_log.install_exception_hook()
+    app_log.write("APP", f"Application starting. Log file: {log_path}")
     app = QApplication(sys.argv)
     app.setApplicationName("Monitorize")
     app.setDesktopFileName("monitorize")
     socket = QLocalSocket()
     socket.connectToServer("monitorize")
     if socket.waitForConnected(250):
-        socket.write(b"show")
+        app_log.write("APP", "Existing instance activated.")
+        socket.write(b"noop" if start_in_tray else b"show")
         socket.waitForBytesWritten(250)
         return
     QLocalServer.removeServer("monitorize")
     server = QLocalServer(app)
     server.setSocketOptions(QLocalServer.SocketOption.UserAccessOption)
     if not server.listen("monitorize"):
+        app_log.write("APP", "Failed to create single-instance server.")
         return
     _set_palette(app)
     window = MonitorizeWindow()
     server.newConnection.connect(
-        lambda: (
-            server.nextPendingConnection().deleteLater(),
-            window._restore_from_tray(),
-        )
+        lambda: _handle_instance_command(server, window)
     )
-    window.show()
+    _show_initial_window(window, start_in_tray)
     sys.exit(app.exec())
 
 

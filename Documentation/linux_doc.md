@@ -104,6 +104,29 @@ To connect to an encrypted desktop stream, select the discovered desktop entry i
 
 USB connections are also always plain.
 
+## Saved Presets
+
+The main page can show up to four saved stream presets. If none exist, it displays **No saved presets** without an add button.
+
+To create a preset:
+
+1. Start a Wi-Fi or USB stream with the required configuration.
+2. Optionally start the additional KDE display.
+3. Select **Save Preset** on the streaming page.
+4. Enter a name.
+
+A preset stores:
+
+- Wi-Fi or USB mode;
+- resolution, FPS, bitrate, display type, and encoder;
+- Wi-Fi stream profile and encryption state;
+- touch, stylus, and minimize-to-tray settings;
+- the active additional KDE display and its stream configuration.
+
+Preset cards on the main page launch their saved configuration when clicked. USB presets run the normal ADB readiness scan before starting. A saved additional display starts after the primary stream is ready and is skipped with a log message when the current desktop is not KDE.
+
+Use a preset card's menu to rename or delete it. When four presets already exist, saving another requires replacing one of them. Preset launches do not overwrite the normal Wi-Fi, USB, or general defaults.
+
 ## KDE Plasma Virtual Displays
 
 Monitorize uses different Extend-mode paths before and after KDE Plasma 6.7 because the old `krfb-virtualmonitor` path is not reliable on KDE 6.7.
@@ -248,6 +271,27 @@ Settings are stored at:
 
 Wi-Fi settings include resolution, FPS, bitrate, display type, encoder, stream profile, and encryption choice.
 
+Saved presets are stored in the same settings file. Pairing codes, authentication tokens, IP addresses, and runtime process state are not included in presets.
+
+### Persistent application logs
+
+The desktop application writes streamer, input, TLS, receiver, application-lifecycle, and uncaught Python exception messages to:
+
+```text
+~/.local/state/monitorize/monitorize.log
+```
+
+The file is written continuously, so recent output remains available after the application exits or crashes. It is created with user-only permissions and rotates at 2 MiB, retaining three backups:
+
+```text
+monitorize.log
+monitorize.log.1
+monitorize.log.2
+monitorize.log.3
+```
+
+The on-screen log viewers remain selectable but do not display an editing context menu when right-clicked.
+
 ## Testing
 
 Run the Linux controller, TLS, input, and compositor-support tests from `linux/`:
@@ -323,3 +367,13 @@ Inspect logs and generated commands. No command should target the primary or a p
 - Confirm `adb devices` lists an authorized device.
 - Run the GUI's USB setup again.
 - Verify reverse mappings with `adb reverse --list`.
+
+### Application closes or crashes unexpectedly
+
+Inspect the persistent log and its rotated backups:
+
+```bash
+tail -n 200 ~/.local/state/monitorize/monitorize.log
+```
+
+Look for `[APP]`, `[STREAMER]`, `[INPUT]`, `[TLS]`, or `[RECEIVER]` entries near the end of the file.

@@ -6,24 +6,44 @@ import QtQuick.Layouts
 Item {
     id: page
 
-    // Tab selection for logs filter
-    property string logFilter: "ALL"
-
-    // Local arrays to keep logs separated by category
-    property var allLogs: []
-
     property bool enableTouch: true
     property bool enableStylusFeatures: false
     property bool loadingSettings: true
     property bool showPairingCode: true
     property int duplicatePresetIndex: -1
+    property bool syncingSecondBitrate: false
+
+    function clampMbps(value) {
+        let number = Number(value)
+        if (!isFinite(number)) number = 8
+        return Math.max(0.25, Math.min(100, number))
+    }
+
+    function formatMbps(value) {
+        let rounded = Math.round(page.clampMbps(value) * 100) / 100
+        if (rounded % 1 === 0) return rounded.toFixed(0)
+        return (rounded * 10) % 1 === 0 ? rounded.toFixed(1) : rounded.toFixed(2)
+    }
+
+    function secondBitrateKbpsText() {
+        return String(Math.round(page.clampMbps(parseFloat(s2BitrateField.text)) * 1000))
+    }
+
+    function setSecondBitrateMbps(value, save) {
+        page.syncingSecondBitrate = true
+        let mbps = page.clampMbps(value)
+        s2BitrateSlider.value = Math.min(50, mbps)
+        s2BitrateField.text = page.formatMbps(mbps)
+        page.syncingSecondBitrate = false
+        if (save) page.saveSecondDisplaySettings()
+    }
 
     function saveSecondDisplaySettings() {
         if (page.loadingSettings) return
         backend.saveSecondDisplaySettings(
             s2ResCombo.currentText,
             s2FpsCombo.currentText,
-            s2BitrateField.text,
+            page.secondBitrateKbpsText(),
             s2EncoderCombo.currentText
         )
     }
@@ -32,7 +52,6 @@ Item {
         let gen = backend.loadGeneralSettings();
         page.enableTouch = gen["enable_touch"] !== undefined ? gen["enable_touch"] : true;
         page.enableStylusFeatures = gen["enable_stylus_features"] !== undefined ? gen["enable_stylus_features"] : false;
-        trayCheck.checked = gen["minimize_to_tray"] !== undefined ? gen["minimize_to_tray"] : false;
 
         let s2 = backend.loadSecondDisplaySettings();
         if (s2) {
@@ -42,7 +61,7 @@ Item {
             let fpsIdx = s2FpsCombo.find(s2["fps"] || "60");
             s2FpsCombo.currentIndex = fpsIdx !== -1 ? fpsIdx : 1;
 
-            s2BitrateField.text = s2["bitrate"] || "8000";
+            page.setSecondBitrateMbps(Number(s2["bitrate"] || "8000") / 1000, false);
 
             let encIdx = s2EncoderCombo.find(s2["encoder"] || "Software (CPU / x264enc)");
             s2EncoderCombo.currentIndex = encIdx !== -1 ? encIdx : 2;
@@ -50,7 +69,6 @@ Item {
         page.loadingSettings = false;
     }
 
-    // Listen directly for log signals from the Python backend
     Connections {
         target: backend
         function onLogAppended(type, msg) {
@@ -59,35 +77,11 @@ Item {
     }
 
     function appendLog(type, msg) {
-        allLogs.push({ type: type, message: msg })
-        updateLogDisplay()
-    }
-
-    function updateLogDisplay() {
-        let text = ""
-        for (let i = 0; i < allLogs.length; i++) {
-            let log = allLogs[i]
-            if (logFilter === "ALL" || log.type === logFilter) {
-                let categoryColor = "#a3e635"
-                if (log.type === "STREAMER") categoryColor = "#60a5fa"
-                else if (log.type === "INPUT") categoryColor = "#fbbf24"
-
-                let msgColor = "#e2e8f0"
-                let lowerMsg = log.message.toLowerCase()
-                if (lowerMsg.includes("warning") || lowerMsg.includes("warn")) {
-                    msgColor = "#fde047"
-                } else if (lowerMsg.includes("error") || lowerMsg.includes("exception") || lowerMsg.includes("failed") || lowerMsg.includes("denied") || lowerMsg.includes("crashed")) {
-                    msgColor = "#fca5a5"
-                } else if (lowerMsg.includes("success") || lowerMsg.includes("ready") || lowerMsg.includes("listening") || lowerMsg.includes("connected") || lowerMsg.includes("active")) {
-                    msgColor = "#86efac"
-                }
-
-                let tag = "[" + log.type + "]"
-                text += "<b><font color='" + categoryColor + "'>" + tag + "</font></b> &nbsp;<font color='" + msgColor + "'>" + log.message + "</font><br>"
-            }
+        let prefix = "[" + type + "] "
+        let lines = String(msg).split(/\r?\n/)
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].length > 0) logArea.text += prefix + lines[i] + "\n"
         }
-        logArea.text = text
-        // Scroll to bottom
         logScrollView.contentItem.contentY = Math.max(0, logArea.implicitHeight - logScrollView.height)
     }
 
@@ -184,41 +178,6 @@ Item {
             }
         }
 
-        // Log Tab Filters
-        RowLayout {
-            spacing: 10
-            Layout.fillWidth: true
-
-            Repeater {
-                model: ["ALL", "STREAMER", "INPUT"]
-                Button {
-                    text: modelData
-                    property bool isSelected: page.logFilter === modelData
-                    onClicked: {
-                        page.logFilter = modelData
-                        page.updateLogDisplay()
-                    }
-                    background: Rectangle {
-                        implicitWidth: 100
-                        implicitHeight: 32
-                        color: isSelected ? theme.accent : theme.surface
-                        border.color: isSelected ? theme.accent : theme.border
-                        radius: 6
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        color: theme.cardTextPrimary
-                        font.pixelSize: 11
-                        font.weight: Font.Bold
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                }
-            }
-            Item { Layout.fillWidth: true }
-        }
-
-        // Log Box Container
         Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -233,16 +192,15 @@ Item {
                 anchors.margins: 10
                 clip: true
 
-                TextArea {
+                TextEdit {
                     id: logArea
-                    textFormat: Text.RichText
+                    textFormat: TextEdit.PlainText
                     font.family: "Fira Code, JetBrains Mono, DejaVu Sans Mono, Consolas, monospace"
                     font.pixelSize: 12
                     color: theme.cardTextPrimary
                     readOnly: true
                     selectByMouse: true
-                    wrapMode: Text.WrapAnywhere
-                    background: null
+                    wrapMode: TextEdit.WrapAnywhere
                     leftPadding: 8
                     rightPadding: 8
                     topPadding: 8
@@ -251,6 +209,7 @@ Item {
                     onImplicitHeightChanged: {
                         logScrollView.contentItem.contentY = Math.max(0, implicitHeight - logScrollView.height)
                     }
+
                 }
             }
         }
@@ -366,7 +325,7 @@ Item {
             Button {
                 text: "⏹ Stop Streaming"
                 onClicked: {
-                    allLogs = []
+                    logArea.text = ""
                     backend.stopStreaming()
                 }
                 background: Rectangle {
@@ -428,17 +387,6 @@ Item {
                         }
                     }
                 }
-            }
-        }
-
-        CustomCheckBox {
-            id: trayCheck
-            text: "Minimize to tray on close"
-            Layout.alignment: Qt.AlignLeft
-            Layout.bottomMargin: 10
-            onCheckedChanged: {
-                if (!page.loadingSettings)
-                    backend.saveGeneralSettings(checked, page.enableTouch, page.enableStylusFeatures)
             }
         }
     }
@@ -641,12 +589,47 @@ Item {
                     onActivated: page.saveSecondDisplaySettings()
                 }
 
-                Text { text: "Bitrate (kbps):"; color: theme.cardTextSecondary; font.pixelSize: 13 }
-                CustomTextField {
-                    id: s2BitrateField
-                    text: "8000"
-                    maximumLength: 5
-                    onTextEdited: page.saveSecondDisplaySettings()
+                Text { text: "Bitrate (Mbps):"; color: theme.cardTextSecondary; font.pixelSize: 13 }
+                RowLayout {
+                    spacing: 10
+
+                    Slider {
+                        id: s2BitrateSlider
+                        from: 0.25
+                        to: 50
+                        stepSize: 0.25
+                        value: 8
+                        snapMode: Slider.SnapAlways
+                        Layout.preferredWidth: 180
+                        onMoved: page.setSecondBitrateMbps(value, true)
+                    }
+
+                    CustomTextField {
+                        id: s2BitrateField
+                        text: "8"
+                        maximumLength: 5
+                        validator: DoubleValidator {
+                            bottom: 0.25
+                            top: 100
+                            decimals: 2
+                            notation: DoubleValidator.StandardNotation
+                        }
+                        onTextEdited: {
+                            if (page.syncingSecondBitrate) return
+                            let mbps = parseFloat(text)
+                            if (!isNaN(mbps)) {
+                                s2BitrateSlider.value = Math.min(50, page.clampMbps(mbps))
+                                page.saveSecondDisplaySettings()
+                            }
+                        }
+                        onEditingFinished: page.setSecondBitrateMbps(parseFloat(text), true)
+                    }
+
+                    Text {
+                        text: "Mbps"
+                        color: theme.cardTextMuted
+                        font.pixelSize: 12
+                    }
                 }
 
                 Text { text: "Encoder:"; color: theme.cardTextSecondary; font.pixelSize: 13 }
@@ -698,7 +681,7 @@ Item {
                         backend.startSecondStream(
                             cleanRes,
                             s2FpsCombo.currentText,
-                            s2BitrateField.text,
+                            page.secondBitrateKbpsText(),
                             s2EncoderCombo.currentText
                         )
                         page.saveSecondDisplaySettings()

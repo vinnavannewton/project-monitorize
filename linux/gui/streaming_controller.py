@@ -67,6 +67,7 @@ class StreamingController(QObject):
         self.kde_ready_deadline = 0.0
         self.kde_ready_fallback_at = 0.0
         self.streamer_has_pipewire_node = False
+        self.kde_portal_terminal_error = False
         self.primary_ready = False
         self.runtime_general = None
         self.pending_third = None
@@ -388,6 +389,7 @@ class StreamingController(QObject):
         if not self.streaming or generation != self.generation:
             return
         self.streamer_has_pipewire_node = False
+        self.kde_portal_terminal_error = False
         self.streamer = self._new_process()
         process = self.streamer
         self.streamer.readyReadStandardOutput.connect(
@@ -589,16 +591,19 @@ class StreamingController(QObject):
                 self.env.insert("MONITORIZE_OUTPUT", output_name)
             self._set_status(f"KDE virtual display configured: {output_name}")
         elif "[ERROR] KDE virtual display configuration failed:" in line:
+            self.kde_portal_terminal_error = True
             self._set_status(line.split("failed:", 1)[1].strip())
         elif "[Portal] Got PipeWire node=" in line:
             self.streamer_has_pipewire_node = True
             self._set_status("KDE display selected; stream pipeline starting…")
             self._maybe_start_kde_portal_input(generation)
         elif "[ERROR] No streams" in line:
+            self.kde_portal_terminal_error = True
             self._set_status(
                 "KDE portal returned no display; the virtual display may have disappeared"
             )
         elif "Portal denied" in line:
+            self.kde_portal_terminal_error = True
             self._set_status("KDE portal selection was cancelled or denied")
 
     def _maybe_start_kde_portal_input(self, generation):
@@ -652,7 +657,14 @@ class StreamingController(QObject):
                 2000, lambda: self._restart_gnome(current_generation)
             )
         elif self.de == "kde" and code and self.streaming:
-            message = self.status or "KDE streaming setup failed — see logs"
+            if (
+                self._uses_kde_portal_virtual_source()
+                and not self.streamer_has_pipewire_node
+                and not self.kde_portal_terminal_error
+            ):
+                message = "KDE portal crashed while starting screen capture. Try again."
+            else:
+                message = self.status or "KDE streaming setup failed — see logs"
             self.stop()
             self._set_status(message)
 
@@ -751,6 +763,7 @@ class StreamingController(QObject):
         self.kde_ready_generation = self.kde_ready_process = None
         self.kde_output_baseline.clear()
         self.streamer_has_pipewire_node = False
+        self.kde_portal_terminal_error = False
         self._set_primary_ready(False)
         self.runtime_general = None
         self.pending_third = None

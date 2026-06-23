@@ -13,7 +13,7 @@ from PyQt6.QtCore import QCoreApplication, QProcess
 
 import pipeline_builder
 import portal_streamer
-from gui import kde_virtual_monitor, process_utils, settings
+from gui import app_log, autostart, kde_virtual_monitor, process_utils, settings
 from gui.discovery_service import DiscoveryService
 from gui.backend import MonitorizeBackend
 from gui.receiver_controller import ReceiverController
@@ -69,6 +69,7 @@ class DiscoveryServiceTest(unittest.TestCase):
             service.advertise("127.0.0.1", False, True)
         self.assertEqual(registered[0].properties["encrypted"], "0")
         self.assertEqual(registered[0].properties["third_available"], "1")
+
 
     def test_encrypted_advertisement_declares_udp_input_transport(self):
         registered = []
@@ -202,6 +203,78 @@ class DiscoveryServiceTest(unittest.TestCase):
         self.assertEqual(len(registered), 1)
 
 
+class AppLogTest(unittest.TestCase):
+    def test_log_is_persisted_immediately_with_private_permissions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "monitorize.log"
+            app_log.configure(path)
+            app_log.write("STREAMER", "first line\nsecond line")
+            content = path.read_text(encoding="utf-8")
+            self.assertIn("[STREAMER] first line", content)
+            self.assertIn("[STREAMER] second line", content)
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            app_log.close()
+
+
+class AutostartTest(unittest.TestCase):
+    def test_autostart_uses_installed_desktop_entry(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config_home = Path(directory) / "config"
+            data_home = Path(directory) / "data"
+            app_dir = data_home / "applications"
+            app_dir.mkdir(parents=True)
+            (app_dir / "monitorize.desktop").write_text(
+                "[Desktop Entry]\n"
+                "Type=Application\n"
+                "Name=Monitorize\n"
+                "Exec=/opt/monitorize/start\n"
+                "StartupNotify=true\n",
+                encoding="utf-8",
+            )
+            with patch.dict(os.environ, {
+                "XDG_CONFIG_HOME": str(config_home),
+                "XDG_DATA_HOME": str(data_home),
+            }):
+                self.assertEqual(autostart.set_enabled(True), "")
+                content = autostart.autostart_path().read_text(encoding="utf-8")
+                self.assertIn("Exec=/opt/monitorize/start --start-in-tray", content)
+                self.assertIn("StartupNotify=false", content)
+                self.assertIn("X-GNOME-Autostart-enabled=true", content)
+                self.assertTrue(autostart.is_enabled())
+                self.assertEqual(autostart.set_enabled(False), "")
+                self.assertFalse(autostart.autostart_path().exists())
+
+    def test_autostart_falls_back_when_installed_entry_is_missing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, {
+                "XDG_CONFIG_HOME": str(Path(directory) / "config"),
+                "XDG_DATA_HOME": str(Path(directory) / "data"),
+            }):
+                self.assertEqual(autostart.set_enabled(True), "")
+                content = autostart.autostart_path().read_text(encoding="utf-8")
+        self.assertIn("venv/bin/python3", content)
+        self.assertIn("monitorize_gui.py", content)
+        self.assertIn("--start-in-tray", content)
+
+    def test_autostart_disabled_entries_are_not_enabled(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, {"XDG_CONFIG_HOME": str(directory)}):
+                path = autostart.autostart_path()
+                path.parent.mkdir(parents=True)
+                path.write_text(
+                    "[Desktop Entry]\nExec=/bin/true\nHidden=true\n",
+                    encoding="utf-8",
+                )
+                self.assertFalse(autostart.is_enabled())
+                path.write_text(
+                    "[Desktop Entry]\n"
+                    "Exec=/bin/true\n"
+                    "X-GNOME-Autostart-enabled=false\n",
+                    encoding="utf-8",
+                )
+                self.assertFalse(autostart.is_enabled())
+
+
 class ValidationTest(unittest.TestCase):
     def test_empty_resolution_falls_back_without_crashing(self):
         self.assertEqual(sanitize_resolution(""), DEFAULT_PRIMARY_RESOLUTION)
@@ -321,7 +394,7 @@ class ReceiverControllerTest(unittest.TestCase):
                 })
                 loaded = settings.load_second_display_settings()
                 self.assertEqual(loaded["fps"], "60")
-                self.assertEqual(loaded["bitrate"], "500")
+                self.assertEqual(loaded["bitrate"], "250")
                 self.assertEqual(loaded["encoder"], "Software (CPU / x264enc)")
             finally:
                 settings.CONFIG_DIR, settings.CONFIG_FILE = old_dir, old_file
@@ -553,6 +626,46 @@ class StreamingControllerTest(unittest.TestCase):
             single_shot.assert_called_once()
         controller.env.insert.assert_called_with("MONITORIZE_OUTPUT", "Virtual-1")
 
+    def test_kde_portal_crash_before_pipewire_node_reports_retryable_error(self):
+        controller = StreamingController("kde", "10.0.0.1", Mock())
+        controller.streaming = True
+        controller.env = Mock()
+        controller.env.value.return_value = "4"
+        controller.streamer = process_mock()
+        with (
+            patch("gui.streaming_controller.stop_processes"),
+            patch("gui.streaming_controller.kill_tracked_pids"),
+            patch("gui.streaming_controller.kill_patterns"),
+        ):
+            controller._streamer_finished(
+                1, None, controller.generation, controller.streamer
+            )
+        self.assertFalse(controller.streaming)
+        self.assertEqual(
+            controller.status,
+            "KDE portal crashed while starting screen capture. Try again.",
+        )
+
+    def test_kde_portal_explicit_error_is_not_overwritten_on_exit(self):
+        controller = StreamingController("kde", "10.0.0.1", Mock())
+        controller.streaming = True
+        controller.env = Mock()
+        controller.env.value.return_value = "4"
+        controller.streamer = process_mock()
+        controller.kde_portal_terminal_error = True
+        controller.status = "KDE portal selection was cancelled or denied"
+        with (
+            patch("gui.streaming_controller.stop_processes"),
+            patch("gui.streaming_controller.kill_tracked_pids"),
+            patch("gui.streaming_controller.kill_patterns"),
+        ):
+            controller._streamer_finished(
+                1, None, controller.generation, controller.streamer
+            )
+        self.assertEqual(
+            controller.status, "KDE portal selection was cancelled or denied"
+        )
+
     def test_kde_legacy_virtual_mode_apply_runs_even_if_custom_mode_exists(self):
         controller = self.kde_controller()
         controller.env.value.return_value = ""
@@ -660,7 +773,7 @@ class StreamingControllerTest(unittest.TestCase):
             controller.start("bad", "nope", "-1", "Bogus", False)
         self.assertEqual((controller.width, controller.height), (1920, 1080))
         self.assertEqual(controller.fps, 60)
-        self.assertEqual(controller.bitrate, 500)
+        self.assertEqual(controller.bitrate, 250)
 
     def test_kde_streamer_waits_for_virtual_display_readiness(self):
         controller = self.kde_controller()
@@ -1119,6 +1232,9 @@ class PortalStreamerTest(unittest.TestCase):
     def test_prepares_virtual_output_before_opening_pipewire(self):
         events = []
         screen_cast = Mock()
+        screen_cast.CreateSession.return_value = "/request/create"
+        screen_cast.SelectSources.return_value = "/request/select"
+        screen_cast.Start.return_value = "/request/start"
         screen_cast.OpenPipeWireRemote.side_effect = lambda *_args: (
             events.append("open-pipewire")
             or Mock(take=Mock(return_value=9))
@@ -1138,9 +1254,11 @@ class PortalStreamerTest(unittest.TestCase):
 
         class FakeLoop:
             def run(self):
-                bus.callback(0, {"session_handle": "/session"})
-                bus.callback(0, {})
-                bus.callback(0, {"streams": [(42, {})]})
+                bus.callback(0, {"session_handle": "/ignored"}, path="/request/other")
+                bus.callback(0, {"session_handle": "/session"}, path="/request/create")
+                bus.callback(0, {"streams": [(99, {})]}, path="/request/other")
+                bus.callback(0, {}, path="/request/select")
+                bus.callback(0, {"streams": [(42, {})]}, path="/request/start")
 
             def is_running(self):
                 return False
@@ -1171,6 +1289,10 @@ class PortalStreamerTest(unittest.TestCase):
             patch("portal_streamer.GLib.MainLoop", return_value=FakeLoop()),
             patch("portal_streamer.threading.Thread", FakeThread),
             patch("portal_streamer.signal.signal"),
+            patch(
+                "portal_streamer.secrets.token_hex",
+                side_effect=["a1", "b2", "c3", "d4"],
+            ),
         ):
             portal_streamer.run_portal_streamer(
                 "KDE",
@@ -1192,6 +1314,17 @@ class PortalStreamerTest(unittest.TestCase):
             events.index("open-pipewire"),
             events.index("gstreamer-thread"),
         )
+        self.assertEqual(screen_cast.SelectSources.call_count, 1)
+        self.assertEqual(screen_cast.SelectSources.call_args.args[0], "/session")
+        self.assertEqual(screen_cast.Start.call_count, 1)
+        self.assertEqual(screen_cast.OpenPipeWireRemote.call_count, 1)
+        create_options = screen_cast.CreateSession.call_args.args[0]
+        select_options = screen_cast.SelectSources.call_args.args[1]
+        start_options = screen_cast.Start.call_args.args[2]
+        self.assertEqual(str(create_options["handle_token"]), "create_a1")
+        self.assertEqual(str(create_options["session_handle_token"]), "session_b2")
+        self.assertEqual(str(select_options["handle_token"]), "select_c3")
+        self.assertEqual(str(start_options["handle_token"]), "start_d4")
 
 
 class UsbControllerTest(unittest.TestCase):
@@ -1235,6 +1368,7 @@ class BackendFacadeTest(unittest.TestCase):
             "startStreaming", "stopStreaming", "connectToHost",
             "startHostDiscovery", "startUsbScan", "startSecondStream",
             "saveCurrentPreset", "launchPreset", "renamePreset", "deletePreset",
+            "isAutostartEnabled", "setAutostartEnabled",
         } <= methods)
         backend.network_timer.stop()
 
@@ -1282,6 +1416,148 @@ class BackendFacadeTest(unittest.TestCase):
             backend._finish_usb_preset_launch(True)
             start.assert_called_once()
         backend.network_timer.stop()
+
+    def test_preset_launch_does_not_override_global_tray_setting(self):
+        preset = {
+            "version": 1,
+            "name": "Desk",
+            "mode": "wifi",
+            "primary": {
+                "resolution": "1920x1200",
+                "fps": "60",
+                "bitrate": "8000",
+                "display_type": "Extend",
+                "encoder": "Software (CPU / x264enc)",
+            },
+            "wifi": {"stream_type": "Speed", "use_encryption": True},
+            "general": {
+                "minimize_to_tray": False,
+                "enable_touch": True,
+                "enable_stylus_features": False,
+            },
+            "third": {"enabled": False},
+        }
+        with (
+            patch("gui.backend.get_local_ip", return_value="127.0.0.1"),
+            patch("gui.backend.load_presets", return_value=[preset]),
+        ):
+            backend = MonitorizeBackend("kde")
+        with (
+            patch.object(backend.streaming, "start") as start,
+            patch(
+                "gui.backend.load_general_settings",
+                return_value={"minimize_to_tray": True},
+            ),
+        ):
+            backend.launchPreset(0)
+            start.assert_called_once()
+            self.assertTrue(backend.should_minimize_to_tray())
+        backend.network_timer.stop()
+
+    def test_backend_autostart_slots_delegate_to_helper(self):
+        with patch("gui.backend.get_local_ip", return_value="127.0.0.1"):
+            backend = MonitorizeBackend("kde")
+        with (
+            patch("gui.backend.autostart.is_enabled", return_value=True) as enabled,
+            patch("gui.backend.autostart.set_enabled", return_value="") as set_enabled,
+        ):
+            self.assertTrue(backend.isAutostartEnabled())
+            self.assertEqual(backend.setAutostartEnabled(False), "")
+        enabled.assert_called_once()
+        set_enabled.assert_called_once_with(False)
+        backend.network_timer.stop()
+
+    def test_start_in_tray_hides_initial_window_when_tray_is_available(self):
+        from gui.main_window import _show_initial_window
+
+        window = Mock()
+        window.tray = Mock()
+        with (
+            patch("gui.main_window.QSystemTrayIcon.isSystemTrayAvailable", return_value=True),
+            patch("gui.main_window.QApplication.setQuitOnLastWindowClosed") as set_quit,
+        ):
+            shown = _show_initial_window(window, True)
+        self.assertFalse(shown)
+        window.tray.show.assert_called_once()
+        window.show.assert_not_called()
+        set_quit.assert_called_once_with(False)
+
+    def test_start_in_tray_falls_back_when_tray_is_unavailable(self):
+        from gui.main_window import _show_initial_window
+
+        window = Mock()
+        window.tray = Mock()
+        with patch(
+            "gui.main_window.QSystemTrayIcon.isSystemTrayAvailable",
+            return_value=False,
+        ):
+            shown = _show_initial_window(window, True)
+        self.assertTrue(shown)
+        window.show.assert_called_once()
+        window.tray.show.assert_not_called()
+
+    def test_close_event_minimizes_to_tray_even_when_not_streaming(self):
+        from gui.main_window import MonitorizeWindow
+
+        window = Mock()
+        window.backend.should_minimize_to_tray.return_value = True
+        window.backend.isStreaming = False
+        window.tray = Mock()
+        event = Mock()
+        with patch(
+            "gui.main_window.QSystemTrayIcon.isSystemTrayAvailable",
+            return_value=True,
+        ):
+            MonitorizeWindow.closeEvent(window, event)
+        event.ignore.assert_called_once()
+        event.accept.assert_not_called()
+        window.hide.assert_called_once()
+        window.tray.show.assert_called_once()
+        window._quit_app.assert_not_called()
+
+    def test_close_event_minimizes_to_tray_while_streaming(self):
+        from gui.main_window import MonitorizeWindow
+
+        window = Mock()
+        window.backend.should_minimize_to_tray.return_value = True
+        window.backend.isStreaming = True
+        window.tray = Mock()
+        event = Mock()
+        with patch(
+            "gui.main_window.QSystemTrayIcon.isSystemTrayAvailable",
+            return_value=True,
+        ):
+            MonitorizeWindow.closeEvent(window, event)
+        event.ignore.assert_called_once()
+        window.hide.assert_called_once()
+        window.tray.show.assert_called_once()
+        window._quit_app.assert_not_called()
+
+    def test_close_event_quits_when_minimize_to_tray_is_disabled(self):
+        from gui.main_window import MonitorizeWindow
+
+        window = Mock()
+        window.backend.should_minimize_to_tray.return_value = False
+        event = Mock()
+        MonitorizeWindow.closeEvent(window, event)
+        window._quit_app.assert_called_once()
+        event.accept.assert_called_once()
+        event.ignore.assert_not_called()
+
+    def test_close_event_quits_when_tray_is_unavailable(self):
+        from gui.main_window import MonitorizeWindow
+
+        window = Mock()
+        window.backend.should_minimize_to_tray.return_value = True
+        event = Mock()
+        with patch(
+            "gui.main_window.QSystemTrayIcon.isSystemTrayAvailable",
+            return_value=False,
+        ):
+            MonitorizeWindow.closeEvent(window, event)
+        window._quit_app.assert_called_once()
+        event.accept.assert_called_once()
+        event.ignore.assert_not_called()
 
     def test_save_current_preset_replaces_selected_slot(self):
         existing = {
