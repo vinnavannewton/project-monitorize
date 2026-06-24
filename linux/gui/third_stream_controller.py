@@ -1,15 +1,10 @@
 """KDE third-display stream lifecycle."""
 
 import os
-import secrets
 import sys
 
 from PyQt6.QtCore import QObject, QProcess, QProcessEnvironment, QTimer, pyqtSignal
 
-from gui.kde_virtual_monitor import (
-    ensure_krfb_virtualmonitor_desktop_entry,
-    should_use_legacy_krfb,
-)
 from gui.process_utils import kill_patterns, kill_tracked_pids, stop_processes
 from gui.utils import LINUX_DIR
 from gui.validation import (
@@ -31,7 +26,6 @@ class ThirdStreamController(QObject):
         super().__init__(parent)
         self.active = False
         self.ready = False
-        self.krfb = None
         self.streamer = None
         self.gst_pids = set()
         self.encrypted = False
@@ -68,36 +62,12 @@ class ThirdStreamController(QObject):
         self.logAppended.emit(
             "STREAMER", f"[Third display] Spawning virtual monitor: {width}x{height}"
         )
-        if should_use_legacy_krfb(
-            lambda message: self.logAppended.emit(
-                "STREAMER", f"[Third display KRFB] {message}"
-            )
-        ):
-            alias_message = ensure_krfb_virtualmonitor_desktop_entry()
-            if alias_message:
-                self.logAppended.emit("STREAMER", f"[Third display KRFB] {alias_message}")
-            self.krfb = QProcess(self)
-            self.krfb.setWorkingDirectory(LINUX_DIR)
-            self.krfb.setProcessEnvironment(self.env)
-            self.krfb.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
-            krfb = self.krfb
-            self.krfb.readyReadStandardOutput.connect(
-                lambda: self._read_krfb(generation, krfb)
-            )
-            self.krfb.start("krfb-virtualmonitor", [
-                "--resolution", f"{width}x{height}",
-                "--name", "TabletDisplay2",
-                "--password", secrets.token_urlsafe(6),
-                "--port", "5901",
-            ])
-            QTimer.singleShot(5000, lambda: self._launch_streamer(generation))
-        else:
-            self.env.insert("MONITORIZE_PORTAL_SOURCE_TYPE", "4")
-            self.env.insert(
-                "MONITORIZE_PORTAL_SELECTOR_HINT",
-                "KDE will create a second virtual monitor for Monitorize.",
-            )
-            QTimer.singleShot(0, lambda: self._launch_streamer(generation))
+        self.env.insert("MONITORIZE_PORTAL_SOURCE_TYPE", "4")
+        self.env.insert(
+            "MONITORIZE_PORTAL_SELECTOR_HINT",
+            "KDE will create a second virtual monitor for Monitorize.",
+        )
+        QTimer.singleShot(0, lambda: self._launch_streamer(generation))
 
     def _launch_streamer(self, generation=None):
         generation = self.generation if generation is None else generation
@@ -124,14 +94,6 @@ class ThirdStreamController(QObject):
             "[Third display] Streamer launched on port 7114. "
             "Select 'TabletDisplay2' in the KDE picker.",
         )
-
-    def _read_krfb(self, generation=None, process=None):
-        generation = self.generation if generation is None else generation
-        process = self.krfb if process is None else process
-        if generation != self.generation or process is not self.krfb:
-            return
-        raw = bytes(process.readAllStandardOutput()).decode("utf-8", errors="replace")
-        self.logAppended.emit("STREAMER", f"[Third display KRFB] {raw}")
 
     def _read_streamer(self, generation=None, process=None):
         generation = self.generation if generation is None else generation
@@ -171,8 +133,8 @@ class ThirdStreamController(QObject):
 
     def stop(self):
         self.generation += 1
-        stop_processes(self.krfb, self.streamer)
-        self.krfb = self.streamer = None
+        stop_processes(self.streamer)
+        self.streamer = None
         kill_tracked_pids(self.gst_pids)
         kill_patterns("gst-launch-1.0.*port=7114", "gst-launch-1.0.*port=7115")
         was_active = self.active
