@@ -93,11 +93,12 @@ class DiscoveryServiceTest(unittest.TestCase):
         fake_module = types.SimpleNamespace(
             ServiceInfo=FakeInfo, Zeroconf=FakeZeroconf
         )
+        fake_tls_proxy = types.SimpleNamespace(certificate_fingerprint=lambda: "FP")
         service = DiscoveryService()
-        with (
-            patch.dict(sys.modules, {"zeroconf": fake_module}),
-            patch("tls_proxy.certificate_fingerprint", return_value="FP"),
-        ):
+        with patch.dict(sys.modules, {
+            "zeroconf": fake_module,
+            "tls_proxy": fake_tls_proxy,
+        }):
             service.advertise("127.0.0.1", True, False)
         self.assertEqual(registered[0].properties["input_transport"], "udp-aesgcm-v1")
 
