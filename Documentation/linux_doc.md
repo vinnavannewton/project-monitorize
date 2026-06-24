@@ -39,7 +39,7 @@ Important components:
 | --- | --- |
 | `monitorize_gui.py` | Application entry point. |
 | `gui/streaming_controller.py` | Stream, virtual-display, TLS, input, and process lifecycle. |
-| `gui/kde_virtual_monitor.py` | KDE version detection, legacy KRFB compatibility, and safe KScreen mode configuration. |
+| `gui/kde_virtual_monitor.py` | KDE portal virtual-output detection and safe KScreen mode configuration. |
 | `Streamer_kde.py` | KDE ScreenCast portal capture. |
 | `portal_streamer.py` | Shared XDG ScreenCast portal session and PipeWire stream handling. |
 | `pipeline_builder.py` | CPU, VA-API, or NVENC GStreamer pipeline launch. |
@@ -129,13 +129,11 @@ Use a preset card's menu to rename or delete it. When four presets already exist
 
 ## KDE Plasma Virtual Displays
 
-Monitorize uses different Extend-mode paths before and after KDE Plasma 6.7 because the old `krfb-virtualmonitor` path is not reliable on KDE 6.7.
+Monitorize supports KDE Plasma 6.7+ for Extend mode. KDE uses the XDG ScreenCast portal's virtual-source type (`AvailableSourceTypes` bit `4`) to create the virtual display.
 
 Mirror mode continues to use the normal portal source picker and does not create a virtual display.
 
-### KDE Plasma 6.7 and newer
-
-KDE 6.7+ uses the XDG ScreenCast portal's virtual-source type (`AvailableSourceTypes` bit `4`):
+### KDE Extend Flow
 
 1. Monitorize snapshots the names of all connected and enabled KScreen outputs.
 2. It opens the KDE ScreenCast portal with source type `4`.
@@ -159,49 +157,6 @@ The active mode is selected using the mode ID returned by `kscreen-doctor -j`. S
 The KDE 6.7+ path deliberately does **not** issue any scale or rotation command. This prevents Monitorize from accidentally resetting the primary monitor's fractional scale. Existing primary-display scale, virtual-display scale, rotation, and arrangement remain KWin/KScreen-owned.
 
 If Monitorize cannot identify exactly one safe new virtual output, it does not modify any display. In particular, it must never apply a mode or scale command to outputs such as `eDP-1`, `DP-*`, or `HDMI-*`.
-
-### KDE Plasma older than 6.7
-
-KDE versions below 6.7 retain the legacy KRFB compatibility path:
-
-1. Monitorize starts `krfb-virtualmonitor` with the stable name `monitorize`.
-2. It waits for `Virtual-monitorize` to become visible.
-3. It registers the requested custom mode.
-4. It selects `<WIDTH>x<HEIGHT>@<FPS>`.
-5. It applies scale `1.0` only to `Virtual-monitorize`.
-6. The ScreenCast portal then captures that virtual display.
-
-The legacy path keeps the KRFB process alive for the stream lifetime and stops only the tracked process during cleanup.
-
-Some distributions install `org.kde.krfb.virtualmonitor.desktop` while KRFB registers as `org.kde.krfb-virtualmonitor`. Monitorize creates a user-local compatibility desktop entry when required and refreshes KDE's service cache.
-
-### KDE path selection and overrides
-
-Monitorize detects the KDE version using `kwin_wayland --version`, then falls back to `plasmashell --version`.
-
-| Condition | Selected path |
-| --- | --- |
-| KDE `>= 6.7.0` | Portal-created virtual screen |
-| KDE `< 6.7.0` | Legacy `krfb-virtualmonitor` |
-| Version unknown and portal supports virtual sources | Portal-created virtual screen |
-| Version unknown without virtual-source support | Legacy KRFB |
-
-Development overrides:
-
-| Variable | Effect |
-| --- | --- |
-| `MONITORIZE_KDE_FORCE_PORTAL=1` | Forces the portal-created virtual-screen path. |
-| `MONITORIZE_KDE_USE_KRFB=1` | Forces legacy KRFB and logs a warning on KDE 6.7+. |
-
-Forced KRFB on KDE 6.7+ may fail with messages such as:
-
-```text
-Failed to register with host portal
-interface 'zkde_screencast_stream_unstable_v1' has no event 3
-The Wayland connection experienced a fatal error
-```
-
-These errors indicate the incompatible legacy path; use the default portal flow instead.
 
 ## Other Desktop Environments
 
@@ -243,7 +198,7 @@ Useful environment variables:
 | `MONITORIZE_ENCODER` | Selects `cpu`, `vaapi`, or `nvidia`. |
 | `MONITORIZE_STREAM_TYPE` | Selects the speed or stability stream profile. |
 | `MONITORIZE_PRESERVE_SOURCE_SIZE` | Allows supported Extend sessions to renegotiate after display rotation. |
-| `MONITORIZE_PORTAL_SOURCE_TYPE` | Internal KDE portal source type; KDE 6.7+ Extend uses `4`. |
+| `MONITORIZE_PORTAL_SOURCE_TYPE` | Internal KDE portal source type; KDE Extend uses `4`. |
 
 ## Input
 
