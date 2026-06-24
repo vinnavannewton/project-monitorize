@@ -88,10 +88,10 @@ sudo dnf install -y \
 
 ### KDE Plasma:
 
-KDE requires `krfb` to create the virtual monitor output:
+KDE support requires Plasma 6.7+ and KScreen tools for virtual output mode configuration:
 
 ```bash
-sudo dnf install -y krfb
+sudo dnf install -y kscreen
 ```
 
 #### Stylus input permission (for `Enable Stylus Features`)
@@ -213,8 +213,10 @@ sudo pacman -S --needed \
 
 ### KDE Plasma:
 
+KDE support requires Plasma 6.7+ and KScreen tools for virtual output mode configuration:
+
 ```bash
-sudo pacman -S --needed krfb
+sudo pacman -S --needed kscreen
 ```
 
 #### Stylus input permission (for `Enable Stylus Features`)
@@ -350,8 +352,10 @@ sudo apt install -y \
 
 ### KDE Plasma:
 
+KDE support requires Plasma 6.7+ and KScreen tools for virtual output mode configuration:
+
 ```bash
-sudo apt install -y krfb kscreen
+sudo apt install -y kscreen
 ```
 
 #### Stylus input permission (for `Enable Stylus Features`)
