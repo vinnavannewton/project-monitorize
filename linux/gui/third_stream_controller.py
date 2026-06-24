@@ -16,6 +16,7 @@ from gui.validation import (
     DEFAULT_SECONDARY_RESOLUTION,
     sanitize_bitrate,
     sanitize_encoder,
+    sanitize_encoder_profile,
     sanitize_fps,
     sanitize_resolution,
 )
@@ -35,8 +36,9 @@ class ThirdStreamController(QObject):
         self.gst_pids = set()
         self.encrypted = False
         self.generation = 0
+        self.encoder_profile = "Low Latency"
 
-    def start(self, res, fps, bitrate, encoder, encrypted):
+    def start(self, res, fps, bitrate, encoder, encoder_profile, encrypted):
         if self.active:
             return
         self.generation += 1
@@ -46,6 +48,7 @@ class ThirdStreamController(QObject):
         self.width, self.height = width, height
         self.fps, self.bitrate = sanitize_fps(fps), sanitize_bitrate(bitrate)
         encoder = sanitize_encoder(encoder)
+        self.encoder_profile = sanitize_encoder_profile(encoder_profile)
         self.encoder = encoder
         self.encrypted = encrypted
         self.env = QProcessEnvironment.systemEnvironment()
@@ -54,6 +57,7 @@ class ThirdStreamController(QObject):
             "NVIDIA NVENC (nvh264enc)": "nvidia",
             "Intel/AMD VA-API (vah264enc)": "vaapi",
         }.get(encoder, "cpu"))
+        self.env.insert("MONITORIZE_ENCODER_PROFILE", self.encoder_profile)
         if encrypted:
             self.env.insert("MONITORIZE_HOST", "127.0.0.1")
             self.env.insert("MONITORIZE_PORT", "7115")

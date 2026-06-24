@@ -1,5 +1,6 @@
 import json
 import os
+import signal
 import sys
 import socket
 import tempfile
@@ -20,7 +21,11 @@ from gui.receiver_controller import ReceiverController
 from gui.streaming_controller import StreamingController
 from gui.third_stream_controller import ThirdStreamController
 from gui.usb_controller import UsbController
-from gui.validation import DEFAULT_PRIMARY_RESOLUTION, sanitize_resolution
+from gui.validation import (
+    DEFAULT_PRIMARY_RESOLUTION,
+    sanitize_encoder_profile,
+    sanitize_resolution,
+)
 
 
 app = QCoreApplication.instance() or QCoreApplication(sys.argv)
@@ -280,6 +285,9 @@ class ValidationTest(unittest.TestCase):
         self.assertEqual(sanitize_resolution(""), DEFAULT_PRIMARY_RESOLUTION)
         self.assertEqual(sanitize_resolution("   "), DEFAULT_PRIMARY_RESOLUTION)
 
+    def test_encoder_profile_defaults_to_low_latency(self):
+        self.assertEqual(sanitize_encoder_profile("Bogus"), "Low Latency")
+
 
 class ReceiverControllerTest(unittest.TestCase):
     def test_pipeline_keeps_low_latency_queue_and_selected_decoder(self):
@@ -391,11 +399,13 @@ class ReceiverControllerTest(unittest.TestCase):
                     "fps": "nope",
                     "bitrate": "-1",
                     "encoder": "Bogus",
+                    "encoder_profile": "Bogus",
                 })
                 loaded = settings.load_second_display_settings()
                 self.assertEqual(loaded["fps"], "60")
                 self.assertEqual(loaded["bitrate"], "250")
                 self.assertEqual(loaded["encoder"], "Software (CPU / x264enc)")
+                self.assertEqual(loaded["encoder_profile"], "Low Latency")
             finally:
                 settings.CONFIG_DIR, settings.CONFIG_FILE = old_dir, old_file
 
@@ -417,6 +427,7 @@ class ReceiverControllerTest(unittest.TestCase):
                             "bitrate": "14000",
                             "display_type": "Extend",
                             "encoder": "Intel/AMD VA-API (vah264enc)",
+                            "encoder_profile": "Balanced",
                         },
                         "wifi": {
                             "stream_type": "Speed",
@@ -433,6 +444,7 @@ class ReceiverControllerTest(unittest.TestCase):
                 loaded = settings.load_presets()
                 self.assertEqual(len(loaded), 4)
                 self.assertEqual(loaded[0]["name"], "Preset 0")
+                self.assertEqual(loaded[0]["primary"]["encoder_profile"], "Balanced")
                 self.assertTrue(loaded[0]["wifi"]["use_encryption"])
                 self.assertTrue(loaded[0]["general"]["minimize_to_tray"])
             finally:
@@ -509,6 +521,46 @@ class StreamingControllerTest(unittest.TestCase):
         discovery.stop_advertising.assert_called_once()
         self.assertFalse(controller.streaming)
 
+    def test_kde_portal_stop_waits_longer_and_skips_hard_kill_when_clean(self):
+        discovery = Mock()
+        controller = StreamingController("kde", "10.0.0.1", discovery)
+        controller.streaming = True
+        controller.env = Mock()
+        controller.env.value.return_value = "4"
+        controller.streamer = process_mock()
+        controller.input_bridge = process_mock()
+        controller.gst_pids = {12345}
+        with (
+            patch("gui.streaming_controller.stop_processes", return_value=True) as stop,
+            patch("gui.streaming_controller.kill_tracked_pids") as kill_pids,
+            patch("gui.streaming_controller.kill_patterns") as kill_patterns_mock,
+            patch.object(controller.third, "stop"),
+            patch.object(controller.display, "cleanup"),
+        ):
+            controller.stop()
+        self.assertEqual(stop.call_args_list[0].kwargs, {"timeout_ms": 8000})
+        kill_pids.assert_not_called()
+        kill_patterns_mock.assert_not_called()
+        self.assertEqual(controller.gst_pids, set())
+        discovery.stop_advertising.assert_called_once()
+
+    def test_kde_portal_stop_hard_kills_when_graceful_stop_fails(self):
+        controller = StreamingController("kde", "10.0.0.1", Mock())
+        controller.streaming = True
+        controller.env = Mock()
+        controller.env.value.return_value = "4"
+        controller.streamer = process_mock()
+        controller.gst_pids = {12345}
+        with (
+            patch("gui.streaming_controller.stop_processes", return_value=False),
+            patch("gui.streaming_controller.kill_tracked_pids") as kill_pids,
+            patch("gui.streaming_controller.kill_patterns"),
+            patch.object(controller.third, "stop"),
+            patch.object(controller.display, "cleanup"),
+        ):
+            controller.stop()
+        kill_pids.assert_called_once_with({12345})
+
     def test_stale_delayed_input_start_is_ignored(self):
         controller = StreamingController("kde", "10.0.0.1", Mock())
         controller.streaming = True
@@ -559,13 +611,15 @@ class StreamingControllerTest(unittest.TestCase):
         with patch.object(controller, "start_third") as start:
             controller._set_primary_ready(True)
         start.assert_called_once_with(
-            "1920x1080", "60", "8000", "Software (CPU / x264enc)"
+            "1920x1080", "60", "8000", "Software (CPU / x264enc)",
+            "Low Latency",
         )
         self.assertIsNone(controller.pending_third)
 
     def test_active_configuration_includes_running_third_display(self):
         controller = self.kde_controller()
         controller.encoder = "Intel/AMD VA-API (vah264enc)"
+        controller.encoder_profile = "Balanced"
         controller.env.value.return_value = "Speed"
         controller.runtime_general = {
             "minimize_to_tray": True,
@@ -578,10 +632,13 @@ class StreamingControllerTest(unittest.TestCase):
         controller.third.fps = 60
         controller.third.bitrate = 6000
         controller.third.encoder = "Software (CPU / x264enc)"
+        controller.third.encoder_profile = "Quality"
         config = controller.active_configuration()
         self.assertEqual(config["primary"]["resolution"], "1920x1200")
+        self.assertEqual(config["primary"]["encoder_profile"], "Balanced")
         self.assertEqual(config["wifi"]["stream_type"], "Speed")
         self.assertEqual(config["third"]["resolution"], "1280x800")
+        self.assertEqual(config["third"]["encoder_profile"], "Quality")
         self.assertTrue(config["general"]["enable_stylus_features"])
 
     def test_stale_streamer_exit_does_not_restart_gnome(self):
@@ -703,11 +760,15 @@ class StreamingControllerTest(unittest.TestCase):
     def test_invalid_stream_settings_are_sanitized_before_start(self):
         controller = StreamingController("sway", "10.0.0.1", Mock())
         with patch.object(controller, "_prepare_display"):
-            controller.start("1x99999", "bad", "nope", "Bogus", "Bogus", False)
+            controller.start(
+                "1x99999", "bad", "nope", "Bogus", "Bogus",
+                "Bogus", False,
+            )
         self.assertEqual((controller.width, controller.height), (320, 4320))
         self.assertEqual(controller.fps, 60)
         self.assertEqual(controller.bitrate, 8000)
         self.assertEqual(controller.display_type, "Extend")
+        self.assertEqual(controller.encoder_profile, "Low Latency")
 
     def test_start_does_not_emit_false_when_already_stopped(self):
         controller = StreamingController("sway", "10.0.0.1", Mock())
@@ -721,8 +782,27 @@ class StreamingControllerTest(unittest.TestCase):
             patch.object(controller.display, "cleanup"),
             patch.object(controller, "_prepare_display"),
         ):
-            controller.start("1280x800", "60", "8000", "Extend", "Software", False)
+            controller.start(
+                "1280x800", "60", "8000", "Extend", "Software",
+                "Low Latency", False,
+            )
         self.assertEqual(events, [True])
+
+    def test_stream_start_sets_encoder_profile_environment(self):
+        controller = StreamingController("sway", "10.0.0.1", Mock())
+        with (
+            patch("gui.streaming_controller.stop_processes"),
+            patch("gui.streaming_controller.kill_patterns"),
+            patch("gui.streaming_controller.kill_tracked_pids"),
+            patch.object(controller.third, "stop"),
+            patch.object(controller.display, "cleanup"),
+            patch.object(controller, "_prepare_display"),
+        ):
+            controller.start(
+                "1280x800", "60", "8000", "Extend", "Software",
+                "Balanced", False,
+            )
+        self.assertEqual(controller.env.value("MONITORIZE_ENCODER_PROFILE"), "Balanced")
 
     def test_kde_extend_start_uses_portal_virtual_source(self):
         controller = StreamingController("kde", "10.0.0.1", Mock())
@@ -737,7 +817,10 @@ class StreamingControllerTest(unittest.TestCase):
             patch.object(controller, "_use_legacy_kde_krfb", return_value=False),
             patch.object(controller, "_launch_streamer") as launch,
         ):
-            controller.start("1280x800", "60", "8000", "Extend", "Software", False)
+            controller.start(
+                "1280x800", "60", "8000", "Extend", "Software",
+                "Low Latency", False,
+            )
         self.assertEqual(events, [True])
         self.assertTrue(controller.streaming)
         controller.env.value("MONITORIZE_PORTAL_SOURCE_TYPE")
@@ -757,7 +840,10 @@ class StreamingControllerTest(unittest.TestCase):
             patch("gui.streaming_controller.QProcess", return_value=krfb),
             patch.object(controller, "_launch_streamer") as launch,
         ):
-            controller.start("1280x800", "60", "8000", "Extend", "Software", False)
+            controller.start(
+                "1280x800", "60", "8000", "Extend", "Software",
+                "Low Latency", False,
+            )
         launch.assert_not_called()
         args = krfb.start.call_args.args[1]
         self.assertEqual(args[args.index("--name") + 1], "monitorize")
@@ -770,10 +856,11 @@ class StreamingControllerTest(unittest.TestCase):
             patch("gui.third_stream_controller.QProcess", return_value=process),
             patch("gui.third_stream_controller.QTimer.singleShot"),
         ):
-            controller.start("bad", "nope", "-1", "Bogus", False)
+            controller.start("bad", "nope", "-1", "Bogus", "Bogus", False)
         self.assertEqual((controller.width, controller.height), (1920, 1080))
         self.assertEqual(controller.fps, 60)
         self.assertEqual(controller.bitrate, 250)
+        self.assertEqual(controller.encoder_profile, "Low Latency")
 
     def test_kde_streamer_waits_for_virtual_display_readiness(self):
         controller = self.kde_controller()
@@ -1188,6 +1275,62 @@ class KdeVirtualMonitorCompatTest(unittest.TestCase):
 
 
 class PipelineBuilderTest(unittest.TestCase):
+    def _pipeline_text(self, **kwargs):
+        argv = pipeline_builder.build_pipeline(
+            pw_fd=None,
+            node_id=42,
+            width=1280,
+            height=800,
+            fps=60,
+            bitrate=8000,
+            port=7110,
+            **kwargs,
+        )
+        return " ".join(argv)
+
+    def test_low_latency_encoder_profile_keeps_current_nvenc_settings(self):
+        text = self._pipeline_text(
+            hw_encoder="nvh264enc", encoder_profile="Low Latency"
+        )
+        self.assertIn("preset=p1", text)
+        self.assertIn("tune=ultra-low-latency", text)
+        self.assertIn("rc-lookahead=0", text)
+        self.assertIn("bframes=0", text)
+
+    def test_balanced_and_quality_cpu_profiles_change_speed_preset(self):
+        balanced = self._pipeline_text(encoder_profile="Balanced")
+        quality = self._pipeline_text(encoder_profile="Quality")
+        self.assertIn("speed-preset=superfast", balanced)
+        self.assertIn("ref=1", balanced)
+        self.assertIn("speed-preset=veryfast", quality)
+        self.assertIn("ref=2", quality)
+        self.assertIn("bframes=0", quality)
+
+    def test_balanced_and_quality_nvenc_profiles_change_preset_only(self):
+        balanced = self._pipeline_text(
+            hw_encoder="nvh264enc", encoder_profile="Balanced"
+        )
+        quality = self._pipeline_text(
+            hw_encoder="nvh264enc", encoder_profile="Quality"
+        )
+        self.assertIn("preset=p3", balanced)
+        self.assertIn("preset=p5", quality)
+        self.assertIn("rc-lookahead=0", quality)
+        self.assertIn("bframes=0", quality)
+
+    def test_balanced_and_quality_vaapi_profiles_change_usage(self):
+        balanced = self._pipeline_text(
+            hw_encoder="vah264enc", wifi_mode=True, encoder_profile="Balanced"
+        )
+        quality = self._pipeline_text(
+            hw_encoder="vah264enc", wifi_mode=True, encoder_profile="Quality"
+        )
+        self.assertIn("target-usage=5", balanced)
+        self.assertIn("cabac=true", balanced)
+        self.assertIn("target-usage=3", quality)
+        self.assertIn("ref-frames=2", quality)
+        self.assertIn("b-frames=0", quality)
+
     def test_launch_uses_argv_without_shell(self):
         proc = Mock()
         proc.pid = 123
@@ -1326,6 +1469,92 @@ class PortalStreamerTest(unittest.TestCase):
         self.assertEqual(str(select_options["handle_token"]), "select_c3")
         self.assertEqual(str(start_options["handle_token"]), "start_d4")
 
+    def test_cleanup_closes_portal_session_before_stopping_gstreamer(self):
+        events = []
+        handlers = {}
+        screen_cast = Mock()
+        screen_cast.CreateSession.return_value = "/request/create"
+        screen_cast.SelectSources.return_value = "/request/select"
+        screen_cast.Start.return_value = "/request/start"
+        screen_cast.OpenPipeWireRemote.return_value = Mock(take=Mock(return_value=9))
+
+        class FakeBus:
+            callback = None
+
+            def get_object(self, _service, _path):
+                return Mock()
+
+            def add_signal_receiver(self, callback, **_kwargs):
+                self.callback = callback
+
+        bus = FakeBus()
+
+        class FakeLoop:
+            def run(self):
+                bus.callback(0, {"session_handle": "/session"}, path="/request/create")
+                bus.callback(0, {}, path="/request/select")
+                bus.callback(0, {"streams": [(42, {})]}, path="/request/start")
+
+            def is_running(self):
+                return False
+
+            def quit(self):
+                pass
+
+        class FakeThread:
+            def __init__(self, target, args=(), daemon=False):
+                self.target = target
+                self.args = args
+
+            def start(self):
+                self.target(*self.args)
+
+        class FakeGst:
+            returncode = 0
+
+            def poll(self):
+                return None
+
+            def terminate(self):
+                events.append("gst-terminate")
+
+            def wait(self, *args, **kwargs):
+                if "timeout" not in kwargs:
+                    events.append("stream-wait")
+                    handlers[signal.SIGTERM]()
+                else:
+                    events.append("gst-wait-timeout")
+                return 0
+
+            def kill(self):
+                events.append("gst-kill")
+
+        session_interface = Mock()
+        session_interface.Close.side_effect = lambda: events.append("session-close")
+
+        def fake_interface(_object, interface_name):
+            if interface_name == "org.freedesktop.portal.ScreenCast":
+                return screen_cast
+            return session_interface
+
+        with (
+            patch("portal_streamer.DBusGMainLoop"),
+            patch("portal_streamer.dbus.SessionBus", return_value=bus),
+            patch("portal_streamer.dbus.Interface", side_effect=fake_interface),
+            patch("portal_streamer.GLib.MainLoop", return_value=FakeLoop()),
+            patch("portal_streamer.GLib.idle_add"),
+            patch("portal_streamer.threading.Thread", FakeThread),
+            patch("portal_streamer.signal.signal", side_effect=lambda sig, fn: handlers.setdefault(sig, fn)),
+            patch("portal_streamer.launch_with_fallback", return_value=FakeGst()),
+        ):
+            portal_streamer.run_portal_streamer(
+                "KDE", "Create virtual screen", 1920, 1200, 60, 8000,
+                "wifi", 7110, "vah264enc", "127.0.0.1", source_type=4,
+            )
+
+        self.assertLess(events.index("session-close"), events.index("gst-terminate"))
+        self.assertNotIn("gst-kill", events)
+
 
 class UsbControllerTest(unittest.TestCase):
     def test_adb_sequence_preserves_video_and_touch_forwarding(self):
@@ -1393,6 +1622,7 @@ class BackendFacadeTest(unittest.TestCase):
                 "bitrate": "8000",
                 "display_type": "Extend",
                 "encoder": "Software (CPU / x264enc)",
+                "encoder_profile": "Quality",
             },
             "general": {
                 "minimize_to_tray": False,
@@ -1415,6 +1645,7 @@ class BackendFacadeTest(unittest.TestCase):
             start.assert_not_called()
             backend._finish_usb_preset_launch(True)
             start.assert_called_once()
+            self.assertEqual(start.call_args.args[5], "Quality")
         backend.network_timer.stop()
 
     def test_preset_launch_does_not_override_global_tray_setting(self):
@@ -1428,6 +1659,7 @@ class BackendFacadeTest(unittest.TestCase):
                 "bitrate": "8000",
                 "display_type": "Extend",
                 "encoder": "Software (CPU / x264enc)",
+                "encoder_profile": "Balanced",
             },
             "wifi": {"stream_type": "Speed", "use_encryption": True},
             "general": {
@@ -1451,6 +1683,7 @@ class BackendFacadeTest(unittest.TestCase):
         ):
             backend.launchPreset(0)
             start.assert_called_once()
+            self.assertEqual(start.call_args.args[5], "Balanced")
             self.assertTrue(backend.should_minimize_to_tray())
         backend.network_timer.stop()
 

@@ -1,5 +1,7 @@
 package com.example.monitorize
 
+import android.os.SystemClock
+import android.util.Log
 import android.view.InputDevice
 import android.view.MotionEvent
 import java.io.OutputStream
@@ -35,6 +37,7 @@ class InputEventSender(
     private val portUdp = hostPort + 3
 
     companion object {
+        private const val TAG = "InputEventSender"
         private const val HOST = "127.0.0.1"
         private const val PKT_TOUCH: Byte = 0x03
         private const val PKT_PEN_EXT: Byte = 0x05
@@ -61,6 +64,7 @@ class InputEventSender(
         private const val UDP_HEADER_SIZE = 21
         private const val UDP_KEY_CONTEXT = "Monitorize UDP input v1\u0000"
         private const val UDP_KEY_ID_CONTEXT = "Monitorize UDP input key id v1\u0000"
+        private const val TIMING_LOG_INTERVAL_MS = 1000L
     }
 
     @Volatile private var socket: Socket? = null
@@ -73,6 +77,12 @@ class InputEventSender(
     private val pendingFrames = ArrayDeque<ByteArray>()
     private val activeContactFrames = LinkedHashMap<FrameKey, ByteArray>()
     private val sendWake = Channel<Unit>(Channel.CONFLATED)
+    private var timingCount = 0
+    private var timingTotalAgeMs = 0L
+    private var timingMaxAgeMs = 0L
+    private var timingLastAgeMs = 0L
+    private var timingLastPacket = ""
+    private var timingLastLogMs = 0L
 
     private data class FrameKey(val packetType: Byte, val tool: Byte, val contactId: Byte)
 
@@ -88,6 +98,40 @@ class InputEventSender(
     private fun isRequiredFrame(frame: ByteArray): Boolean {
         val action = frameAction(frame)
         return action == ACTION_DOWN_WIRE || action == ACTION_UP_WIRE
+    }
+
+    private fun recordTiming(
+        event: MotionEvent,
+        packetType: Byte,
+        tool: Byte,
+        action: Int,
+        contactId: Byte
+    ) {
+        if (!Log.isLoggable(TAG, Log.DEBUG)) return
+        val now = SystemClock.uptimeMillis()
+        val ageMs = (now - event.eventTime).coerceAtLeast(0)
+        timingCount += 1
+        timingTotalAgeMs += ageMs
+        timingMaxAgeMs = maxOf(timingMaxAgeMs, ageMs)
+        timingLastAgeMs = ageMs
+        timingLastPacket = "pkt=0x%02x tool=%d action=%d cid=%d".format(
+            packetType.toInt() and 0xff,
+            tool.toInt() and 0xff,
+            action,
+            contactId.toInt() and 0xff
+        )
+        if (now - timingLastLogMs >= TIMING_LOG_INTERVAL_MS) {
+            val avg = if (timingCount > 0) timingTotalAgeMs / timingCount else 0
+            Log.d(
+                TAG,
+                "timing events=$timingCount avg_age_ms=$avg max_age_ms=$timingMaxAgeMs " +
+                    "last_age_ms=$timingLastAgeMs $timingLastPacket"
+            )
+            timingCount = 0
+            timingTotalAgeMs = 0
+            timingMaxAgeMs = 0
+            timingLastLogMs = now
+        }
     }
 
     private fun queueFrame(frame: ByteArray) {
@@ -341,6 +385,7 @@ class InputEventSender(
         val action = packetAction(event, requestedAction, tool)
 
         val contactId = (event.getPointerId(pointerIndex) % 256).toByte()
+        recordTiming(event, pktType, tool, action, contactId)
 
         val rawX = event.getX(pointerIndex)
         val rawY = event.getY(pointerIndex)

@@ -189,20 +189,28 @@ class MonitorizeBackend(QObject):
     def setAutostartEnabled(self, enabled):
         return autostart.set_enabled(enabled)
 
-    @pyqtSlot(str, str, str, str, str, str, str, str)
-    def saveUsbSettings(self, resolution, custom_w, custom_h, fps, custom_fps, bitrate, display_type, encoder):
+    @pyqtSlot(str, str, str, str, str, str, str, str, str)
+    def saveUsbSettings(
+        self, resolution, custom_w, custom_h, fps, custom_fps, bitrate,
+        display_type, encoder, encoder_profile,
+    ):
         save_usb_settings(
             resolution=resolution, custom_w=custom_w, custom_h=custom_h,
             fps=fps, custom_fps=custom_fps, bitrate=bitrate,
             display_type=display_type, encoder=encoder,
+            encoder_profile=encoder_profile,
         )
 
-    @pyqtSlot(str, str, str, str, str, str, str, str, str, bool)
-    def saveWifiSettings(self, resolution, custom_w, custom_h, fps, custom_fps, bitrate, display_type, encoder, stream_type, encryption):
+    @pyqtSlot(str, str, str, str, str, str, str, str, str, str, bool)
+    def saveWifiSettings(
+        self, resolution, custom_w, custom_h, fps, custom_fps, bitrate,
+        display_type, encoder, encoder_profile, stream_type, encryption,
+    ):
         save_wifi_settings(
             resolution=resolution, custom_w=custom_w, custom_h=custom_h,
             fps=fps, custom_fps=custom_fps, bitrate=bitrate,
             display_type=display_type, encoder=encoder,
+            encoder_profile=encoder_profile,
             stream_type=stream_type, use_encryption=encryption,
         )
 
@@ -210,10 +218,11 @@ class MonitorizeBackend(QObject):
     def loadSecondDisplaySettings(self):
         return load_second_display_settings()
 
-    @pyqtSlot(str, str, str, str)
-    def saveSecondDisplaySettings(self, resolution, fps, bitrate, encoder):
+    @pyqtSlot(str, str, str, str, str)
+    def saveSecondDisplaySettings(self, resolution, fps, bitrate, encoder, encoder_profile):
         save_second_display_settings(
-            resolution=resolution, fps=fps, bitrate=bitrate, encoder=encoder
+            resolution=resolution, fps=fps, bitrate=bitrate, encoder=encoder,
+            encoder_profile=encoder_profile,
         )
 
     @pyqtSlot(result="QVariant")
@@ -260,19 +269,23 @@ class MonitorizeBackend(QObject):
     def stopReceiving(self):
         self.receiver.stop()
 
-    @pyqtSlot(str, str, str, str, str, bool)
-    def startStreaming(self, res, fps, bitrate, display_type, encoder, wifi):
+    @pyqtSlot(str, str, str, str, str, str, bool)
+    def startStreaming(
+        self, res, fps, bitrate, display_type, encoder, encoder_profile, wifi
+    ):
         self._pending_usb_preset = None
-        self.streaming.start(res, fps, bitrate, display_type, encoder, wifi)
+        self.streaming.start(
+            res, fps, bitrate, display_type, encoder, encoder_profile, wifi
+        )
 
     @pyqtSlot()
     def stopStreaming(self):
         self._pending_usb_preset = None
         self.streaming.stop()
 
-    @pyqtSlot(str, str, str, str)
-    def startSecondStream(self, res, fps, bitrate, encoder):
-        self.streaming.start_third(res, fps, bitrate, encoder)
+    @pyqtSlot(str, str, str, str, str)
+    def startSecondStream(self, res, fps, bitrate, encoder, encoder_profile):
+        self.streaming.start_third(res, fps, bitrate, encoder, encoder_profile)
 
     @pyqtSlot()
     def stopSecondStream(self):
@@ -380,6 +393,7 @@ class MonitorizeBackend(QObject):
             primary["bitrate"],
             primary["display_type"],
             primary["encoder"],
+            primary.get("encoder_profile", "Low Latency"),
             preset["mode"] == "wifi",
             {
                 "wifi": preset.get("wifi", {}),

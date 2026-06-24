@@ -25,6 +25,7 @@ from gui.validation import (
     sanitize_bitrate,
     sanitize_display_type,
     sanitize_encoder,
+    sanitize_encoder_profile,
     sanitize_fps,
     sanitize_resolution,
 )
@@ -69,6 +70,7 @@ class StreamingController(QObject):
         self.streamer_has_pipewire_node = False
         self.kde_portal_terminal_error = False
         self.primary_ready = False
+        self.encoder_profile = "Low Latency"
         self.runtime_general = None
         self.pending_third = None
         self.countdown_timer = QTimer(self)
@@ -92,7 +94,10 @@ class StreamingController(QObject):
         self.local_ip = value
         self._advertise()
 
-    def start(self, res, fps, bitrate, display_type, encoder, wifi, options=None):
+    def start(
+        self, res, fps, bitrate, display_type, encoder, encoder_profile, wifi,
+        options=None,
+    ):
         self.stop()
         self.generation += 1
         options = options or {}
@@ -102,12 +107,14 @@ class StreamingController(QObject):
         self.fps, self.bitrate = sanitize_fps(fps), sanitize_bitrate(bitrate)
         self.display_type = sanitize_display_type(display_type)
         self.encoder = sanitize_encoder(encoder)
+        self.encoder_profile = sanitize_encoder_profile(encoder_profile)
         self.env = QProcessEnvironment.systemEnvironment()
         self.env.insert("PYTHONUNBUFFERED", "1")
         self.env.insert("MONITORIZE_ENCODER", {
             "NVIDIA NVENC (nvh264enc)": "nvidia",
             "Intel/AMD VA-API (vah264enc)": "vaapi",
         }.get(self.encoder, "cpu"))
+        self.env.insert("MONITORIZE_ENCODER_PROFILE", self.encoder_profile)
         settings = options.get("wifi") or (load_wifi_settings() if wifi else {})
         self.encrypted = settings.get("use_encryption", True) if wifi else False
         self.env.insert("MONITORIZE_STREAM_TYPE", settings.get("stream_type", "Speed"))
@@ -550,6 +557,13 @@ class StreamingController(QObject):
     def _uses_kde_portal_virtual_source(self):
         return self.de == "kde" and self.env.value("MONITORIZE_PORTAL_SOURCE_TYPE") == "4"
 
+    def _stopping_kde_portal_streamer(self):
+        return (
+            self.streamer is not None
+            and hasattr(self, "env")
+            and self._uses_kde_portal_virtual_source()
+        )
+
     def _read_streamer(self, generation=None, process=None):
         generation = self.generation if generation is None else generation
         process = self.streamer if process is None else process
@@ -691,8 +705,8 @@ class StreamingController(QObject):
         self._launch_streamer(self.generation)
         self._set_status("Status: Streaming…  (restarted)")
 
-    def start_third(self, res, fps, bitrate, encoder):
-        self.third.start(res, fps, bitrate, encoder, self.encrypted)
+    def start_third(self, res, fps, bitrate, encoder, encoder_profile):
+        self.third.start(res, fps, bitrate, encoder, encoder_profile, self.encrypted)
 
     def _set_primary_ready(self, value):
         if self.primary_ready == value:
@@ -708,6 +722,7 @@ class StreamingController(QObject):
                     third["fps"],
                     third["bitrate"],
                     third["encoder"],
+                    third.get("encoder_profile", "Low Latency"),
                 )
             else:
                 self.logAppended.emit(
@@ -724,6 +739,7 @@ class StreamingController(QObject):
                 "fps": str(self.third.fps),
                 "bitrate": str(self.third.bitrate),
                 "encoder": self.third.encoder,
+                "encoder_profile": self.third.encoder_profile,
             })
         elif self.pending_third:
             third.update(self.pending_third)
@@ -736,6 +752,7 @@ class StreamingController(QObject):
                 "bitrate": str(self.bitrate),
                 "display_type": self.display_type,
                 "encoder": self.encoder,
+                "encoder_profile": self.encoder_profile,
             },
             "general": general,
             "third": third,
@@ -757,6 +774,7 @@ class StreamingController(QObject):
             self.discovery.advertise(self.local_ip, self.encrypted, self.third.ready)
 
     def stop(self):
+        stopping_kde_portal = self._stopping_kde_portal_streamer()
         self.generation += 1
         self.countdown_timer.stop()
         self.kde_ready_timer.stop()
@@ -768,14 +786,23 @@ class StreamingController(QObject):
         self.runtime_general = None
         self.pending_third = None
         self.third.stop()
-        stop_processes(self.krfb, self.streamer, self.input_bridge, self.tls_proxy)
+        portal_clean = True
+        if stopping_kde_portal:
+            portal_clean = stop_processes(self.streamer, timeout_ms=8000)
+            self.streamer = None
+            stop_processes(self.krfb, self.input_bridge, self.tls_proxy)
+        else:
+            stop_processes(self.krfb, self.streamer, self.input_bridge, self.tls_proxy)
         self.krfb = self.streamer = self.input_bridge = self.tls_proxy = None
-        kill_tracked_pids(self.gst_pids)
-        kill_patterns(
-            "gst-launch-1.0.*port=7110", "gst-launch-1.0.*port=7112",
-            "gst-launch-1.0.*port=7114", "gst-launch-1.0.*port=7115",
-            "Streamer_.*\\.py", "tls_proxy.py",
-        )
+        if stopping_kde_portal and portal_clean:
+            self.gst_pids.clear()
+        else:
+            kill_tracked_pids(self.gst_pids)
+            kill_patterns(
+                "gst-launch-1.0.*port=7110", "gst-launch-1.0.*port=7112",
+                "gst-launch-1.0.*port=7114", "gst-launch-1.0.*port=7115",
+                "Streamer_.*\\.py", "tls_proxy.py",
+            )
         self.display.cleanup()
         self.discovery.stop_advertising()
         self.pairing_code = ""

@@ -44,7 +44,8 @@ Item {
             s2ResCombo.currentText,
             s2FpsCombo.currentText,
             page.secondBitrateKbpsText(),
-            s2EncoderCombo.currentText
+            s2EncoderCombo.currentText,
+            s2EncoderProfileCombo.currentText
         )
     }
 
@@ -65,6 +66,9 @@ Item {
 
             let encIdx = s2EncoderCombo.find(s2["encoder"] || "Software (CPU / x264enc)");
             s2EncoderCombo.currentIndex = encIdx !== -1 ? encIdx : 2;
+
+            let profileIdx = s2EncoderProfileCombo.find(s2["encoder_profile"] || "Low Latency");
+            s2EncoderProfileCombo.currentIndex = profileIdx !== -1 ? profileIdx : 0;
         }
         page.loadingSettings = false;
     }
@@ -643,6 +647,14 @@ Item {
                     ]
                     onActivated: page.saveSecondDisplaySettings()
                 }
+
+                Text { text: "Encoder Profile:"; color: theme.cardTextSecondary; font.pixelSize: 13 }
+                CustomComboBox {
+                    id: s2EncoderProfileCombo
+                    currentIndex: 0
+                    model: ["Low Latency", "Balanced", "Quality"]
+                    onActivated: page.saveSecondDisplaySettings()
+                }
             }
 
             Item { Layout.preferredHeight: 6 }
@@ -682,7 +694,8 @@ Item {
                             cleanRes,
                             s2FpsCombo.currentText,
                             page.secondBitrateKbpsText(),
-                            s2EncoderCombo.currentText
+                            s2EncoderCombo.currentText,
+                            s2EncoderProfileCombo.currentText
                         )
                         page.saveSecondDisplaySettings()
                         addDisplayPopup.close()

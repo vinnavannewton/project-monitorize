@@ -71,16 +71,18 @@ def run_portal_streamer(
             return
         cleaning_up = True
         print(f"\n[Monitorize {compositor}] Shutting down...")
-        gst = process["gst"]
-        if gst and gst.poll() is None:
-            gst.terminate()
-            try:
-                gst.wait(timeout=3)
-            except subprocess.TimeoutExpired:
-                gst.kill()
-        close_session()
-        if loop.is_running():
-            loop.quit()
+        try:
+            close_session()
+        finally:
+            gst = process["gst"]
+            if gst and gst.poll() is None:
+                gst.terminate()
+                try:
+                    gst.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    gst.kill()
+            if loop.is_running():
+                loop.quit()
 
     signal.signal(signal.SIGINT, cleanup)
     signal.signal(signal.SIGTERM, cleanup)

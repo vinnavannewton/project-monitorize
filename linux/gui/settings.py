@@ -14,6 +14,7 @@ from gui.validation import (
     sanitize_decoder,
     sanitize_display_type,
     sanitize_encoder,
+    sanitize_encoder_profile,
     sanitize_fps,
     sanitize_port,
     sanitize_resolution,
@@ -87,6 +88,9 @@ def _normalize_stream_settings(data: dict) -> dict:
         data["encoder"] = "Software (CPU / x264enc)"
     data["display_type"] = sanitize_display_type(data["display_type"])
     data["encoder"] = sanitize_encoder(data["encoder"])
+    data["encoder_profile"] = sanitize_encoder_profile(
+        data.get("encoder_profile", "Low Latency")
+    )
     data["stream_type"] = sanitize_stream_type(data.get("stream_type", "Speed"))
     data["fps"] = str(sanitize_fps(data["fps"]))
     data["custom_fps"] = (
@@ -104,11 +108,12 @@ def _normalize_stream_settings(data: dict) -> dict:
 
 def save_wifi_settings(*, resolution: str, custom_w: str, custom_h: str,
                        fps: str, custom_fps: str, bitrate: str,
-                       display_type: str, encoder: str, stream_type: str,
-                       use_encryption: bool):
+                       display_type: str, encoder: str, encoder_profile: str,
+                       stream_type: str, use_encryption: bool):
     values = locals()
     values["display_type"] = sanitize_display_type(display_type)
     values["encoder"] = sanitize_encoder(encoder)
+    values["encoder_profile"] = sanitize_encoder_profile(encoder_profile)
     values["stream_type"] = sanitize_stream_type(stream_type)
     values["fps"] = str(sanitize_fps(fps))
     values["custom_fps"] = str(sanitize_fps(custom_fps)) if custom_fps else ""
@@ -125,10 +130,11 @@ def save_wifi_settings(*, resolution: str, custom_w: str, custom_h: str,
 
 def save_usb_settings(*, resolution: str, custom_w: str, custom_h: str,
                       fps: str, custom_fps: str, bitrate: str,
-                      display_type: str, encoder: str):
+                      display_type: str, encoder: str, encoder_profile: str):
     values = locals()
     values["display_type"] = sanitize_display_type(display_type)
     values["encoder"] = sanitize_encoder(encoder)
+    values["encoder_profile"] = sanitize_encoder_profile(encoder_profile)
     values["fps"] = str(sanitize_fps(fps))
     values["custom_fps"] = str(sanitize_fps(custom_fps)) if custom_fps else ""
     values["bitrate"] = str(sanitize_bitrate(bitrate))
@@ -163,6 +169,7 @@ STREAM_DEFAULTS = {
     "bitrate": "8000",
     "display_type": "Extend",
     "encoder": "Software (CPU / x264enc)",
+    "encoder_profile": "Low Latency",
 }
 
 
@@ -197,12 +204,14 @@ def load_general_settings() -> dict:
     return data
 
 
-def save_second_display_settings(*, resolution: str, fps: str, bitrate: str, encoder: str):
+def save_second_display_settings(*, resolution: str, fps: str, bitrate: str,
+                                 encoder: str, encoder_profile: str):
     _save_group("second_display", {
         "resolution": resolution,
         "fps": str(sanitize_fps(fps)),
         "bitrate": str(sanitize_bitrate(bitrate)),
         "encoder": sanitize_encoder(encoder),
+        "encoder_profile": sanitize_encoder_profile(encoder_profile),
     })
 
 
@@ -212,10 +221,12 @@ def load_second_display_settings() -> dict:
         "fps": "60",
         "bitrate": "8000",
         "encoder": "Software (CPU / x264enc)",
+        "encoder_profile": "Low Latency",
     })
     data["fps"] = str(sanitize_fps(data["fps"]))
     data["bitrate"] = str(sanitize_bitrate(data["bitrate"]))
     data["encoder"] = sanitize_encoder(data["encoder"])
+    data["encoder_profile"] = sanitize_encoder_profile(data["encoder_profile"])
     return data
 
 
@@ -244,6 +255,9 @@ def _normalize_preset(raw: dict) -> dict | None:
                 primary.get("display_type", "Extend")
             ),
             "encoder": sanitize_encoder(primary.get("encoder", "")),
+            "encoder_profile": sanitize_encoder_profile(
+                primary.get("encoder_profile", "Low Latency")
+            ),
         },
         "general": {
             "minimize_to_tray": bool(general.get("minimize_to_tray", False)),
@@ -269,6 +283,9 @@ def _normalize_preset(raw: dict) -> dict | None:
             "fps": str(sanitize_fps(third.get("fps", 60))),
             "bitrate": str(sanitize_bitrate(third.get("bitrate", 8000))),
             "encoder": sanitize_encoder(third.get("encoder", "")),
+            "encoder_profile": sanitize_encoder_profile(
+                third.get("encoder_profile", "Low Latency")
+            ),
         })
     return preset
 

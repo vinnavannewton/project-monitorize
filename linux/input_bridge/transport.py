@@ -19,12 +19,26 @@ class TransportStats:
         self.received = 0
         self.coalesced = 0
         self.released = 0
+        self.injected = 0
+        self.inject_total_ms = 0.0
+        self.inject_max_ms = 0.0
+
+    def record_inject(self, received_at):
+        if received_at is None or not log.isEnabledFor(logging.DEBUG):
+            return
+        elapsed_ms = (time.perf_counter() - received_at) * 1000.0
+        self.injected += 1
+        self.inject_total_ms += elapsed_ms
+        self.inject_max_ms = max(self.inject_max_ms, elapsed_ms)
 
     def debug_log(self, prefix):
         if log.isEnabledFor(logging.DEBUG):
+            avg_ms = self.inject_total_ms / self.injected if self.injected else 0.0
             log.debug(
-                "%s received=%d coalesced=%d released=%d",
+                "%s received=%d coalesced=%d released=%d injected=%d "
+                "recv_to_inject_avg_ms=%.3f recv_to_inject_max_ms=%.3f",
                 prefix, self.received, self.coalesced, self.released,
+                self.injected, avg_ms, self.inject_max_ms,
             )
 
 
@@ -54,9 +68,11 @@ def coalesce_motion_packets(packets, stats=None):
     return output
 
 
-def dispatch_packet_batch(dispatcher, packets):
+def dispatch_packet_batch(dispatcher, packets, stats=None, received_at=None):
     for index, (pkt_type, payload) in enumerate(packets):
         dispatcher.dispatch_packet(pkt_type, payload, index == len(packets) - 1)
+        if stats is not None:
+            stats.record_inject(received_at)
 
 
 def append_udp_batch(batches, addr, packets):
@@ -106,11 +122,12 @@ def handle_client(client, addr, dispatcher, shutdown, active_client=None):
             chunk = client.recv(4096)
             if not chunk:
                 break
+            received_at = time.perf_counter()
             buffer.extend(chunk)
             raw_packets = pop_framed_packets(buffer)
             stats.received += len(raw_packets)
             packets = coalesce_motion_packets(raw_packets, stats)
-            dispatch_packet_batch(dispatcher, packets)
+            dispatch_packet_batch(dispatcher, packets, stats, received_at)
     except Exception as exc:
         if not shutdown.is_set():
             log.error("Client error: %s", exc)
@@ -176,6 +193,7 @@ def run_udp_server(dispatcher, shutdown, geometry, host="0.0.0.0", port=7113):
     while not shutdown.is_set():
         try:
             data, _addr = server.recvfrom(64)
+            received_at = time.perf_counter()
             now = time.monotonic()
             if now - last_packet > 3:
                 geometry.invalidate()
@@ -196,7 +214,7 @@ def run_udp_server(dispatcher, shutdown, geometry, host="0.0.0.0", port=7113):
             for _addr, packets in batches:
                 stats.received += len(packets)
                 coalesced = coalesce_motion_packets(packets, stats)
-                dispatch_packet_batch(dispatcher, coalesced)
+                dispatch_packet_batch(dispatcher, coalesced, stats, received_at)
         except socket.timeout:
             if last_packet and not idle_released and time.monotonic() - last_packet > 3:
                 dispatcher.release_all("udp idle")
@@ -206,4 +224,5 @@ def run_udp_server(dispatcher, shutdown, geometry, host="0.0.0.0", port=7113):
         except Exception as exc:
             if not shutdown.is_set():
                 log.error("UDP receive error: %s", exc)
+    stats.debug_log("udp")
     server.close()

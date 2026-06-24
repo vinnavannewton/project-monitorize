@@ -64,7 +64,8 @@ Item {
             fpsCombo.currentText === "Custom..." ? customFps.text : "",
             page.bitrateKbpsText(),
             displayTypeCombo.visible ? displayTypeCombo.currentText : "Extend",
-            encoderCombo.currentText
+            encoderCombo.currentText,
+            encoderProfileCombo.currentText
         ]
         if (page.isWifi) {
             backend.saveWifiSettings(
@@ -118,6 +119,10 @@ Item {
         }
         if (!encoderCombo.selectValue(savedEnc, true)) {
             encoderCombo.selectValue("Software (CPU / x264enc)");
+        }
+
+        if (!encoderProfileCombo.selectValue(saved["encoder_profile"] || "Low Latency", true)) {
+            encoderProfileCombo.selectValue("Low Latency");
         }
         
         if (page.isWifi) {
@@ -295,6 +300,14 @@ Item {
                     onActivated: page.saveSettings()
                 }
 
+                Text { text: "Encoder Profile:"; color: theme.textSecondary; font.pixelSize: 14 }
+                CustomComboBox {
+                    id: encoderProfileCombo
+                    model: ["Low Latency", "Balanced", "Quality"]
+                    currentIndex: 0
+                    onActivated: page.saveSettings()
+                }
+
                 Text { text: "Stream Type:"; visible: page.isWifi; color: theme.textSecondary; font.pixelSize: 14 }
                 CustomComboBox {
                     id: streamTypeCombo
@@ -372,6 +385,7 @@ Item {
                             page.bitrateKbpsText(),
                             displayTypeCombo.visible ? displayTypeCombo.currentText : "Extend",
                             encoderCombo.currentText,
+                            encoderProfileCombo.currentText,
                             page.isWifi
                         );
                     }
