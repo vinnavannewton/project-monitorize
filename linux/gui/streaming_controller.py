@@ -7,7 +7,7 @@ import sys
 from PyQt6.QtCore import QObject, QProcess, QProcessEnvironment, QTimer, pyqtSignal
 
 from gui.display_controller import DisplayController
-from gui.kde_virtual_monitor import save_current_virtual_position
+from gui.kde_virtual_monitor import save_current_virtual_layout
 from gui.process_utils import kill_patterns, kill_tracked_pids, stop_processes
 from gui.settings import load_general_settings, load_wifi_settings
 from gui.third_stream_controller import ThirdStreamController
@@ -156,6 +156,7 @@ class StreamingController(QObject):
 
     def _prepare_kde_portal_virtual_display(self):
         self.env.insert("MONITORIZE_PORTAL_SOURCE_TYPE", "4")
+        self.env.insert("MONITORIZE_VIRTUAL_SLOT", "primary")
         self.env.insert(
             "MONITORIZE_PORTAL_SELECTOR_HINT",
             "KDE will create a virtual monitor for Monitorize.",
@@ -545,7 +546,9 @@ class StreamingController(QObject):
         self.third.stop()
         portal_clean = True
         if stopping_kde_portal:
-            save_current_virtual_position(self.env.value("MONITORIZE_OUTPUT", ""))
+            save_current_virtual_layout(
+                "primary", self.env.value("MONITORIZE_OUTPUT", "")
+            )
             portal_clean = stop_processes(self.streamer, timeout_ms=8000)
             self.streamer = None
             stop_processes(self.input_bridge, self.tls_proxy)

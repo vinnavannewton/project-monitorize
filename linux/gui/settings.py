@@ -350,16 +350,27 @@ def save_sway_output(output: str) -> None:
     _save_group("sway", {"output": output})
 
 
-def load_kde_virtual_position() -> tuple[int, int] | None:
-    data = _load_group("kde_virtual", {"x": "", "y": ""})
+def _kde_virtual_group(slot: str) -> str:
+    return f"kde_virtual_{slot if slot in ('primary', 'third') else 'primary'}"
+
+
+def load_kde_virtual_layout(slot: str = "primary") -> dict:
+    data = _load_group(_kde_virtual_group(slot), {
+        "x": "", "y": "", "rotation": "",
+    })
+    if slot == "primary" and not data["x"] and not data["y"]:
+        data.update(_load_group("kde_virtual", {"x": "", "y": ""}))
     try:
-        return int(float(data["x"])), int(float(data["y"]))
+        data["position"] = (int(float(data["x"])), int(float(data["y"])))
     except (TypeError, ValueError):
-        return None
+        data["position"] = None
+    return {"position": data["position"], "rotation": str(data["rotation"] or "")}
 
 
-def save_kde_virtual_position(x: int, y: int) -> None:
-    _save_group("kde_virtual", {"x": int(x), "y": int(y)})
+def save_kde_virtual_layout(slot: str, x: int, y: int, rotation="") -> None:
+    _save_group(_kde_virtual_group(slot), {
+        "x": int(x), "y": int(y), "rotation": str(rotation or ""),
+    })
 
 
 def load_receiver_credentials(host: str) -> tuple[str, str]:
