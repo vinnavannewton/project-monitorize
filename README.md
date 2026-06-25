@@ -1,5 +1,6 @@
 <div align="center">
-  <h1>🖥️ Monitorize</h1>
+  <img src="linux/assets/monitorize_desktop_logo.png" alt="Monitorize logo" width="160" />
+  <h1>Monitorize</h1>
   <p><strong>Turn your Android tablet into a smooth, low-latency secondary monitor for Linux.</strong></p>
 
 <a href="https://www.gnu.org/licenses/agpl-3.0"><img src="https://img.shields.io/badge/License-AGPL%20v3-blue.svg" /></a>
@@ -7,8 +8,16 @@
 
 </div>
 
-> **Project Status: In alpha & Actively Being Developed**
+> **Project Status: In beta & Actively Being Developed**
 > Core pipeline is fully functional on KDE and Hyprland. Sway support is available and GNOME support is experimental.
+
+---
+
+## Screenshots
+
+<div align="center">
+  <img src="screenshots/linux_frontpage.png" alt="Monitorize Linux front page" width="800" style="max-width: 100%;" />
+</div>
 
 ---
 
@@ -448,14 +457,15 @@ sudo usermod -aG input $USER
 - Match the resolution and FPS set in the Android settings app to the desktop app settings.
 
 - If the USB device is not detected, make sure `android-tools` is installed and run:
-
+  
   ```bash
   adb devices
   ```
-
+  
   to confirm the device is connected.
 
 - `Enable Stylus Features` uses `/dev/uinput` on KDE, GNOME, Hyprland, and Sway to expose pressure, tilt, eraser, hover, and stylus buttons. Hyprland and Sway always use uinput because their portal backends do not provide RemoteDesktop input. If uinput is unavailable, or the compositor cannot bind the device to the streamed output, input stops so it cannot target the wrong display.
+
 - Stylus input suppresses finger touch for 5 seconds after the last stylus event. The `Disable Touch and Only Enable Stylus` option drops all finger-touch input while keeping stylus/eraser input active.
 
 ### Android Tablet
@@ -490,7 +500,7 @@ Or run manually:
 Either:
 
 - Build from source:
-
+  
   ```bash
   cd android
   ./gradlew installDebug

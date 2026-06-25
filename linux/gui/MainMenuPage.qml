@@ -20,13 +20,6 @@ Item {
             Layout.alignment: Qt.AlignHCenter
         }
 
-        Text {
-            text: "Linux → Android Display Bridge"
-            font.pixelSize: 14
-            color: theme.textSecondary
-            Layout.alignment: Qt.AlignHCenter
-        }
-
         // Desktop Badge
         Rectangle {
             Layout.alignment: Qt.AlignHCenter

@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 from subprocess import TimeoutExpired
 
-from PyQt6.QtCore import QCoreApplication, QProcess
+from PyQt6.QtCore import QCoreApplication, QProcess, QProcessEnvironment
 
 import pipeline_builder
 import portal_streamer
@@ -829,7 +829,35 @@ class ThirdStreamControllerTest(unittest.TestCase):
         ):
             controller.start("1920x1080", "60", "8000", "Software", "Low Latency", False)
         self.assertEqual(controller.env.value("MONITORIZE_PORTAL_SOURCE_TYPE"), "4")
+        self.assertEqual(controller.env.value("MONITORIZE_VIRTUAL_SLOT"), "third")
         single_shot.assert_called_once()
+
+    def test_virtual_output_name_is_captured_for_stop(self):
+        controller = ThirdStreamController()
+        controller.active = True
+        controller.generation = 1
+        controller.env = QProcessEnvironment.systemEnvironment()
+        process = process_mock()
+        process.readAllStandardOutput.return_value = (
+            b"[Portal] Virtual output ready name=Virtual-3 mode=1920x1080@60\n"
+        )
+        controller.streamer = process
+        controller._read_streamer(1, process)
+        self.assertEqual(controller.env.value("MONITORIZE_OUTPUT"), "Virtual-3")
+
+    def test_stop_saves_third_virtual_layout(self):
+        controller = ThirdStreamController()
+        controller.active = True
+        controller.env = QProcessEnvironment.systemEnvironment()
+        controller.env.insert("MONITORIZE_OUTPUT", "Virtual-3")
+        with (
+            patch("gui.third_stream_controller.save_current_virtual_layout") as save,
+            patch("gui.third_stream_controller.stop_processes"),
+            patch("gui.third_stream_controller.kill_tracked_pids"),
+            patch("gui.third_stream_controller.kill_patterns"),
+        ):
+            controller.stop()
+        save.assert_called_once_with("third", "Virtual-3")
 
     def test_stale_delayed_launch_is_ignored(self):
         controller = ThirdStreamController()
@@ -931,7 +959,7 @@ class KdeVirtualMonitorCompatTest(unittest.TestCase):
             if args[1].endswith(".mode.2"):
                 state["active"] = True
                 return Mock(returncode=0, stdout="", stderr="")
-            if ".position." in args[1]:
+            if ".position." in args[1] or ".rotation." in args[1]:
                 return Mock(returncode=0, stdout="", stderr="")
             raise AssertionError(f"Unexpected command: {args}")
 
@@ -940,7 +968,8 @@ class KdeVirtualMonitorCompatTest(unittest.TestCase):
                 "gui.kde_virtual_monitor.subprocess.run",
                 side_effect=fake_run,
             ) as run,
-            patch("gui.kde_virtual_monitor.load_kde_virtual_position", return_value=None),
+            patch("gui.kde_virtual_monitor.load_kde_virtual_layout",
+                  return_value={"position": None, "rotation": ""}),
             patch("gui.kde_virtual_monitor.time.sleep"),
         ):
             ok, output_name, message = (
@@ -977,7 +1006,7 @@ class KdeVirtualMonitorCompatTest(unittest.TestCase):
         self.assertFalse(any(".scale." in " ".join(command) for command in commands))
         self.assertFalse(any("output.eDP-1" in " ".join(command) for command in commands))
 
-    def test_portal_position_uses_saved_position(self):
+    def test_portal_layout_uses_saved_slot_position_and_rotation(self):
         def fake_run(args, **_kwargs):
             if args == ["kscreen-doctor", "-j"]:
                 return Mock(
@@ -989,13 +1018,17 @@ class KdeVirtualMonitorCompatTest(unittest.TestCase):
 
         with (
             patch("gui.kde_virtual_monitor.subprocess.run", side_effect=fake_run) as run,
-            patch("gui.kde_virtual_monitor.load_kde_virtual_position", return_value=(77, 88)),
+            patch(
+                "gui.kde_virtual_monitor.load_kde_virtual_layout",
+                return_value={"position": (77, 88), "rotation": "left"},
+            ) as load,
             patch("gui.kde_virtual_monitor.time.sleep"),
         ):
             ok, _output_name, message = kde_virtual_monitor.configure_portal_virtual_output(
-                {"eDP-1"}, 1920, 1200, 60, attempts=1, delay=0,
+                {"eDP-1"}, 1920, 1200, 60, "third", attempts=1, delay=0,
             )
         self.assertTrue(ok, message)
+        load.assert_called_once_with("third")
         commands = [call.args[0] for call in run.call_args_list]
         self.assertIn(
             [
@@ -1004,17 +1037,24 @@ class KdeVirtualMonitorCompatTest(unittest.TestCase):
             ],
             commands,
         )
+        self.assertIn(
+            [
+                "kscreen-doctor",
+                "output.Virtual-virtual-xdp-kde-monitorize.rotation.left",
+            ],
+            commands,
+        )
 
-    def test_current_virtual_position_is_saved(self):
+    def test_current_virtual_layout_is_saved(self):
         with (
             patch("gui.kde_virtual_monitor.kde_outputs", return_value=[
                 {"name": "Virtual-1", "connected": True, "enabled": True,
-                 "pos": {"x": 123, "y": 45}},
+                 "pos": {"x": 123, "y": 45}, "rotation": "right"},
             ]),
-            patch("gui.kde_virtual_monitor.save_kde_virtual_position") as save,
+            patch("gui.kde_virtual_monitor.save_kde_virtual_layout") as save,
         ):
-            kde_virtual_monitor.save_current_virtual_position("Virtual-1")
-        save.assert_called_once_with(123, 45)
+            kde_virtual_monitor.save_current_virtual_layout("primary", "Virtual-1")
+        save.assert_called_once_with("primary", 123, 45, "right")
 
     def test_portal_mode_configuration_rejects_ambiguous_virtual_outputs(self):
         outputs = self.portal_outputs()

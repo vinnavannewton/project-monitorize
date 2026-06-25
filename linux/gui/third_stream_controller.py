@@ -5,6 +5,7 @@ import sys
 
 from PyQt6.QtCore import QObject, QProcess, QProcessEnvironment, QTimer, pyqtSignal
 
+from gui.kde_virtual_monitor import save_current_virtual_layout
 from gui.process_utils import kill_patterns, kill_tracked_pids, stop_processes
 from gui.utils import LINUX_DIR
 from gui.validation import (
@@ -63,6 +64,7 @@ class ThirdStreamController(QObject):
             "STREAMER", f"[Third display] Spawning virtual monitor: {width}x{height}"
         )
         self.env.insert("MONITORIZE_PORTAL_SOURCE_TYPE", "4")
+        self.env.insert("MONITORIZE_VIRTUAL_SLOT", "third")
         self.env.insert(
             "MONITORIZE_PORTAL_SELECTOR_HINT",
             "KDE will create a second virtual monitor for Monitorize.",
@@ -116,6 +118,10 @@ class ThirdStreamController(QObject):
                     self.gst_pids.add(int(line.split("PID:")[1].strip()))
                 except ValueError:
                     pass
+            elif "[Portal] Virtual output ready name=" in line:
+                output = line.split("name=", 1)[1].split(" mode=", 1)[0].strip()
+                if output.lower().startswith("virtual-"):
+                    self.env.insert("MONITORIZE_OUTPUT", output)
 
     def _finished(self, code, _status, generation=None, process=None):
         generation = self.generation if generation is None else generation
@@ -133,6 +139,8 @@ class ThirdStreamController(QObject):
 
     def stop(self):
         self.generation += 1
+        if self.active and hasattr(self, "env"):
+            save_current_virtual_layout("third", self.env.value("MONITORIZE_OUTPUT", ""))
         stop_processes(self.streamer)
         self.streamer = None
         kill_tracked_pids(self.gst_pids)
