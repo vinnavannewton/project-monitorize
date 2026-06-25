@@ -350,6 +350,18 @@ def save_sway_output(output: str) -> None:
     _save_group("sway", {"output": output})
 
 
+def load_kde_virtual_position() -> tuple[int, int] | None:
+    data = _load_group("kde_virtual", {"x": "", "y": ""})
+    try:
+        return int(float(data["x"])), int(float(data["y"]))
+    except (TypeError, ValueError):
+        return None
+
+
+def save_kde_virtual_position(x: int, y: int) -> None:
+    _save_group("kde_virtual", {"x": int(x), "y": int(y)})
+
+
 def load_receiver_credentials(host: str) -> tuple[str, str]:
     s = _get_settings()
     key = hashlib.sha256(credential_host_key(host).encode()).hexdigest()

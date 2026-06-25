@@ -243,7 +243,7 @@ class AutostartTest(unittest.TestCase):
             }):
                 self.assertEqual(autostart.set_enabled(True), "")
                 content = autostart.autostart_path().read_text(encoding="utf-8")
-                self.assertIn("Exec=/opt/monitorize/start --start-in-tray", content)
+                self.assertIn("Exec=/opt/monitorize/start --tray-agent", content)
                 self.assertIn("StartupNotify=false", content)
                 self.assertIn("X-GNOME-Autostart-enabled=true", content)
                 self.assertTrue(autostart.is_enabled())
@@ -260,7 +260,7 @@ class AutostartTest(unittest.TestCase):
                 content = autostart.autostart_path().read_text(encoding="utf-8")
         self.assertIn("venv/bin/python3", content)
         self.assertIn("monitorize_gui.py", content)
-        self.assertIn("--start-in-tray", content)
+        self.assertIn("--tray-agent", content)
 
     def test_autostart_disabled_entries_are_not_enabled(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -896,6 +896,8 @@ class KdeVirtualMonitorCompatTest(unittest.TestCase):
                 "connected": True,
                 "enabled": True,
                 "priority": 1,
+                "pos": {"x": 0, "y": 0},
+                "size": {"width": 1920, "height": 1080},
                 "scale": 1.5,
                 "modes": [],
             },
@@ -929,6 +931,8 @@ class KdeVirtualMonitorCompatTest(unittest.TestCase):
             if args[1].endswith(".mode.2"):
                 state["active"] = True
                 return Mock(returncode=0, stdout="", stderr="")
+            if ".position." in args[1]:
+                return Mock(returncode=0, stdout="", stderr="")
             raise AssertionError(f"Unexpected command: {args}")
 
         with (
@@ -936,6 +940,7 @@ class KdeVirtualMonitorCompatTest(unittest.TestCase):
                 "gui.kde_virtual_monitor.subprocess.run",
                 side_effect=fake_run,
             ) as run,
+            patch("gui.kde_virtual_monitor.load_kde_virtual_position", return_value=None),
             patch("gui.kde_virtual_monitor.time.sleep"),
         ):
             ok, output_name, message = (
@@ -971,6 +976,45 @@ class KdeVirtualMonitorCompatTest(unittest.TestCase):
         )
         self.assertFalse(any(".scale." in " ".join(command) for command in commands))
         self.assertFalse(any("output.eDP-1" in " ".join(command) for command in commands))
+
+    def test_portal_position_uses_saved_position(self):
+        def fake_run(args, **_kwargs):
+            if args == ["kscreen-doctor", "-j"]:
+                return Mock(
+                    returncode=0,
+                    stdout=json.dumps({"outputs": self.portal_outputs(True, True)}),
+                    stderr="",
+                )
+            return Mock(returncode=0, stdout="", stderr="")
+
+        with (
+            patch("gui.kde_virtual_monitor.subprocess.run", side_effect=fake_run) as run,
+            patch("gui.kde_virtual_monitor.load_kde_virtual_position", return_value=(77, 88)),
+            patch("gui.kde_virtual_monitor.time.sleep"),
+        ):
+            ok, _output_name, message = kde_virtual_monitor.configure_portal_virtual_output(
+                {"eDP-1"}, 1920, 1200, 60, attempts=1, delay=0,
+            )
+        self.assertTrue(ok, message)
+        commands = [call.args[0] for call in run.call_args_list]
+        self.assertIn(
+            [
+                "kscreen-doctor",
+                "output.Virtual-virtual-xdp-kde-monitorize.position.77,88",
+            ],
+            commands,
+        )
+
+    def test_current_virtual_position_is_saved(self):
+        with (
+            patch("gui.kde_virtual_monitor.kde_outputs", return_value=[
+                {"name": "Virtual-1", "connected": True, "enabled": True,
+                 "pos": {"x": 123, "y": 45}},
+            ]),
+            patch("gui.kde_virtual_monitor.save_kde_virtual_position") as save,
+        ):
+            kde_virtual_monitor.save_current_virtual_position("Virtual-1")
+        save.assert_called_once_with(123, 45)
 
     def test_portal_mode_configuration_rejects_ambiguous_virtual_outputs(self):
         outputs = self.portal_outputs()
@@ -1459,13 +1503,36 @@ class BackendFacadeTest(unittest.TestCase):
         window.show.assert_called_once()
         window.tray.show.assert_not_called()
 
-    def test_close_event_minimizes_to_tray_even_when_not_streaming(self):
+    def test_close_event_returns_idle_full_app_to_light_tray(self):
         from gui.main_window import MonitorizeWindow
 
         window = Mock()
         window.backend.should_minimize_to_tray.return_value = True
         window.backend.isStreaming = False
+        window.backend.isReceiving = False
         window.tray = Mock()
+        window._quit_to_tray_agent.return_value = True
+        event = Mock()
+        with patch(
+            "gui.main_window.QSystemTrayIcon.isSystemTrayAvailable",
+            return_value=True,
+        ):
+            MonitorizeWindow.closeEvent(window, event)
+        event.accept.assert_called_once()
+        event.ignore.assert_not_called()
+        window._quit_to_tray_agent.assert_called_once()
+        window.hide.assert_not_called()
+        window.tray.show.assert_not_called()
+
+    def test_close_event_minimizes_to_full_tray_when_agent_start_fails(self):
+        from gui.main_window import MonitorizeWindow
+
+        window = Mock()
+        window.backend.should_minimize_to_tray.return_value = True
+        window.backend.isStreaming = False
+        window.backend.isReceiving = False
+        window.tray = Mock()
+        window._quit_to_tray_agent.return_value = False
         event = Mock()
         with patch(
             "gui.main_window.QSystemTrayIcon.isSystemTrayAvailable",
@@ -1473,10 +1540,8 @@ class BackendFacadeTest(unittest.TestCase):
         ):
             MonitorizeWindow.closeEvent(window, event)
         event.ignore.assert_called_once()
-        event.accept.assert_not_called()
         window.hide.assert_called_once()
         window.tray.show.assert_called_once()
-        window._quit_app.assert_not_called()
 
     def test_close_event_minimizes_to_tray_while_streaming(self):
         from gui.main_window import MonitorizeWindow
@@ -1484,6 +1549,7 @@ class BackendFacadeTest(unittest.TestCase):
         window = Mock()
         window.backend.should_minimize_to_tray.return_value = True
         window.backend.isStreaming = True
+        window.backend.isReceiving = False
         window.tray = Mock()
         event = Mock()
         with patch(
@@ -1495,6 +1561,25 @@ class BackendFacadeTest(unittest.TestCase):
         window.hide.assert_called_once()
         window.tray.show.assert_called_once()
         window._quit_app.assert_not_called()
+
+    def test_close_event_minimizes_to_tray_while_receiving(self):
+        from gui.main_window import MonitorizeWindow
+
+        window = Mock()
+        window.backend.should_minimize_to_tray.return_value = True
+        window.backend.isStreaming = False
+        window.backend.isReceiving = True
+        window.tray = Mock()
+        event = Mock()
+        with patch(
+            "gui.main_window.QSystemTrayIcon.isSystemTrayAvailable",
+            return_value=True,
+        ):
+            MonitorizeWindow.closeEvent(window, event)
+        event.ignore.assert_called_once()
+        window.hide.assert_called_once()
+        window.tray.show.assert_called_once()
+        window._quit_to_tray_agent.assert_not_called()
 
     def test_close_event_quits_when_minimize_to_tray_is_disabled(self):
         from gui.main_window import MonitorizeWindow
@@ -1521,6 +1606,13 @@ class BackendFacadeTest(unittest.TestCase):
         window._quit_app.assert_called_once()
         event.accept.assert_called_once()
         event.ignore.assert_not_called()
+
+    def test_launch_preset_arg_is_parsed_for_full_app(self):
+        from gui.main_window import _instance_command, _launch_preset_index
+
+        argv = ["monitorize_gui.py", "--start-in-tray", "--launch-preset", "2"]
+        self.assertEqual(_launch_preset_index(argv), 2)
+        self.assertEqual(_instance_command(True, 2), b"preset:2")
 
     def test_save_current_preset_replaces_selected_slot(self):
         existing = {

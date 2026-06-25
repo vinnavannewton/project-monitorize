@@ -8,6 +8,7 @@ from gui.utils import LINUX_DIR
 APP_ID = "monitorize"
 DESKTOP_FILE = f"{APP_ID}.desktop"
 START_IN_TRAY_ARG = "--start-in-tray"
+TRAY_AGENT_ARG = "--tray-agent"
 
 
 def _xdg_config_home():
@@ -39,7 +40,7 @@ def _fallback_entry():
         "Type=Application",
         "Name=Monitorize",
         "Comment=Linux to Android Display Bridge",
-        f"Exec={_desktop_quote(python)} {_desktop_quote(entry)} {START_IN_TRAY_ARG}",
+        f"Exec={_desktop_quote(python)} {_desktop_quote(entry)} {TRAY_AGENT_ARG}",
         "Icon=monitorize",
         "Terminal=false",
         "Categories=Utility;System;",
@@ -61,6 +62,13 @@ def _value_for_key(content, key):
 
 def _is_true(value):
     return str(value).strip().lower() in ("1", "true", "yes")
+
+
+def _tray_agent_exec(exec_value):
+    exec_value = exec_value.replace(START_IN_TRAY_ARG, "").strip()
+    if TRAY_AGENT_ARG in exec_value:
+        return exec_value
+    return f"{exec_value} {TRAY_AGENT_ARG}".strip()
 
 
 def is_enabled():
@@ -88,9 +96,7 @@ def _autostart_content(source):
     for line in source.splitlines():
         if line.startswith("Exec="):
             exec_value = line[len("Exec="):].strip()
-            if START_IN_TRAY_ARG not in exec_value:
-                exec_value = f"{exec_value} {START_IN_TRAY_ARG}"
-            lines.append(f"Exec={exec_value}")
+            lines.append(f"Exec={_tray_agent_exec(exec_value)}")
         elif line.startswith("StartupNotify="):
             lines.append("StartupNotify=false")
             found_startup_notify = True

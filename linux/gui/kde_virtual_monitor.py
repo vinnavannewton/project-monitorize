@@ -4,6 +4,8 @@ import json
 import subprocess
 import time
 
+from gui.settings import load_kde_virtual_position, save_kde_virtual_position
+
 
 KSCREEN_QUERY = ["kscreen-doctor", "-j"]
 KSCREEN_ATTEMPTS = 20
@@ -108,6 +110,53 @@ def _run_kscreen(setting):
     return result.stderr.strip() or result.stdout.strip() or "unknown error"
 
 
+def _output_pos(output):
+    pos = output.get("pos", {})
+    return int(float(pos.get("x", 0))), int(float(pos.get("y", 0)))
+
+
+def _output_width(output):
+    size = output.get("size", {})
+    scale = float(output.get("scale", 1) or 1)
+    return int(float(size.get("width", 0)) / scale)
+
+
+def _default_position(outputs):
+    output = next(
+        (
+            item for item in outputs
+            if item.get("connected") and item.get("enabled")
+            and (item.get("primary") or item.get("priority") == 1)
+        ),
+        None,
+    )
+    if not output:
+        return None
+    x, y = _output_pos(output)
+    width = _output_width(output)
+    return (x + width, y) if width else None
+
+
+def _position_virtual_output(output_name, outputs):
+    position = load_kde_virtual_position() or _default_position(outputs)
+    if position:
+        _run_kscreen(f"output.{output_name}.position.{position[0]},{position[1]}")
+
+
+def save_current_virtual_position(output_name=""):
+    output = next(
+        (
+            item for item in kde_outputs()
+            if item.get("connected") and item.get("enabled")
+            and str(item.get("name", "")).lower().startswith("virtual-")
+            and (not output_name or item.get("name") == output_name)
+        ),
+        None,
+    )
+    if output:
+        save_kde_virtual_position(*_output_pos(output))
+
+
 def configure_portal_virtual_output(
     baseline_names,
     width,
@@ -163,6 +212,7 @@ def configure_portal_virtual_output(
         delay,
     ):
         return False, output_name, "KDE did not activate the requested custom mode"
+    _position_virtual_output(output_name, kde_outputs())
 
     return (
         True,

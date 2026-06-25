@@ -5,7 +5,7 @@ import re
 import shutil
 import sys
 
-from PyQt6.QtCore import Qt, QProcess, QUrl
+from PyQt6.QtCore import Qt, QProcess, QTimer, QUrl
 from PyQt6.QtGui import QColor, QIcon, QPalette
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtQuickWidgets import QQuickWidget
@@ -118,6 +118,18 @@ class MonitorizeWindow(QMainWindow):
         app_log.close()
         QApplication.quit()
 
+    def _quit_to_tray_agent(self):
+        result = QProcess.startDetached(
+            sys.executable,
+            [os.path.join(LINUX_DIR, "monitorize_gui.py"), "--tray-agent"],
+            LINUX_DIR,
+        )
+        started = result[0] if isinstance(result, tuple) else result
+        if started:
+            self._quit_app()
+            return True
+        return False
+
     def _configure_display(self):
         if shutil.which("nwg-displays") is None:
             QMessageBox.warning(
@@ -130,6 +142,10 @@ class MonitorizeWindow(QMainWindow):
     def closeEvent(self, event):
         minimize = self.backend.should_minimize_to_tray()
         if minimize and QSystemTrayIcon.isSystemTrayAvailable():
+            idle = not self.backend.isStreaming and not self.backend.isReceiving
+            if idle and self._quit_to_tray_agent():
+                event.accept()
+                return
             event.ignore()
             self.hide()
             self.tray.show()
@@ -213,6 +229,14 @@ def _start_in_tray_requested(argv):
     return "--start-in-tray" in argv
 
 
+def _launch_preset_index(argv):
+    try:
+        index = argv.index("--launch-preset")
+        return int(argv[index + 1])
+    except (ValueError, IndexError):
+        return None
+
+
 def _show_initial_window(window, start_in_tray):
     if start_in_tray and QSystemTrayIcon.isSystemTrayAvailable():
         QApplication.setQuitOnLastWindowClosed(False)
@@ -231,10 +255,22 @@ def _handle_instance_command(server, window):
     connection.deleteLater()
     if command == "show":
         window._restore_from_tray()
+    elif command.startswith("preset:"):
+        try:
+            window.backend.launchPreset(int(command.split(":", 1)[1]))
+        except ValueError:
+            pass
+
+
+def _instance_command(start_in_tray, preset_index):
+    if preset_index is not None:
+        return f"preset:{preset_index}".encode()
+    return b"noop" if start_in_tray else b"show"
 
 
 def main():
     start_in_tray = _start_in_tray_requested(sys.argv)
+    preset_index = _launch_preset_index(sys.argv)
     log_path = app_log.configure()
     app_log.install_exception_hook()
     app_log.write("APP", f"Application starting. Log file: {log_path}")
@@ -245,7 +281,7 @@ def main():
     socket.connectToServer("monitorize")
     if socket.waitForConnected(250):
         app_log.write("APP", "Existing instance activated.")
-        socket.write(b"noop" if start_in_tray else b"show")
+        socket.write(_instance_command(start_in_tray, preset_index))
         socket.waitForBytesWritten(250)
         return
     QLocalServer.removeServer("monitorize")
@@ -260,6 +296,8 @@ def main():
         lambda: _handle_instance_command(server, window)
     )
     _show_initial_window(window, start_in_tray)
+    if preset_index is not None:
+        QTimer.singleShot(0, lambda: window.backend.launchPreset(preset_index))
     sys.exit(app.exec())
 
 
