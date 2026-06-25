@@ -80,10 +80,11 @@ class Geometry:
             outputs = json_command(["kscreen-doctor", "-j"]).get("outputs", [])
             output = kde_virtual_output(outputs)
             value = output.get("rotation", 1) if output else 1
+            key = str(value).strip().lower()
             return {
-                1: 0, 2: 270, 4: 180, 8: 90,
-                "None": 0, "Left": 270, "Inverted": 180, "Right": 90,
-            }.get(value, 0)
+                "1": 0, "2": 270, "4": 180, "8": 90,
+                "none": 0, "left": 270, "inverted": 180, "right": 90,
+            }.get(key, 0)
         return 0
 
     def _fallback_rect(self):

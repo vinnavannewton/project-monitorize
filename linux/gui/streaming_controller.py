@@ -317,10 +317,8 @@ class StreamingController(QObject):
         self.input_bridge.start(sys.executable, args)
         if stylus:
             self._set_status("Stylus input starting via uinput…")
-        elif self.de in ("hyprland", "sway"):
-            self._set_status("Touch service starting via uinput…")
         else:
-            self._set_status("Touch service starting…")
+            self._set_status("Touch service starting via uinput…")
 
     def _uses_kde_portal_virtual_source(self):
         return self.de == "kde" and self.env.value("MONITORIZE_PORTAL_SOURCE_TYPE") == "4"

@@ -45,7 +45,7 @@ Important components:
 | `Streamer_kde.py` | KDE ScreenCast portal capture. |
 | `portal_streamer.py` | Shared XDG ScreenCast portal session and PipeWire stream handling. |
 | `pipeline_builder.py` | CPU, VA-API, or NVENC GStreamer pipeline launch. |
-| `touch_daemon.py` and `input_bridge/` | Android input transport, dispatch, geometry, libei, and uinput handling. |
+| `touch_daemon.py` and `input_bridge/` | Android input transport, dispatch, geometry, and uinput handling. |
 | `gui/discovery_service.py` | Zeroconf discovery and encrypted/plain capability advertisement. |
 
 ## Startup and Tray Behavior
@@ -234,11 +234,7 @@ Android sends normalized coordinates in the range `0..65535`. Linux maps them to
 - `hyprctl monitors -j` on Hyprland;
 - compositor-specific state on Sway or GNOME.
 
-Backend selection:
-
-- KDE/GNOME default: libei through the XDG RemoteDesktop portal;
-- KDE/GNOME with stylus features: `/dev/uinput`;
-- Hyprland and Sway: `/dev/uinput`.
+All supported Linux desktops use `/dev/uinput` for touch and stylus input. KDE, Hyprland, and Sway bind the virtual input device to the streamed output when the compositor exposes the needed mapping controls. GNOME remains experimental and uses desktop bounds from the compositor.
 
 The input bridge releases active contacts when a client disconnects or UDP traffic becomes idle, preventing stuck touches after reconnects.
 
