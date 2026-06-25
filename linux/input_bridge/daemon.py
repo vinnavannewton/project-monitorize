@@ -7,7 +7,6 @@ import time
 
 from .dispatcher import InputDispatcher
 from .geometry import Geometry, detect_de
-from .libei_backend import LibeiBackend
 from .transport import run_tcp_server, run_udp_server
 from .uinput_backend import UInputBackend
 
@@ -28,10 +27,7 @@ class InputDaemon:
             "kde", "gnome", "hyprland", "sway"
         )
         self.geometry = Geometry(self.de, width, height)
-        backend_type = UInputBackend if (
-            self.de in ("hyprland", "sway") or self.stylus_features
-        ) else LibeiBackend
-        self.backend = backend_type(self.geometry, self.shutdown)
+        self.backend = UInputBackend(self.geometry, self.shutdown)
         self.dispatcher = InputDispatcher(self.backend, stylus_only)
 
     def run(self):

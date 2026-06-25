@@ -43,7 +43,7 @@ The pipeline is:
 
 ### 📦 Dependencies (Must Do)
 
-> **Note:** Python packages (`PyQt6`, `snegg`, `evdev`, `zeroconf`) are automatically installed inside a virtual environment when you run `install.sh`. You only need to install the system-level packages listed below.
+> **Note:** Python packages (`PyQt6`, `evdev`, `zeroconf`) are automatically installed inside a virtual environment when you run `install.sh`. You only need to install the system-level packages listed below.
 
 ### Before running Monitorize, install the required packages for your distro and desktop environment. Follow your distro section below in order.
 
@@ -76,24 +76,7 @@ sudo dnf install -y --skip-unavailable \
   android-tools
 ```
 
-### Step 3 — Install snegg build dependencies (Not needed for Hyprland or Sway)
-
-These system packages are required so that `snegg` (libei Python bindings) can be compiled inside the virtual environment by `install.sh`.
-
-```bash
-sudo dnf install -y \
-  libei \
-  libei-devel \
-  liboeffis \
-  gcc \
-  python3-devel \
-  meson \
-  ninja-build \
-  pkg-config \
-  git
-```
-
-### Step 4 — Desktop-Specific (Fedora)
+### Step 3 — Desktop-Specific (Fedora)
 
 ### KDE Plasma:
 
@@ -103,9 +86,9 @@ KDE support requires Plasma 6.7+
 sudo dnf install -y kscreen
 ```
 
-#### Stylus input permission (for `Enable Stylus Features`)
+#### Input permission (`/dev/uinput`)
 
-KDE's default touch path uses libei, but the pressure/tilt stylus mode uses `/dev/uinput`. Enable uinput access before turning on `Enable Stylus Features`:
+Monitorize uses `/dev/uinput` for touch and stylus input on KDE. Enable uinput access before streaming:
 
 ```bash
 echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
@@ -128,9 +111,9 @@ Log out and back in for the change to take effect. To revert:
 gsettings set org.gnome.mutter.wayland disable-hardware-cursor false
 ```
 
-#### Stylus input permission (for `Enable Stylus Features`)
+#### Input permission (`/dev/uinput`)
 
-GNOME's default touch path uses libei, but the pressure/tilt stylus mode uses `/dev/uinput`. Enable uinput access before turning on `Enable Stylus Features`:
+Monitorize uses `/dev/uinput` for touch and stylus input on GNOME. Enable uinput access before streaming:
 
 ```bash
 echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
@@ -173,7 +156,7 @@ sudo dnf install -y \
   xdg-desktop-portal-gtk
 ```
 
-Sway input uses `/dev/uinput` because the wlroots portal does not provide RemoteDesktop input:
+Sway input uses `/dev/uinput`:
 
 ```bash
 echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
@@ -204,21 +187,7 @@ sudo pacman -S --needed \
   android-tools
 ```
 
-### Step 2 — Install snegg build dependencies (Not needed for Hyprland or Sway)
-
-These system packages are required so that `snegg` (libei Python bindings) can be compiled inside the virtual environment by `install.sh`.
-
-```bash
-sudo pacman -S --needed \
-  libei \
-  base-devel \
-  meson \
-  ninja \
-  pkgconf \
-  git
-```
-
-### Step 3 — Desktop-Specific (Arch)
+### Step 2 — Desktop-Specific (Arch)
 
 ### KDE Plasma:
 
@@ -228,9 +197,9 @@ KDE support requires Plasma 6.7+
 sudo pacman -S --needed kscreen
 ```
 
-#### Stylus input permission (for `Enable Stylus Features`)
+#### Input permission (`/dev/uinput`)
 
-KDE's default touch path uses libei, but the pressure/tilt stylus mode uses `/dev/uinput`. Enable uinput access before turning on `Enable Stylus Features`:
+Monitorize uses `/dev/uinput` for touch and stylus input on KDE. Enable uinput access before streaming:
 
 ```bash
 echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
@@ -253,9 +222,9 @@ Log out and back in for the change to take effect. To revert:
 gsettings set org.gnome.mutter.wayland disable-hardware-cursor false
 ```
 
-#### Stylus input permission (for `Enable Stylus Features`)
+#### Input permission (`/dev/uinput`)
 
-GNOME's default touch path uses libei, but the pressure/tilt stylus mode uses `/dev/uinput`. Enable uinput access before turning on `Enable Stylus Features`:
+Monitorize uses `/dev/uinput` for touch and stylus input on GNOME. Enable uinput access before streaming:
 
 ```bash
 echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
@@ -342,22 +311,7 @@ sudo apt install -y \
   liboeffis-dev
 ```
 
-### Step 3 — Install snegg build dependencies (Not needed for Hyprland or Sway)
-
-These system packages are required so that `snegg` (libei Python bindings) can be compiled inside the virtual environment by `install.sh`.
-
-```bash
-sudo apt install -y \
-  libei-dev \
-  gcc \
-  python3-dev \
-  meson \
-  ninja-build \
-  pkg-config \
-  git
-```
-
-### Step 4 — Desktop-Specific (Debian / Ubuntu)
+### Step 3 — Desktop-Specific (Debian / Ubuntu)
 
 ### KDE Plasma:
 
@@ -367,9 +321,9 @@ KDE support requires Plasma 6.7+
 sudo apt install -y kscreen
 ```
 
-#### Stylus input permission (for `Enable Stylus Features`)
+#### Input permission (`/dev/uinput`)
 
-KDE's default touch path uses libei, but the pressure/tilt stylus mode uses `/dev/uinput`. Enable uinput access before turning on `Enable Stylus Features`:
+Monitorize uses `/dev/uinput` for touch and stylus input on KDE. Enable uinput access before streaming:
 
 ```bash
 echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
@@ -392,9 +346,9 @@ Log out and back in for the change to take effect. To revert:
 gsettings set org.gnome.mutter.wayland disable-hardware-cursor false
 ```
 
-#### Stylus input permission (for `Enable Stylus Features`)
+#### Input permission (`/dev/uinput`)
 
-GNOME's default touch path uses libei, but the pressure/tilt stylus mode uses `/dev/uinput`. Enable uinput access before turning on `Enable Stylus Features`:
+Monitorize uses `/dev/uinput` for touch and stylus input on GNOME. Enable uinput access before streaming:
 
 ```bash
 echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
@@ -464,7 +418,7 @@ sudo usermod -aG input $USER
   
   to confirm the device is connected.
 
-- `Enable Stylus Features` uses `/dev/uinput` on KDE, GNOME, Hyprland, and Sway to expose pressure, tilt, eraser, hover, and stylus buttons. Hyprland and Sway always use uinput because their portal backends do not provide RemoteDesktop input. If uinput is unavailable, or the compositor cannot bind the device to the streamed output, input stops so it cannot target the wrong display.
+- Monitorize uses `/dev/uinput` for all Linux touch and stylus input on KDE, GNOME, Hyprland, and Sway. `Enable Stylus Features` exposes pressure, tilt, eraser, hover, and stylus buttons through the same uinput path. If uinput is unavailable, or the compositor cannot bind the device to the streamed output, input stops so it cannot target the wrong display.
 
 - Stylus input suppresses finger touch for 5 seconds after the last stylus event. The `Disable Touch and Only Enable Stylus` option drops all finger-touch input while keeping stylus/eraser input active.
 

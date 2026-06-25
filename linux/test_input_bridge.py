@@ -5,7 +5,7 @@ import types
 from unittest.mock import Mock, patch
 
 from input_bridge import daemon as daemon_module
-from input_bridge import geometry, libei_backend, transport, uinput_backend
+from input_bridge import geometry, transport, uinput_backend
 from input_bridge.dispatcher import InputDispatcher
 from input_bridge.uinput_backend import UInputBackend
 from input_bridge.protocol import (
@@ -224,6 +224,11 @@ class DispatcherTest(unittest.TestCase):
 
 
 class DaemonStartupTest(unittest.TestCase):
+    def test_all_desktops_use_uinput_backend(self):
+        for de in ("kde", "gnome", "hyprland", "sway"):
+            daemon = daemon_module.InputDaemon(100, 100, de=de)
+            self.assertIsInstance(daemon.backend, UInputBackend)
+
     def test_backend_setup_completes_before_transport_starts(self):
         order = []
 
@@ -374,6 +379,23 @@ class KdeGeometryTest(unittest.TestCase):
         ):
             self.assertIsNone(geom._rect_kde())
 
+    def test_kde_rotation_accepts_numeric_and_lowercase_values(self):
+        cases = (
+            (1, 0), (2, 270), (4, 180), (8, 90),
+            ("none", 0), ("left", 270), ("inverted", 180), ("right", 90),
+        )
+        for value, expected in cases:
+            geom = geometry.Geometry("kde", 1920, 1200)
+            with patch("input_bridge.geometry.json_command", return_value={
+                "outputs": [{
+                    "name": "Virtual-1",
+                    "enabled": True,
+                    "connected": True,
+                    "rotation": value,
+                }]
+            }):
+                self.assertEqual(geom.rotation(), expected)
+
 
 class UInputCoordinatesTest(unittest.TestCase):
     def backend(self):
@@ -458,143 +480,6 @@ class UInputSlotTest(unittest.TestCase):
             backend.inject_touch(ACTION_DOWN, cid, 100, 100)
         self.assertEqual(len(backend.active), 10)
         self.assertNotIn(10, backend.active)
-
-
-class LibeiPointerFallbackTest(unittest.TestCase):
-    class FakeEvent:
-        def __init__(self, event_type, device=None, sequence=None):
-            self._type = event_type
-            self._cobject = self
-            self.device = device
-            self.emulating_sequence = sequence
-
-    class FakeDevice:
-        regions = []
-
-        def __init__(self, capabilities):
-            self.capabilities = capabilities
-            self.start_sequences = []
-
-        def start_emulating(self, sequence=None):
-            self.start_sequences.append(sequence)
-
-    class FakeContext:
-        fd = 7
-
-        def __init__(self, batches):
-            self.batches = list(batches)
-            self.events = []
-            self.dispatch_calls = 0
-
-        def dispatch(self):
-            self.dispatch_calls += 1
-            self.events = self.batches.pop(0) if self.batches else []
-
-    def pointer_backend(self):
-        shutdown = Mock()
-        shutdown.is_set.return_value = False
-        backend = libei_backend.LibeiBackend(Mock(screen_w=1600, screen_h=1000), shutdown)
-        backend.ctx = Mock()
-        backend.geometry.virtual_rect.return_value = (0, 0, 1600, 1000)
-        backend.pointer = Mock()
-        backend.pointer.regions = []
-        return backend
-
-    def test_mouse_hover_moves_pointer_without_left_button(self):
-        backend = self.pointer_backend()
-
-        backend.inject_pointer(ACTION_HOVER, 100, 100, 0)
-
-        backend.pointer.pointer_motion_absolute.assert_called_once()
-        backend.pointer.button_button.assert_not_called()
-
-    def test_mouse_primary_drag_presses_and_releases_left_button(self):
-        backend = self.pointer_backend()
-
-        backend.inject_pointer(ACTION_DOWN, 100, 100, 1)
-        backend.inject_pointer(ACTION_MOVE, 200, 200, 1)
-        backend.inject_pointer(ACTION_UP, 200, 200, 0)
-
-        self.assertEqual(
-            [
-                call.args for call in backend.pointer.button_button.call_args_list
-            ],
-            [(0x110, True), (0x110, False)],
-        )
-
-    def test_discovery_flushes_start_emulating_before_accepting_device(self):
-        touch_cap = "touch"
-        pointer_cap = "pointer_absolute"
-        device = self.FakeDevice([touch_cap, pointer_cap])
-        shutdown = Mock()
-        shutdown.is_set.return_value = False
-        backend = libei_backend.LibeiBackend(Mock(screen_w=1600, screen_h=1000), shutdown)
-        backend.ctx = self.FakeContext([
-            [self.FakeEvent(1), self.FakeEvent(5, device=device)],
-        ])
-        backend._libei = Mock(event_get_type=lambda event: event._type)
-        with (
-            patch.object(
-                libei_backend,
-                "ei",
-                types.SimpleNamespace(
-                    DeviceCapability=types.SimpleNamespace(
-                        TOUCH=touch_cap,
-                        POINTER_ABSOLUTE=pointer_cap,
-                    )
-                ),
-            ),
-            patch("input_bridge.libei_backend.select.select", return_value=([7], [], [])),
-        ):
-            backend._discover_devices()
-        self.assertEqual(device.start_sequences, [1])
-        self.assertGreaterEqual(backend.ctx.dispatch_calls, 2)
-        self.assertIs(backend.touch, device)
-        self.assertIs(backend.pointer, device)
-
-    def test_pointer_button_stays_down_until_last_contact_releases(self):
-        backend = libei_backend.LibeiBackend(Mock(screen_w=1600, screen_h=1000), Mock())
-        backend.ctx = Mock()
-        backend.geometry.virtual_rect.return_value = (0, 0, 1600, 1000)
-        backend.touch = Mock()
-        backend.touch.regions = []
-        backend.touch.capabilities = []
-        with patch.object(
-            libei_backend,
-            "ei",
-            types.SimpleNamespace(DeviceCapability=types.SimpleNamespace(TOUCH="touch")),
-        ):
-            backend.inject_touch(ACTION_DOWN, 1, 100, 100)
-            backend.inject_touch(ACTION_DOWN, 2, 200, 200)
-            backend.inject_touch(ACTION_UP, 1, 100, 100)
-            false_calls = [
-                call for call in backend.touch.button_button.call_args_list
-                if call.args == (0x110, False)
-            ]
-            self.assertEqual(false_calls, [])
-            backend.inject_touch(ACTION_UP, 2, 200, 200)
-            false_calls = [
-                call for call in backend.touch.button_button.call_args_list
-                if call.args == (0x110, False)
-            ]
-            self.assertEqual(len(false_calls), 1)
-
-    def test_true_touch_release_all_releases_contacts_without_pointer_button(self):
-        backend = libei_backend.LibeiBackend(Mock(screen_w=1600, screen_h=1000), Mock())
-        backend.ctx = Mock()
-        contact = Mock()
-        backend.touch = Mock()
-        backend.touch.capabilities = ["touch"]
-        backend.active = {1: contact}
-        with patch.object(
-            libei_backend,
-            "ei",
-            types.SimpleNamespace(DeviceCapability=types.SimpleNamespace(TOUCH="touch")),
-        ):
-            backend.release_all()
-        contact.up.assert_called_once()
-        backend.touch.button_button.assert_not_called()
-
 
 if __name__ == "__main__":
     unittest.main()
