@@ -76,7 +76,18 @@ sudo dnf install -y --skip-unavailable \
   android-tools
 ```
 
-### Step 3 — Desktop-Specific (Fedora)
+### Step 3 — Input Permission (all DEs)
+
+Monitorize uses `/dev/uinput` for all Linux touch and stylus input. Enable uinput access before streaming:
+
+```bash
+echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+sudo usermod -aG input $USER
+# Log out and back in for group change to take effect
+```
+
+### Step 4 — Desktop-Specific (Fedora)
 
 ### KDE Plasma:
 
@@ -84,17 +95,6 @@ KDE support requires Plasma 6.7+
 
 ```bash
 sudo dnf install -y kscreen
-```
-
-#### Input permission (`/dev/uinput`)
-
-Monitorize uses `/dev/uinput` for touch and stylus input on KDE. Enable uinput access before streaming:
-
-```bash
-echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
-sudo udevadm control --reload-rules && sudo udevadm trigger
-sudo usermod -aG input $USER
-# Log out and back in for group change to take effect
 ```
 
 ### GNOME (Experimental):
@@ -111,17 +111,6 @@ Log out and back in for the change to take effect. To revert:
 gsettings set org.gnome.mutter.wayland disable-hardware-cursor false
 ```
 
-#### Input permission (`/dev/uinput`)
-
-Monitorize uses `/dev/uinput` for touch and stylus input on GNOME. Enable uinput access before streaming:
-
-```bash
-echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
-sudo udevadm control --reload-rules && sudo udevadm trigger
-sudo usermod -aG input $USER
-# Log out and back in for group change to take effect
-```
-
 ### Hyprland:
 
 Install the Hyprland XDG portal backend:
@@ -136,15 +125,6 @@ sudo dnf install -y \
   wlr-randr
 ```
 
-#### Step 2:
-
-```bash
-echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
-sudo udevadm control --reload-rules && sudo udevadm trigger
-sudo usermod -aG input $USER
-# Log out and back in for group change to take effect
-```
-
 ### Sway:
 
 Install the extra portal dependencies required by Monitorize:
@@ -154,15 +134,6 @@ sudo dnf install -y \
   xdg-desktop-portal \
   xdg-desktop-portal-wlr \
   xdg-desktop-portal-gtk
-```
-
-Sway input uses `/dev/uinput`:
-
-```bash
-echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
-sudo udevadm control --reload-rules && sudo udevadm trigger
-sudo usermod -aG input $USER
-# Log out and back in for group change to take effect
 ```
 
 ---
@@ -187,7 +158,18 @@ sudo pacman -S --needed \
   android-tools
 ```
 
-### Step 2 — Desktop-Specific (Arch)
+### Step 2 — Input Permission (all DEs)
+
+Monitorize uses `/dev/uinput` for all Linux touch and stylus input. Enable uinput access before streaming:
+
+```bash
+echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+sudo usermod -aG input $USER
+# Log out and back in for group change to take effect
+```
+
+### Step 3 — Desktop-Specific (Arch)
 
 ### KDE Plasma:
 
@@ -195,17 +177,6 @@ KDE support requires Plasma 6.7+
 
 ```bash
 sudo pacman -S --needed kscreen
-```
-
-#### Input permission (`/dev/uinput`)
-
-Monitorize uses `/dev/uinput` for touch and stylus input on KDE. Enable uinput access before streaming:
-
-```bash
-echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
-sudo udevadm control --reload-rules && sudo udevadm trigger
-sudo usermod -aG input $USER
-# Log out and back in for group change to take effect
 ```
 
 ### GNOME (Experimental):
@@ -222,17 +193,6 @@ Log out and back in for the change to take effect. To revert:
 gsettings set org.gnome.mutter.wayland disable-hardware-cursor false
 ```
 
-#### Input permission (`/dev/uinput`)
-
-Monitorize uses `/dev/uinput` for touch and stylus input on GNOME. Enable uinput access before streaming:
-
-```bash
-echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
-sudo udevadm control --reload-rules && sudo udevadm trigger
-sudo usermod -aG input $USER
-# Log out and back in for group change to take effect
-```
-
 ### Hyprland:
 
 #### Step 1 (specific dependencies)
@@ -245,15 +205,6 @@ sudo pacman -S --needed \
   wlr-randr
 ```
 
-#### Step 2 (uinput permission)
-
-```bash
-echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
-sudo udevadm control --reload-rules && sudo udevadm trigger
-sudo usermod -aG input $USER
-# Log out and back in for group change to take effect
-```
-
 ### Sway:
 
 ```bash
@@ -261,15 +212,6 @@ sudo pacman -S --needed \
   xdg-desktop-portal \
   xdg-desktop-portal-wlr \
   xdg-desktop-portal-gtk
-```
-
-Enable uinput access:
-
-```bash
-echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
-sudo udevadm control --reload-rules && sudo udevadm trigger
-sudo usermod -aG input $USER
-# Log out and back in for group change to take effect
 ```
 
 ## <img src="https://upload.wikimedia.org/wikipedia/commons/4/4a/Debian-OpenLogo.svg" height="28" alt="Debian"> Debian / Ubuntu (APT)
@@ -311,7 +253,18 @@ sudo apt install -y \
   liboeffis-dev
 ```
 
-### Step 3 — Desktop-Specific (Debian / Ubuntu)
+### Step 3 — Input Permission (all DEs)
+
+Monitorize uses `/dev/uinput` for all Linux touch and stylus input. Enable uinput access before streaming:
+
+```bash
+echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+sudo usermod -aG input $USER
+# Log out and back in for group change to take effect
+```
+
+### Step 4 — Desktop-Specific (Debian / Ubuntu)
 
 ### KDE Plasma:
 
@@ -319,17 +272,6 @@ KDE support requires Plasma 6.7+
 
 ```bash
 sudo apt install -y kscreen
-```
-
-#### Input permission (`/dev/uinput`)
-
-Monitorize uses `/dev/uinput` for touch and stylus input on KDE. Enable uinput access before streaming:
-
-```bash
-echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
-sudo udevadm control --reload-rules && sudo udevadm trigger
-sudo usermod -aG input $USER
-# Log out and back in for group change to take effect
 ```
 
 ### GNOME (Experimental):
@@ -346,17 +288,6 @@ Log out and back in for the change to take effect. To revert:
 gsettings set org.gnome.mutter.wayland disable-hardware-cursor false
 ```
 
-#### Input permission (`/dev/uinput`)
-
-Monitorize uses `/dev/uinput` for touch and stylus input on GNOME. Enable uinput access before streaming:
-
-```bash
-echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
-sudo udevadm control --reload-rules && sudo udevadm trigger
-sudo usermod -aG input $USER
-# Log out and back in for group change to take effect
-```
-
 ### Hyprland:
 
 #### Step 1:
@@ -369,15 +300,6 @@ sudo apt install -y \
   wlr-randr
 ```
 
-#### Step 2:
-
-```bash
-echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
-sudo udevadm control --reload-rules && sudo udevadm trigger
-sudo usermod -aG input $USER
-# Log out and back in for group change to take effect
-```
-
 > **Note:** `xdg-desktop-portal-hyprland` may not be in older Debian/Ubuntu repos. If not found, build from source: [xdg-desktop-portal-hyprland](https://github.com/hyprwm/xdg-desktop-portal-hyprland)
 
 ### Sway:
@@ -387,15 +309,6 @@ sudo apt install -y \
   xdg-desktop-portal \
   xdg-desktop-portal-wlr \
   xdg-desktop-portal-gtk
-```
-
-Enable uinput access:
-
-```bash
-echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
-sudo udevadm control --reload-rules && sudo udevadm trigger
-sudo usermod -aG input $USER
-# Log out and back in for group change to take effect
 ```
 
 ---
@@ -476,7 +389,7 @@ Or:
 - [x] Touch screen.
 - [ ] Stable nvidia encoder (waiting for driver 610.x which implemented proper DMA BUF).
 - [ ] On Sway DE.
-- [x] Stylus support with pressure, tilt, eraser, hover, and stylus buttons via optional uinput mode.
+- [x] Stylus support with pressure, tilt, eraser, hover, and stylus buttons via uinput.
 - [ ] Stable Wi-Fi mode (beta).
 - [ ] Flathub distribution.
 - [ ] use laptop as second screen.
