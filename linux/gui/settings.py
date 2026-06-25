@@ -4,6 +4,7 @@ Monitorize GUI — Persistent settings stored in ~/.config/monitorize/settings.i
 
 import os
 import hashlib
+import json
 from PyQt6.QtCore import QSettings
 
 from gui.validation import (
@@ -13,6 +14,7 @@ from gui.validation import (
     sanitize_decoder,
     sanitize_display_type,
     sanitize_encoder,
+    sanitize_encoder_profile,
     sanitize_fps,
     sanitize_port,
     sanitize_resolution,
@@ -21,6 +23,8 @@ from gui.validation import (
 
 CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".config", "monitorize")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "settings.ini")
+MAX_PRESETS = 4
+PRESET_VERSION = 1
 
 
 def _get_settings() -> QSettings:
@@ -84,6 +88,9 @@ def _normalize_stream_settings(data: dict) -> dict:
         data["encoder"] = "Software (CPU / x264enc)"
     data["display_type"] = sanitize_display_type(data["display_type"])
     data["encoder"] = sanitize_encoder(data["encoder"])
+    data["encoder_profile"] = sanitize_encoder_profile(
+        data.get("encoder_profile", "Low Latency")
+    )
     data["stream_type"] = sanitize_stream_type(data.get("stream_type", "Speed"))
     data["fps"] = str(sanitize_fps(data["fps"]))
     data["custom_fps"] = (
@@ -101,11 +108,12 @@ def _normalize_stream_settings(data: dict) -> dict:
 
 def save_wifi_settings(*, resolution: str, custom_w: str, custom_h: str,
                        fps: str, custom_fps: str, bitrate: str,
-                       display_type: str, encoder: str, stream_type: str,
-                       use_encryption: bool):
+                       display_type: str, encoder: str, encoder_profile: str,
+                       stream_type: str, use_encryption: bool):
     values = locals()
     values["display_type"] = sanitize_display_type(display_type)
     values["encoder"] = sanitize_encoder(encoder)
+    values["encoder_profile"] = sanitize_encoder_profile(encoder_profile)
     values["stream_type"] = sanitize_stream_type(stream_type)
     values["fps"] = str(sanitize_fps(fps))
     values["custom_fps"] = str(sanitize_fps(custom_fps)) if custom_fps else ""
@@ -122,10 +130,11 @@ def save_wifi_settings(*, resolution: str, custom_w: str, custom_h: str,
 
 def save_usb_settings(*, resolution: str, custom_w: str, custom_h: str,
                       fps: str, custom_fps: str, bitrate: str,
-                      display_type: str, encoder: str):
+                      display_type: str, encoder: str, encoder_profile: str):
     values = locals()
     values["display_type"] = sanitize_display_type(display_type)
     values["encoder"] = sanitize_encoder(encoder)
+    values["encoder_profile"] = sanitize_encoder_profile(encoder_profile)
     values["fps"] = str(sanitize_fps(fps))
     values["custom_fps"] = str(sanitize_fps(custom_fps)) if custom_fps else ""
     values["bitrate"] = str(sanitize_bitrate(bitrate))
@@ -160,6 +169,7 @@ STREAM_DEFAULTS = {
     "bitrate": "8000",
     "display_type": "Extend",
     "encoder": "Software (CPU / x264enc)",
+    "encoder_profile": "Low Latency",
 }
 
 
@@ -194,12 +204,14 @@ def load_general_settings() -> dict:
     return data
 
 
-def save_second_display_settings(*, resolution: str, fps: str, bitrate: str, encoder: str):
+def save_second_display_settings(*, resolution: str, fps: str, bitrate: str,
+                                 encoder: str, encoder_profile: str):
     _save_group("second_display", {
         "resolution": resolution,
         "fps": str(sanitize_fps(fps)),
         "bitrate": str(sanitize_bitrate(bitrate)),
         "encoder": sanitize_encoder(encoder),
+        "encoder_profile": sanitize_encoder_profile(encoder_profile),
     })
 
 
@@ -209,11 +221,102 @@ def load_second_display_settings() -> dict:
         "fps": "60",
         "bitrate": "8000",
         "encoder": "Software (CPU / x264enc)",
+        "encoder_profile": "Low Latency",
     })
     data["fps"] = str(sanitize_fps(data["fps"]))
     data["bitrate"] = str(sanitize_bitrate(data["bitrate"]))
     data["encoder"] = sanitize_encoder(data["encoder"])
+    data["encoder_profile"] = sanitize_encoder_profile(data["encoder_profile"])
     return data
+
+
+def _normalize_preset(raw: dict) -> dict | None:
+    if not isinstance(raw, dict) or raw.get("version") != PRESET_VERSION:
+        return None
+    name = str(raw.get("name", "")).strip()[:32]
+    mode = raw.get("mode")
+    primary = raw.get("primary")
+    general = raw.get("general")
+    third = raw.get("third", {})
+    if not name or mode not in ("wifi", "usb"):
+        return None
+    if not isinstance(primary, dict) or not isinstance(general, dict):
+        return None
+    width, height = sanitize_resolution(primary.get("resolution", ""))
+    preset = {
+        "version": PRESET_VERSION,
+        "name": name,
+        "mode": mode,
+        "primary": {
+            "resolution": f"{width}x{height}",
+            "fps": str(sanitize_fps(primary.get("fps", 60))),
+            "bitrate": str(sanitize_bitrate(primary.get("bitrate", 8000))),
+            "display_type": sanitize_display_type(
+                primary.get("display_type", "Extend")
+            ),
+            "encoder": sanitize_encoder(primary.get("encoder", "")),
+            "encoder_profile": sanitize_encoder_profile(
+                primary.get("encoder_profile", "Low Latency")
+            ),
+        },
+        "general": {
+            "minimize_to_tray": bool(general.get("minimize_to_tray", False)),
+            "enable_touch": bool(general.get("enable_touch", True)),
+            "enable_stylus_features": bool(
+                general.get("enable_stylus_features", False)
+            ),
+        },
+        "third": {"enabled": bool(third.get("enabled", False))},
+    }
+    if mode == "wifi":
+        wifi = raw.get("wifi", {})
+        preset["wifi"] = {
+            "stream_type": sanitize_stream_type(wifi.get("stream_type", "Speed")),
+            "use_encryption": bool(wifi.get("use_encryption", True)),
+        }
+    if preset["third"]["enabled"]:
+        width, height = sanitize_resolution(
+            third.get("resolution", ""), (1920, 1080)
+        )
+        preset["third"].update({
+            "resolution": f"{width}x{height}",
+            "fps": str(sanitize_fps(third.get("fps", 60))),
+            "bitrate": str(sanitize_bitrate(third.get("bitrate", 8000))),
+            "encoder": sanitize_encoder(third.get("encoder", "")),
+            "encoder_profile": sanitize_encoder_profile(
+                third.get("encoder_profile", "Low Latency")
+            ),
+        })
+    return preset
+
+
+def load_presets() -> list[dict]:
+    raw = _get_settings().value("presets/items", "[]")
+    try:
+        values = json.loads(raw)
+    except (TypeError, json.JSONDecodeError):
+        return []
+    if not isinstance(values, list):
+        return []
+    presets = []
+    for value in values:
+        preset = _normalize_preset(value)
+        if preset is not None:
+            presets.append(preset)
+        if len(presets) == MAX_PRESETS:
+            break
+    return presets
+
+
+def save_presets(presets: list[dict]) -> None:
+    normalized = []
+    for value in presets:
+        preset = _normalize_preset(value)
+        if preset is not None:
+            normalized.append(preset)
+        if len(normalized) == MAX_PRESETS:
+            break
+    _save_group("presets", {"items": json.dumps(normalized, separators=(",", ":"))})
 
 
 def save_receiver_settings(*, ip: str, port: str, use_encryption: bool = True,
@@ -245,6 +348,29 @@ def load_sway_output() -> str:
 
 def save_sway_output(output: str) -> None:
     _save_group("sway", {"output": output})
+
+
+def _kde_virtual_group(slot: str) -> str:
+    return f"kde_virtual_{slot if slot in ('primary', 'third') else 'primary'}"
+
+
+def load_kde_virtual_layout(slot: str = "primary") -> dict:
+    data = _load_group(_kde_virtual_group(slot), {
+        "x": "", "y": "", "rotation": "",
+    })
+    if slot == "primary" and not data["x"] and not data["y"]:
+        data.update(_load_group("kde_virtual", {"x": "", "y": ""}))
+    try:
+        data["position"] = (int(float(data["x"])), int(float(data["y"])))
+    except (TypeError, ValueError):
+        data["position"] = None
+    return {"position": data["position"], "rotation": str(data["rotation"] or "")}
+
+
+def save_kde_virtual_layout(slot: str, x: int, y: int, rotation="") -> None:
+    _save_group(_kde_virtual_group(slot), {
+        "x": int(x), "y": int(y), "rotation": str(rotation or ""),
+    })
 
 
 def load_receiver_credentials(host: str) -> tuple[str, str]:

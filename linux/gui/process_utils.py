@@ -85,13 +85,16 @@ def unsafe_kill_patterns(*patterns):
         )
 
 
-def stop_processes(*processes):
+def stop_processes(*processes, timeout_ms=3000):
+    clean = True
     for process in processes:
         if process is None or process.state() == QProcess.ProcessState.NotRunning:
             continue
         process.terminate()
-        if not process.waitForFinished(3000):
+        if not process.waitForFinished(timeout_ms):
+            clean = False
             process.kill()
+    return clean
 
 
 def kill_tracked_pids(pids):

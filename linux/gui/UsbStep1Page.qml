@@ -95,29 +95,6 @@ Item {
             spacing: 20
             Layout.alignment: Qt.AlignHCenter
 
-            Button {
-                text: !hasStartedScan ? "Cancel" : "Back"
-                visible: !isScanSuccessful
-                onClicked: {
-                    page.StackView.view.pop()
-                }
-                background: Rectangle {
-                    implicitWidth: 100
-                    implicitHeight: 38
-                    color: "transparent"
-                    border.color: theme.border
-                    radius: 8
-                }
-                contentItem: Text {
-                    text: parent.text
-                    color: theme.textSecondary
-                    font.pixelSize: 13
-                    font.weight: Font.Bold
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
-            }
-
             CustomButton {
                 text: "Yes, Start Scan"
                 visible: !hasStartedScan

@@ -5,7 +5,7 @@ import re
 import shutil
 import sys
 
-from PyQt6.QtCore import Qt, QProcess, QUrl
+from PyQt6.QtCore import Qt, QProcess, QTimer, QUrl
 from PyQt6.QtGui import QColor, QIcon, QPalette
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtQuickWidgets import QQuickWidget
@@ -22,6 +22,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
+from gui import app_log
 from gui.backend import MonitorizeBackend
 from gui.display_controller import (
     disable_sway_output as _disable_sway_output,
@@ -29,7 +30,6 @@ from gui.display_controller import (
     sway_outputs as _sway_outputs,
 )
 from gui.process_utils import kill_patterns
-from gui.settings import load_general_settings
 from gui.utils import LINUX_DIR, detect_desktop_environment
 
 
@@ -39,9 +39,12 @@ class MonitorizeWindow(QMainWindow):
         self.setWindowTitle("Monitorize")
         self.setMinimumSize(760, 520)
         self.resize(860, 580)
-        icon = os.path.join(LINUX_DIR, "assets", "monitorize-icon.png")
+        icon = os.path.join(LINUX_DIR, "assets", "monitorize_desktop_logo.png")
         if os.path.exists(icon):
-            self.setWindowIcon(QIcon(icon))
+            self.app_icon = QIcon(icon)
+            self.setWindowIcon(self.app_icon)
+        else:
+            self.app_icon = QIcon()
         kill_patterns(
             "gst-launch-1.0.*port=7110",
             "gst-launch-1.0.*port=7112",
@@ -74,10 +77,27 @@ class MonitorizeWindow(QMainWindow):
         self.tray.setToolTip("Monitorize")
         menu = QMenu()
         menu.addAction("Show").triggered.connect(self._restore_from_tray)
+        self.presets_menu = menu.addMenu("Presets")
+        self._update_tray_presets()
+        self.backend.presetsChanged.connect(self._update_tray_presets)
         menu.addSeparator()
         menu.addAction("Quit").triggered.connect(self._quit_app)
         self.tray.setContextMenu(menu)
         self.tray.activated.connect(self._tray_activated)
+
+    def _update_tray_presets(self):
+        self.presets_menu.clear()
+        presets = self.backend.presets
+        if not presets:
+            action = self.presets_menu.addAction("No saved presets")
+            action.setEnabled(False)
+            return
+        for index, preset in enumerate(presets):
+            action = self.presets_menu.addAction(preset["name"])
+            action.triggered.connect(
+                lambda _checked=False, preset_index=index:
+                    self.backend.launchPreset(preset_index)
+            )
 
     def _tray_activated(self, reason):
         if reason in (
@@ -93,8 +113,22 @@ class MonitorizeWindow(QMainWindow):
         self.activateWindow()
 
     def _quit_app(self):
+        app_log.write("APP", "Application shutting down.")
         self.backend.close()
+        app_log.close()
         QApplication.quit()
+
+    def _quit_to_tray_agent(self):
+        result = QProcess.startDetached(
+            sys.executable,
+            [os.path.join(LINUX_DIR, "monitorize_gui.py"), "--tray-agent"],
+            LINUX_DIR,
+        )
+        started = result[0] if isinstance(result, tuple) else result
+        if started:
+            self._quit_app()
+            return True
+        return False
 
     def _configure_display(self):
         if shutil.which("nwg-displays") is None:
@@ -106,17 +140,15 @@ class MonitorizeWindow(QMainWindow):
             QMessageBox.warning(self, "Error", "Failed to run nwg-displays.")
 
     def closeEvent(self, event):
-        minimize = load_general_settings().get("minimize_to_tray", False)
-        if minimize and self.backend.isStreaming:
+        minimize = self.backend.should_minimize_to_tray()
+        if minimize and QSystemTrayIcon.isSystemTrayAvailable():
+            idle = not self.backend.isStreaming and not self.backend.isReceiving
+            if idle and self._quit_to_tray_agent():
+                event.accept()
+                return
             event.ignore()
             self.hide()
             self.tray.show()
-            self.tray.showMessage(
-                "Monitorize",
-                "Running in the background. Double-click the tray icon to restore.",
-                QSystemTrayIcon.MessageIcon.Information,
-                5000,
-            )
             return
         self._quit_app()
         event.accept()
@@ -193,30 +225,79 @@ def _set_palette(app):
     app.setPalette(palette)
 
 
+def _start_in_tray_requested(argv):
+    return "--start-in-tray" in argv
+
+
+def _launch_preset_index(argv):
+    try:
+        index = argv.index("--launch-preset")
+        return int(argv[index + 1])
+    except (ValueError, IndexError):
+        return None
+
+
+def _show_initial_window(window, start_in_tray):
+    if start_in_tray and QSystemTrayIcon.isSystemTrayAvailable():
+        QApplication.setQuitOnLastWindowClosed(False)
+        window.tray.show()
+        app_log.write("APP", "Started hidden in system tray.")
+        return False
+    window.show()
+    return True
+
+
+def _handle_instance_command(server, window):
+    connection = server.nextPendingConnection()
+    command = ""
+    if connection.waitForReadyRead(250):
+        command = bytes(connection.readAll()).decode("utf-8", "ignore")
+    connection.deleteLater()
+    if command == "show":
+        window._restore_from_tray()
+    elif command.startswith("preset:"):
+        try:
+            window.backend.launchPreset(int(command.split(":", 1)[1]))
+        except ValueError:
+            pass
+
+
+def _instance_command(start_in_tray, preset_index):
+    if preset_index is not None:
+        return f"preset:{preset_index}".encode()
+    return b"noop" if start_in_tray else b"show"
+
+
 def main():
+    start_in_tray = _start_in_tray_requested(sys.argv)
+    preset_index = _launch_preset_index(sys.argv)
+    log_path = app_log.configure()
+    app_log.install_exception_hook()
+    app_log.write("APP", f"Application starting. Log file: {log_path}")
     app = QApplication(sys.argv)
     app.setApplicationName("Monitorize")
     app.setDesktopFileName("monitorize")
     socket = QLocalSocket()
     socket.connectToServer("monitorize")
     if socket.waitForConnected(250):
-        socket.write(b"show")
+        app_log.write("APP", "Existing instance activated.")
+        socket.write(_instance_command(start_in_tray, preset_index))
         socket.waitForBytesWritten(250)
         return
     QLocalServer.removeServer("monitorize")
     server = QLocalServer(app)
     server.setSocketOptions(QLocalServer.SocketOption.UserAccessOption)
     if not server.listen("monitorize"):
+        app_log.write("APP", "Failed to create single-instance server.")
         return
     _set_palette(app)
     window = MonitorizeWindow()
     server.newConnection.connect(
-        lambda: (
-            server.nextPendingConnection().deleteLater(),
-            window._restore_from_tray(),
-        )
+        lambda: _handle_instance_command(server, window)
     )
-    window.show()
+    _show_initial_window(window, start_in_tray)
+    if preset_index is not None:
+        QTimer.singleShot(0, lambda: window.backend.launchPreset(preset_index))
     sys.exit(app.exec())
 
 

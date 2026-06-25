@@ -1,21 +1,18 @@
 """KDE third-display stream lifecycle."""
 
 import os
-import secrets
 import sys
 
 from PyQt6.QtCore import QObject, QProcess, QProcessEnvironment, QTimer, pyqtSignal
 
-from gui.kde_virtual_monitor import (
-    ensure_krfb_virtualmonitor_desktop_entry,
-    should_use_legacy_krfb,
-)
+from gui.kde_virtual_monitor import save_current_virtual_layout
 from gui.process_utils import kill_patterns, kill_tracked_pids, stop_processes
 from gui.utils import LINUX_DIR
 from gui.validation import (
     DEFAULT_SECONDARY_RESOLUTION,
     sanitize_bitrate,
     sanitize_encoder,
+    sanitize_encoder_profile,
     sanitize_fps,
     sanitize_resolution,
 )
@@ -30,13 +27,13 @@ class ThirdStreamController(QObject):
         super().__init__(parent)
         self.active = False
         self.ready = False
-        self.krfb = None
         self.streamer = None
         self.gst_pids = set()
         self.encrypted = False
         self.generation = 0
+        self.encoder_profile = "Low Latency"
 
-    def start(self, res, fps, bitrate, encoder, encrypted):
+    def start(self, res, fps, bitrate, encoder, encoder_profile, encrypted):
         if self.active:
             return
         self.generation += 1
@@ -46,6 +43,8 @@ class ThirdStreamController(QObject):
         self.width, self.height = width, height
         self.fps, self.bitrate = sanitize_fps(fps), sanitize_bitrate(bitrate)
         encoder = sanitize_encoder(encoder)
+        self.encoder_profile = sanitize_encoder_profile(encoder_profile)
+        self.encoder = encoder
         self.encrypted = encrypted
         self.env = QProcessEnvironment.systemEnvironment()
         self.env.insert("PYTHONUNBUFFERED", "1")
@@ -53,6 +52,7 @@ class ThirdStreamController(QObject):
             "NVIDIA NVENC (nvh264enc)": "nvidia",
             "Intel/AMD VA-API (vah264enc)": "vaapi",
         }.get(encoder, "cpu"))
+        self.env.insert("MONITORIZE_ENCODER_PROFILE", self.encoder_profile)
         if encrypted:
             self.env.insert("MONITORIZE_HOST", "127.0.0.1")
             self.env.insert("MONITORIZE_PORT", "7115")
@@ -63,36 +63,13 @@ class ThirdStreamController(QObject):
         self.logAppended.emit(
             "STREAMER", f"[Third display] Spawning virtual monitor: {width}x{height}"
         )
-        if should_use_legacy_krfb(
-            lambda message: self.logAppended.emit(
-                "STREAMER", f"[Third display KRFB] {message}"
-            )
-        ):
-            alias_message = ensure_krfb_virtualmonitor_desktop_entry()
-            if alias_message:
-                self.logAppended.emit("STREAMER", f"[Third display KRFB] {alias_message}")
-            self.krfb = QProcess(self)
-            self.krfb.setWorkingDirectory(LINUX_DIR)
-            self.krfb.setProcessEnvironment(self.env)
-            self.krfb.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
-            krfb = self.krfb
-            self.krfb.readyReadStandardOutput.connect(
-                lambda: self._read_krfb(generation, krfb)
-            )
-            self.krfb.start("krfb-virtualmonitor", [
-                "--resolution", f"{width}x{height}",
-                "--name", "TabletDisplay2",
-                "--password", secrets.token_urlsafe(6),
-                "--port", "5901",
-            ])
-            QTimer.singleShot(5000, lambda: self._launch_streamer(generation))
-        else:
-            self.env.insert("MONITORIZE_PORTAL_SOURCE_TYPE", "4")
-            self.env.insert(
-                "MONITORIZE_PORTAL_SELECTOR_HINT",
-                "KDE will create a second virtual monitor for Monitorize.",
-            )
-            QTimer.singleShot(0, lambda: self._launch_streamer(generation))
+        self.env.insert("MONITORIZE_PORTAL_SOURCE_TYPE", "4")
+        self.env.insert("MONITORIZE_VIRTUAL_SLOT", "third")
+        self.env.insert(
+            "MONITORIZE_PORTAL_SELECTOR_HINT",
+            "KDE will create a second virtual monitor for Monitorize.",
+        )
+        QTimer.singleShot(0, lambda: self._launch_streamer(generation))
 
     def _launch_streamer(self, generation=None):
         generation = self.generation if generation is None else generation
@@ -120,14 +97,6 @@ class ThirdStreamController(QObject):
             "Select 'TabletDisplay2' in the KDE picker.",
         )
 
-    def _read_krfb(self, generation=None, process=None):
-        generation = self.generation if generation is None else generation
-        process = self.krfb if process is None else process
-        if generation != self.generation or process is not self.krfb:
-            return
-        raw = bytes(process.readAllStandardOutput()).decode("utf-8", errors="replace")
-        self.logAppended.emit("STREAMER", f"[Third display KRFB] {raw}")
-
     def _read_streamer(self, generation=None, process=None):
         generation = self.generation if generation is None else generation
         process = self.streamer if process is None else process
@@ -149,6 +118,10 @@ class ThirdStreamController(QObject):
                     self.gst_pids.add(int(line.split("PID:")[1].strip()))
                 except ValueError:
                     pass
+            elif "[Portal] Virtual output ready name=" in line:
+                output = line.split("name=", 1)[1].split(" mode=", 1)[0].strip()
+                if output.lower().startswith("virtual-"):
+                    self.env.insert("MONITORIZE_OUTPUT", output)
 
     def _finished(self, code, _status, generation=None, process=None):
         generation = self.generation if generation is None else generation
@@ -166,8 +139,10 @@ class ThirdStreamController(QObject):
 
     def stop(self):
         self.generation += 1
-        stop_processes(self.krfb, self.streamer)
-        self.krfb = self.streamer = None
+        if self.active and hasattr(self, "env"):
+            save_current_virtual_layout("third", self.env.value("MONITORIZE_OUTPUT", ""))
+        stop_processes(self.streamer)
+        self.streamer = None
         kill_tracked_pids(self.gst_pids)
         kill_patterns("gst-launch-1.0.*port=7114", "gst-launch-1.0.*port=7115")
         was_active = self.active

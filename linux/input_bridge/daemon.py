@@ -17,11 +17,13 @@ log = logging.getLogger("TouchDaemon")
 class InputDaemon:
     def __init__(
         self, width, height, wifi=False, stylus_features=False,
-        stylus_only=False, de=None,
+        stylus_only=False, de=None, udp_host="0.0.0.0", udp_port=7113,
     ):
         self.shutdown = threading.Event()
         self.de = de or detect_de()
         self.wifi = wifi
+        self.udp_host = udp_host
+        self.udp_port = udp_port
         self.stylus_features = stylus_features and self.de in (
             "kde", "gnome", "hyprland", "sway"
         )
@@ -39,7 +41,7 @@ class InputDaemon:
             return
         transport = run_udp_server if self.wifi else run_tcp_server
         args = (
-            (self.dispatcher, self.shutdown, self.geometry)
+            (self.dispatcher, self.shutdown, self.geometry, self.udp_host, self.udp_port)
             if self.wifi else (self.dispatcher, self.shutdown)
         )
         threading.Thread(target=transport, args=args, daemon=True).start()
@@ -53,6 +55,7 @@ class InputDaemon:
         except Exception as exc:
             log.error("%s", exc)
             self.shutdown.set()
+            self.backend.close()
             return False
 
     def close(self, *_args):

@@ -387,31 +387,6 @@ Item {
             wrapMode: Text.Wrap
             Layout.fillWidth: true
         }
-
-        // Bottom Navigation
-        Item { Layout.preferredHeight: 4 }
-
-        Button {
-            text: "← Back"
-            onClicked: {
-                page.StackView.view.pop()
-            }
-            background: Rectangle {
-                implicitWidth: 100
-                implicitHeight: 38
-                color: "transparent"
-                border.color: theme.border
-                radius: 8
-            }
-            contentItem: Text {
-                text: parent.text
-                color: theme.textSecondary
-                font.pixelSize: 13
-                font.weight: Font.Bold
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
-            }
-        }
     }
 
     Popup {
