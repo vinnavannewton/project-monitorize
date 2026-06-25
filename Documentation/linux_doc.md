@@ -39,13 +39,22 @@ Important components:
 | Component | Responsibility |
 | --- | --- |
 | `monitorize_gui.py` | Application entry point. |
+| `gui/tray_agent.py` | Lightweight login tray that opens the full GUI only when needed. |
 | `gui/streaming_controller.py` | Stream, virtual-display, TLS, input, and process lifecycle. |
-| `gui/kde_virtual_monitor.py` | KDE version detection, legacy KRFB compatibility, and safe KScreen mode configuration. |
+| `gui/kde_virtual_monitor.py` | KDE portal virtual-output detection and safe KScreen mode configuration. |
 | `Streamer_kde.py` | KDE ScreenCast portal capture. |
 | `portal_streamer.py` | Shared XDG ScreenCast portal session and PipeWire stream handling. |
 | `pipeline_builder.py` | CPU, VA-API, or NVENC GStreamer pipeline launch. |
 | `touch_daemon.py` and `input_bridge/` | Android input transport, dispatch, geometry, libei, and uinput handling. |
 | `gui/discovery_service.py` | Zeroconf discovery and encrypted/plain capability advertisement. |
+
+## Startup and Tray Behavior
+
+The **Start Monitorize after login** setting writes an XDG autostart entry that launches `monitorize_gui.py --tray-agent`.
+
+The tray agent keeps only a small Qt tray process alive at login. It shows **Show**, **Presets**, and **Quit**. Opening the app or launching a preset starts the normal GUI process on demand. Existing autostart entries that still pass bare `--start-in-tray` are also routed to the tray agent for compatibility.
+
+When the full GUI is closed with **Minimize to tray on close** enabled, idle sessions return to the lightweight tray agent. Active streaming or receiving sessions keep the full GUI process alive so it can manage the stream and input processes.
 
 ## Streaming Modes
 
@@ -105,15 +114,36 @@ To connect to an encrypted desktop stream, select the discovered desktop entry i
 
 USB connections are also always plain.
 
+## Saved Presets
+
+The main page can show up to four saved stream presets. If none exist, it displays **No saved presets** without an add button.
+
+To create a preset:
+
+1. Start a Wi-Fi or USB stream with the required configuration.
+2. Optionally start the additional KDE display.
+3. Select **Save Preset** on the streaming page.
+4. Enter a name.
+
+A preset stores:
+
+- Wi-Fi or USB mode;
+- resolution, FPS, bitrate, display type, and encoder;
+- Wi-Fi stream profile and encryption state;
+- touch, stylus, and minimize-to-tray settings;
+- the active additional KDE display and its stream configuration.
+
+Preset cards on the main page launch their saved configuration when clicked. USB presets run the normal ADB readiness scan before starting. A saved additional display starts after the primary stream is ready and is skipped with a log message when the current desktop is not KDE.
+
+Use a preset card's menu to rename or delete it. When four presets already exist, saving another requires replacing one of them. Preset launches do not overwrite the normal Wi-Fi, USB, or general defaults.
+
 ## KDE Plasma Virtual Displays
 
-Monitorize uses different Extend-mode paths before and after KDE Plasma 6.7 because the old `krfb-virtualmonitor` path is not reliable on KDE 6.7.
+Monitorize supports KDE Plasma 6.7+ for Extend mode. KDE uses the XDG ScreenCast portal's virtual-source type (`AvailableSourceTypes` bit `4`) to create the virtual display.
 
 Mirror mode continues to use the normal portal source picker and does not create a virtual display.
 
-### KDE Plasma 6.7 and newer
-
-KDE 6.7+ uses the XDG ScreenCast portal's virtual-source type (`AvailableSourceTypes` bit `4`):
+### KDE Extend Flow
 
 1. Monitorize snapshots the names of all connected and enabled KScreen outputs.
 2. It opens the KDE ScreenCast portal with source type `4`.
@@ -122,7 +152,8 @@ KDE 6.7+ uses the XDG ScreenCast portal's virtual-source type (`AvailableSourceT
 5. It rejects primary, priority-1, physical, existing, or ambiguous outputs.
 6. It registers the requested resolution and refresh rate if KDE did not create that mode.
 7. It activates the mode by KScreen mode ID and verifies that the requested mode became active.
-8. Only after display preparation succeeds does the GStreamer pipeline and input path continue.
+8. It restores the saved position and rotation for that virtual display slot.
+9. Only after display preparation succeeds does the GStreamer pipeline and input path continue.
 
 The custom mode registration uses:
 
@@ -134,52 +165,23 @@ The refresh value passed to `addCustomMode` is millihertz. For example, 60 Hz is
 
 The active mode is selected using the mode ID returned by `kscreen-doctor -j`. Selecting by mode ID avoids format differences in KDE's generated mode names.
 
-The KDE 6.7+ path deliberately does **not** issue any scale or rotation command. This prevents Monitorize from accidentally resetting the primary monitor's fractional scale. Existing primary-display scale, virtual-display scale, rotation, and arrangement remain KWin/KScreen-owned.
+Monitorize stores KDE virtual-display layout per slot:
 
-If Monitorize cannot identify exactly one safe new virtual output, it does not modify any display. In particular, it must never apply a mode or scale command to outputs such as `eDP-1`, `DP-*`, or `HDMI-*`.
+- `primary`: the main Extend virtual display;
+- `third`: the optional additional KDE display.
 
-### KDE Plasma older than 6.7
-
-KDE versions below 6.7 retain the legacy KRFB compatibility path:
-
-1. Monitorize starts `krfb-virtualmonitor` with the stable name `monitorize`.
-2. It waits for `Virtual-monitorize` to become visible.
-3. It registers the requested custom mode.
-4. It selects `<WIDTH>x<HEIGHT>@<FPS>`.
-5. It applies scale `1.0` only to `Virtual-monitorize`.
-6. The ScreenCast portal then captures that virtual display.
-
-The legacy path keeps the KRFB process alive for the stream lifetime and stops only the tracked process during cleanup.
-
-Some distributions install `org.kde.krfb.virtualmonitor.desktop` while KRFB registers as `org.kde.krfb-virtualmonitor`. Monitorize creates a user-local compatibility desktop entry when required and refreshes KDE's service cache.
-
-### KDE path selection and overrides
-
-Monitorize detects the KDE version using `kwin_wayland --version`, then falls back to `plasmashell --version`.
-
-| Condition | Selected path |
-| --- | --- |
-| KDE `>= 6.7.0` | Portal-created virtual screen |
-| KDE `< 6.7.0` | Legacy `krfb-virtualmonitor` |
-| Version unknown and portal supports virtual sources | Portal-created virtual screen |
-| Version unknown without virtual-source support | Legacy KRFB |
-
-Development overrides:
-
-| Variable | Effect |
-| --- | --- |
-| `MONITORIZE_KDE_FORCE_PORTAL=1` | Forces the portal-created virtual-screen path. |
-| `MONITORIZE_KDE_USE_KRFB=1` | Forces legacy KRFB and logs a warning on KDE 6.7+. |
-
-Forced KRFB on KDE 6.7+ may fail with messages such as:
+For each slot, Monitorize saves `x,y` position and KScreen rotation before the portal virtual output disappears. On the next start, it restores them with:
 
 ```text
-Failed to register with host portal
-interface 'zkde_screencast_stream_unstable_v1' has no event 3
-The Wayland connection experienced a fatal error
+kscreen-doctor output.<VirtualName>.position.<X>,<Y>
+kscreen-doctor output.<VirtualName>.rotation.<ROTATION>
 ```
 
-These errors indicate the incompatible legacy path; use the default portal flow instead.
+If no saved position exists, the primary virtual display is placed to the right of the primary physical output. The third virtual display is placed to the right of the rightmost enabled output. Rotation is restored only when saved; otherwise KDE's current/default rotation is kept.
+
+The KDE 6.7+ path deliberately does **not** issue any scale command. This prevents Monitorize from accidentally resetting the primary monitor's fractional scale. Existing primary-display scale remains KWin/KScreen-owned.
+
+If Monitorize cannot identify exactly one safe new virtual output, it does not modify any display. In particular, it must never apply a mode, position, rotation, or scale command to outputs such as `eDP-1`, `DP-*`, or `HDMI-*`.
 
 ## Other Desktop Environments
 
@@ -221,7 +223,8 @@ Useful environment variables:
 | `MONITORIZE_ENCODER` | Selects `cpu`, `vaapi`, or `nvidia`. |
 | `MONITORIZE_STREAM_TYPE` | Selects the speed or stability stream profile. |
 | `MONITORIZE_PRESERVE_SOURCE_SIZE` | Allows supported Extend sessions to renegotiate after display rotation. |
-| `MONITORIZE_PORTAL_SOURCE_TYPE` | Internal KDE portal source type; KDE 6.7+ Extend uses `4`. |
+| `MONITORIZE_PORTAL_SOURCE_TYPE` | Internal KDE portal source type; KDE Extend uses `4`. |
+| `MONITORIZE_VIRTUAL_SLOT` | Internal KDE layout slot; `primary` or `third`. |
 
 ## Input
 
@@ -248,6 +251,29 @@ Settings are stored at:
 ```
 
 Wi-Fi settings include resolution, FPS, bitrate, display type, encoder, stream profile, and encryption choice.
+
+Saved presets are stored in the same settings file. Pairing codes, authentication tokens, IP addresses, and runtime process state are not included in presets.
+
+KDE virtual-display layout is stored per slot in the same settings file. The saved values include position and rotation only; scale is intentionally not stored or restored.
+
+### Persistent application logs
+
+The desktop application writes streamer, input, TLS, receiver, application-lifecycle, and uncaught Python exception messages to:
+
+```text
+~/.local/state/monitorize/monitorize.log
+```
+
+The file is written continuously, so recent output remains available after the application exits or crashes. It is created with user-only permissions and rotates at 2 MiB, retaining three backups:
+
+```text
+monitorize.log
+monitorize.log.1
+monitorize.log.2
+monitorize.log.3
+```
+
+The on-screen log viewers remain selectable but do not display an editing context menu when right-clicked.
 
 ## Testing
 
@@ -276,8 +302,11 @@ Manual KDE 6.7+ validation:
 1. Set a non-100% scale on the primary display.
 2. Start an Extend stream and choose **Create virtual screen**.
 3. Confirm the virtual output uses the resolution and FPS selected in Monitorize.
-4. Confirm the primary output retains its original scale.
-5. Stop streaming and confirm only the Monitorize virtual output disappears.
+4. Move or rotate the virtual output in KDE display settings.
+5. Stop streaming, start Extend again, and confirm position and rotation are restored.
+6. If using the additional KDE display, move or rotate it separately and confirm it restores independently from the primary virtual display.
+7. Confirm the primary output retains its original scale.
+8. Stop streaming and confirm only the Monitorize virtual output disappears.
 
 Manual encryption validation:
 
@@ -297,9 +326,16 @@ Manual encryption validation:
 
 ### Primary KDE display scale changes
 
-The KDE 6.7+ implementation must not issue `.scale.*` commands. It should configure only the uniquely detected new `Virtual-*` output and only its mode.
+The KDE 6.7+ implementation must not issue `.scale.*` commands. It should configure only the uniquely detected new `Virtual-*` output and only its mode, position, and rotation.
 
 Inspect logs and generated commands. No command should target the primary or a physical output such as `eDP-1`.
+
+### KDE virtual display position or rotation is not restored
+
+- Move or rotate the virtual display once while it exists, then stop streaming cleanly so Monitorize can save the layout before KDE removes the portal output.
+- Confirm logs show a `Virtual-*` output name for the primary or third display.
+- Check that `kscreen-doctor -j` reports `pos` and `rotation` for the virtual output while streaming is active.
+- If the physical monitor layout changed, the saved absolute coordinates may no longer be useful; move the virtual display again and stop streaming to save the new layout.
 
 ### Android does not show a PIN
 
@@ -324,3 +360,13 @@ Inspect logs and generated commands. No command should target the primary or a p
 - Confirm `adb devices` lists an authorized device.
 - Run the GUI's USB setup again.
 - Verify reverse mappings with `adb reverse --list`.
+
+### Application closes or crashes unexpectedly
+
+Inspect the persistent log and its rotated backups:
+
+```bash
+tail -n 200 ~/.local/state/monitorize/monitorize.log
+```
+
+Look for `[APP]`, `[STREAMER]`, `[INPUT]`, `[TLS]`, or `[RECEIVER]` entries near the end of the file.

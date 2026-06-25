@@ -2,16 +2,20 @@
 
 from PyQt6.QtCore import QObject, QTimer, pyqtProperty, pyqtSignal, pyqtSlot
 
+from gui import app_log, autostart
 from gui.discovery_service import DiscoveryService
 from gui.receiver_controller import ReceiverController
 from gui.settings import (
+    MAX_PRESETS,
     load_general_settings,
+    load_presets,
     load_receiver_credentials,
     load_receiver_settings,
     load_second_display_settings,
     load_usb_settings,
     load_wifi_settings,
     save_general_settings,
+    save_presets,
     save_receiver_settings,
     save_second_display_settings,
     save_usb_settings,
@@ -47,6 +51,8 @@ class MonitorizeBackend(QObject):
     receiverPairingRequired = pyqtSignal(str, int, str)
     secondStreamActiveChanged = pyqtSignal(bool)
     configureDisplayRequested = pyqtSignal()
+    presetsChanged = pyqtSignal()
+    presetLaunchStatusChanged = pyqtSignal(str)
 
     def __init__(self, de, parent=None):
         super().__init__(parent)
@@ -56,6 +62,9 @@ class MonitorizeBackend(QObject):
         self.usb = UsbController(self)
         self.receiver = ReceiverController(de, self.discovery, self)
         self.streaming = StreamingController(de, self._local_ip, self.discovery, self)
+        self._presets = load_presets()
+        self._pending_usb_preset = None
+        self._preset_launch_status = ""
         self._wire_signals()
         self.network_timer = QTimer(self)
         self.network_timer.setInterval(5000)
@@ -65,10 +74,14 @@ class MonitorizeBackend(QObject):
     def _wire_signals(self):
         self.usb.statusChanged.connect(self.usbStatusTextChanged)
         self.usb.busyChanged.connect(self.usbBusyChanged)
+        self.usb.scanFinished.connect(self._finish_usb_preset_launch)
         self.discovery.devicesChanged.connect(self.discoveredDevicesChanged)
         self.receiver.receivingChanged.connect(self.isReceivingChanged)
         self.receiver.statusChanged.connect(self.receiverStatusChanged)
         self.receiver.hostChanged.connect(self.receiverHostIpChanged)
+        self.receiver.logAppended.connect(
+            lambda message: app_log.write("RECEIVER", message)
+        )
         self.receiver.logAppended.connect(self.receiverLogAppended)
         self.receiver.pairingRequired.connect(self.receiverPairingRequired)
         self.streaming.streamingChanged.connect(self.isStreamingChanged)
@@ -76,6 +89,7 @@ class MonitorizeBackend(QObject):
         self.streaming.countdownChanged.connect(self.countdownChanged)
         self.streaming.pairingCodeChanged.connect(self.pairingCodeChanged)
         self.streaming.secondStreamChanged.connect(self.secondStreamActiveChanged)
+        self.streaming.logAppended.connect(app_log.write)
         self.streaming.logAppended.connect(self.logAppended)
 
     @pyqtProperty(str, notify=detectedDeChanged)
@@ -130,8 +144,17 @@ class MonitorizeBackend(QObject):
     def secondStreamActive(self):
         return self.streaming.third.active
 
+    @pyqtProperty("QVariant", notify=presetsChanged)
+    def presets(self):
+        return list(self._presets)
+
+    @pyqtProperty(str, notify=presetLaunchStatusChanged)
+    def presetLaunchStatus(self):
+        return self._preset_launch_status
+
     @pyqtSlot()
     def startUsbScan(self):
+        self._pending_usb_preset = None
         self.usb.start()
 
     @pyqtSlot()
@@ -158,20 +181,36 @@ class MonitorizeBackend(QObject):
             enable_stylus_features=stylus,
         )
 
-    @pyqtSlot(str, str, str, str, str, str, str, str)
-    def saveUsbSettings(self, resolution, custom_w, custom_h, fps, custom_fps, bitrate, display_type, encoder):
+    @pyqtSlot(result=bool)
+    def isAutostartEnabled(self):
+        return autostart.is_enabled()
+
+    @pyqtSlot(bool, result=str)
+    def setAutostartEnabled(self, enabled):
+        return autostart.set_enabled(enabled)
+
+    @pyqtSlot(str, str, str, str, str, str, str, str, str)
+    def saveUsbSettings(
+        self, resolution, custom_w, custom_h, fps, custom_fps, bitrate,
+        display_type, encoder, encoder_profile,
+    ):
         save_usb_settings(
             resolution=resolution, custom_w=custom_w, custom_h=custom_h,
             fps=fps, custom_fps=custom_fps, bitrate=bitrate,
             display_type=display_type, encoder=encoder,
+            encoder_profile=encoder_profile,
         )
 
-    @pyqtSlot(str, str, str, str, str, str, str, str, str, bool)
-    def saveWifiSettings(self, resolution, custom_w, custom_h, fps, custom_fps, bitrate, display_type, encoder, stream_type, encryption):
+    @pyqtSlot(str, str, str, str, str, str, str, str, str, str, bool)
+    def saveWifiSettings(
+        self, resolution, custom_w, custom_h, fps, custom_fps, bitrate,
+        display_type, encoder, encoder_profile, stream_type, encryption,
+    ):
         save_wifi_settings(
             resolution=resolution, custom_w=custom_w, custom_h=custom_h,
             fps=fps, custom_fps=custom_fps, bitrate=bitrate,
             display_type=display_type, encoder=encoder,
+            encoder_profile=encoder_profile,
             stream_type=stream_type, use_encryption=encryption,
         )
 
@@ -179,10 +218,11 @@ class MonitorizeBackend(QObject):
     def loadSecondDisplaySettings(self):
         return load_second_display_settings()
 
-    @pyqtSlot(str, str, str, str)
-    def saveSecondDisplaySettings(self, resolution, fps, bitrate, encoder):
+    @pyqtSlot(str, str, str, str, str)
+    def saveSecondDisplaySettings(self, resolution, fps, bitrate, encoder, encoder_profile):
         save_second_display_settings(
-            resolution=resolution, fps=fps, bitrate=bitrate, encoder=encoder
+            resolution=resolution, fps=fps, bitrate=bitrate, encoder=encoder,
+            encoder_profile=encoder_profile,
         )
 
     @pyqtSlot(result="QVariant")
@@ -229,17 +269,23 @@ class MonitorizeBackend(QObject):
     def stopReceiving(self):
         self.receiver.stop()
 
-    @pyqtSlot(str, str, str, str, str, bool)
-    def startStreaming(self, res, fps, bitrate, display_type, encoder, wifi):
-        self.streaming.start(res, fps, bitrate, display_type, encoder, wifi)
+    @pyqtSlot(str, str, str, str, str, str, bool)
+    def startStreaming(
+        self, res, fps, bitrate, display_type, encoder, encoder_profile, wifi
+    ):
+        self._pending_usb_preset = None
+        self.streaming.start(
+            res, fps, bitrate, display_type, encoder, encoder_profile, wifi
+        )
 
     @pyqtSlot()
     def stopStreaming(self):
+        self._pending_usb_preset = None
         self.streaming.stop()
 
-    @pyqtSlot(str, str, str, str)
-    def startSecondStream(self, res, fps, bitrate, encoder):
-        self.streaming.start_third(res, fps, bitrate, encoder)
+    @pyqtSlot(str, str, str, str, str)
+    def startSecondStream(self, res, fps, bitrate, encoder, encoder_profile):
+        self.streaming.start_third(res, fps, bitrate, encoder, encoder_profile)
 
     @pyqtSlot()
     def stopSecondStream(self):
@@ -248,6 +294,122 @@ class MonitorizeBackend(QObject):
     @pyqtSlot()
     def configureDisplay(self):
         self.configureDisplayRequested.emit()
+
+    @pyqtSlot(str, int, result=str)
+    def saveCurrentPreset(self, name, replace_index=-1):
+        name = name.strip()
+        if not self.streaming.streaming:
+            return "No active stream to save."
+        if not name:
+            return "Enter a preset name."
+        if len(name) > 32:
+            return "Preset names can contain at most 32 characters."
+        duplicate = next(
+            (
+                index for index, preset in enumerate(self._presets)
+                if preset["name"].casefold() == name.casefold()
+                and index != replace_index
+            ),
+            -1,
+        )
+        if duplicate >= 0:
+            return f"duplicate:{duplicate}"
+        if replace_index < -1 or replace_index >= len(self._presets):
+            return "Invalid preset selection."
+        if replace_index == -1 and len(self._presets) >= MAX_PRESETS:
+            return "full"
+        preset = self.streaming.active_configuration()
+        preset["name"] = name
+        if replace_index >= 0:
+            self._presets[replace_index] = preset
+        else:
+            self._presets.append(preset)
+        save_presets(self._presets)
+        self._presets = load_presets()
+        self.presetsChanged.emit()
+        return ""
+
+    @pyqtSlot(int)
+    def launchPreset(self, index):
+        if index < 0 or index >= len(self._presets):
+            self._set_preset_launch_status("Preset no longer exists.")
+            return
+        preset = self._presets[index]
+        self._pending_usb_preset = None
+        if preset["mode"] == "usb":
+            self._pending_usb_preset = preset
+            self._set_preset_launch_status("Checking USB device...")
+            if not self.usb.busy:
+                self.usb.start()
+            return
+        self._set_preset_launch_status("")
+        self._start_preset(preset)
+
+    @pyqtSlot(int, str, result=str)
+    def renamePreset(self, index, name):
+        name = name.strip()
+        if index < 0 or index >= len(self._presets):
+            return "Preset no longer exists."
+        if not name:
+            return "Enter a preset name."
+        if len(name) > 32:
+            return "Preset names can contain at most 32 characters."
+        if any(
+            preset["name"].casefold() == name.casefold()
+            for preset_index, preset in enumerate(self._presets)
+            if preset_index != index
+        ):
+            return "A preset with that name already exists."
+        self._presets[index]["name"] = name
+        save_presets(self._presets)
+        self._presets = load_presets()
+        self.presetsChanged.emit()
+        return ""
+
+    @pyqtSlot(int)
+    def deletePreset(self, index):
+        if index < 0 or index >= len(self._presets):
+            return
+        self._presets.pop(index)
+        save_presets(self._presets)
+        self.presetsChanged.emit()
+
+    def _finish_usb_preset_launch(self, success):
+        preset = self._pending_usb_preset
+        self._pending_usb_preset = None
+        if preset is None:
+            return
+        if not success:
+            self._set_preset_launch_status(self.usb.status)
+            return
+        self._set_preset_launch_status("")
+        self._start_preset(preset)
+
+    def _start_preset(self, preset):
+        primary = preset["primary"]
+        self.streaming.start(
+            primary["resolution"],
+            primary["fps"],
+            primary["bitrate"],
+            primary["display_type"],
+            primary["encoder"],
+            primary.get("encoder_profile", "Low Latency"),
+            preset["mode"] == "wifi",
+            {
+                "wifi": preset.get("wifi", {}),
+                "general": preset["general"],
+                "third": preset["third"] if preset["third"]["enabled"] else None,
+            },
+        )
+
+    def should_minimize_to_tray(self):
+        return load_general_settings().get("minimize_to_tray", False)
+
+    def _set_preset_launch_status(self, value):
+        if self._preset_launch_status == value:
+            return
+        self._preset_launch_status = value
+        self.presetLaunchStatusChanged.emit(value)
 
     def _check_network_ip(self):
         current = get_local_ip()

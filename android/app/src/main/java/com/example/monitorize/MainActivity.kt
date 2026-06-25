@@ -1170,12 +1170,22 @@ fun StreamSurface(
                     override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, ht: Int) {}
                     override fun surfaceDestroyed(h: SurfaceHolder) { onSurfaceDestroyed(surfaceGeneration) }
                 })
+                fun requestLowLatencyInput(event: android.view.MotionEvent) {
+                    when (event.actionMasked) {
+                        android.view.MotionEvent.ACTION_DOWN,
+                        android.view.MotionEvent.ACTION_MOVE,
+                        android.view.MotionEvent.ACTION_HOVER_ENTER,
+                        android.view.MotionEvent.ACTION_HOVER_MOVE -> requestUnbufferedDispatch(event)
+                    }
+                }
                 setOnTouchListener { v, event ->
                     if (event.action == android.view.MotionEvent.ACTION_DOWN) v.performClick()
+                    requestLowLatencyInput(event)
                     onInputEvent(event, v.width.toFloat(), v.height.toFloat())
                     true
                 }
                 setOnHoverListener { v, event ->
+                    requestLowLatencyInput(event)
                     onInputEvent(event, v.width.toFloat(), v.height.toFloat())
                     true
                 }

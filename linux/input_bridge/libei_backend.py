@@ -24,10 +24,13 @@ class LibeiBackend:
         self.ctx = None
         self.touch = None
         self.pen = None
+        self.pointer = None
         self.io_fd = None
+        self.portal_request = None
         self.active = {}
         self.pointer_buttons_down = set()
         self.lock = threading.Lock()
+        self._emulation_sequence = 1
         self._libei = ei.libei if ei else None
         if self._libei:
             self._libei.event_get_type.restype = __import__("ctypes").c_uint32
@@ -57,6 +60,7 @@ class LibeiBackend:
                 deadline = time.monotonic() + 60
                 while time.monotonic() < deadline and not self.shutdown.is_set():
                     if select.select([request.fd.fileno()], [], [], 1)[0] and request.dispatch():
+                        self.portal_request = request
                         return request.eis_fd
             except oeffis.SessionClosedError:
                 return None
@@ -79,18 +83,29 @@ class LibeiBackend:
                     elif event_type == 5:
                         dev = event.device
                         caps = dev.capabilities if dev else ()
+                        started = False
                         if dev and ei.DeviceCapability.TOUCH in caps:
+                            started = True
                             self.touch = dev
-                            dev.start_emulating()
-                        elif dev and ei.DeviceCapability.POINTER_ABSOLUTE in caps:
+                        if dev and ei.DeviceCapability.POINTER_ABSOLUTE in caps:
+                            started = True
+                            self.pointer = dev
                             self.pen = dev
-                            dev.start_emulating()
+                        if started:
+                            sequence = self._next_emulation_sequence()
+                            dev.start_emulating(sequence)
+                            self.ctx.dispatch()
                     elif event_type == 2:
                         return
             if connected and (self.touch or self.pen):
                 break
         if not self.touch and self.pen:
             self.touch, self.pen = self.pen, None
+
+    def _next_emulation_sequence(self):
+        sequence = self._emulation_sequence
+        self._emulation_sequence = (self._emulation_sequence % 0xFFFFFFFF) + 1
+        return sequence
 
     def _dispatch_loop(self):
         while not self.shutdown.is_set() and self.ctx:
@@ -160,6 +175,26 @@ class LibeiBackend:
                 self.touch.frame()
                 self.ctx.dispatch()
 
+    def inject_pointer(self, action, x, y, buttons, frame=True):
+        device = self.pointer or self.pen or self.touch
+        if not device:
+            return False
+        px, py = self._scale(device, x, y)
+        left_button = 0x110
+        left_pressed = bool(buttons & 1) and action in (ACTION_DOWN, ACTION_MOVE)
+        with self.lock:
+            device.pointer_motion_absolute(px, py)
+            if left_pressed and left_button not in self.pointer_buttons_down:
+                device.button_button(left_button, True)
+                self.pointer_buttons_down.add(left_button)
+            elif not left_pressed and left_button in self.pointer_buttons_down:
+                device.button_button(left_button, False)
+                self.pointer_buttons_down.discard(left_button)
+            if frame:
+                device.frame()
+                self.ctx.dispatch()
+        return True
+
     def inject_pen(
         self, action, tool, x, y, _pressure, _tilt_x, _tilt_y,
         _distance, buttons, _flags, frame=True,
@@ -186,7 +221,7 @@ class LibeiBackend:
         return action in (ACTION_DOWN, ACTION_MOVE, ACTION_UP, ACTION_HOVER)
 
     def release_all(self):
-        device = self.touch or self.pen
+        device = self.touch or self.pointer or self.pen
         if not device:
             return
         with self.lock:
@@ -197,7 +232,7 @@ class LibeiBackend:
                         contact.up()
                     except Exception:
                         pass
-            button_device = self.pen or device
+            button_device = self.pointer or self.pen or device
             buttons_to_release = set(self.pointer_buttons_down)
             if not is_touch_device and self.active:
                 buttons_to_release.add(0x110)
@@ -214,10 +249,24 @@ class LibeiBackend:
 
     def close(self):
         self.release_all()
-        if self.touch:
+        seen = set()
+        for device in (self.touch, self.pointer, self.pen):
+            if not device or id(device) in seen:
+                continue
+            seen.add(id(device))
             try:
-                self.touch.stop_emulating()
+                device.stop_emulating()
             except Exception:
                 pass
         if self.io_fd:
-            self.io_fd.close()
+            try:
+                self.io_fd.close()
+            except OSError:
+                pass
+            self.io_fd = None
+        if self.portal_request:
+            try:
+                self.portal_request.fd.close()
+            except OSError:
+                pass
+        self.portal_request = None

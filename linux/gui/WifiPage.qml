@@ -6,9 +6,9 @@ Item {
     id: page
 
     property bool isWifi: true
-    property bool minimizeToTray: false
     property bool enableStylusFeatures: false
     property bool loadingSettings: true
+    property bool syncingBitrate: false
     readonly property bool stylusControlsVisible: (
         backend.detectedDe === "kde"
         || backend.detectedDe === "gnome"
@@ -20,11 +20,37 @@ Item {
         if (page.loadingSettings) {
             return
         }
+        let gen = backend.loadGeneralSettings()
         backend.saveGeneralSettings(
-            page.minimizeToTray,
+            gen["minimize_to_tray"] !== undefined ? gen["minimize_to_tray"] : false,
             touchCheck.checked,
             stylusCheck.checked
         )
+    }
+
+    function clampMbps(value) {
+        let number = Number(value)
+        if (!isFinite(number)) number = 8
+        return Math.max(0.25, Math.min(100, number))
+    }
+
+    function formatMbps(value) {
+        let rounded = Math.round(page.clampMbps(value) * 100) / 100
+        if (rounded % 1 === 0) return rounded.toFixed(0)
+        return (rounded * 10) % 1 === 0 ? rounded.toFixed(1) : rounded.toFixed(2)
+    }
+
+    function bitrateKbpsText() {
+        return String(Math.round(page.clampMbps(parseFloat(bitrateField.text)) * 1000))
+    }
+
+    function setBitrateMbps(value, save) {
+        page.syncingBitrate = true
+        let mbps = page.clampMbps(value)
+        bitrateSlider.value = Math.min(50, mbps)
+        bitrateField.text = page.formatMbps(mbps)
+        page.syncingBitrate = false
+        if (save) page.saveSettings()
     }
 
     function saveSettings() {
@@ -36,9 +62,10 @@ Item {
             resolution === "Custom..." ? customH.text : "",
             fpsCombo.currentText,
             fpsCombo.currentText === "Custom..." ? customFps.text : "",
-            bitrateField.text,
+            page.bitrateKbpsText(),
             displayTypeCombo.visible ? displayTypeCombo.currentText : "Extend",
-            encoderCombo.currentText
+            encoderCombo.currentText,
+            encoderProfileCombo.currentText
         ]
         if (page.isWifi) {
             backend.saveWifiSettings(
@@ -78,7 +105,7 @@ Item {
             customFps.text = saved["custom_fps"] || "";
         }
         
-        bitrateField.text = saved["bitrate"] || "8000";
+        page.setBitrateMbps(Number(saved["bitrate"] || "8000") / 1000, false);
         
         if (displayTypeCombo) {
             if (!displayTypeCombo.selectValue(saved["display_type"], true)) {
@@ -93,6 +120,10 @@ Item {
         if (!encoderCombo.selectValue(savedEnc, true)) {
             encoderCombo.selectValue("Software (CPU / x264enc)");
         }
+
+        if (!encoderProfileCombo.selectValue(saved["encoder_profile"] || "Low Latency", true)) {
+            encoderProfileCombo.selectValue("Low Latency");
+        }
         
         if (page.isWifi) {
             let savedStreamType = saved["stream_type"] || "Speed";
@@ -101,7 +132,6 @@ Item {
         }
 
         let gen = backend.loadGeneralSettings();
-        page.minimizeToTray = gen["minimize_to_tray"] !== undefined ? gen["minimize_to_tray"] : false;
         let enableTouch = gen["enable_touch"] !== undefined ? gen["enable_touch"] : true;
         page.enableStylusFeatures = gen["enable_stylus_features"] !== undefined ? gen["enable_stylus_features"] : false;
         stylusCheck.checked = page.enableStylusFeatures;
@@ -201,12 +231,47 @@ Item {
                     Text { text: "(24 - 240)"; color: theme.textMuted; font.pixelSize: 11; font.italic: true }
                 }
 
-                Text { text: "Video Bitrate (kbps):"; color: theme.textSecondary; font.pixelSize: 14 }
-                CustomTextField {
-                    id: bitrateField
-                    text: "8000"
-                    maximumLength: 5
-                    onTextEdited: page.saveSettings()
+                Text { text: "Video Bitrate (Mbps):"; color: theme.textSecondary; font.pixelSize: 14 }
+                RowLayout {
+                    spacing: 10
+
+                    Slider {
+                        id: bitrateSlider
+                        from: 0.25
+                        to: 50
+                        stepSize: 0.25
+                        value: 8
+                        snapMode: Slider.SnapAlways
+                        Layout.preferredWidth: 240
+                        onMoved: page.setBitrateMbps(value, true)
+                    }
+
+                    CustomTextField {
+                        id: bitrateField
+                        text: "8"
+                        maximumLength: 5
+                        validator: DoubleValidator {
+                            bottom: 0.25
+                            top: 100
+                            decimals: 2
+                            notation: DoubleValidator.StandardNotation
+                        }
+                        onTextEdited: {
+                            if (page.syncingBitrate) return
+                            let mbps = parseFloat(text)
+                            if (!isNaN(mbps)) {
+                                bitrateSlider.value = Math.min(50, page.clampMbps(mbps))
+                                page.saveSettings()
+                            }
+                        }
+                        onEditingFinished: page.setBitrateMbps(parseFloat(text), true)
+                    }
+
+                    Text {
+                        text: "Mbps"
+                        color: theme.textMuted
+                        font.pixelSize: 12
+                    }
                 }
 
                 // Display Type (only on KDE/GNOME/Hyprland)
@@ -232,6 +297,14 @@ Item {
                         "Intel/AMD VA-API (vah264enc)",
                         "Software (CPU / x264enc)"
                     ]
+                    onActivated: page.saveSettings()
+                }
+
+                Text { text: "Encoder Profile:"; color: theme.textSecondary; font.pixelSize: 14 }
+                CustomComboBox {
+                    id: encoderProfileCombo
+                    model: ["Low Latency", "Balanced", "Quality"]
+                    currentIndex: 0
                     onActivated: page.saveSettings()
                 }
 
@@ -289,32 +362,9 @@ Item {
             // Spacing
             Item { Layout.preferredHeight: 10 }
 
-            // Navigation buttons
             RowLayout {
                 spacing: 20
                 Layout.alignment: Qt.AlignHCenter
-
-                Button {
-                    text: "← Back"
-                    onClicked: {
-                        page.StackView.view.pop()
-                    }
-                    background: Rectangle {
-                        implicitWidth: 100
-                        implicitHeight: 38
-                        color: "transparent"
-                        border.color: theme.border
-                        radius: 8
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        color: theme.textSecondary
-                        font.pixelSize: 13
-                        font.weight: Font.Bold
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                }
 
                 CustomButton {
                     text: "▶  Start Streaming"
@@ -332,9 +382,10 @@ Item {
                         backend.startStreaming(
                             resCombo.currentText === "Custom..." ? customW.text + "x" + customH.text : cleanRes,
                             fpsCombo.currentText === "Custom..." ? customFps.text : fpsCombo.currentText,
-                            bitrateField.text,
+                            page.bitrateKbpsText(),
                             displayTypeCombo.visible ? displayTypeCombo.currentText : "Extend",
                             encoderCombo.currentText,
+                            encoderProfileCombo.currentText,
                             page.isWifi
                         );
                     }

@@ -1,18 +1,15 @@
 
-"""
-Monitorize GUI — PyQt6 control panel
-Run from the linux/ directory:  python3 monitorize_gui.py
+"""Monitorize GUI launcher."""
 
-This file is a thin launcher that delegates to the gui/ package.
-"""
-
-from gui import streaming_controller
-from gui.main_window import main
+import sys
 
 if __name__ == "__main__":
-    print(
-        f"[Monitorize] Loaded streaming controller: "
-        f"{streaming_controller.__file__}",
-        flush=True,
+    light_tray = (
+        "--tray-agent" in sys.argv
+        or ("--start-in-tray" in sys.argv and "--launch-preset" not in sys.argv)
     )
+    if light_tray:
+        from gui.tray_agent import main
+    else:
+        from gui.main_window import main
     main()

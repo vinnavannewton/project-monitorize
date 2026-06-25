@@ -136,7 +136,7 @@ Item {
                 anchors.margins: 10
                 clip: true
 
-                TextArea {
+                TextEdit {
                     id: logArea
                     textFormat: Text.RichText
                     font.family: "Fira Code, JetBrains Mono, DejaVu Sans Mono, Consolas, monospace"
@@ -144,8 +144,7 @@ Item {
                     color: theme.cardTextPrimary
                     readOnly: true
                     selectByMouse: true
-                    wrapMode: Text.WrapAnywhere
-                    background: null
+                    wrapMode: TextEdit.WrapAnywhere
                     leftPadding: 8
                     rightPadding: 8
                     topPadding: 8
@@ -154,6 +153,7 @@ Item {
                     onImplicitHeightChanged: {
                         logScrollView.contentItem.contentY = Math.max(0, implicitHeight - logScrollView.height)
                     }
+
                 }
             }
         }

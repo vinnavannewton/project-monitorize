@@ -12,6 +12,11 @@ ACTION_MOVE = 1
 ACTION_UP = 2
 ACTION_HOVER = 3
 
+TOOL_FINGER = 0
+TOOL_STYLUS = 1
+TOOL_ERASER = 2
+TOOL_MOUSE = 3
+
 PAYLOAD_FMT = ">BBBHHHhh"
 PAYLOAD_SIZE = struct.calcsize(PAYLOAD_FMT)
 PEN_EXT_FMT = ">BBBHHHhhHHH"
@@ -57,4 +62,3 @@ def unpack_packet(pkt_type: int, payload: bytes):
     if pkt_type == PKT_PEN_EXT and len(payload) == PEN_EXT_SIZE:
         return "pen_ext", struct.unpack(PEN_EXT_FMT, payload)
     return None, None
-

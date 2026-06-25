@@ -165,6 +165,7 @@ class DiscoveryService(QObject):
             if encrypted:
                 from tls_proxy import certificate_fingerprint
                 properties["fingerprint"] = certificate_fingerprint()
+                properties["input_transport"] = "udp-aesgcm-v1"
             state = (ip, bool(encrypted), bool(third_available), tuple(sorted(properties.items())))
             if self.advertisement_zc is not None and state == self.advertisement_state:
                 return

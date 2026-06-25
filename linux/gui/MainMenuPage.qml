@@ -4,11 +4,12 @@ import QtQuick.Layouts
 
 Item {
     id: page
-    readonly property string detectedDe: backend ? backend.detectedDe : ""
+    property int selectedPresetIndex: -1
+    property string selectedPresetName: ""
 
     ColumnLayout {
         anchors.centerIn: parent
-        spacing: 20
+        spacing: backend.presets.length > 0 ? 14 : 20
         width: Math.min(parent.width - 40, 760)
 
         Text {
@@ -16,13 +17,6 @@ Item {
             font.pixelSize: 32
             font.weight: Font.ExtraBold
             color: theme.textPrimary
-            Layout.alignment: Qt.AlignHCenter
-        }
-
-        Text {
-            text: "Linux → Android Display Bridge"
-            font.pixelSize: 14
-            color: theme.textSecondary
             Layout.alignment: Qt.AlignHCenter
         }
 
@@ -196,13 +190,229 @@ Item {
             }
         }
 
-        Item { Layout.preferredHeight: 30 }
+        Item { Layout.preferredHeight: 8 }
 
         Text {
-            text: "Select a connection mode to begin"
+            text: "Saved Presets"
+            visible: backend.presets.length > 0
+            font.pixelSize: 13
+            font.weight: Font.Bold
+            color: theme.textSecondary
+            Layout.alignment: Qt.AlignLeft
+        }
+
+        Flow {
+            Layout.fillWidth: true
+            Layout.preferredHeight: backend.presets.length > 0 ? 82 : 0
+            spacing: 12
+            visible: backend.presets.length > 0
+
+            Repeater {
+                model: backend.presets
+
+                Rectangle {
+                    id: presetCard
+                    required property int index
+                    required property var modelData
+                    width: (parent.width - 36) / 4
+                    height: 82
+                    radius: 8
+                    color: presetMouse.containsMouse ? theme.surfaceAlt : theme.surface
+                    border.color: presetMouse.containsMouse ? theme.accent : theme.border
+                    border.width: 1
+
+                    MouseArea {
+                        id: presetMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: backend.launchPreset(presetCard.index)
+                    }
+
+                    Column {
+                        anchors.left: parent.left
+                        anchors.right: menuButton.left
+                        anchors.top: parent.top
+                        anchors.margins: 12
+                        spacing: 5
+
+                        Text {
+                            width: parent.width
+                            text: presetCard.modelData["name"]
+                            color: theme.cardTextPrimary
+                            font.pixelSize: 13
+                            font.weight: Font.Bold
+                            elide: Text.ElideRight
+                        }
+
+                        Text {
+                            width: parent.width
+                            text: (presetCard.modelData["mode"] === "wifi" ? "Wi-Fi" : "USB")
+                                + "  " + presetCard.modelData["primary"]["resolution"]
+                                + " @ " + presetCard.modelData["primary"]["fps"]
+                            color: theme.cardTextSecondary
+                            font.pixelSize: 11
+                            elide: Text.ElideRight
+                        }
+
+                        Text {
+                            width: parent.width
+                            text: (presetCard.modelData["mode"] === "wifi"
+                                ? (presetCard.modelData["wifi"]["use_encryption"] ? "Encrypted" : "Plain")
+                                : "Local")
+                                + (presetCard.modelData["third"]["enabled"] ? "  + extra display" : "")
+                            color: theme.cardTextMuted
+                            font.pixelSize: 10
+                            elide: Text.ElideRight
+                        }
+                    }
+
+                    Button {
+                        id: menuButton
+                        z: 2
+                        width: 28
+                        height: 28
+                        anchors.top: parent.top
+                        anchors.right: parent.right
+                        anchors.margins: 6
+                        flat: true
+                        text: "⋮"
+                        ToolTip.visible: hovered
+                        ToolTip.text: "Preset options"
+                        onClicked: presetMenu.open()
+                        contentItem: Text {
+                            text: parent.text
+                            color: theme.cardTextSecondary
+                            font.pixelSize: 18
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+
+                        Menu {
+                            id: presetMenu
+                            MenuItem {
+                                text: "Rename"
+                                onTriggered: {
+                                    page.selectedPresetIndex = presetCard.index
+                                    page.selectedPresetName = presetCard.modelData["name"]
+                                    renameField.text = page.selectedPresetName
+                                    renameError.text = ""
+                                    renamePopup.open()
+                                    renameField.forceActiveFocus()
+                                }
+                            }
+                            MenuItem {
+                                text: "Delete"
+                                onTriggered: {
+                                    page.selectedPresetIndex = presetCard.index
+                                    page.selectedPresetName = presetCard.modelData["name"]
+                                    deletePopup.open()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Text {
+            text: backend.presets.length === 0
+                ? "No saved presets"
+                : backend.presetLaunchStatus
+            visible: backend.presets.length === 0 || backend.presetLaunchStatus.length > 0
             font.pixelSize: 12
-            color: theme.textMuted
+            color: backend.presetLaunchStatus.indexOf("Error:") === 0
+                ? "#fca5a5" : theme.textMuted
             Layout.alignment: Qt.AlignHCenter
+        }
+    }
+
+    Popup {
+        id: renamePopup
+        modal: true
+        anchors.centerIn: parent
+        width: 360
+        height: 190
+        padding: 22
+        background: Rectangle {
+            color: theme.surface
+            border.color: theme.border
+            radius: theme.cardRadius
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 12
+            Text {
+                text: "Rename Preset"
+                color: theme.cardTextPrimary
+                font.pixelSize: 18
+                font.weight: Font.Bold
+            }
+            CustomTextField {
+                id: renameField
+                Layout.fillWidth: true
+                maximumLength: 32
+                onAccepted: renameButton.clicked()
+            }
+            Text {
+                id: renameError
+                Layout.fillWidth: true
+                color: "#fca5a5"
+                font.pixelSize: 11
+                wrapMode: Text.WordWrap
+            }
+            RowLayout {
+                Layout.alignment: Qt.AlignRight
+                Button { text: "Cancel"; onClicked: renamePopup.close() }
+                CustomButton {
+                    id: renameButton
+                    text: "Rename"
+                    onClicked: {
+                        let error = backend.renamePreset(
+                            page.selectedPresetIndex, renameField.text
+                        )
+                        renameError.text = error
+                        if (error.length === 0) renamePopup.close()
+                    }
+                }
+            }
+        }
+    }
+
+    Popup {
+        id: deletePopup
+        modal: true
+        anchors.centerIn: parent
+        width: 360
+        height: 160
+        padding: 22
+        background: Rectangle {
+            color: theme.surface
+            border.color: theme.border
+            radius: theme.cardRadius
+        }
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 16
+            Text {
+                Layout.fillWidth: true
+                text: "Delete “" + page.selectedPresetName + "”?"
+                color: theme.cardTextPrimary
+                font.pixelSize: 16
+                font.weight: Font.Bold
+                wrapMode: Text.WordWrap
+            }
+            RowLayout {
+                Layout.alignment: Qt.AlignRight
+                Button { text: "Cancel"; onClicked: deletePopup.close() }
+                Button {
+                    text: "Delete"
+                    onClicked: {
+                        backend.deletePreset(page.selectedPresetIndex)
+                        deletePopup.close()
+                    }
+                }
+            }
         }
     }
 }

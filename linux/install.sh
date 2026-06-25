@@ -19,7 +19,7 @@ DESKTOP_FILE="${APP_ID}.desktop"
 
 # Resolve paths relative to this script (linux/ directory)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-ICON_SRC="${SCRIPT_DIR}/assets/monitorize-icon.png"
+ICON_SRC="${SCRIPT_DIR}/assets/monitorize_desktop_logo.png"
 ENTRY_POINT="${SCRIPT_DIR}/monitorize_gui.py"
 
 # XDG standard locations

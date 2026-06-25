@@ -6,7 +6,7 @@ import time
 
 from .protocol import (
     ACTION_HOVER, ACTION_MOVE, ACTION_UP, PAYLOAD_SIZE, PEN_EXT_SIZE,
-    PKT_PEN, PKT_PEN_EXT, PKT_TOUCH, unpack_packet,
+    PKT_PEN, PKT_PEN_EXT, PKT_TOUCH, TOOL_MOUSE, unpack_packet,
 )
 
 log = logging.getLogger("TouchDaemon")
@@ -85,11 +85,23 @@ class InputDispatcher:
             ) and action != ACTION_HOVER:
                 self.backend.inject_touch(action, self.pen_touch_cid(cid), x, y, frame)
 
+    def dispatch_pointer(self, action, cid, x, y, buttons, frame=True):
+        with self.lock:
+            if cid in self.active_fingers:
+                old_x, old_y = self.active_fingers.pop(cid)
+                self.backend.inject_touch(ACTION_UP, cid, old_x, old_y, False)
+            inject_pointer = getattr(self.backend, "inject_pointer", None)
+            if callable(inject_pointer):
+                inject_pointer(action, x, y, buttons, frame)
+
     def dispatch_packet(self, pkt_type, payload, frame=True):
         with self.lock:
             kind, values = unpack_packet(pkt_type, payload)
             if kind == "touch":
-                action, _tool, cid, x, y, _pressure, _tx, _ty = values
+                action, tool, cid, x, y, _pressure, _tx, buttons = values
+                if tool == TOOL_MOUSE:
+                    self.dispatch_pointer(action, cid, x, y, buttons & 0xffff, frame)
+                    return True
                 self.dispatch_touch(action, cid, x, y, frame)
                 return True
             if kind == "pen":

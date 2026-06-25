@@ -6,6 +6,7 @@ from PyQt6.QtCore import QObject, QProcess, pyqtSignal
 class UsbController(QObject):
     statusChanged = pyqtSignal(str)
     busyChanged = pyqtSignal(bool)
+    scanFinished = pyqtSignal(bool)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -39,6 +40,7 @@ class UsbController(QObject):
         if code:
             self._set_status("Error: adb devices failed. Is ADB installed?")
             self._set_busy(False)
+            self.scanFinished.emit(False)
             return
         self._set_status("Setting up reverse proxy tcp:7110 (video)…")
         self._run(["reverse", "tcp:7110", "tcp:7112"], self._video_done)
@@ -47,6 +49,7 @@ class UsbController(QObject):
         if code:
             self._set_status("Error: Reverse port setup failed. Is a device connected?")
             self._set_busy(False)
+            self.scanFinished.emit(False)
             return
         self._set_status("Setting up reverse proxy tcp:7111 (touch)…")
         self._run(["reverse", "tcp:7111", "tcp:7111"], self._touch_done)
@@ -57,4 +60,4 @@ class UsbController(QObject):
             if code else "Device ready!"
         )
         self._set_busy(False)
-
+        self.scanFinished.emit(True)
