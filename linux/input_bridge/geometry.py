@@ -81,10 +81,13 @@ class Geometry:
             output = kde_virtual_output(outputs)
             value = output.get("rotation", 1) if output else 1
             key = str(value).strip().lower()
-            return {
+            rotations = {
                 "1": 0, "2": 270, "4": 180, "8": 90,
                 "none": 0, "left": 270, "inverted": 180, "right": 90,
-            }.get(key, 0)
+            }
+            if key not in rotations:
+                log.warning("Unknown KDE output rotation %r; using 0 degrees", value)
+            return rotations.get(key, 0)
         return 0
 
     def _fallback_rect(self):

@@ -225,7 +225,7 @@ class DispatcherTest(unittest.TestCase):
 
 class DaemonStartupTest(unittest.TestCase):
     def test_all_desktops_use_uinput_backend(self):
-        for de in ("kde", "gnome", "hyprland", "sway"):
+        for de in daemon_module.UINPUT_DESKTOPS:
             daemon = daemon_module.InputDaemon(100, 100, de=de)
             self.assertIsInstance(daemon.backend, UInputBackend)
 
