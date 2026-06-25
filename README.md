@@ -97,7 +97,7 @@ sudo dnf install -y \
 
 ### KDE Plasma:
 
-KDE support requires Plasma 6.7+ and KScreen tools for virtual output mode configuration:
+KDE support requires Plasma 6.7+
 
 ```bash
 sudo dnf install -y kscreen
@@ -222,7 +222,7 @@ sudo pacman -S --needed \
 
 ### KDE Plasma:
 
-KDE support requires Plasma 6.7+ and KScreen tools for virtual output mode configuration:
+KDE support requires Plasma 6.7+
 
 ```bash
 sudo pacman -S --needed kscreen
@@ -361,7 +361,7 @@ sudo apt install -y \
 
 ### KDE Plasma:
 
-KDE support requires Plasma 6.7+ and KScreen tools for virtual output mode configuration:
+KDE support requires Plasma 6.7+
 
 ```bash
 sudo apt install -y kscreen
