@@ -12,6 +12,8 @@ from .uinput_backend import UInputBackend
 
 log = logging.getLogger("TouchDaemon")
 
+UINPUT_DESKTOPS = ("kde", "gnome", "hyprland", "sway")
+
 
 class InputDaemon:
     def __init__(
@@ -23,9 +25,7 @@ class InputDaemon:
         self.wifi = wifi
         self.udp_host = udp_host
         self.udp_port = udp_port
-        self.stylus_features = stylus_features and self.de in (
-            "kde", "gnome", "hyprland", "sway"
-        )
+        self.stylus_features = stylus_features and self.de in UINPUT_DESKTOPS
         self.geometry = Geometry(self.de, width, height)
         self.backend = UInputBackend(self.geometry, self.shutdown)
         self.dispatcher = InputDispatcher(self.backend, stylus_only)
