@@ -1,3 +1,4 @@
+KDE’s portal requires the registered desktop-app identity. Direct Python launch is treated as a terminal/Python process, causing portal response code 2.
 # Monitorize Linux Application
 
 The Linux application creates or captures a display, encodes it as a low-latency H.264 stream, sends it to Android, and injects returned touch or stylus input into the desktop session.
