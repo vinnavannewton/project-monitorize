@@ -383,13 +383,3 @@ Or:
 <div align="center">
   <sub>Expanding your productivity, one monitor at a time.</sub>
 </div>
-
-## ❤️ Support
-
-If **Project Monitorize** helped you, consider supporting the development.
-
-**UPI ID:** `8660721754@upi`
-
-<a href="upi://pay?pa=8660721754@upi&pn=Vinnavan%20Newton&cu=INR">
-  <img src="https://img.shields.io/badge/Support%20via-UPI-6f42c1?style=for-the-badge" alt="Support via UPI">
-</a>
