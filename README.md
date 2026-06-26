@@ -383,3 +383,7 @@ Or:
 <div align="center">
   <sub>Expanding your productivity, one monitor at a time.</sub>
 </div>
+
+## Support
+UPI:
+  - "upi://pay?pa=temp@upi&pn=Vinnavan%20Newton&cu=INR"
