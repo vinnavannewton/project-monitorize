@@ -4,6 +4,36 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+val appVersionName = "0.2.4"
+
+fun versionCodeFromSemver(versionName: String): Int {
+    val parts = versionName.split(".")
+    require(parts.size == 3) {
+        "versionName must use major.minor.patch format, for example 0.2.3"
+    }
+
+    val major = parts[0].toInt()
+    val minor = parts[1].toInt()
+    val patch = parts[2].toInt()
+
+    require(major >= 0 && minor in 0..99 && patch in 0..99) {
+        "versionName must use non-negative major and two-digit-range minor/patch values"
+    }
+
+    return major * 10_000 + minor * 100 + patch
+}
+
+val releaseKeystore = providers.environmentVariable("ANDROID_RELEASE_KEYSTORE").orNull
+val releaseKeystorePassword = providers.environmentVariable("ANDROID_RELEASE_KEYSTORE_PASSWORD").orNull
+val releaseKeyAlias = providers.environmentVariable("ANDROID_RELEASE_KEY_ALIAS").orNull
+val releaseKeyPassword = providers.environmentVariable("ANDROID_RELEASE_KEY_PASSWORD").orNull
+val hasReleaseSigning = listOf(
+    releaseKeystore,
+    releaseKeystorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword
+).all { !it.isNullOrBlank() }
+
 android {
     namespace = "com.example.monitorize"
     compileSdk {
@@ -14,13 +44,27 @@ android {
         applicationId = "com.example.monitorize"
         minSdk = 28
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = versionCodeFromSemver(appVersionName)
+        versionName = appVersionName
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(releaseKeystore!!)
+                storePassword = releaseKeystorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
