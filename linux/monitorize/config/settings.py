@@ -373,6 +373,23 @@ def save_kde_virtual_layout(slot: str, x: int, y: int, rotation="") -> None:
     })
 
 
+def _gnome_virtual_group(slot: str) -> str:
+    return f"gnome_virtual_{slot if slot in ('primary', 'third') else 'primary'}"
+
+
+def load_gnome_virtual_layout(slot: str = "primary") -> dict:
+    data = _load_group(_gnome_virtual_group(slot), {"x": "", "y": ""})
+    try:
+        position = (int(float(data["x"])), int(float(data["y"])))
+    except (TypeError, ValueError):
+        position = None
+    return {"position": position}
+
+
+def save_gnome_virtual_layout(slot: str, x: int, y: int) -> None:
+    _save_group(_gnome_virtual_group(slot), {"x": int(x), "y": int(y)})
+
+
 def load_receiver_credentials(host: str) -> tuple[str, str]:
     s = _get_settings()
     key = hashlib.sha256(credential_host_key(host).encode()).hexdigest()

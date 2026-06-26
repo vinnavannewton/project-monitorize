@@ -12,10 +12,10 @@ from subprocess import TimeoutExpired
 
 from PyQt6.QtCore import QCoreApplication, QProcess, QProcessEnvironment
 
-from monitorize.streaming import pipeline_builder
+from monitorize.streaming import Streamer_gnome, pipeline_builder
 from monitorize.streaming import portal_streamer
 from monitorize.config import app_log, autostart, settings
-from monitorize.platform import kde_virtual_monitor, process_utils
+from monitorize.platform import gnome_virtual_monitor, kde_virtual_monitor, process_utils
 from monitorize.desktop.discovery_service import DiscoveryService
 from monitorize.desktop.backend import MonitorizeBackend
 from monitorize.desktop.receiver_controller import ReceiverController
@@ -506,6 +506,56 @@ class StreamingControllerTest(unittest.TestCase):
             "10.0.0.1", False, False
         )
 
+    def test_gnome_streamer_command_includes_saved_virtual_position(self):
+        controller = StreamingController("gnome", "10.0.0.1", Mock())
+        controller.width = 1920
+        controller.height = 1200
+        controller.fps = 60
+        controller.bitrate = 8000
+        controller.wifi = False
+        controller.streaming = True
+        controller.display_type = "Extend"
+        controller.env = Mock()
+        process = process_mock()
+        with (
+            patch("monitorize.desktop.streaming_controller.QProcess", return_value=process),
+            patch("monitorize.desktop.streaming_controller.QTimer.singleShot"),
+            patch(
+                "monitorize.desktop.streaming_controller.load_gnome_virtual_layout",
+                return_value={"position": (77, -20)},
+            ),
+        ):
+            controller._launch_streamer()
+        args = process.start.call_args.args[1]
+        self.assertEqual(args[-4:], ["1.0", "Extend", "77", "-20"])
+        self.assertTrue(controller.gnome_layout_timer.isActive())
+        controller.gnome_layout_timer.stop()
+
+    def test_gnome_streamer_command_omits_missing_virtual_position(self):
+        controller = StreamingController("gnome", "10.0.0.1", Mock())
+        controller.width = 1920
+        controller.height = 1200
+        controller.fps = 60
+        controller.bitrate = 8000
+        controller.wifi = False
+        controller.streaming = True
+        controller.display_type = "Extend"
+        controller.env = Mock()
+        process = process_mock()
+        with (
+            patch("monitorize.desktop.streaming_controller.QProcess", return_value=process),
+            patch("monitorize.desktop.streaming_controller.QTimer.singleShot"),
+            patch(
+                "monitorize.desktop.streaming_controller.load_gnome_virtual_layout",
+                return_value={"position": None},
+            ),
+        ):
+            controller._launch_streamer()
+        args = process.start.call_args.args[1]
+        self.assertEqual(args[-2:], ["1.0", "Extend"])
+        self.assertTrue(controller.gnome_layout_timer.isActive())
+        controller.gnome_layout_timer.stop()
+
     def test_stop_cleans_processes_and_advertisement(self):
         discovery = Mock()
         controller = StreamingController("sway", "10.0.0.1", discovery)
@@ -651,6 +701,76 @@ class StreamingControllerTest(unittest.TestCase):
         with patch.object(controller, "_restart_gnome") as restart:
             controller._streamer_finished(1, None, 6, old_process)
         restart.assert_not_called()
+
+    def test_restart_gnome_saves_virtual_layout_before_relaunch(self):
+        controller = StreamingController("gnome", "10.0.0.1", Mock())
+        controller.streaming = True
+        controller.generation = 7
+        controller.display_type = "Extend"
+        events = []
+        with (
+            patch(
+                "monitorize.desktop.streaming_controller.save_current_gnome_virtual_layout",
+                side_effect=lambda *_args: events.append("save"),
+            ) as save,
+            patch("monitorize.desktop.streaming_controller.kill_tracked_pids"),
+            patch("monitorize.desktop.streaming_controller.kill_patterns"),
+            patch.object(
+                controller,
+                "_launch_streamer",
+                side_effect=lambda *_args: events.append("launch"),
+            ) as launch,
+        ):
+            controller._restart_gnome(7)
+        save.assert_called_once_with("primary")
+        launch.assert_called_once_with(7)
+        self.assertEqual(events, ["save", "launch"])
+
+    def test_gnome_layout_timer_saves_while_streaming(self):
+        controller = StreamingController("gnome", "10.0.0.1", Mock())
+        controller.streaming = True
+        controller.display_type = "Extend"
+        with patch(
+            "monitorize.desktop.streaming_controller.save_current_gnome_virtual_layout"
+        ) as save:
+            controller._save_gnome_virtual_layout()
+        save.assert_called_once_with("primary")
+
+    def test_gnome_layout_timer_ignores_mirror_mode(self):
+        controller = StreamingController("gnome", "10.0.0.1", Mock())
+        controller.streaming = True
+        controller.display_type = "Mirror"
+        with patch(
+            "monitorize.desktop.streaming_controller.save_current_gnome_virtual_layout"
+        ) as save:
+            controller._save_gnome_virtual_layout()
+        save.assert_not_called()
+
+    def test_stop_saves_gnome_layout_before_stopping(self):
+        controller = StreamingController("gnome", "10.0.0.1", Mock())
+        controller.streaming = True
+        controller.display_type = "Extend"
+        controller.streamer = process_mock()
+        controller.gnome_layout_timer.start()
+        events = []
+        with (
+            patch(
+                "monitorize.desktop.streaming_controller.save_current_gnome_virtual_layout",
+                side_effect=lambda *_args: events.append("save"),
+            ) as save,
+            patch(
+                "monitorize.desktop.streaming_controller.stop_processes",
+                side_effect=lambda *_args, **_kwargs: events.append("stop") or True,
+            ),
+            patch("monitorize.desktop.streaming_controller.kill_tracked_pids"),
+            patch("monitorize.desktop.streaming_controller.kill_patterns"),
+            patch.object(controller.third, "stop"),
+            patch.object(controller.display, "cleanup"),
+        ):
+            controller.stop()
+        save.assert_called_once_with("primary")
+        self.assertEqual(events[:2], ["save", "stop"])
+        self.assertFalse(controller.gnome_layout_timer.isActive())
 
     def test_stale_streamer_output_is_ignored(self):
         controller = StreamingController("sway", "10.0.0.1", Mock())
@@ -889,6 +1009,167 @@ class ProcessUtilsTest(unittest.TestCase):
         run.assert_not_called()
 
 
+class GnomeVirtualMonitorCompatTest(unittest.TestCase):
+    class FakeDbus:
+        Int32 = int
+        UInt32 = int
+        Double = float
+        Boolean = bool
+        String = str
+
+        @staticmethod
+        def Array(values, signature=None):
+            return list(values)
+
+        @staticmethod
+        def Dictionary(values, signature=None):
+            return dict(values)
+
+        @staticmethod
+        def Struct(values, signature=None):
+            return tuple(values)
+
+    @staticmethod
+    def display_state():
+        return (
+            7,
+            [
+                (
+                    ("eDP-1", "Vendor", "Panel", "1"),
+                    [("edp-mode", 1920, 1080, 60.0, 1.0, [1.0], {"is-current": True})],
+                    {
+                        "color-mode": 1,
+                        "display-name": "Built-in Display",
+                        "rgb-range": 2,
+                    },
+                ),
+                (
+                    ("Meta-0", "Meta", "Virtual Monitor", "2"),
+                    [("meta-mode", 1920, 1200, 60.0, 1.0, [1.0], {"is-current": True})],
+                    {
+                        "color-mode": 3,
+                        "is-underscanning": True,
+                        "rgb-range": 1,
+                    },
+                ),
+            ],
+            [
+                (0, 0, 1.0, 0, True, [("eDP-1", "Vendor", "Panel", "1")]),
+                (1920, 0, 1.0, 0, False, [("Meta-0", "Meta", "Virtual Monitor", "2")]),
+            ],
+            {
+                "layout-mode": 2,
+                "supports-changing-layout-mode": True,
+            },
+        )
+
+    def test_current_virtual_layout_is_saved(self):
+        state = (
+            1,
+            [
+                (("eDP-1", "Vendor", "Panel", "1"), []),
+                (("Meta-0", "Meta", "Virtual Monitor", "2"), []),
+            ],
+            [
+                (0, 0, 1.0, 0, True, [("eDP-1", "Vendor", "Panel", "1")]),
+                (77, -20, 1.0, 0, False, [("Meta-0", "Meta", "Virtual Monitor", "2")]),
+            ],
+            {},
+        )
+        with (
+            patch("monitorize.platform.gnome_virtual_monitor._mutter_state", return_value=state),
+            patch("monitorize.platform.gnome_virtual_monitor.save_gnome_virtual_layout") as save,
+        ):
+            self.assertTrue(gnome_virtual_monitor.save_current_virtual_layout("primary"))
+        save.assert_called_once_with("primary", 77, -20)
+
+    def test_missing_gnome_virtual_monitor_does_not_save(self):
+        state = (
+            1,
+            [(("eDP-1", "Vendor", "Panel", "1"), [])],
+            [(0, 0, 1.0, 0, True, [("eDP-1", "Vendor", "Panel", "1")])],
+            {},
+        )
+        with (
+            patch("monitorize.platform.gnome_virtual_monitor._mutter_state", return_value=state),
+            patch("monitorize.platform.gnome_virtual_monitor.save_gnome_virtual_layout") as save,
+        ):
+            self.assertFalse(gnome_virtual_monitor.save_current_virtual_layout("primary"))
+        save.assert_not_called()
+
+    def test_apply_payload_changes_only_virtual_position(self):
+        configs = gnome_virtual_monitor.build_monitors_config(
+            self.display_state(), 77, -20, self.FakeDbus
+        )
+        self.assertEqual(configs[0][0:2], (0, 0))
+        self.assertEqual(configs[0][5][0][0:2], ("eDP-1", "edp-mode"))
+        self.assertEqual(
+            configs[0][5][0][2],
+            {"color-mode": 1, "rgb-range": 2},
+        )
+        self.assertEqual(configs[1][0:2], (77, -20))
+        self.assertEqual(configs[1][2:5], (1.0, 0, False))
+        self.assertEqual(configs[1][5][0][0:2], ("Meta-0", "meta-mode"))
+        self.assertEqual(
+            configs[1][5][0][2],
+            {"color-mode": 3, "underscanning": True, "rgb-range": 1},
+        )
+
+    def test_read_only_underscan_aliases_are_not_applied(self):
+        state = self.display_state()
+        state[1][1][2].update({
+            "enable_underscanning": True,
+            "underscan": True,
+        })
+        configs = gnome_virtual_monitor.build_monitors_config(
+            state, 77, -20, self.FakeDbus
+        )
+        self.assertEqual(
+            configs[1][5][0][2],
+            {"color-mode": 3, "underscanning": True, "rgb-range": 1},
+        )
+        self.assertNotIn("is-underscanning", configs[1][5][0][2])
+        self.assertNotIn("enable_underscanning", configs[1][5][0][2])
+        self.assertNotIn("underscan", configs[1][5][0][2])
+
+    def test_writable_underscanning_property_wins_over_state_alias(self):
+        state = self.display_state()
+        state[1][1][2]["underscanning"] = False
+        configs = gnome_virtual_monitor.build_monitors_config(
+            state, 77, -20, self.FakeDbus
+        )
+        self.assertFalse(configs[1][5][0][2]["underscanning"])
+
+    def test_restore_virtual_layout_applies_temporary_config(self):
+        display_config = Mock()
+        display_config.GetCurrentState.return_value = self.display_state()
+        ok = gnome_virtual_monitor.restore_virtual_layout(
+            position=(77, -20),
+            display_config=display_config,
+            dbus=self.FakeDbus,
+            attempts=1,
+            delay=0,
+        )
+        self.assertTrue(ok)
+        serial, method, configs, props = display_config.ApplyMonitorsConfig.call_args.args
+        self.assertEqual(serial, 7)
+        self.assertEqual(method, gnome_virtual_monitor.APPLY_METHOD_TEMPORARY)
+        self.assertEqual(configs[0][0:2], (0, 0))
+        self.assertEqual(configs[1][0:2], (77, -20))
+        self.assertEqual(props, {"layout-mode": 2})
+
+    def test_gnome_display_config_failure_does_not_save(self):
+        with (
+            patch(
+                "monitorize.platform.gnome_virtual_monitor._mutter_state",
+                side_effect=RuntimeError("no display config"),
+            ),
+            patch("monitorize.platform.gnome_virtual_monitor.save_gnome_virtual_layout") as save,
+        ):
+            self.assertFalse(gnome_virtual_monitor.save_current_virtual_layout("primary"))
+        save.assert_not_called()
+
+
 class KdeVirtualMonitorCompatTest(unittest.TestCase):
     @staticmethod
     def portal_outputs(mode_registered=False, mode_active=False):
@@ -1088,6 +1369,112 @@ class KdeVirtualMonitorCompatTest(unittest.TestCase):
         self.assertFalse(ok)
         self.assertEqual(output_name, "")
         run.assert_not_called()
+
+
+class StreamerGnomeTest(unittest.TestCase):
+    class FakeDbus:
+        Int32 = int
+        UInt32 = int
+        Double = float
+        Boolean = bool
+
+        @staticmethod
+        def Array(values, signature=None):
+            return list(values)
+
+        @staticmethod
+        def Dictionary(values, signature=None):
+            return dict(values)
+
+        @staticmethod
+        def Struct(values, signature=None):
+            return tuple(values)
+
+    def test_parse_args_accepts_virtual_position(self):
+        config = Streamer_gnome.parse_args([
+            "1920", "1200", "60", "8000", "usb", "1.0", "Extend", "77", "-20",
+        ])
+        self.assertEqual(config.virtual_position, (77, -20))
+
+    def test_parse_args_ignores_invalid_virtual_position(self):
+        config = Streamer_gnome.parse_args([
+            "1920", "1200", "60", "8000", "usb", "1.0", "Extend", "bad", "-20",
+        ])
+        self.assertIsNone(config.virtual_position)
+
+    def test_record_virtual_does_not_pass_position(self):
+        session = Mock()
+        config = Streamer_gnome.StreamerConfig(
+            width=1920,
+            height=1200,
+            fps=60,
+            virtual_position=(77, -20),
+        )
+        Streamer_gnome._record_virtual(session, self.FakeDbus, config)
+        options = session.RecordVirtual.call_args.args[0]
+        self.assertNotIn("position", options)
+
+    def test_record_virtual_includes_preferred_mode(self):
+        session = Mock()
+        config = Streamer_gnome.StreamerConfig(width=1920, height=1200, fps=60)
+        Streamer_gnome._record_virtual(session, self.FakeDbus, config)
+        options = session.RecordVirtual.call_args.args[0]
+        self.assertEqual(options["modes"][0]["size"], (1920, 1200))
+        self.assertEqual(options["modes"][0]["refresh-rate"], 60.0)
+        self.assertTrue(options["modes"][0]["is-preferred"])
+
+    def test_restore_happens_before_gstreamer_launch(self):
+        events = []
+
+        class FakeThread:
+            def __init__(self, target, args=(), daemon=False):
+                self.target = target
+                self.args = args
+
+            def start(self):
+                self.target(*self.args)
+
+        config = Streamer_gnome.StreamerConfig(display_type="Extend")
+        with (
+            patch(
+                "monitorize.streaming.Streamer_gnome._restore_virtual_layout",
+                side_effect=lambda *_args: events.append("restore"),
+            ),
+            patch("monitorize.streaming.Streamer_gnome.threading.Thread", FakeThread),
+        ):
+            Streamer_gnome._restore_and_launch(
+                Mock(), self.FakeDbus, config,
+                lambda node_id: events.append(f"launch:{node_id}"),
+                42,
+            )
+        self.assertEqual(events, ["restore", "launch:42"])
+
+    def test_restore_failure_still_launches_gstreamer(self):
+        events = []
+
+        class FakeThread:
+            def __init__(self, target, args=(), daemon=False):
+                self.target = target
+                self.args = args
+
+            def start(self):
+                self.target(*self.args)
+
+        config = Streamer_gnome.StreamerConfig(display_type="Extend")
+        with (
+            patch(
+                "monitorize.streaming.Streamer_gnome._restore_virtual_layout",
+                side_effect=RuntimeError("restore failed"),
+            ),
+            patch("monitorize.streaming.Streamer_gnome.threading.Thread", FakeThread),
+        ):
+            Streamer_gnome._restore_and_launch(
+                Mock(), self.FakeDbus, config,
+                lambda node_id: events.append(f"launch:{node_id}"),
+                42,
+            )
+        self.assertEqual(events, ["launch:42"])
+
 
 class PipelineBuilderTest(unittest.TestCase):
     def _pipeline_text(self, **kwargs):
