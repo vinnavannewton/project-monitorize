@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="linux/assets/monitorize_desktop_logo.png" alt="Monitorize logo" width="160" />
+  <img src="linux/monitorize/assets/monitorize_desktop_logo.png" alt="Monitorize logo" width="160" />
   <h1>Monitorize</h1>
   <p><strong>Turn your Android, linux Laptop into a smooth, low-latency secondary monitor for your Linux Desktop .</strong></p>
 
@@ -315,6 +315,7 @@ sudo apt install -y \
 ```bash
 git clone https://github.com/vinnavannewton/ProjectMonitorize.git
 cd ProjectMonitorize/linux
+cd scripts
 chmod +x install.sh
 ./install.sh
 ```
@@ -322,7 +323,7 @@ chmod +x install.sh
 Or run manually:
 
 ```bash
-./venv/bin/python3 monitorize_gui.py
+./venv/bin/python3 -m monitorize
 ```
 
 ### 2. Android side
