@@ -51,8 +51,8 @@ def parse_args(argv=None):
 def _virtual_mode(dbus, config):
     mode = {
         "size": dbus.Struct(
-            [dbus.Int32(config.width), dbus.Int32(config.height)],
-            signature="ii",
+            [dbus.UInt32(config.width), dbus.UInt32(config.height)],
+            signature="uu",
         ),
         "refresh-rate": dbus.Double(float(config.fps)),
         "is-preferred": dbus.Boolean(True),

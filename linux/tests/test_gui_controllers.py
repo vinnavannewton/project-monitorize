@@ -1372,6 +1372,12 @@ class KdeVirtualMonitorCompatTest(unittest.TestCase):
 
 
 class StreamerGnomeTest(unittest.TestCase):
+    class FakeStruct(tuple):
+        def __new__(cls, values, signature=None):
+            item = super().__new__(cls, values)
+            item.signature = signature
+            return item
+
     class FakeDbus:
         Int32 = int
         UInt32 = int
@@ -1388,7 +1394,7 @@ class StreamerGnomeTest(unittest.TestCase):
 
         @staticmethod
         def Struct(values, signature=None):
-            return tuple(values)
+            return StreamerGnomeTest.FakeStruct(values, signature)
 
     def test_parse_args_accepts_virtual_position(self):
         config = Streamer_gnome.parse_args([
@@ -1420,6 +1426,7 @@ class StreamerGnomeTest(unittest.TestCase):
         Streamer_gnome._record_virtual(session, self.FakeDbus, config)
         options = session.RecordVirtual.call_args.args[0]
         self.assertEqual(options["modes"][0]["size"], (1920, 1200))
+        self.assertEqual(options["modes"][0]["size"].signature, "uu")
         self.assertEqual(options["modes"][0]["refresh-rate"], 60.0)
         self.assertTrue(options["modes"][0]["is-preferred"])
 
