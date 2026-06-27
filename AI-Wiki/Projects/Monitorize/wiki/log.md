@@ -88,3 +88,11 @@ Extended the GNOME full-layout workaround to persist scale accepted through GNOM
 - `ApplyMonitorsConfig` restore uses saved scale only when the current mode reports that scale as supported.
 - `Streamer_gnome` no longer accepts the dead scale CLI argument; it seeds the virtual monitor with mode `preferred-scale` when a saved virtual scale exists.
 - `python -m unittest tests.test_gui_controllers` and targeted `py_compile` checks passed.
+
+## [2026-06-28] fix | GNOME mapped input bounds
+
+Adjusted GNOME uinput coordinate handling after per-device output mapping.
+
+- Successful GNOME touch/stylus output mapping now means uinput bounds are virtual-monitor-local logical bounds.
+- If GNOME DisplayConfig or GSettings mapping fails, the input backend keeps the older desktop-wide bounds fallback.
+- Updated [[gnome-input]] with the mapped-coordinate rule.

@@ -501,6 +501,60 @@ class GnomeGeometryTest(unittest.TestCase):
         ):
             self.assertTrue(geom.map_gnome_devices(stylus_features=True))
         self.assertEqual(written, [(("MTR", "Monitorize Virtual", "serial-1"), True)])
+        self.assertTrue(geom._gnome_devices_mapped)
+
+    def test_gnome_map_devices_failed_write_leaves_devices_unmapped(self):
+        geom = geometry.Geometry("gnome", 1920, 1200)
+
+        with (
+            patch.object(geom, "_mutter_state", return_value=self.gnome_state()),
+            patch(
+                "monitorize.input_bridge.geometry.write_gnome_input_mapping",
+                return_value=False,
+            ),
+        ):
+            self.assertFalse(geom.map_gnome_devices(stylus_features=True))
+
+        self.assertFalse(geom._gnome_devices_mapped)
+
+    def test_gnome_mapped_uinput_bounds_are_virtual_local(self):
+        geom = geometry.Geometry("gnome", 1920, 1200)
+        geom._gnome_devices_mapped = True
+
+        with (
+            patch.object(
+                geom,
+                "virtual_rect",
+                return_value=(2560.0, 0.0, 1280.0, 800.0),
+            ),
+            patch.object(geom, "desktop_bounds") as desktop_bounds,
+        ):
+            self.assertEqual(
+                geom.uinput_bounds(),
+                (1280, 800, 0.0, 0.0, 1280.0, 800.0),
+            )
+
+        desktop_bounds.assert_not_called()
+
+    def test_gnome_unmapped_uinput_bounds_keep_desktop_fallback(self):
+        geom = geometry.Geometry("gnome", 1920, 1200)
+
+        with (
+            patch.object(
+                geom,
+                "virtual_rect",
+                return_value=(2560.0, 0.0, 1280.0, 800.0),
+            ),
+            patch.object(
+                geom,
+                "desktop_bounds",
+                return_value=(0.0, 0.0, 3840.0, 1600.0),
+            ),
+        ):
+            self.assertEqual(
+                geom.uinput_bounds(),
+                (3840, 1600, 2560.0, 0.0, 1280.0, 800.0),
+            )
 
 
 class UInputCreationTest(unittest.TestCase):
