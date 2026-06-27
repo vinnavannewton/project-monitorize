@@ -16,3 +16,5 @@ Before creating those devices on GNOME, the input backend reads Mutter DisplayCo
 - tablet `mapping = 'absolute'`
 
 The mapping step is best-effort. If DisplayConfig or GSettings is unavailable, streaming and input startup continue with the existing uinput behavior.
+
+When GNOME mapping succeeds, Monitorize sends uinput coordinates in the virtual monitor's local logical coordinate space. This avoids double-applying the virtual monitor's desktop offset because Mutter already maps the device to the selected output. If GNOME mapping fails, Monitorize keeps the older desktop-wide bounds fallback.

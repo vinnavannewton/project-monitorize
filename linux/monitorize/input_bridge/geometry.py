@@ -151,6 +151,7 @@ class Geometry:
         self.screen_w = screen_w
         self.screen_h = screen_h
         self._cache = None
+        self._gnome_devices_mapped = False
 
     def invalidate(self):
         self._cache = None
@@ -284,13 +285,16 @@ class Geometry:
     ) -> bool:
         if self.de != "gnome":
             return False
+        self._gnome_devices_mapped = False
         deadline = time.monotonic() + timeout
         last_error = None
         while time.monotonic() < deadline:
             try:
                 edid = gnome_virtual_monitor_edid_from_state(self._mutter_state())
                 if edid:
-                    return write_gnome_input_mapping(edid, stylus_features)
+                    mapped = write_gnome_input_mapping(edid, stylus_features)
+                    self._gnome_devices_mapped = mapped
+                    return mapped
             except Exception as exc:
                 last_error = exc
             time.sleep(interval)
@@ -329,6 +333,8 @@ class Geometry:
 
     def uinput_bounds(self):
         rx, ry, rw, rh = self.virtual_rect()
+        if self.de == "gnome" and self._gnome_devices_mapped:
+            return int(round(rw)), int(round(rh)), 0.0, 0.0, rw, rh
         bounds = self.desktop_bounds()
         if bounds:
             bx, by, bw, bh = bounds
