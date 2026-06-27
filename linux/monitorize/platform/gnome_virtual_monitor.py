@@ -131,15 +131,45 @@ def logical_layout_snapshot(state=None, display_config=None):
         try:
             x = int(float(logical_monitor[0]))
             y = int(float(logical_monitor[1]))
+            scale = float(logical_monitor[2])
         except (TypeError, ValueError, IndexError):
             continue
         snapshot.append({
             "connectors": connectors,
             "x": x,
             "y": y,
+            "scale": scale,
             "virtual": is_virtual,
         })
     return snapshot if found_virtual else None
+
+
+def virtual_scale_from_layout(logical_monitors):
+    if not isinstance(logical_monitors, list):
+        return None
+    for entry in logical_monitors:
+        if not isinstance(entry, dict) or not entry.get("virtual"):
+            continue
+        try:
+            scale = float(entry["scale"])
+        except (KeyError, TypeError, ValueError):
+            return None
+        return scale if scale > 0 else None
+    return None
+
+
+def load_saved_virtual_scale(slot="primary"):
+    return virtual_scale_from_layout(
+        load_gnome_virtual_layout(slot).get("logical_monitors")
+    )
+
+
+def _scale_supported(scale, supported_scales):
+    try:
+        scale = float(scale)
+    except (TypeError, ValueError):
+        return False
+    return any(abs(scale - float(supported)) < 0.0001 for supported in supported_scales)
 
 
 def _target_positions_from_saved_layout(state, saved_layout):
@@ -161,9 +191,12 @@ def _target_positions_from_saved_layout(state, saved_layout):
         try:
             x = int(float(entry["x"]))
             y = int(float(entry["y"]))
+            scale = float(entry["scale"])
         except (KeyError, TypeError, ValueError):
             continue
-        normalized = {"x": x, "y": y}
+        if scale <= 0:
+            continue
+        normalized = {"x": x, "y": y, "scale": scale}
         if entry.get("virtual"):
             saved_virtual = normalized
         else:
@@ -185,13 +218,13 @@ def _target_positions_from_saved_layout(state, saved_layout):
             target = saved_physical.get(_connector_key(connectors))
         if target is None:
             return None
-        targets.append((target["x"], target["y"]))
+        targets.append((target["x"], target["y"], target["scale"]))
 
     if not targets:
         return None
-    min_x = min(x for x, _y in targets)
-    min_y = min(y for _x, y in targets)
-    return [(x - min_x, y - min_y) for x, y in targets]
+    min_x = min(x for x, _y, _scale in targets)
+    min_y = min(y for _x, y, _scale in targets)
+    return [(x - min_x, y - min_y, scale) for x, y, scale in targets]
 
 
 def _variant_dict(dbus, values=None):
@@ -240,8 +273,8 @@ def _monitor_properties_by_connector(physical_monitors):
     return properties
 
 
-def _current_mode_ids(physical_monitors):
-    modes_by_connector = {}
+def _current_modes(physical_monitors):
+    current_modes = {}
     for monitor in physical_monitors:
         connector = _connector_name(monitor)
         if not connector:
@@ -260,8 +293,15 @@ def _current_mode_ids(physical_monitors):
         )
         if current is None:
             return None
-        modes_by_connector[connector] = str(current[0])
-    return modes_by_connector
+        try:
+            supported_scales = [float(scale) for scale in current[5]]
+        except (TypeError, ValueError, IndexError):
+            supported_scales = []
+        current_modes[connector] = {
+            "id": str(current[0]),
+            "supported_scales": supported_scales,
+        }
+    return current_modes
 
 
 def _monitor_config(dbus, connector, mode_id, properties=None):
@@ -278,10 +318,11 @@ def _monitor_config(dbus, connector, mode_id, properties=None):
 def _logical_monitor_config(
     dbus,
     logical_monitor,
-    modes_by_connector,
+    current_modes,
     monitor_properties,
     x,
     y,
+    scale,
 ):
     try:
         connectors = logical_monitor[5]
@@ -294,14 +335,14 @@ def _logical_monitor_config(
             connector = str(item[0])
         except (TypeError, IndexError):
             return None
-        mode_id = modes_by_connector.get(connector)
-        if not mode_id:
+        mode = current_modes.get(connector)
+        if not mode or not _scale_supported(scale, mode["supported_scales"]):
             return None
         monitor_configs.append(
             _monitor_config(
                 dbus,
                 connector,
-                mode_id,
+                mode["id"],
                 monitor_properties.get(connector, {}),
             )
         )
@@ -309,7 +350,7 @@ def _logical_monitor_config(
     values = [
         _typed(dbus, "Int32", int(float(x))),
         _typed(dbus, "Int32", int(float(y))),
-        _typed(dbus, "Double", float(logical_monitor[2])),
+        _typed(dbus, "Double", float(scale)),
         _typed(dbus, "UInt32", int(logical_monitor[3])),
         _typed(dbus, "Boolean", bool(logical_monitor[4])),
         dbus.Array(monitor_configs, signature="(ssa{sv})")
@@ -330,8 +371,8 @@ def build_monitors_config(state, dbus=None, logical_monitors=None):
     _serial, physical_monitors, current_logical_monitors, _properties = state
     if not virtual_connector_from_state(state):
         return None
-    modes_by_connector = _current_mode_ids(physical_monitors)
-    if not modes_by_connector:
+    current_modes = _current_modes(physical_monitors)
+    if not current_modes:
         return None
     monitor_properties = _monitor_properties_by_connector(physical_monitors)
     target_positions = _target_positions_from_saved_layout(state, logical_monitors)
@@ -339,14 +380,15 @@ def build_monitors_config(state, dbus=None, logical_monitors=None):
         return None
     configs = []
     for index, logical_monitor in enumerate(current_logical_monitors):
-        logical_x, logical_y = target_positions[index]
+        logical_x, logical_y, logical_scale = target_positions[index]
         config = _logical_monitor_config(
             dbus,
             logical_monitor,
-            modes_by_connector,
+            current_modes,
             monitor_properties,
             logical_x,
             logical_y,
+            logical_scale,
         )
         if config is None:
             return None

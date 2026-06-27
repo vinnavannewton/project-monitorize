@@ -537,7 +537,7 @@ class StreamingControllerTest(unittest.TestCase):
         ):
             controller._launch_streamer()
         args = process.start.call_args.args[1]
-        self.assertEqual(args[-2:], ["1.0", "Extend"])
+        self.assertEqual(args[-1:], ["Extend"])
         self.assertTrue(controller.gnome_layout_timer.isActive())
         controller.gnome_layout_timer.stop()
 
@@ -1148,12 +1148,14 @@ class GnomeVirtualMonitorCompatTest(unittest.TestCase):
                 "connectors": ["eDP-1"],
                 "x": 0,
                 "y": 0,
+                "scale": 1.0,
                 "virtual": False,
             },
             {
                 "connectors": ["Meta-0"],
                 "x": 1920,
                 "y": 0,
+                "scale": 1.0,
                 "virtual": True,
             },
         ]
@@ -1183,12 +1185,14 @@ class GnomeVirtualMonitorCompatTest(unittest.TestCase):
                     "connectors": ["eDP-1"],
                     "x": 0,
                     "y": 0,
+                    "scale": 1.0,
                     "virtual": False,
                 },
                 {
                     "connectors": ["Meta-0"],
                     "x": 77,
                     "y": -20,
+                    "scale": 1.0,
                     "virtual": True,
                 },
             ],
@@ -1240,12 +1244,14 @@ class GnomeVirtualMonitorCompatTest(unittest.TestCase):
                 "connectors": ["eDP-1"],
                 "x": 1920,
                 "y": 0,
+                "scale": 1.0,
                 "virtual": False,
             },
             {
                 "connectors": ["Meta-0"],
                 "x": 0,
                 "y": 0,
+                "scale": 1.0,
                 "virtual": True,
             },
         ]
@@ -1278,6 +1284,29 @@ class GnomeVirtualMonitorCompatTest(unittest.TestCase):
         self.assertEqual(configs[0][5][0][0:2], ("eDP-1", "edp-mode"))
         self.assertEqual(configs[1][0:2], (0, 0))
         self.assertEqual(configs[1][5][0][0:2], ("Meta-1", "meta-mode"))
+
+    def test_apply_payload_restores_saved_scale(self):
+        saved_layout = self.saved_right_layout()
+        saved_layout[1]["scale"] = 1.25
+        state = self.display_state()
+        state[1][1][1][0][5].append(1.25)
+        configs = gnome_virtual_monitor.build_monitors_config(
+            state,
+            self.FakeDbus,
+            logical_monitors=saved_layout,
+        )
+        self.assertEqual(configs[0][2], 1.0)
+        self.assertEqual(configs[1][2], 1.25)
+
+    def test_apply_payload_rejects_unsupported_saved_scale(self):
+        saved_layout = self.saved_right_layout()
+        saved_layout[1]["scale"] = 1.25
+        configs = gnome_virtual_monitor.build_monitors_config(
+            self.display_state(),
+            self.FakeDbus,
+            logical_monitors=saved_layout,
+        )
+        self.assertIsNone(configs)
 
     def test_read_only_underscan_aliases_are_not_applied(self):
         state = self.display_state()
@@ -1569,9 +1598,9 @@ class StreamerGnomeTest(unittest.TestCase):
         def Struct(values, signature=None):
             return StreamerGnomeTest.FakeStruct(values, signature)
 
-    def test_parse_args_ignores_extra_legacy_position_args(self):
+    def test_parse_args_accepts_display_type_without_scale_arg(self):
         config = Streamer_gnome.parse_args([
-            "1920", "1200", "60", "8000", "usb", "1.0", "Extend", "bad", "-20",
+            "1920", "1200", "60", "8000", "usb", "Extend",
         ])
         self.assertEqual(config.display_type, "Extend")
 
@@ -1585,6 +1614,18 @@ class StreamerGnomeTest(unittest.TestCase):
         Streamer_gnome._record_virtual(session, self.FakeDbus, config)
         options = session.RecordVirtual.call_args.args[0]
         self.assertNotIn("position", options)
+
+    def test_record_virtual_includes_preferred_scale_when_saved(self):
+        session = Mock()
+        config = Streamer_gnome.StreamerConfig(
+            width=1920,
+            height=1200,
+            fps=60,
+            preferred_scale=1.25,
+        )
+        Streamer_gnome._record_virtual(session, self.FakeDbus, config)
+        options = session.RecordVirtual.call_args.args[0]
+        self.assertEqual(options["modes"][0]["preferred-scale"], 1.25)
 
     def test_record_virtual_includes_preferred_mode(self):
         session = Mock()

@@ -3,7 +3,7 @@ Streamer_gnome.py — GNOME Wayland streamer.
 Uses org.gnome.Mutter.ScreenCast RecordVirtual D-Bus API.
 Handles both USB and Wi-Fi modes via the MODE argument.
 
-Usage: python3 -m monitorize.streaming.Streamer_gnome <width> <height> <fps> <bitrate> <usb|wifi> [scale] [Extend|Mirror]
+Usage: python3 -m monitorize.streaming.Streamer_gnome <width> <height> <fps> <bitrate> <usb|wifi> [Extend|Mirror]
 """
 
 import os
@@ -24,8 +24,8 @@ class StreamerConfig:
     fps: int = 60
     bitrate: int = 8000
     mode: str = "usb"
-    scale: float = 1.0
     display_type: str = "Extend"
+    preferred_scale: float | None = None
 
 
 def parse_args(argv=None):
@@ -36,8 +36,7 @@ def parse_args(argv=None):
         fps=int(argv[2]) if len(argv) > 2 else 60,
         bitrate=int(argv[3]) if len(argv) > 3 else 8000,
         mode=argv[4] if len(argv) > 4 else "usb",
-        scale=float(argv[5]) if len(argv) > 5 else 1.0,
-        display_type=argv[6] if len(argv) > 6 else "Extend",
+        display_type=argv[5] if len(argv) > 5 else "Extend",
     )
 
 
@@ -50,6 +49,8 @@ def _virtual_mode(dbus, config):
         "refresh-rate": dbus.Double(float(config.fps)),
         "is-preferred": dbus.Boolean(True),
     }
+    if config.preferred_scale:
+        mode["preferred-scale"] = dbus.Double(float(config.preferred_scale))
     if hasattr(dbus, "Dictionary"):
         return dbus.Dictionary(mode, signature="sv")
     return mode
@@ -163,6 +164,8 @@ def main(argv=None):
     from gi.repository import GLib
 
     config = parse_args(argv)
+    if config.display_type.lower() != "mirror":
+        config.preferred_scale = gnome_virtual_monitor.load_saved_virtual_scale()
     server_mode = config.mode == "wifi"
     host = os.environ.get(
         "MONITORIZE_HOST",
