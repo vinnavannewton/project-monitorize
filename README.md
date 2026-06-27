@@ -90,13 +90,15 @@ sudo dnf install -y kscreen
 
 ### GNOME (Experimental):
 
-No extra packages needed. However, you **must** disable hardware cursor rendering so the cursor is visible on the virtual monitor stream:
+No extra packages needed. However, you **must** disable Mutter hardware cursor rendering so the cursor is visible on the virtual monitor stream.
+
+Open `/etc/environment` and add this line at the bottom:
 
 ```bash
-gsettings set org.gnome.mutter.wayland disable-hardware-cursor true
+MUTTER_DEBUG_DISABLE_HW_CURSORS=1
 ```
 
-Log out and back in for the change to take effect. 
+Log out and back in for the change to take effect.
 
 ---
 
@@ -166,10 +168,12 @@ sudo pacman -S --needed kscreen
 
 ### GNOME (Experimental):
 
-No extra packages needed. However, you **must** disable hardware cursor rendering so the cursor is visible on the virtual monitor stream:
+No extra packages needed. However, you **must** disable Mutter hardware cursor rendering so the cursor is visible on the virtual monitor stream.
+
+Open `/etc/environment` and add this line at the bottom:
 
 ```bash
-gsettings set org.gnome.mutter.wayland disable-hardware-cursor true
+MUTTER_DEBUG_DISABLE_HW_CURSORS=1
 ```
 
 Log out and back in for the change to take effect.
@@ -257,10 +261,12 @@ sudo apt install -y kscreen
 
 ### GNOME (Experimental):
 
-No extra packages needed. However, you **must** disable hardware cursor rendering so the cursor is visible on the virtual monitor stream:
+No extra packages needed. However, you **must** disable Mutter hardware cursor rendering so the cursor is visible on the virtual monitor stream.
+
+Open `/etc/environment` and add this line at the bottom:
 
 ```bash
-gsettings set org.gnome.mutter.wayland disable-hardware-cursor true
+MUTTER_DEBUG_DISABLE_HW_CURSORS=1
 ```
 
 Log out and back in for the change to take effect.

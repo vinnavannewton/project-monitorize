@@ -1,5 +1,24 @@
 # Monitorize Wiki Log
 
+## [2026-06-28] fix | GNOME uinput mapping
+
+Implemented GNOME uinput mapping for touch and stylus.
+
+- Added [[gnome-input]].
+- Documented stable Monitorize uinput vendor/product IDs.
+- Documented the GNOME per-device `output` mapping to the virtual monitor EDID and tablet `mapping = 'absolute'`.
+- `tests.test_input_bridge`, `tests.test_gui_controllers`, and `tests.test_tls_proxy` passed with the project venv.
+
+## [2026-06-28] inspect | GNOME cursor capture
+
+Inspected Monitorize GNOME streaming and local Mutter virtual screencast cursor handling.
+
+- Added [[gnome-cursor-capture]].
+- Documented that Monitorize already requests embedded cursor mode for GNOME.
+- Documented the likely Mutter-side gap: monitor screencast sources inhibit hardware cursors for embedded mode, while virtual screencast sources do not.
+- Noted that disabling Mutter hardware cursors works because it forces the cursor into the composited path captured by the virtual stream.
+- Updated README GNOME setup sections to replace the non-working `gsettings` instruction with the `/etc/environment` `MUTTER_DEBUG_DISABLE_HW_CURSORS=1` workaround.
+
 ## [2026-06-27] init | Codex-maintained Obsidian wiki
 
 Initialized the project wiki structure for Monitorize.

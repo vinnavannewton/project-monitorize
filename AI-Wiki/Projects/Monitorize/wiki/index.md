@@ -8,6 +8,8 @@ This is the entry point for the Codex-maintained Monitorize wiki.
 - [[architecture]] - High-level Linux and Android architecture.
 - [[desktop-app]] - Linux desktop app entrypoints, UI wiring, controllers, and lifecycle notes.
 - [[gnome-virtual-layout]] - Working GNOME virtual monitor placement workaround.
+- [[gnome-cursor-capture]] - GNOME virtual stream cursor visibility findings and options.
+- [[gnome-input]] - GNOME uinput touchscreen/stylus mapping through Mutter input settings.
 - [[decisions]] - Durable project decisions and rationale.
 - [[open-questions]] - Unknowns to resolve in future work.
 - [[glossary]] - Project-specific terms and components.

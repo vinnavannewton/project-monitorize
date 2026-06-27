@@ -714,6 +714,66 @@ class StreamingControllerTest(unittest.TestCase):
         self.assertIn("--wifi", args)
         self.assertIn("--local-udp", args)
 
+    def test_gnome_plain_wifi_input_uses_public_udp(self):
+        controller = self.gnome_controller()
+        controller.wifi = True
+        controller.encrypted = False
+        process = process_mock()
+        with (
+            patch("monitorize.desktop.streaming_controller.QProcess", return_value=process),
+            patch(
+                "monitorize.desktop.streaming_controller.load_general_settings",
+                return_value={"enable_touch": True, "enable_stylus_features": False},
+            ),
+        ):
+            controller._launch_input(generation=7)
+        args = process.start.call_args.args[1]
+        self.assertIn("--wifi", args)
+        self.assertNotIn("--local-udp", args)
+
+    def test_gnome_encrypted_wifi_input_uses_local_udp(self):
+        controller = self.gnome_controller()
+        controller.wifi = True
+        controller.encrypted = True
+        process = process_mock()
+        with (
+            patch("monitorize.desktop.streaming_controller.QProcess", return_value=process),
+            patch(
+                "monitorize.desktop.streaming_controller.load_general_settings",
+                return_value={"enable_touch": True, "enable_stylus_features": False},
+            ),
+        ):
+            controller._launch_input(generation=7)
+        args = process.start.call_args.args[1]
+        self.assertIn("--wifi", args)
+        self.assertIn("--local-udp", args)
+
+    def test_gnome_stylus_input_args_are_preserved(self):
+        controller = self.gnome_controller()
+        controller.runtime_general = {
+            "enable_touch": True,
+            "enable_stylus_features": True,
+        }
+        process = process_mock()
+        with patch("monitorize.desktop.streaming_controller.QProcess", return_value=process):
+            controller._launch_input(generation=7)
+        args = process.start.call_args.args[1]
+        self.assertIn("--stylus-features", args)
+        self.assertNotIn("--stylus-only", args)
+
+    def test_gnome_stylus_only_input_args_are_preserved(self):
+        controller = self.gnome_controller()
+        controller.runtime_general = {
+            "enable_touch": False,
+            "enable_stylus_features": True,
+        }
+        process = process_mock()
+        with patch("monitorize.desktop.streaming_controller.QProcess", return_value=process):
+            controller._launch_input(generation=7)
+        args = process.start.call_args.args[1]
+        self.assertIn("--stylus-features", args)
+        self.assertIn("--stylus-only", args)
+
     def test_runtime_general_settings_override_saved_defaults(self):
         controller = self.kde_controller()
         controller.runtime_general = {

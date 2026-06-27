@@ -47,6 +47,7 @@ The backend exposes PyQt properties and slots rather than putting lifecycle logi
 - Hyprland and Sway Extend modes create headless outputs before launching the streamer.
 - GNOME Extend mode uses the full logical-layout DisplayConfig workaround described in [[gnome-virtual-layout]].
 - Input starts through `monitorize.input_bridge.touch_daemon` after the stream is ready enough for the desktop path.
+- GNOME input uses uinput plus the per-device mapping described in [[gnome-input]].
 - Active configurations can be saved as presets, including primary stream, general settings, Wi-Fi encryption/profile, and optional KDE third display.
 
 ## Receiver Controller
