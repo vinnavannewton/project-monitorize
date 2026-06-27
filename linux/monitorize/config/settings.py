@@ -378,30 +378,20 @@ def _gnome_virtual_group(slot: str) -> str:
 
 
 def load_gnome_virtual_layout(slot: str = "primary") -> dict:
-    data = _load_group(_gnome_virtual_group(slot), {"x": "", "y": "", "layout": ""})
-    try:
-        position = (int(float(data["x"])), int(float(data["y"])))
-    except (TypeError, ValueError):
-        position = None
+    data = _load_group(_gnome_virtual_group(slot), {"layout": ""})
     try:
         layout = json.loads(data["layout"]) if data["layout"] else None
     except (TypeError, ValueError, json.JSONDecodeError):
         layout = None
     if not isinstance(layout, list):
         layout = None
-    return {"position": position, "logical_monitors": layout}
+    return {"logical_monitors": layout}
 
 
-def save_gnome_virtual_layout(
-    slot: str,
-    x: int,
-    y: int,
-    logical_monitors: list | None = None,
-) -> None:
-    values = {"x": int(x), "y": int(y)}
-    if logical_monitors is not None:
-        values["layout"] = json.dumps(logical_monitors, separators=(",", ":"))
-    _save_group(_gnome_virtual_group(slot), values)
+def save_gnome_virtual_layout(slot: str, logical_monitors: list) -> None:
+    _save_group(_gnome_virtual_group(slot), {
+        "layout": json.dumps(logical_monitors, separators=(",", ":")),
+    })
 
 
 def load_receiver_credentials(host: str) -> tuple[str, str]:

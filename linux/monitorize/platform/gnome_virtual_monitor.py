@@ -75,20 +75,6 @@ def _physical_contains_virtual_marker(entry):
     )
 
 
-def _logical_contains_connector(logical_monitor, connector):
-    try:
-        connectors = logical_monitor[5]
-    except (TypeError, IndexError):
-        return False
-    for item in connectors:
-        try:
-            if str(item[0]) == connector:
-                return True
-        except (TypeError, IndexError):
-            continue
-    return False
-
-
 def _logical_connector_names(logical_monitor):
     try:
         connectors = logical_monitor[5]
@@ -121,18 +107,6 @@ def _virtual_connectors(physical_monitors):
 def virtual_connector_from_state(state):
     _serial, physical_monitors, _logical_monitors, _properties = state
     return next(iter(_virtual_connectors(physical_monitors)), "")
-
-
-def current_virtual_position(state=None, display_config=None):
-    """Return the logical x/y of Mutter's virtual monitor, if present."""
-    state = state or _mutter_state(display_config)
-    _serial, physical_monitors, logical_monitors, _properties = state
-    virtual_connectors = _virtual_connectors(physical_monitors)
-    for connector in virtual_connectors:
-        for logical_monitor in logical_monitors:
-            if _logical_contains_connector(logical_monitor, connector):
-                return int(float(logical_monitor[0])), int(float(logical_monitor[1]))
-    return None
 
 
 def logical_layout_snapshot(state=None, display_config=None):
@@ -306,10 +280,8 @@ def _logical_monitor_config(
     logical_monitor,
     modes_by_connector,
     monitor_properties,
-    target_connector,
-    x=None,
-    y=None,
-    apply_position=False,
+    x,
+    y,
 ):
     try:
         connectors = logical_monitor[5]
@@ -317,7 +289,6 @@ def _logical_monitor_config(
         return None
 
     monitor_configs = []
-    is_target = False
     for item in connectors:
         try:
             connector = str(item[0])
@@ -326,7 +297,6 @@ def _logical_monitor_config(
         mode_id = modes_by_connector.get(connector)
         if not mode_id:
             return None
-        is_target = is_target or connector == target_connector
         monitor_configs.append(
             _monitor_config(
                 dbus,
@@ -336,12 +306,9 @@ def _logical_monitor_config(
             )
         )
 
-    use_position = apply_position or is_target
-    logical_x = x if x is not None and use_position else logical_monitor[0]
-    logical_y = y if y is not None and use_position else logical_monitor[1]
     values = [
-        _typed(dbus, "Int32", int(float(logical_x))),
-        _typed(dbus, "Int32", int(float(logical_y))),
+        _typed(dbus, "Int32", int(float(x))),
+        _typed(dbus, "Int32", int(float(y))),
         _typed(dbus, "Double", float(logical_monitor[2])),
         _typed(dbus, "UInt32", int(logical_monitor[3])),
         _typed(dbus, "Boolean", bool(logical_monitor[4])),
@@ -353,40 +320,33 @@ def _logical_monitor_config(
     return tuple(values)
 
 
-def build_monitors_config(state, x=None, y=None, dbus=None, logical_monitors=None):
+def build_monitors_config(state, dbus=None, logical_monitors=None):
     """Build an ApplyMonitorsConfig logical monitor payload.
 
     Returns None when the current state lacks enough mode/config detail to
     preserve every logical monitor unchanged.
     """
     dbus = dbus or _dbus()
-    saved_layout = logical_monitors
     _serial, physical_monitors, current_logical_monitors, _properties = state
-    target_connector = virtual_connector_from_state(state)
-    if not target_connector:
+    if not virtual_connector_from_state(state):
         return None
     modes_by_connector = _current_mode_ids(physical_monitors)
     if not modes_by_connector:
         return None
     monitor_properties = _monitor_properties_by_connector(physical_monitors)
-    target_positions = _target_positions_from_saved_layout(state, saved_layout)
-    if target_positions is None and (x is None or y is None):
+    target_positions = _target_positions_from_saved_layout(state, logical_monitors)
+    if target_positions is None:
         return None
     configs = []
     for index, logical_monitor in enumerate(current_logical_monitors):
-        logical_x = x
-        logical_y = y
-        if target_positions is not None:
-            logical_x, logical_y = target_positions[index]
+        logical_x, logical_y = target_positions[index]
         config = _logical_monitor_config(
             dbus,
             logical_monitor,
             modes_by_connector,
             monitor_properties,
-            target_connector,
             logical_x,
             logical_y,
-            target_positions is not None,
         )
         if config is None:
             return None
@@ -408,7 +368,6 @@ def wait_for_virtual_state(display_config=None, attempts=WAIT_ATTEMPTS, delay=WA
 
 def restore_virtual_layout(
     slot="primary",
-    position=None,
     logical_monitors=None,
     display_config=None,
     dbus=None,
@@ -416,11 +375,8 @@ def restore_virtual_layout(
     delay=WAIT_DELAY,
 ):
     if logical_monitors is None:
-        layout = load_gnome_virtual_layout(slot)
-        if position is None:
-            position = layout["position"]
-        logical_monitors = layout.get("logical_monitors")
-    if not position and not logical_monitors:
+        logical_monitors = load_gnome_virtual_layout(slot).get("logical_monitors")
+    if not logical_monitors:
         return False
     try:
         dbus = dbus or _dbus()
@@ -430,11 +386,7 @@ def restore_virtual_layout(
             return False
         serial = state[0]
         configs = build_monitors_config(
-            state,
-            position[0] if position else None,
-            position[1] if position else None,
-            dbus,
-            logical_monitors=logical_monitors,
+            state, dbus, logical_monitors=logical_monitors
         )
         if configs is None:
             return False
@@ -455,13 +407,11 @@ def restore_virtual_layout(
 
 def save_current_virtual_layout(slot="primary"):
     try:
-        state = _mutter_state()
-        position = current_virtual_position(state)
-        logical_monitors = logical_layout_snapshot(state)
+        logical_monitors = logical_layout_snapshot()
     except Exception as exc:
         log.debug("Failed to query GNOME virtual monitor layout: %s", exc)
         return False
-    if not position:
+    if not logical_monitors:
         return False
-    save_gnome_virtual_layout(slot, position[0], position[1], logical_monitors)
+    save_gnome_virtual_layout(slot, logical_monitors)
     return True
