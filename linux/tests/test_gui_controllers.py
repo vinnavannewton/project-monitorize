@@ -1779,6 +1779,17 @@ class UsbControllerTest(unittest.TestCase):
 
 
 class BackendFacadeTest(unittest.TestCase):
+    def test_main_menu_desktop_badge_uses_backend_detected_de(self):
+        qml_path = (
+            Path(__file__).resolve().parents[1]
+            / "monitorize"
+            / "qml"
+            / "MainMenuPage.qml"
+        )
+        qml = qml_path.read_text(encoding="utf-8")
+        self.assertNotIn("page.detectedDe", qml)
+        self.assertIn("backend.detectedDe", qml)
+
     def test_qml_api_remains_exposed(self):
         with patch("monitorize.desktop.backend.get_local_ip", return_value="127.0.0.1"):
             backend = MonitorizeBackend("kde")
