@@ -17,6 +17,7 @@ from .geometry import (
 )
 
 log = logging.getLogger("TouchDaemon")
+STYLUS_AXIS_RESOLUTION = 100
 
 try:
     import evdev
@@ -76,9 +77,24 @@ class UInputBackend:
             if self.stylus and os.path.basename(self.stylus.device.path) not in mapped:
                 self.stylus.close()
                 self.stylus = None
+        elif self.geometry.de == "gnome":
+            verify = getattr(self.geometry, "verify_gnome_devices", None)
+            if callable(verify) and getattr(self.geometry, "_gnome_devices_mapped", True):
+                try:
+                    mapped = set(verify([self.touch, self.stylus]) or ())
+                except Exception as exc:
+                    log.warning("Failed to verify GNOME uinput mapping: %s", exc)
+                    mapped = set()
+                if self.stylus:
+                    stylus_event = os.path.basename(self.stylus.device.path)
+                    if stylus_event not in mapped:
+                        log.warning(
+                            "GNOME did not confirm Monitorize-Stylus output mapping; "
+                            "stylus pressure may fall back to touch emulation"
+                        )
 
-    def _abs(self, code, minimum, maximum):
-        return code, evdev.AbsInfo(0, minimum, maximum, 0, 0, 0)
+    def _abs(self, code, minimum, maximum, resolution=0):
+        return code, evdev.AbsInfo(0, minimum, maximum, 0, 0, resolution)
 
     def _touch_capabilities(self):
         return {
@@ -94,20 +110,26 @@ class UInputBackend:
         }
 
     def _stylus_capabilities(self):
-        return {
-            ecodes.EV_ABS: [
-                self._abs(ecodes.ABS_X, 0, self.max_x),
-                self._abs(ecodes.ABS_Y, 0, self.max_y),
-                self._abs(ecodes.ABS_PRESSURE, 0, COORD_MAX),
-                self._abs(ecodes.ABS_DISTANCE, 0, DISTANCE_MAX),
-                self._abs(ecodes.ABS_TILT_X, -90, 90),
-                self._abs(ecodes.ABS_TILT_Y, -90, 90),
-            ],
+        abs_axes = [
+            self._abs(ecodes.ABS_X, 0, self.max_x, STYLUS_AXIS_RESOLUTION),
+            self._abs(ecodes.ABS_Y, 0, self.max_y, STYLUS_AXIS_RESOLUTION),
+            self._abs(ecodes.ABS_PRESSURE, 0, COORD_MAX),
+            self._abs(ecodes.ABS_DISTANCE, 0, DISTANCE_MAX),
+            self._abs(ecodes.ABS_TILT_X, -90, 90),
+            self._abs(ecodes.ABS_TILT_Y, -90, 90),
+        ]
+        if hasattr(ecodes, "ABS_MISC"):
+            abs_axes.append(self._abs(ecodes.ABS_MISC, 0, COORD_MAX))
+        capabilities = {
+            ecodes.EV_ABS: abs_axes,
             ecodes.EV_KEY: [
                 ecodes.BTN_TOUCH, ecodes.BTN_TOOL_PEN, ecodes.BTN_TOOL_RUBBER,
                 ecodes.BTN_STYLUS, ecodes.BTN_STYLUS2,
             ],
         }
+        if hasattr(ecodes, "EV_MSC") and hasattr(ecodes, "MSC_SERIAL"):
+            capabilities[ecodes.EV_MSC] = [ecodes.MSC_SERIAL]
+        return capabilities
 
     def _map_devices(self, stylus_features):
         names = ["monitorize-touch"] + (["monitorize-stylus"] if stylus_features else [])
@@ -195,9 +217,12 @@ class UInputBackend:
         tool_code = ecodes.BTN_TOOL_RUBBER if tool == 2 else ecodes.BTN_TOOL_PEN
         other_tool = ecodes.BTN_TOOL_PEN if tool_code == ecodes.BTN_TOOL_RUBBER else ecodes.BTN_TOOL_RUBBER
         ending = action == ACTION_UP or flags & (PEN_FLAG_CANCELED | PEN_FLAG_HOVER_EXIT)
+        tool_serial = 2 if tool_code == ecodes.BTN_TOOL_RUBBER else 1
         with self.lock:
             if self.active_tool and self.active_tool != tool_code:
                 self.stylus.write(ecodes.EV_KEY, self.active_tool, 0)
+            if hasattr(ecodes, "EV_MSC") and hasattr(ecodes, "MSC_SERIAL"):
+                self.stylus.write(ecodes.EV_MSC, ecodes.MSC_SERIAL, tool_serial)
             for code, value in (
                 (ecodes.ABS_X, px), (ecodes.ABS_Y, py),
                 (ecodes.ABS_TILT_X, max(-90, min(90, tilt_x))),
@@ -205,6 +230,8 @@ class UInputBackend:
                 (ecodes.ABS_DISTANCE, max(0, min(DISTANCE_MAX, distance))),
             ):
                 self.stylus.write(ecodes.EV_ABS, code, value)
+            if hasattr(ecodes, "ABS_MISC"):
+                self.stylus.write(ecodes.EV_ABS, ecodes.ABS_MISC, tool_serial)
             if ending:
                 self.stylus.write(ecodes.EV_ABS, ecodes.ABS_PRESSURE, 0)
                 for code in (

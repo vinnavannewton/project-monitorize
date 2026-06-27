@@ -2135,6 +2135,40 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertNotIn("page.detectedDe", qml)
         self.assertIn("backend.detectedDe", qml)
 
+    def test_stream_stop_returns_to_launching_config_page(self):
+        qml_path = (
+            Path(__file__).resolve().parents[1]
+            / "monitorize"
+            / "qml"
+            / "main.qml"
+        )
+        qml = qml_path.read_text(encoding="utf-8")
+        self.assertIn(
+            'property string lastStreamingSetupPage: "MainMenuPage.qml"',
+            qml,
+        )
+        self.assertIn("stack.currentItem.returnPageSource", qml)
+        self.assertIn("stack.lastStreamingSetupPage = returnPage.length > 0", qml)
+        self.assertIn(
+            "stack.replace(stack.lastStreamingSetupPage, StackView.PopTransition)",
+            qml,
+        )
+        self.assertIn(
+            'stack.replace("MainMenuPage.qml", StackView.PopTransition)',
+            qml,
+        )
+
+    def test_streaming_config_pages_expose_return_source(self):
+        qml_dir = Path(__file__).resolve().parents[1] / "monitorize" / "qml"
+        wifi_qml = (qml_dir / "WifiPage.qml").read_text(encoding="utf-8")
+        usb_qml = (qml_dir / "UsbStep2Page.qml").read_text(encoding="utf-8")
+        self.assertIn(
+            'readonly property string returnPageSource: page.isWifi ? "WifiPage.qml" : "UsbStep2Page.qml"',
+            wifi_qml,
+        )
+        self.assertIn("WifiPage {", usb_qml)
+        self.assertIn("isWifi: false", usb_qml)
+
     def test_qml_api_remains_exposed(self):
         with patch("monitorize.desktop.backend.get_local_ip", return_value="127.0.0.1"):
             backend = MonitorizeBackend("kde")

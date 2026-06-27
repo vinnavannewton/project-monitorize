@@ -134,3 +134,6 @@ skills-lock.json
 .agents/
 .claude/
 .codex/
+
+# Personal Codex/Obsidian project memory
+AI-Wiki/

@@ -2,7 +2,7 @@ import struct
 import unittest
 import threading
 import types
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 from monitorize.input_bridge import daemon as daemon_module
 from monitorize.input_bridge import geometry, transport, uinput_backend
@@ -556,22 +556,82 @@ class GnomeGeometryTest(unittest.TestCase):
                 (3840, 1600, 2560.0, 0.0, 1280.0, 800.0),
             )
 
+    def test_gnome_input_node_mapping_success(self):
+        mapper = Mock()
+        bus = Mock()
+        bus.get_object.return_value = object()
+        dbus = types.SimpleNamespace(Interface=Mock(return_value=mapper))
+
+        self.assertTrue(
+            geometry.gnome_input_node_is_mapped(
+                "/dev/input/event11",
+                bus=bus,
+                dbus=dbus,
+            )
+        )
+
+        bus.get_object.assert_called_once_with(
+            geometry.GNOME_INPUT_MAPPING_SERVICE,
+            geometry.GNOME_INPUT_MAPPING_PATH,
+        )
+        dbus.Interface.assert_called_once_with(
+            bus.get_object.return_value,
+            geometry.GNOME_INPUT_MAPPING_IFACE,
+        )
+        mapper.GetDeviceMapping.assert_called_once_with("/dev/input/event11")
+
+    def test_gnome_input_node_mapping_failure_is_false(self):
+        mapper = Mock()
+        mapper.GetDeviceMapping.side_effect = RuntimeError("not mapped")
+        bus = Mock()
+        bus.get_object.return_value = object()
+        dbus = types.SimpleNamespace(Interface=Mock(return_value=mapper))
+
+        self.assertFalse(
+            geometry.gnome_input_node_is_mapped(
+                "/dev/input/event11",
+                bus=bus,
+                dbus=dbus,
+            )
+        )
+
+    def test_gnome_verify_devices_returns_mapped_event_names(self):
+        geom = geometry.Geometry("gnome", 1920, 1200)
+        touch = types.SimpleNamespace(
+            device=types.SimpleNamespace(path="/dev/input/event10")
+        )
+        stylus = types.SimpleNamespace(
+            device=types.SimpleNamespace(path="/dev/input/event11")
+        )
+
+        with patch(
+            "monitorize.input_bridge.geometry.gnome_input_node_is_mapped",
+            side_effect=lambda path: path.endswith("event11"),
+        ):
+            self.assertEqual(
+                geom.verify_gnome_devices([touch, stylus]),
+                {"event11"},
+            )
+
 
 class UInputCreationTest(unittest.TestCase):
     def test_uinput_devices_use_stable_monitorize_ids(self):
         ecodes = types.SimpleNamespace(
             EV_ABS=3,
             EV_KEY=1,
+            EV_MSC=4,
             ABS_X=0,
             ABS_Y=1,
             ABS_PRESSURE=24,
             ABS_DISTANCE=25,
             ABS_TILT_X=26,
             ABS_TILT_Y=27,
+            ABS_MISC=40,
             ABS_MT_SLOT=47,
             ABS_MT_POSITION_X=53,
             ABS_MT_POSITION_Y=54,
             ABS_MT_TRACKING_ID=57,
+            MSC_SERIAL=0,
             BTN_TOUCH=330,
             BTN_TOOL_PEN=320,
             BTN_TOOL_RUBBER=321,
@@ -598,6 +658,7 @@ class UInputCreationTest(unittest.TestCase):
             screen_w=1920,
             screen_h=1200,
             map_gnome_devices=Mock(return_value=True),
+            verify_gnome_devices=Mock(return_value={"event10", "event11"}),
             uinput_bounds=Mock(return_value=(1920, 1200, 0, 0, 1920, 1200)),
             rotation=Mock(return_value=0),
         )
@@ -619,6 +680,57 @@ class UInputCreationTest(unittest.TestCase):
             stylus_kwargs["product"], geometry.MONITORIZE_STYLUS_PRODUCT_ID
         )
         geom.map_gnome_devices.assert_called_once_with(True)
+        geom.verify_gnome_devices.assert_called_once_with(devices)
+
+    def test_stylus_capabilities_include_tablet_metadata(self):
+        ecodes = types.SimpleNamespace(
+            EV_ABS=3,
+            EV_KEY=1,
+            EV_MSC=4,
+            ABS_X=0,
+            ABS_Y=1,
+            ABS_PRESSURE=24,
+            ABS_DISTANCE=25,
+            ABS_TILT_X=26,
+            ABS_TILT_Y=27,
+            ABS_MISC=40,
+            MSC_SERIAL=0,
+            BTN_TOUCH=330,
+            BTN_TOOL_PEN=320,
+            BTN_TOOL_RUBBER=321,
+            BTN_STYLUS=331,
+            BTN_STYLUS2=332,
+        )
+        fake_evdev = types.SimpleNamespace(
+            AbsInfo=lambda value, minimum, maximum, fuzz, flat, resolution: (
+                value, minimum, maximum, fuzz, flat, resolution,
+            )
+        )
+        backend = UInputBackend(Mock(screen_w=1920, screen_h=1200), Mock())
+        backend.max_x = 1920
+        backend.max_y = 1200
+
+        with (
+            patch.object(uinput_backend, "ecodes", ecodes),
+            patch.object(uinput_backend, "evdev", fake_evdev),
+        ):
+            caps = backend._stylus_capabilities()
+
+        abs_codes = {item[0] for item in caps[ecodes.EV_ABS]}
+        self.assertTrue({
+            ecodes.ABS_X,
+            ecodes.ABS_Y,
+            ecodes.ABS_PRESSURE,
+            ecodes.ABS_DISTANCE,
+            ecodes.ABS_TILT_X,
+            ecodes.ABS_TILT_Y,
+            ecodes.ABS_MISC,
+        } <= abs_codes)
+        self.assertEqual(
+            next(item for item in caps[ecodes.EV_ABS] if item[0] == ecodes.ABS_X)[1][-1],
+            uinput_backend.STYLUS_AXIS_RESOLUTION,
+        )
+        self.assertEqual(caps[ecodes.EV_MSC], [ecodes.MSC_SERIAL])
 
 
 class UInputCoordinatesTest(unittest.TestCase):
@@ -661,6 +773,84 @@ class UInputCoordinatesTest(unittest.TestCase):
         backend._coords(100, 200)
         backend._coords(300, 400)
         backend.geometry.rotation.assert_not_called()
+
+
+class UInputStylusTest(unittest.TestCase):
+    def setUp(self):
+        self.ecodes = types.SimpleNamespace(
+            EV_ABS=3,
+            EV_KEY=1,
+            EV_MSC=4,
+            ABS_X=0,
+            ABS_Y=1,
+            ABS_PRESSURE=24,
+            ABS_DISTANCE=25,
+            ABS_TILT_X=26,
+            ABS_TILT_Y=27,
+            ABS_MISC=40,
+            MSC_SERIAL=0,
+            BTN_TOUCH=330,
+            BTN_TOOL_PEN=320,
+            BTN_TOOL_RUBBER=321,
+            BTN_STYLUS=331,
+            BTN_STYLUS2=332,
+        )
+        self.ecodes_patch = patch.object(uinput_backend, "ecodes", self.ecodes)
+        self.ecodes_patch.start()
+
+    def tearDown(self):
+        self.ecodes_patch.stop()
+
+    def backend(self):
+        geometry = Mock(screen_w=1600, screen_h=1000)
+        backend = UInputBackend(geometry, Mock())
+        backend.max_x = 1600
+        backend.max_y = 1000
+        backend.target = (0, 0, 1600, 1000)
+        backend.stylus = Mock()
+        return backend
+
+    def test_pen_down_writes_pressure_and_tablet_metadata(self):
+        backend = self.backend()
+
+        self.assertTrue(
+            backend.inject_pen(
+                ACTION_DOWN,
+                1,
+                32768,
+                32768,
+                1234,
+                12,
+                -8,
+                7,
+                0,
+                0,
+            )
+        )
+
+        writes = backend.stylus.write.call_args_list
+        self.assertIn(call(self.ecodes.EV_MSC, self.ecodes.MSC_SERIAL, 1), writes)
+        self.assertIn(call(self.ecodes.EV_ABS, self.ecodes.ABS_MISC, 1), writes)
+        self.assertIn(call(self.ecodes.EV_KEY, self.ecodes.BTN_TOOL_PEN, 1), writes)
+        self.assertIn(call(self.ecodes.EV_ABS, self.ecodes.ABS_PRESSURE, 1234), writes)
+        self.assertIn(call(self.ecodes.EV_KEY, self.ecodes.BTN_TOUCH, 1), writes)
+        backend.stylus.syn.assert_called_once()
+
+    def test_hover_and_up_clear_pressure(self):
+        backend = self.backend()
+
+        backend.inject_pen(ACTION_HOVER, 1, 100, 200, 500, 0, 0, 12, 0, 0)
+        self.assertIn(
+            call(self.ecodes.EV_ABS, self.ecodes.ABS_PRESSURE, 0),
+            backend.stylus.write.call_args_list,
+        )
+
+        backend.stylus.reset_mock()
+        backend.inject_pen(ACTION_UP, 1, 100, 200, 500, 0, 0, 12, 0, 0)
+        writes = backend.stylus.write.call_args_list
+        self.assertIn(call(self.ecodes.EV_ABS, self.ecodes.ABS_PRESSURE, 0), writes)
+        self.assertIn(call(self.ecodes.EV_KEY, self.ecodes.BTN_TOUCH, 0), writes)
+        self.assertIn(call(self.ecodes.EV_KEY, self.ecodes.BTN_TOOL_PEN, 0), writes)
 
 
 class UInputSlotTest(unittest.TestCase):
