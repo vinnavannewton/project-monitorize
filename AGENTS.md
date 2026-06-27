@@ -4,6 +4,7 @@ This repository has a Codex-maintained Obsidian wiki at `AI-Wiki/Projects/Monito
 
 ## Wiki Workflow
 
+- Use the personal `monitorize-wiki-maintainer` skill when it is available.
 - When learning durable project knowledge, update the relevant wiki page.
 - Read `AI-Wiki/Projects/Monitorize/wiki/index.md` first when using the wiki for project context.
 - Keep wiki pages short, factual, and useful for future Codex sessions.

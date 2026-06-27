@@ -484,6 +484,20 @@ class StreamingControllerTest(unittest.TestCase):
         controller.generation = 3
         return controller
 
+    def gnome_controller(self):
+        controller = StreamingController("gnome", "10.0.0.1", Mock())
+        controller.width = 1920
+        controller.height = 1200
+        controller.fps = 60
+        controller.bitrate = 8000
+        controller.wifi = False
+        controller.encrypted = False
+        controller.streaming = True
+        controller.display_type = "Extend"
+        controller.env = Mock()
+        controller.generation = 7
+        return controller
+
     def test_streamer_command_preserves_wlroots_output(self):
         discovery = Mock()
         controller = StreamingController("sway", "10.0.0.1", discovery)
@@ -555,6 +569,184 @@ class StreamingControllerTest(unittest.TestCase):
         self.assertEqual(args[-2:], ["1.0", "Extend"])
         self.assertTrue(controller.gnome_layout_timer.isActive())
         controller.gnome_layout_timer.stop()
+
+    def test_gnome_extend_connects_display_config_signal(self):
+        controller = self.gnome_controller()
+        process = process_mock()
+        bus = Mock()
+        bus.connect.return_value = True
+        qdbus = Mock()
+        qdbus.sessionBus.return_value = bus
+        with (
+            patch("monitorize.desktop.streaming_controller.QDBusConnection", qdbus),
+            patch("monitorize.desktop.streaming_controller.QProcess", return_value=process),
+            patch("monitorize.desktop.streaming_controller.QTimer.singleShot"),
+            patch(
+                "monitorize.desktop.streaming_controller.load_gnome_virtual_layout",
+                return_value={"position": None},
+            ),
+        ):
+            controller._launch_streamer()
+        bus.connect.assert_called_once()
+        self.assertEqual(
+            bus.connect.call_args.args[:4],
+            (
+                "org.gnome.Mutter.DisplayConfig",
+                "/org/gnome/Mutter/DisplayConfig",
+                "org.gnome.Mutter.DisplayConfig",
+                "MonitorsChanged",
+            ),
+        )
+        self.assertTrue(controller.gnome_display_config_connected)
+        controller._stop_gnome_layout_tracking()
+
+    def test_gnome_mirror_and_kde_do_not_connect_display_config_signal(self):
+        bus = Mock()
+        qdbus = Mock()
+        qdbus.sessionBus.return_value = bus
+
+        mirror = self.gnome_controller()
+        mirror.display_type = "Mirror"
+        kde = self.kde_controller()
+        with patch("monitorize.desktop.streaming_controller.QDBusConnection", qdbus):
+            mirror._start_gnome_layout_tracking()
+            kde._start_gnome_layout_tracking()
+        bus.connect.assert_not_called()
+
+    def test_stop_disconnects_gnome_display_config_signal(self):
+        controller = self.gnome_controller()
+        controller.streamer = process_mock()
+        controller.gnome_layout_timer.start()
+        controller.gnome_layout_change_timer.start()
+        controller.gnome_reconnect_arm_timer.start()
+        controller.gnome_layout_retry_timer.start()
+        bus = Mock()
+        controller.gnome_display_config_bus = bus
+        controller.gnome_display_config_connected = True
+        with (
+            patch(
+                "monitorize.desktop.streaming_controller.save_current_gnome_virtual_layout",
+                return_value=True,
+            ),
+            patch("monitorize.desktop.streaming_controller.stop_processes"),
+            patch("monitorize.desktop.streaming_controller.kill_tracked_pids"),
+            patch("monitorize.desktop.streaming_controller.kill_patterns"),
+            patch.object(controller.third, "stop"),
+            patch.object(controller.display, "cleanup"),
+        ):
+            controller.stop()
+        bus.disconnect.assert_called_once()
+        self.assertFalse(controller.gnome_layout_timer.isActive())
+        self.assertFalse(controller.gnome_layout_change_timer.isActive())
+        self.assertFalse(controller.gnome_reconnect_arm_timer.isActive())
+        self.assertFalse(controller.gnome_layout_retry_timer.isActive())
+        self.assertFalse(controller.gnome_display_config_connected)
+
+    def test_gnome_monitors_changed_ignored_until_reconnect_is_armed(self):
+        controller = self.gnome_controller()
+        controller.gnome_layout_reconnect_armed = False
+        with (
+            patch.object(controller, "_save_gnome_virtual_layout") as save,
+            patch.object(controller, "_controlled_reconnect_gnome") as reconnect,
+        ):
+            controller._on_gnome_monitors_changed()
+        save.assert_not_called()
+        reconnect.assert_not_called()
+        self.assertFalse(controller.gnome_layout_change_timer.isActive())
+
+    def test_gnome_monitors_changed_debounces_when_armed(self):
+        controller = self.gnome_controller()
+        controller.gnome_layout_reconnect_armed = True
+        controller._on_gnome_monitors_changed()
+        self.assertTrue(controller.gnome_layout_change_timer.isActive())
+        controller.gnome_layout_change_timer.stop()
+
+    def test_gnome_primary_ready_arms_reconnect_after_grace_delay(self):
+        controller = self.gnome_controller()
+        controller._set_primary_ready(True)
+        self.assertFalse(controller.gnome_layout_reconnect_armed)
+        self.assertTrue(controller.gnome_reconnect_arm_timer.isActive())
+        controller.gnome_reconnect_arm_timer.stop()
+        controller._arm_gnome_layout_reconnect()
+        self.assertTrue(controller.gnome_layout_reconnect_armed)
+
+    def test_gnome_layout_change_save_success_reconnects(self):
+        controller = self.gnome_controller()
+        controller.gnome_layout_reconnect_armed = True
+        with (
+            patch.object(controller, "_save_gnome_virtual_layout", return_value=True) as save,
+            patch.object(controller, "_controlled_reconnect_gnome") as reconnect,
+        ):
+            controller._handle_gnome_layout_change()
+        save.assert_called_once()
+        reconnect.assert_called_once()
+
+    def test_gnome_layout_change_save_failure_skips_reconnect(self):
+        controller = self.gnome_controller()
+        controller.gnome_layout_reconnect_armed = True
+        with (
+            patch.object(controller, "_save_gnome_virtual_layout", return_value=False),
+            patch.object(controller, "_controlled_reconnect_gnome") as reconnect,
+            patch("monitorize.desktop.streaming_controller.time.monotonic", return_value=999),
+        ):
+            controller.gnome_layout_save_retry_deadline = 1
+            controller._retry_gnome_layout_reconnect_save()
+        reconnect.assert_not_called()
+        self.assertFalse(controller.gnome_layout_retry_timer.isActive())
+
+    def test_gnome_layout_change_save_failure_retries_before_deadline(self):
+        controller = self.gnome_controller()
+        controller.gnome_layout_reconnect_armed = True
+        with (
+            patch.object(controller, "_save_gnome_virtual_layout", return_value=False),
+            patch.object(controller, "_controlled_reconnect_gnome") as reconnect,
+            patch("monitorize.desktop.streaming_controller.time.monotonic", return_value=1),
+        ):
+            controller.gnome_layout_save_retry_deadline = 2
+            controller._retry_gnome_layout_reconnect_save()
+        reconnect.assert_not_called()
+        self.assertTrue(controller.gnome_layout_retry_timer.isActive())
+        controller.gnome_layout_retry_timer.stop()
+
+    def test_gnome_controlled_reconnect_relaunches_new_generation(self):
+        controller = self.gnome_controller()
+        controller.gnome_layout_reconnect_armed = True
+        controller.primary_ready = True
+        old_streamer = process_mock()
+        old_input = process_mock()
+        controller.streamer = old_streamer
+        controller.input_bridge = old_input
+        controller.gst_pids = {12345}
+        events = []
+        with (
+            patch(
+                "monitorize.desktop.streaming_controller.stop_processes",
+                side_effect=lambda *_args: events.append("stop") or True,
+            ) as stop,
+            patch("monitorize.desktop.streaming_controller.kill_tracked_pids") as kill_pids,
+            patch("monitorize.desktop.streaming_controller.kill_patterns") as kill_patterns_mock,
+            patch.object(
+                controller,
+                "_launch_streamer",
+                side_effect=lambda generation: events.append(f"launch:{generation}"),
+            ) as launch,
+            patch(
+                "monitorize.desktop.streaming_controller.QTimer.singleShot",
+                side_effect=lambda _ms, fn: fn(),
+            ),
+        ):
+            controller._controlled_reconnect_gnome()
+            with patch.object(controller, "_restart_gnome") as restart:
+                controller._streamer_finished(1, None, 7, old_streamer)
+        self.assertEqual(controller.generation, 8)
+        stop.assert_called_once_with(old_streamer, old_input)
+        kill_pids.assert_called_once_with({12345})
+        kill_patterns_mock.assert_called_once_with(
+            "gst-launch-1.0.*port=7110", "gst-launch-1.0.*port=7112"
+        )
+        launch.assert_called_once_with(8)
+        restart.assert_not_called()
+        self.assertEqual(events, ["stop", "launch:8"])
 
     def test_stop_cleans_processes_and_advertisement(self):
         discovery = Mock()
