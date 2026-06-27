@@ -7,6 +7,7 @@ from monitorize.config.settings import (
     load_gnome_virtual_layout,
     save_gnome_virtual_layout,
 )
+from monitorize.input_bridge.geometry import _physical_contains_virtual_marker
 
 
 log = logging.getLogger(__name__)
@@ -55,24 +56,6 @@ def _connector_name(entry):
         return str(spec[0])
     except (TypeError, IndexError):
         return ""
-
-
-def _physical_contains_virtual_marker(entry):
-    try:
-        values = entry[0]
-    except (TypeError, IndexError):
-        return False
-    if isinstance(values, str):
-        values = [values]
-    try:
-        values = list(values)
-    except TypeError:
-        values = [values]
-    return any(
-        marker in str(value).lower()
-        for value in values
-        for marker in ("meta", "virtual")
-    )
 
 
 def _logical_connector_names(logical_monitor):

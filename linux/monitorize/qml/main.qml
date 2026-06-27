@@ -65,9 +65,16 @@ Rectangle {
         target: backend
         function onIsStreamingChanged(streaming) {
             if (streaming) {
+                let returnPage = stack.currentItem
+                    && stack.currentItem.returnPageSource !== undefined
+                    ? stack.currentItem.returnPageSource
+                    : "MainMenuPage.qml"
+                stack.lastStreamingSetupPage = returnPage.length > 0
+                    ? returnPage
+                    : "MainMenuPage.qml"
                 stack.replace("StreamingPage.qml")
             } else {
-                stack.replace("MainMenuPage.qml", StackView.PopTransition)
+                stack.replace(stack.lastStreamingSetupPage, StackView.PopTransition)
             }
         }
     }
@@ -88,6 +95,7 @@ Rectangle {
     StackView {
         id: stack
         objectName: "mainStack"
+        property string lastStreamingSetupPage: "MainMenuPage.qml"
         anchors.fill: parent
         anchors.leftMargin: 20
         anchors.rightMargin: 20

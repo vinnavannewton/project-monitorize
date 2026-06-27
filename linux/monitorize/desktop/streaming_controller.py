@@ -496,7 +496,13 @@ class StreamingController(QObject):
             generation is not None and generation != self.generation
         ):
             return
-        self._save_gnome_virtual_layout()
+        should_track_layout = self._should_track_gnome_virtual_layout()
+        saved_layout = self._save_gnome_virtual_layout()
+        if should_track_layout and not saved_layout:
+            self.logAppended.emit(
+                "STREAMER",
+                "GNOME virtual layout save failed before restart; using last saved layout.",
+            )
         kill_tracked_pids(self.gst_pids)
         kill_patterns("gst-launch-1.0.*port=7110", "gst-launch-1.0.*port=7112")
         self._launch_streamer(self.generation)
@@ -634,7 +640,13 @@ class StreamingController(QObject):
 
     def stop(self):
         stopping_kde_portal = self._stopping_kde_portal_streamer()
-        self._save_gnome_virtual_layout()
+        should_track_layout = self._should_track_gnome_virtual_layout()
+        saved_layout = self._save_gnome_virtual_layout()
+        if should_track_layout and not saved_layout:
+            self.logAppended.emit(
+                "STREAMER",
+                "GNOME virtual layout save failed before stop; using last saved layout.",
+            )
         self._stop_gnome_layout_tracking()
         self.generation += 1
         self.countdown_timer.stop()

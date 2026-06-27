@@ -9,6 +9,7 @@ Item {
     property bool enableStylusFeatures: false
     property bool loadingSettings: true
     property bool syncingBitrate: false
+    readonly property string returnPageSource: page.isWifi ? "WifiPage.qml" : "UsbStep2Page.qml"
     readonly property bool stylusControlsVisible: (
         backend.detectedDe === "kde"
         || backend.detectedDe === "gnome"
