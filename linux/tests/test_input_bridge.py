@@ -567,6 +567,7 @@ class GnomeGeometryTest(unittest.TestCase):
                 "/dev/input/event11",
                 bus=bus,
                 dbus=dbus,
+                log_failure=False,
             )
         )
 
@@ -592,8 +593,48 @@ class GnomeGeometryTest(unittest.TestCase):
                 "/dev/input/event11",
                 bus=bus,
                 dbus=dbus,
+                log_failure=False,
             )
         )
+
+    def test_gnome_input_node_mapping_failure_warns_by_default(self):
+        mapper = Mock()
+        mapper.GetDeviceMapping.side_effect = RuntimeError("not mapped")
+        bus = Mock()
+        bus.get_object.return_value = object()
+        dbus = types.SimpleNamespace(Interface=Mock(return_value=mapper))
+
+        with patch("monitorize.input_bridge.geometry.log") as log:
+            self.assertFalse(
+                geometry.gnome_input_node_is_mapped(
+                    "/dev/input/event11",
+                    bus=bus,
+                    dbus=dbus,
+                )
+            )
+
+        log.warning.assert_called_once()
+        log.debug.assert_not_called()
+
+    def test_gnome_input_node_mapping_failure_can_be_debug_only(self):
+        mapper = Mock()
+        mapper.GetDeviceMapping.side_effect = RuntimeError("not mapped")
+        bus = Mock()
+        bus.get_object.return_value = object()
+        dbus = types.SimpleNamespace(Interface=Mock(return_value=mapper))
+
+        with patch("monitorize.input_bridge.geometry.log") as log:
+            self.assertFalse(
+                geometry.gnome_input_node_is_mapped(
+                    "/dev/input/event11",
+                    bus=bus,
+                    dbus=dbus,
+                    log_failure=False,
+                )
+            )
+
+        log.debug.assert_called_once()
+        log.warning.assert_not_called()
 
     def test_gnome_verify_devices_reuses_session_bus(self):
         geom = geometry.Geometry("gnome", 1920, 1200)
@@ -621,6 +662,45 @@ class GnomeGeometryTest(unittest.TestCase):
             [call.kwargs["bus"] for call in is_mapped.call_args_list],
             [bus, bus],
         )
+        self.assertEqual(
+            [call.kwargs["log_failure"] for call in is_mapped.call_args_list],
+            [False, False],
+        )
+
+    def test_gnome_verify_devices_ignores_dbus_unavailable(self):
+        geom = geometry.Geometry("gnome", 1920, 1200)
+
+        with patch.dict("sys.modules", {"dbus": None}):
+            self.assertEqual(geom.verify_gnome_devices([]), set())
+
+    def test_gnome_verify_devices_ignores_dbus_session_failure(self):
+        geom = geometry.Geometry("gnome", 1920, 1200)
+
+        class FakeDBusException(Exception):
+            pass
+
+        dbus = types.SimpleNamespace(
+            SessionBus=Mock(side_effect=FakeDBusException("no session")),
+            exceptions=types.SimpleNamespace(DBusException=FakeDBusException),
+        )
+
+        with patch.dict("sys.modules", {"dbus": dbus}):
+            self.assertEqual(geom.verify_gnome_devices([]), set())
+
+    def test_gnome_verify_devices_does_not_hide_unexpected_session_errors(self):
+        geom = geometry.Geometry("gnome", 1920, 1200)
+
+        class FakeDBusException(Exception):
+            pass
+
+        dbus = types.SimpleNamespace(
+            SessionBus=Mock(side_effect=ValueError("bug")),
+            exceptions=types.SimpleNamespace(DBusException=FakeDBusException),
+        )
+
+        with patch.dict("sys.modules", {"dbus": dbus}):
+            with self.assertRaises(ValueError):
+                geom.verify_gnome_devices([])
 
     def test_gnome_verify_devices_returns_mapped_event_names(self):
         geom = geometry.Geometry("gnome", 1920, 1200)
@@ -630,7 +710,10 @@ class GnomeGeometryTest(unittest.TestCase):
         stylus = types.SimpleNamespace(
             device=types.SimpleNamespace(path="/dev/input/event11")
         )
-        dbus = types.SimpleNamespace(SessionBus=Mock(return_value=Mock()))
+        dbus = types.SimpleNamespace(
+            SessionBus=Mock(return_value=Mock()),
+            exceptions=types.SimpleNamespace(DBusException=RuntimeError),
+        )
 
         with (
             patch.dict("sys.modules", {"dbus": dbus}),
