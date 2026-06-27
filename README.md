@@ -251,7 +251,7 @@ sudo usermod -aG input $USER
 
 ### ~~KDE Plasma~~:
 
-KDE support requires Plasma 6.7+ which isnt avalable yet on debian stable and ubuntu
+KDE support requires Plasma 6.7+ which isn't avalable on debian/ubuntu yet
 
 ```bash
 sudo apt install -y kscreen
@@ -259,7 +259,9 @@ sudo apt install -y kscreen
 
 ### ---
 
-### GNOME:
+### ~~GNOME~~:
+
+GNOME support requires GNOME 50+ which isn't available in ubuntu/debian yet.
 
 No extra packages needed. However, you **must** disable Mutter hardware cursor rendering so the cursor is visible on the virtual monitor stream.
 
