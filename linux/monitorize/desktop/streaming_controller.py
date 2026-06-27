@@ -3,7 +3,6 @@
 import os
 import subprocess
 import sys
-import time
 
 from PyQt6.QtCore import (
     QObject,
@@ -45,10 +44,6 @@ from monitorize.config.validation import (
 
 GNOME_LAYOUT_SAVE_INTERVAL_MS = 1000
 GNOME_LAYOUT_CHANGE_DEBOUNCE_MS = 750
-GNOME_RECONNECT_ARM_DELAY_MS = 1000
-GNOME_LAYOUT_SAVE_RETRY_WINDOW_MS = 2000
-GNOME_LAYOUT_SAVE_RETRY_INTERVAL_MS = 100
-GNOME_RECONNECT_RELAUNCH_DELAY_MS = 500
 GNOME_DISPLAY_CONFIG_SERVICE = "org.gnome.Mutter.DisplayConfig"
 GNOME_DISPLAY_CONFIG_PATH = "/org/gnome/Mutter/DisplayConfig"
 GNOME_DISPLAY_CONFIG_IFACE = "org.gnome.Mutter.DisplayConfig"
@@ -100,26 +95,7 @@ class StreamingController(QObject):
         self.gnome_layout_change_timer = QTimer(self)
         self.gnome_layout_change_timer.setSingleShot(True)
         self.gnome_layout_change_timer.setInterval(GNOME_LAYOUT_CHANGE_DEBOUNCE_MS)
-        self.gnome_layout_change_timer.timeout.connect(
-            self._handle_gnome_layout_change
-        )
-        self.gnome_reconnect_arm_timer = QTimer(self)
-        self.gnome_reconnect_arm_timer.setSingleShot(True)
-        self.gnome_reconnect_arm_timer.setInterval(GNOME_RECONNECT_ARM_DELAY_MS)
-        self.gnome_reconnect_arm_timer.timeout.connect(
-            self._arm_gnome_layout_reconnect
-        )
-        self.gnome_layout_retry_timer = QTimer(self)
-        self.gnome_layout_retry_timer.setSingleShot(True)
-        self.gnome_layout_retry_timer.setInterval(
-            GNOME_LAYOUT_SAVE_RETRY_INTERVAL_MS
-        )
-        self.gnome_layout_retry_timer.timeout.connect(
-            self._retry_gnome_layout_reconnect_save
-        )
-        self.gnome_layout_reconnect_armed = False
-        self.gnome_layout_reconnect_in_progress = False
-        self.gnome_layout_save_retry_deadline = 0
+        self.gnome_layout_change_timer.timeout.connect(self._save_gnome_virtual_layout)
         self.gnome_display_config_bus = None
         self.gnome_display_config_connected = False
         self._gnome_monitors_changed_slot = self._on_gnome_monitors_changed
@@ -489,7 +465,7 @@ class StreamingController(QObject):
             self.logAppended.emit(
                 "STREAMER", "↺  GNOME streamer crashed — auto-restarting in 2s…"
             )
-            self._set_status("↺  Stream reconnecting after display config change…")
+            self._set_status("↺  GNOME streamer crashed — restarting…")
             current_generation = self.generation
             QTimer.singleShot(
                 2000, lambda: self._restart_gnome(current_generation)
@@ -539,19 +515,12 @@ class StreamingController(QObject):
 
     def _start_gnome_layout_tracking(self):
         if self._should_track_gnome_virtual_layout():
-            self.gnome_layout_reconnect_armed = False
-            self.gnome_reconnect_arm_timer.stop()
             self.gnome_layout_timer.start()
             self._connect_gnome_display_config_signal()
 
     def _stop_gnome_layout_tracking(self):
         self.gnome_layout_timer.stop()
         self.gnome_layout_change_timer.stop()
-        self.gnome_reconnect_arm_timer.stop()
-        self.gnome_layout_retry_timer.stop()
-        self.gnome_layout_reconnect_armed = False
-        self.gnome_layout_reconnect_in_progress = False
-        self.gnome_layout_save_retry_deadline = 0
         self._disconnect_gnome_display_config_signal()
 
     def _save_gnome_virtual_layout(self):
@@ -595,81 +564,9 @@ class StreamingController(QObject):
 
     @pyqtSlot()
     def _on_gnome_monitors_changed(self):
-        if not self._should_handle_gnome_layout_change():
+        if not self._should_track_gnome_virtual_layout():
             return
         self.gnome_layout_change_timer.start()
-
-    def _should_handle_gnome_layout_change(self):
-        return (
-            self._should_track_gnome_virtual_layout()
-            and self.gnome_layout_reconnect_armed
-            and not self.gnome_layout_reconnect_in_progress
-        )
-
-    def _arm_gnome_layout_reconnect(self):
-        if self._should_track_gnome_virtual_layout():
-            self.gnome_layout_reconnect_armed = True
-
-    def _handle_gnome_layout_change(self):
-        if not self._should_handle_gnome_layout_change():
-            return
-        self.gnome_layout_save_retry_deadline = (
-            time.monotonic() + GNOME_LAYOUT_SAVE_RETRY_WINDOW_MS / 1000
-        )
-        self._retry_gnome_layout_reconnect_save()
-
-    def _retry_gnome_layout_reconnect_save(self):
-        if not self._should_handle_gnome_layout_change():
-            return
-        if self._save_gnome_virtual_layout():
-            self.logAppended.emit(
-                "STREAMER",
-                "GNOME display layout changed — reconnecting stream…",
-            )
-            self._controlled_reconnect_gnome()
-            return
-        if time.monotonic() < self.gnome_layout_save_retry_deadline:
-            self.gnome_layout_retry_timer.start()
-            return
-        self.logAppended.emit(
-            "STREAMER",
-            "GNOME display layout changed, but no virtual monitor position was available.",
-        )
-
-    def _controlled_reconnect_gnome(self):
-        if not self._should_handle_gnome_layout_change():
-            return
-        self.gnome_layout_reconnect_in_progress = True
-        self.gnome_layout_reconnect_armed = False
-        self.gnome_layout_change_timer.stop()
-        self.gnome_reconnect_arm_timer.stop()
-        self.gnome_layout_retry_timer.stop()
-        self.gnome_layout_save_retry_deadline = 0
-        self.generation += 1
-        generation = self.generation
-        old_streamer = self.streamer
-        old_input = self.input_bridge
-        self.streamer = None
-        self.input_bridge = None
-        self.input_launched = False
-        self.streamer_has_pipewire_node = False
-        self._set_primary_ready(False)
-        stop_processes(old_streamer, old_input)
-        kill_tracked_pids(self.gst_pids)
-        kill_patterns("gst-launch-1.0.*port=7110", "gst-launch-1.0.*port=7112")
-        self._set_status("↺  Stream reconnecting after display layout change…")
-        QTimer.singleShot(
-            GNOME_RECONNECT_RELAUNCH_DELAY_MS,
-            lambda: self._finish_gnome_controlled_reconnect(generation),
-        )
-
-    def _finish_gnome_controlled_reconnect(self, generation):
-        if not self.streaming or generation != self.generation:
-            self.gnome_layout_reconnect_in_progress = False
-            return
-        self._launch_streamer(generation)
-        self.gnome_layout_reconnect_in_progress = False
-        self._set_status("Status: Streaming…  (reconnecting)")
 
     def start_third(self, res, fps, bitrate, encoder, encoder_profile):
         self.third.start(res, fps, bitrate, encoder, encoder_profile, self.encrypted)
@@ -679,13 +576,6 @@ class StreamingController(QObject):
             return
         self.primary_ready = value
         self.primaryReadyChanged.emit(value)
-        if value:
-            if self._should_track_gnome_virtual_layout():
-                self.gnome_layout_reconnect_armed = False
-                self.gnome_reconnect_arm_timer.start()
-        else:
-            self.gnome_layout_reconnect_armed = False
-            self.gnome_reconnect_arm_timer.stop()
         if value and self.pending_third:
             third = self.pending_third
             self.pending_third = None

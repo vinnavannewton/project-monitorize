@@ -45,7 +45,7 @@ The backend exposes PyQt properties and slots rather than putting lifecycle logi
 - USB mode removes stale ADB reverse mappings for Wi-Fi ports before preparing the display.
 - KDE Extend mode sets portal virtual-source environment variables and starts the KDE portal streamer.
 - Hyprland and Sway Extend modes create headless outputs before launching the streamer.
-- GNOME Extend mode tracks virtual layout and listens for Mutter DisplayConfig monitor changes. After the stream is ready, a GNOME virtual-display move is treated as a controlled reconnect: save the new virtual `x/y`, stop the stale streamer/GStreamer/input processes, and relaunch so the new `RecordVirtual` stream restores to the saved position before capture resumes.
+- GNOME Extend mode tracks virtual layout and listens for Mutter DisplayConfig monitor changes. Monitorize passively saves the current full GNOME logical monitor layout while streaming, including the virtual monitor role. On the next GNOME streamer launch, `RecordVirtual` is created with only `modes`; before GStreamer attaches, the app restores the saved logical layout through Mutter DisplayConfig `ApplyMonitorsConfig`. This is needed because Mutter rejects negative logical monitor coordinates and requires the whole layout to be normalized to min `x/y == 0`, so placing the virtual monitor on the left means shifting the physical monitor right in the same payload.
 - Input starts through `monitorize.input_bridge.touch_daemon` after the stream is ready enough for the desktop path.
 - Active configurations can be saved as presets, including primary stream, general settings, Wi-Fi encryption/profile, and optional KDE third display.
 

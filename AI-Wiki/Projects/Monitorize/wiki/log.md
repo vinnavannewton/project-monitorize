@@ -31,3 +31,13 @@ Implemented GNOME Extend controlled reconnect in the desktop streaming controlle
 - The controller now listens for Mutter DisplayConfig `MonitorsChanged` while GNOME Extend streaming is active.
 - After GStreamer is ready and a startup grace delay passes, monitor changes are debounced, the current virtual `x/y` is saved with retries, and the GNOME streamer/GStreamer/input path is relaunched on a new generation.
 - Targeted `tests.test_gui_controllers` passed after adding coverage for signal connection, debounce/retry behavior, controlled reconnect, and stale crash-restart suppression.
+
+## [2026-06-28] fix | GNOME full logical layout restore
+
+Replaced the GNOME virtual-display move reconnect approach with passive layout saving plus full logical layout restore.
+
+- Mutter source inspection showed left-side virtual placement cannot be represented as a virtual-only negative `x`; DisplayConfig validation requires non-negative coordinates and a layout normalized to min `x/y == 0`.
+- Monitorize now saves a GNOME logical monitor layout snapshot and maps the saved virtual role to the current `Meta-*` connector after `RecordVirtual`.
+- `ApplyMonitorsConfig` restoration moves all mapped logical monitors as needed while preserving modes, scale, transform, primary flag, monitor properties, and global layout properties.
+- `MonitorsChanged` is used only to debounce a save while streaming; it no longer intentionally restarts the GNOME streamer.
+- `python -m unittest tests.test_gui_controllers` and targeted `py_compile` checks passed.
