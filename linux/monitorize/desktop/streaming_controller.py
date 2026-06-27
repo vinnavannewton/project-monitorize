@@ -263,7 +263,7 @@ class StreamingController(QObject):
         if self.de in ("hyprland", "sway"):
             args.append(self.display.created_output or "mirror")
         if self.de == "gnome":
-            args += ["1.0", self.display_type.replace(" ", "_")]
+            args.append(self.display_type.replace(" ", "_"))
         self.streamer.start(sys.executable, args)
         self._start_gnome_layout_tracking()
         self._advertise()

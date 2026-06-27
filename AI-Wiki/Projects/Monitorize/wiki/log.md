@@ -51,3 +51,21 @@ Removed obsolete GNOME layout workaround paths after the full logical layout res
 - GNOME settings now persist only the full logical layout snapshot; the separate top-level `x/y` values are ignored.
 - `gnome_virtual_monitor.build_monitors_config()` now requires a saved full layout and no longer supports virtual-only x/y Apply payloads.
 - `python -m unittest tests.test_gui_controllers` and targeted `py_compile` checks passed.
+
+## [2026-06-28] docs | GNOME virtual layout workaround
+
+Added [[gnome-virtual-layout]] as the canonical wiki page for the working GNOME virtual monitor placement workaround.
+
+- Documented why virtual-only `x/y` restore fails under Mutter DisplayConfig validation.
+- Documented the working flow: `RecordVirtual` with `modes`, wait for the new virtual connector, map saved full logical layout to the current state, apply through `ApplyMonitorsConfig`, then launch GStreamer.
+- Documented what not to reintroduce: `RecordVirtual(position)`, saved `x/y` streamer args, virtual-only negative coordinates, and intentional reconnects on `MonitorsChanged`.
+- Linked the page from [[index]] and [[desktop-app]].
+
+## [2026-06-28] fix | GNOME scale persistence
+
+Extended the GNOME full-layout workaround to persist scale accepted through GNOME Display Settings.
+
+- GNOME saved layout entries now include logical monitor `scale`.
+- `ApplyMonitorsConfig` restore uses saved scale only when the current mode reports that scale as supported.
+- `Streamer_gnome` no longer accepts the dead scale CLI argument; it seeds the virtual monitor with mode `preferred-scale` when a saved virtual scale exists.
+- `python -m unittest tests.test_gui_controllers` and targeted `py_compile` checks passed.

@@ -11,14 +11,10 @@
             "id": "38598faa3e9b56bf",
             "type": "leaf",
             "state": {
-              "type": "markdown",
-              "state": {
-                "file": "Projects/Monitorize/wiki/log.md",
-                "mode": "source",
-                "source": false
-              },
-              "icon": "lucide-file",
-              "title": "log"
+              "type": "graph",
+              "state": {},
+              "icon": "lucide-git-fork",
+              "title": "Graph view"
             }
           }
         ]
@@ -94,7 +90,6 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "Projects/Monitorize/wiki/log.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -104,7 +99,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Backlinks for log"
+              "title": "Backlinks"
             }
           },
           {
@@ -113,12 +108,11 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "Projects/Monitorize/wiki/log.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "Outgoing links from log"
+              "title": "Outgoing links"
             }
           },
           {
@@ -156,13 +150,12 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "Projects/Monitorize/wiki/log.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
               },
               "icon": "lucide-list",
-              "title": "Outline of log"
+              "title": "Outline"
             }
           }
         ]
@@ -185,10 +178,13 @@
   },
   "active": "38598faa3e9b56bf",
   "lastOpenFiles": [
+    "Projects/Monitorize/wiki/gnome-virtual-layout.md",
+    "Projects/Monitorize/wiki/desktop-app.md",
+    "Projects/Monitorize/wiki/glossary.md",
     "Projects/Monitorize/wiki/decisions.md",
     "Projects/Monitorize/wiki/architecture.md",
+    "Projects/Monitorize/wiki/log.md",
     "Projects/Monitorize/wiki/open-questions.md",
-    "AGENTS.md",
-    "Projects/Monitorize/wiki/desktop-app.md"
+    "AGENTS.md"
   ]
 }
