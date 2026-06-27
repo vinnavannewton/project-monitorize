@@ -100,7 +100,7 @@ def write_gnome_input_mapping(edid, stylus_features=False):
     return True
 
 
-def gnome_input_node_is_mapped(device_node, bus=None, dbus=None, log_failure=False):
+def gnome_input_node_is_mapped(device_node, bus=None, dbus=None, log_failure=True):
     if not device_node:
         return False
     try:
@@ -368,15 +368,20 @@ class Geometry:
             return set()
         try:
             import dbus
-
+        except ImportError as exc:
+            log.debug("GNOME input mapping verification unavailable: %s", exc)
+            return set()
+        try:
             bus = dbus.SessionBus()
-        except Exception as exc:
+        except dbus.exceptions.DBusException as exc:
             log.debug("GNOME input mapping verification unavailable: %s", exc)
             return set()
         mapped = set()
         for device in devices:
             path = getattr(getattr(device, "device", None), "path", "")
-            if gnome_input_node_is_mapped(path, bus=bus, dbus=dbus):
+            if gnome_input_node_is_mapped(
+                path, bus=bus, dbus=dbus, log_failure=False
+            ):
                 mapped.add(os.path.basename(path))
         return mapped
 
