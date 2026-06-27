@@ -595,6 +595,33 @@ class GnomeGeometryTest(unittest.TestCase):
             )
         )
 
+    def test_gnome_verify_devices_reuses_session_bus(self):
+        geom = geometry.Geometry("gnome", 1920, 1200)
+        devices = [
+            types.SimpleNamespace(device=types.SimpleNamespace(path="/dev/input/event10")),
+            types.SimpleNamespace(device=types.SimpleNamespace(path="/dev/input/event11")),
+        ]
+        bus = Mock()
+        dbus = types.SimpleNamespace(SessionBus=Mock(return_value=bus))
+
+        with (
+            patch.dict("sys.modules", {"dbus": dbus}),
+            patch(
+                "monitorize.input_bridge.geometry.gnome_input_node_is_mapped",
+                return_value=True,
+            ) as is_mapped,
+        ):
+            self.assertEqual(
+                geom.verify_gnome_devices(devices),
+                {"event10", "event11"},
+            )
+
+        dbus.SessionBus.assert_called_once_with()
+        self.assertEqual(
+            [call.kwargs["bus"] for call in is_mapped.call_args_list],
+            [bus, bus],
+        )
+
     def test_gnome_verify_devices_returns_mapped_event_names(self):
         geom = geometry.Geometry("gnome", 1920, 1200)
         touch = types.SimpleNamespace(
@@ -603,10 +630,14 @@ class GnomeGeometryTest(unittest.TestCase):
         stylus = types.SimpleNamespace(
             device=types.SimpleNamespace(path="/dev/input/event11")
         )
+        dbus = types.SimpleNamespace(SessionBus=Mock(return_value=Mock()))
 
-        with patch(
-            "monitorize.input_bridge.geometry.gnome_input_node_is_mapped",
-            side_effect=lambda path: path.endswith("event11"),
+        with (
+            patch.dict("sys.modules", {"dbus": dbus}),
+            patch(
+                "monitorize.input_bridge.geometry.gnome_input_node_is_mapped",
+                side_effect=lambda path, **_kwargs: path.endswith("event11"),
+            ),
         ):
             self.assertEqual(
                 geom.verify_gnome_devices([touch, stylus]),
@@ -835,6 +866,69 @@ class UInputStylusTest(unittest.TestCase):
         self.assertIn(call(self.ecodes.EV_ABS, self.ecodes.ABS_PRESSURE, 1234), writes)
         self.assertIn(call(self.ecodes.EV_KEY, self.ecodes.BTN_TOUCH, 1), writes)
         backend.stylus.syn.assert_called_once()
+
+    def test_rubber_down_writes_rubber_serial_and_tablet_metadata(self):
+        backend = self.backend()
+
+        self.assertTrue(
+            backend.inject_pen(
+                ACTION_DOWN,
+                2,
+                32768,
+                32768,
+                1234,
+                12,
+                -8,
+                7,
+                0,
+                0,
+            )
+        )
+
+        writes = backend.stylus.write.call_args_list
+        self.assertIn(call(self.ecodes.EV_MSC, self.ecodes.MSC_SERIAL, 2), writes)
+        self.assertIn(call(self.ecodes.EV_ABS, self.ecodes.ABS_MISC, 2), writes)
+        self.assertIn(call(self.ecodes.EV_KEY, self.ecodes.BTN_TOOL_RUBBER, 1), writes)
+        self.assertIn(call(self.ecodes.EV_KEY, self.ecodes.BTN_TOOL_PEN, 0), writes)
+
+    def test_pen_down_skips_tablet_metadata_when_ecodes_do_not_expose_it(self):
+        limited_ecodes = types.SimpleNamespace(
+            EV_ABS=3,
+            EV_KEY=1,
+            ABS_X=0,
+            ABS_Y=1,
+            ABS_PRESSURE=24,
+            ABS_DISTANCE=25,
+            ABS_TILT_X=26,
+            ABS_TILT_Y=27,
+            BTN_TOUCH=330,
+            BTN_TOOL_PEN=320,
+            BTN_TOOL_RUBBER=321,
+            BTN_STYLUS=331,
+            BTN_STYLUS2=332,
+        )
+        backend = self.backend()
+
+        with patch.object(uinput_backend, "ecodes", limited_ecodes):
+            self.assertTrue(
+                backend.inject_pen(
+                    ACTION_DOWN,
+                    1,
+                    32768,
+                    32768,
+                    1234,
+                    12,
+                    -8,
+                    7,
+                    0,
+                    0,
+                )
+            )
+
+        writes = backend.stylus.write.call_args_list
+        self.assertNotIn(call(self.ecodes.EV_MSC, self.ecodes.MSC_SERIAL, 1), writes)
+        self.assertNotIn(call(self.ecodes.EV_ABS, self.ecodes.ABS_MISC, 1), writes)
+        self.assertIn(call(limited_ecodes.EV_ABS, limited_ecodes.ABS_PRESSURE, 1234), writes)
 
     def test_hover_and_up_clear_pressure(self):
         backend = self.backend()
