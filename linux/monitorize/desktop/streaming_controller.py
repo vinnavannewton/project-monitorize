@@ -4,12 +4,30 @@ import os
 import subprocess
 import sys
 
-from PyQt6.QtCore import QObject, QProcess, QProcessEnvironment, QTimer, pyqtSignal
+from PyQt6.QtCore import (
+    QObject,
+    QProcess,
+    QProcessEnvironment,
+    QTimer,
+    pyqtSignal,
+    pyqtSlot,
+)
+
+try:
+    from PyQt6.QtDBus import QDBusConnection
+except ImportError:  
+    QDBusConnection = None
 
 from monitorize.platform.display_controller import DisplayController
+from monitorize.platform.gnome_virtual_monitor import (
+    save_current_virtual_layout as save_current_gnome_virtual_layout,
+)
 from monitorize.platform.kde_virtual_monitor import save_current_virtual_layout
 from monitorize.platform.process_utils import kill_patterns, kill_tracked_pids, stop_processes
-from monitorize.config.settings import load_general_settings, load_wifi_settings
+from monitorize.config.settings import (
+    load_general_settings,
+    load_wifi_settings,
+)
 from monitorize.desktop.third_stream_controller import ThirdStreamController
 from monitorize.platform.utils import LINUX_DIR
 from monitorize.config.validation import (
@@ -21,6 +39,14 @@ from monitorize.config.validation import (
     sanitize_fps,
     sanitize_resolution,
 )
+
+
+GNOME_LAYOUT_SAVE_INTERVAL_MS = 1000
+GNOME_LAYOUT_CHANGE_DEBOUNCE_MS = 750
+GNOME_DISPLAY_CONFIG_SERVICE = "org.gnome.Mutter.DisplayConfig"
+GNOME_DISPLAY_CONFIG_PATH = "/org/gnome/Mutter/DisplayConfig"
+GNOME_DISPLAY_CONFIG_IFACE = "org.gnome.Mutter.DisplayConfig"
+GNOME_DISPLAY_CONFIG_SIGNAL = "MonitorsChanged"
 
 
 class StreamingController(QObject):
@@ -62,6 +88,16 @@ class StreamingController(QObject):
         self.countdown_timer = QTimer(self)
         self.countdown_timer.setInterval(1000)
         self.countdown_timer.timeout.connect(self._countdown_tick)
+        self.gnome_layout_timer = QTimer(self)
+        self.gnome_layout_timer.setInterval(GNOME_LAYOUT_SAVE_INTERVAL_MS)
+        self.gnome_layout_timer.timeout.connect(self._save_gnome_virtual_layout)
+        self.gnome_layout_change_timer = QTimer(self)
+        self.gnome_layout_change_timer.setSingleShot(True)
+        self.gnome_layout_change_timer.setInterval(GNOME_LAYOUT_CHANGE_DEBOUNCE_MS)
+        self.gnome_layout_change_timer.timeout.connect(self._save_gnome_virtual_layout)
+        self.gnome_display_config_bus = None
+        self.gnome_display_config_connected = False
+        self._gnome_monitors_changed_slot = self._on_gnome_monitors_changed
 
     def _set_streaming(self, value):
         if self.streaming == value:
@@ -227,8 +263,9 @@ class StreamingController(QObject):
         if self.de in ("hyprland", "sway"):
             args.append(self.display.created_output or "mirror")
         if self.de == "gnome":
-            args += ["1.0", self.display_type.replace(" ", "_")]
+            args.append(self.display_type.replace(" ", "_"))
         self.streamer.start(sys.executable, args)
+        self._start_gnome_layout_tracking()
         self._advertise()
         if self._uses_kde_portal_virtual_source():
             self.input_launched = False
@@ -424,7 +461,7 @@ class StreamingController(QObject):
             self.logAppended.emit(
                 "STREAMER", "↺  GNOME streamer crashed — auto-restarting in 2s…"
             )
-            self._set_status("↺  Stream reconnecting after display config change…")
+            self._set_status("↺  GNOME streamer crashed — restarting…")
             current_generation = self.generation
             QTimer.singleShot(
                 2000, lambda: self._restart_gnome(current_generation)
@@ -459,10 +496,73 @@ class StreamingController(QObject):
             generation is not None and generation != self.generation
         ):
             return
+        self._save_gnome_virtual_layout()
         kill_tracked_pids(self.gst_pids)
         kill_patterns("gst-launch-1.0.*port=7110", "gst-launch-1.0.*port=7112")
         self._launch_streamer(self.generation)
         self._set_status("Status: Streaming…  (restarted)")
+
+    def _should_track_gnome_virtual_layout(self):
+        return (
+            self.de == "gnome"
+            and self.streaming
+            and getattr(self, "display_type", "") == "Extend"
+        )
+
+    def _start_gnome_layout_tracking(self):
+        if self._should_track_gnome_virtual_layout():
+            self.gnome_layout_timer.start()
+            self._connect_gnome_display_config_signal()
+
+    def _stop_gnome_layout_tracking(self):
+        self.gnome_layout_timer.stop()
+        self.gnome_layout_change_timer.stop()
+        self._disconnect_gnome_display_config_signal()
+
+    def _save_gnome_virtual_layout(self):
+        if self._should_track_gnome_virtual_layout():
+            return save_current_gnome_virtual_layout("primary")
+        return False
+
+    def _connect_gnome_display_config_signal(self):
+        if self.gnome_display_config_connected or QDBusConnection is None:
+            return
+        try:
+            bus = QDBusConnection.sessionBus()
+            connected = bus.connect(
+                GNOME_DISPLAY_CONFIG_SERVICE,
+                GNOME_DISPLAY_CONFIG_PATH,
+                GNOME_DISPLAY_CONFIG_IFACE,
+                GNOME_DISPLAY_CONFIG_SIGNAL,
+                self._gnome_monitors_changed_slot,
+            )
+        except Exception:
+            return
+        if connected:
+            self.gnome_display_config_bus = bus
+            self.gnome_display_config_connected = True
+
+    def _disconnect_gnome_display_config_signal(self):
+        if not self.gnome_display_config_connected:
+            return
+        try:
+            self.gnome_display_config_bus.disconnect(
+                GNOME_DISPLAY_CONFIG_SERVICE,
+                GNOME_DISPLAY_CONFIG_PATH,
+                GNOME_DISPLAY_CONFIG_IFACE,
+                GNOME_DISPLAY_CONFIG_SIGNAL,
+                self._gnome_monitors_changed_slot,
+            )
+        except Exception:
+            pass
+        self.gnome_display_config_bus = None
+        self.gnome_display_config_connected = False
+
+    @pyqtSlot()
+    def _on_gnome_monitors_changed(self):
+        if not self._should_track_gnome_virtual_layout():
+            return
+        self.gnome_layout_change_timer.start()
 
     def start_third(self, res, fps, bitrate, encoder, encoder_profile):
         self.third.start(res, fps, bitrate, encoder, encoder_profile, self.encrypted)
@@ -534,6 +634,8 @@ class StreamingController(QObject):
 
     def stop(self):
         stopping_kde_portal = self._stopping_kde_portal_streamer()
+        self._save_gnome_virtual_layout()
+        self._stop_gnome_layout_tracking()
         self.generation += 1
         self.countdown_timer.stop()
         self.streamer_has_pipewire_node = False

@@ -397,6 +397,230 @@ class KdeGeometryTest(unittest.TestCase):
                 self.assertEqual(geom.rotation(), expected)
 
 
+class GnomeGeometryTest(unittest.TestCase):
+    def gnome_state(self, connector="Meta-0"):
+        mode = (
+            "1920x1200@60", 1920, 1200, 60.0, 1.0, [1.0],
+            {"is-current": True},
+        )
+        monitor = (connector, "MTR", "Monitorize Virtual", "serial-1")
+        return (
+            1,
+            [(monitor, [mode], {})],
+            [(0, 0, 1.0, 0, False, [monitor], {})],
+            {},
+        )
+
+    def test_gnome_virtual_monitor_edid_from_state(self):
+        self.assertEqual(
+            geometry.gnome_virtual_monitor_edid_from_state(self.gnome_state()),
+            ("MTR", "Monitorize Virtual", "serial-1"),
+        )
+
+    def test_gnome_virtual_monitor_edid_missing_without_virtual_connector(self):
+        mode = (
+            "1920x1200@60", 1920, 1200, 60.0, 1.0, [1.0],
+            {"is-current": True},
+        )
+        monitor = ("HDMI-1", "DEL", "External Display", "serial-2")
+        state = (
+            1,
+            [(monitor, [mode], {})],
+            [(0, 0, 1.0, 0, True, [monitor], {})],
+            {},
+        )
+        self.assertIsNone(geometry.gnome_virtual_monitor_edid_from_state(state))
+
+    def test_gnome_mapping_writes_touch_and_stylus_settings(self):
+        created = {}
+
+        def fake_settings(schema, path):
+            settings = Mock()
+            created[(schema, path)] = settings
+            return settings
+
+        with patch(
+            "monitorize.input_bridge.geometry._gio_settings",
+            side_effect=fake_settings,
+        ):
+            self.assertTrue(
+                geometry.write_gnome_input_mapping(
+                    ("MTR", "Monitorize Virtual", "serial-1"),
+                    stylus_features=True,
+                )
+            )
+
+        touch = created[(
+            geometry.GNOME_TOUCHSCREEN_SCHEMA,
+            "/org/gnome/desktop/peripherals/touchscreens/4d5a:1001/",
+        )]
+        stylus = created[(
+            geometry.GNOME_TABLET_SCHEMA,
+            "/org/gnome/desktop/peripherals/tablets/4d5a:1002/",
+        )]
+        touch.set_strv.assert_called_once_with(
+            "output", ["MTR", "Monitorize Virtual", "serial-1"]
+        )
+        stylus.set_strv.assert_called_once_with(
+            "output", ["MTR", "Monitorize Virtual", "serial-1"]
+        )
+        stylus.set_string.assert_called_once_with("mapping", "absolute")
+
+    def test_gnome_mapping_failure_is_not_fatal(self):
+        with patch(
+            "monitorize.input_bridge.geometry._gio_settings",
+            side_effect=RuntimeError("no settings"),
+        ):
+            self.assertFalse(
+                geometry.write_gnome_input_mapping(
+                    ("MTR", "Monitorize Virtual", "serial-1"),
+                    stylus_features=True,
+                )
+            )
+
+    def test_gnome_map_devices_retries_until_virtual_edid_exists(self):
+        geom = geometry.Geometry("gnome", 1920, 1200)
+        states = [RuntimeError("not ready"), self.gnome_state()]
+        written = []
+
+        def fake_state():
+            value = states.pop(0)
+            if isinstance(value, Exception):
+                raise value
+            return value
+
+        with (
+            patch.object(geom, "_mutter_state", side_effect=fake_state),
+            patch(
+                "monitorize.input_bridge.geometry.write_gnome_input_mapping",
+                side_effect=lambda edid, stylus: (
+                    written.append((edid, stylus)) or True
+                ),
+            ),
+            patch("monitorize.input_bridge.geometry.time.sleep"),
+        ):
+            self.assertTrue(geom.map_gnome_devices(stylus_features=True))
+        self.assertEqual(written, [(("MTR", "Monitorize Virtual", "serial-1"), True)])
+        self.assertTrue(geom._gnome_devices_mapped)
+
+    def test_gnome_map_devices_failed_write_leaves_devices_unmapped(self):
+        geom = geometry.Geometry("gnome", 1920, 1200)
+
+        with (
+            patch.object(geom, "_mutter_state", return_value=self.gnome_state()),
+            patch(
+                "monitorize.input_bridge.geometry.write_gnome_input_mapping",
+                return_value=False,
+            ),
+        ):
+            self.assertFalse(geom.map_gnome_devices(stylus_features=True))
+
+        self.assertFalse(geom._gnome_devices_mapped)
+
+    def test_gnome_mapped_uinput_bounds_are_virtual_local(self):
+        geom = geometry.Geometry("gnome", 1920, 1200)
+        geom._gnome_devices_mapped = True
+
+        with (
+            patch.object(
+                geom,
+                "virtual_rect",
+                return_value=(2560.0, 0.0, 1280.0, 800.0),
+            ),
+            patch.object(geom, "desktop_bounds") as desktop_bounds,
+        ):
+            self.assertEqual(
+                geom.uinput_bounds(),
+                (1280, 800, 0.0, 0.0, 1280.0, 800.0),
+            )
+
+        desktop_bounds.assert_not_called()
+
+    def test_gnome_unmapped_uinput_bounds_keep_desktop_fallback(self):
+        geom = geometry.Geometry("gnome", 1920, 1200)
+
+        with (
+            patch.object(
+                geom,
+                "virtual_rect",
+                return_value=(2560.0, 0.0, 1280.0, 800.0),
+            ),
+            patch.object(
+                geom,
+                "desktop_bounds",
+                return_value=(0.0, 0.0, 3840.0, 1600.0),
+            ),
+        ):
+            self.assertEqual(
+                geom.uinput_bounds(),
+                (3840, 1600, 2560.0, 0.0, 1280.0, 800.0),
+            )
+
+
+class UInputCreationTest(unittest.TestCase):
+    def test_uinput_devices_use_stable_monitorize_ids(self):
+        ecodes = types.SimpleNamespace(
+            EV_ABS=3,
+            EV_KEY=1,
+            ABS_X=0,
+            ABS_Y=1,
+            ABS_PRESSURE=24,
+            ABS_DISTANCE=25,
+            ABS_TILT_X=26,
+            ABS_TILT_Y=27,
+            ABS_MT_SLOT=47,
+            ABS_MT_POSITION_X=53,
+            ABS_MT_POSITION_Y=54,
+            ABS_MT_TRACKING_ID=57,
+            BTN_TOUCH=330,
+            BTN_TOOL_PEN=320,
+            BTN_TOOL_RUBBER=321,
+            BTN_STYLUS=331,
+            BTN_STYLUS2=332,
+            BUS_USB=3,
+            INPUT_PROP_DIRECT=1,
+        )
+        fake_evdev = types.SimpleNamespace(
+            AbsInfo=lambda value, minimum, maximum, fuzz, flat, resolution: (
+                value, minimum, maximum, fuzz, flat, resolution,
+            )
+        )
+        devices = [
+            types.SimpleNamespace(
+                device=types.SimpleNamespace(path="/dev/input/event10")
+            ),
+            types.SimpleNamespace(
+                device=types.SimpleNamespace(path="/dev/input/event11")
+            ),
+        ]
+        geom = Mock(
+            de="gnome",
+            screen_w=1920,
+            screen_h=1200,
+            map_gnome_devices=Mock(return_value=True),
+            uinput_bounds=Mock(return_value=(1920, 1200, 0, 0, 1920, 1200)),
+            rotation=Mock(return_value=0),
+        )
+
+        with (
+            patch.object(uinput_backend, "ecodes", ecodes),
+            patch.object(uinput_backend, "evdev", fake_evdev),
+            patch.object(uinput_backend, "UInput", side_effect=devices) as uinput,
+            patch("monitorize.input_bridge.uinput_backend.time.sleep"),
+        ):
+            UInputBackend(geom, Mock()).setup(stylus_features=True)
+
+        touch_kwargs = uinput.call_args_list[0].kwargs
+        stylus_kwargs = uinput.call_args_list[1].kwargs
+        self.assertEqual(touch_kwargs["vendor"], geometry.MONITORIZE_INPUT_VENDOR_ID)
+        self.assertEqual(touch_kwargs["product"], geometry.MONITORIZE_TOUCH_PRODUCT_ID)
+        self.assertEqual(stylus_kwargs["vendor"], geometry.MONITORIZE_INPUT_VENDOR_ID)
+        self.assertEqual(
+            stylus_kwargs["product"], geometry.MONITORIZE_STYLUS_PRODUCT_ID
+        )
+        geom.map_gnome_devices.assert_called_once_with(True)
+
+
 class UInputCoordinatesTest(unittest.TestCase):
     def backend(self):
         geometry = Mock(screen_w=1600, screen_h=1000)

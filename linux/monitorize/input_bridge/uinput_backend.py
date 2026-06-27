@@ -10,6 +10,11 @@ from .protocol import (
     ANDROID_STYLUS_PRIMARY, ANDROID_STYLUS_SECONDARY,
     COORD_MAX, DISTANCE_MAX, PEN_FLAG_CANCELED, PEN_FLAG_HOVER_EXIT,
 )
+from .geometry import (
+    MONITORIZE_INPUT_VENDOR_ID,
+    MONITORIZE_STYLUS_PRODUCT_ID,
+    MONITORIZE_TOUCH_PRODUCT_ID,
+)
 
 log = logging.getLogger("TouchDaemon")
 
@@ -38,6 +43,8 @@ class UInputBackend:
     def setup(self, stylus_features=False):
         if not evdev:
             raise RuntimeError("python-evdev not installed — uinput backend unavailable")
+        if self.geometry.de == "gnome":
+            self.geometry.map_gnome_devices(stylus_features)
         self.max_x, self.max_y, x, y, width, height = self.geometry.uinput_bounds()
         self.target = x, y, width, height
         self.rotation = self.geometry.rotation()
@@ -45,6 +52,8 @@ class UInputBackend:
         self.touch = UInput(
             self._touch_capabilities(),
             name="Monitorize-Touch",
+            vendor=MONITORIZE_INPUT_VENDOR_ID,
+            product=MONITORIZE_TOUCH_PRODUCT_ID,
             bustype=ecodes.BUS_USB,
             input_props=direct,
         )
@@ -52,6 +61,8 @@ class UInputBackend:
             self.stylus = UInput(
                 self._stylus_capabilities(),
                 name="Monitorize-Stylus",
+                vendor=MONITORIZE_INPUT_VENDOR_ID,
+                product=MONITORIZE_STYLUS_PRODUCT_ID,
                 bustype=ecodes.BUS_USB,
                 input_props=direct,
             )

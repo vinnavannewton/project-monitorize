@@ -8,6 +8,94 @@ import time
 
 log = logging.getLogger("TouchDaemon")
 
+MONITORIZE_INPUT_VENDOR_ID = 0x4D5A
+MONITORIZE_TOUCH_PRODUCT_ID = 0x1001
+MONITORIZE_STYLUS_PRODUCT_ID = 0x1002
+GNOME_INPUT_MAPPING_TIMEOUT = 5.0
+GNOME_INPUT_MAPPING_INTERVAL = 0.1
+GNOME_TOUCHSCREEN_SCHEMA = "org.gnome.desktop.peripherals.touchscreen"
+GNOME_TABLET_SCHEMA = "org.gnome.desktop.peripherals.tablet"
+
+
+def _gnome_device_path(group: str, vendor: int, product: int) -> str:
+    return f"/org/gnome/desktop/peripherals/{group}/{vendor:04x}:{product:04x}/"
+
+
+def _gio_settings(schema: str, path: str):
+    from gi.repository import Gio
+
+    return Gio.Settings.new_with_path(schema, path)
+
+
+def _physical_contains_virtual_marker(entry):
+    try:
+        values = entry[0]
+    except (TypeError, IndexError):
+        return False
+    if isinstance(values, str):
+        values = [values]
+    try:
+        values = list(values)
+    except TypeError:
+        values = [values]
+    return any(
+        marker in str(value).lower()
+        for value in values
+        for marker in ("meta", "virtual")
+    )
+
+
+def gnome_virtual_monitor_edid_from_state(state):
+    try:
+        _serial, physical, _logical, _props = state
+    except (TypeError, ValueError):
+        return None
+    for monitor in physical:
+        if not _physical_contains_virtual_marker(monitor):
+            continue
+        try:
+            _connector, vendor, product, serial = monitor[0]
+        except (TypeError, ValueError, IndexError):
+            continue
+        edid = tuple(str(value) for value in (vendor, product, serial))
+        if all(edid):
+            return edid
+    return None
+
+
+def write_gnome_input_mapping(edid, stylus_features=False):
+    try:
+        values = [str(value) for value in edid]
+    except TypeError:
+        return False
+    if len(values) != 3 or not all(values):
+        return False
+    try:
+        touch = _gio_settings(
+            GNOME_TOUCHSCREEN_SCHEMA,
+            _gnome_device_path(
+                "touchscreens",
+                MONITORIZE_INPUT_VENDOR_ID,
+                MONITORIZE_TOUCH_PRODUCT_ID,
+            ),
+        )
+        touch.set_strv("output", values)
+        if stylus_features:
+            tablet = _gio_settings(
+                GNOME_TABLET_SCHEMA,
+                _gnome_device_path(
+                    "tablets",
+                    MONITORIZE_INPUT_VENDOR_ID,
+                    MONITORIZE_STYLUS_PRODUCT_ID,
+                ),
+            )
+            tablet.set_strv("output", values)
+            tablet.set_string("mapping", "absolute")
+    except Exception as exc:
+        log.warning("Failed to write GNOME input mapping: %s", exc)
+        return False
+    return True
+
 
 def detect_de() -> str:
     combined = (
@@ -63,6 +151,7 @@ class Geometry:
         self.screen_w = screen_w
         self.screen_h = screen_h
         self._cache = None
+        self._gnome_devices_mapped = False
 
     def invalidate(self):
         self._cache = None
@@ -188,6 +277,33 @@ class Geometry:
             log.warning("Failed to query GNOME virtual monitor: %s", exc)
         return None
 
+    def map_gnome_devices(
+        self,
+        stylus_features=False,
+        timeout=GNOME_INPUT_MAPPING_TIMEOUT,
+        interval=GNOME_INPUT_MAPPING_INTERVAL,
+    ) -> bool:
+        if self.de != "gnome":
+            return False
+        self._gnome_devices_mapped = False
+        deadline = time.monotonic() + timeout
+        last_error = None
+        while time.monotonic() < deadline:
+            try:
+                edid = gnome_virtual_monitor_edid_from_state(self._mutter_state())
+                if edid:
+                    mapped = write_gnome_input_mapping(edid, stylus_features)
+                    self._gnome_devices_mapped = mapped
+                    return mapped
+            except Exception as exc:
+                last_error = exc
+            time.sleep(interval)
+        if last_error:
+            log.warning("Failed to map GNOME uinput devices: %s", last_error)
+        else:
+            log.warning("Failed to map GNOME uinput devices: no virtual monitor EDID")
+        return False
+
     def desktop_bounds(self):
         if self.de != "gnome":
             return None
@@ -217,6 +333,8 @@ class Geometry:
 
     def uinput_bounds(self):
         rx, ry, rw, rh = self.virtual_rect()
+        if self.de == "gnome" and self._gnome_devices_mapped:
+            return int(round(rw)), int(round(rh)), 0.0, 0.0, rw, rh
         bounds = self.desktop_bounds()
         if bounds:
             bx, by, bw, bh = bounds

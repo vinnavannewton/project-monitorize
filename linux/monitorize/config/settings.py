@@ -373,6 +373,27 @@ def save_kde_virtual_layout(slot: str, x: int, y: int, rotation="") -> None:
     })
 
 
+def _gnome_virtual_group(slot: str) -> str:
+    return f"gnome_virtual_{slot if slot in ('primary', 'third') else 'primary'}"
+
+
+def load_gnome_virtual_layout(slot: str = "primary") -> dict:
+    data = _load_group(_gnome_virtual_group(slot), {"layout": ""})
+    try:
+        layout = json.loads(data["layout"]) if data["layout"] else None
+    except (TypeError, ValueError, json.JSONDecodeError):
+        layout = None
+    if not isinstance(layout, list):
+        layout = None
+    return {"logical_monitors": layout}
+
+
+def save_gnome_virtual_layout(slot: str, logical_monitors: list) -> None:
+    _save_group(_gnome_virtual_group(slot), {
+        "layout": json.dumps(logical_monitors, separators=(",", ":")),
+    })
+
+
 def load_receiver_credentials(host: str) -> tuple[str, str]:
     s = _get_settings()
     key = hashlib.sha256(credential_host_key(host).encode()).hexdigest()
