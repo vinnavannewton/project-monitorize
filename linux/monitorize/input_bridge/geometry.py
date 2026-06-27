@@ -15,6 +15,9 @@ GNOME_INPUT_MAPPING_TIMEOUT = 5.0
 GNOME_INPUT_MAPPING_INTERVAL = 0.1
 GNOME_TOUCHSCREEN_SCHEMA = "org.gnome.desktop.peripherals.touchscreen"
 GNOME_TABLET_SCHEMA = "org.gnome.desktop.peripherals.tablet"
+GNOME_INPUT_MAPPING_SERVICE = "org.gnome.Mutter.InputMapping"
+GNOME_INPUT_MAPPING_PATH = "/org/gnome/Mutter/InputMapping"
+GNOME_INPUT_MAPPING_IFACE = "org.gnome.Mutter.InputMapping"
 
 
 def _gnome_device_path(group: str, vendor: int, product: int) -> str:
@@ -95,6 +98,24 @@ def write_gnome_input_mapping(edid, stylus_features=False):
         log.warning("Failed to write GNOME input mapping: %s", exc)
         return False
     return True
+
+
+def gnome_input_node_is_mapped(device_node, bus=None, dbus=None):
+    if not device_node:
+        return False
+    try:
+        if dbus is None:
+            import dbus as dbus_module
+
+            dbus = dbus_module
+        bus = bus or dbus.SessionBus()
+        obj = bus.get_object(GNOME_INPUT_MAPPING_SERVICE, GNOME_INPUT_MAPPING_PATH)
+        mapper = dbus.Interface(obj, GNOME_INPUT_MAPPING_IFACE)
+        mapper.GetDeviceMapping(str(device_node))
+        return True
+    except Exception as exc:
+        log.warning("GNOME input mapping not confirmed for %s: %s", device_node, exc)
+        return False
 
 
 def detect_de() -> str:
@@ -340,6 +361,16 @@ class Geometry:
             bx, by, bw, bh = bounds
             return int(round(bw)), int(round(bh)), rx - bx, ry - by, rw, rh
         return int(round(rw)), int(round(rh)), 0.0, 0.0, rw, rh
+
+    def verify_gnome_devices(self, devices: list) -> set[str]:
+        if self.de != "gnome":
+            return set()
+        mapped = set()
+        for device in devices:
+            path = getattr(getattr(device, "device", None), "path", "")
+            if gnome_input_node_is_mapped(path):
+                mapped.add(os.path.basename(path))
+        return mapped
 
     def hyprland_output_name(self):
         monitor = headless_output(json_command(["hyprctl", "monitors", "-j"]))
