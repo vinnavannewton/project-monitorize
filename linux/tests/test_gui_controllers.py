@@ -849,7 +849,7 @@ class StreamingControllerTest(unittest.TestCase):
         with (
             patch(
                 "monitorize.desktop.streaming_controller.save_current_gnome_virtual_layout",
-                side_effect=lambda *_args: events.append("save"),
+                side_effect=lambda *_args: events.append("save") or True,
             ) as save,
             patch("monitorize.desktop.streaming_controller.kill_tracked_pids"),
             patch("monitorize.desktop.streaming_controller.kill_patterns"),
@@ -863,6 +863,36 @@ class StreamingControllerTest(unittest.TestCase):
         save.assert_called_once_with("primary")
         launch.assert_called_once_with(7)
         self.assertEqual(events, ["save", "launch"])
+
+    def test_restart_gnome_logs_failed_layout_save_but_relaunches(self):
+        controller = StreamingController("gnome", "10.0.0.1", Mock())
+        controller.streaming = True
+        controller.generation = 7
+        controller.display_type = "Extend"
+        logs = []
+        controller.logAppended.connect(
+            lambda label, message: logs.append((label, message))
+        )
+
+        with (
+            patch(
+                "monitorize.desktop.streaming_controller.save_current_gnome_virtual_layout",
+                return_value=False,
+            ),
+            patch("monitorize.desktop.streaming_controller.kill_tracked_pids"),
+            patch("monitorize.desktop.streaming_controller.kill_patterns"),
+            patch.object(controller, "_launch_streamer") as launch,
+        ):
+            controller._restart_gnome(7)
+
+        launch.assert_called_once_with(7)
+        self.assertIn(
+            (
+                "STREAMER",
+                "GNOME virtual layout save failed before restart; using last saved layout.",
+            ),
+            logs,
+        )
 
     def test_gnome_layout_timer_saves_while_streaming(self):
         controller = StreamingController("gnome", "10.0.0.1", Mock())
@@ -908,6 +938,38 @@ class StreamingControllerTest(unittest.TestCase):
             controller.stop()
         save.assert_called_once_with("primary")
         self.assertEqual(events[:2], ["save", "stop"])
+
+    def test_stop_logs_failed_gnome_layout_save_but_stops(self):
+        controller = StreamingController("gnome", "10.0.0.1", Mock())
+        controller.streaming = True
+        controller.display_type = "Extend"
+        controller.streamer = process_mock()
+        logs = []
+        controller.logAppended.connect(
+            lambda label, message: logs.append((label, message))
+        )
+
+        with (
+            patch(
+                "monitorize.desktop.streaming_controller.save_current_gnome_virtual_layout",
+                return_value=False,
+            ),
+            patch("monitorize.desktop.streaming_controller.stop_processes") as stop,
+            patch("monitorize.desktop.streaming_controller.kill_tracked_pids"),
+            patch("monitorize.desktop.streaming_controller.kill_patterns"),
+            patch.object(controller.third, "stop"),
+            patch.object(controller.display, "cleanup"),
+        ):
+            controller.stop()
+
+        stop.assert_called()
+        self.assertIn(
+            (
+                "STREAMER",
+                "GNOME virtual layout save failed before stop; using last saved layout.",
+            ),
+            logs,
+        )
         self.assertFalse(controller.gnome_layout_timer.isActive())
 
     def test_stale_streamer_output_is_ignored(self):
@@ -1662,6 +1724,15 @@ class StreamerGnomeTest(unittest.TestCase):
         config = Streamer_gnome.parse_args([
             "1920", "1200", "60", "8000", "usb", "Extend",
         ])
+        self.assertEqual(config.display_type, "Extend")
+
+    def test_parse_args_empty_argv_uses_defaults(self):
+        config = Streamer_gnome.parse_args([])
+        self.assertEqual(config.width, 2560)
+        self.assertEqual(config.height, 1600)
+        self.assertEqual(config.fps, 60)
+        self.assertEqual(config.bitrate, 8000)
+        self.assertEqual(config.mode, "usb")
         self.assertEqual(config.display_type, "Extend")
 
     def test_record_virtual_does_not_pass_position(self):

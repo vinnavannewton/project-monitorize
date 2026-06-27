@@ -2,7 +2,7 @@
 
 Monitorize requests embedded cursor capture for GNOME ScreenCast streams.
 
-- `monitorize/streaming/Streamer_gnome.py` passes `cursor-mode = 1` to Mutter `RecordVirtual` and `RecordMonitor`.
+- `linux/monitorize/streaming/Streamer_gnome.py` passes `cursor-mode = 1` to Mutter `RecordVirtual` and `RecordMonitor`.
 - In Mutter, `META_STREAM_CURSOR_MODE_EMBEDDED` is value `1`.
 - The Monitorize GStreamer sender consumes `pipewiresrc` video frames and encodes them; it does not currently composite PipeWire cursor metadata into the video.
 

@@ -96,3 +96,11 @@ Adjusted GNOME uinput coordinate handling after per-device output mapping.
 - Successful GNOME touch/stylus output mapping now means uinput bounds are virtual-monitor-local logical bounds.
 - If GNOME DisplayConfig or GSettings mapping fails, the input backend keeps the older desktop-wide bounds fallback.
 - Updated [[gnome-input]] with the mapped-coordinate rule.
+
+## [2026-06-28] cleanup | GNOME review follow-ups
+
+Addressed GNOME code review cleanup items.
+
+- Consolidated GNOME virtual physical-monitor marker detection through the input geometry helper.
+- Documented failed GNOME layout saves before stop/restart as non-blocking fallbacks to the last saved layout.
+- Fixed the [[gnome-cursor-capture]] streamer path to include the `linux/` prefix.
