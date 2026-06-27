@@ -9,7 +9,7 @@
 </div>
 
 > **Project Status: Stable & Actively Being Developed**
-> SUpported on KDE, Hyprland and GNOME. Sway is WIP.
+> Supported on KDE, Hyprland and GNOME. Sway is WIP.
 
 ---
 
