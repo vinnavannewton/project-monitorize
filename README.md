@@ -8,8 +8,8 @@
 
 </div>
 
-> **Project Status: In beta & Actively Being Developed**
-> Fully functional on KDE and Hyprland. Sway and GNOME support is experimental.
+> **Project Status: Is stable & Actively Being Developed**
+> Fully functional on KDE, Hyprland and GNOME. Sway is WIP.
 
 ---
 
@@ -25,7 +25,7 @@
 
 **Monitorize** turns your Android tablet, Laptop, PC into a secondary monitor for your Linux desktop.
 
-Supported desktop environments are KDE Plasma, Hyprland. Sway and GNOME is experimental.
+Supported desktop environments are KDE Plasma, Hyprland and GNOME. Sway is WIP.
 
 ---
 
@@ -33,7 +33,7 @@ Supported desktop environments are KDE Plasma, Hyprland. Sway and GNOME is exper
 
 | Android               | Desktop                                         |
 | --------------------- | ----------------------------------------------- |
-| Android 9+            | KDE (6.7+), Hyprland, Sway, Gnome(experimental) |
+| Android 9+            | KDE (6.7+), Hyprland, GNOME (50+), Sway (WIP)   |
 | Wi-Fi / USB Debugging | Tested on: Arch, fedora.                        |
 
 ---
@@ -88,7 +88,7 @@ sudo dnf install -y kscreen
 
 ---
 
-### GNOME (Experimental):
+### GNOME:
 
 No extra packages needed. However, you **must** disable Mutter hardware cursor rendering so the cursor is visible on the virtual monitor stream.
 
@@ -114,7 +114,7 @@ sudo dnf install -y \
 
 ---
 
-### Sway:
+### Sway (WIP):
 
 ```bash
 sudo dnf install -y \
@@ -166,7 +166,7 @@ sudo pacman -S --needed kscreen
 
 ---
 
-### GNOME (Experimental):
+### GNOME:
 
 No extra packages needed. However, you **must** disable Mutter hardware cursor rendering so the cursor is visible on the virtual monitor stream.
 
@@ -192,7 +192,7 @@ sudo pacman -S --needed \
 
 ---
 
-### Sway:
+### Sway (WIP):
 
 ```bash
 sudo pacman -S --needed \
@@ -259,7 +259,7 @@ sudo apt install -y kscreen
 
 ### ---
 
-### GNOME (Experimental):
+### GNOME:
 
 No extra packages needed. However, you **must** disable Mutter hardware cursor rendering so the cursor is visible on the virtual monitor stream.
 
@@ -285,7 +285,7 @@ sudo apt install -y \
 
 ---
 
-### Sway:
+### Sway (WIP):
 
 ```bash
 sudo apt install -y \
@@ -300,7 +300,7 @@ sudo apt install -y \
 
 1.After starting the stream in the desktop application make sure you go to your display settings and configure the newly created virtual display.
 
-2.When made changes to the virtual display's position or anything sometimes the stream crashes, it's normal just start the stream again (This won't work in gnome though).
+2.When made changes to the virtual display's position or anything sometimes the stream crashes, it's normal just restart the stream.
 
 ---
 
@@ -366,11 +366,15 @@ Or:
 
 - [x] Encrypted Wi-Fi mode.
 
-- [x] Sway DE (beta).
+- [x] Stable gnome.
+
 - [x] use laptop as second screen.
-- [x] triple monitor setup.
+      
+- [x] triple monitor setup (KDE & Hyprland).
+      
+- [ ] Sway DE.
+      
 - [ ] Stable nvidia encoder (waiting for driver 610.x which implemented proper DMA BUF).
-- [ ] Stable gnome.
 
 - [ ] Flathub distribution.
 
