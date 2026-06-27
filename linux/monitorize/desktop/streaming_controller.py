@@ -26,7 +26,6 @@ from monitorize.platform.kde_virtual_monitor import save_current_virtual_layout
 from monitorize.platform.process_utils import kill_patterns, kill_tracked_pids, stop_processes
 from monitorize.config.settings import (
     load_general_settings,
-    load_gnome_virtual_layout,
     load_wifi_settings,
 )
 from monitorize.desktop.third_stream_controller import ThirdStreamController
@@ -265,9 +264,6 @@ class StreamingController(QObject):
             args.append(self.display.created_output or "mirror")
         if self.de == "gnome":
             args += ["1.0", self.display_type.replace(" ", "_")]
-            position = load_gnome_virtual_layout("primary")["position"]
-            if position:
-                args += [str(position[0]), str(position[1])]
         self.streamer.start(sys.executable, args)
         self._start_gnome_layout_tracking()
         self._advertise()

@@ -520,7 +520,7 @@ class StreamingControllerTest(unittest.TestCase):
             "10.0.0.1", False, False
         )
 
-    def test_gnome_streamer_command_includes_saved_virtual_position(self):
+    def test_gnome_streamer_command_uses_display_type_only(self):
         controller = StreamingController("gnome", "10.0.0.1", Mock())
         controller.width = 1920
         controller.height = 1200
@@ -534,35 +534,6 @@ class StreamingControllerTest(unittest.TestCase):
         with (
             patch("monitorize.desktop.streaming_controller.QProcess", return_value=process),
             patch("monitorize.desktop.streaming_controller.QTimer.singleShot"),
-            patch(
-                "monitorize.desktop.streaming_controller.load_gnome_virtual_layout",
-                return_value={"position": (77, -20)},
-            ),
-        ):
-            controller._launch_streamer()
-        args = process.start.call_args.args[1]
-        self.assertEqual(args[-4:], ["1.0", "Extend", "77", "-20"])
-        self.assertTrue(controller.gnome_layout_timer.isActive())
-        controller.gnome_layout_timer.stop()
-
-    def test_gnome_streamer_command_omits_missing_virtual_position(self):
-        controller = StreamingController("gnome", "10.0.0.1", Mock())
-        controller.width = 1920
-        controller.height = 1200
-        controller.fps = 60
-        controller.bitrate = 8000
-        controller.wifi = False
-        controller.streaming = True
-        controller.display_type = "Extend"
-        controller.env = Mock()
-        process = process_mock()
-        with (
-            patch("monitorize.desktop.streaming_controller.QProcess", return_value=process),
-            patch("monitorize.desktop.streaming_controller.QTimer.singleShot"),
-            patch(
-                "monitorize.desktop.streaming_controller.load_gnome_virtual_layout",
-                return_value={"position": None},
-            ),
         ):
             controller._launch_streamer()
         args = process.start.call_args.args[1]
@@ -581,10 +552,6 @@ class StreamingControllerTest(unittest.TestCase):
             patch("monitorize.desktop.streaming_controller.QDBusConnection", qdbus),
             patch("monitorize.desktop.streaming_controller.QProcess", return_value=process),
             patch("monitorize.desktop.streaming_controller.QTimer.singleShot"),
-            patch(
-                "monitorize.desktop.streaming_controller.load_gnome_virtual_layout",
-                return_value={"position": None},
-            ),
         ):
             controller._launch_streamer()
         bus.connect.assert_called_once()
@@ -1174,6 +1141,23 @@ class GnomeVirtualMonitorCompatTest(unittest.TestCase):
             },
         )
 
+    @staticmethod
+    def saved_right_layout():
+        return [
+            {
+                "connectors": ["eDP-1"],
+                "x": 0,
+                "y": 0,
+                "virtual": False,
+            },
+            {
+                "connectors": ["Meta-0"],
+                "x": 1920,
+                "y": 0,
+                "virtual": True,
+            },
+        ]
+
     def test_current_virtual_layout_is_saved(self):
         state = (
             1,
@@ -1194,8 +1178,6 @@ class GnomeVirtualMonitorCompatTest(unittest.TestCase):
             self.assertTrue(gnome_virtual_monitor.save_current_virtual_layout("primary"))
         save.assert_called_once_with(
             "primary",
-            77,
-            -20,
             [
                 {
                     "connectors": ["eDP-1"],
@@ -1226,9 +1208,17 @@ class GnomeVirtualMonitorCompatTest(unittest.TestCase):
             self.assertFalse(gnome_virtual_monitor.save_current_virtual_layout("primary"))
         save.assert_not_called()
 
-    def test_apply_payload_changes_only_virtual_position(self):
+    def test_apply_payload_requires_saved_full_layout(self):
         configs = gnome_virtual_monitor.build_monitors_config(
-            self.display_state(), 77, -20, self.FakeDbus
+            self.display_state(), self.FakeDbus
+        )
+        self.assertIsNone(configs)
+
+    def test_apply_payload_preserves_monitor_fields_with_full_layout(self):
+        configs = gnome_virtual_monitor.build_monitors_config(
+            self.display_state(),
+            self.FakeDbus,
+            logical_monitors=self.saved_right_layout(),
         )
         self.assertEqual(configs[0][0:2], (0, 0))
         self.assertEqual(configs[0][5][0][0:2], ("eDP-1", "edp-mode"))
@@ -1236,7 +1226,7 @@ class GnomeVirtualMonitorCompatTest(unittest.TestCase):
             configs[0][5][0][2],
             {"color-mode": 1, "rgb-range": 2},
         )
-        self.assertEqual(configs[1][0:2], (77, -20))
+        self.assertEqual(configs[1][0:2], (1920, 0))
         self.assertEqual(configs[1][2:5], (1.0, 0, False))
         self.assertEqual(configs[1][5][0][0:2], ("Meta-0", "meta-mode"))
         self.assertEqual(
@@ -1281,8 +1271,6 @@ class GnomeVirtualMonitorCompatTest(unittest.TestCase):
         )
         configs = gnome_virtual_monitor.build_monitors_config(
             state,
-            0,
-            0,
             self.FakeDbus,
             logical_monitors=saved_layout,
         )
@@ -1298,7 +1286,9 @@ class GnomeVirtualMonitorCompatTest(unittest.TestCase):
             "underscan": True,
         })
         configs = gnome_virtual_monitor.build_monitors_config(
-            state, 77, -20, self.FakeDbus
+            state,
+            self.FakeDbus,
+            logical_monitors=self.saved_right_layout(),
         )
         self.assertEqual(
             configs[1][5][0][2],
@@ -1312,7 +1302,9 @@ class GnomeVirtualMonitorCompatTest(unittest.TestCase):
         state = self.display_state()
         state[1][1][2]["underscanning"] = False
         configs = gnome_virtual_monitor.build_monitors_config(
-            state, 77, -20, self.FakeDbus
+            state,
+            self.FakeDbus,
+            logical_monitors=self.saved_right_layout(),
         )
         self.assertFalse(configs[1][5][0][2]["underscanning"])
 
@@ -1321,10 +1313,11 @@ class GnomeVirtualMonitorCompatTest(unittest.TestCase):
         display_config.GetCurrentState.return_value = self.display_state()
         with patch(
             "monitorize.platform.gnome_virtual_monitor.load_gnome_virtual_layout",
-            return_value={"position": None, "logical_monitors": None},
+            return_value={
+                "logical_monitors": self.saved_right_layout(),
+            },
         ):
             ok = gnome_virtual_monitor.restore_virtual_layout(
-                position=(77, -20),
                 display_config=display_config,
                 dbus=self.FakeDbus,
                 attempts=1,
@@ -1335,7 +1328,7 @@ class GnomeVirtualMonitorCompatTest(unittest.TestCase):
         self.assertEqual(serial, 7)
         self.assertEqual(method, gnome_virtual_monitor.APPLY_METHOD_TEMPORARY)
         self.assertEqual(configs[0][0:2], (0, 0))
-        self.assertEqual(configs[1][0:2], (77, -20))
+        self.assertEqual(configs[1][0:2], (1920, 0))
         self.assertEqual(props, {"layout-mode": 2})
 
     def test_gnome_display_config_failure_does_not_save(self):
@@ -1576,17 +1569,11 @@ class StreamerGnomeTest(unittest.TestCase):
         def Struct(values, signature=None):
             return StreamerGnomeTest.FakeStruct(values, signature)
 
-    def test_parse_args_accepts_virtual_position(self):
-        config = Streamer_gnome.parse_args([
-            "1920", "1200", "60", "8000", "usb", "1.0", "Extend", "77", "-20",
-        ])
-        self.assertEqual(config.virtual_position, (77, -20))
-
-    def test_parse_args_ignores_invalid_virtual_position(self):
+    def test_parse_args_ignores_extra_legacy_position_args(self):
         config = Streamer_gnome.parse_args([
             "1920", "1200", "60", "8000", "usb", "1.0", "Extend", "bad", "-20",
         ])
-        self.assertIsNone(config.virtual_position)
+        self.assertEqual(config.display_type, "Extend")
 
     def test_record_virtual_does_not_pass_position(self):
         session = Mock()
@@ -1594,7 +1581,6 @@ class StreamerGnomeTest(unittest.TestCase):
             width=1920,
             height=1200,
             fps=60,
-            virtual_position=(77, -20),
         )
         Streamer_gnome._record_virtual(session, self.FakeDbus, config)
         options = session.RecordVirtual.call_args.args[0]

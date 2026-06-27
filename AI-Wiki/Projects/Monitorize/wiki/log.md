@@ -41,3 +41,13 @@ Replaced the GNOME virtual-display move reconnect approach with passive layout s
 - `ApplyMonitorsConfig` restoration moves all mapped logical monitors as needed while preserving modes, scale, transform, primary flag, monitor properties, and global layout properties.
 - `MonitorsChanged` is used only to debounce a save while streaming; it no longer intentionally restarts the GNOME streamer.
 - `python -m unittest tests.test_gui_controllers` and targeted `py_compile` checks passed.
+
+## [2026-06-28] cleanup | GNOME layout workaround simplification
+
+Removed obsolete GNOME layout workaround paths after the full logical layout restore proved working.
+
+- `Streamer_gnome` no longer accepts or forwards saved `x/y` position arguments.
+- `StreamingController` no longer loads GNOME layout settings just to append streamer arguments.
+- GNOME settings now persist only the full logical layout snapshot; the separate top-level `x/y` values are ignored.
+- `gnome_virtual_monitor.build_monitors_config()` now requires a saved full layout and no longer supports virtual-only x/y Apply payloads.
+- `python -m unittest tests.test_gui_controllers` and targeted `py_compile` checks passed.

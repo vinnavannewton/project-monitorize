@@ -3,7 +3,7 @@ Streamer_gnome.py — GNOME Wayland streamer.
 Uses org.gnome.Mutter.ScreenCast RecordVirtual D-Bus API.
 Handles both USB and Wi-Fi modes via the MODE argument.
 
-Usage: python3 -m monitorize.streaming.Streamer_gnome <width> <height> <fps> <bitrate> <usb|wifi> [scale] [Extend|Mirror] [x] [y]
+Usage: python3 -m monitorize.streaming.Streamer_gnome <width> <height> <fps> <bitrate> <usb|wifi> [scale] [Extend|Mirror]
 """
 
 import os
@@ -26,12 +26,11 @@ class StreamerConfig:
     mode: str = "usb"
     scale: float = 1.0
     display_type: str = "Extend"
-    virtual_position: tuple[int, int] | None = None
 
 
 def parse_args(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
-    config = StreamerConfig(
+    return StreamerConfig(
         width=int(argv[0]) if len(argv) > 0 else 2560,
         height=int(argv[1]) if len(argv) > 1 else 1600,
         fps=int(argv[2]) if len(argv) > 2 else 60,
@@ -40,12 +39,6 @@ def parse_args(argv=None):
         scale=float(argv[5]) if len(argv) > 5 else 1.0,
         display_type=argv[6] if len(argv) > 6 else "Extend",
     )
-    if len(argv) > 8:
-        try:
-            config.virtual_position = (int(argv[7]), int(argv[8]))
-        except (TypeError, ValueError):
-            config.virtual_position = None
-    return config
 
 
 def _virtual_mode(dbus, config):
@@ -105,7 +98,6 @@ def _restore_virtual_layout(bus, dbus, config):
     if config.display_type.lower() == "mirror":
         return False
     return gnome_virtual_monitor.restore_virtual_layout(
-        position=config.virtual_position,
         display_config=gnome_virtual_monitor.display_config_interface(bus, dbus),
         dbus=dbus,
     )
