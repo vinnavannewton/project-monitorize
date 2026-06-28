@@ -342,14 +342,6 @@ def load_receiver_settings() -> dict:
     return data
 
 
-def load_sway_output() -> str:
-    return _get_settings().value("sway/output", "")
-
-
-def save_sway_output(output: str) -> None:
-    _save_group("sway", {"output": output})
-
-
 def _kde_virtual_group(slot: str) -> str:
     return f"kde_virtual_{slot if slot in ('primary', 'third') else 'primary'}"
 

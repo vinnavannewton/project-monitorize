@@ -531,7 +531,7 @@ class StreamingControllerTest(unittest.TestCase):
 
     def test_streamer_command_preserves_wlroots_output(self):
         discovery = Mock()
-        controller = StreamingController("sway", "10.0.0.1", discovery)
+        controller = StreamingController("hyprland", "10.0.0.1", discovery)
         controller.width = 1920
         controller.height = 1200
         controller.fps = 60
@@ -667,7 +667,7 @@ class StreamingControllerTest(unittest.TestCase):
 
     def test_stop_cleans_processes_and_advertisement(self):
         discovery = Mock()
-        controller = StreamingController("sway", "10.0.0.1", discovery)
+        controller = StreamingController("hyprland", "10.0.0.1", discovery)
         controller.streaming = True
         controller.streamer = process_mock()
         with (
@@ -1004,7 +1004,7 @@ class StreamingControllerTest(unittest.TestCase):
         self.assertFalse(controller.gnome_layout_timer.isActive())
 
     def test_stale_streamer_output_is_ignored(self):
-        controller = StreamingController("sway", "10.0.0.1", Mock())
+        controller = StreamingController("hyprland", "10.0.0.1", Mock())
         controller.streaming = True
         controller.generation = 7
         controller.input_launched = False
@@ -1089,7 +1089,7 @@ class StreamingControllerTest(unittest.TestCase):
         controller.env.insert.assert_not_called()
 
     def test_invalid_stream_settings_are_sanitized_before_start(self):
-        controller = StreamingController("sway", "10.0.0.1", Mock())
+        controller = StreamingController("hyprland", "10.0.0.1", Mock())
         with patch.object(controller, "_prepare_display"):
             controller.start(
                 "1x99999", "bad", "nope", "Bogus", "Bogus",
@@ -1102,7 +1102,7 @@ class StreamingControllerTest(unittest.TestCase):
         self.assertEqual(controller.encoder_profile, "Low Latency")
 
     def test_start_does_not_emit_false_when_already_stopped(self):
-        controller = StreamingController("sway", "10.0.0.1", Mock())
+        controller = StreamingController("hyprland", "10.0.0.1", Mock())
         events = []
         controller.streamingChanged.connect(events.append)
         with (
@@ -1120,7 +1120,7 @@ class StreamingControllerTest(unittest.TestCase):
         self.assertEqual(events, [True])
 
     def test_stream_start_sets_encoder_profile_environment(self):
-        controller = StreamingController("sway", "10.0.0.1", Mock())
+        controller = StreamingController("hyprland", "10.0.0.1", Mock())
         with (
             patch("monitorize.desktop.streaming_controller.stop_processes"),
             patch("monitorize.desktop.streaming_controller.kill_patterns"),

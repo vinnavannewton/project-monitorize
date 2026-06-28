@@ -142,7 +142,7 @@ class StreamingController(QObject):
         if self.encrypted:
             self.env.insert("MONITORIZE_HOST", "127.0.0.1")
             self.env.insert("MONITORIZE_PORT", "7112")
-        if self.de in ("kde", "hyprland", "sway") and self.display_type == "Extend":
+        if self.de in ("kde", "hyprland") and self.display_type == "Extend":
             self.env.insert("MONITORIZE_PRESERVE_SOURCE_SIZE", "1")
         if wifi:
             subprocess.run(["adb", "reverse", "--remove", "tcp:7110"], capture_output=True)
@@ -169,24 +169,6 @@ class StreamingController(QObject):
                 return
             self.logAppended.emit("STREAMER", f"Created headless monitor: {output}")
             self._start_countdown(2)
-        elif self.de == "sway":
-            if self.display_type == "Mirror":
-                output = self.display.sway_mirror_output()
-                if not output:
-                    self._fail("Sway has no active output to mirror")
-                    return
-                self.env.insert("MONITORIZE_OUTPUT", output)
-                self._launch_streamer()
-            else:
-                self._set_status("Setting up virtual monitor on Sway…")
-                output, error = self.display.prepare_sway(
-                    self.width, self.height, self.fps
-                )
-                if error:
-                    self._fail(error)
-                    return
-                self.env.insert("MONITORIZE_OUTPUT", output)
-                self._start_countdown(2)
         else:
             self._launch_streamer()
 
@@ -253,14 +235,13 @@ class StreamingController(QObject):
             "kde": "monitorize.streaming.Streamer_kde",
             "gnome": "monitorize.streaming.Streamer_gnome",
             "hyprland": "monitorize.streaming.Streamer_hyprland",
-            "sway": "monitorize.streaming.Streamer_hyprland",
         }.get(self.de, "monitorize.streaming.Streamer_gnome")
         args = [
             "-m", module,
             str(self.width), str(self.height), str(self.fps), str(self.bitrate),
             "wifi" if self.wifi else "usb",
         ]
-        if self.de in ("hyprland", "sway"):
+        if self.de == "hyprland":
             args.append(self.display.created_output or "mirror")
         if self.de == "gnome":
             args.append(self.display_type.replace(" ", "_"))
@@ -322,7 +303,7 @@ class StreamingController(QObject):
         touch = general.get("enable_touch", True)
         stylus = (
             general.get("enable_stylus_features", False)
-            and self.de in ("kde", "gnome", "hyprland", "sway")
+            and self.de in ("kde", "gnome", "hyprland")
         )
         if not touch and not stylus:
             self.logAppended.emit("INPUT", "Input is disabled in settings.")
@@ -423,7 +404,7 @@ class StreamingController(QObject):
         QTimer.singleShot(500, lambda: self._launch_input(generation))
 
     def _maybe_start_wlroots_input(self, raw, generation):
-        if self.de in ("hyprland", "sway") and not self.input_launched:
+        if self.de == "hyprland" and not self.input_launched:
             self.streamer_buffer += raw
             if "[Portal] Got PipeWire node=" in self.streamer_buffer:
                 self.input_launched = True
@@ -455,9 +436,7 @@ class StreamingController(QObject):
         ):
             return
         self.logAppended.emit("STREAMER", f"Process exited (code {code})")
-        if self.de == "sway" and code and self.streaming:
-            self._set_status("Sway capture failed — check xdg-desktop-portal-wlr")
-        elif self.de == "gnome" and code and self.streaming:
+        if self.de == "gnome" and code and self.streaming:
             self.logAppended.emit(
                 "STREAMER", "↺  GNOME streamer crashed — auto-restarting in 2s…"
             )

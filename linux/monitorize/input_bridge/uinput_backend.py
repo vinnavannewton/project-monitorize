@@ -137,8 +137,6 @@ class UInputBackend:
             output = self.geometry.hyprland_output_name()
             for name in names:
                 self.geometry.map_hyprland_device(name, output)
-        elif self.geometry.de == "sway" and not self.geometry.map_sway_devices(names):
-            raise RuntimeError("Sway did not expose or map Monitorize uinput devices")
 
     def _coords(self, x, y):
         tx, ty, width, height = self.target

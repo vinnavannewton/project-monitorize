@@ -24,11 +24,6 @@ from PyQt6.QtWidgets import (
 
 from monitorize.config import app_log
 from monitorize.desktop.backend import MonitorizeBackend
-from monitorize.platform.display_controller import (
-    disable_sway_output as _disable_sway_output,
-    prepare_sway_output as _prepare_sway_output,
-    sway_outputs as _sway_outputs,
-)
 from monitorize.platform.process_utils import kill_patterns
 from monitorize.platform.utils import ASSETS_DIR, LINUX_DIR, QML_DIR, detect_desktop_environment
 
@@ -179,7 +174,7 @@ class MonitorizeWindow(QMainWindow):
             layout.addLayout(row)
 
         add_row((("KDE Plasma", "kde"), ("GNOME", "gnome")))
-        add_row((("Hyprland", "hyprland"), ("Sway", "sway")))
+        add_row((("Hyprland", "hyprland"),))
         other = QPushButton("Other (WIP)")
         other.clicked.connect(
             lambda: (selected.update(value="other"), dialog.accept())

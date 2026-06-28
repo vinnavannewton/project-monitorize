@@ -48,7 +48,7 @@ Item {
                 }
 
                 Text {
-                    text: "Desktop: " + (backend.detectedDe === "kde" ? "KDE Plasma" : (backend.detectedDe === "gnome" ? "GNOME" : (backend.detectedDe === "hyprland" ? "Hyprland" : (backend.detectedDe === "sway" ? "Sway" : backend.detectedDe.toUpperCase()))))
+                    text: "Desktop: " + (backend.detectedDe === "kde" ? "KDE Plasma" : (backend.detectedDe === "gnome" ? "GNOME" : (backend.detectedDe === "hyprland" ? "Hyprland" : backend.detectedDe.toUpperCase())))
                     color: theme.cardTextPrimary
                     font.pixelSize: 12
                     font.weight: Font.Bold
