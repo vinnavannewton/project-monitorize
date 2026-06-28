@@ -1,5 +1,6 @@
 """Lightweight boot tray for Monitorize."""
 
+import os
 import sys
 
 from PyQt6.QtCore import QProcess
