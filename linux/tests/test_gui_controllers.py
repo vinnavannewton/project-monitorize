@@ -224,6 +224,37 @@ class AppLogTest(unittest.TestCase):
 
 
 class AutostartTest(unittest.TestCase):
+    def test_tray_agent_constructs_tray_icon_path(self):
+        from monitorize.desktop import tray_agent
+
+        action = Mock()
+        action.triggered.connect = Mock()
+        disabled_action = Mock()
+        menu = Mock()
+        presets_menu = Mock()
+        presets_menu.aboutToShow.connect = Mock()
+        presets_menu.addAction.return_value = disabled_action
+        menu.addAction.return_value = action
+        menu.addMenu.return_value = presets_menu
+        tray = Mock()
+        tray.activated.connect = Mock()
+
+        with (
+            patch("monitorize.desktop.tray_agent.QSystemTrayIcon", return_value=tray),
+            patch("monitorize.desktop.tray_agent.QMenu", return_value=menu),
+            patch("monitorize.desktop.tray_agent.QIcon") as icon,
+            patch("monitorize.desktop.tray_agent.load_presets", return_value=[]),
+        ):
+            tray_agent.TrayAgent()
+
+        icon.assert_called_once_with(
+            os.path.join(
+                tray_agent.ASSETS_DIR,
+                "tray",
+                "icon_tray_white.svg",
+            )
+        )
+
     def test_autostart_uses_installed_desktop_entry(self):
         with tempfile.TemporaryDirectory() as directory:
             config_home = Path(directory) / "config"
