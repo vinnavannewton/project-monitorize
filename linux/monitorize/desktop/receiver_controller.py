@@ -6,7 +6,6 @@ import sys
 import time
 from functools import lru_cache
 
-from PyQt6 import sip
 from PyQt6.QtCore import QObject, QProcess, QTimer, pyqtSignal
 from PyQt6.QtGui import QGuiApplication
 
@@ -40,7 +39,7 @@ SINK_EXTRA_PROPS = {
     "waylandsink": {"fullscreen": "true"},
     "xvimagesink": {"double-buffer": "true", "draw-borders": "true"},
 }
-EMBEDDED_SINK = "qml6glsink"
+EMBEDDED_SINKS = ("glimagesink", "xvimagesink", "ximagesink")
 SOFTWARE_DECODER_PROPS = {
     "max-threads": "2",
     "thread-type": "slice",
@@ -50,11 +49,12 @@ SOFTWARE_DECODER_PROPS = {
 }
 
 _GST = None
+_GST_VIDEO = None
 _GST_IMPORT_ERROR = None
 
 
 def _load_gst():
-    global _GST, _GST_IMPORT_ERROR
+    global _GST, _GST_VIDEO, _GST_IMPORT_ERROR
     if _GST is not None:
         return _GST
     if _GST_IMPORT_ERROR is not None:
@@ -62,10 +62,13 @@ def _load_gst():
     try:
         import gi
         gi.require_version("Gst", "1.0")
+        gi.require_version("GstVideo", "1.0")
         from gi.repository import Gst
+        from gi.repository import GstVideo
 
         Gst.init(None)
         _GST = Gst
+        _GST_VIDEO = GstVideo
         return Gst
     except Exception as exc:
         _GST_IMPORT_ERROR = exc
@@ -144,7 +147,7 @@ class ReceiverController(QObject):
         self.gst_pipeline = None
         self.gst_bus = None
         self.gst_generation = None
-        self.embedded_available = None
+        self.embedded_sink = None
         self.sink_candidates = []
         self.sink_index = 0
         self.stable_timer = QTimer(self)
@@ -299,17 +302,16 @@ class ReceiverController(QObject):
         self._launch_external_pipeline(host, port, generation)
 
     def _embedded_sink_available(self):
-        if self.embedded_available is not None:
-            return self.embedded_available
-        try:
-            Gst = _load_gst()
-            sink = Gst.ElementFactory.make(EMBEDDED_SINK)
-            self.embedded_available = bool(
-                sink is not None and sink.find_property("widget") is not None
-            )
-        except Exception:
-            self.embedded_available = False
-        return self.embedded_available
+        return self._embedded_sink_name() is not None
+
+    def _embedded_sink_name(self):
+        if self.embedded_sink:
+            return self.embedded_sink
+        for name in EMBEDDED_SINKS:
+            if gst_has_element(name):
+                self.embedded_sink = name
+                return name
+        return None
 
     def _should_wait_for_embedded_surface(self):
         app = QGuiApplication.instance()
@@ -321,7 +323,10 @@ class ReceiverController(QObject):
         self.attempt_started = time.monotonic()
         self._stop_gst_pipeline()
         Gst = _load_gst()
-        description = self._embedded_pipeline_description(host, port)
+        sink_name = self._embedded_sink_name()
+        if not sink_name:
+            raise RuntimeError("no embeddable GStreamer video sink is available")
+        description = self._embedded_pipeline_description(host, port, sink_name)
         pipeline = Gst.parse_launch(description)
         sink = pipeline.get_by_name("receiver_sink")
         if sink is None:
@@ -336,12 +341,13 @@ class ReceiverController(QObject):
         self.gst_bus = bus
         self.gst_generation = generation
         self.gst_bus_timer.start()
-        self.logAppended.emit(f"Decoder: {self.decoder_label}; sink: {EMBEDDED_SINK}")
+        self.logAppended.emit(f"Decoder: {self.decoder_label}; embedded sink: {sink_name}")
         self._started(pipeline, generation)
 
-    def _embedded_pipeline_description(self, host, port):
-        sink_args = self._sink_args(EMBEDDED_SINK)
-        sink_args[0] = f"{EMBEDDED_SINK}"
+    def _embedded_pipeline_description(self, host, port, sink_name=None):
+        sink_name = sink_name or self._embedded_sink_name() or "glimagesink"
+        sink_args = self._sink_args(sink_name)
+        sink_args[0] = sink_name
         sink_args.append("name=receiver_sink")
         parts = [
             "tcpclientsrc", f"host={host}", f"port={port}", "!",
@@ -351,8 +357,6 @@ class ReceiverController(QObject):
             *self.decoder_args, "!",
             *RAW_DROP_QUEUE, "!",
             "videoconvert", "!",
-            "glupload", "!",
-            "glcolorconvert", "!",
             *sink_args,
         ]
         return " ".join(parts)
@@ -360,10 +364,10 @@ class ReceiverController(QObject):
     def _bind_embedded_sink(self, sink):
         if self.video_item is None:
             raise RuntimeError("receiver video surface is not available")
-        try:
-            sink.set_property("widget", self.video_item)
-        except Exception:
-            sink.set_property("widget", int(sip.unwrapinstance(self.video_item)))
+        handle = int(self.video_item.winId())
+        sink.set_window_handle(handle)
+        if hasattr(sink, "handle_events"):
+            sink.handle_events(True)
 
     def _launch_external_pipeline(self, host, port, generation=None):
         generation = self.generation if generation is None else generation
