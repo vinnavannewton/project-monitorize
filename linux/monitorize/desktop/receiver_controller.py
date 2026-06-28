@@ -39,7 +39,8 @@ SINK_EXTRA_PROPS = {
     "waylandsink": {"fullscreen": "true"},
     "xvimagesink": {"double-buffer": "true", "draw-borders": "true"},
 }
-EMBEDDED_SINKS = ("glimagesink", "xvimagesink", "ximagesink")
+EMBEDDED_X11_SINKS = ("xvimagesink", "ximagesink", "glimagesink")
+EMBEDDED_WAYLAND_SINKS = ("waylandsink", "glimagesink")
 SOFTWARE_DECODER_PROPS = {
     "max-threads": "2",
     "thread-type": "slice",
@@ -307,11 +308,19 @@ class ReceiverController(QObject):
     def _embedded_sink_name(self):
         if self.embedded_sink:
             return self.embedded_sink
-        for name in EMBEDDED_SINKS:
+        for name in self._embedded_sink_candidates():
             if gst_has_element(name):
                 self.embedded_sink = name
                 return name
         return None
+
+    def _embedded_sink_candidates(self):
+        session = os.environ.get("XDG_SESSION_TYPE", "").lower()
+        if session == "wayland" or os.environ.get("WAYLAND_DISPLAY"):
+            return EMBEDDED_WAYLAND_SINKS
+        if session == "x11" or os.environ.get("DISPLAY"):
+            return EMBEDDED_X11_SINKS
+        return ("glimagesink",)
 
     def _should_wait_for_embedded_surface(self):
         app = QGuiApplication.instance()
@@ -346,7 +355,7 @@ class ReceiverController(QObject):
 
     def _embedded_pipeline_description(self, host, port, sink_name=None):
         sink_name = sink_name or self._embedded_sink_name() or "glimagesink"
-        sink_args = self._sink_args(sink_name)
+        sink_args = self._sink_args(sink_name, include_extra=False)
         sink_args[0] = sink_name
         sink_args.append("name=receiver_sink")
         parts = [
@@ -368,6 +377,8 @@ class ReceiverController(QObject):
         sink.set_window_handle(handle)
         if hasattr(sink, "handle_events"):
             sink.handle_events(True)
+        if hasattr(sink, "expose"):
+            sink.expose()
 
     def _launch_external_pipeline(self, host, port, generation=None):
         generation = self.generation if generation is None else generation
@@ -429,9 +440,10 @@ class ReceiverController(QObject):
         app = QGuiApplication.instance()
         return isinstance(app, QGuiApplication)
 
-    def _sink_args(self, sink):
+    def _sink_args(self, sink, include_extra=True):
         props = dict(SINK_PROPS)
-        props.update(SINK_EXTRA_PROPS.get(sink, {}))
+        if include_extra:
+            props.update(SINK_EXTRA_PROPS.get(sink, {}))
         args = [sink]
         for name, value in props.items():
             if _gst_has_property(sink, name):

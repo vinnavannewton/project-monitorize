@@ -367,6 +367,31 @@ class ReceiverControllerTest(unittest.TestCase):
         self.assertIn("videoconvert", description)
         self.assertIn("force-aspect-ratio=false", description)
 
+    def test_embedded_sink_prefers_wayland_on_wayland(self):
+        controller = ReceiverController("kde", Mock())
+        with (
+            patch.dict(os.environ, {"XDG_SESSION_TYPE": "wayland", "WAYLAND_DISPLAY": "wayland-0"}, clear=True),
+            patch(
+                "monitorize.desktop.receiver_controller.gst_has_element",
+                side_effect=lambda name: name in {"waylandsink", "glimagesink"},
+            ),
+        ):
+            self.assertEqual(controller._embedded_sink_name(), "waylandsink")
+
+    def test_embedded_wayland_sink_does_not_request_standalone_fullscreen(self):
+        controller = ReceiverController("kde", Mock())
+        controller.decoder_args = ["avdec_h264"]
+        with patch(
+            "monitorize.desktop.receiver_controller._gst_has_property",
+            return_value=True,
+        ):
+            description = controller._embedded_pipeline_description(
+                "10.0.0.2", 7110, "waylandsink"
+            )
+        self.assertIn("waylandsink", description)
+        self.assertNotIn("fullscreen=true", description)
+        self.assertIn("force-aspect-ratio=false", description)
+
     def test_receiver_waits_for_embedded_video_surface(self):
         controller = ReceiverController("kde", Mock())
         controller.decoder_args = ["avdec_h264"]
