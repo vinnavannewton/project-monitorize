@@ -15,11 +15,15 @@ bitrate = int(sys.argv[4]) if len(sys.argv) > 4 else 8000
 mode = sys.argv[5] if len(sys.argv) > 5 else "usb"
 server_mode = mode == "wifi"
 mirror = len(sys.argv) > 6 and sys.argv[6] == "mirror"
+selector_hint = os.environ.get(
+    "MONITORIZE_PORTAL_SELECTOR_HINT",
+    "Select your primary monitor in the picker."
+    if mirror else "Select the HEADLESS monitor in the picker.",
+)
 
 sys.exit(run_portal_streamer(
     "Hyprland",
-    "Select your primary monitor in the picker."
-    if mirror else "Select the HEADLESS monitor in the picker.",
+    selector_hint,
     width,
     height,
     fps,

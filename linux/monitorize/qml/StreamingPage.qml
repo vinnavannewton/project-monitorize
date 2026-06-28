@@ -249,11 +249,11 @@ Item {
                 }
             }
 
-            // Add / Remove Third Display button (KDE only)
+            // Add / Remove Third Display button
             Button {
                 id: displayActionButton
                 text: backend.secondStreamActive ? "Remove Third Display" : "Add Third Display"
-                visible: backend.detectedDe === "kde"
+                visible: backend.detectedDe === "kde" || backend.detectedDe === "hyprland"
                 onClicked: {
                     if (backend.secondStreamActive) {
                         backend.stopSecondStream()
@@ -526,7 +526,7 @@ Item {
         }
     }
 
-    // ──── Add Display Popup (KDE only) ────
+    // Add Display Popup
     Popup {
         id: addDisplayPopup
         modal: true
@@ -562,7 +562,7 @@ Item {
             }
 
             Text {
-                text: "Third display controls are kept for future support.\nThe host-side display backend is currently disabled."
+                text: "Your desktop will open a screen-share picker.\nChoose the display to stream on the third-display port."
                 font.pixelSize: 12
                 color: theme.cardTextMuted
                 wrapMode: Text.Wrap

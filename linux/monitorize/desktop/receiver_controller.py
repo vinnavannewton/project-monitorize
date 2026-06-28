@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 import time
+from functools import lru_cache
 
 from PyQt6.QtCore import QObject, QProcess, QTimer, pyqtSignal
 
@@ -15,6 +16,70 @@ from monitorize.config.settings import (
 )
 from monitorize.platform.utils import LINUX_DIR
 from monitorize.config.validation import normalize_host, sanitize_decoder, sanitize_port, valid_host, valid_port
+
+
+COMPRESSED_QUEUE = [
+    "queue", "max-size-buffers=3", "max-size-time=0", "max-size-bytes=4194304",
+]
+RAW_DROP_QUEUE = [
+    "queue", "max-size-buffers=1", "max-size-time=0", "max-size-bytes=0",
+    "leaky=downstream",
+]
+PARSED_H264_CAPS = "video/x-h264,stream-format=byte-stream,alignment=au"
+SINK_PROPS = {
+    "sync": "false",
+    "async": "false",
+    "qos": "true",
+    "enable-last-sample": "false",
+    "force-aspect-ratio": "false",
+    "max-lateness": "20000000",
+}
+SINK_EXTRA_PROPS = {
+    "xvimagesink": {"double-buffer": "true", "draw-borders": "true"},
+}
+SOFTWARE_DECODER_PROPS = {
+    "max-threads": "2",
+    "thread-type": "slice",
+    "output-corrupt": "false",
+    "discard-corrupted-frames": "true",
+    "automatic-request-sync-points": "true",
+}
+
+
+@lru_cache(maxsize=64)
+def _gst_element_properties(element):
+    try:
+        result = subprocess.run(
+            ["gst-inspect-1.0", element],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except Exception:
+        return set()
+    if result.returncode != 0:
+        return set()
+    properties = set()
+    in_properties = False
+    for line in result.stdout.splitlines():
+        if line.strip() == "Element Properties:":
+            in_properties = True
+            continue
+        if not in_properties:
+            continue
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if not line.startswith("  "):
+            break
+        name = stripped.split(":", 1)[0].strip()
+        if name:
+            properties.add(name)
+    return properties
+
+
+def _gst_has_property(element, prop):
+    return prop in _gst_element_properties(element)
 
 
 class ReceiverController(QObject):
@@ -44,6 +109,11 @@ class ReceiverController(QObject):
         self.stable_generation = None
         self.stable_process = None
         self.retry_generation = None
+        self.receiver_host = ""
+        self.receiver_port = 0
+        self.pipeline_fallback_used = False
+        self.sink_candidates = []
+        self.sink_index = 0
         self.stable_timer = QTimer(self)
         self.stable_timer.setSingleShot(True)
         self.stable_timer.timeout.connect(
@@ -80,7 +150,10 @@ class ReceiverController(QObject):
         self.fingerprint = fingerprint
         self.pairing_code = pairing_code
         self.decoder = decoder
-        self.sink = "glimagesink" if gst_has_element("glimagesink") else "autovideosink"
+        self.sink_candidates = self._sink_candidates()
+        self.sink_index = 0
+        self.sink = self.sink_candidates[0]
+        self.pipeline_fallback_used = False
         if decoder == "Hardware":
             hardware = next((
                 name for name in ("vah264dec", "vaapih264dec")
@@ -97,7 +170,7 @@ class ReceiverController(QObject):
             self.decoder_args = [hardware]
             self.decoder_label = f"VA-API {hardware}"
         else:
-            self.decoder_args = ["avdec_h264", "max-threads=1", "thread-type=slice"]
+            self.decoder_args = self._software_decoder_args()
             self.decoder_label = "Software avdec_h264"
         self.retry_count = 0
         self.retry_pending = False
@@ -143,6 +216,8 @@ class ReceiverController(QObject):
         generation = self.generation if generation is None else generation
         if self.stopping or generation != self.generation:
             return
+        self.receiver_host = host
+        self.receiver_port = port
         self.attempt_started = time.monotonic()
         self.process = QProcess(self)
         process = self.process
@@ -159,14 +234,66 @@ class ReceiverController(QObject):
         )
         args = [
             "-e", "tcpclientsrc", f"host={host}", f"port={port}", "!",
-            "h264parse", "!", "queue", "max-size-buffers=1",
-            "max-size-time=0", "max-size-bytes=0", "leaky=downstream", "!",
-            *self.decoder_args, "!", "queue", "max-size-buffers=1",
-            "max-size-time=0", "max-size-bytes=0", "leaky=downstream", "!",
-            self.sink, "sync=false",
+            "h264parse", "disable-passthrough=true", "config-interval=-1", "!",
+            PARSED_H264_CAPS, "!",
+            *COMPRESSED_QUEUE, "!",
+            *self.decoder_args, "!",
+            *RAW_DROP_QUEUE, "!",
+            *self._sink_args(self.sink),
         ]
         self.logAppended.emit(f"Decoder: {self.decoder_label}; sink: {self.sink}")
         self.process.start("gst-launch-1.0", args)
+
+    def _sink_candidates(self):
+        candidates = ["glimagesink"]
+        session = os.environ.get("XDG_SESSION_TYPE", "").lower()
+        if session == "wayland" or os.environ.get("WAYLAND_DISPLAY"):
+            candidates.append("waylandsink")
+        if session == "x11" or os.environ.get("DISPLAY"):
+            candidates.extend(["xvimagesink", "ximagesink"])
+        candidates.append("autovideosink")
+        seen = set()
+        available = []
+        for sink in candidates:
+            if sink in seen:
+                continue
+            seen.add(sink)
+            if sink == "autovideosink" or gst_has_element(sink):
+                available.append(sink)
+        return available or ["autovideosink"]
+
+    def _sink_args(self, sink):
+        props = dict(SINK_PROPS)
+        props.update(SINK_EXTRA_PROPS.get(sink, {}))
+        args = [sink]
+        for name, value in props.items():
+            if _gst_has_property(sink, name):
+                args.append(f"{name}={value}")
+        return args
+
+    def _software_decoder_args(self):
+        args = ["avdec_h264"]
+        for name, value in SOFTWARE_DECODER_PROPS.items():
+            if _gst_has_property("avdec_h264", name):
+                args.append(f"{name}={value}")
+        return args
+
+    def _use_receiver_fallback(self):
+        if self.pipeline_fallback_used:
+            return False
+        self.pipeline_fallback_used = True
+        if self.sink_index + 1 < len(self.sink_candidates):
+            self.sink_index += 1
+            self.sink = self.sink_candidates[self.sink_index]
+        self.decoder_args = self._software_decoder_args()
+        self.decoder_label = "Software avdec_h264"
+        self.logAppended.emit(
+            f"Receiver pipeline failed immediately; retrying with "
+            f"{self.decoder_label}; sink: {self.sink}"
+        )
+        self.process = None
+        self._launch_pipeline(self.receiver_host, self.receiver_port, self.generation)
+        return True
 
     def _started(self, process=None, generation=None):
         process = self.process if process is None else process
@@ -258,6 +385,14 @@ class ReceiverController(QObject):
         self.logAppended.emit(f"Receiver process exited (code {code})")
         self.stable_timer.stop()
         elapsed = time.monotonic() - self.attempt_started
+        if (
+            code
+            and not self.stopping
+            and not self.receiving
+            and elapsed < 2
+            and self._use_receiver_fallback()
+        ):
+            return
         max_retries = 30 if self.receiving else 10
         if (
             not self.stopping
@@ -291,6 +426,7 @@ class ReceiverController(QObject):
         self.process = self.tls_process = None
         self.tls_buffer = ""
         self.auth_failed = self.retry_pending = False
+        self.pipeline_fallback_used = False
         self.stable_generation = self.stable_process = self.retry_generation = None
         kill_patterns("gst-launch-1.0.*tcpclientsrc")
         self._uninhibit_sleep()
