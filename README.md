@@ -9,12 +9,14 @@
 </div>
 
 <<<<<<< HEAD
+
 > **Project Status: Is stable & Actively Being Developed**
 > Fully functional on KDE, Hyprland and GNOME.
-=======
+> =======
 > **Project Status: Stable & Actively Being Developed**
-> Supported on KDE, Hyprland and GNOME. Sway is WIP.
->>>>>>> 646f271f591cada3245263f9eed696bc9979d9c6
+> Supported on KDE, Hyprland and GNOME.
+> 
+> > > > > > > 646f271f591cada3245263f9eed696bc9979d9c6
 
 ---
 
@@ -36,10 +38,10 @@ Supported desktop environments are KDE Plasma, Hyprland and GNOME.
 
 ## 🛠️ Requirements:
 
-| Android               | Desktop                                         |
-| --------------------- | ----------------------------------------------- |
-| Android 9+            | KDE (6.7+), Hyprland, GNOME (50+)               |
-| Wi-Fi / USB Debugging | Tested on: Arch, fedora.                        |
+| Android               | Desktop                           |
+| --------------------- | --------------------------------- |
+| Android 9+            | KDE (6.7+), Hyprland, GNOME (50+) |
+| Wi-Fi / USB Debugging | Tested on: Arch, fedora.          |
 
 ---
 
@@ -345,9 +347,9 @@ Or:
 - [x] Stable gnome.
 
 - [x] use laptop as second screen.
-      
-- [x] triple monitor setup (KDE & Hyprland).
-      
+
+- [ ] triple monitor setup (KDE & Hyprland).
+
 - [ ] Stable nvidia encoder (waiting for driver 610.x which implemented proper DMA BUF).
 
 - [ ] Flathub distribution.
