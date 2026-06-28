@@ -8,11 +8,6 @@
 
 </div>
 
-> **Project Status: Stable & Actively Being Developed**
-> Supported on KDE, Hyprland and GNOME.
-
----
-
 ## Screenshots
 
 <div align="center">
