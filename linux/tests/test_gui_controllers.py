@@ -322,20 +322,109 @@ class ValidationTest(unittest.TestCase):
 
 
 class ReceiverControllerTest(unittest.TestCase):
-    def test_pipeline_keeps_low_latency_queue_and_selected_decoder(self):
+    def test_pipeline_preserves_compressed_frames_and_drops_only_after_decode(self):
         controller = ReceiverController("kde", Mock())
         controller.decoder_args = ["vah264dec"]
         controller.decoder_label = "VA-API"
-        controller.sink = "glimagesink"
+        controller.sink = "xvimagesink"
         process = process_mock()
-        with patch("monitorize.desktop.receiver_controller.QProcess", return_value=process):
+        with (
+            patch("monitorize.desktop.receiver_controller.QProcess", return_value=process),
+            patch(
+                "monitorize.desktop.receiver_controller._gst_has_property",
+                return_value=True,
+            ),
+        ):
             controller._launch_pipeline("10.0.0.2", 7114)
         command, args = process.start.call_args.args
         self.assertEqual(command, "gst-launch-1.0")
         self.assertIn("vah264dec", args)
-        self.assertIn("leaky=downstream", args)
+        self.assertIn("disable-passthrough=true", args)
+        self.assertIn("config-interval=-1", args)
+        self.assertIn("video/x-h264,stream-format=byte-stream,alignment=au", args)
+        decoder_index = args.index("vah264dec")
+        first_queue_index = args.index("queue")
+        self.assertLess(first_queue_index, decoder_index)
+        self.assertNotIn("leaky=downstream", args[first_queue_index:decoder_index])
+        self.assertIn("leaky=downstream", args[decoder_index:])
         self.assertIn("sync=false", args)
+        self.assertIn("async=false", args)
+        self.assertIn("force-aspect-ratio=false", args)
         self.assertIn("port=7114", args)
+
+    def test_software_decoder_discards_corrupt_output_when_supported(self):
+        controller = ReceiverController("kde", Mock())
+        with patch(
+            "monitorize.desktop.receiver_controller._gst_has_property",
+            return_value=True,
+        ):
+            args = controller._software_decoder_args()
+        self.assertEqual(args[0], "avdec_h264")
+        self.assertIn("output-corrupt=false", args)
+        self.assertIn("discard-corrupted-frames=true", args)
+        self.assertIn("automatic-request-sync-points=true", args)
+        self.assertIn("max-threads=2", args)
+
+    def test_sink_selection_prefers_native_wayland_then_gl(self):
+        controller = ReceiverController("kde", Mock())
+        with (
+            patch.dict(os.environ, {"XDG_SESSION_TYPE": "wayland", "WAYLAND_DISPLAY": "wayland-0"}, clear=True),
+            patch(
+                "monitorize.desktop.receiver_controller.gst_has_element",
+                side_effect=lambda name: name in {"gtkwaylandsink", "glimagesink"},
+            ),
+        ):
+            self.assertEqual(
+                controller._sink_candidates(),
+                ["gtkwaylandsink", "glimagesink", "autovideosink"],
+            )
+
+    def test_sink_selection_prefers_native_x11_then_gl(self):
+        controller = ReceiverController("kde", Mock())
+        with (
+            patch.dict(os.environ, {"XDG_SESSION_TYPE": "x11", "DISPLAY": ":0"}, clear=True),
+            patch(
+                "monitorize.desktop.receiver_controller.gst_has_element",
+                side_effect=lambda name: name in {"xvimagesink", "ximagesink", "glimagesink"},
+            ),
+        ):
+            self.assertEqual(
+                controller._sink_candidates(),
+                ["xvimagesink", "ximagesink", "glimagesink", "autovideosink"],
+            )
+
+    def test_sink_args_only_include_supported_properties_and_stretch(self):
+        controller = ReceiverController("kde", Mock())
+        with patch(
+            "monitorize.desktop.receiver_controller._gst_has_property",
+            side_effect=lambda _element, prop: prop in {"sync", "force-aspect-ratio"},
+        ):
+            args = controller._sink_args("glimagesink")
+        self.assertEqual(args, ["glimagesink", "sync=false", "force-aspect-ratio=false"])
+
+    def test_immediate_receiver_failure_retries_once_with_fallback_pipeline(self):
+        controller = ReceiverController("kde", Mock())
+        controller.generation = 4
+        controller.host = "10.0.0.2"
+        controller.port = 7110
+        controller.receiver_host = "10.0.0.2"
+        controller.receiver_port = 7110
+        controller.sink_candidates = ["glimagesink", "autovideosink"]
+        controller.sink_index = 0
+        controller.sink = "glimagesink"
+        controller.decoder_args = ["vah264dec"]
+        controller.decoder_label = "VA-API"
+        controller.process = process_mock()
+        controller.attempt_started = __import__("time").monotonic()
+        with (
+            patch.object(controller, "_launch_pipeline") as launch,
+            patch.object(controller, "_software_decoder_args", return_value=["avdec_h264"]),
+        ):
+            controller._finished(1, None, controller.process, generation=4)
+        launch.assert_called_once_with("10.0.0.2", 7110, 4)
+        self.assertEqual(controller.sink, "autovideosink")
+        self.assertEqual(controller.decoder_args, ["avdec_h264"])
+        self.assertTrue(controller.pipeline_fallback_used)
 
     def test_stale_credentials_request_pairing_again(self):
         controller = ReceiverController("kde", Mock())
