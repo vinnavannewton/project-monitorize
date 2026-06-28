@@ -7,6 +7,16 @@ Item {
 
     property var allLogs: []
 
+    focus: true
+    Keys.onEscapePressed: backend.stopReceiving()
+
+    Component.onCompleted: {
+        forceActiveFocus()
+        videoHost.createVideoItem()
+    }
+
+    Component.onDestruction: backend.setReceiverVideoItem(null)
+
     Connections {
         target: backend
         function onReceiverLogAppended(msg) {
@@ -16,176 +26,121 @@ Item {
 
     function appendLog(msg) {
         allLogs.push(msg)
-        updateLogDisplay()
-    }
-
-    function updateLogDisplay() {
-        let text = ""
-        for (let i = 0; i < allLogs.length; i++) {
-            let logMsg = allLogs[i]
-            let msgColor = "#e2e8f0"
-            let lowerMsg = logMsg.toLowerCase()
-            if (lowerMsg.includes("error") || lowerMsg.includes("failed")) {
-                msgColor = "#fca5a5"
-            } else if (lowerMsg.includes("connected") || lowerMsg.includes("playing") || lowerMsg.includes("receiving")) {
-                msgColor = "#86efac"
-            } else if (lowerMsg.includes("connecting") || lowerMsg.includes("waiting")) {
-                msgColor = "#fde047"
-            }
-            text += "<b><font color='#60a5fa'>[RECEIVER]</font></b> &nbsp;<font color='" + msgColor + "'>" + logMsg + "</font><br>"
+        if (allLogs.length > 8) {
+            allLogs.shift()
         }
-        logArea.text = text
-        logScrollView.contentItem.contentY = Math.max(0, logArea.implicitHeight - logScrollView.height)
+        logArea.text = allLogs.join("\n")
     }
 
-    ColumnLayout {
+    Rectangle {
         anchors.fill: parent
-        spacing: 14
+        color: "#000000"
+    }
 
-        // Top Status Card
-        Rectangle {
-            Layout.fillWidth: true
-            implicitHeight: 60
-            radius: theme.cardRadius
-            color: theme.surface
-            border.color: theme.border
-            border.width: 1
+    HoverHandler {
+        id: overlayHover
+    }
 
-            RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: 20
-                anchors.rightMargin: 20
-                spacing: 20
+    Item {
+        id: videoHost
+        anchors.fill: parent
+        property var videoItem: null
 
-                // Pulsing Active Indicator
-                Rectangle {
-                    width: 12
-                    height: 12
-                    radius: 6
-                    color: theme.accent
-
-                    SequentialAnimation on opacity {
-                        running: backend.isReceiving
-                        loops: Animation.Infinite
-                        NumberAnimation { from: 0.3; to: 1.0; duration: 800 }
-                        NumberAnimation { from: 1.0; to: 0.3; duration: 800 }
-                    }
-                }
-
-                Text {
-                    text: "Receiving Stream"
-                    font.pixelSize: 18
-                    font.weight: Font.Bold
-                    color: theme.accent
-                }
-
-                Text {
-                    text: backend.receiverStatus
-                    font.pixelSize: 13
-                    color: theme.cardTextSecondary
-                    Layout.fillWidth: true
-                }
+        function createVideoItem() {
+            if (videoItem !== null) {
+                backend.setReceiverVideoItem(videoItem)
+                return
+            }
+            try {
+                videoItem = Qt.createQmlObject(
+                    "import QtQuick\n" +
+                    "import org.freedesktop.gstreamer.Qt6GLVideoItem 1.0\n" +
+                    "GstGLQt6VideoItem {" +
+                    "    objectName: \"receiverVideoItem\";" +
+                    "    anchors.fill: parent;" +
+                    "    forceAspectRatio: false;" +
+                    "    acceptEvents: false" +
+                    "}",
+                    videoHost,
+                    "receiverVideoItem"
+                )
+                backend.setReceiverVideoItem(videoItem)
+            } catch (err) {
+                backend.setReceiverVideoItem(null)
+                page.appendLog("Embedded video unavailable; using fallback player window.")
+                page.appendLog(String(err))
             }
         }
+    }
 
-        // Info card
-        Rectangle {
-            Layout.fillWidth: true
-            implicitHeight: infoCol.implicitHeight + 20
-            radius: 8
-            color: theme.surfaceAlt
-            border.color: theme.border
-            border.width: 1
+    Rectangle {
+        id: topBar
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        height: 56
+        color: "#aa000000"
+        visible: overlayHover.hovered || backend.receiverStatus.indexOf("Receiving from") !== 0
 
-            ColumnLayout {
-                id: infoCol
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-                anchors.margins: 16
-                spacing: 6
-
-                Text {
-                    text: "Connected to: " + backend.receiverHostIp
-                    font.pixelSize: 14
-                    font.weight: Font.Bold
-                    color: theme.cardTextPrimary
-                }
-                Text {
-                    text: "The GStreamer player window should appear. Press Esc in that window to close it."
-                    font.pixelSize: 12
-                    color: theme.cardTextMuted
-                    wrapMode: Text.Wrap
-                    Layout.fillWidth: true
-                }
-            }
-        }
-
-        // Log Box Container
-        Rectangle {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            color: theme.logBoxBackground
-            border.color: theme.border
-            border.width: 1
-            radius: 8
-
-            ScrollView {
-                id: logScrollView
-                anchors.fill: parent
-                anchors.margins: 10
-                clip: true
-
-                TextEdit {
-                    id: logArea
-                    textFormat: Text.RichText
-                    font.family: "Fira Code, JetBrains Mono, DejaVu Sans Mono, Consolas, monospace"
-                    font.pixelSize: 12
-                    color: theme.cardTextPrimary
-                    readOnly: true
-                    selectByMouse: true
-                    wrapMode: TextEdit.WrapAnywhere
-                    leftPadding: 8
-                    rightPadding: 8
-                    topPadding: 8
-                    bottomPadding: 8
-
-                    onImplicitHeightChanged: {
-                        logScrollView.contentItem.contentY = Math.max(0, implicitHeight - logScrollView.height)
-                    }
-
-                }
-            }
-        }
-
-        // Bottom control
         RowLayout {
-            spacing: 12
-            Layout.alignment: Qt.AlignLeft
-            Layout.bottomMargin: 10
+            anchors.fill: parent
+            anchors.leftMargin: 18
+            anchors.rightMargin: 18
+            spacing: 14
+
+            Rectangle {
+                width: 10
+                height: 10
+                radius: 5
+                color: backend.receiverStatus.indexOf("Receiving from") === 0 ? "#22c55e" : "#facc15"
+            }
+
+            Text {
+                text: backend.receiverStatus
+                color: "#f8fafc"
+                font.pixelSize: 13
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+            }
 
             Button {
-                text: "⏹ Disconnect"
-                onClicked: {
-                    allLogs = []
-                    backend.stopReceiving()
-                }
+                text: "Disconnect"
+                onClicked: backend.stopReceiving()
                 background: Rectangle {
-                    implicitWidth: 150
-                    implicitHeight: 38
-                    color: parent.down ? "#5a1010" : (parent.hovered ? "#c42830" : "#a82028")
-                    radius: 8
-                    Behavior on color { ColorAnimation { duration: 150 } }
+                    implicitWidth: 116
+                    implicitHeight: 34
+                    color: parent.down ? "#7f1d1d" : (parent.hovered ? "#b91c1c" : "#991b1b")
+                    radius: 6
                 }
                 contentItem: Text {
                     text: parent.text
                     color: "#ffffff"
-                    font.pixelSize: 13
+                    font.pixelSize: 12
                     font.weight: Font.Bold
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
             }
+        }
+    }
+
+    Rectangle {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        height: logArea.text.length > 0 && overlayHover.hovered ? 96 : 0
+        color: "#aa000000"
+        clip: true
+
+        Text {
+            id: logArea
+            anchors.fill: parent
+            anchors.margins: 12
+            color: "#cbd5e1"
+            font.family: "Fira Code, JetBrains Mono, DejaVu Sans Mono, Consolas, monospace"
+            font.pixelSize: 11
+            elide: Text.ElideRight
+            wrapMode: Text.WrapAnywhere
         }
     }
 }

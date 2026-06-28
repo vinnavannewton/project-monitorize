@@ -6,7 +6,9 @@ import sys
 import time
 from functools import lru_cache
 
+from PyQt6 import sip
 from PyQt6.QtCore import QObject, QProcess, QTimer, pyqtSignal
+from PyQt6.QtGui import QGuiApplication
 
 from monitorize.platform.process_utils import gst_has_element, kill_patterns, stop_processes
 from monitorize.config.settings import (
@@ -35,8 +37,10 @@ SINK_PROPS = {
     "max-lateness": "20000000",
 }
 SINK_EXTRA_PROPS = {
+    "waylandsink": {"fullscreen": "true"},
     "xvimagesink": {"double-buffer": "true", "draw-borders": "true"},
 }
+EMBEDDED_SINK = "qml6glsink"
 SOFTWARE_DECODER_PROPS = {
     "max-threads": "2",
     "thread-type": "slice",
@@ -44,6 +48,28 @@ SOFTWARE_DECODER_PROPS = {
     "discard-corrupted-frames": "true",
     "automatic-request-sync-points": "true",
 }
+
+_GST = None
+_GST_IMPORT_ERROR = None
+
+
+def _load_gst():
+    global _GST, _GST_IMPORT_ERROR
+    if _GST is not None:
+        return _GST
+    if _GST_IMPORT_ERROR is not None:
+        raise _GST_IMPORT_ERROR
+    try:
+        import gi
+        gi.require_version("Gst", "1.0")
+        from gi.repository import Gst
+
+        Gst.init(None)
+        _GST = Gst
+        return Gst
+    except Exception as exc:
+        _GST_IMPORT_ERROR = exc
+        raise
 
 
 @lru_cache(maxsize=64)
@@ -112,6 +138,13 @@ class ReceiverController(QObject):
         self.receiver_host = ""
         self.receiver_port = 0
         self.pipeline_fallback_used = False
+        self.stable = False
+        self.video_item = None
+        self.pending_launch = None
+        self.gst_pipeline = None
+        self.gst_bus = None
+        self.gst_generation = None
+        self.embedded_available = None
         self.sink_candidates = []
         self.sink_index = 0
         self.stable_timer = QTimer(self)
@@ -122,6 +155,12 @@ class ReceiverController(QObject):
         self.retry_timer = QTimer(self)
         self.retry_timer.setSingleShot(True)
         self.retry_timer.timeout.connect(lambda: self._start_attempt(self.retry_generation))
+        self.surface_timer = QTimer(self)
+        self.surface_timer.setSingleShot(True)
+        self.surface_timer.timeout.connect(self._surface_wait_expired)
+        self.gst_bus_timer = QTimer(self)
+        self.gst_bus_timer.setInterval(50)
+        self.gst_bus_timer.timeout.connect(self._poll_gst_bus)
 
     def _set_receiving(self, value):
         self.receiving = value
@@ -144,6 +183,7 @@ class ReceiverController(QObject):
         self.generation += 1
         generation = self.generation
         self.stopping = False
+        self.stable = False
         self.host = host
         self.port = port
         self.encrypted = encrypted
@@ -177,9 +217,22 @@ class ReceiverController(QObject):
         self.auth_failed = False
         self.host_label = f"{host}:{port}"
         self.hostChanged.emit(self.host_label)
+        if not encrypted:
+            self._set_receiving(True)
         self._set_status(f"Connecting to {host}:{port}…")
         self.logAppended.emit(f"Connecting to {host} on port {port}…")
         self._start_attempt(generation)
+
+    def set_video_item(self, item):
+        self.video_item = item
+        if item is None:
+            return
+        if self.pending_launch is None:
+            return
+        host, port, generation = self.pending_launch
+        self.pending_launch = None
+        self.surface_timer.stop()
+        self._launch_pipeline(host, port, generation)
 
     def _start_attempt(self, generation=None):
         generation = self.generation if generation is None else generation
@@ -216,6 +269,106 @@ class ReceiverController(QObject):
         generation = self.generation if generation is None else generation
         if self.stopping or generation != self.generation:
             return
+        if self.video_item is not None and self._embedded_sink_available():
+            try:
+                self._launch_embedded_pipeline(host, port, generation)
+                return
+            except Exception as exc:
+                self.logAppended.emit(
+                    f"Embedded receiver failed; falling back to player window: {exc}"
+                )
+                self._stop_gst_pipeline()
+        if self.video_item is None and self._should_wait_for_embedded_surface():
+            self.pending_launch = (host, port, generation)
+            self._set_status("Preparing fullscreen receiver…")
+            self.logAppended.emit("Preparing fullscreen receiver surface…")
+            self.surface_timer.start(1500)
+            return
+        self._launch_external_pipeline(host, port, generation)
+
+    def _surface_wait_expired(self):
+        if self.pending_launch is None:
+            return
+        host, port, generation = self.pending_launch
+        self.pending_launch = None
+        if self.stopping or generation != self.generation:
+            return
+        self.logAppended.emit(
+            "Fullscreen receiver surface was not ready; using fallback player window."
+        )
+        self._launch_external_pipeline(host, port, generation)
+
+    def _embedded_sink_available(self):
+        if self.embedded_available is not None:
+            return self.embedded_available
+        try:
+            Gst = _load_gst()
+            sink = Gst.ElementFactory.make(EMBEDDED_SINK)
+            self.embedded_available = bool(
+                sink is not None and sink.find_property("widget") is not None
+            )
+        except Exception:
+            self.embedded_available = False
+        return self.embedded_available
+
+    def _should_wait_for_embedded_surface(self):
+        app = QGuiApplication.instance()
+        return isinstance(app, QGuiApplication) and self._embedded_sink_available()
+
+    def _launch_embedded_pipeline(self, host, port, generation):
+        self.receiver_host = host
+        self.receiver_port = port
+        self.attempt_started = time.monotonic()
+        self._stop_gst_pipeline()
+        Gst = _load_gst()
+        description = self._embedded_pipeline_description(host, port)
+        pipeline = Gst.parse_launch(description)
+        sink = pipeline.get_by_name("receiver_sink")
+        if sink is None:
+            raise RuntimeError("embedded receiver sink was not created")
+        self._bind_embedded_sink(sink)
+        bus = pipeline.get_bus()
+        result = pipeline.set_state(Gst.State.PLAYING)
+        if result == Gst.StateChangeReturn.FAILURE:
+            pipeline.set_state(Gst.State.NULL)
+            raise RuntimeError("GStreamer refused to start embedded receiver pipeline")
+        self.gst_pipeline = pipeline
+        self.gst_bus = bus
+        self.gst_generation = generation
+        self.gst_bus_timer.start()
+        self.logAppended.emit(f"Decoder: {self.decoder_label}; sink: {EMBEDDED_SINK}")
+        self._started(pipeline, generation)
+
+    def _embedded_pipeline_description(self, host, port):
+        sink_args = self._sink_args(EMBEDDED_SINK)
+        sink_args[0] = f"{EMBEDDED_SINK}"
+        sink_args.append("name=receiver_sink")
+        parts = [
+            "tcpclientsrc", f"host={host}", f"port={port}", "!",
+            "h264parse", "disable-passthrough=true", "config-interval=-1", "!",
+            PARSED_H264_CAPS, "!",
+            *COMPRESSED_QUEUE, "!",
+            *self.decoder_args, "!",
+            *RAW_DROP_QUEUE, "!",
+            "videoconvert", "!",
+            "glupload", "!",
+            "glcolorconvert", "!",
+            *sink_args,
+        ]
+        return " ".join(parts)
+
+    def _bind_embedded_sink(self, sink):
+        if self.video_item is None:
+            raise RuntimeError("receiver video surface is not available")
+        try:
+            sink.set_property("widget", self.video_item)
+        except Exception:
+            sink.set_property("widget", int(sip.unwrapinstance(self.video_item)))
+
+    def _launch_external_pipeline(self, host, port, generation=None):
+        generation = self.generation if generation is None else generation
+        if self.stopping or generation != self.generation:
+            return
         self.receiver_host = host
         self.receiver_port = port
         self.attempt_started = time.monotonic()
@@ -245,10 +398,16 @@ class ReceiverController(QObject):
         self.process.start("gst-launch-1.0", args)
 
     def _sink_candidates(self):
-        candidates = ["glimagesink"]
+        candidates = []
         session = os.environ.get("XDG_SESSION_TYPE", "").lower()
         if session == "wayland" or os.environ.get("WAYLAND_DISPLAY"):
-            candidates.append("waylandsink")
+            if self._prefer_windowless_external_sink():
+                candidates.append("waylandsink")
+            candidates.append("glimagesink")
+            if not self._prefer_windowless_external_sink():
+                candidates.append("waylandsink")
+        else:
+            candidates.append("glimagesink")
         if session == "x11" or os.environ.get("DISPLAY"):
             candidates.extend(["xvimagesink", "ximagesink"])
         candidates.append("autovideosink")
@@ -261,6 +420,10 @@ class ReceiverController(QObject):
             if sink == "autovideosink" or gst_has_element(sink):
                 available.append(sink)
         return available or ["autovideosink"]
+
+    def _prefer_windowless_external_sink(self):
+        app = QGuiApplication.instance()
+        return isinstance(app, QGuiApplication)
 
     def _sink_args(self, sink):
         props = dict(SINK_PROPS)
@@ -292,7 +455,7 @@ class ReceiverController(QObject):
             f"{self.decoder_label}; sink: {self.sink}"
         )
         self.process = None
-        self._launch_pipeline(self.receiver_host, self.receiver_port, self.generation)
+        self._launch_external_pipeline(self.receiver_host, self.receiver_port, self.generation)
         return True
 
     def _started(self, process=None, generation=None):
@@ -309,14 +472,54 @@ class ReceiverController(QObject):
     def _mark_stable(self, generation=None, process=None):
         generation = self.generation if generation is None else generation
         process = self.process if process is None else process
-        if generation != self.generation or process is not self.process:
+        if (
+            generation != self.generation
+            or (process is not self.process and process is not self.gst_pipeline)
+        ):
             return
-        if process and process.state() == QProcess.ProcessState.Running:
+        running = (
+            process and (
+                process is self.gst_pipeline
+                or process.state() == QProcess.ProcessState.Running
+            )
+        )
+        if running:
             self._inhibit_sleep()
             self.retry_count = 0
+            self.stable = True
             self._set_receiving(True)
             self._set_status(f"Receiving from {self.host}:{self.port}")
-            self.logAppended.emit("Stream connected and stable.")
+            self.logAppended.emit("Stream connected in fullscreen receiver.")
+
+    def _poll_gst_bus(self):
+        if self.gst_pipeline is None or self.gst_bus is None:
+            self.gst_bus_timer.stop()
+            return
+        Gst = _load_gst()
+        while True:
+            message = self.gst_bus.pop()
+            if message is None:
+                break
+            generation = self.gst_generation
+            if generation != self.generation:
+                continue
+            if message.type == Gst.MessageType.ERROR:
+                error, debug = message.parse_error()
+                self.logAppended.emit(f"Receiver pipeline error: {error.message}")
+                if debug:
+                    self.logAppended.emit(debug)
+                self._embedded_finished(1, generation)
+                break
+            if message.type == Gst.MessageType.EOS:
+                self._embedded_finished(0, generation)
+                break
+            if message.type == Gst.MessageType.NEW_CLOCK and not self.stable:
+                self._mark_stable(generation, self.gst_pipeline)
+
+    def _embedded_finished(self, code, generation):
+        pipeline = self.gst_pipeline
+        self._finished(code, None, pipeline, generation)
+        self._stop_gst_pipeline()
 
     def _read_tls(self, process=None, generation=None):
         process = self.tls_process if process is None else process
@@ -331,6 +534,7 @@ class ReceiverController(QObject):
         self.tls_buffer = lines.pop() if not self.tls_buffer.endswith("\n") else ""
         for line in lines:
             if line == "[TLS RECEIVER] READY" and self.process is None:
+                self._set_receiving(True)
                 self._launch_pipeline("127.0.0.1", 17110, generation)
             elif line.startswith("[TLS RECEIVER] CREDENTIALS "):
                 fingerprint, token = line.removeprefix(
@@ -380,7 +584,10 @@ class ReceiverController(QObject):
     def _finished(self, code, _status, process=None, generation=None):
         process = self.process if process is None else process
         generation = self.generation if generation is None else generation
-        if generation != self.generation or process is not self.process:
+        if (
+            generation != self.generation
+            or (process is not self.process and process is not self.gst_pipeline)
+        ):
             return
         self.logAppended.emit(f"Receiver process exited (code {code})")
         self.stable_timer.stop()
@@ -388,15 +595,15 @@ class ReceiverController(QObject):
         if (
             code
             and not self.stopping
-            and not self.receiving
+            and not self.stable
             and elapsed < 2
             and self._use_receiver_fallback()
         ):
             return
-        max_retries = 30 if self.receiving else 10
+        max_retries = 30 if self.stable else 10
         if (
             not self.stopping
-            and (self.receiving or elapsed < 2)
+            and (self.stable or elapsed < 2)
             and self.retry_count < max_retries - 1
         ):
             self.retry_count += 1
@@ -411,17 +618,22 @@ class ReceiverController(QObject):
             self.retry_generation = generation
             self.retry_timer.start(1000)
             return
-        if self.receiving:
+        if self.stable:
             self._set_status("Disconnected")
             self.logAppended.emit("Stream ended. Click Disconnect to return.")
         else:
             self._set_status("Unable to start stream after 10 attempts")
+            self._set_receiving(False)
 
     def stop(self):
         self.generation += 1
         self.stopping = True
+        self.stable = False
         self.stable_timer.stop()
         self.retry_timer.stop()
+        self.surface_timer.stop()
+        self.pending_launch = None
+        self._stop_gst_pipeline()
         stop_processes(self.process, self.tls_process)
         self.process = self.tls_process = None
         self.tls_buffer = ""
@@ -431,6 +643,20 @@ class ReceiverController(QObject):
         kill_patterns("gst-launch-1.0.*tcpclientsrc")
         self._uninhibit_sleep()
         self._set_receiving(False)
+
+    def _stop_gst_pipeline(self):
+        self.gst_bus_timer.stop()
+        pipeline = self.gst_pipeline
+        self.gst_pipeline = None
+        self.gst_bus = None
+        self.gst_generation = None
+        if pipeline is None:
+            return
+        try:
+            Gst = _load_gst()
+            pipeline.set_state(Gst.State.NULL)
+        except Exception:
+            pass
 
     def _inhibit_sleep(self):
         try:

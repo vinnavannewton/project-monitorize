@@ -51,6 +51,9 @@ class MonitorizeWindow(QMainWindow):
         self.de = detect_desktop_environment() or self._ask_desktop_environment()
         self.backend = MonitorizeBackend(self.de, self)
         self.backend.configureDisplayRequested.connect(self._configure_display)
+        self.backend.isReceivingChanged.connect(self._sync_receiver_fullscreen)
+        self.receiver_was_fullscreen = False
+        self.receiver_saved_geometry = None
         self._setup_tray()
         self.quick_widget = QQuickWidget(self)
         self.quick_widget.setResizeMode(
@@ -63,6 +66,19 @@ class MonitorizeWindow(QMainWindow):
         for error in self.quick_widget.errors():
             print(error.toString())
         self.setCentralWidget(self.quick_widget)
+
+    def _sync_receiver_fullscreen(self, receiving):
+        if receiving:
+            self.receiver_was_fullscreen = self.isFullScreen()
+            self.receiver_saved_geometry = self.saveGeometry()
+            self.showFullScreen()
+            return
+        if self.receiver_was_fullscreen:
+            return
+        self.showNormal()
+        if self.receiver_saved_geometry:
+            self.restoreGeometry(self.receiver_saved_geometry)
+        self.receiver_saved_geometry = None
 
     def _setup_tray(self):
         self.tray = QSystemTrayIcon(self)

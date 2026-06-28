@@ -352,6 +352,75 @@ class ReceiverControllerTest(unittest.TestCase):
         self.assertIn("force-aspect-ratio=false", args)
         self.assertIn("port=7114", args)
 
+    def test_embedded_pipeline_uses_qt6_video_sink(self):
+        controller = ReceiverController("kde", Mock())
+        controller.decoder_args = ["avdec_h264"]
+        with patch(
+            "monitorize.desktop.receiver_controller._gst_has_property",
+            return_value=True,
+        ):
+            description = controller._embedded_pipeline_description("10.0.0.2", 7110)
+        self.assertIn("qml6glsink", description)
+        self.assertIn("name=receiver_sink", description)
+        self.assertIn("glupload", description)
+        self.assertIn("glcolorconvert", description)
+        self.assertIn("force-aspect-ratio=false", description)
+
+    def test_receiver_waits_for_embedded_video_surface(self):
+        controller = ReceiverController("kde", Mock())
+        controller.decoder_args = ["avdec_h264"]
+        controller.decoder_label = "Software"
+        with (
+            patch.object(controller, "_should_wait_for_embedded_surface", return_value=True),
+            patch.object(controller, "_launch_external_pipeline") as external,
+        ):
+            controller._launch_pipeline("10.0.0.2", 7110, generation=0)
+        external.assert_not_called()
+        self.assertEqual(controller.pending_launch, ("10.0.0.2", 7110, 0))
+        self.assertTrue(controller.surface_timer.isActive())
+        controller.surface_timer.stop()
+
+    def test_receiver_video_item_starts_pending_pipeline(self):
+        controller = ReceiverController("kde", Mock())
+        controller.pending_launch = ("10.0.0.2", 7110, 3)
+        controller.surface_timer.start(1000)
+        with patch.object(controller, "_launch_pipeline") as launch:
+            controller.set_video_item(Mock())
+        launch.assert_called_once_with("10.0.0.2", 7110, 3)
+        self.assertIsNone(controller.pending_launch)
+        self.assertFalse(controller.surface_timer.isActive())
+
+    def test_embedded_pipeline_can_mark_receiver_stable(self):
+        controller = ReceiverController("kde", Mock())
+        controller.generation = 6
+        controller.host = "10.0.0.2"
+        controller.port = 7110
+        pipeline = object()
+        controller.gst_pipeline = pipeline
+        with patch.object(controller, "_inhibit_sleep"):
+            controller._mark_stable(6, pipeline)
+        self.assertTrue(controller.stable)
+        self.assertTrue(controller.receiving)
+        self.assertEqual(controller.status, "Receiving from 10.0.0.2:7110")
+
+    def test_receiver_connect_marks_session_active_before_stable(self):
+        controller = ReceiverController("kde", Mock())
+        emitted = []
+        controller.receivingChanged.connect(lambda value: emitted.append(value))
+        with patch.object(controller, "_start_attempt") as start:
+            controller.connect("10.0.0.2", 7110, False, "", "", "Software")
+        start.assert_called_once()
+        self.assertTrue(controller.receiving)
+        self.assertFalse(controller.stable)
+        self.assertIn(True, emitted)
+
+    def test_encrypted_receiver_waits_for_tls_ready_before_session_active(self):
+        controller = ReceiverController("kde", Mock())
+        with patch.object(controller, "_start_attempt") as start:
+            controller.connect("10.0.0.2", 7110, True, "fingerprint", "", "Software")
+        start.assert_called_once()
+        self.assertFalse(controller.receiving)
+
     def test_software_decoder_discards_corrupt_output_when_supported(self):
         controller = ReceiverController("kde", Mock())
         with patch(
@@ -402,6 +471,16 @@ class ReceiverControllerTest(unittest.TestCase):
             args = controller._sink_args("glimagesink")
         self.assertEqual(args, ["glimagesink", "sync=false", "force-aspect-ratio=false"])
 
+    def test_wayland_fallback_sink_requests_fullscreen_when_supported(self):
+        controller = ReceiverController("kde", Mock())
+        with patch(
+            "monitorize.desktop.receiver_controller._gst_has_property",
+            side_effect=lambda _element, prop: prop in {"fullscreen", "force-aspect-ratio"},
+        ):
+            args = controller._sink_args("waylandsink")
+        self.assertIn("fullscreen=true", args)
+        self.assertIn("force-aspect-ratio=false", args)
+
     def test_immediate_receiver_failure_retries_once_with_fallback_pipeline(self):
         controller = ReceiverController("kde", Mock())
         controller.generation = 4
@@ -417,7 +496,7 @@ class ReceiverControllerTest(unittest.TestCase):
         controller.process = process_mock()
         controller.attempt_started = __import__("time").monotonic()
         with (
-            patch.object(controller, "_launch_pipeline") as launch,
+            patch.object(controller, "_launch_external_pipeline") as launch,
             patch.object(controller, "_software_decoder_args", return_value=["avdec_h264"]),
         ):
             controller._finished(1, None, controller.process, generation=4)
@@ -466,6 +545,18 @@ class ReceiverControllerTest(unittest.TestCase):
         with patch.object(controller, "_launch_pipeline") as launch:
             controller._read_tls(old_tls, generation=1)
         launch.assert_not_called()
+
+    def test_tls_ready_enters_receiver_session_and_launches_pipeline(self):
+        controller = ReceiverController("kde", Mock())
+        controller.generation = 2
+        controller.host = "10.0.0.2"
+        controller.port = 7110
+        controller.tls_process = process_mock()
+        controller.tls_process.readAllStandardOutput.return_value = b"[TLS RECEIVER] READY\n"
+        with patch.object(controller, "_launch_pipeline") as launch:
+            controller._read_tls(controller.tls_process, generation=2)
+        launch.assert_called_once_with("127.0.0.1", 17110, 2)
+        self.assertTrue(controller.receiving)
 
     def test_stale_receiver_finish_does_not_retry(self):
         controller = ReceiverController("kde", Mock())
