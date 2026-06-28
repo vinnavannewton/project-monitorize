@@ -8,15 +8,12 @@
 
 </div>
 
-<<<<<<< HEAD
 
 > **Project Status: Is stable & Actively Being Developed**
 > Fully functional on KDE, Hyprland and GNOME.
 > =======
 > **Project Status: Stable & Actively Being Developed**
 > Supported on KDE, Hyprland and GNOME.
-> 
-> > > > > > > 646f271f591cada3245263f9eed696bc9979d9c6
 
 ---
 
