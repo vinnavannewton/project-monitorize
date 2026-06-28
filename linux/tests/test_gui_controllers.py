@@ -365,21 +365,21 @@ class ReceiverControllerTest(unittest.TestCase):
         self.assertIn("automatic-request-sync-points=true", args)
         self.assertIn("max-threads=2", args)
 
-    def test_sink_selection_prefers_native_wayland_then_gl(self):
+    def test_sink_selection_prefers_gl_before_wayland_fallback(self):
         controller = ReceiverController("kde", Mock())
         with (
             patch.dict(os.environ, {"XDG_SESSION_TYPE": "wayland", "WAYLAND_DISPLAY": "wayland-0"}, clear=True),
             patch(
                 "monitorize.desktop.receiver_controller.gst_has_element",
-                side_effect=lambda name: name in {"gtkwaylandsink", "glimagesink"},
+                side_effect=lambda name: name in {"waylandsink", "glimagesink"},
             ),
         ):
             self.assertEqual(
                 controller._sink_candidates(),
-                ["gtkwaylandsink", "glimagesink", "autovideosink"],
+                ["glimagesink", "waylandsink", "autovideosink"],
             )
 
-    def test_sink_selection_prefers_native_x11_then_gl(self):
+    def test_sink_selection_prefers_gl_before_x11_fallbacks(self):
         controller = ReceiverController("kde", Mock())
         with (
             patch.dict(os.environ, {"XDG_SESSION_TYPE": "x11", "DISPLAY": ":0"}, clear=True),
@@ -390,7 +390,7 @@ class ReceiverControllerTest(unittest.TestCase):
         ):
             self.assertEqual(
                 controller._sink_candidates(),
-                ["xvimagesink", "ximagesink", "glimagesink", "autovideosink"],
+                ["glimagesink", "xvimagesink", "ximagesink", "autovideosink"],
             )
 
     def test_sink_args_only_include_supported_properties_and_stretch(self):

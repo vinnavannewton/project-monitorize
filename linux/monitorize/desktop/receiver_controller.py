@@ -245,13 +245,13 @@ class ReceiverController(QObject):
         self.process.start("gst-launch-1.0", args)
 
     def _sink_candidates(self):
-        candidates = []
+        candidates = ["glimagesink"]
         session = os.environ.get("XDG_SESSION_TYPE", "").lower()
         if session == "wayland" or os.environ.get("WAYLAND_DISPLAY"):
-            candidates.extend(["gtkwaylandsink", "waylandsink"])
+            candidates.append("waylandsink")
         if session == "x11" or os.environ.get("DISPLAY"):
             candidates.extend(["xvimagesink", "ximagesink"])
-        candidates.extend(["glimagesink", "autovideosink"])
+        candidates.append("autovideosink")
         seen = set()
         available = []
         for sink in candidates:
