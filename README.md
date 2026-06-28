@@ -8,10 +8,6 @@
 
 </div>
 
-
-> **Project Status: Is stable & Actively Being Developed**
-> Fully functional on KDE, Hyprland and GNOME.
-> =======
 > **Project Status: Stable & Actively Being Developed**
 > Supported on KDE, Hyprland and GNOME.
 
