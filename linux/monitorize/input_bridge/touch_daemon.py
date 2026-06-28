@@ -2,11 +2,9 @@
 """Monitorize touch daemon compatibility entrypoint."""
 
 import logging
-import os
 import sys
 
 from monitorize.input_bridge.daemon import InputDaemon
-from monitorize.input_bridge.geometry import Geometry, detect_de
 
 
 def main():
@@ -32,14 +30,6 @@ def main():
         daemon.run()
     except KeyboardInterrupt:
         daemon.close()
-
-
-
-_DETECTED_DE = detect_de()
-
-
-def _map_sway_uinput_devices(device_names):
-    return Geometry(_DETECTED_DE, 2560, 1600).map_sway_devices(device_names)
 
 
 if __name__ == "__main__":

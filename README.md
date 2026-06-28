@@ -9,7 +9,7 @@
 </div>
 
 > **Project Status: Is stable & Actively Being Developed**
-> Fully functional on KDE, Hyprland and GNOME. Sway is WIP.
+> Fully functional on KDE, Hyprland and GNOME.
 
 ---
 
@@ -25,7 +25,7 @@
 
 **Monitorize** turns your Android tablet, Laptop, PC into a secondary monitor for your Linux desktop.
 
-Supported desktop environments are KDE Plasma, Hyprland and GNOME. Sway is WIP.
+Supported desktop environments are KDE Plasma, Hyprland and GNOME.
 
 ---
 
@@ -33,7 +33,7 @@ Supported desktop environments are KDE Plasma, Hyprland and GNOME. Sway is WIP.
 
 | Android               | Desktop                                         |
 | --------------------- | ----------------------------------------------- |
-| Android 9+            | KDE (6.7+), Hyprland, GNOME (50+), Sway (WIP)   |
+| Android 9+            | KDE (6.7+), Hyprland, GNOME (50+)               |
 | Wi-Fi / USB Debugging | Tested on: Arch, fedora.                        |
 
 ---
@@ -114,17 +114,6 @@ sudo dnf install -y \
 
 ---
 
-### Sway (WIP):
-
-```bash
-sudo dnf install -y \
-  xdg-desktop-portal \
-  xdg-desktop-portal-wlr \
-  xdg-desktop-portal-gtk
-```
-
----
-
 ## <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/13/Arch_Linux_%22Crystal%22_icon.svg/330px-Arch_Linux_%22Crystal%22_icon.svg.png" height="28" alt="Arch Linux"> Arch Linux (Pacman)
 
 ### Step 1 — Install Core Dependencies:
@@ -191,15 +180,6 @@ sudo pacman -S --needed \
 ```
 
 ---
-
-### Sway (WIP):
-
-```bash
-sudo pacman -S --needed \
-  xdg-desktop-portal \
-  xdg-desktop-portal-wlr \
-  xdg-desktop-portal-gtk
-```
 
 ## <img src="https://upload.wikimedia.org/wikipedia/commons/4/4a/Debian-OpenLogo.svg" height="28" alt="Debian"> Debian / Ubuntu (APT)
 
@@ -285,17 +265,6 @@ sudo apt install -y \
 
 ---
 
-### Sway (WIP):
-
-```bash
-sudo apt install -y \
-  xdg-desktop-portal \
-  xdg-desktop-portal-wlr \
-  xdg-desktop-portal-gtk
-```
-
----
-
 ## Running the Application:
 
 1.After starting the stream in the desktop application make sure you go to your display settings and configure the newly created virtual display.
@@ -371,8 +340,6 @@ Or:
 - [x] use laptop as second screen.
       
 - [x] triple monitor setup (KDE & Hyprland).
-      
-- [ ] Sway DE.
       
 - [ ] Stable nvidia encoder (waiting for driver 610.x which implemented proper DMA BUF).
 

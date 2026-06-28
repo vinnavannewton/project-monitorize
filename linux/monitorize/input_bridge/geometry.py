@@ -127,8 +127,6 @@ def detect_de() -> str:
     ).lower()
     if os.environ.get("HYPRLAND_INSTANCE_SIGNATURE") or "hyprland" in combined:
         return "hyprland"
-    if os.environ.get("SWAYSOCK") or "sway" in combined:
-        return "sway"
     if "kde" in combined:
         return "kde"
     if "gnome" in combined:
@@ -204,7 +202,6 @@ class Geometry:
     def _fallback_rect(self):
         return (
             self._rect_hyprland()
-            or self._rect_sway()
             or self._rect_kde()
             or self._rect_gnome()
         )
@@ -248,25 +245,6 @@ class Geometry:
                 )
         except Exception as exc:
             log.warning("Failed to query hyprctl monitors: %s", exc)
-        return None
-
-    def _rect_sway(self):
-        try:
-            output_name = os.environ.get("MONITORIZE_OUTPUT", "")
-            outputs = json_command(["swaymsg", "-t", "get_outputs", "-r"])
-            target = next((
-                item for item in outputs
-                if item.get("name") == output_name
-                or (not output_name and item.get("name", "").startswith("HEADLESS"))
-            ), None)
-            if target:
-                rect = target.get("rect", {})
-                return tuple(float(rect.get(key, default)) for key, default in (
-                    ("x", 0), ("y", 0),
-                    ("width", self.screen_w), ("height", self.screen_h),
-                ))
-        except Exception as exc:
-            log.warning("Failed to query Sway outputs: %s", exc)
         return None
 
     def _mutter_state(self):
@@ -396,28 +374,6 @@ class Geometry:
             capture_output=True, text=True,
         )
         return result.returncode == 0
-
-    def map_sway_devices(self, device_names: list[str]) -> bool:
-        output = os.environ.get("MONITORIZE_OUTPUT", "")
-        if not output:
-            return False
-        normalize = lambda value: value.lower().replace("-", " ").replace("_", " ")
-        pending = {normalize(name) for name in device_names}
-        deadline = time.monotonic() + 5
-        while pending and time.monotonic() < deadline:
-            for item in json_command(["swaymsg", "-t", "get_inputs", "-r"]):
-                match = next((name for name in pending if name == normalize(item.get("name", ""))), None)
-                if not match:
-                    continue
-                result = subprocess.run(
-                    ["swaymsg", "input", item.get("identifier", ""), "map_to_output", output],
-                    capture_output=True, text=True,
-                )
-                if result.returncode == 0:
-                    pending.remove(match)
-            if pending:
-                time.sleep(0.2)
-        return not pending
 
     def map_kde_devices(self, devices: list) -> set[str]:
         event_names = {
