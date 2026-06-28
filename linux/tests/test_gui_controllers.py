@@ -838,29 +838,184 @@ class StreamingControllerTest(unittest.TestCase):
         self.assertEqual(config["third"], {"enabled": False})
         self.assertTrue(config["general"]["enable_stylus_features"])
 
-    def test_third_display_backend_is_noop(self):
+    def test_active_configuration_includes_active_third_display_settings(self):
+        controller = self.kde_controller()
+        controller.encoder = "Intel/AMD VA-API (vah264enc)"
+        controller.encoder_profile = "Balanced"
+        controller.env.value.return_value = "Speed"
+        controller.third_streaming = True
+        controller.third_width = 1920
+        controller.third_height = 1080
+        controller.third_fps = 60
+        controller.third_bitrate = 12000
+        controller.third_encoder = "Software (CPU / x264enc)"
+        controller.third_encoder_profile = "Quality"
+
+        config = controller.active_configuration()
+
+        self.assertEqual(config["third"], {
+            "enabled": True,
+            "resolution": "1920x1080",
+            "fps": "60",
+            "bitrate": "12000",
+            "encoder": "Software (CPU / x264enc)",
+            "encoder_profile": "Quality",
+        })
+
+    def test_kde_third_display_uses_portal_monitor_picker(self):
         discovery = Mock()
         controller = StreamingController("kde", "10.0.0.1", discovery)
         controller.streaming = True
         controller.wifi = True
+        controller.encrypted = False
+        controller.primary_ready = True
+        events = []
+        controller.secondStreamChanged.connect(events.append)
+        process = process_mock()
+
+        with patch("monitorize.desktop.streaming_controller.QProcess", return_value=process):
+            controller.start_third(
+                "1920x1080", "60", "8000",
+                "Software (CPU / x264enc)", "Low Latency",
+            )
+
+        args = process.start.call_args.args[1]
+        env = process.setProcessEnvironment.call_args.args[0]
+        self.assertEqual(args[:2], ["-m", "monitorize.streaming.Streamer_kde"])
+        self.assertEqual(args[-1], "wifi")
+        self.assertEqual(env.value("MONITORIZE_PORTAL_SOURCE_TYPE"), "1")
+        self.assertEqual(env.value("MONITORIZE_PORT"), "7114")
+        self.assertNotEqual(env.value("MONITORIZE_PORTAL_SOURCE_TYPE"), "4")
+        self.assertEqual(events, [True])
+        discovery.advertise.assert_called_once_with("10.0.0.1", False, False)
+
+    def test_hyprland_third_display_uses_portal_monitor_picker(self):
+        controller = StreamingController("hyprland", "10.0.0.1", Mock())
+        controller.streaming = True
+        controller.wifi = True
+        controller.primary_ready = True
+        process = process_mock()
+
+        with patch("monitorize.desktop.streaming_controller.QProcess", return_value=process):
+            controller.start_third(
+                "1280x720", "30", "4000",
+                "Software (CPU / x264enc)", "Balanced",
+            )
+
+        args = process.start.call_args.args[1]
+        env = process.setProcessEnvironment.call_args.args[0]
+        self.assertEqual(args[:2], ["-m", "monitorize.streaming.Streamer_hyprland"])
+        self.assertEqual(args[2:6], ["1280", "720", "30", "4000"])
+        self.assertEqual(env.value("MONITORIZE_PORTAL_SOURCE_TYPE"), "1")
+        self.assertIn("third display", env.value("MONITORIZE_PORTAL_SELECTOR_HINT"))
+
+    def test_encrypted_third_display_uses_tls_backend_port(self):
+        controller = StreamingController("kde", "10.0.0.1", Mock())
+        controller.streaming = True
+        controller.wifi = True
+        controller.encrypted = True
+        controller.primary_ready = True
+        process = process_mock()
+
+        with patch("monitorize.desktop.streaming_controller.QProcess", return_value=process):
+            controller.start_third(
+                "1920x1080", "60", "8000",
+                "Software (CPU / x264enc)", "Low Latency",
+            )
+
+        env = process.setProcessEnvironment.call_args.args[0]
+        self.assertEqual(env.value("MONITORIZE_PORT"), "7115")
+        self.assertEqual(env.value("MONITORIZE_HOST"), "127.0.0.1")
+
+    def test_gnome_third_display_is_unsupported(self):
+        discovery = Mock()
+        controller = StreamingController("gnome", "10.0.0.1", discovery)
+        controller.streaming = True
+        controller.primary_ready = True
         events = []
         logs = []
         controller.secondStreamChanged.connect(events.append)
         controller.logAppended.connect(lambda label, message: logs.append((label, message)))
 
-        controller.start_third(
-            "1920x1080", "60", "8000", "Software", "Low Latency",
-        )
+        with patch("monitorize.desktop.streaming_controller.QProcess") as process:
+            controller.start_third(
+                "1920x1080", "60", "8000",
+                "Software (CPU / x264enc)", "Low Latency",
+            )
 
+        process.assert_not_called()
         self.assertEqual(events, [False])
-        discovery.advertise.assert_called_once_with("10.0.0.1", False, False)
         self.assertIn(
-            (
-                "STREAMER",
-                "[Third display] Backend disabled; UI is kept for future support.",
-            ),
+            ("STREAMER", "[Third display] Portal picker is only enabled for KDE and Hyprland."),
             logs,
         )
+
+    def test_third_availability_waits_for_pipeline_ready(self):
+        discovery = Mock()
+        controller = StreamingController("kde", "10.0.0.1", discovery)
+        controller.streaming = True
+        controller.wifi = True
+        controller.third_generation = 2
+        controller.third_streaming = True
+        process = process_mock()
+        process.readAllStandardOutput.return_value = (
+            b"[Portal] Got PipeWire node=42 fd=9\n"
+            b"New clock: GstSystemClock\n"
+        )
+        controller.third_streamer = process
+
+        controller._read_third_streamer(2, process)
+
+        self.assertTrue(controller.third_ready)
+        self.assertEqual(
+            discovery.advertise.call_args_list[-1].args,
+            ("10.0.0.1", False, True),
+        )
+
+    def test_stale_third_streamer_output_is_ignored(self):
+        controller = StreamingController("kde", "10.0.0.1", Mock())
+        controller.streaming = True
+        controller.third_generation = 2
+        controller.third_streaming = True
+        old_process = process_mock()
+        old_process.readAllStandardOutput.return_value = b"New clock: GstSystemClock\n"
+        controller.third_streamer = process_mock()
+
+        controller._read_third_streamer(1, old_process)
+
+        self.assertFalse(controller.third_ready)
+
+    def test_stale_third_streamer_exit_is_ignored(self):
+        controller = StreamingController("kde", "10.0.0.1", Mock())
+        controller.third_generation = 2
+        controller.third_streaming = True
+        old_process = process_mock()
+        controller.third_streamer = process_mock()
+
+        controller._third_streamer_finished(1, None, 1, old_process)
+
+        self.assertTrue(controller.third_streaming)
+
+    def test_stop_third_leaves_primary_streaming(self):
+        controller = StreamingController("kde", "10.0.0.1", Mock())
+        controller.streaming = True
+        controller.third_streaming = True
+        controller.third_ready = True
+        third_process = process_mock()
+        controller.third_streamer = third_process
+        controller.third_gst_pids = {123}
+
+        with (
+            patch("monitorize.desktop.streaming_controller.stop_processes") as stop,
+            patch("monitorize.desktop.streaming_controller.kill_tracked_pids") as kill_pids,
+            patch("monitorize.desktop.streaming_controller.kill_patterns"),
+        ):
+            controller.stop_third()
+
+        stop.assert_called_once_with(third_process)
+        kill_pids.assert_called_once_with({123})
+        self.assertTrue(controller.streaming)
+        self.assertFalse(controller.third_streaming)
 
     def test_stale_streamer_exit_does_not_restart_gnome(self):
         controller = StreamingController("gnome", "10.0.0.1", Mock())
@@ -2120,6 +2275,21 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn("WifiPage {", usb_qml)
         self.assertIn("isWifi: false", usb_qml)
 
+    def test_streaming_page_shows_add_display_for_kde_and_hyprland(self):
+        qml_path = (
+            Path(__file__).resolve().parents[1]
+            / "monitorize"
+            / "qml"
+            / "StreamingPage.qml"
+        )
+        qml = qml_path.read_text(encoding="utf-8")
+        self.assertIn(
+            'backend.detectedDe === "kde" || backend.detectedDe === "hyprland"',
+            qml,
+        )
+        self.assertIn("Your desktop will open a screen-share picker.", qml)
+        self.assertNotIn("host-side display backend is currently disabled", qml)
+
     def test_qml_api_remains_exposed(self):
         with patch("monitorize.desktop.backend.get_local_ip", return_value="127.0.0.1"):
             backend = MonitorizeBackend("kde")
@@ -2142,6 +2312,15 @@ class BackendFacadeTest(unittest.TestCase):
             "saveCurrentPreset", "launchPreset", "renamePreset", "deletePreset",
             "isAutostartEnabled", "setAutostartEnabled",
         } <= methods)
+        backend.network_timer.stop()
+
+    def test_second_stream_active_comes_from_streaming_controller(self):
+        with patch("monitorize.desktop.backend.get_local_ip", return_value="127.0.0.1"):
+            backend = MonitorizeBackend("kde")
+        backend.streaming.third_streaming = True
+        self.assertTrue(backend.secondStreamActive)
+        backend.streaming.third_streaming = False
+        self.assertFalse(backend.secondStreamActive)
         backend.network_timer.stop()
 
     def test_backend_rejects_invalid_manual_connect(self):
