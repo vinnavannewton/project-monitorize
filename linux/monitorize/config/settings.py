@@ -343,7 +343,7 @@ def load_receiver_settings() -> dict:
 
 
 def _kde_virtual_group(slot: str) -> str:
-    return f"kde_virtual_{slot if slot in ('primary', 'third') else 'primary'}"
+    return "kde_virtual_primary"
 
 
 def load_kde_virtual_layout(slot: str = "primary") -> dict:
@@ -366,7 +366,7 @@ def save_kde_virtual_layout(slot: str, x: int, y: int, rotation="") -> None:
 
 
 def _gnome_virtual_group(slot: str) -> str:
-    return f"gnome_virtual_{slot if slot in ('primary', 'third') else 'primary'}"
+    return "gnome_virtual_primary"
 
 
 def load_gnome_virtual_layout(slot: str = "primary") -> dict:

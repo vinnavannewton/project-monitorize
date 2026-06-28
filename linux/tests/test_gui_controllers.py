@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 from subprocess import TimeoutExpired
 
-from PyQt6.QtCore import QCoreApplication, QProcess, QProcessEnvironment
+from PyQt6.QtCore import QCoreApplication, QProcess
 
 from monitorize.streaming import Streamer_gnome, pipeline_builder
 from monitorize.streaming import portal_streamer
@@ -20,7 +20,6 @@ from monitorize.desktop.discovery_service import DiscoveryService
 from monitorize.desktop.backend import MonitorizeBackend
 from monitorize.desktop.receiver_controller import ReceiverController
 from monitorize.desktop.streaming_controller import StreamingController
-from monitorize.desktop.third_stream_controller import ThirdStreamController
 from monitorize.desktop.usb_controller import UsbController
 from monitorize.config.validation import (
     DEFAULT_PRIMARY_RESOLUTION,
@@ -627,7 +626,6 @@ class StreamingControllerTest(unittest.TestCase):
             patch("monitorize.desktop.streaming_controller.stop_processes"),
             patch("monitorize.desktop.streaming_controller.kill_tracked_pids"),
             patch("monitorize.desktop.streaming_controller.kill_patterns"),
-            patch.object(controller.third, "stop"),
             patch.object(controller.display, "cleanup"),
         ):
             controller.stop()
@@ -673,7 +671,6 @@ class StreamingControllerTest(unittest.TestCase):
         with (
             patch("monitorize.desktop.streaming_controller.stop_processes") as stop,
             patch("monitorize.desktop.streaming_controller.kill_patterns"),
-            patch.object(controller.third, "stop"),
             patch.object(controller.display, "cleanup"),
         ):
             controller.stop()
@@ -694,7 +691,6 @@ class StreamingControllerTest(unittest.TestCase):
             patch("monitorize.desktop.streaming_controller.stop_processes", return_value=True) as stop,
             patch("monitorize.desktop.streaming_controller.kill_tracked_pids") as kill_pids,
             patch("monitorize.desktop.streaming_controller.kill_patterns") as kill_patterns_mock,
-            patch.object(controller.third, "stop"),
             patch.object(controller.display, "cleanup"),
         ):
             controller.stop()
@@ -715,7 +711,6 @@ class StreamingControllerTest(unittest.TestCase):
             patch("monitorize.desktop.streaming_controller.stop_processes", return_value=False),
             patch("monitorize.desktop.streaming_controller.kill_tracked_pids") as kill_pids,
             patch("monitorize.desktop.streaming_controller.kill_patterns"),
-            patch.object(controller.third, "stop"),
             patch.object(controller.display, "cleanup"),
         ):
             controller.stop()
@@ -820,23 +815,13 @@ class StreamingControllerTest(unittest.TestCase):
         load.assert_not_called()
         process.assert_not_called()
 
-    def test_primary_ready_launches_saved_third_display(self):
+    def test_primary_ready_ignores_saved_third_display(self):
         controller = self.kde_controller()
-        controller.pending_third = {
-            "resolution": "1920x1080",
-            "fps": "60",
-            "bitrate": "8000",
-            "encoder": "Software (CPU / x264enc)",
-        }
         with patch.object(controller, "start_third") as start:
             controller._set_primary_ready(True)
-        start.assert_called_once_with(
-            "1920x1080", "60", "8000", "Software (CPU / x264enc)",
-            "Low Latency",
-        )
-        self.assertIsNone(controller.pending_third)
+        start.assert_not_called()
 
-    def test_active_configuration_includes_running_third_display(self):
+    def test_active_configuration_keeps_third_display_disabled(self):
         controller = self.kde_controller()
         controller.encoder = "Intel/AMD VA-API (vah264enc)"
         controller.encoder_profile = "Balanced"
@@ -846,20 +831,36 @@ class StreamingControllerTest(unittest.TestCase):
             "enable_touch": True,
             "enable_stylus_features": True,
         }
-        controller.third.active = True
-        controller.third.width = 1280
-        controller.third.height = 800
-        controller.third.fps = 60
-        controller.third.bitrate = 6000
-        controller.third.encoder = "Software (CPU / x264enc)"
-        controller.third.encoder_profile = "Quality"
         config = controller.active_configuration()
         self.assertEqual(config["primary"]["resolution"], "1920x1200")
         self.assertEqual(config["primary"]["encoder_profile"], "Balanced")
         self.assertEqual(config["wifi"]["stream_type"], "Speed")
-        self.assertEqual(config["third"]["resolution"], "1280x800")
-        self.assertEqual(config["third"]["encoder_profile"], "Quality")
+        self.assertEqual(config["third"], {"enabled": False})
         self.assertTrue(config["general"]["enable_stylus_features"])
+
+    def test_third_display_backend_is_noop(self):
+        discovery = Mock()
+        controller = StreamingController("kde", "10.0.0.1", discovery)
+        controller.streaming = True
+        controller.wifi = True
+        events = []
+        logs = []
+        controller.secondStreamChanged.connect(events.append)
+        controller.logAppended.connect(lambda label, message: logs.append((label, message)))
+
+        controller.start_third(
+            "1920x1080", "60", "8000", "Software", "Low Latency",
+        )
+
+        self.assertEqual(events, [False])
+        discovery.advertise.assert_called_once_with("10.0.0.1", False, False)
+        self.assertIn(
+            (
+                "STREAMER",
+                "[Third display] Backend disabled; UI is kept for future support.",
+            ),
+            logs,
+        )
 
     def test_stale_streamer_exit_does_not_restart_gnome(self):
         controller = StreamingController("gnome", "10.0.0.1", Mock())
@@ -963,7 +964,6 @@ class StreamingControllerTest(unittest.TestCase):
             ),
             patch("monitorize.desktop.streaming_controller.kill_tracked_pids"),
             patch("monitorize.desktop.streaming_controller.kill_patterns"),
-            patch.object(controller.third, "stop"),
             patch.object(controller.display, "cleanup"),
         ):
             controller.stop()
@@ -988,7 +988,6 @@ class StreamingControllerTest(unittest.TestCase):
             patch("monitorize.desktop.streaming_controller.stop_processes") as stop,
             patch("monitorize.desktop.streaming_controller.kill_tracked_pids"),
             patch("monitorize.desktop.streaming_controller.kill_patterns"),
-            patch.object(controller.third, "stop"),
             patch.object(controller.display, "cleanup"),
         ):
             controller.stop()
@@ -1109,7 +1108,6 @@ class StreamingControllerTest(unittest.TestCase):
             patch("monitorize.desktop.streaming_controller.stop_processes"),
             patch("monitorize.desktop.streaming_controller.kill_patterns"),
             patch("monitorize.desktop.streaming_controller.kill_tracked_pids"),
-            patch.object(controller.third, "stop"),
             patch.object(controller.display, "cleanup"),
             patch.object(controller, "_prepare_display"),
         ):
@@ -1125,7 +1123,6 @@ class StreamingControllerTest(unittest.TestCase):
             patch("monitorize.desktop.streaming_controller.stop_processes"),
             patch("monitorize.desktop.streaming_controller.kill_patterns"),
             patch("monitorize.desktop.streaming_controller.kill_tracked_pids"),
-            patch.object(controller.third, "stop"),
             patch.object(controller.display, "cleanup"),
             patch.object(controller, "_prepare_display"),
         ):
@@ -1143,7 +1140,6 @@ class StreamingControllerTest(unittest.TestCase):
             patch("monitorize.desktop.streaming_controller.stop_processes"),
             patch("monitorize.desktop.streaming_controller.kill_patterns"),
             patch("monitorize.desktop.streaming_controller.kill_tracked_pids"),
-            patch.object(controller.third, "stop"),
             patch.object(controller.display, "cleanup"),
             patch.object(controller, "_launch_streamer") as launch,
         ):
@@ -1156,82 +1152,6 @@ class StreamingControllerTest(unittest.TestCase):
         controller.env.value("MONITORIZE_PORTAL_SOURCE_TYPE")
         self.assertEqual(controller.env.value("MONITORIZE_PORTAL_SOURCE_TYPE"), "4")
         launch.assert_called_once_with()
-
-    def test_invalid_third_stream_settings_are_sanitized_before_start(self):
-        controller = ThirdStreamController()
-        process = process_mock()
-        with (
-            patch("monitorize.desktop.third_stream_controller.kill_patterns"),
-            patch("monitorize.desktop.third_stream_controller.QProcess", return_value=process),
-            patch("monitorize.desktop.third_stream_controller.QTimer.singleShot"),
-        ):
-            controller.start("bad", "nope", "-1", "Bogus", "Bogus", False)
-        self.assertEqual((controller.width, controller.height), (1920, 1080))
-        self.assertEqual(controller.fps, 60)
-        self.assertEqual(controller.bitrate, 250)
-        self.assertEqual(controller.encoder_profile, "Low Latency")
-
-
-class ThirdStreamControllerTest(unittest.TestCase):
-    def test_start_uses_portal_virtual_source(self):
-        controller = ThirdStreamController()
-        with (
-            patch("monitorize.desktop.third_stream_controller.kill_patterns"),
-            patch("monitorize.desktop.third_stream_controller.QTimer.singleShot") as single_shot,
-        ):
-            controller.start("1920x1080", "60", "8000", "Software", "Low Latency", False)
-        self.assertEqual(controller.env.value("MONITORIZE_PORTAL_SOURCE_TYPE"), "4")
-        self.assertEqual(controller.env.value("MONITORIZE_VIRTUAL_SLOT"), "third")
-        single_shot.assert_called_once()
-
-    def test_virtual_output_name_is_captured_for_stop(self):
-        controller = ThirdStreamController()
-        controller.active = True
-        controller.generation = 1
-        controller.env = QProcessEnvironment.systemEnvironment()
-        process = process_mock()
-        process.readAllStandardOutput.return_value = (
-            b"[Portal] Virtual output ready name=Virtual-3 mode=1920x1080@60\n"
-        )
-        controller.streamer = process
-        controller._read_streamer(1, process)
-        self.assertEqual(controller.env.value("MONITORIZE_OUTPUT"), "Virtual-3")
-
-    def test_stop_saves_third_virtual_layout(self):
-        controller = ThirdStreamController()
-        controller.active = True
-        controller.env = QProcessEnvironment.systemEnvironment()
-        controller.env.insert("MONITORIZE_OUTPUT", "Virtual-3")
-        with (
-            patch("monitorize.desktop.third_stream_controller.save_current_virtual_layout") as save,
-            patch("monitorize.desktop.third_stream_controller.stop_processes"),
-            patch("monitorize.desktop.third_stream_controller.kill_tracked_pids"),
-            patch("monitorize.desktop.third_stream_controller.kill_patterns"),
-        ):
-            controller.stop()
-        save.assert_called_once_with("third", "Virtual-3")
-
-    def test_stale_delayed_launch_is_ignored(self):
-        controller = ThirdStreamController()
-        controller.active = True
-        controller.generation = 3
-        with patch("monitorize.desktop.third_stream_controller.QProcess") as process:
-            controller._launch_streamer(generation=2)
-        process.assert_not_called()
-
-    def test_stale_streamer_output_and_finish_are_ignored(self):
-        controller = ThirdStreamController()
-        controller.active = True
-        controller.ready = False
-        controller.generation = 4
-        old_process = process_mock()
-        old_process.readAllStandardOutput.return_value = b"Setting pipeline to PLAYING\n"
-        controller.streamer = process_mock()
-        controller._read_streamer(3, old_process)
-        self.assertFalse(controller.ready)
-        controller._finished(0, None, generation=3, process=old_process)
-        self.assertTrue(controller.active)
-
 
 class ProcessUtilsTest(unittest.TestCase):
     def test_kill_patterns_does_not_call_broad_pkill(self):
@@ -1643,7 +1563,7 @@ class KdeVirtualMonitorCompatTest(unittest.TestCase):
         self.assertFalse(any(".scale." in " ".join(command) for command in commands))
         self.assertFalse(any("output.eDP-1" in " ".join(command) for command in commands))
 
-    def test_portal_layout_uses_saved_slot_position_and_rotation(self):
+    def test_portal_layout_uses_saved_primary_position_and_rotation(self):
         def fake_run(args, **_kwargs):
             if args == ["kscreen-doctor", "-j"]:
                 return Mock(
@@ -1662,10 +1582,10 @@ class KdeVirtualMonitorCompatTest(unittest.TestCase):
             patch("monitorize.platform.kde_virtual_monitor.time.sleep"),
         ):
             ok, _output_name, message = kde_virtual_monitor.configure_portal_virtual_output(
-                {"eDP-1"}, 1920, 1200, 60, "third", attempts=1, delay=0,
+                {"eDP-1"}, 1920, 1200, 60, attempts=1, delay=0,
             )
         self.assertTrue(ok, message)
-        load.assert_called_once_with("third")
+        load.assert_called_once_with("primary")
         commands = [call.args[0] for call in run.call_args_list]
         self.assertIn(
             [

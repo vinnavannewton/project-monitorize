@@ -142,7 +142,7 @@ class MonitorizeBackend(QObject):
 
     @pyqtProperty(bool, notify=secondStreamActiveChanged)
     def secondStreamActive(self):
-        return self.streaming.third.active
+        return False
 
     @pyqtProperty("QVariant", notify=presetsChanged)
     def presets(self):

@@ -562,7 +562,7 @@ Item {
             }
 
             Text {
-                text: "Spawns the third display stream on port 7114.\nA KDE source picker will appear — select 'TabletDisplay2'."
+                text: "Third display controls are kept for future support.\nThe host-side display backend is currently disabled."
                 font.pixelSize: 12
                 color: theme.cardTextMuted
                 wrapMode: Text.Wrap
