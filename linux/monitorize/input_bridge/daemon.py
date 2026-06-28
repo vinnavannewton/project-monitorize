@@ -12,7 +12,7 @@ from .uinput_backend import UInputBackend
 
 log = logging.getLogger("TouchDaemon")
 
-UINPUT_DESKTOPS = ("kde", "gnome", "hyprland", "sway")
+UINPUT_DESKTOPS = ("kde", "gnome", "hyprland")
 
 
 class InputDaemon:

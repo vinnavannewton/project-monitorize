@@ -15,21 +15,18 @@ QML_DIR = os.path.join(PACKAGE_DIR, "qml")
 
 def detect_desktop_environment() -> str:
     """
-    Return "kde", "gnome", "hyprland", "sway", or "" (unknown) based on
+    Return "kde", "gnome", "hyprland", or "" (unknown) based on
     environment variables.  Checks XDG_CURRENT_DESKTOP, DESKTOP_SESSION,
-    and the Hyprland/Sway-specific vars; case-insensitive.
+    and the Hyprland-specific var; case-insensitive.
     """
     xdg   = os.environ.get("XDG_CURRENT_DESKTOP", "").lower()
     dsess = os.environ.get("DESKTOP_SESSION",      "").lower()
     
     hypr  = os.environ.get("HYPRLAND_INSTANCE_SIGNATURE", "")
-    sway  = os.environ.get("SWAYSOCK", "")
     combined = xdg + " " + dsess
 
     if hypr or "hyprland" in combined:
         return "hyprland"
-    if sway or "sway" in combined:
-        return "sway"
     if "kde" in combined:
         return "kde"
     if "gnome" in combined:

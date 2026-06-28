@@ -27,7 +27,6 @@ selector_hint = os.environ.get(
     "MONITORIZE_PORTAL_SELECTOR_HINT",
     "Select 'TabletDisplay' in the picker.",
 )
-virtual_slot = os.environ.get("MONITORIZE_VIRTUAL_SLOT", "primary")
 baseline_names = active_kde_output_names() if source_type == 4 else set()
 prepare_stream = None
 if source_type == 4:
@@ -36,7 +35,6 @@ if source_type == 4:
         width,
         height,
         fps,
-        virtual_slot,
     )
 
 sys.exit(run_portal_streamer(

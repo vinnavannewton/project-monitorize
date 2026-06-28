@@ -121,19 +121,7 @@ def _output_width(output):
     return int(float(size.get("width", 0)) / scale)
 
 
-def _default_position(outputs, slot="primary", exclude=""):
-    if slot == "third":
-        rightmost = max(
-            (
-                (*_output_pos(item), _output_width(item))
-                for item in outputs
-                if item.get("connected") and item.get("enabled")
-                and item.get("name") != exclude
-            ),
-            key=lambda item: item[0] + item[2],
-            default=None,
-        )
-        return (rightmost[0] + rightmost[2], rightmost[1]) if rightmost else None
+def _default_position(outputs):
     output = next(
         (
             item for item in outputs
@@ -157,9 +145,9 @@ def _rotation_arg(value):
     return rotations.get(str(value).strip().lower(), "")
 
 
-def _position_virtual_output(output_name, outputs, slot):
-    layout = load_kde_virtual_layout(slot)
-    position = layout["position"] or _default_position(outputs, slot, output_name)
+def _position_virtual_output(output_name, outputs):
+    layout = load_kde_virtual_layout("primary")
+    position = layout["position"] or _default_position(outputs)
     if position:
         _run_kscreen(f"output.{output_name}.position.{position[0]},{position[1]}")
     rotation = _rotation_arg(layout["rotation"])
@@ -180,7 +168,7 @@ def save_current_virtual_layout(slot="primary", output_name=""):
         None,
     )
     if output:
-        save_kde_virtual_layout(slot, *_output_pos(output), output.get("rotation", ""))
+        save_kde_virtual_layout("primary", *_output_pos(output), output.get("rotation", ""))
 
 
 def configure_portal_virtual_output(
@@ -188,7 +176,6 @@ def configure_portal_virtual_output(
     width,
     height,
     fps,
-    slot="primary",
     attempts=KSCREEN_ATTEMPTS,
     delay=KSCREEN_RETRY_DELAY,
 ):
@@ -239,7 +226,7 @@ def configure_portal_virtual_output(
         delay,
     ):
         return False, output_name, "KDE did not activate the requested custom mode"
-    _position_virtual_output(output_name, kde_outputs(), slot)
+    _position_virtual_output(output_name, kde_outputs())
 
     return (
         True,

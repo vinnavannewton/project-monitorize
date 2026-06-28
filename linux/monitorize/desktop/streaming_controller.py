@@ -1,6 +1,5 @@
 """Primary stream, TLS proxy and input bridge lifecycle."""
 
-import os
 import subprocess
 import sys
 
@@ -28,7 +27,6 @@ from monitorize.config.settings import (
     load_general_settings,
     load_wifi_settings,
 )
-from monitorize.desktop.third_stream_controller import ThirdStreamController
 from monitorize.platform.utils import LINUX_DIR
 from monitorize.config.validation import (
     DEFAULT_PRIMARY_RESOLUTION,
@@ -64,10 +62,6 @@ class StreamingController(QObject):
         self.local_ip = local_ip
         self.discovery = discovery
         self.display = DisplayController(de)
-        self.third = ThirdStreamController(self)
-        self.third.activeChanged.connect(self.secondStreamChanged)
-        self.third.readinessChanged.connect(self._advertise)
-        self.third.logAppended.connect(self.logAppended)
         self.streaming = False
         self.status = ""
         self.countdown = 0
@@ -84,7 +78,6 @@ class StreamingController(QObject):
         self.primary_ready = False
         self.encoder_profile = "Low Latency"
         self.runtime_general = None
-        self.pending_third = None
         self.countdown_timer = QTimer(self)
         self.countdown_timer.setInterval(1000)
         self.countdown_timer.timeout.connect(self._countdown_tick)
@@ -138,11 +131,10 @@ class StreamingController(QObject):
         self.encrypted = settings.get("use_encryption", True) if wifi else False
         self.env.insert("MONITORIZE_STREAM_TYPE", settings.get("stream_type", "Speed"))
         self.runtime_general = options.get("general")
-        self.pending_third = options.get("third")
         if self.encrypted:
             self.env.insert("MONITORIZE_HOST", "127.0.0.1")
             self.env.insert("MONITORIZE_PORT", "7112")
-        if self.de in ("kde", "hyprland", "sway") and self.display_type == "Extend":
+        if self.de in ("kde", "hyprland") and self.display_type == "Extend":
             self.env.insert("MONITORIZE_PRESERVE_SOURCE_SIZE", "1")
         if wifi:
             subprocess.run(["adb", "reverse", "--remove", "tcp:7110"], capture_output=True)
@@ -169,30 +161,11 @@ class StreamingController(QObject):
                 return
             self.logAppended.emit("STREAMER", f"Created headless monitor: {output}")
             self._start_countdown(2)
-        elif self.de == "sway":
-            if self.display_type == "Mirror":
-                output = self.display.sway_mirror_output()
-                if not output:
-                    self._fail("Sway has no active output to mirror")
-                    return
-                self.env.insert("MONITORIZE_OUTPUT", output)
-                self._launch_streamer()
-            else:
-                self._set_status("Setting up virtual monitor on Sway…")
-                output, error = self.display.prepare_sway(
-                    self.width, self.height, self.fps
-                )
-                if error:
-                    self._fail(error)
-                    return
-                self.env.insert("MONITORIZE_OUTPUT", output)
-                self._start_countdown(2)
         else:
             self._launch_streamer()
 
     def _prepare_kde_portal_virtual_display(self):
         self.env.insert("MONITORIZE_PORTAL_SOURCE_TYPE", "4")
-        self.env.insert("MONITORIZE_VIRTUAL_SLOT", "primary")
         self.env.insert(
             "MONITORIZE_PORTAL_SELECTOR_HINT",
             "KDE will create a virtual monitor for Monitorize.",
@@ -253,14 +226,13 @@ class StreamingController(QObject):
             "kde": "monitorize.streaming.Streamer_kde",
             "gnome": "monitorize.streaming.Streamer_gnome",
             "hyprland": "monitorize.streaming.Streamer_hyprland",
-            "sway": "monitorize.streaming.Streamer_hyprland",
         }.get(self.de, "monitorize.streaming.Streamer_gnome")
         args = [
             "-m", module,
             str(self.width), str(self.height), str(self.fps), str(self.bitrate),
             "wifi" if self.wifi else "usb",
         ]
-        if self.de in ("hyprland", "sway"):
+        if self.de == "hyprland":
             args.append(self.display.created_output or "mirror")
         if self.de == "gnome":
             args.append(self.display_type.replace(" ", "_"))
@@ -322,7 +294,7 @@ class StreamingController(QObject):
         touch = general.get("enable_touch", True)
         stylus = (
             general.get("enable_stylus_features", False)
-            and self.de in ("kde", "gnome", "hyprland", "sway")
+            and self.de in ("kde", "gnome", "hyprland")
         )
         if not touch and not stylus:
             self.logAppended.emit("INPUT", "Input is disabled in settings.")
@@ -423,7 +395,7 @@ class StreamingController(QObject):
         QTimer.singleShot(500, lambda: self._launch_input(generation))
 
     def _maybe_start_wlroots_input(self, raw, generation):
-        if self.de in ("hyprland", "sway") and not self.input_launched:
+        if self.de == "hyprland" and not self.input_launched:
             self.streamer_buffer += raw
             if "[Portal] Got PipeWire node=" in self.streamer_buffer:
                 self.input_launched = True
@@ -455,9 +427,7 @@ class StreamingController(QObject):
         ):
             return
         self.logAppended.emit("STREAMER", f"Process exited (code {code})")
-        if self.de == "sway" and code and self.streaming:
-            self._set_status("Sway capture failed — check xdg-desktop-portal-wlr")
-        elif self.de == "gnome" and code and self.streaming:
+        if self.de == "gnome" and code and self.streaming:
             self.logAppended.emit(
                 "STREAMER", "↺  GNOME streamer crashed — auto-restarting in 2s…"
             )
@@ -571,43 +541,21 @@ class StreamingController(QObject):
         self.gnome_layout_change_timer.start()
 
     def start_third(self, res, fps, bitrate, encoder, encoder_profile):
-        self.third.start(res, fps, bitrate, encoder, encoder_profile, self.encrypted)
+        self.logAppended.emit(
+            "STREAMER",
+            "[Third display] Backend disabled; UI is kept for future support.",
+        )
+        self.secondStreamChanged.emit(False)
+        self._advertise()
 
     def _set_primary_ready(self, value):
         if self.primary_ready == value:
             return
         self.primary_ready = value
         self.primaryReadyChanged.emit(value)
-        if value and self.pending_third:
-            third = self.pending_third
-            self.pending_third = None
-            if self.de == "kde":
-                self.start_third(
-                    third["resolution"],
-                    third["fps"],
-                    third["bitrate"],
-                    third["encoder"],
-                    third.get("encoder_profile", "Low Latency"),
-                )
-            else:
-                self.logAppended.emit(
-                    "STREAMER",
-                    "Saved additional display skipped: it is only supported on KDE.",
-                )
 
     def active_configuration(self):
         general = dict(self.runtime_general or load_general_settings())
-        third = {"enabled": self.third.active or bool(self.pending_third)}
-        if self.third.active:
-            third.update({
-                "resolution": f"{self.third.width}x{self.third.height}",
-                "fps": str(self.third.fps),
-                "bitrate": str(self.third.bitrate),
-                "encoder": self.third.encoder,
-                "encoder_profile": self.third.encoder_profile,
-            })
-        elif self.pending_third:
-            third.update(self.pending_third)
         config = {
             "version": 1,
             "mode": "wifi" if self.wifi else "usb",
@@ -620,7 +568,7 @@ class StreamingController(QObject):
                 "encoder_profile": self.encoder_profile,
             },
             "general": general,
-            "third": third,
+            "third": {"enabled": False},
         }
         if self.wifi:
             config["wifi"] = {
@@ -630,13 +578,13 @@ class StreamingController(QObject):
         return config
 
     def stop_third(self):
-        self.third.stop()
         self._advertise()
-        self.logAppended.emit("STREAMER", "[Third display] Stopped.")
+        self.secondStreamChanged.emit(False)
+        self.logAppended.emit("STREAMER", "[Third display] Backend disabled.")
 
     def _advertise(self, *_args):
         if self.streaming and self.wifi:
-            self.discovery.advertise(self.local_ip, self.encrypted, self.third.ready)
+            self.discovery.advertise(self.local_ip, self.encrypted, False)
 
     def stop(self):
         stopping_kde_portal = self._stopping_kde_portal_streamer()
@@ -654,8 +602,6 @@ class StreamingController(QObject):
         self.kde_portal_terminal_error = False
         self._set_primary_ready(False)
         self.runtime_general = None
-        self.pending_third = None
-        self.third.stop()
         portal_clean = True
         if stopping_kde_portal:
             save_current_virtual_layout(

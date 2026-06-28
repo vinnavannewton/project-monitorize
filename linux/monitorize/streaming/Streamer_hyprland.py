@@ -1,5 +1,5 @@
 
-"""Hyprland/Sway PipeWire to H.264 TCP streamer."""
+"""Hyprland PipeWire to H.264 TCP streamer."""
 
 import os
 import sys
@@ -14,11 +14,10 @@ fps = int(sys.argv[3]) if len(sys.argv) > 3 else 60
 bitrate = int(sys.argv[4]) if len(sys.argv) > 4 else 8000
 mode = sys.argv[5] if len(sys.argv) > 5 else "usb"
 server_mode = mode == "wifi"
-compositor = "Sway" if os.environ.get("SWAYSOCK") else "Hyprland"
 mirror = len(sys.argv) > 6 and sys.argv[6] == "mirror"
 
 sys.exit(run_portal_streamer(
-    compositor,
+    "Hyprland",
     "Select your primary monitor in the picker."
     if mirror else "Select the HEADLESS monitor in the picker.",
     width,

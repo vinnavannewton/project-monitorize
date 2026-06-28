@@ -14,7 +14,6 @@ Item {
         backend.detectedDe === "kde"
         || backend.detectedDe === "gnome"
         || backend.detectedDe === "hyprland"
-        || backend.detectedDe === "sway"
     )
 
     function saveGeneralSettings() {
@@ -280,11 +279,11 @@ Item {
                     text: "Display Type:"
                     color: theme.textSecondary
                     font.pixelSize: 14
-                    visible: backend.detectedDe === "kde" || backend.detectedDe === "gnome" || backend.detectedDe === "hyprland" || backend.detectedDe === "sway"
+                    visible: backend.detectedDe === "kde" || backend.detectedDe === "gnome" || backend.detectedDe === "hyprland"
                 }
                 CustomComboBox {
                     id: displayTypeCombo
-                    visible: backend.detectedDe === "kde" || backend.detectedDe === "gnome" || backend.detectedDe === "hyprland" || backend.detectedDe === "sway"
+                    visible: backend.detectedDe === "kde" || backend.detectedDe === "gnome" || backend.detectedDe === "hyprland"
                     model: ["Extend", "Mirror"]
                     onActivated: page.saveSettings()
                 }
