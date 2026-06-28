@@ -352,18 +352,19 @@ class ReceiverControllerTest(unittest.TestCase):
         self.assertIn("force-aspect-ratio=false", args)
         self.assertIn("port=7114", args)
 
-    def test_embedded_pipeline_uses_qt6_video_sink(self):
+    def test_embedded_pipeline_uses_video_overlay_sink(self):
         controller = ReceiverController("kde", Mock())
         controller.decoder_args = ["avdec_h264"]
         with patch(
             "monitorize.desktop.receiver_controller._gst_has_property",
             return_value=True,
         ):
-            description = controller._embedded_pipeline_description("10.0.0.2", 7110)
-        self.assertIn("qml6glsink", description)
+            description = controller._embedded_pipeline_description(
+                "10.0.0.2", 7110, "glimagesink"
+            )
+        self.assertIn("glimagesink", description)
         self.assertIn("name=receiver_sink", description)
-        self.assertIn("glupload", description)
-        self.assertIn("glcolorconvert", description)
+        self.assertIn("videoconvert", description)
         self.assertIn("force-aspect-ratio=false", description)
 
     def test_receiver_waits_for_embedded_video_surface(self):

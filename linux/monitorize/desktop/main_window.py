@@ -18,14 +18,58 @@ from PyQt6.QtWidgets import (
     QMenu,
     QMessageBox,
     QPushButton,
+    QStackedWidget,
     QSystemTrayIcon,
     QVBoxLayout,
+    QWidget,
 )
 
 from monitorize.config import app_log
 from monitorize.desktop.backend import MonitorizeBackend
 from monitorize.platform.process_utils import kill_patterns
 from monitorize.platform.utils import ASSETS_DIR, LINUX_DIR, QML_DIR, detect_desktop_environment
+
+
+class ReceiverVideoWidget(QWidget):
+    def __init__(self, backend, parent=None):
+        super().__init__(parent)
+        self.backend = backend
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setStyleSheet("background: #000000;")
+        self.video_surface = QWidget(self)
+        self.video_surface.setAttribute(Qt.WidgetAttribute.WA_NativeWindow, True)
+        self.video_surface.setAttribute(
+            Qt.WidgetAttribute.WA_DontCreateNativeAncestors, False
+        )
+        self.video_surface.setStyleSheet("background: #000000;")
+        self.disconnect_button = QPushButton("Disconnect", self)
+        self.disconnect_button.setFixedSize(116, 34)
+        self.disconnect_button.setStyleSheet(
+            "QPushButton {"
+            "background: #991b1b; color: white; border: 0; border-radius: 6px;"
+            "font-size: 12px; font-weight: 700;"
+            "}"
+            "QPushButton:hover { background: #b91c1c; }"
+            "QPushButton:pressed { background: #7f1d1d; }"
+        )
+        self.disconnect_button.clicked.connect(self.backend.stopReceiving)
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape:
+            self.backend.stopReceiving()
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
+    def resizeEvent(self, event):
+        self.video_surface.setGeometry(self.rect())
+        margin = 18
+        self.disconnect_button.move(
+            max(margin, self.width() - self.disconnect_button.width() - margin),
+            margin,
+        )
+        self.disconnect_button.raise_()
+        super().resizeEvent(event)
 
 
 class MonitorizeWindow(QMainWindow):
@@ -51,10 +95,10 @@ class MonitorizeWindow(QMainWindow):
         self.de = detect_desktop_environment() or self._ask_desktop_environment()
         self.backend = MonitorizeBackend(self.de, self)
         self.backend.configureDisplayRequested.connect(self._configure_display)
-        self.backend.isReceivingChanged.connect(self._sync_receiver_fullscreen)
         self.receiver_was_fullscreen = False
         self.receiver_saved_geometry = None
         self._setup_tray()
+        self.content_stack = QStackedWidget(self)
         self.quick_widget = QQuickWidget(self)
         self.quick_widget.setResizeMode(
             QQuickWidget.ResizeMode.SizeRootObjectToView
@@ -65,14 +109,23 @@ class MonitorizeWindow(QMainWindow):
         )
         for error in self.quick_widget.errors():
             print(error.toString())
-        self.setCentralWidget(self.quick_widget)
+        self.receiver_video_widget = ReceiverVideoWidget(self.backend, self)
+        self.content_stack.addWidget(self.quick_widget)
+        self.content_stack.addWidget(self.receiver_video_widget)
+        self.setCentralWidget(self.content_stack)
+        self.backend.isReceivingChanged.connect(self._sync_receiver_fullscreen)
 
     def _sync_receiver_fullscreen(self, receiving):
         if receiving:
             self.receiver_was_fullscreen = self.isFullScreen()
             self.receiver_saved_geometry = self.saveGeometry()
+            self.content_stack.setCurrentWidget(self.receiver_video_widget)
             self.showFullScreen()
+            self.receiver_video_widget.setFocus()
+            self.backend.setReceiverVideoItem(self.receiver_video_widget.video_surface)
             return
+        self.backend.setReceiverVideoItem(None)
+        self.content_stack.setCurrentWidget(self.quick_widget)
         if self.receiver_was_fullscreen:
             return
         self.showNormal()

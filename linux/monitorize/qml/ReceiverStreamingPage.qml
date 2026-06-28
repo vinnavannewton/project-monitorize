@@ -12,10 +12,7 @@ Item {
 
     Component.onCompleted: {
         forceActiveFocus()
-        videoHost.createVideoItem()
     }
-
-    Component.onDestruction: backend.setReceiverVideoItem(null)
 
     Connections {
         target: backend
@@ -39,38 +36,6 @@ Item {
 
     HoverHandler {
         id: overlayHover
-    }
-
-    Item {
-        id: videoHost
-        anchors.fill: parent
-        property var videoItem: null
-
-        function createVideoItem() {
-            if (videoItem !== null) {
-                backend.setReceiverVideoItem(videoItem)
-                return
-            }
-            try {
-                videoItem = Qt.createQmlObject(
-                    "import QtQuick\n" +
-                    "import org.freedesktop.gstreamer.Qt6GLVideoItem 1.0\n" +
-                    "GstGLQt6VideoItem {" +
-                    "    objectName: \"receiverVideoItem\";" +
-                    "    anchors.fill: parent;" +
-                    "    forceAspectRatio: false;" +
-                    "    acceptEvents: false" +
-                    "}",
-                    videoHost,
-                    "receiverVideoItem"
-                )
-                backend.setReceiverVideoItem(videoItem)
-            } catch (err) {
-                backend.setReceiverVideoItem(null)
-                page.appendLog("Embedded video unavailable; using fallback player window.")
-                page.appendLog(String(err))
-            }
-        }
     }
 
     Rectangle {
