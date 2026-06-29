@@ -148,6 +148,7 @@ class ReceiverController(QObject):
         self.gst_pipeline = None
         self.gst_bus = None
         self.gst_generation = None
+        self.gst_video_sink = None
         self.embedded_sink = None
         self.sink_candidates = []
         self.sink_index = 0
@@ -230,7 +231,9 @@ class ReceiverController(QObject):
     def set_video_item(self, item):
         self.video_item = item
         if item is None:
+            self.gst_video_sink = None
             return
+        self.sync_video_geometry()
         if self.pending_launch is None:
             return
         host, port, generation = self.pending_launch
@@ -341,6 +344,7 @@ class ReceiverController(QObject):
         if sink is None:
             raise RuntimeError("embedded receiver sink was not created")
         self._bind_embedded_sink(sink)
+        self.gst_video_sink = sink
         bus = pipeline.get_bus()
         result = pipeline.set_state(Gst.State.PLAYING)
         if result == Gst.StateChangeReturn.FAILURE:
@@ -377,6 +381,18 @@ class ReceiverController(QObject):
         sink.set_window_handle(handle)
         if hasattr(sink, "handle_events"):
             sink.handle_events(True)
+        self._sync_embedded_sink_geometry(sink)
+
+    def sync_video_geometry(self):
+        self._sync_embedded_sink_geometry(self.gst_video_sink)
+
+    def _sync_embedded_sink_geometry(self, sink):
+        if sink is None or self.video_item is None:
+            return
+        width = max(1, int(self.video_item.width()))
+        height = max(1, int(self.video_item.height()))
+        if hasattr(sink, "set_render_rectangle"):
+            sink.set_render_rectangle(0, 0, width, height)
         if hasattr(sink, "expose"):
             sink.expose()
 
@@ -666,6 +682,7 @@ class ReceiverController(QObject):
         self.gst_pipeline = None
         self.gst_bus = None
         self.gst_generation = None
+        self.gst_video_sink = None
         if pipeline is None:
             return
         try:

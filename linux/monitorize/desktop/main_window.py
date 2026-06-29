@@ -54,6 +54,10 @@ class ReceiverVideoWidget(QWidget):
         )
         self.disconnect_button.clicked.connect(self.backend.stopReceiving)
 
+    def sync_video_geometry(self):
+        self.video_surface.setGeometry(self.rect())
+        self.backend.receiver.sync_video_geometry()
+
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:
             self.backend.stopReceiving()
@@ -62,7 +66,7 @@ class ReceiverVideoWidget(QWidget):
         super().keyPressEvent(event)
 
     def resizeEvent(self, event):
-        self.video_surface.setGeometry(self.rect())
+        self.sync_video_geometry()
         margin = 18
         self.disconnect_button.move(
             max(margin, self.width() - self.disconnect_button.width() - margin),
@@ -122,7 +126,7 @@ class MonitorizeWindow(QMainWindow):
             self.content_stack.setCurrentWidget(self.receiver_video_widget)
             self.showFullScreen()
             self.receiver_video_widget.setFocus()
-            self.backend.setReceiverVideoItem(self.receiver_video_widget.video_surface)
+            QTimer.singleShot(50, self._bind_receiver_video_surface)
             return
         self.backend.setReceiverVideoItem(None)
         self.content_stack.setCurrentWidget(self.quick_widget)
@@ -132,6 +136,13 @@ class MonitorizeWindow(QMainWindow):
         if self.receiver_saved_geometry:
             self.restoreGeometry(self.receiver_saved_geometry)
         self.receiver_saved_geometry = None
+
+    def _bind_receiver_video_surface(self):
+        if not self.backend.isReceiving:
+            return
+        self.receiver_video_widget.sync_video_geometry()
+        self.backend.setReceiverVideoItem(self.receiver_video_widget.video_surface)
+        QTimer.singleShot(100, self.receiver_video_widget.sync_video_geometry)
 
     def _setup_tray(self):
         self.tray = QSystemTrayIcon(self)

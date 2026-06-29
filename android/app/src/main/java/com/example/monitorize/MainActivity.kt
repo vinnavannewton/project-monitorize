@@ -1168,12 +1168,28 @@ fun StreamSurface(
                 isClickable = true
                 holder.addCallback(object : SurfaceHolder.Callback {
                     private var surfaceGeneration = 0L
+                    private var createdSurface: Surface? = null
 
                     override fun surfaceCreated(holder: SurfaceHolder) {
-                        surfaceGeneration = onSurfaceCreated(hostIp, holder.surface, width, height)
+                        createdSurface = holder.surface
                     }
-                    override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, ht: Int) {}
-                    override fun surfaceDestroyed(h: SurfaceHolder) { onSurfaceDestroyed(surfaceGeneration) }
+                    override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, ht: Int) {
+                        if (surfaceGeneration != 0L || w <= 0 || ht <= 0) {
+                            return
+                        }
+                        val surface = createdSurface ?: h.surface
+                        if (!surface.isValid) {
+                            return
+                        }
+                        surfaceGeneration = onSurfaceCreated(hostIp, surface, width, height)
+                    }
+                    override fun surfaceDestroyed(h: SurfaceHolder) {
+                        if (surfaceGeneration != 0L) {
+                            onSurfaceDestroyed(surfaceGeneration)
+                            surfaceGeneration = 0L
+                        }
+                        createdSurface = null
+                    }
                 })
                 fun requestLowLatencyInput(event: android.view.MotionEvent) {
                     when (event.actionMasked) {

@@ -416,6 +416,28 @@ class ReceiverControllerTest(unittest.TestCase):
         self.assertIsNone(controller.pending_launch)
         self.assertFalse(controller.surface_timer.isActive())
 
+    def test_embedded_video_geometry_syncs_render_rectangle(self):
+        controller = ReceiverController("kde", Mock())
+        video_item = Mock()
+        video_item.width.return_value = 1920
+        video_item.height.return_value = 1080
+        sink = Mock()
+        controller.video_item = video_item
+        controller.gst_video_sink = sink
+        controller.sync_video_geometry()
+        sink.set_render_rectangle.assert_called_once_with(0, 0, 1920, 1080)
+        sink.expose.assert_called_once()
+
+    def test_embedded_video_geometry_clamps_zero_size(self):
+        controller = ReceiverController("kde", Mock())
+        video_item = Mock()
+        video_item.width.return_value = 0
+        video_item.height.return_value = 0
+        sink = Mock()
+        controller.video_item = video_item
+        controller._sync_embedded_sink_geometry(sink)
+        sink.set_render_rectangle.assert_called_once_with(0, 0, 1, 1)
+
     def test_embedded_pipeline_can_mark_receiver_stable(self):
         controller = ReceiverController("kde", Mock())
         controller.generation = 6
