@@ -355,6 +355,8 @@ class ReceiverControllerTest(unittest.TestCase):
     def test_embedded_pipeline_uses_video_overlay_sink(self):
         controller = ReceiverController("kde", Mock())
         controller.decoder_args = ["avdec_h264"]
+        controller.receiver_surface_width = 1920
+        controller.receiver_surface_height = 1080
         with patch(
             "monitorize.desktop.receiver_controller._gst_has_property",
             return_value=True,
@@ -365,7 +367,18 @@ class ReceiverControllerTest(unittest.TestCase):
         self.assertIn("glimagesink", description)
         self.assertIn("name=receiver_sink", description)
         self.assertIn("videoconvert", description)
+        self.assertIn("videoscale add-borders=false", description)
+        self.assertIn(
+            "video/x-raw,width=1920,height=1080,pixel-aspect-ratio=1/1",
+            description,
+        )
         self.assertIn("force-aspect-ratio=false", description)
+        parts = description.split()
+        decoder_index = parts.index("avdec_h264")
+        first_queue_index = parts.index("queue")
+        self.assertLess(first_queue_index, decoder_index)
+        self.assertNotIn("leaky=downstream", parts[first_queue_index:decoder_index])
+        self.assertIn("leaky=downstream", parts[decoder_index:])
 
     def test_embedded_sink_prefers_wayland_on_wayland(self):
         controller = ReceiverController("kde", Mock())
@@ -381,6 +394,8 @@ class ReceiverControllerTest(unittest.TestCase):
     def test_embedded_wayland_sink_does_not_request_standalone_fullscreen(self):
         controller = ReceiverController("kde", Mock())
         controller.decoder_args = ["avdec_h264"]
+        controller.receiver_surface_width = 1920
+        controller.receiver_surface_height = 1080
         with patch(
             "monitorize.desktop.receiver_controller._gst_has_property",
             return_value=True,
@@ -410,11 +425,46 @@ class ReceiverControllerTest(unittest.TestCase):
         controller = ReceiverController("kde", Mock())
         controller.pending_launch = ("10.0.0.2", 7110, 3)
         controller.surface_timer.start(1000)
+        item = Mock()
+        item.width.return_value = 1920
+        item.height.return_value = 1080
         with patch.object(controller, "_launch_pipeline") as launch:
-            controller.set_video_item(Mock())
+            controller.set_video_item(item)
         launch.assert_called_once_with("10.0.0.2", 7110, 3)
+        self.assertEqual(controller.receiver_surface_width, 1920)
+        self.assertEqual(controller.receiver_surface_height, 1080)
         self.assertIsNone(controller.pending_launch)
         self.assertFalse(controller.surface_timer.isActive())
+
+    def test_receiver_video_item_waits_when_surface_is_tiny(self):
+        controller = ReceiverController("kde", Mock())
+        controller.pending_launch = ("10.0.0.2", 7110, 3)
+        item = Mock()
+        item.width.return_value = 1
+        item.height.return_value = 1080
+        with patch.object(controller, "_launch_pipeline") as launch:
+            controller.set_video_item(item)
+        launch.assert_not_called()
+        self.assertEqual(controller.pending_launch, ("10.0.0.2", 7110, 3))
+        self.assertTrue(controller.surface_timer.isActive())
+        controller.surface_timer.stop()
+
+    def test_embedded_pipeline_uses_same_scaling_for_primary_and_third_ports(self):
+        controller = ReceiverController("kde", Mock())
+        controller.decoder_args = ["avdec_h264"]
+        controller.receiver_surface_width = 1366
+        controller.receiver_surface_height = 768
+        primary = controller._embedded_pipeline_description(
+            "10.0.0.2", 7110, "waylandsink"
+        )
+        third = controller._embedded_pipeline_description(
+            "10.0.0.2", 7114, "waylandsink"
+        )
+        scaled_caps = "video/x-raw,width=1366,height=768,pixel-aspect-ratio=1/1"
+        self.assertIn("port=7110", primary)
+        self.assertIn("port=7114", third)
+        self.assertIn(scaled_caps, primary)
+        self.assertIn(scaled_caps, third)
 
     def test_embedded_video_geometry_syncs_render_rectangle(self):
         controller = ReceiverController("kde", Mock())
@@ -451,6 +501,35 @@ class ReceiverControllerTest(unittest.TestCase):
         controller._sync_embedded_sink_geometry(sink)
         self.assertEqual(len(emitted), 1)
         self.assertIn("32x24", emitted[0])
+
+    def test_receiver_resize_schedules_one_embedded_pipeline_restart(self):
+        controller = ReceiverController("kde", Mock())
+        video_item = Mock()
+        video_item.width.return_value = 1920
+        video_item.height.return_value = 1080
+        sink = Mock()
+        controller.video_item = video_item
+        controller.gst_video_sink = sink
+        controller.gst_pipeline = object()
+        controller.embedded_pipeline_size = (1280, 720)
+        controller.resize_restart_timer.start = Mock()
+        controller.sync_video_geometry()
+        controller.resize_restart_timer.start.assert_called_once_with(150)
+
+    def test_receiver_resize_restart_relaunches_embedded_pipeline_once(self):
+        controller = ReceiverController("kde", Mock())
+        controller.generation = 5
+        controller.receiver_host = "10.0.0.2"
+        controller.receiver_port = 7110
+        controller.video_item = Mock()
+        controller.receiver_surface_width = 1920
+        controller.receiver_surface_height = 1080
+        controller.gst_pipeline = object()
+        with patch.object(controller, "_launch_embedded_pipeline") as launch:
+            controller._restart_embedded_for_resize(5)
+            controller._restart_embedded_for_resize(5)
+        launch.assert_called_once_with("10.0.0.2", 7110, 5)
+        self.assertTrue(controller.resize_restart_used)
 
     def test_embedded_pipeline_can_mark_receiver_stable(self):
         controller = ReceiverController("kde", Mock())
