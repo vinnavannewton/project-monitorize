@@ -550,6 +550,7 @@ class ReceiverController(QObject):
             *COMPRESSED_QUEUE, "!",
             *self.decoder_args, "!",
             *RAW_DROP_QUEUE, "!",
+            "videoconvert", "!",
             *self._sink_args(self.sink),
         ]
         if self.video_item is not None and not self.should_use_embedded_window():
