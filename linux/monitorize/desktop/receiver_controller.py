@@ -149,6 +149,7 @@ class ReceiverController(QObject):
         self.gst_bus = None
         self.gst_generation = None
         self.gst_video_sink = None
+        self.bad_geometry_logged = False
         self.embedded_sink = None
         self.sink_candidates = []
         self.sink_index = 0
@@ -334,6 +335,7 @@ class ReceiverController(QObject):
         self.receiver_port = port
         self.attempt_started = time.monotonic()
         self._stop_gst_pipeline()
+        self.bad_geometry_logged = False
         Gst = _load_gst()
         sink_name = self._embedded_sink_name()
         if not sink_name:
@@ -391,6 +393,11 @@ class ReceiverController(QObject):
             return
         width = max(1, int(self.video_item.width()))
         height = max(1, int(self.video_item.height()))
+        if (width <= 64 or height <= 64) and not self.bad_geometry_logged:
+            self.bad_geometry_logged = True
+            self.logAppended.emit(
+                f"Receiver video surface is not fullscreen-sized yet: {width}x{height}"
+            )
         if hasattr(sink, "set_render_rectangle"):
             sink.set_render_rectangle(0, 0, width, height)
         if hasattr(sink, "expose"):

@@ -30,12 +30,18 @@ from monitorize.platform.process_utils import kill_patterns
 from monitorize.platform.utils import ASSETS_DIR, LINUX_DIR, QML_DIR, detect_desktop_environment
 
 
-class ReceiverVideoWidget(QWidget):
+class ReceiverVideoWindow(QWidget):
+    SYNC_DELAYS_MS = (0, 50, 100, 250, 500, 1000)
+
     def __init__(self, backend, parent=None):
-        super().__init__(parent)
+        super().__init__(
+            parent,
+            Qt.WindowType.Window | Qt.WindowType.FramelessWindowHint,
+        )
         self.backend = backend
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setStyleSheet("background: #000000;")
+        self.setWindowTitle("Monitorize Receiver")
         self.video_surface = QWidget(self)
         self.video_surface.setAttribute(Qt.WidgetAttribute.WA_NativeWindow, True)
         self.video_surface.setAttribute(
@@ -54,9 +60,48 @@ class ReceiverVideoWidget(QWidget):
         )
         self.disconnect_button.clicked.connect(self.backend.stopReceiving)
 
+    def show_receiver(self):
+        self._move_to_parent_screen()
+        self.showFullScreen()
+        self.raise_()
+        self.activateWindow()
+        self.setFocus()
+        self._bind_receiver_video_surface()
+
+    def hide_receiver(self):
+        self.backend.setReceiverVideoItem(None)
+        self.hide()
+
+    def _move_to_parent_screen(self):
+        parent = self.parentWidget()
+        parent_handle = parent.windowHandle() if parent is not None else None
+        screen = parent_handle.screen() if parent_handle is not None else None
+        if screen is None:
+            screen = QApplication.primaryScreen()
+        if screen is not None:
+            self.setGeometry(screen.geometry())
+
     def sync_video_geometry(self):
-        self.video_surface.setGeometry(self.rect())
+        self.video_surface.setGeometry(
+            0, 0, max(1, self.width()), max(1, self.height())
+        )
         self.backend.receiver.sync_video_geometry()
+
+    def _bind_receiver_video_surface(self, attempt=0):
+        if not self.backend.isReceiving or not self.isVisible():
+            return
+        self.sync_video_geometry()
+        if (
+            (self.video_surface.width() <= 1 or self.video_surface.height() <= 1)
+            and attempt < 10
+        ):
+            QTimer.singleShot(
+                50, lambda: self._bind_receiver_video_surface(attempt + 1)
+            )
+            return
+        self.backend.setReceiverVideoItem(self.video_surface)
+        for delay in self.SYNC_DELAYS_MS:
+            QTimer.singleShot(delay, self.sync_video_geometry)
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:
@@ -99,8 +144,6 @@ class MonitorizeWindow(QMainWindow):
         self.de = detect_desktop_environment() or self._ask_desktop_environment()
         self.backend = MonitorizeBackend(self.de, self)
         self.backend.configureDisplayRequested.connect(self._configure_display)
-        self.receiver_was_fullscreen = False
-        self.receiver_saved_geometry = None
         self._setup_tray()
         self.content_stack = QStackedWidget(self)
         self.quick_widget = QQuickWidget(self)
@@ -113,36 +156,16 @@ class MonitorizeWindow(QMainWindow):
         )
         for error in self.quick_widget.errors():
             print(error.toString())
-        self.receiver_video_widget = ReceiverVideoWidget(self.backend, self)
         self.content_stack.addWidget(self.quick_widget)
-        self.content_stack.addWidget(self.receiver_video_widget)
         self.setCentralWidget(self.content_stack)
+        self.receiver_video_window = ReceiverVideoWindow(self.backend, self)
         self.backend.isReceivingChanged.connect(self._sync_receiver_fullscreen)
 
     def _sync_receiver_fullscreen(self, receiving):
         if receiving:
-            self.receiver_was_fullscreen = self.isFullScreen()
-            self.receiver_saved_geometry = self.saveGeometry()
-            self.content_stack.setCurrentWidget(self.receiver_video_widget)
-            self.showFullScreen()
-            self.receiver_video_widget.setFocus()
-            QTimer.singleShot(50, self._bind_receiver_video_surface)
+            self.receiver_video_window.show_receiver()
             return
-        self.backend.setReceiverVideoItem(None)
-        self.content_stack.setCurrentWidget(self.quick_widget)
-        if self.receiver_was_fullscreen:
-            return
-        self.showNormal()
-        if self.receiver_saved_geometry:
-            self.restoreGeometry(self.receiver_saved_geometry)
-        self.receiver_saved_geometry = None
-
-    def _bind_receiver_video_surface(self):
-        if not self.backend.isReceiving:
-            return
-        self.receiver_video_widget.sync_video_geometry()
-        self.backend.setReceiverVideoItem(self.receiver_video_widget.video_surface)
-        QTimer.singleShot(100, self.receiver_video_widget.sync_video_geometry)
+        self.receiver_video_window.hide_receiver()
 
     def _setup_tray(self):
         self.tray = QSystemTrayIcon(self)

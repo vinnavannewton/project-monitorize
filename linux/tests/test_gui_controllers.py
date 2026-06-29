@@ -438,6 +438,20 @@ class ReceiverControllerTest(unittest.TestCase):
         controller._sync_embedded_sink_geometry(sink)
         sink.set_render_rectangle.assert_called_once_with(0, 0, 1, 1)
 
+    def test_embedded_video_geometry_logs_tiny_surface_once(self):
+        controller = ReceiverController("kde", Mock())
+        video_item = Mock()
+        video_item.width.return_value = 32
+        video_item.height.return_value = 24
+        sink = Mock()
+        emitted = []
+        controller.video_item = video_item
+        controller.logAppended.connect(emitted.append)
+        controller._sync_embedded_sink_geometry(sink)
+        controller._sync_embedded_sink_geometry(sink)
+        self.assertEqual(len(emitted), 1)
+        self.assertIn("32x24", emitted[0])
+
     def test_embedded_pipeline_can_mark_receiver_stable(self):
         controller = ReceiverController("kde", Mock())
         controller.generation = 6
@@ -552,6 +566,73 @@ class ReceiverControllerTest(unittest.TestCase):
         self.assertEqual(controller.sink, "autovideosink")
         self.assertEqual(controller.decoder_args, ["avdec_h264"])
         self.assertTrue(controller.pipeline_fallback_used)
+
+
+class ReceiverVideoWindowTest(unittest.TestCase):
+    def test_receiver_video_window_fills_native_surface_from_window_size(self):
+        from monitorize.desktop.main_window import ReceiverVideoWindow
+
+        backend = Mock()
+        window = Mock()
+        window.backend = backend
+        window.width.return_value = 1920
+        window.height.return_value = 1080
+        window.video_surface = Mock()
+        ReceiverVideoWindow.sync_video_geometry(window)
+        window.video_surface.setGeometry.assert_called_once_with(0, 0, 1920, 1080)
+        backend.receiver.sync_video_geometry.assert_called_once()
+
+    def test_receiver_video_window_waits_for_valid_surface_before_binding(self):
+        from monitorize.desktop.main_window import ReceiverVideoWindow
+
+        backend = Mock()
+        backend.isReceiving = True
+        window = Mock()
+        window.backend = backend
+        window.SYNC_DELAYS_MS = ReceiverVideoWindow.SYNC_DELAYS_MS
+        window.isVisible.return_value = True
+        window.video_surface = Mock()
+        window.video_surface.width.return_value = 1
+        window.video_surface.height.return_value = 1080
+        window.sync_video_geometry = Mock()
+        with patch("monitorize.desktop.main_window.QTimer.singleShot") as single_shot:
+            ReceiverVideoWindow._bind_receiver_video_surface(window)
+        backend.setReceiverVideoItem.assert_not_called()
+        single_shot.assert_called_once()
+
+    def test_receiver_video_window_binds_and_schedules_geometry_resyncs(self):
+        from monitorize.desktop.main_window import ReceiverVideoWindow
+
+        backend = Mock()
+        backend.isReceiving = True
+        window = Mock()
+        window.backend = backend
+        window.SYNC_DELAYS_MS = ReceiverVideoWindow.SYNC_DELAYS_MS
+        window.isVisible.return_value = True
+        window.video_surface = Mock()
+        window.video_surface.width.return_value = 1920
+        window.video_surface.height.return_value = 1080
+        window.sync_video_geometry = Mock()
+        with patch("monitorize.desktop.main_window.QTimer.singleShot") as single_shot:
+            ReceiverVideoWindow._bind_receiver_video_surface(window)
+        backend.setReceiverVideoItem.assert_called_once_with(window.video_surface)
+        self.assertEqual(single_shot.call_count, len(ReceiverVideoWindow.SYNC_DELAYS_MS))
+
+    def test_monitorize_window_uses_dedicated_receiver_window(self):
+        from monitorize.desktop.main_window import MonitorizeWindow
+
+        window = Mock()
+        MonitorizeWindow._sync_receiver_fullscreen(window, True)
+        window.receiver_video_window.show_receiver.assert_called_once()
+        window.showFullScreen.assert_not_called()
+        window.content_stack.setCurrentWidget.assert_not_called()
+
+    def test_monitorize_window_hides_dedicated_receiver_window_on_stop(self):
+        from monitorize.desktop.main_window import MonitorizeWindow
+
+        window = Mock()
+        MonitorizeWindow._sync_receiver_fullscreen(window, False)
+        window.receiver_video_window.hide_receiver.assert_called_once()
 
     def test_stale_credentials_request_pairing_again(self):
         controller = ReceiverController("kde", Mock())
