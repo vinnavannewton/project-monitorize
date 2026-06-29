@@ -391,6 +391,53 @@ class ReceiverControllerTest(unittest.TestCase):
         ):
             self.assertEqual(controller._embedded_sink_name(), "waylandsink")
 
+    def test_wayland_receivers_default_to_external_sink(self):
+        for de in ("kde", "gnome", "hyprland"):
+            controller = ReceiverController(de, Mock())
+            with (
+                patch.dict(os.environ, {"XDG_SESSION_TYPE": "wayland", "WAYLAND_DISPLAY": "wayland-0"}, clear=True),
+                patch(
+                    "monitorize.desktop.receiver_controller.gst_has_element",
+                    side_effect=lambda name: name in {"waylandsink", "glimagesink"},
+                ),
+            ):
+                self.assertFalse(controller.should_use_embedded_window(), de)
+
+    def test_wayland_receiver_can_force_embedded_for_debugging(self):
+        controller = ReceiverController("gnome", Mock())
+        with (
+            patch.dict(os.environ, {
+                "XDG_SESSION_TYPE": "wayland",
+                "WAYLAND_DISPLAY": "wayland-0",
+                "MONITORIZE_RECEIVER_EMBEDDED": "1",
+            }, clear=True),
+            patch(
+                "monitorize.desktop.receiver_controller.gst_has_element",
+                side_effect=lambda name: name in {"waylandsink", "glimagesink"},
+            ),
+        ):
+            self.assertTrue(controller.should_use_embedded_window())
+
+    def test_wayland_receiver_launches_external_even_with_video_item(self):
+        controller = ReceiverController("gnome", Mock())
+        controller.decoder_args = ["avdec_h264"]
+        controller.decoder_label = "Software"
+        controller.video_item = Mock()
+        controller.video_item.width.return_value = 1920
+        controller.video_item.height.return_value = 1080
+        with (
+            patch.dict(os.environ, {"XDG_SESSION_TYPE": "wayland", "WAYLAND_DISPLAY": "wayland-0"}, clear=True),
+            patch(
+                "monitorize.desktop.receiver_controller.gst_has_element",
+                side_effect=lambda name: name in {"waylandsink", "glimagesink"},
+            ),
+            patch.object(controller, "_launch_external_pipeline") as external,
+            patch.object(controller, "_launch_embedded_pipeline") as embedded,
+        ):
+            controller._launch_pipeline("10.0.0.2", 7110, generation=0)
+        embedded.assert_not_called()
+        external.assert_called_once_with("10.0.0.2", 7110, 0)
+
     def test_embedded_wayland_sink_does_not_request_standalone_fullscreen(self):
         controller = ReceiverController("kde", Mock())
         controller.decoder_args = ["avdec_h264"]
@@ -701,10 +748,19 @@ class ReceiverVideoWindowTest(unittest.TestCase):
         from monitorize.desktop.main_window import MonitorizeWindow
 
         window = Mock()
+        window.backend.receiver.should_use_embedded_window.return_value = True
         MonitorizeWindow._sync_receiver_fullscreen(window, True)
         window.receiver_video_window.show_receiver.assert_called_once()
         window.showFullScreen.assert_not_called()
         window.content_stack.setCurrentWidget.assert_not_called()
+
+    def test_monitorize_window_does_not_cover_external_receiver_sink(self):
+        from monitorize.desktop.main_window import MonitorizeWindow
+
+        window = Mock()
+        window.backend.receiver.should_use_embedded_window.return_value = False
+        MonitorizeWindow._sync_receiver_fullscreen(window, True)
+        window.receiver_video_window.show_receiver.assert_not_called()
 
     def test_monitorize_window_hides_dedicated_receiver_window_on_stop(self):
         from monitorize.desktop.main_window import MonitorizeWindow

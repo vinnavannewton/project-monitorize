@@ -307,7 +307,7 @@ class ReceiverController(QObject):
         generation = self.generation if generation is None else generation
         if self.stopping or generation != self.generation:
             return
-        if self.video_item is not None and self._embedded_sink_available():
+        if self.video_item is not None and self.should_use_embedded_window():
             if not self._update_receiver_surface_size():
                 self.pending_launch = (host, port, generation)
                 self._set_status("Preparing fullscreen receiver…")
@@ -364,7 +364,17 @@ class ReceiverController(QObject):
 
     def _should_wait_for_embedded_surface(self):
         app = QGuiApplication.instance()
-        return isinstance(app, QGuiApplication) and self._embedded_sink_available()
+        return isinstance(app, QGuiApplication) and self.should_use_embedded_window()
+
+    def should_use_embedded_window(self):
+        override = os.environ.get("MONITORIZE_RECEIVER_EMBEDDED", "").strip().lower()
+        if override in {"1", "true", "yes", "on"}:
+            return self._embedded_sink_available()
+        session = os.environ.get("XDG_SESSION_TYPE", "").lower()
+        wayland = session == "wayland" or bool(os.environ.get("WAYLAND_DISPLAY"))
+        if wayland:
+            return False
+        return self._embedded_sink_available()
 
     def _launch_embedded_pipeline(self, host, port, generation):
         self.receiver_host = host
@@ -542,6 +552,11 @@ class ReceiverController(QObject):
             *RAW_DROP_QUEUE, "!",
             *self._sink_args(self.sink),
         ]
+        if self.video_item is not None and not self.should_use_embedded_window():
+            self.logAppended.emit(
+                "Using external fullscreen receiver sink on Wayland; "
+                "embedded receiver can render tiny or crash there."
+            )
         self.logAppended.emit(f"Decoder: {self.decoder_label}; sink: {self.sink}")
         self.process.start("gst-launch-1.0", args)
 
