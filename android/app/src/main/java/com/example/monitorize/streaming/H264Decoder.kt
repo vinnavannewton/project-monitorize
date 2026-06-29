@@ -15,7 +15,8 @@ import java.util.concurrent.atomic.AtomicInteger
 
 class H264Decoder(
     private val surface: Surface,
-    private val onOutputSizeChanged: (Int, Int) -> Unit = { _, _ -> }
+    private val onOutputSizeChanged: (Int, Int) -> Unit = { _, _ -> },
+    private val onFirstFrameRendered: () -> Unit = {}
 ) {
 
     private var codec: MediaCodec? = null
@@ -52,6 +53,7 @@ class H264Decoder(
         release()
         val generation = decoderGeneration.incrementAndGet()
         fatalError.set(false)
+        val firstFrameReported = AtomicBoolean(false)
         try {
             Log.i(TAG, "Init: ${width}×${height}")
 
@@ -140,6 +142,11 @@ class H264Decoder(
                 }, handler)
 
                 it.configure(format, surface, null, 0)
+                it.setOnFrameRenderedListener({ _, _, _ ->
+                    if (isCurrent(generation) && firstFrameReported.compareAndSet(false, true)) {
+                        onFirstFrameRendered()
+                    }
+                }, handler)
                 initialized = true
                 it.start()
             }

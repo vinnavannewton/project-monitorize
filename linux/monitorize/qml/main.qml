@@ -97,10 +97,10 @@ Rectangle {
         objectName: "mainStack"
         property string lastStreamingSetupPage: "MainMenuPage.qml"
         anchors.fill: parent
-        anchors.leftMargin: 20
-        anchors.rightMargin: 20
-        anchors.topMargin: 56
-        anchors.bottomMargin: 20
+        anchors.leftMargin: backend.isReceiving ? 0 : 20
+        anchors.rightMargin: backend.isReceiving ? 0 : 20
+        anchors.topMargin: backend.isReceiving ? 0 : 56
+        anchors.bottomMargin: backend.isReceiving ? 0 : 20
         initialItem: "MainMenuPage.qml"
 
         pushEnter: Transition {
@@ -160,6 +160,7 @@ Rectangle {
         z: 2
         width: 36
         height: 36
+        visible: !backend.isReceiving
         text: "⚙"
         ToolTip.visible: hovered
         ToolTip.text: "Settings"

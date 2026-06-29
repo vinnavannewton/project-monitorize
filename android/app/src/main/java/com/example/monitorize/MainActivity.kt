@@ -6,8 +6,9 @@ import android.net.wifi.WifiManager
 import android.util.Log
 import android.os.Build
 import android.os.Bundle
+import android.graphics.SurfaceTexture
 import android.view.Surface
-import android.view.SurfaceHolder
+import android.view.TextureView
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -218,7 +219,7 @@ class MainActivity : ComponentActivity() {
                                         clearPairingState(invokeCancel = true)
                                         restartApp()
                                     },
-                                    onSurfaceCreated = { ip, surface, w, h ->
+                                    onSurfaceCreated = { ip, surface, w, h, onFirstFrameRendered ->
                                         val generation = registerSurfaceCreated()
                                         coroutineScope.launch {
                                             val port = selectedDevice?.port ?: 7110
@@ -236,6 +237,7 @@ class MainActivity : ComponentActivity() {
                                                     decodedWidth = decodedW
                                                     decodedHeight = decodedH
                                                 },
+                                                onFirstFrameRendered = onFirstFrameRendered,
                                                 onDisconnect = {
                                                     runOnUiThread {
                                                         disconnectionMessage = "Connection stopped"
@@ -251,6 +253,9 @@ class MainActivity : ComponentActivity() {
                                         coroutineScope.launch {
                                             stopStream(surfaceGeneration = generation)
                                         }
+                                    },
+                                    onSurfaceRenderTimeout = {
+                                        status.value = "Video surface did not render; reconnect the receiver"
                                     },
                                     onInputEvent = { event, viewW, viewH -> inputSender?.send(event, viewW, viewH) }
                                 )
@@ -505,6 +510,7 @@ class MainActivity : ComponentActivity() {
         device: DiscoveredDevice?,
         onPairingRequired: ((String) -> Unit) -> Unit,
         onDecodedSize: (Int, Int) -> Unit,
+        onFirstFrameRendered: () -> Unit,
         onDisconnect: () -> Unit
     ) = streamMutex.withLock {
         if (!isSurfaceCurrent(surfaceGeneration)) {
@@ -522,15 +528,27 @@ class MainActivity : ComponentActivity() {
             activeStreamSession
         }
         val newWifiLock = acquireLowLatencyWifiLock()
-        val d = H264Decoder(surface) { decodedWidth, decodedHeight ->
-            if (isActiveStream(sessionId)) {
-                runOnUiThread {
-                    if (isActiveStream(sessionId)) {
-                        onDecodedSize(decodedWidth, decodedHeight)
+        val d = H264Decoder(
+            surface,
+            onOutputSizeChanged = { decodedWidth, decodedHeight ->
+                if (isActiveStream(sessionId)) {
+                    runOnUiThread {
+                        if (isActiveStream(sessionId)) {
+                            onDecodedSize(decodedWidth, decodedHeight)
+                        }
+                    }
+                }
+            },
+            onFirstFrameRendered = {
+                if (isActiveStream(sessionId)) {
+                    runOnUiThread {
+                        if (isActiveStream(sessionId)) {
+                            onFirstFrameRendered()
+                        }
                     }
                 }
             }
-        }
+        )
         val encrypted = device?.let { it.encrypted && !it.isUsb } == true
         val advertisedFingerprint = device?.fingerprint
         val savedFingerprint = advertisedFingerprint?.takeIf {
@@ -1112,8 +1130,9 @@ fun ReceiveScreen(
     displayHeight: Int,
     status: String,
     onBack: () -> Unit,
-    onSurfaceCreated: (String, Surface, Int, Int) -> Long,
+    onSurfaceCreated: (String, Surface, Int, Int, () -> Unit) -> Long,
     onSurfaceDestroyed: (Long) -> Unit,
+    onSurfaceRenderTimeout: () -> Unit,
     onInputEvent: (android.view.MotionEvent, Float, Float) -> Unit
 ) {
     BackHandler(onBack = onBack)
@@ -1131,6 +1150,7 @@ fun ReceiveScreen(
                 hostIp = hostIp,
                 onSurfaceCreated = onSurfaceCreated,
                 onSurfaceDestroyed = onSurfaceDestroyed,
+                onSurfaceRenderTimeout = onSurfaceRenderTimeout,
                 onInputEvent = onInputEvent
             )
         }
@@ -1158,23 +1178,123 @@ fun StreamSurface(
     width: Int,
     height: Int,
     hostIp: String,
-    onSurfaceCreated: (String, Surface, Int, Int) -> Long,
+    onSurfaceCreated: (String, Surface, Int, Int, () -> Unit) -> Long,
     onSurfaceDestroyed: (Long) -> Unit,
+    onSurfaceRenderTimeout: () -> Unit,
     onInputEvent: (android.view.MotionEvent, Float, Float) -> Unit
 ) {
     AndroidView(
         factory = { ctx ->
-            android.view.SurfaceView(ctx).apply {
+            TextureView(ctx).apply {
                 isClickable = true
-                holder.addCallback(object : SurfaceHolder.Callback {
+                val streamCallback = object : TextureView.SurfaceTextureListener {
                     private var surfaceGeneration = 0L
+                    private var renderSurface: Surface? = null
+                    private var currentSurfaceTexture: SurfaceTexture? = null
+                    private var activeSurfaceWidth = 0
+                    private var activeSurfaceHeight = 0
+                    private var firstFrameRendered = false
+                    private var watchdogRestartUsed = false
 
-                    override fun surfaceCreated(holder: SurfaceHolder) {
-                        surfaceGeneration = onSurfaceCreated(hostIp, holder.surface, width, height)
+                    override fun onSurfaceTextureAvailable(surfaceTexture: SurfaceTexture, w: Int, h: Int) {
+                        currentSurfaceTexture = surfaceTexture
+                        watchdogRestartUsed = false
+                        scheduleSurfaceReadyChecks()
                     }
-                    override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, ht: Int) {}
-                    override fun surfaceDestroyed(h: SurfaceHolder) { onSurfaceDestroyed(surfaceGeneration) }
-                })
+
+                    override fun onSurfaceTextureSizeChanged(surfaceTexture: SurfaceTexture, w: Int, h: Int) {
+                        currentSurfaceTexture = surfaceTexture
+                        scheduleSurfaceReadyChecks(forceRestart = true)
+                    }
+
+                    override fun onSurfaceTextureDestroyed(surfaceTexture: SurfaceTexture): Boolean {
+                        stopActiveStream()
+                        currentSurfaceTexture = null
+                        releaseRenderSurface()
+                        return true
+                    }
+
+                    override fun onSurfaceTextureUpdated(surfaceTexture: SurfaceTexture) {
+                        firstFrameRendered = true
+                    }
+
+                    fun scheduleSurfaceReadyChecks(forceRestart: Boolean = false) {
+                        listOf(0L, 50L, 150L, 350L, 700L).forEachIndexed { index, delayMs ->
+                            postDelayed({
+                                maybeStartOrRestartStream(
+                                    this@apply.width,
+                                    this@apply.height,
+                                    forceRestart && index == 0
+                                )
+                            }, delayMs)
+                        }
+                    }
+
+                    private fun maybeStartOrRestartStream(surfaceWidth: Int, surfaceHeight: Int, forceRestart: Boolean) {
+                        val actualWidth = surfaceWidth.takeIf { it > 0 } ?: this@apply.width
+                        val actualHeight = surfaceHeight.takeIf { it > 0 } ?: this@apply.height
+                        if (actualWidth <= 0 || actualHeight <= 0 || !isAttachedToWindow || windowVisibility != android.view.View.VISIBLE) {
+                            return
+                        }
+                        val surfaceTexture = currentSurfaceTexture ?: surfaceTexture ?: return
+                        val surface = renderSurface ?: Surface(surfaceTexture).also {
+                            renderSurface = it
+                        }
+                        if (!surface.isValid) {
+                            return
+                        }
+                        if (surfaceGeneration != 0L && !forceRestart) {
+                            if (actualWidth == activeSurfaceWidth && actualHeight == activeSurfaceHeight) {
+                                return
+                            }
+                        }
+                        if (surfaceGeneration != 0L) {
+                            stopActiveStream()
+                        }
+                        activeSurfaceWidth = actualWidth
+                        activeSurfaceHeight = actualHeight
+                        firstFrameRendered = false
+                        surfaceGeneration = onSurfaceCreated(hostIp, surface, width, height) {
+                            firstFrameRendered = true
+                        }
+                        scheduleFirstFrameWatchdog(surfaceGeneration, actualWidth, actualHeight)
+                    }
+
+                    private fun scheduleFirstFrameWatchdog(generation: Long, surfaceWidth: Int, surfaceHeight: Int) {
+                        postDelayed({
+                            if (generation != surfaceGeneration || firstFrameRendered) {
+                                return@postDelayed
+                            }
+                            if (!watchdogRestartUsed) {
+                                watchdogRestartUsed = true
+                                maybeStartOrRestartStream(surfaceWidth, surfaceHeight, forceRestart = true)
+                            } else {
+                                onSurfaceRenderTimeout()
+                            }
+                        }, 2000L)
+                    }
+
+                    private fun stopActiveStream() {
+                        if (surfaceGeneration != 0L) {
+                            onSurfaceDestroyed(surfaceGeneration)
+                            surfaceGeneration = 0L
+                        }
+                        activeSurfaceWidth = 0
+                        activeSurfaceHeight = 0
+                    }
+
+                    private fun releaseRenderSurface() {
+                        try {
+                            renderSurface?.release()
+                        } catch (_: Exception) {}
+                        renderSurface = null
+                    }
+                }
+                surfaceTextureListener = streamCallback
+                addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+                    streamCallback.scheduleSurfaceReadyChecks()
+                }
+                streamCallback.scheduleSurfaceReadyChecks()
                 fun requestLowLatencyInput(event: android.view.MotionEvent) {
                     when (event.actionMasked) {
                         android.view.MotionEvent.ACTION_DOWN,
