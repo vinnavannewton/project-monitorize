@@ -163,6 +163,8 @@ class MonitorizeWindow(QMainWindow):
 
     def _sync_receiver_fullscreen(self, receiving):
         if receiving:
+            if not self.backend.receiver.should_use_embedded_window():
+                return
             self.receiver_video_window.show_receiver()
             return
         self.receiver_video_window.hide_receiver()
