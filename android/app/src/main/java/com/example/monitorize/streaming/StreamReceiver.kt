@@ -162,9 +162,13 @@ class StreamReceiver(
         var writePos = 0
         val readBuf = ByteArray(128 * 1024)
         val accessUnit = ByteArray(MAX_ACCESS_UNIT)
+        val codecConfig = ByteArray(256 * 1024)
         var accessUnitSize = 0
         var accessUnitHasVcl = false
         var accessUnitHasIdr = false
+        var accessUnitHasConfig = false
+        var codecConfigSize = 0
+        var waitingForKeyFrame = true
         var idleReads = 0
         var decoderFailed = false
 
@@ -173,9 +177,28 @@ class StreamReceiver(
                 accessUnitSize = 0
                 accessUnitHasVcl = false
                 accessUnitHasIdr = false
+                accessUnitHasConfig = false
                 return
             }
             if (accessUnitSize > 0 && accessUnitHasVcl) {
+                if (waitingForKeyFrame && !accessUnitHasIdr) {
+                    accessUnitSize = 0
+                    accessUnitHasVcl = false
+                    accessUnitHasIdr = false
+                    accessUnitHasConfig = false
+                    return
+                }
+                if (waitingForKeyFrame && !accessUnitHasConfig && codecConfigSize > 0) {
+                    if (codecConfigSize + accessUnitSize <= accessUnit.size) {
+                        System.arraycopy(accessUnit, 0, accessUnit, codecConfigSize, accessUnitSize)
+                        System.arraycopy(codecConfig, 0, accessUnit, 0, codecConfigSize)
+                        accessUnitSize += codecConfigSize
+                        accessUnitHasConfig = true
+                    } else {
+                        Log.w(TAG, "$streamType codec config too large to prepend, using IDR only")
+                    }
+                }
+                waitingForKeyFrame = false
                 if (!decoder.feedChunk(accessUnit, 0, accessUnitSize, accessUnitHasIdr)) {
                     Log.w(TAG, "$streamType decoder rejected frame; reconnecting")
                     decoderFailed = true
@@ -184,6 +207,21 @@ class StreamReceiver(
             accessUnitSize = 0
             accessUnitHasVcl = false
             accessUnitHasIdr = false
+            accessUnitHasConfig = false
+        }
+
+        fun rememberCodecConfig(nalStart: Int, nalEnd: Int, nalType: Int) {
+            val nalSize = nalEnd - nalStart
+            if (nalSize <= 0 || nalSize > codecConfig.size) return
+            if (nalType == 7) {
+                codecConfigSize = 0
+            }
+            if (codecConfigSize + nalSize > codecConfig.size) {
+                codecConfigSize = 0
+                if (nalSize > codecConfig.size) return
+            }
+            System.arraycopy(buf, nalStart, codecConfig, codecConfigSize, nalSize)
+            codecConfigSize += nalSize
         }
 
         fun appendNalToAccessUnit(nalStart: Int, nalEnd: Int) {
@@ -193,6 +231,10 @@ class StreamReceiver(
             if (nalHeader >= nalEnd) return
 
             val nalType = buf[nalHeader].toInt() and 0x1F
+            val isCodecConfig = nalType == 7 || nalType == 8
+            if (isCodecConfig) {
+                rememberCodecConfig(nalStart, nalEnd, nalType)
+            }
             val isVcl = nalType in 1..5
             val startsNewAccessUnit = accessUnitHasVcl && (
                 nalType in 6..9 ||
@@ -219,6 +261,7 @@ class StreamReceiver(
 
             System.arraycopy(buf, nalStart, accessUnit, accessUnitSize, nalSize)
             accessUnitSize += nalSize
+            if (isCodecConfig) accessUnitHasConfig = true
             if (isVcl) accessUnitHasVcl = true
             if (nalType == 5) accessUnitHasIdr = true
         }
