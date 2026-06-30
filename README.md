@@ -236,7 +236,7 @@ sudo apt install -y kscreen
 
 ### ~~GNOME~~:
 
-GNOME support requires GNOME 50+ which isn't available in ubuntu/debian yet.
+GNOME support requires GNOME 50+ which isn't available in debian/ubuntu yet.
 
 No extra packages needed. However, you **must** disable Mutter hardware cursor rendering so the cursor is visible on the virtual monitor stream.
 
@@ -266,17 +266,13 @@ sudo apt install -y \
 
 1.After starting the stream in the desktop application make sure you go to your display settings and configure the newly created virtual display.
 
-2.When made changes to the virtual display's position or anything sometimes the stream crashes, it's normal just restart the stream.
+2.When made changes to the virtual display's position then the stream crashes, it's normal just restart the stream and the virtual monitor will spawn in the previous applied position.
 
 ---
 
 ### Notes:
 
 - Match the resolution and FPS set in the Android settings app to the desktop app settings.
-
-- If the USB device is not detected, make sure `android-tools` is installed and run:
-  
-  to confirm the device is connected.
 
 ---
 
@@ -334,9 +330,9 @@ Or:
 
 - [x] Stable gnome.
 
-- [x] use laptop as second screen.
+- [x] Laptop as a viewer.
 
-- [ ] triple monitor setup (KDE & Hyprland).
+- [ ] Multi monitor setup.
 
 - [ ] Stable nvidia encoder (waiting for driver 610.x which implemented proper DMA BUF).
 
