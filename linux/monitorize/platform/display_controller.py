@@ -3,6 +3,7 @@
 import json
 import re
 import subprocess
+import time
 
 
 class DisplayController:
@@ -46,6 +47,31 @@ class DisplayController:
             capture_output=True,
         )
         return self.created_output, ""
+
+    def wait_for_headless_ready(self, output_name, width, height,
+                                timeout_s=2.0, poll_interval_s=0.1):
+        """Poll hyprctl until *output_name* appears with the expected resolution.
+
+        Returns True if the output was detected with the correct mode before
+        *timeout_s* elapsed, False otherwise.
+        """
+        deadline = time.monotonic() + timeout_s
+        while time.monotonic() < deadline:
+            try:
+                result = subprocess.run(
+                    ["hyprctl", "monitors", "all", "-j"],
+                    capture_output=True, text=True, timeout=2,
+                )
+                if result.returncode == 0:
+                    for mon in json.loads(result.stdout):
+                        if mon.get("name") == output_name:
+                            if (mon.get("width", 0) == width
+                                    and mon.get("height", 0) == height):
+                                return True
+            except Exception:
+                pass
+            time.sleep(poll_interval_s)
+        return False
 
     def cleanup(self):
         if not self.created_output:
