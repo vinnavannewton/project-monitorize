@@ -135,6 +135,7 @@ gradle/wrapper/gradle-wrapper.jar
 .gemini/
 skills-lock.json
 .agents/
+.continue/
 .claude/
 .codex/
 

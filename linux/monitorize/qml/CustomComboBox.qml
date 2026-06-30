@@ -13,14 +13,14 @@ ComboBox {
             verticalAlignment: Text.AlignVCenter
         }
         background: Rectangle {
-            color: highlighted ? theme.accent : theme.surface
+            color: highlighted ? theme.surfaceAlt : theme.surface
         }
     }
     background: Rectangle {
         implicitWidth: 160
         implicitHeight: 38
         color: theme.surface
-        border.color: cb.hovered ? theme.accent : theme.border
+        border.color: cb.hovered ? theme.borderHover : theme.border
         border.width: 1
         radius: theme.controlRadius
     }

@@ -84,9 +84,10 @@ Rectangle {
         target: backend
         function onIsReceivingChanged(receiving) {
             if (receiving) {
+                stack.lastReceiverSetupPage = "ReceiverSetupPage.qml"
                 stack.replace("ReceiverStreamingPage.qml")
             } else {
-                stack.replace("MainMenuPage.qml", StackView.PopTransition)
+                stack.replace(stack.lastReceiverSetupPage, StackView.PopTransition)
             }
         }
     }
@@ -96,6 +97,7 @@ Rectangle {
         id: stack
         objectName: "mainStack"
         property string lastStreamingSetupPage: "MainMenuPage.qml"
+        property string lastReceiverSetupPage: "ReceiverSetupPage.qml"
         anchors.fill: parent
         anchors.leftMargin: backend.isReceiving ? 0 : 20
         anchors.rightMargin: backend.isReceiving ? 0 : 20
@@ -161,7 +163,6 @@ Rectangle {
         width: 36
         height: 36
         visible: !backend.isReceiving
-        text: "⚙"
         ToolTip.visible: hovered
         ToolTip.text: "Settings"
         onClicked: {
@@ -171,18 +172,24 @@ Rectangle {
         background: Rectangle {
             implicitWidth: 36
             implicitHeight: 36
-            color: parent.down ? theme.surfaceAlt : (parent.hovered ? theme.borderHover : theme.surface)
-            border.color: theme.border
-            radius: 18
+            visible: parent.hovered || parent.down
+            color: parent.down ? theme.borderHover : theme.surfaceAlt
+            radius: theme.controlRadius
             Behavior on color { ColorAnimation { duration: 150 } }
         }
-        contentItem: Text {
-            text: parent.text
-            color: theme.cardTextPrimary
-            font.pixelSize: 18
-            font.weight: Font.Bold
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
+        contentItem: Item {
+            implicitWidth: 36
+            implicitHeight: 36
+
+            Image {
+                anchors.centerIn: parent
+                width: 17
+                height: 17
+                source: "../assets/svg/settings.svg"
+                sourceSize.width: 17
+                sourceSize.height: 17
+                fillMode: Image.PreserveAspectFit
+            }
         }
     }
 
@@ -243,6 +250,24 @@ Rectangle {
                     text: "Close"
                     Layout.alignment: Qt.AlignRight
                     onClicked: settingsPopup.close()
+                    background: Rectangle {
+                        implicitWidth: 92
+                        implicitHeight: 36
+                        color: parent.down ? theme.surfaceAlt : (parent.hovered ? theme.borderHover : theme.surface)
+                        border.color: parent.hovered ? theme.borderHover : theme.border
+                        border.width: 1
+                        radius: theme.controlRadius
+                        Behavior on color { ColorAnimation { duration: 150 } }
+                        Behavior on border.color { ColorAnimation { duration: 150 } }
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: parent.hovered ? theme.textPrimary : theme.cardTextPrimary
+                        font.pixelSize: 12
+                        font.weight: Font.Bold
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
                 }
             }
         }

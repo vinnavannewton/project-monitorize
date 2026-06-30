@@ -12,6 +12,21 @@ Item {
     property bool showPairingCode: true
     property int duplicatePresetIndex: -1
     property bool syncingSecondBitrate: false
+    readonly property int actionButtonWidth: 160
+    readonly property int actionButtonHeight: 38
+    readonly property int streamInfoColumns: 3
+    readonly property int streamInfoCardHeight: 28
+    readonly property int streamInfoSpacing: 10
+    readonly property var streamInfoBaseItems: ["Second Display  Port 7110", "Host  " + backend.localIp]
+    readonly property var streamInfoItems: backend.secondStreamActive
+        ? page.streamInfoBaseItems.concat(["Third Display  Port 7114"])
+        : page.streamInfoBaseItems
+    readonly property int streamInfoVisibleColumns: Math.max(
+        1, Math.min(page.streamInfoColumns, page.streamInfoItems.length)
+    )
+    readonly property int streamInfoRows: Math.max(
+        1, Math.ceil(page.streamInfoItems.length / page.streamInfoColumns)
+    )
 
     function clampMbps(value) {
         let number = Number(value)
@@ -93,92 +108,66 @@ Item {
         anchors.fill: parent
         spacing: 14
 
-        // Top Status Card
+        // Top status and stream details card
         Rectangle {
             Layout.fillWidth: true
-            implicitHeight: 60
+            implicitHeight: 72 + page.streamInfoRows * page.streamInfoCardHeight
+                + Math.max(0, page.streamInfoRows - 1) * page.streamInfoSpacing
             radius: theme.cardRadius
             color: theme.surface
             border.color: theme.border
             border.width: 1
 
-            RowLayout {
+            ColumnLayout {
                 anchors.fill: parent
-                anchors.leftMargin: 20
-                anchors.rightMargin: 20
-                spacing: 20
-
-                // Pulsing Active Indicator
-                Rectangle {
-                    id: activeIndicator
-                    width: 12
-                    height: 12
-                    radius: 6
-                    color: "#86efac"
-
-                    OpacityAnimator {
-                        target: activeIndicator
-                        from: 0.3
-                        to: 1.0
-                        duration: 800
-                        running: backend ? backend.isStreaming : false
-                        loops: Animation.Infinite
-                    }
-                }
+                anchors.margins: 18
+                spacing: 12
 
                 Text {
                     text: backend.countdown > 0 ? ("Streaming starting in " + backend.countdown + "...") : "Streaming Active"
                     font.pixelSize: 18
                     font.weight: Font.Bold
                     color: "#86efac"
-                }
-
-                Text {
-                    text: backend.streamingStatus
-                    font.pixelSize: 13
-                    color: theme.cardTextSecondary
                     Layout.fillWidth: true
                 }
-            }
-        }
 
-        // Active Ports Card
-        Rectangle {
-            Layout.fillWidth: true
-            implicitHeight: 40
-            radius: 8
-            color: theme.surfaceAlt
-            border.color: theme.border
-            border.width: 1
+                Flow {
+                    id: streamInfoGrid
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: page.streamInfoRows * page.streamInfoCardHeight
+                        + Math.max(0, page.streamInfoRows - 1) * page.streamInfoSpacing
+                    spacing: page.streamInfoSpacing
 
-            RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: 16
-                anchors.rightMargin: 16
-                
-                Text {
-                    text: "📺 Second display: Port 7110"
-                    color: theme.accent
-                    font.pixelSize: 12
-                    font.weight: Font.Bold
-                }
-                
-                Item { Layout.fillWidth: true }
-                
-                Text {
-                    text: "IP: " + backend.localIp
-                    color: theme.cardTextPrimary
-                    font.pixelSize: 13
-                    font.weight: Font.Bold
-                }
-                
-                Item { Layout.fillWidth: true }
-                
-                Text {
-                    text: "📺 Third display: Port 7114"
-                    color: backend.secondStreamActive ? "#f472b6" : "transparent"
-                    font.pixelSize: 12
-                    font.weight: Font.Bold
+                    Repeater {
+                        model: page.streamInfoItems
+
+                        Rectangle {
+                            width: Math.max(0, (
+                                Math.max(0, streamInfoGrid.width)
+                                - page.streamInfoSpacing * (page.streamInfoVisibleColumns - 1)
+                            ) / page.streamInfoVisibleColumns)
+                            height: page.streamInfoCardHeight
+                            radius: 8
+                            color: theme.surfaceAlt
+                            border.color: theme.border
+                            border.width: 1
+
+                            Text {
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.leftMargin: 10
+                                anchors.rightMargin: 10
+                                text: modelData
+                                color: theme.cardTextSecondary
+                                font.pixelSize: 12
+                                font.weight: Font.DemiBold
+                                fontSizeMode: Text.HorizontalFit
+                                minimumPixelSize: 9
+                                horizontalAlignment: Text.AlignHCenter
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -249,11 +238,79 @@ Item {
                 }
             }
 
+            Button {
+                text: "⏹ Stop Streaming"
+                Layout.preferredWidth: page.actionButtonWidth
+                Layout.preferredHeight: page.actionButtonHeight
+                implicitWidth: page.actionButtonWidth
+                implicitHeight: page.actionButtonHeight
+                padding: 0
+                scale: hovered ? theme.hoverScale : 1.0
+                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+                onClicked: {
+                    logArea.text = ""
+                    backend.stopStreaming()
+                }
+                background: Rectangle {
+                    implicitWidth: page.actionButtonWidth
+                    implicitHeight: page.actionButtonHeight
+                    color: parent.down ? "#5a1010" : (parent.hovered ? "#c42830" : "#a82028")
+                    radius: 8
+                    Behavior on color { ColorAnimation { duration: 150 } }
+                }
+                contentItem: Text {
+                    text: parent.text
+                    color: "#ffffff"
+                    font.pixelSize: 13
+                    font.weight: Font.Bold
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    focus: true
+                    antialiasing: true
+                }
+            }
+
+            Button {
+                text: "Save Preset"
+                Layout.preferredWidth: page.actionButtonWidth
+                Layout.preferredHeight: page.actionButtonHeight
+                implicitWidth: page.actionButtonWidth
+                implicitHeight: page.actionButtonHeight
+                padding: 0
+                onClicked: {
+                    presetNameField.text = ""
+                    presetSaveError.text = ""
+                    replacePresetCombo.currentIndex = 0
+                    savePresetPopup.open()
+                    presetNameField.forceActiveFocus()
+                }
+                background: Rectangle {
+                    implicitWidth: page.actionButtonWidth
+                    implicitHeight: page.actionButtonHeight
+                    color: parent.down ? theme.surfaceAlt : (parent.hovered ? theme.borderHover : theme.surface)
+                    border.color: parent.hovered ? theme.borderHover : theme.border
+                    radius: 8
+                }
+                contentItem: Text {
+                    text: parent.text
+                    color: parent.hovered ? theme.textPrimary : theme.cardTextPrimary
+                    font.pixelSize: 12
+                    font.weight: Font.Bold
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+            }
+
             // Add / Remove Third Display button
             Button {
                 id: displayActionButton
-                text: backend.secondStreamActive ? "Remove Third Display" : "Add Third Display"
+                text: backend.secondStreamActive ? "Remove Third Display" : "Add Another Display"
                 visible: backend.detectedDe === "kde" || backend.detectedDe === "hyprland"
+                Layout.preferredWidth: page.actionButtonWidth
+                Layout.preferredHeight: page.actionButtonHeight
+                implicitWidth: page.actionButtonWidth
+                implicitHeight: page.actionButtonHeight
+                padding: 0
                 onClicked: {
                     if (backend.secondStreamActive) {
                         backend.stopSecondStream()
@@ -262,18 +319,20 @@ Item {
                     }
                 }
                 background: Rectangle {
-                    implicitWidth: 160
-                    implicitHeight: 38
+                    implicitWidth: page.actionButtonWidth
+                    implicitHeight: page.actionButtonHeight
                     color: backend.secondStreamActive
                         ? (parent.down ? "#5a1010" : (parent.hovered ? "#c42830" : "#a82028"))
-                        : (parent.down ? "#16182a" : (parent.hovered ? "#222540" : "#1a1c30"))
-                    border.color: backend.secondStreamActive ? "#c42830" : theme.accent
+                        : (parent.down ? theme.surfaceAlt : (parent.hovered ? theme.borderHover : theme.surface))
+                    border.color: backend.secondStreamActive
+                        ? "#c42830"
+                        : (parent.hovered ? theme.borderHover : theme.border)
                     radius: 8
                     Behavior on color { ColorAnimation { duration: 150 } }
                 }
                 contentItem: Item {
                     implicitWidth: displayActionContent.implicitWidth
-                    implicitHeight: 38
+                    implicitHeight: page.actionButtonHeight
 
                     Row {
                         id: displayActionContent
@@ -292,63 +351,14 @@ Item {
 
                         Text {
                             text: displayActionButton.text
-                            color: backend.secondStreamActive ? theme.textPrimary : theme.accent
+                            color: backend.secondStreamActive
+                                ? theme.textPrimary
+                                : (displayActionButton.hovered ? theme.textPrimary : theme.cardTextPrimary)
                             font.pixelSize: 12
                             font.weight: Font.Bold
                             anchors.verticalCenter: parent.verticalCenter
                         }
                     }
-                }
-            }
-
-            Button {
-                text: "Save Preset"
-                onClicked: {
-                    presetNameField.text = ""
-                    presetSaveError.text = ""
-                    replacePresetCombo.currentIndex = 0
-                    savePresetPopup.open()
-                    presetNameField.forceActiveFocus()
-                }
-                background: Rectangle {
-                    implicitWidth: 120
-                    implicitHeight: 38
-                    color: parent.down ? theme.surfaceAlt : (parent.hovered ? theme.borderHover : theme.surface)
-                    border.color: theme.accent
-                    radius: 8
-                }
-                contentItem: Text {
-                    text: parent.text
-                    color: theme.accent
-                    font.pixelSize: 12
-                    font.weight: Font.Bold
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
-            }
-
-            Button {
-                text: "⏹ Stop Streaming"
-                onClicked: {
-                    logArea.text = ""
-                    backend.stopStreaming()
-                }
-                background: Rectangle {
-                    implicitWidth: 150
-                    implicitHeight: 38
-                    color: parent.down ? "#5a1010" : (parent.hovered ? "#c42830" : "#a82028")
-                    radius: 8
-                    Behavior on color { ColorAnimation { duration: 150 } }
-                }
-                contentItem: Text {
-                    text: parent.text
-                    color: "#ffffff"
-                    font.pixelSize: 13
-                    font.weight: Font.Bold
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                    focus: true
-                    antialiasing: true
                 }
             }
 
@@ -532,7 +542,7 @@ Item {
         modal: true
         x: (page.width - width) / 2
         y: (page.height - height) / 2
-        width: 460
+        width: Math.min(page.width - 40, 560)
         height: popupContent.implicitHeight + 60
         padding: 0
 
@@ -555,7 +565,7 @@ Item {
             spacing: 14
 
             Text {
-                text: "Add Third Display"
+                text: "Add Another Display"
                 font.pixelSize: 18
                 font.weight: Font.ExtraBold
                 color: theme.cardTextPrimary
@@ -598,7 +608,7 @@ Item {
                 RowLayout {
                     spacing: 10
 
-                    Slider {
+                    CustomSlider {
                         id: s2BitrateSlider
                         from: 0.25
                         to: 50
@@ -638,7 +648,7 @@ Item {
                 }
 
                 Text { text: "Encoder:"; color: theme.cardTextSecondary; font.pixelSize: 13 }
-                CustomComboBox {
+                ChoiceChips {
                     id: s2EncoderCombo
                     currentIndex: 2
                     model: [
@@ -650,7 +660,7 @@ Item {
                 }
 
                 Text { text: "Encoder Profile:"; color: theme.cardTextSecondary; font.pixelSize: 13 }
-                CustomComboBox {
+                ChoiceChips {
                     id: s2EncoderProfileCombo
                     currentIndex: 0
                     model: ["Low Latency", "Balanced", "Quality"]
@@ -671,13 +681,16 @@ Item {
                     background: Rectangle {
                         implicitWidth: 90
                         implicitHeight: 36
-                        color: "transparent"
-                        border.color: theme.border
-                        radius: 8
+                        color: parent.down ? theme.surfaceAlt : (parent.hovered ? theme.borderHover : theme.surface)
+                        border.color: parent.hovered ? theme.borderHover : theme.border
+                        border.width: 1
+                        radius: theme.controlRadius
+                        Behavior on color { ColorAnimation { duration: 150 } }
+                        Behavior on border.color { ColorAnimation { duration: 150 } }
                     }
                     contentItem: Text {
                         text: parent.text
-                        color: theme.cardTextSecondary
+                        color: parent.hovered ? theme.textPrimary : theme.cardTextPrimary
                         font.pixelSize: 13
                         font.weight: Font.Bold
                         horizontalAlignment: Text.AlignHCenter
