@@ -8,9 +8,8 @@ Item {
     property string setupMessage: ""
 
     function selectedPort(device) {
-        return displayCombo.currentIndex === 1
-            ? (device.thirdPort || 7114)
-            : (device.port || 7110)
+        let port = portField.text.trim()
+        return port.length > 0 ? port : (device.port || 7110)
     }
 
     function connectDevice(device, code) {
@@ -32,11 +31,6 @@ Item {
             "fingerprint": device.fingerprint || "",
             "decoder": decoderCombo.currentText
         }
-        if (displayCombo.currentIndex === 1
-                && device.thirdAvailable === false) {
-            setupMessage = "Third display is not active on this host."
-            return
-        }
         setupMessage = ""
         if (target.encrypted
                 && backend.receiverNeedsPairing(target.ip, target.fingerprint)) {
@@ -53,7 +47,7 @@ Item {
         let rec = backend.loadReceiverSettings()
         if (rec) {
             manualIpField.text = rec["manual_ip"] || ""
-            displayCombo.currentIndex = 0
+            portField.text = rec["port"] || "7110"
             decoderCombo.currentIndex = rec["decoder"] === "Hardware" ? 1 : 0
             encryptionCheck.checked = rec["use_encryption"] !== false
         }
@@ -274,21 +268,24 @@ Item {
             Layout.fillWidth: true
 
             Text {
-                text: "Receive:"
+                text: "Port:"
                 color: theme.cardTextSecondary
                 font.pixelSize: 13
             }
 
-            CustomComboBox {
-                id: displayCombo
-                model: ["Second display", "Third display"]
-                Layout.preferredWidth: 180
-                onActivated: backend.saveReceiverSettings(
-                    manualIpField.text.trim(),
-                    currentIndex === 1 ? "7114" : "7110",
-                    encryptionCheck.checked,
-                    decoderCombo.currentText
-                )
+            CustomTextField {
+                id: portField
+                text: "7110"
+                maximumLength: 5
+                validator: IntValidator { bottom: 1; top: 65535 }
+                onTextEdited: {
+                    backend.saveReceiverSettings(
+                        manualIpField.text.trim(),
+                        text.trim().length > 0 ? text.trim() : "7110",
+                        encryptionCheck.checked,
+                        decoderCombo.currentText
+                    )
+                }
             }
 
             Item { Layout.fillWidth: true }
@@ -304,13 +301,12 @@ Item {
                 font.pixelSize: 13
             }
 
-            CustomComboBox {
+            ChoiceChips {
                 id: decoderCombo
                 model: ["Software", "Hardware"]
-                Layout.preferredWidth: 180
                 onActivated: backend.saveReceiverSettings(
                     manualIpField.text.trim(),
-                    displayCombo.currentIndex === 1 ? "7114" : "7110",
+                    portField.text.trim().length > 0 ? portField.text.trim() : "7110",
                     encryptionCheck.checked,
                     currentText
                 )
@@ -330,7 +326,7 @@ Item {
                 onTextEdited: {
                     backend.saveReceiverSettings(
                         text.trim(),
-                        displayCombo.currentIndex === 1 ? "7114" : "7110",
+                        portField.text.trim().length > 0 ? portField.text.trim() : "7110",
                         encryptionCheck.checked,
                         decoderCombo.currentText
                     )
@@ -348,15 +344,14 @@ Item {
                 onClicked: {
                     if (manualIpField.text.trim() !== "") {
                         let ip = manualIpField.text.trim()
-                        let p = displayCombo.currentIndex === 1 ? 7114 : 7110
+                        let p = portField.text.trim().length > 0 ? portField.text.trim() : "7110"
                         backend.saveReceiverSettings(
-                            ip, p.toString(), encryptionCheck.checked,
+                            ip, p, encryptionCheck.checked,
                             decoderCombo.currentText
                         )
                         page.requestConnection({
                             "ip": ip,
-                            "port": 7110,
-                            "thirdPort": 7114,
+                            "port": p,
                             "encrypted": encryptionCheck.checked,
                             "fingerprint": "",
                             "thirdAvailable": true
@@ -372,7 +367,7 @@ Item {
             checked: true
             onCheckedChanged: backend.saveReceiverSettings(
                 manualIpField.text.trim(),
-                displayCombo.currentIndex === 1 ? "7114" : "7110",
+                portField.text.trim().length > 0 ? portField.text.trim() : "7110",
                 checked,
                 decoderCombo.currentText
             )

@@ -12,7 +12,7 @@ TextField {
         implicitWidth: 80
         implicitHeight: 38
         color: theme.surface
-        border.color: tf.hovered ? theme.accent : theme.border
+        border.color: tf.hovered ? theme.borderHover : theme.border
         border.width: 1
         radius: theme.controlRadius
     }

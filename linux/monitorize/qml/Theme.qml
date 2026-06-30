@@ -11,9 +11,9 @@ QtObject {
     readonly property color logBoxBackground: "#171a20"
 
     // Accents
-    readonly property color accent: "#3daee9"
-    readonly property color accentAlpha20: "#203daee9"
-    readonly property color accentAlpha40: "#403daee9"
+    readonly property color accent: "#2f6f95"
+    readonly property color accentAlpha20: "#202f6f95"
+    readonly property color accentAlpha40: "#402f6f95"
 
     // Borders
     readonly property color border: "#343b46"

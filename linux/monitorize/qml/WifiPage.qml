@@ -153,41 +153,6 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: 16
 
-            Text {
-                text: page.isWifi ? "Wi-Fi Mode Settings" : "USB Mode  ·  Step 2 of 2"
-                font.pixelSize: 12
-                font.weight: Font.Bold
-                color: theme.textMuted
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                height: 1
-                color: theme.border
-            }
-
-            RowLayout {
-                visible: page.isWifi
-                Layout.alignment: Qt.AlignHCenter
-                spacing: 10
-                Text { text: "📶"; font.pixelSize: 22 }
-                Text {
-                    text: "Your Local IP Address is: " + backend.localIp
-                    font.pixelSize: 16
-                    font.weight: Font.Bold
-                    color: "#2e7d32"
-                }
-            }
-
-            Text {
-                text: page.isWifi
-                    ? "Enter this IP in the Monitorize Android app and tap Receive."
-                    : "Please open the Monitorize app on your tablet."
-                font.pixelSize: 14
-                color: theme.textSecondary
-                Layout.alignment: Qt.AlignHCenter
-            }
-
             // Fields Grid
             GridLayout {
                 columns: 2
@@ -235,7 +200,7 @@ Item {
                 RowLayout {
                     spacing: 10
 
-                    Slider {
+                    CustomSlider {
                         id: bitrateSlider
                         from: 0.25
                         to: 50
@@ -281,7 +246,7 @@ Item {
                     font.pixelSize: 14
                     visible: backend.detectedDe === "kde" || backend.detectedDe === "gnome" || backend.detectedDe === "hyprland"
                 }
-                CustomComboBox {
+                ChoiceChips {
                     id: displayTypeCombo
                     visible: backend.detectedDe === "kde" || backend.detectedDe === "gnome" || backend.detectedDe === "hyprland"
                     model: ["Extend", "Mirror"]
@@ -289,7 +254,7 @@ Item {
                 }
 
                 Text { text: "Encoder:"; color: theme.textSecondary; font.pixelSize: 14 }
-                CustomComboBox {
+                ChoiceChips {
                     id: encoderCombo
                     currentIndex: 2
                     model: [
@@ -301,7 +266,7 @@ Item {
                 }
 
                 Text { text: "Encoder Profile:"; color: theme.textSecondary; font.pixelSize: 14 }
-                CustomComboBox {
+                ChoiceChips {
                     id: encoderProfileCombo
                     model: ["Low Latency", "Balanced", "Quality"]
                     currentIndex: 0
@@ -309,11 +274,11 @@ Item {
                 }
 
                 Text { text: "Stream Type:"; visible: page.isWifi; color: theme.textSecondary; font.pixelSize: 14 }
-                CustomComboBox {
+                ChoiceChips {
                     id: streamTypeCombo
                     visible: page.isWifi
                     currentIndex: 0
-                    model: ["Speed (Lowest Latency)", "Stability (Low-spec Wi-Fi)"]
+                    model: ["Speed", "Stability"]
                     onActivated: page.saveSettings()
                 }
             }
@@ -323,7 +288,7 @@ Item {
                 spacing: 8
                 Layout.alignment: Qt.AlignHCenter
 
-                CustomCheckBox {
+                CustomToggle {
                     id: encryptionCheck
                     visible: page.isWifi
                     text: "Use encryption (recommended)"
@@ -331,7 +296,7 @@ Item {
                     onCheckedChanged: page.saveSettings()
                 }
 
-                CustomCheckBox {
+                CustomToggle {
                     id: touchCheck
                     text: "Enable Touch Input"
                     onCheckedChanged: {
@@ -340,7 +305,7 @@ Item {
                     }
                 }
 
-                CustomCheckBox {
+                CustomToggle {
                     id: stylusCheck
                     text: "Enable Stylus Features"
                     visible: page.stylusControlsVisible
@@ -349,14 +314,6 @@ Item {
                         page.saveGeneralSettings()
                     }
                 }
-            }
-
-            WarningCard {
-                text: page.isWifi
-                    ? (encryptionCheck.checked
-                        ? "Encrypted mode requires the 6-digit pairing code shown after streaming starts."
-                        : "WARNING: Encryption is off. Other devices on this network may view the stream or inject input.")
-                    : "WARNING: The Resolution set here MUST EXACTLY MATCH the settings in the Android tablet app, or the stream will corrupt!"
             }
 
             // Spacing
@@ -390,18 +347,6 @@ Item {
                         );
                     }
                 }
-            }
-
-            Text {
-                Layout.fillWidth: true
-                visible: !backend.isStreaming && backend.streamingStatus.length > 0
-                text: backend.streamingStatus
-                color: backend.streamingStatus.indexOf("did not") >= 0 || backend.streamingStatus.indexOf("ERROR") >= 0
-                       ? "#fca5a5"
-                       : theme.textMuted
-                font.pixelSize: 12
-                horizontalAlignment: Text.AlignRight
-                wrapMode: Text.WordWrap
             }
         }
     }

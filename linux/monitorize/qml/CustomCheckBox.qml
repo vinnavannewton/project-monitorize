@@ -3,23 +3,28 @@ import QtQuick.Controls
 
 CheckBox {
     id: chk
+    hoverEnabled: true
+
     indicator: Rectangle {
         implicitWidth: 16
         implicitHeight: 16
         x: chk.leftPadding
         y: parent.height / 2 - height / 2
         radius: 4
-        color: chk.checked ? theme.accent : theme.surface
-        border.color: chk.checked ? theme.accent : theme.border
+        color: chk.checked
+            ? (chk.hovered || chk.down ? theme.buttonBackgroundHover : theme.buttonBackground)
+            : (chk.hovered || chk.down ? theme.surfaceAlt : theme.surface)
+        border.color: chk.checked
+            ? (chk.hovered || chk.down ? theme.buttonBackgroundHover : theme.buttonBackground)
+            : (chk.hovered || chk.down ? theme.borderHover : theme.border)
         border.width: 1
 
-        Rectangle {
-            width: 8
-            height: 8
-            x: 4
-            y: 4
-            radius: 2
+        Text {
+            anchors.centerIn: parent
+            text: "✓"
             color: "#ffffff"
+            font.pixelSize: 11
+            font.weight: Font.Bold
             visible: chk.checked
         }
     }

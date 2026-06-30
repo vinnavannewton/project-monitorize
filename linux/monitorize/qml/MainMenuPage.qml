@@ -6,11 +6,14 @@ Item {
     id: page
     property int selectedPresetIndex: -1
     property string selectedPresetName: ""
+    readonly property int modeCardWidth: 220
+    readonly property int modeCardSpacing: 30
+    readonly property int modeCardsWidth: modeCardWidth * 3 + modeCardSpacing * 2
 
     ColumnLayout {
         anchors.centerIn: parent
         spacing: backend.presets.length > 0 ? 14 : 20
-        width: Math.min(parent.width - 40, 760)
+        width: Math.min(parent.width - 40, page.modeCardsWidth)
 
         Text {
             text: "Monitorize"
@@ -60,13 +63,14 @@ Item {
         Item { Layout.preferredHeight: 20 }
 
         RowLayout {
-            spacing: 30
+            id: modeCardsRow
+            spacing: page.modeCardSpacing
             Layout.alignment: Qt.AlignHCenter
 
             // USB Mode Card
             Rectangle {
                 id: usbCard
-                implicitWidth: 220
+                implicitWidth: page.modeCardWidth
                 implicitHeight: 140
                 radius: theme.cardRadius
                 color: usbMouseArea.containsMouse ? theme.surfaceAlt : theme.surface
@@ -108,7 +112,7 @@ Item {
             // Wi-Fi Mode Card
             Rectangle {
                 id: wifiCard
-                implicitWidth: 220
+                implicitWidth: page.modeCardWidth
                 implicitHeight: 140
                 radius: theme.cardRadius
                 color: wifiMouseArea.containsMouse ? theme.surfaceAlt : theme.surface
@@ -150,7 +154,7 @@ Item {
             // Receiver Mode Card
             Rectangle {
                 id: receiverCard
-                implicitWidth: 220
+                implicitWidth: page.modeCardWidth
                 implicitHeight: 140
                 radius: theme.cardRadius
                 color: receiverMouseArea.containsMouse ? theme.surfaceAlt : theme.surface
@@ -198,11 +202,15 @@ Item {
             font.pixelSize: 13
             font.weight: Font.Bold
             color: theme.textSecondary
-            Layout.alignment: Qt.AlignLeft
+            width: modeCardsRow.implicitWidth
+            Layout.preferredWidth: modeCardsRow.implicitWidth
+            Layout.alignment: Qt.AlignHCenter
+            horizontalAlignment: Text.AlignLeft
         }
 
         Flow {
-            Layout.fillWidth: true
+            Layout.preferredWidth: modeCardsRow.implicitWidth
+            Layout.alignment: Qt.AlignHCenter
             Layout.preferredHeight: backend.presets.length > 0 ? 82 : 0
             spacing: 12
             visible: backend.presets.length > 0
@@ -218,7 +226,7 @@ Item {
                     height: 82
                     radius: 8
                     color: presetMouse.containsMouse ? theme.surfaceAlt : theme.surface
-                    border.color: presetMouse.containsMouse ? theme.accent : theme.border
+                    border.color: presetMouse.containsMouse ? theme.borderHover : theme.border
                     border.width: 1
 
                     MouseArea {
@@ -289,8 +297,21 @@ Item {
 
                         Menu {
                             id: presetMenu
+
+                            width: 132
+                            padding: 6
+                            background: Rectangle {
+                                color: theme.surface
+                                border.color: theme.border
+                                border.width: 1
+                                radius: theme.controlRadius
+                            }
+
                             MenuItem {
+                                id: renameMenuItem
                                 text: "Rename"
+                                implicitWidth: 120
+                                implicitHeight: 34
                                 onTriggered: {
                                     page.selectedPresetIndex = presetCard.index
                                     page.selectedPresetName = presetCard.modelData["name"]
@@ -299,13 +320,42 @@ Item {
                                     renamePopup.open()
                                     renameField.forceActiveFocus()
                                 }
+                                background: Rectangle {
+                                    radius: 5
+                                    color: renameMenuItem.highlighted ? theme.surfaceAlt : theme.surface
+                                    Behavior on color { ColorAnimation { duration: 120 } }
+                                }
+                                contentItem: Text {
+                                    text: renameMenuItem.text
+                                    color: renameMenuItem.highlighted ? theme.textPrimary : theme.cardTextPrimary
+                                    font.pixelSize: 12
+                                    font.weight: Font.DemiBold
+                                    verticalAlignment: Text.AlignVCenter
+                                    leftPadding: 12
+                                }
                             }
                             MenuItem {
+                                id: deleteMenuItem
                                 text: "Delete"
+                                implicitWidth: 120
+                                implicitHeight: 34
                                 onTriggered: {
                                     page.selectedPresetIndex = presetCard.index
                                     page.selectedPresetName = presetCard.modelData["name"]
                                     deletePopup.open()
+                                }
+                                background: Rectangle {
+                                    radius: 5
+                                    color: deleteMenuItem.highlighted ? theme.surfaceAlt : theme.surface
+                                    Behavior on color { ColorAnimation { duration: 120 } }
+                                }
+                                contentItem: Text {
+                                    text: deleteMenuItem.text
+                                    color: deleteMenuItem.highlighted ? "#fca5a5" : theme.cardTextPrimary
+                                    font.pixelSize: 12
+                                    font.weight: Font.DemiBold
+                                    verticalAlignment: Text.AlignVCenter
+                                    leftPadding: 12
                                 }
                             }
                         }

@@ -2712,6 +2712,39 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertNotIn("page.detectedDe", qml)
         self.assertIn("backend.detectedDe", qml)
 
+    def test_main_menu_presets_align_to_mode_cards(self):
+        qml_path = (
+            Path(__file__).resolve().parents[1]
+            / "monitorize"
+            / "qml"
+            / "MainMenuPage.qml"
+        )
+        qml = qml_path.read_text(encoding="utf-8")
+        self.assertIn("readonly property int modeCardWidth: 220", qml)
+        self.assertIn("readonly property int modeCardSpacing: 30", qml)
+        self.assertIn("readonly property int modeCardsWidth", qml)
+        self.assertIn("id: modeCardsRow", qml)
+        self.assertEqual(qml.count("implicitWidth: page.modeCardWidth"), 3)
+        self.assertEqual(qml.count("Layout.preferredWidth: modeCardsRow.implicitWidth"), 2)
+        self.assertIn("width: modeCardsRow.implicitWidth", qml)
+        self.assertIn("horizontalAlignment: Text.AlignLeft", qml)
+        self.assertIn("id: presetMenu", qml)
+        self.assertIn("width: 132", qml)
+        self.assertIn("padding: 6", qml)
+        self.assertIn("radius: theme.controlRadius", qml)
+        rename_index = qml.index("id: renameMenuItem")
+        delete_index = qml.index("id: deleteMenuItem")
+        rename_block = qml[rename_index:delete_index]
+        delete_block = qml[delete_index: qml.index("leftPadding: 12", delete_index)]
+        self.assertIn("color: renameMenuItem.highlighted ? theme.surfaceAlt : theme.surface", rename_block)
+        self.assertIn("color: deleteMenuItem.highlighted ? theme.surfaceAlt : theme.surface", delete_block)
+        self.assertIn("Behavior on color", rename_block)
+        self.assertIn("Behavior on color", delete_block)
+        self.assertNotIn("\"transparent\"", rename_block)
+        self.assertNotIn("\"transparent\"", delete_block)
+        self.assertNotIn("border.color", rename_block)
+        self.assertNotIn("border.color", delete_block)
+
     def test_stream_stop_returns_to_launching_config_page(self):
         qml_path = (
             Path(__file__).resolve().parents[1]
@@ -2730,10 +2763,56 @@ class BackendFacadeTest(unittest.TestCase):
             "stack.replace(stack.lastStreamingSetupPage, StackView.PopTransition)",
             qml,
         )
+
+    def test_receiver_disconnect_returns_to_receiver_setup_page(self):
+        qml_path = (
+            Path(__file__).resolve().parents[1]
+            / "monitorize"
+            / "qml"
+            / "main.qml"
+        )
+        qml = qml_path.read_text(encoding="utf-8")
         self.assertIn(
+            'property string lastReceiverSetupPage: "ReceiverSetupPage.qml"',
+            qml,
+        )
+        self.assertIn('stack.lastReceiverSetupPage = "ReceiverSetupPage.qml"', qml)
+        self.assertIn(
+            "stack.replace(stack.lastReceiverSetupPage, StackView.PopTransition)",
+            qml,
+        )
+        self.assertNotIn(
             'stack.replace("MainMenuPage.qml", StackView.PopTransition)',
             qml,
         )
+
+    def test_settings_button_uses_svg_icon(self):
+        qml_dir = Path(__file__).resolve().parents[1] / "monitorize" / "qml"
+        qml = (qml_dir / "main.qml").read_text(encoding="utf-8")
+        icon = (
+            Path(__file__).resolve().parents[1]
+            / "monitorize"
+            / "assets"
+            / "svg"
+            / "settings.svg"
+        ).read_text(encoding="utf-8")
+        settings_index = qml.index('objectName: "settingsIconButton"')
+        popup_index = qml.index("Popup {", settings_index)
+        settings_block = qml[settings_index:popup_index]
+        self.assertIn('source: "../assets/svg/settings.svg"', settings_block)
+        self.assertIn("contentItem: Item", settings_block)
+        self.assertIn("anchors.centerIn: parent", settings_block)
+        self.assertIn("width: 17", settings_block)
+        self.assertIn("height: 17", settings_block)
+        self.assertIn("sourceSize.width: 17", settings_block)
+        self.assertIn("sourceSize.height: 17", settings_block)
+        self.assertIn("visible: parent.hovered || parent.down", settings_block)
+        self.assertIn("radius: theme.controlRadius", settings_block)
+        self.assertNotIn("radius: 18", settings_block)
+        self.assertNotIn("border.color: theme.border", settings_block)
+        self.assertNotIn('text: "⚙"', settings_block)
+        self.assertIn('stroke="#ffffff"', icon)
+        self.assertNotIn('stroke="#000000"', icon)
 
     def test_streaming_config_pages_expose_return_source(self):
         qml_dir = Path(__file__).resolve().parents[1] / "monitorize" / "qml"
@@ -2745,6 +2824,127 @@ class BackendFacadeTest(unittest.TestCase):
         )
         self.assertIn("WifiPage {", usb_qml)
         self.assertIn("isWifi: false", usb_qml)
+
+    def test_wifi_settings_page_omits_header_and_ip_guidance(self):
+        qml_path = (
+            Path(__file__).resolve().parents[1]
+            / "monitorize"
+            / "qml"
+            / "WifiPage.qml"
+        )
+        qml = qml_path.read_text(encoding="utf-8")
+        self.assertNotIn("Wi-Fi Mode Settings", qml)
+        self.assertNotIn("Your Local IP Address is:", qml)
+        self.assertNotIn("Enter this IP in the Monitorize Android app", qml)
+        self.assertNotIn("USB Mode  ·  Step 2 of 2", qml)
+        self.assertNotIn("Please open the Monitorize app on your tablet.", qml)
+        self.assertNotIn("backend.streamingStatus", qml)
+
+    def test_wifi_settings_page_uses_choice_chips_for_option_sets(self):
+        qml_dir = Path(__file__).resolve().parents[1] / "monitorize" / "qml"
+        qml_path = qml_dir / "WifiPage.qml"
+        qml = qml_path.read_text(encoding="utf-8")
+        streaming_qml = (qml_dir / "StreamingPage.qml").read_text(encoding="utf-8")
+        chips_qml = (qml_dir / "ChoiceChips.qml").read_text(encoding="utf-8")
+        self.assertNotIn("Encrypted mode requires the 6-digit pairing code", qml)
+        self.assertNotIn("Encryption is off", qml)
+        self.assertNotIn("MUST EXACTLY MATCH", qml)
+        self.assertNotIn("WarningCard", qml)
+        self.assertEqual(qml.count("ChoiceChips {"), 4)
+        self.assertEqual(qml.count("CustomComboBox {"), 2)
+        self.assertIn("RowLayout {", chips_qml)
+        self.assertIn("property int chipWidth: 112", chips_qml)
+        self.assertIn("Layout.preferredWidth: chips.chipWidth", chips_qml)
+        self.assertIn("theme.buttonBackgroundHover", chips_qml)
+        self.assertIn("theme.buttonBackground", chips_qml)
+        self.assertIn("function find(val)", chips_qml)
+        self.assertNotIn("chipText.implicitWidth + 24", chips_qml)
+        self.assertNotIn("rowSpacing", chips_qml)
+        self.assertIn("contentItem: Text", chips_qml)
+        self.assertNotIn("nvidia.svg", chips_qml)
+        self.assertNotIn("amd.svg", chips_qml)
+        self.assertNotIn("intel.svg", chips_qml)
+        for source in (qml, streaming_qml):
+            self.assertIn('"NVIDIA NVENC (nvh264enc)"', source)
+            self.assertIn('"Intel/AMD VA-API (vah264enc)"', source)
+            self.assertIn('"Software (CPU / x264enc)"', source)
+        for control_id in (
+            "displayTypeCombo",
+            "encoderCombo",
+            "encoderProfileCombo",
+            "streamTypeCombo",
+        ):
+            self.assertIn(f"id: {control_id}", qml)
+
+    def test_wifi_usb_settings_page_uses_toggles(self):
+        qml_dir = Path(__file__).resolve().parents[1] / "monitorize" / "qml"
+        qml = (qml_dir / "WifiPage.qml").read_text(encoding="utf-8")
+        toggle_qml = (qml_dir / "CustomToggle.qml").read_text(encoding="utf-8")
+        checkbox_qml = (qml_dir / "CustomCheckBox.qml").read_text(encoding="utf-8")
+        self.assertEqual(qml.count("CustomToggle {"), 3)
+        self.assertNotIn("CustomCheckBox {", qml)
+        self.assertIn("Switch {", toggle_qml)
+        self.assertIn("theme.buttonBackgroundHover", toggle_qml)
+        self.assertIn("theme.buttonBackground", toggle_qml)
+        self.assertIn("toggle.hovered || toggle.down ? theme.surfaceAlt : theme.surface", toggle_qml)
+        self.assertIn("toggle.hovered || toggle.down ? theme.borderHover : theme.border", toggle_qml)
+        self.assertIn("theme.buttonBackgroundHover", checkbox_qml)
+        self.assertIn("theme.buttonBackground", checkbox_qml)
+        self.assertIn("chk.hovered || chk.down ? theme.surfaceAlt : theme.surface", checkbox_qml)
+        self.assertIn("chk.hovered || chk.down ? theme.borderHover : theme.border", checkbox_qml)
+        self.assertIn('text: "✓"', checkbox_qml)
+        self.assertNotIn("width: 8", checkbox_qml)
+        self.assertNotIn("height: 8", checkbox_qml)
+        for control_id in ("encryptionCheck", "touchCheck", "stylusCheck"):
+            self.assertIn(f"id: {control_id}", qml)
+
+    def test_settings_popup_close_button_is_dark_card_style(self):
+        qml_path = (
+            Path(__file__).resolve().parents[1]
+            / "monitorize"
+            / "qml"
+            / "main.qml"
+        )
+        qml = qml_path.read_text(encoding="utf-8")
+        self.assertIn('text: "Close"', qml)
+        self.assertIn("implicitWidth: 92", qml)
+        self.assertIn("implicitHeight: 36", qml)
+        self.assertIn("parent.hovered ? theme.borderHover : theme.surface", qml)
+        self.assertIn("border.color: parent.hovered ? theme.borderHover : theme.border", qml)
+        self.assertIn("radius: theme.controlRadius", qml)
+
+    def test_hover_styles_avoid_blue_outlines(self):
+        qml_dir = Path(__file__).resolve().parents[1] / "monitorize" / "qml"
+        combo_qml = (qml_dir / "CustomComboBox.qml").read_text(encoding="utf-8")
+        field_qml = (qml_dir / "CustomTextField.qml").read_text(encoding="utf-8")
+        button_qml = (qml_dir / "CustomButton.qml").read_text(encoding="utf-8")
+        streaming_qml = (qml_dir / "StreamingPage.qml").read_text(encoding="utf-8")
+        main_menu_qml = (qml_dir / "MainMenuPage.qml").read_text(encoding="utf-8")
+        self.assertIn("color: highlighted ? theme.surfaceAlt : theme.surface", combo_qml)
+        self.assertIn("border.color: cb.hovered ? theme.borderHover : theme.border", combo_qml)
+        self.assertNotIn("theme.buttonBackgroundHover", combo_qml)
+        self.assertIn("border.color: tf.hovered ? theme.borderHover : theme.border", field_qml)
+        self.assertNotIn("border.color: tf.hovered ? theme.buttonBackgroundHover", field_qml)
+        self.assertIn("scale: btn.hovered ? theme.hoverScale : 1.0", button_qml)
+        self.assertIn("Behavior on scale", button_qml)
+        self.assertIn("scale: hovered ? theme.hoverScale : 1.0", streaming_qml)
+        self.assertIn("border.color: parent.hovered ? theme.borderHover : theme.border", streaming_qml)
+        self.assertIn(": (parent.hovered ? theme.borderHover : theme.border)", streaming_qml)
+        self.assertNotIn("parent.hovered ? theme.buttonBackgroundHover : theme.accent", streaming_qml)
+        self.assertIn("border.color: presetMouse.containsMouse ? theme.borderHover : theme.border", main_menu_qml)
+
+    def test_bitrate_sliders_use_round_button_blue_style(self):
+        qml_dir = Path(__file__).resolve().parents[1] / "monitorize" / "qml"
+        wifi_qml = (qml_dir / "WifiPage.qml").read_text(encoding="utf-8")
+        streaming_qml = (qml_dir / "StreamingPage.qml").read_text(encoding="utf-8")
+        slider_qml = (qml_dir / "CustomSlider.qml").read_text(encoding="utf-8")
+        self.assertIn("id: bitrateSlider", wifi_qml)
+        self.assertIn("id: s2BitrateSlider", streaming_qml)
+        self.assertIn("CustomSlider {", wifi_qml)
+        self.assertIn("CustomSlider {", streaming_qml)
+        self.assertIn("radius: width / 2", slider_qml)
+        self.assertIn("theme.buttonBackgroundHover", slider_qml)
+        self.assertIn("theme.buttonBackground", slider_qml)
 
     def test_streaming_page_shows_add_display_for_kde_and_hyprland(self):
         qml_path = (
@@ -2758,8 +2958,82 @@ class BackendFacadeTest(unittest.TestCase):
             'backend.detectedDe === "kde" || backend.detectedDe === "hyprland"',
             qml,
         )
+        stop_index = qml.index('text: "⏹ Stop Streaming"')
+        save_index = qml.index('text: "Save Preset"')
+        add_index = qml.index('backend.secondStreamActive ? "Remove Third Display" : "Add Another Display"')
+        self.assertLess(stop_index, save_index)
+        self.assertLess(save_index, add_index)
+        self.assertNotIn("Add Third Display", qml)
+        self.assertIn("Add Another Display", qml)
+        self.assertIn("readonly property int actionButtonWidth: 160", qml)
+        self.assertIn("readonly property int actionButtonHeight: 38", qml)
+        self.assertEqual(qml.count("Layout.preferredWidth: page.actionButtonWidth"), 3)
+        self.assertEqual(qml.count("Layout.preferredHeight: page.actionButtonHeight"), 3)
+        self.assertNotIn("activeIndicator", qml)
+        self.assertNotIn("OpacityAnimator", qml)
+        self.assertNotIn("backend.streamingStatus", qml)
+        self.assertNotIn("Active Ports Card", qml)
+        self.assertIn("Top status and stream details card", qml)
+        self.assertIn("id: streamInfoGrid", qml)
+        self.assertIn("readonly property int streamInfoColumns: 3", qml)
+        self.assertIn("readonly property int streamInfoCardHeight: 28", qml)
+        self.assertIn("readonly property int streamInfoSpacing: 10", qml)
+        self.assertNotIn("streamInfoMinCardWidth", qml)
+        self.assertIn("readonly property var streamInfoBaseItems", qml)
+        self.assertIn("readonly property int streamInfoVisibleColumns: Math.max(", qml)
+        self.assertIn("Flow {", qml)
+        self.assertIn("spacing: page.streamInfoSpacing", qml)
+        self.assertIn("Layout.preferredHeight: page.streamInfoRows * page.streamInfoCardHeight", qml)
+        self.assertIn("model: page.streamInfoItems", qml)
+        self.assertIn('"Second Display  Port 7110"', qml)
+        self.assertIn('"Host  " + backend.localIp', qml)
+        self.assertIn('"Third Display  Port 7114"', qml)
+        self.assertIn('page.streamInfoBaseItems.concat(["Third Display  Port 7114"])', qml)
+        self.assertIn("Math.max(0, streamInfoGrid.width)", qml)
+        self.assertIn("width: Math.max(0, (", qml)
+        self.assertIn("page.streamInfoSpacing * (page.streamInfoVisibleColumns - 1)", qml)
+        self.assertIn("/ page.streamInfoVisibleColumns", qml)
+        self.assertIn("height: page.streamInfoCardHeight", qml)
+        self.assertIn("fontSizeMode: Text.HorizontalFit", qml)
+        self.assertIn("minimumPixelSize: 9", qml)
+        self.assertNotIn("Text.ElideRight", qml)
+        self.assertNotIn("model: backend.secondStreamActive", qml)
+        self.assertNotIn("Third Display Inactive", qml)
+        popup_index = qml.index("id: addDisplayPopup")
+        cancel_index = qml.index('text: "Cancel"', popup_index)
+        start_index = qml.index('text: "▶  Start Third Display"', cancel_index)
+        cancel_block = qml[cancel_index:start_index]
+        self.assertIn("onClicked: addDisplayPopup.close()", cancel_block)
+        self.assertIn("parent.hovered ? theme.borderHover : theme.surface", cancel_block)
+        self.assertIn("border.color: parent.hovered ? theme.borderHover : theme.border", cancel_block)
+        self.assertIn("Behavior on border.color", cancel_block)
+        self.assertNotIn("#16182a", qml)
+        self.assertNotIn("#222540", qml)
+        self.assertNotIn("#f472b6", qml)
+        self.assertIn("id: s2EncoderCombo", qml)
+        self.assertIn("id: s2EncoderProfileCombo", qml)
+        self.assertEqual(qml.count("ChoiceChips {"), 2)
+        self.assertIn("width: Math.min(page.width - 40, 560)", qml)
         self.assertIn("Your desktop will open a screen-share picker.", qml)
         self.assertNotIn("host-side display backend is currently disabled", qml)
+
+    def test_receiver_setup_uses_port_input_and_decoder_chips(self):
+        qml_path = (
+            Path(__file__).resolve().parents[1]
+            / "monitorize"
+            / "qml"
+            / "ReceiverSetupPage.qml"
+        )
+        qml = qml_path.read_text(encoding="utf-8")
+        self.assertIn("id: portField", qml)
+        self.assertIn('text: "7110"', qml)
+        self.assertIn('portField.text = rec["port"] || "7110"', qml)
+        self.assertIn("validator: IntValidator { bottom: 1; top: 65535 }", qml)
+        self.assertNotIn("id: displayCombo", qml)
+        self.assertNotIn('model: ["Second display (7110)", "Third display (7114)"]', qml)
+        self.assertIn("id: decoderCombo", qml)
+        self.assertEqual(qml.count("ChoiceChips {"), 1)
+        self.assertEqual(qml.count("CustomComboBox {"), 0)
 
     def test_qml_api_remains_exposed(self):
         with patch("monitorize.desktop.backend.get_local_ip", return_value="127.0.0.1"):
