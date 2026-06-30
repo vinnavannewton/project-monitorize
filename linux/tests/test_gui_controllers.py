@@ -885,6 +885,33 @@ class ReceiverVideoWindowTest(unittest.TestCase):
             finally:
                 settings.CONFIG_DIR, settings.CONFIG_FILE = old_dir, old_file
 
+    def test_first_run_wifi_defaults_are_plain_cpu_1080p_16mbps(self):
+        old_dir, old_file = settings.CONFIG_DIR, settings.CONFIG_FILE
+        with tempfile.TemporaryDirectory() as directory:
+            try:
+                settings.CONFIG_DIR = directory
+                settings.CONFIG_FILE = str(Path(directory) / "settings.ini")
+                loaded = settings.load_wifi_settings()
+                self.assertEqual(loaded["resolution"], "1920x1080")
+                self.assertEqual(loaded["bitrate"], "16000")
+                self.assertEqual(loaded["encoder"], "Software (CPU / x264enc)")
+                self.assertFalse(loaded["use_encryption"])
+            finally:
+                settings.CONFIG_DIR, settings.CONFIG_FILE = old_dir, old_file
+
+    def test_first_run_usb_defaults_are_cpu_1080p_16mbps(self):
+        old_dir, old_file = settings.CONFIG_DIR, settings.CONFIG_FILE
+        with tempfile.TemporaryDirectory() as directory:
+            try:
+                settings.CONFIG_DIR = directory
+                settings.CONFIG_FILE = str(Path(directory) / "settings.ini")
+                loaded = settings.load_usb_settings()
+                self.assertEqual(loaded["resolution"], "1920x1080")
+                self.assertEqual(loaded["bitrate"], "16000")
+                self.assertEqual(loaded["encoder"], "Software (CPU / x264enc)")
+            finally:
+                settings.CONFIG_DIR, settings.CONFIG_FILE = old_dir, old_file
+
     def test_presets_round_trip_and_limit_to_four(self):
         old_dir, old_file = settings.CONFIG_DIR, settings.CONFIG_FILE
         with tempfile.TemporaryDirectory() as directory:

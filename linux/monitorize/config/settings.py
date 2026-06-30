@@ -161,12 +161,12 @@ def save_general_settings(*, minimize_to_tray: bool = None, enable_touch: bool =
 
 
 STREAM_DEFAULTS = {
-    "resolution": "2560x1600",
+    "resolution": "1920x1080",
     "custom_w": "",
     "custom_h": "",
     "fps": "60",
     "custom_fps": "",
-    "bitrate": "8000",
+    "bitrate": "16000",
     "display_type": "Extend",
     "encoder": "Software (CPU / x264enc)",
     "encoder_profile": "Low Latency",
@@ -176,7 +176,7 @@ STREAM_DEFAULTS = {
 def load_wifi_settings() -> dict:
     return _normalize_stream_settings(_load_group(
         "wifi",
-        {**STREAM_DEFAULTS, "stream_type": "Speed", "use_encryption": True},
+        {**STREAM_DEFAULTS, "stream_type": "Speed", "use_encryption": False},
         ("use_encryption",),
     ))
 

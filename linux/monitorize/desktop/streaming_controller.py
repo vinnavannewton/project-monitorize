@@ -168,7 +168,22 @@ class StreamingController(QObject):
                 self._fail(error)
                 return
             self.logAppended.emit("STREAMER", f"Created headless monitor: {output}")
-            self._start_countdown(2)
+            self._set_status("Waiting for virtual monitor to be ready…")
+            verified = self.display.wait_for_headless_ready(
+                output, self.width, self.height,
+            )
+            if verified:
+                self.logAppended.emit(
+                    "STREAMER",
+                    f"Virtual monitor {output} verified ready — launching streamer",
+                )
+                self._launch_streamer()
+            else:
+                self.logAppended.emit(
+                    "STREAMER",
+                    f"Could not verify {output} readiness — using 3 s fallback",
+                )
+                self._start_countdown(3)
         else:
             self._launch_streamer()
 

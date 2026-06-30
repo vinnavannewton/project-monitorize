@@ -91,7 +91,7 @@ Item {
         let saved = page.isWifi ? backend.loadWifiSettings() : backend.loadUsbSettings();
         
         if (!resCombo.selectValue(saved["resolution"])) {
-            resCombo.selectValue("2560x1600");
+            resCombo.selectValue("1920x1080");
         }
         if (saved["resolution"] === "Custom...") {
             customW.text = saved["custom_w"] || "";
@@ -105,7 +105,7 @@ Item {
             customFps.text = saved["custom_fps"] || "";
         }
         
-        page.setBitrateMbps(Number(saved["bitrate"] || "8000") / 1000, false);
+        page.setBitrateMbps(Number(saved["bitrate"] || "16000") / 1000, false);
         
         if (displayTypeCombo) {
             if (!displayTypeCombo.selectValue(saved["display_type"], true)) {
@@ -128,7 +128,7 @@ Item {
         if (page.isWifi) {
             let savedStreamType = saved["stream_type"] || "Speed";
             streamTypeCombo.selectValue(savedStreamType === "Speed" ? "Speed" : "Stability");
-            encryptionCheck.checked = saved["use_encryption"] !== false;
+            encryptionCheck.checked = saved["use_encryption"] === true;
         }
 
         let gen = backend.loadGeneralSettings();
