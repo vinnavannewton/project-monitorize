@@ -266,13 +266,13 @@ sudo apt install -y \
 
 1.After starting the stream in the desktop application make sure you go to your display settings and configure the newly created virtual display.
 
-2.When made changes to the virtual display's position then the stream crashes, it's normal just restart the stream and the virtual monitor will spawn in the previous applied position.
+2.When made changes to the virtual display's position and applied, then the stream crashes, it's normal just restart the stream and the virtual monitor will spawn in the previous applied position.
 
 ---
 
 ### Notes:
 
-- Match the resolution and FPS set in the Android settings app to the desktop app settings.
+- Match the resolution and FPS set in the Android app's settings to the desktop app settings.
 
 ---
 
