@@ -2858,6 +2858,7 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn("theme.buttonBackgroundHover", chips_qml)
         self.assertIn("theme.buttonBackground", chips_qml)
         self.assertIn("function find(val)", chips_qml)
+        self.assertIn('return "NVIDIA (WIP)"', chips_qml)
         self.assertNotIn("chipText.implicitWidth + 24", chips_qml)
         self.assertNotIn("rowSpacing", chips_qml)
         self.assertIn("contentItem: Text", chips_qml)
