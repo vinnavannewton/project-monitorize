@@ -73,7 +73,30 @@ class DiscoveryServiceTest(unittest.TestCase):
         with patch.dict(sys.modules, {"zeroconf": fake_module}):
             service.advertise("127.0.0.1", False, True)
         self.assertEqual(registered[0].properties["encrypted"], "0")
+        self.assertEqual(registered[0].properties["fps"], "60")
         self.assertEqual(registered[0].properties["third_available"], "1")
+
+    def test_advertisement_declares_selected_fps(self):
+        registered = []
+
+        class FakeZeroconf:
+            def register_service(self, info):
+                registered.append(info)
+
+            def close(self):
+                pass
+
+        class FakeInfo:
+            def __init__(self, *args, **kwargs):
+                self.properties = kwargs["properties"]
+
+        fake_module = types.SimpleNamespace(
+            ServiceInfo=FakeInfo, Zeroconf=FakeZeroconf
+        )
+        service = DiscoveryService()
+        with patch.dict(sys.modules, {"zeroconf": fake_module}):
+            service.advertise("127.0.0.1", False, True, 90)
+        self.assertEqual(registered[0].properties["fps"], "90")
 
 
     def test_encrypted_advertisement_declares_udp_input_transport(self):
