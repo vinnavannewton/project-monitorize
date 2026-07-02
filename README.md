@@ -28,7 +28,7 @@ Supported desktop environments are KDE Plasma, Hyprland and GNOME.
 
 | Android               | Desktop                           |
 | --------------------- | --------------------------------- |
-| Android 9+            | KDE (6.7+), Hyprland, GNOME (50+) |
+| Android 9+            | 🥇KDE (6.7+),🥇Hyprland,🥈GNOME (50+) |
 | Wi-Fi / USB Debugging | Tested on: Arch, fedora.          |
 
 ---
