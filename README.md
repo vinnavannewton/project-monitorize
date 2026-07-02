@@ -336,7 +336,7 @@ Or:
 
 - [ ] Stable nvidia encoder (waiting for driver 610.x which implemented proper DMA BUF).
 
-- [ ] Flathub distribution.
+- [ ] AppImage.
 
 ---
 
