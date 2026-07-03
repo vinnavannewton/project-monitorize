@@ -54,7 +54,7 @@ Item {
                     text: "Desktop: " + (backend.detectedDe === "kde" ? "KDE Plasma" : (backend.detectedDe === "gnome" ? "GNOME" : (backend.detectedDe === "hyprland" ? "Hyprland" : backend.detectedDe.toUpperCase())))
                     color: theme.cardTextPrimary
                     font.pixelSize: 12
-                    font.weight: Font.Bold
+                    font.weight: Font.DemiBold
                     Layout.alignment: Qt.AlignVCenter
                 }
             }
@@ -200,7 +200,7 @@ Item {
             text: "Saved Presets"
             visible: backend.presets.length > 0
             font.pixelSize: 13
-            font.weight: Font.Bold
+            font.weight: Font.DemiBold
             color: theme.textSecondary
             width: modeCardsRow.implicitWidth
             Layout.preferredWidth: modeCardsRow.implicitWidth
@@ -248,7 +248,7 @@ Item {
                             text: presetCard.modelData["name"]
                             color: theme.cardTextPrimary
                             font.pixelSize: 13
-                            font.weight: Font.Bold
+                            font.weight: Font.DemiBold
                             elide: Text.ElideRight
                         }
 
@@ -284,8 +284,6 @@ Item {
                         anchors.margins: 6
                         flat: true
                         text: "⋮"
-                        ToolTip.visible: hovered
-                        ToolTip.text: "Preset options"
                         onClicked: presetMenu.open()
                         contentItem: Text {
                             text: parent.text

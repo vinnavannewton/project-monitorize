@@ -2755,6 +2755,18 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn("width: 132", qml)
         self.assertIn("padding: 6", qml)
         self.assertIn("radius: theme.controlRadius", qml)
+        desktop_index = qml.index('text: "Desktop: "')
+        desktop_block = qml[desktop_index: qml.index("Layout.alignment: Qt.AlignVCenter", desktop_index)]
+        saved_index = qml.index('text: "Saved Presets"')
+        saved_block = qml[saved_index: qml.index("horizontalAlignment: Text.AlignLeft", saved_index)]
+        preset_name_index = qml.index('text: presetCard.modelData["name"]')
+        preset_name_block = qml[preset_name_index: qml.index("elide: Text.ElideRight", preset_name_index)]
+        self.assertIn("font.weight: Font.DemiBold", desktop_block)
+        self.assertIn("font.weight: Font.DemiBold", saved_block)
+        self.assertIn("font.weight: Font.DemiBold", preset_name_block)
+        self.assertNotIn("font.weight: Font.Bold", desktop_block)
+        self.assertNotIn("font.weight: Font.Bold", saved_block)
+        self.assertNotIn("font.weight: Font.Bold", preset_name_block)
         rename_index = qml.index("id: renameMenuItem")
         delete_index = qml.index("id: deleteMenuItem")
         rename_block = qml[rename_index:delete_index]
@@ -2939,6 +2951,13 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn("border.color: parent.hovered ? theme.borderHover : theme.border", qml)
         self.assertIn("radius: theme.controlRadius", qml)
 
+    def test_qml_icon_buttons_do_not_use_tooltips(self):
+        qml_dir = Path(__file__).resolve().parents[1] / "monitorize" / "qml"
+        for qml_path in qml_dir.glob("*.qml"):
+            with self.subTest(qml=qml_path.name):
+                qml = qml_path.read_text(encoding="utf-8")
+                self.assertNotIn("ToolTip.", qml)
+
     def test_hover_styles_avoid_blue_outlines(self):
         qml_dir = Path(__file__).resolve().parents[1] / "monitorize" / "qml"
         combo_qml = (qml_dir / "CustomComboBox.qml").read_text(encoding="utf-8")
@@ -2971,6 +2990,24 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn("radius: width / 2", slider_qml)
         self.assertIn("theme.buttonBackgroundHover", slider_qml)
         self.assertIn("theme.buttonBackground", slider_qml)
+
+    def test_save_preset_cancel_button_is_dark_card_style(self):
+        qml_path = (
+            Path(__file__).resolve().parents[1]
+            / "monitorize"
+            / "qml"
+            / "StreamingPage.qml"
+        )
+        qml = qml_path.read_text(encoding="utf-8")
+        popup_index = qml.index("id: savePresetPopup")
+        cancel_index = qml.index('text: "Cancel"', popup_index)
+        save_index = qml.index("id: savePresetButton", cancel_index)
+        cancel_block = qml[cancel_index:save_index]
+        self.assertIn("onClicked: savePresetPopup.close()", cancel_block)
+        self.assertIn("parent.hovered ? theme.borderHover : theme.surface", cancel_block)
+        self.assertIn("border.color: parent.hovered ? theme.borderHover : theme.border", cancel_block)
+        self.assertIn("radius: theme.controlRadius", cancel_block)
+        self.assertIn("Behavior on border.color", cancel_block)
 
     def test_streaming_page_shows_add_display_for_kde_and_hyprland(self):
         qml_path = (
