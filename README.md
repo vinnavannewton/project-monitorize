@@ -39,10 +39,6 @@ Choose your distro.
 
 <table>
   <tr>
-    <td><strong>Android</strong></td>
-    <td><a href="https://github.com/vinnavannewton/project-monitorize/releases">Download Android APK</a></td>
-  </tr>
-  <tr>
     <td><strong>Fedora</strong></td>
     <td><a href="https://github.com/vinnavannewton/project-monitorize/wiki/Fedora-installation">Fedora Installation</a></td>
   </tr>
@@ -62,7 +58,7 @@ After installing the required dependencies, continue with the steps below.
 
 ## 🚀 Installation
 
-### 1. Clone and install (Desktop app)
+### 1. Desktop app:
 
 ```bash
 git clone https://github.com/vinnavannewton/ProjectMonitorize.git
@@ -78,11 +74,11 @@ Or run manually:
 ./venv/bin/python3 -m monitorize
 ```
 
-### 2. Android side
+### 2. Android app:
 
-Either:
-
-- Build from source:
+- Install the APK from the [Releases](https://github.com/vinnavannewton/project-monitorize/releases) section.
+  
+Or build from source:
   
   ```bash
   cd android
@@ -90,12 +86,7 @@ Either:
   adb shell am start -n com.example.monitorize/.MainActivity
   ```
 
-Or:
-
-- Install the APK from the Releases section.
-
 ---
-
 
 ## Running the Application:
 
