@@ -2857,6 +2857,8 @@ class BackendFacadeTest(unittest.TestCase):
             'readonly property string returnPageSource: page.isWifi ? "WifiPage.qml" : "UsbStep2Page.qml"',
             wifi_qml,
         )
+        self.assertIn('text: "Use encryption"', wifi_qml)
+        self.assertNotIn("Use encryption (recommended)", wifi_qml)
         self.assertIn("WifiPage {", usb_qml)
         self.assertIn("isWifi: false", usb_qml)
 
