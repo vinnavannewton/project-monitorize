@@ -39,13 +39,10 @@ Monitorize has separate installation guides for each platform/distro.
 
 | Platform / Distro | Guide |
 |---|---|
-| Android | [Android Setup](https://github.com/vinnavannewton/project-monitorize/wiki/Android) |
-| Desktop App | [Desktop App Setup](https://github.com/vinnavannewton/project-monitorize/wiki/desktop-app) |
+| Android | [Download Android APK](https://github.com/vinnavannewton/project-monitorize/releases) |
 | Fedora | [Fedora Installation](https://github.com/vinnavannewton/project-monitorize/wiki/Fedora-installation) |
 | Arch Linux | [Arch Installation](https://github.com/vinnavannewton/project-monitorize/wiki/Arch-installation) |
 | Ubuntu / Debian | [Ubuntu Debian Installation](https://github.com/vinnavannewton/project-monitorize/wiki/Ubuntu-Debian-installation) |
-
-After installing the required dependencies, continue with the steps below.
 
 ---
 
