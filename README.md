@@ -26,48 +26,43 @@ Supported desktop environments are KDE Plasma, Hyprland and GNOME.
 
 ## 🛠️ Requirements:
 
+| Android               | Desktop                           |
 | --------------------- | --------------------------------- |
 | Android 9+            | 🥇KDE (6.7+),🥇Hyprland,🥈GNOME (50+) |
 | Wi-Fi / USB Debugging | Tested on: Arch, fedora.          |
 
 ---
 
-## Installation
+## Installing dependencies:
 
-Monitorize has separate installation guides for each platform/distro.
+Choose your distro.
 
-| Platform / Distro | Guide |
-|---|---|
-| Android | [Download Android APK](https://github.com/vinnavannewton/project-monitorize/releases) |
-| Fedora | [Fedora Installation](https://github.com/vinnavannewton/project-monitorize/wiki/Fedora-installation) |
-| Arch Linux | [Arch Installation](https://github.com/vinnavannewton/project-monitorize/wiki/Arch-installation) |
-| Ubuntu / Debian | [Ubuntu Debian Installation](https://github.com/vinnavannewton/project-monitorize/wiki/Ubuntu-Debian-installation) |
+<table>
+  <tr>
+    <td><strong>Android</strong></td>
+    <td><a href="https://github.com/vinnavannewton/project-monitorize/releases">Download Android APK</a></td>
+  </tr>
+  <tr>
+    <td><strong>Fedora</strong></td>
+    <td><a href="https://github.com/vinnavannewton/project-monitorize/wiki/Fedora-installation">Fedora Installation</a></td>
+  </tr>
+  <tr>
+    <td><strong>Arch Linux</strong></td>
+    <td><a href="https://github.com/vinnavannewton/project-monitorize/wiki/Arch-installation">Arch Installation</a></td>
+  </tr>
+  <tr>
+    <td><strong>Ubuntu / Debian</strong></td>
+    <td><a href="https://github.com/vinnavannewton/project-monitorize/wiki/Ubuntu-Debian-installation">Ubuntu Debian Installation</a></td>
+  </tr>
+</table>
 
----
-
-## Running the Application:
-
-1.After starting the stream in the desktop application make sure you go to your display settings and configure the newly created virtual display.
-
-2.When made changes to the virtual display's position and applied, then the stream crashes, it's normal just restart the stream and the virtual monitor will spawn in the previous applied position.
-
----
-
-### Notes:
-
-- Match the resolution and FPS set in the Android app's settings to the desktop app settings.
-
----
-
-## Contributing:
-
-Please read the [Contribution Guide](https://github.com/vinnavannewton/project-monitorize/wiki/Contributing).
+After installing the required dependencies, continue with the steps below.
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Installation
 
-### 1. Clone and install (Desktop side)
+### 1. Clone and install (Desktop app)
 
 ```bash
 git clone https://github.com/vinnavannewton/ProjectMonitorize.git
@@ -98,6 +93,27 @@ Either:
 Or:
 
 - Install the APK from the Releases section.
+
+---
+
+
+## Running the Application:
+
+1.After starting the stream in the desktop application make sure you go to your display settings and configure the newly created virtual display.
+
+2.When made changes to the virtual display's position and applied, then the stream crashes, it's normal just restart the stream and the virtual monitor will spawn in the previous applied position.
+
+---
+
+### Notes:
+
+- Match the resolution and FPS set in the Android app's settings to the desktop app settings.
+
+---
+
+## Contributing:
+
+Please read the [Contribution Guide](https://github.com/vinnavannewton/project-monitorize/wiki/Contributing).
 
 ---
 
