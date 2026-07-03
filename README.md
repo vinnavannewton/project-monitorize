@@ -28,7 +28,7 @@ Supported desktop environments are KDE Plasma, Hyprland and GNOME.
 
 | Android               | Desktop                           |
 | --------------------- | --------------------------------- |
-| Android 9+            | KDE (6.7+), Hyprland, GNOME (50+) |
+| Android 9+            | 🥇KDE (6.7+),🥇Hyprland,🥈GNOME (50+) |
 | Wi-Fi / USB Debugging | Tested on: Arch, fedora.          |
 
 ---
@@ -266,13 +266,13 @@ sudo apt install -y \
 
 1.After starting the stream in the desktop application make sure you go to your display settings and configure the newly created virtual display.
 
-2.When made changes to the virtual display's position then the stream crashes, it's normal just restart the stream and the virtual monitor will spawn in the previous applied position.
+2.When made changes to the virtual display's position and applied, then the stream crashes, it's normal just restart the stream and the virtual monitor will spawn in the previous applied position.
 
 ---
 
 ### Notes:
 
-- Match the resolution and FPS set in the Android settings app to the desktop app settings.
+- Match the resolution and FPS set in the Android app's settings to the desktop app settings.
 
 ---
 
@@ -336,19 +336,20 @@ Or:
 
 - [ ] Stable nvidia encoder (waiting for driver 610.x which implemented proper DMA BUF).
 
-- [ ] Flathub distribution.
+- [ ] AppImage.
 
 ---
 
 ## Star History
 
-<a href="https://www.star-history.com/?type=date&repos=vinnavannewton%2FProjectMonitorize">
+<a href="https://www.star-history.com/?type=Timeline&repos=vinnavannewton%2FProjectMonitorize">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=vinnavannewton/ProjectMonitorize&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=vinnavannewton/ProjectMonitorize&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=vinnavannewton/ProjectMonitorize&type=date&legend=top-left" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=vinnavannewton/ProjectMonitorize&type=Timeline&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=vinnavannewton/ProjectMonitorize&type=Timeline&legend=top-left">
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=vinnavannewton/ProjectMonitorize&type=Timeline&legend=top-left" />
  </picture>
 </a>
+
 
 <div align="center">
   <sub>Expanding your productivity, one monitor at a time.</sub>

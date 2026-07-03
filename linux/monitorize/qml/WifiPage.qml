@@ -291,7 +291,7 @@ Item {
                 CustomToggle {
                     id: encryptionCheck
                     visible: page.isWifi
-                    text: "Encrypted"
+                    text: "Use encryption"
                     checked: true
                     onCheckedChanged: page.saveSettings()
                 }
