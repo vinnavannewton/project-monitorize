@@ -4,7 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-val appVersionName = "0.2.5"
+val appVersionName = "0.2.6"
 
 fun versionCodeFromSemver(versionName: String): Int {
     val parts = versionName.split(".")

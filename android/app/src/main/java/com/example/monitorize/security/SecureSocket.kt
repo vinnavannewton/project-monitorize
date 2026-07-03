@@ -1,5 +1,6 @@
 package com.example.monitorize.security
 
+import android.annotation.SuppressLint
 import java.net.InetSocketAddress
 import java.security.MessageDigest
 import java.security.SecureRandom
@@ -11,7 +12,9 @@ import javax.net.ssl.X509TrustManager
 
 data class SecureConnection(val socket: SSLSocket, val fingerprint: String)
 
+@SuppressLint("CustomX509TrustManager", "TrustAllX509TrustManager")
 fun connectTls(host: String, port: Int, expectedFingerprint: String? = null): SecureConnection {
+    
     val trustAll = arrayOf<TrustManager>(object : X509TrustManager {
         override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
         override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) {}

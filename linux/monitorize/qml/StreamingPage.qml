@@ -390,8 +390,6 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         flat: true
                         onClicked: page.showPairingCode = !page.showPairingCode
-                        ToolTip.visible: hovered
-                        ToolTip.text: page.showPairingCode ? "Hide pairing code" : "Show pairing code"
                         contentItem: Image {
                             source: page.showPairingCode
                                 ? "../assets/svg/eye-open.svg"
@@ -469,7 +467,28 @@ Item {
             }
             RowLayout {
                 Layout.alignment: Qt.AlignRight
-                Button { text: "Cancel"; onClicked: savePresetPopup.close() }
+                Button {
+                    text: "Cancel"
+                    onClicked: savePresetPopup.close()
+                    background: Rectangle {
+                        implicitWidth: 90
+                        implicitHeight: 36
+                        color: parent.down ? theme.surfaceAlt : (parent.hovered ? theme.borderHover : theme.surface)
+                        border.color: parent.hovered ? theme.borderHover : theme.border
+                        border.width: 1
+                        radius: theme.controlRadius
+                        Behavior on color { ColorAnimation { duration: 150 } }
+                        Behavior on border.color { ColorAnimation { duration: 150 } }
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: parent.hovered ? theme.textPrimary : theme.cardTextPrimary
+                        font.pixelSize: 13
+                        font.weight: Font.Bold
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                }
                 CustomButton {
                     id: savePresetButton
                     text: backend.presets.length >= 4 ? "Replace" : "Save"

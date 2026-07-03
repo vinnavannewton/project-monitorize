@@ -780,7 +780,7 @@ class StreamingController(QObject):
 
     def _advertise(self, *_args):
         if self.streaming and self.wifi:
-            self.discovery.advertise(self.local_ip, self.encrypted, self.third_ready)
+            self.discovery.advertise(self.local_ip, self.encrypted, self.third_ready, self.fps)
 
     def stop(self):
         stopping_kde_portal = self._stopping_kde_portal_streamer()

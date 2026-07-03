@@ -4,7 +4,7 @@ import socket
 
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 
-from monitorize.config.validation import sanitize_port, valid_port
+from monitorize.config.validation import sanitize_fps, sanitize_port, valid_port
 
 
 class DiscoveryService(QObject):
@@ -151,13 +151,14 @@ class DiscoveryService(QObject):
                 pass
             self.discovery_zc = None
 
-    def advertise(self, ip, encrypted, third_available):
+    def advertise(self, ip, encrypted, third_available, fps=60):
         try:
             from zeroconf import ServiceInfo, Zeroconf
             hostname = socket.gethostname()
             properties = {
                 "name": hostname,
                 "port": 7110,
+                "fps": str(sanitize_fps(fps)),
                 "encrypted": "1" if encrypted else "0",
                 "third_available": "1" if third_available else "0",
                 "third_port": "7114",
