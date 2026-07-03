@@ -55,9 +55,17 @@
             nixpkgs.overlays = [ overlay ];
             environment.systemPackages = [ pkgs.monitorize ];
 
-            # uinput rule so the input bridge can create virtual devices
+            # Dedicated group so only explicitly authorised users can create
+            # virtual input devices via uinput.  Using the generic "input"
+            # group would grant that capability to all input-group members,
+            # which is overly permissive on multi-user systems.
+            #
+            # To grant a user access, add them to this group:
+            #   users.users.<name>.extraGroups = [ "monitorize-input" ];
+            users.groups.monitorize-input = { };
+
             services.udev.extraRules = ''
-              KERNEL=="uinput", MODE="0660", GROUP="input"
+              KERNEL=="uinput", MODE="0660", GROUP="monitorize-input"
             '';
           };
         };
