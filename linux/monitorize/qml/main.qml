@@ -163,8 +163,6 @@ Rectangle {
         width: 36
         height: 36
         visible: !backend.isReceiving
-        ToolTip.visible: hovered
-        ToolTip.text: "Settings"
         onClicked: {
             root.loadAppSettings()
             settingsPopup.open()

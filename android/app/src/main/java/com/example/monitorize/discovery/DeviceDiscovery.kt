@@ -10,10 +10,13 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ChannelResult
 
+private const val DEFAULT_STREAM_FPS = 60
+
 data class DiscoveredDevice(
     val name: String,
     val ip: String,
     val port: Int,
+    val fps: Int = DEFAULT_STREAM_FPS,
     val isUsb: Boolean = false,
     val encrypted: Boolean = false,
     val fingerprint: String? = null,
@@ -123,6 +126,7 @@ class DeviceDiscovery(private val context: Context) {
                                 var encrypted = false
                                 var fingerprint: String? = null
                                 var inputTransport: String? = null
+                                var fps = DEFAULT_STREAM_FPS
                                 try {
                                     resolved.attributes?.let { attrs ->
                                         if (attrs.containsKey("fn")) resolvedName = String(attrs["fn"]!!)
@@ -131,6 +135,7 @@ class DeviceDiscovery(private val context: Context) {
                                         encrypted = attrs["encrypted"]?.let { String(it) == "1" } == true
                                         fingerprint = attrs["fingerprint"]?.let { String(it) }
                                         inputTransport = attrs["input_transport"]?.let { String(it) }
+                                        fps = attrs["fps"]?.let { parseFps(String(it)) } ?: DEFAULT_STREAM_FPS
                                     }
                                 } catch (_: Exception) {}
 
@@ -138,6 +143,7 @@ class DeviceDiscovery(private val context: Context) {
                                     name = if (resolvedName.isEmpty()) "WiFi Device" else resolvedName,
                                     ip = ip,
                                     port = resolved.port,
+                                    fps = fps,
                                     encrypted = encrypted,
                                     fingerprint = fingerprint,
                                     inputTransport = inputTransport,
@@ -259,6 +265,7 @@ class DeviceDiscovery(private val context: Context) {
                     encrypted = newDevice.encrypted,
                     fingerprint = newDevice.fingerprint,
                     inputTransport = newDevice.inputTransport,
+                    fps = newDevice.fps,
                     serviceName = newDevice.serviceName,
                 )
             } else {
@@ -270,6 +277,10 @@ class DeviceDiscovery(private val context: Context) {
     private fun isGenericName(name: String): Boolean {
         val n = name.lowercase()
         return n == "wifi device" || n == "network device" || n == "monitorize device" || n.isEmpty()
+    }
+
+    private fun parseFps(value: String): Int {
+        return value.toIntOrNull()?.coerceIn(24, 240) ?: DEFAULT_STREAM_FPS
     }
 
     fun stopDiscovery() {

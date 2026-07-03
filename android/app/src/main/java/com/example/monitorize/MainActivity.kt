@@ -6,9 +6,10 @@ import android.net.wifi.WifiManager
 import android.util.Log
 import android.os.Build
 import android.os.Bundle
-import android.graphics.SurfaceTexture
+import android.os.SystemClock
 import android.view.Surface
-import android.view.TextureView
+import android.view.SurfaceHolder
+import android.view.SurfaceView
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -73,6 +74,10 @@ import kotlinx.coroutines.withContext
 
 enum class Screen { Home, Receive }
 
+private const val SURFACE_READY_RETRY_INTERVAL_MS = 75L
+private const val SURFACE_READY_RETRY_TIMEOUT_MS = 3000L
+private const val SURFACE_READY_BLOCKED_LOG_INTERVAL_MS = 500L
+
 class MainActivity : ComponentActivity() {
 
     @Volatile private var decoder: H264Decoder? = null
@@ -115,9 +120,7 @@ class MainActivity : ComponentActivity() {
         applyImmersiveMode()
 
         
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            window.attributes.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-        }
+        window.attributes.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
 
         window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.parseColor("#1B1E24")))
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -212,6 +215,7 @@ class MainActivity : ComponentActivity() {
                                     hostIp = if (selectedDevice?.isUsb == true) "" else selectedDevice?.ip ?: "",
                                     width = width,
                                     height = height,
+                                    fps = selectedDevice?.fps ?: 60,
                                     displayWidth = decodedWidth,
                                     displayHeight = decodedHeight,
                                     status = status.value,
@@ -1126,6 +1130,7 @@ fun ReceiveScreen(
     hostIp: String,
     width: Int,
     height: Int,
+    fps: Int,
     displayWidth: Int,
     displayHeight: Int,
     status: String,
@@ -1136,6 +1141,28 @@ fun ReceiveScreen(
     onInputEvent: (android.view.MotionEvent, Float, Float) -> Unit
 ) {
     BackHandler(onBack = onBack)
+    var surfaceKey by remember(hostIp, width, height) { mutableStateOf(0) }
+    var surfaceRecreateUsed by remember(hostIp, width, height) { mutableStateOf(false) }
+
+    LaunchedEffect(hostIp, width, height) {
+        delay(300)
+        if (!surfaceRecreateUsed) {
+            surfaceRecreateUsed = true
+            surfaceKey += 1
+            Log.w("ReceiveScreen", "Recreating SurfaceView once after initial attach")
+        }
+    }
+
+    fun handleSurfaceStartupFailure() {
+        if (!surfaceRecreateUsed) {
+            surfaceRecreateUsed = true
+            surfaceKey += 1
+            Log.w("ReceiveScreen", "Recreating SurfaceView once after startup failure")
+        } else {
+            onSurfaceRenderTimeout()
+        }
+    }
+
     Box(
         modifier = Modifier.fillMaxSize().background(Color.Black),
         contentAlignment = Alignment.Center
@@ -1143,16 +1170,19 @@ fun ReceiveScreen(
         
         
         Box(modifier = Modifier.aspectRatio(displayWidth.toFloat() / displayHeight.toFloat())) {
-            StreamSurface(
-                modifier = Modifier.fillMaxSize(),
-                width = width,
-                height = height,
-                hostIp = hostIp,
-                onSurfaceCreated = onSurfaceCreated,
-                onSurfaceDestroyed = onSurfaceDestroyed,
-                onSurfaceRenderTimeout = onSurfaceRenderTimeout,
-                onInputEvent = onInputEvent
-            )
+            key(surfaceKey) {
+                StreamSurface(
+                    modifier = Modifier.fillMaxSize(),
+                    width = width,
+                    height = height,
+                    fps = fps,
+                    hostIp = hostIp,
+                    onSurfaceCreated = onSurfaceCreated,
+                    onSurfaceDestroyed = onSurfaceDestroyed,
+                    onSurfaceRenderTimeout = ::handleSurfaceStartupFailure,
+                    onInputEvent = onInputEvent
+                )
+            }
         }
 
         
@@ -1177,6 +1207,7 @@ fun StreamSurface(
     modifier: Modifier,
     width: Int,
     height: Int,
+    fps: Int,
     hostIp: String,
     onSurfaceCreated: (String, Surface, Int, Int, () -> Unit) -> Long,
     onSurfaceDestroyed: (Long) -> Unit,
@@ -1185,67 +1216,95 @@ fun StreamSurface(
 ) {
     AndroidView(
         factory = { ctx ->
-            TextureView(ctx).apply {
+            AccessibleSurfaceView(ctx).apply {
                 isClickable = true
-                val streamCallback = object : TextureView.SurfaceTextureListener {
+                val streamCallback = object : SurfaceHolder.Callback {
                     private var surfaceGeneration = 0L
-                    private var renderSurface: Surface? = null
-                    private var currentSurfaceTexture: SurfaceTexture? = null
                     private var activeSurfaceWidth = 0
                     private var activeSurfaceHeight = 0
+                    private var callbackSurfaceWidth = 0
+                    private var callbackSurfaceHeight = 0
+                    private var hasSurfaceEvent = false
+                    private var hasSizedSurfaceChange = false
                     private var firstFrameRendered = false
                     private var watchdogRestartUsed = false
+                    private var pendingForceRestart = false
+                    private var readinessRetryStartedAt = 0L
+                    private var lastReadinessBlockedLogAt = 0L
+                    private var readinessRetry: Runnable? = null
 
-                    override fun onSurfaceTextureAvailable(surfaceTexture: SurfaceTexture, w: Int, h: Int) {
-                        currentSurfaceTexture = surfaceTexture
+                    override fun surfaceCreated(holder: SurfaceHolder) {
+                        hasSurfaceEvent = true
+                        hasSizedSurfaceChange = false
+                        callbackSurfaceWidth = 0
+                        callbackSurfaceHeight = 0
+                        applyFrameRateHint(holder.surface)
                         watchdogRestartUsed = false
-                        scheduleSurfaceReadyChecks()
+                        scheduleSurfaceReadyChecks(reason = "surfaceCreated")
                     }
 
-                    override fun onSurfaceTextureSizeChanged(surfaceTexture: SurfaceTexture, w: Int, h: Int) {
-                        currentSurfaceTexture = surfaceTexture
-                        scheduleSurfaceReadyChecks(forceRestart = true)
+                    override fun surfaceChanged(holder: SurfaceHolder, format: Int, w: Int, h: Int) {
+                        hasSurfaceEvent = true
+                        callbackSurfaceWidth = w
+                        callbackSurfaceHeight = h
+                        hasSizedSurfaceChange = w > 0 && h > 0
+                        applyFrameRateHint(holder.surface)
+                        scheduleSurfaceReadyChecks(forceRestart = true, reason = "surfaceChanged")
                     }
 
-                    override fun onSurfaceTextureDestroyed(surfaceTexture: SurfaceTexture): Boolean {
+                    override fun surfaceDestroyed(holder: SurfaceHolder) {
+                        stopSurfaceReadyChecks()
+                        hasSurfaceEvent = false
+                        hasSizedSurfaceChange = false
+                        callbackSurfaceWidth = 0
+                        callbackSurfaceHeight = 0
                         stopActiveStream()
-                        currentSurfaceTexture = null
-                        releaseRenderSurface()
-                        return true
                     }
 
-                    override fun onSurfaceTextureUpdated(surfaceTexture: SurfaceTexture) {
-                        firstFrameRendered = true
-                    }
-
-                    fun scheduleSurfaceReadyChecks(forceRestart: Boolean = false) {
-                        listOf(0L, 50L, 150L, 350L, 700L).forEachIndexed { index, delayMs ->
-                            postDelayed({
-                                maybeStartOrRestartStream(
-                                    this@apply.width,
-                                    this@apply.height,
-                                    forceRestart && index == 0
-                                )
-                            }, delayMs)
-                        }
-                    }
-
-                    private fun maybeStartOrRestartStream(surfaceWidth: Int, surfaceHeight: Int, forceRestart: Boolean) {
-                        val actualWidth = surfaceWidth.takeIf { it > 0 } ?: this@apply.width
-                        val actualHeight = surfaceHeight.takeIf { it > 0 } ?: this@apply.height
-                        if (actualWidth <= 0 || actualHeight <= 0 || !isAttachedToWindow || windowVisibility != android.view.View.VISIBLE) {
+                    fun scheduleSurfaceReadyChecks(forceRestart: Boolean = false, reason: String = "layout") {
+                        if (surfaceGeneration != 0L && !forceRestart) {
                             return
                         }
-                        val surfaceTexture = currentSurfaceTexture ?: surfaceTexture ?: return
-                        val surface = renderSurface ?: Surface(surfaceTexture).also {
-                            renderSurface = it
-                        }
-                        if (!surface.isValid) {
+                        pendingForceRestart = pendingForceRestart || forceRestart
+                        if (readinessRetry != null) {
                             return
                         }
+                        readinessRetryStartedAt = SystemClock.uptimeMillis()
+                        lastReadinessBlockedLogAt = 0L
+                        Log.i("StreamSurface", "Surface readiness retry started: $reason")
+                        val retry = object : Runnable {
+                            override fun run() {
+                                if (maybeStartOrRestartStream(pendingForceRestart)) {
+                                    stopSurfaceReadyChecks()
+                                    return
+                                }
+                                val elapsed = SystemClock.uptimeMillis() - readinessRetryStartedAt
+                                if (elapsed >= SURFACE_READY_RETRY_TIMEOUT_MS) {
+                                    Log.w("StreamSurface", "Surface readiness timeout after ${elapsed}ms")
+                                    stopSurfaceReadyChecks()
+                                    onSurfaceRenderTimeout()
+                                    return
+                                }
+                                postDelayed(this, SURFACE_READY_RETRY_INTERVAL_MS)
+                            }
+                        }
+                        readinessRetry = retry
+                        post(retry)
+                    }
+
+                    private fun maybeStartOrRestartStream(forceRestart: Boolean): Boolean {
+                        val actualWidth = callbackSurfaceWidth
+                        val actualHeight = callbackSurfaceHeight
+                        val blockedReason = surfaceBlockedReason(actualWidth, actualHeight)
+                        if (blockedReason != null) {
+                            logReadinessBlocked(blockedReason)
+                            return false
+                        }
+                        val surface = holder.surface
+                        applyFrameRateHint(surface)
                         if (surfaceGeneration != 0L && !forceRestart) {
                             if (actualWidth == activeSurfaceWidth && actualHeight == activeSurfaceHeight) {
-                                return
+                                return true
                             }
                         }
                         if (surfaceGeneration != 0L) {
@@ -1257,7 +1316,28 @@ fun StreamSurface(
                         surfaceGeneration = onSurfaceCreated(hostIp, surface, width, height) {
                             firstFrameRendered = true
                         }
+                        Log.i("StreamSurface", "Starting stream after surface readiness: ${actualWidth}x${actualHeight}")
                         scheduleFirstFrameWatchdog(surfaceGeneration, actualWidth, actualHeight)
+                        return true
+                    }
+
+                    private fun surfaceBlockedReason(surfaceWidth: Int, surfaceHeight: Int): String? {
+                        if (!hasSurfaceEvent) return "waiting for surface callback"
+                        if (!hasSizedSurfaceChange) return "waiting for surfaceChanged size"
+                        if (!isAttachedToWindow) return "view not attached"
+                        if (windowVisibility != android.view.View.VISIBLE) return "view not visible"
+                        if (surfaceWidth <= 0 || surfaceHeight <= 0) return "surface not measured"
+                        if (!holder.surface.isValid) return "surface not valid"
+                        return null
+                    }
+
+                    private fun logReadinessBlocked(reason: String) {
+                        val now = SystemClock.uptimeMillis()
+                        if (now - lastReadinessBlockedLogAt < SURFACE_READY_BLOCKED_LOG_INTERVAL_MS) {
+                            return
+                        }
+                        lastReadinessBlockedLogAt = now
+                        Log.d("StreamSurface", "Surface readiness blocked: $reason")
                     }
 
                     private fun scheduleFirstFrameWatchdog(generation: Long, surfaceWidth: Int, surfaceHeight: Int) {
@@ -1267,11 +1347,20 @@ fun StreamSurface(
                             }
                             if (!watchdogRestartUsed) {
                                 watchdogRestartUsed = true
-                                maybeStartOrRestartStream(surfaceWidth, surfaceHeight, forceRestart = true)
+                                callbackSurfaceWidth = surfaceWidth
+                                callbackSurfaceHeight = surfaceHeight
+                                maybeStartOrRestartStream(forceRestart = true)
                             } else {
                                 onSurfaceRenderTimeout()
                             }
                         }, 2000L)
+                    }
+
+                    private fun stopSurfaceReadyChecks() {
+                        readinessRetry?.let { removeCallbacks(it) }
+                        readinessRetry = null
+                        pendingForceRestart = false
+                        readinessRetryStartedAt = 0L
                     }
 
                     private fun stopActiveStream() {
@@ -1283,18 +1372,32 @@ fun StreamSurface(
                         activeSurfaceHeight = 0
                     }
 
-                    private fun releaseRenderSurface() {
+                    private fun applyFrameRateHint(surface: Surface?) {
+                        if (surface == null || !surface.isValid || Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+                            return
+                        }
+                        val frameRate = fps.coerceIn(24, 240).toFloat()
                         try {
-                            renderSurface?.release()
-                        } catch (_: Exception) {}
-                        renderSurface = null
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                surface.setFrameRate(
+                                    frameRate,
+                                    Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE,
+                                    Surface.CHANGE_FRAME_RATE_ALWAYS
+                                )
+                            } else {
+                                surface.setFrameRate(frameRate, Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE)
+                            }
+                        } catch (e: Exception) {
+                            Log.w("StreamSurface", "Frame rate hint failed: ${e.message}")
+                        }
                     }
+
                 }
-                surfaceTextureListener = streamCallback
+                holder.addCallback(streamCallback)
                 addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-                    streamCallback.scheduleSurfaceReadyChecks()
+                    streamCallback.scheduleSurfaceReadyChecks(reason = "layout")
                 }
-                streamCallback.scheduleSurfaceReadyChecks()
+                streamCallback.scheduleSurfaceReadyChecks(reason = "factory")
                 fun requestLowLatencyInput(event: android.view.MotionEvent) {
                     when (event.actionMasked) {
                         android.view.MotionEvent.ACTION_DOWN,
@@ -1318,4 +1421,11 @@ fun StreamSurface(
         },
         modifier = modifier
     )
+}
+
+private class AccessibleSurfaceView(context: Context) : SurfaceView(context) {
+    override fun performClick(): Boolean {
+        super.performClick()
+        return true
+    }
 }
