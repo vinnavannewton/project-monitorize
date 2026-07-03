@@ -76,7 +76,7 @@ Or run manually:
 
 ### 2. Android app:
 
-- Install the APK from the [Releases](https://github.com/vinnavannewton/project-monitorize/releases) section.
+- Install the APK from the [Releases](https://github.com/vinnavannewton/project-monitorize/releases/latest) section.
   
 Or build from source:
   
