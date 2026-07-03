@@ -2907,6 +2907,8 @@ class BackendFacadeTest(unittest.TestCase):
         checkbox_qml = (qml_dir / "CustomCheckBox.qml").read_text(encoding="utf-8")
         self.assertEqual(qml.count("CustomToggle {"), 3)
         self.assertNotIn("CustomCheckBox {", qml)
+        self.assertIn('text: "Encrypted"', qml)
+        self.assertNotIn('text: "Use encryption (recommended)"', qml)
         self.assertIn("Switch {", toggle_qml)
         self.assertIn("theme.buttonBackgroundHover", toggle_qml)
         self.assertIn("theme.buttonBackground", toggle_qml)
