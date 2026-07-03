@@ -262,6 +262,56 @@ sudo apt install -y \
 
 ---
 
+## <img src="https://raw.githubusercontent.com/NixOS/nixos-artwork/master/logo/nix-snowflake-colours.svg" height="28" alt="NixOS"> NixOS / Nix (Flake)
+
+A Nix flake is included — all dependencies are handled automatically.
+
+### Try without installing:
+
+```bash
+nix run github:vinnavannewton/ProjectMonitorize
+```
+
+### Install on NixOS (declarative):
+
+Add the flake to your system configuration:
+
+```nix
+# flake.nix
+{
+  inputs.monitorize.url = "github:vinnavannewton/ProjectMonitorize";
+
+  outputs = { nixpkgs, monitorize, ... }: {
+    nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
+      modules = [
+        monitorize.nixosModules.default
+        { programs.monitorize.enable = true; }
+      ];
+    };
+  };
+}
+```
+
+This installs the app, sets up the uinput udev rule, and makes it available in your application menu.
+
+### Install imperatively (any distro with Nix):
+
+```bash
+nix profile install github:vinnavannewton/ProjectMonitorize
+```
+
+### Desktop-Specific (NixOS):
+
+KDE Plasma and Hyprland tools (`kscreen-doctor`, `wlr-randr`) are bundled in the package wrapper — no extra packages needed.
+
+For **GNOME**, add to your NixOS config:
+
+```nix
+environment.variables.MUTTER_DEBUG_DISABLE_HW_CURSORS = "1";
+```
+
+---
+
 ## Running the Application:
 
 1.After starting the stream in the desktop application make sure you go to your display settings and configure the newly created virtual display.
