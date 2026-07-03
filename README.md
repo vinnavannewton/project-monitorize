@@ -60,6 +60,12 @@ Monitorize has separate installation guides for each platform/distro.
 
 ---
 
+## Contributing:
+
+Please read the [Contribution Guide](https://github.com/vinnavannewton/project-monitorize/wiki/Contributing).
+
+---
+
 ## 🚀 Getting Started
 
 ### 1. Clone and install (Desktop side)
