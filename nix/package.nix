@@ -12,26 +12,20 @@
 , xdg-desktop-portal-gtk
 , copyDesktopItems
 , makeDesktopItem
+, bash
 }:
 
 let
   python = python3Packages.python;
-  pythonPath = python3Packages.makePythonPath [
-    python3Packages.pyqt6
-    python3Packages.pyqt6-sip
-    python3Packages.dbus-python
-    python3Packages.pygobject3
-    python3Packages.zeroconf
-    python3Packages.evdev
-    python3Packages.cryptography
-  ];
 in
 python3Packages.buildPythonApplication rec {
   pname = "monitorize";
   version = "0-unstable";
   pyproject = false;                    # no setup.py / pyproject.toml yet
 
-  src = ../linux;
+  # Use lib.cleanSource to exclude editor artefacts, __pycache__, venv/, etc.
+  # so only the intended tree is packaged and builds remain reproducible.
+  src = lib.cleanSource ../linux;
 
   nativeBuildInputs = [
     qt6.wrapQtAppsHook
@@ -45,6 +39,9 @@ python3Packages.buildPythonApplication rec {
     qt6.qtwayland
   ];
 
+  # Single, authoritative dependency list.
+  # PYTHONPATH in postFixup is derived from this via python3Packages.makePythonPath
+  # so the two can never get out of sync.
   propagatedBuildInputs = [
     python3Packages.pyqt6
     python3Packages.pyqt6-sip
@@ -63,7 +60,6 @@ python3Packages.buildPythonApplication rec {
     gobject-introspection
   ];
 
-
   # ── Install phase ──────────────────────────────────────────────────
   installPhase = ''
     runHook preInstall
@@ -73,13 +69,13 @@ python3Packages.buildPythonApplication rec {
     mkdir -p "$siteDir"
     cp -r monitorize "$siteDir/"
 
-    # Launcher script
+    # Launcher script – use an explicit store bash so the wrapper is
+    # fully hermetic and does not depend on /usr/bin/env or a host bash.
     mkdir -p "$out/bin"
-    cat > "$out/bin/monitorize" <<'WRAPPER'
-    #!/usr/bin/env bash
-    exec @python@ -m monitorize "$@"
+    cat > "$out/bin/monitorize" <<WRAPPER
+    #!${bash}/bin/bash
+    exec ${python}/bin/python3 -m monitorize "\$@"
     WRAPPER
-    substituteInPlace "$out/bin/monitorize" --replace-fail "@python@" "${python}/bin/python3"
     chmod +x "$out/bin/monitorize"
 
     # Icon
@@ -109,9 +105,13 @@ python3Packages.buildPythonApplication rec {
   dontWrapQtApps = true;  # we do it ourselves so we can merge everything
 
   postFixup = ''
+    # Derive PYTHONPATH from propagatedBuildInputs so it never drifts out of
+    # sync with the dependency list above.
+    pythonPath="${python3Packages.makePythonPath propagatedBuildInputs}:$out/${python.sitePackages}"
+
     wrapProgram "$out/bin/monitorize" \
       "''${qtWrapperArgs[@]}" \
-      --prefix PYTHONPATH : "${pythonPath}:$out/${python.sitePackages}" \
+      --prefix PYTHONPATH : "$pythonPath" \
       --prefix PATH : "${lib.makeBinPath [
         gst_all_1.gstreamer
         android-tools

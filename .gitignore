@@ -143,3 +143,9 @@ skills-lock.json
 AI-Wiki/
 AGENTS.md
 docs/
+
+# ==============================
+#  Nix build artifacts
+# ==============================
+result
+result-*

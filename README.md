@@ -292,7 +292,12 @@ Add the flake to your system configuration:
 }
 ```
 
-This installs the app, sets up the uinput udev rule, and makes it available in your application menu.
+This installs the app, creates a dedicated `monitorize-input` group for uinput access, and makes it available in your application menu.
+
+> **Grant uinput access** — add your user to the `monitorize-input` group in your NixOS config:
+> ```nix
+> users.users.<yourname>.extraGroups = [ "monitorize-input" ];
+> ```
 
 ### Install imperatively (any distro with Nix):
 
