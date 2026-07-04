@@ -1,7 +1,7 @@
 <div align="center">
   <img src="linux/monitorize/assets/monitorize_desktop_logo.png" alt="Monitorize logo" width="160" />
   <h1>Monitorize</h1>
-  <p><strong>Turn your Android, Linux laptop into a smooth, low-latency secondary monitor for your Linux desktop.</strong></p>
+  <p><strong>Turn your Android, Linux laptop into a secondary monitor for your Linux desktop.</strong></p>
 
 <a href="https://www.gnu.org/licenses/agpl-3.0"><img src="https://img.shields.io/badge/License-AGPL%20v3-blue.svg" /></a>
 <img src="https://img.shields.io/badge/Platform-Linux%20%7C%20Android-lightgrey" />
