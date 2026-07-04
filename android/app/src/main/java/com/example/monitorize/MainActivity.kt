@@ -1260,6 +1260,9 @@ fun StreamSurface(
                         hasSizedSurfaceChange = false
                         callbackSurfaceWidth = 0
                         callbackSurfaceHeight = 0
+                        firstFrameRendered = false
+                        watchdogRestartUsed = false
+                        lastReadinessBlockedLogAt = 0L
                         stopActiveStream()
                     }
 
