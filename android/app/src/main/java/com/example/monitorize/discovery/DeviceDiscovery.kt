@@ -6,11 +6,12 @@ import android.net.nsd.NsdServiceInfo
 import android.net.wifi.WifiManager
 import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
+import com.example.monitorize.DEFAULT_STREAM_FPS
+import com.example.monitorize.MAX_STREAM_FPS
+import com.example.monitorize.MIN_STREAM_FPS
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ChannelResult
-
-private const val DEFAULT_STREAM_FPS = 60
 
 data class DiscoveredDevice(
     val name: String,
@@ -280,7 +281,7 @@ class DeviceDiscovery(private val context: Context) {
     }
 
     private fun parseFps(value: String): Int {
-        return value.toIntOrNull()?.coerceIn(24, 240) ?: DEFAULT_STREAM_FPS
+        return value.toIntOrNull()?.coerceIn(MIN_STREAM_FPS, MAX_STREAM_FPS) ?: DEFAULT_STREAM_FPS
     }
 
     fun stopDiscovery() {
