@@ -11,7 +11,10 @@
 ## Screenshots
 
 <div align="center">
-  <img src="screenshots/linux_frontpage.png" alt="Monitorize Linux front page" width="800" style="max-width: 100%;" />
+  <img src="screenshots/front_page.png" alt="Monitorize front page" width="800" style="max-width: 100%;" />
+  <br />
+  <br />
+  <img src="screenshots/config_page.png" alt="Monitorize configuration page" width="800" style="max-width: 100%;" />
 </div>
 
 ---
