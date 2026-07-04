@@ -56,8 +56,6 @@ Choose your distro.
   </tr>
 </table>
 
-After installing the required dependencies, continue with the steps below.
-
 ---
 
 ## Running the Application:
