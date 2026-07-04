@@ -20,20 +20,20 @@
 
 **Monitorize** turns your Android tablet, Laptop, PC into a secondary monitor for your Linux desktop.
 
-Supported desktop environments are KDE Plasma, Hyprland and GNOME.
+**Supported desktop environments are KDE Plasma, Hyprland and GNOME.**
 
 ---
 
 ## 🛠️ Requirements:
 
-| Android               | Desktop                           |
-| --------------------- | --------------------------------- |
+| Android               | Desktop                               |
+| --------------------- | ------------------------------------- |
 | Android 9+            | 🥇KDE (6.7+),🥇Hyprland,🥈GNOME (50+) |
-| Wi-Fi / USB Debugging | Tested on: Arch, fedora.          |
+| Wi-Fi / USB Debugging | Tested on: Arch, fedora, Nix OS.      |
 
 ---
 
-## Installing dependencies:
+## Installation:
 
 Choose your distro.
 
