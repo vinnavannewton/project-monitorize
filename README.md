@@ -50,6 +50,10 @@ Choose your distro.
     <td><strong>Ubuntu / Debian</strong></td>
     <td><a href="https://github.com/vinnavannewton/project-monitorize/wiki/Ubuntu-Debian-installation">Ubuntu Debian Installation</a></td>
   </tr>
+  <tr>
+    <td><strong>NixOS / Nix</strong></td>
+    <td><a href="https://github.com/vinnavannewton/project-monitorize/wiki/Nix-installation">Nix Installation</a></td>
+  </tr>
 </table>
 
 After installing the required dependencies, continue with the steps below.
