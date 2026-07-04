@@ -88,6 +88,61 @@ Or build from source:
 
 ---
 
+## <img src="https://raw.githubusercontent.com/NixOS/nixos-artwork/master/logo/nix-snowflake-colours.svg" height="28" alt="NixOS"> NixOS / Nix (Flake)
+
+A Nix flake is included — all dependencies are handled automatically.
+
+### Try without installing:
+
+```bash
+nix run github:vinnavannewton/ProjectMonitorize
+```
+
+### Install on NixOS (declarative):
+
+Add the flake to your system configuration:
+
+```nix
+# flake.nix
+{
+  inputs.monitorize.url = "github:vinnavannewton/ProjectMonitorize";
+
+  outputs = { nixpkgs, monitorize, ... }: {
+    nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
+      modules = [
+        monitorize.nixosModules.default
+        { programs.monitorize.enable = true; }
+      ];
+    };
+  };
+}
+```
+
+This installs the app, creates a dedicated `monitorize-input` group for uinput access, and makes it available in your application menu.
+
+> **Grant uinput access** — add your user to the `monitorize-input` group in your NixOS config:
+> ```nix
+> users.users.<yourname>.extraGroups = [ "monitorize-input" ];
+> ```
+
+### Install imperatively (any distro with Nix):
+
+```bash
+nix profile install github:vinnavannewton/ProjectMonitorize
+```
+
+### Desktop-Specific (NixOS):
+
+KDE Plasma and Hyprland tools (`kscreen-doctor`, `wlr-randr`) are bundled in the package wrapper — no extra packages needed.
+
+For **GNOME**, add to your NixOS config:
+
+```nix
+environment.variables.MUTTER_DEBUG_DISABLE_HW_CURSORS = "1";
+```
+
+---
+
 ## Running the Application:
 
 1.After starting the stream in the desktop application make sure you go to your display settings and configure the newly created virtual display.
@@ -136,16 +191,15 @@ Please read the [Contribution Guide](https://github.com/vinnavannewton/project-m
 
 ---
 
-## Star History
+Star History
 
-<a href="https://www.star-history.com/?type=Timeline&repos=vinnavannewton%2FProjectMonitorize">
+<a href="https://www.star-history.com/#vinnavannewton/project-monitorize&Date">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=vinnavannewton/ProjectMonitorize&type=Timeline&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=vinnavannewton/ProjectMonitorize&type=Timeline&legend=top-left">
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=vinnavannewton/ProjectMonitorize&type=Timeline&legend=top-left" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=vinnavannewton/project-monitorize&type=date&theme=dark&legend=top-left&cache=20260704" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=vinnavannewton/project-monitorize&type=date&legend=top-left&cache=20260704" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=vinnavannewton/project-monitorize&type=date&legend=top-left&cache=20260704" />
  </picture>
 </a>
-
 
 <div align="center">
   <sub>Expanding your productivity, one monitor at a time.</sub>
