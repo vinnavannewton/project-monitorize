@@ -1,7 +1,7 @@
 <div align="center">
   <img src="linux/monitorize/assets/monitorize_desktop_logo.png" alt="Monitorize logo" width="160" />
   <h1>Monitorize</h1>
-  <p><strong>Turn your Android, linux Laptop into a smooth, low-latency secondary monitor for your Linux Desktop .</strong></p>
+  <p><strong>Turn your Android, Linux laptop into a smooth, low-latency secondary monitor for your Linux desktop.</strong></p>
 
 <a href="https://www.gnu.org/licenses/agpl-3.0"><img src="https://img.shields.io/badge/License-AGPL%20v3-blue.svg" /></a>
 <img src="https://img.shields.io/badge/Platform-Linux%20%7C%20Android-lightgrey" />
@@ -29,13 +29,13 @@
 | Android               | Desktop                               |
 | --------------------- | ------------------------------------- |
 | Android 9+            | 🥇KDE (6.7+),🥇Hyprland,🥈GNOME (50+) |
-| Wi-Fi / USB Debugging | Tested on: Arch, fedora, Nix OS.      |
+| Wi-Fi / USB Debugging | Tested on: Arch, Fedora, NixOS.       |
 
 ---
 
 ## Installation:
 
-Choose your distro.
+### Desktop:
 
 <table>
   <tr>
@@ -56,15 +56,29 @@ Choose your distro.
   </tr>
 </table>
 
+
+
+### Android:
+
+**Install the APK from the [Releases](https://github.com/vinnavannewton/project-monitorize/releases/latest) section.**
+
+Or build from source:
+
+```bash
+cd android
+./gradlew installDebug
+adb shell am start -n com.example.monitorize/.MainActivity
+```
+
 ---
 
 ## Running the Application:
 
-1.After starting the stream in the desktop application make sure you go to your display settings and configure the newly created virtual display.
+1. After starting the stream in the desktop application make sure you go to your display settings and configure the newly created virtual display.
 
-2.When made changes to the virtual display's position and applied, then the stream crashes, it's normal just restart the stream and the virtual monitor will spawn in the previous applied position.
+2. When made changes to the virtual display's position and applied, then the stream crashes, it's normal just restart the stream and the virtual monitor will spawn in the previous applied position.
 
----
+
 
 ### Notes:
 
