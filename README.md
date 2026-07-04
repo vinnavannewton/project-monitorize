@@ -1,7 +1,7 @@
 <div align="center">
   <img src="linux/monitorize/assets/monitorize_desktop_logo.png" alt="Monitorize logo" width="160" />
   <h1>Monitorize</h1>
-  <p><strong>Turn your Android, linux Laptop into a smooth, low-latency secondary monitor for your Linux Desktop .</strong></p>
+  <p><strong>Turn your Android, Linux laptop into a secondary monitor for your Linux desktop.</strong></p>
 
 <a href="https://www.gnu.org/licenses/agpl-3.0"><img src="https://img.shields.io/badge/License-AGPL%20v3-blue.svg" /></a>
 <img src="https://img.shields.io/badge/Platform-Linux%20%7C%20Android-lightgrey" />
@@ -11,7 +11,10 @@
 ## Screenshots
 
 <div align="center">
-  <img src="screenshots/linux_frontpage.png" alt="Monitorize Linux front page" width="800" style="max-width: 100%;" />
+  <img src="screenshots/front_page.png" alt="Monitorize front page" width="800" style="max-width: 100%;" />
+  <br />
+  <br />
+  <img src="screenshots/config_page.png" alt="Monitorize configuration page" width="800" style="max-width: 100%;" />
 </div>
 
 ---
@@ -20,310 +23,65 @@
 
 **Monitorize** turns your Android tablet, Laptop, PC into a secondary monitor for your Linux desktop.
 
-Supported desktop environments are KDE Plasma, Hyprland and GNOME.
+**Supported desktop environments are KDE Plasma, Hyprland and GNOME.**
 
 ---
 
 ## 🛠️ Requirements:
 
-| Android               | Desktop                           |
-| --------------------- | --------------------------------- |
+| Android               | Desktop                               |
+| --------------------- | ------------------------------------- |
 | Android 9+            | 🥇KDE (6.7+),🥇Hyprland,🥈GNOME (50+) |
-| Wi-Fi / USB Debugging | Tested on: Arch, fedora.          |
+| Wi-Fi / USB Debugging | Tested on: Arch, Fedora, NixOS.       |
 
 ---
 
-### 📦 Dependencies (Must Do)
+## Installation:
 
-###### Before running Monitorize, install the required packages for your distro and desktop environment.
+### Desktop:
 
-## <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/Fedora_icon_(2021).svg/960px-Fedora_icon_(2021).svg.png" height="28" alt="Fedora"> Fedora (DNF)
+<table>
+  <tr>
+    <td><strong>Fedora</strong></td>
+    <td><a href="https://github.com/vinnavannewton/project-monitorize/wiki/Fedora-installation">Fedora Installation</a></td>
+  </tr>
+  <tr>
+    <td><strong>Arch Linux</strong></td>
+    <td><a href="https://github.com/vinnavannewton/project-monitorize/wiki/Arch-installation">Arch Installation</a></td>
+  </tr>
+  <tr>
+    <td><strong>Ubuntu / Debian</strong></td>
+    <td><a href="https://github.com/vinnavannewton/project-monitorize/wiki/Ubuntu-Debian-installation">Ubuntu Debian Installation</a></td>
+  </tr>
+  <tr>
+    <td><strong>NixOS / Nix</strong></td>
+    <td><a href="https://github.com/vinnavannewton/project-monitorize/wiki/Nix-installation">Nix Installation</a></td>
+  </tr>
+</table>
 
-### Step 1 — Enable RPM Fusion:
 
-```bash
-bash -c 'sudo dnf install -y https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm'
-```
 
-### Step 2 — Install Core Dependencies:
+### Android:
 
-```bash
-sudo dnf install -y --skip-unavailable \
-  gstreamer1 \
-  gstreamer1-plugins-base \
-  gstreamer1-plugins-bad-free \
-  gstreamer1-plugins-bad-freeworld \
-  gstreamer1-plugins-ugly \
-  gstreamer1-plugin-libav \
-  pipewire \
-  pipewire-gstreamer \
-  python3-dbus \
-  python3-gobject \
-  android-tools
-```
+**Install the APK from the [Releases](https://github.com/vinnavannewton/project-monitorize/releases/latest) section.**
 
-### Step 3 — Input Permission:
-
-```bash
-echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
-sudo udevadm control --reload-rules && sudo udevadm trigger
-sudo usermod -aG input $USER
-# Log out and back in for group change to take effect
-```
-
-### Step 4 — Desktop-Specific (Fedora):
-
-### KDE Plasma:
-
-KDE support requires Plasma 6.7+
+Or build from source:
 
 ```bash
-sudo dnf install -y kscreen
-```
-
----
-
-### GNOME:
-
-No extra packages needed. However, you **must** disable Mutter hardware cursor rendering so the cursor is visible on the virtual monitor stream.
-
-Open `/etc/environment` and add this line at the bottom:
-
-```bash
-MUTTER_DEBUG_DISABLE_HW_CURSORS=1
-```
-
-Log out and back in for the change to take effect.
-
----
-
-### Hyprland:
-
-```bash
-sudo dnf install -y \
-  xdg-desktop-portal \
-  xdg-desktop-portal-hyprland \
-  xdg-desktop-portal-gtk \
-  wlr-randr
-```
-
----
-
-## <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/13/Arch_Linux_%22Crystal%22_icon.svg/330px-Arch_Linux_%22Crystal%22_icon.svg.png" height="28" alt="Arch Linux"> Arch Linux (Pacman)
-
-### Step 1 — Install Core Dependencies:
-
-```bash
-sudo pacman -S --needed \
-  gstreamer \
-  gst-plugins-base \
-  gst-plugins-good \
-  gst-plugins-bad \
-  gst-plugins-ugly \
-  gst-plugin-pipewire \
-  pipewire \
-  wireplumber \
-  python-dbus \
-  python-gobject \
-  x264 \
-  android-tools
-```
-
-### Step 2 — Input Permission:
-
-```bash
-echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
-sudo udevadm control --reload-rules && sudo udevadm trigger
-sudo usermod -aG input $USER
-# Log out and back in for group change to take effect
-```
-
-### Step 3 — Desktop-Specific (Arch)
-
-### KDE Plasma:
-
-KDE support requires Plasma 6.7 and above
-
-```bash
-sudo pacman -S --needed kscreen
-```
-
----
-
-### GNOME:
-
-No extra packages needed. However, you **must** disable Mutter hardware cursor rendering so the cursor is visible on the virtual monitor stream.
-
-Open `/etc/environment` and add this line at the bottom:
-
-```bash
-MUTTER_DEBUG_DISABLE_HW_CURSORS=1
-```
-
-Log out and back in for the change to take effect.
-
----
-
-### Hyprland:
-
-```bash
-sudo pacman -S --needed \
-  xdg-desktop-portal \
-  xdg-desktop-portal-hyprland \
-  xdg-desktop-portal-gtk \
-  wlr-randr
-```
-
----
-
-## <img src="https://upload.wikimedia.org/wikipedia/commons/4/4a/Debian-OpenLogo.svg" height="28" alt="Debian"> Debian / Ubuntu (APT)
-
-### Step 1 — Enable non-free repos (Debian only, skip on Ubuntu):
-
-```bash
-sudo apt install -y software-properties-common
-sudo apt-add-repository non-free
-sudo apt update
-```
-
-### Step 2 — Install Core Dependencies:
-
-```bash
-sudo apt install -y \
-  gstreamer1.0-tools \
-  gstreamer1.0-plugins-base \
-  gstreamer1.0-plugins-good \
-  gstreamer1.0-plugins-bad \
-  gstreamer1.0-plugins-ugly \
-  gstreamer1.0-pipewire \
-  gstreamer1.0-vaapi \
-  intel-media-va-driver \
-  mesa-va-drivers \
-  pipewire \
-  wireplumber \
-  python3-dbus \
-  python3-gi \
-  adb \
-  python3-pip \
-  python3-venv \
-  qt6-base-dev \
-  libxkbcommon0 \
-  psmisc \
-  liboeffis1 \
-  liboeffis-dev
-```
-
-### Step 3 — Input Permission:
-
-```bash
-echo 'KERNEL=="uinput", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput.rules
-sudo udevadm control --reload-rules && sudo udevadm trigger
-sudo usermod -aG input $USER
-# Log out and back in for group change to take effect
-```
-
-### Step 4 — Desktop-Specific (Debian / Ubuntu)
-
-### ~~KDE Plasma~~:
-
-KDE support requires Plasma 6.7+ which isn't avalable on debian/ubuntu yet
-
-```bash
-sudo apt install -y kscreen
-```
-
-### ---
-
-### ~~GNOME~~:
-
-GNOME support requires GNOME 50+ which isn't available in debian/ubuntu yet.
-
-No extra packages needed. However, you **must** disable Mutter hardware cursor rendering so the cursor is visible on the virtual monitor stream.
-
-Open `/etc/environment` and add this line at the bottom:
-
-```bash
-MUTTER_DEBUG_DISABLE_HW_CURSORS=1
-```
-
-Log out and back in for the change to take effect.
-
----
-
-### Hyprland:
-
-```bash
-sudo apt install -y \
-  xdg-desktop-portal \
-  xdg-desktop-portal-hyprland \
-  xdg-desktop-portal-gtk \
-  wlr-randr
-```
-
----
-
-## <img src="https://raw.githubusercontent.com/NixOS/nixos-artwork/master/logo/nix-snowflake-colours.svg" height="28" alt="NixOS"> NixOS / Nix (Flake)
-
-A Nix flake is included — all dependencies are handled automatically.
-
-### Try without installing:
-
-```bash
-nix run github:vinnavannewton/ProjectMonitorize
-```
-
-### Install on NixOS (declarative):
-
-Add the flake to your system configuration:
-
-```nix
-# flake.nix
-{
-  inputs.monitorize.url = "github:vinnavannewton/ProjectMonitorize";
-
-  outputs = { nixpkgs, monitorize, ... }: {
-    nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
-      modules = [
-        monitorize.nixosModules.default
-        { programs.monitorize.enable = true; }
-      ];
-    };
-  };
-}
-```
-
-This installs the app, creates a dedicated `monitorize-input` group for uinput access, and makes it available in your application menu.
-
-> **Grant uinput access** — add your user to the `monitorize-input` group in your NixOS config:
-> ```nix
-> users.users.<yourname>.extraGroups = [ "monitorize-input" ];
-> ```
-
-### Install imperatively (any distro with Nix):
-
-```bash
-nix profile install github:vinnavannewton/ProjectMonitorize
-```
-
-### Desktop-Specific (NixOS):
-
-KDE Plasma and Hyprland tools (`kscreen-doctor`, `wlr-randr`) are bundled in the package wrapper — no extra packages needed.
-
-For **GNOME**, add to your NixOS config:
-
-```nix
-environment.variables.MUTTER_DEBUG_DISABLE_HW_CURSORS = "1";
+cd android
+./gradlew installDebug
+adb shell am start -n com.example.monitorize/.MainActivity
 ```
 
 ---
 
 ## Running the Application:
 
-1.After starting the stream in the desktop application make sure you go to your display settings and configure the newly created virtual display.
+1. After starting the stream in the desktop application make sure you go to your display settings and configure the newly created virtual display.
 
-2.When made changes to the virtual display's position and applied, then the stream crashes, it's normal just restart the stream and the virtual monitor will spawn in the previous applied position.
+2. When made changes to the virtual display's position and applied, then the stream crashes, it's normal just restart the stream and the virtual monitor will spawn in the previous applied position.
 
----
+
 
 ### Notes:
 
@@ -331,39 +89,9 @@ environment.variables.MUTTER_DEBUG_DISABLE_HW_CURSORS = "1";
 
 ---
 
-## 🚀 Getting Started
+## Contributing:
 
-### 1. Clone and install (Desktop side)
-
-```bash
-git clone https://github.com/vinnavannewton/ProjectMonitorize.git
-cd ProjectMonitorize/linux
-cd scripts
-chmod +x install.sh
-./install.sh
-```
-
-Or run manually:
-
-```bash
-./venv/bin/python3 -m monitorize
-```
-
-### 2. Android side
-
-Either:
-
-- Build from source:
-  
-  ```bash
-  cd android
-  ./gradlew installDebug
-  adb shell am start -n com.example.monitorize/.MainActivity
-  ```
-
-Or:
-
-- Install the APK from the Releases section.
+Please read the [Contribution Guide](https://github.com/vinnavannewton/project-monitorize/wiki/Contributing).
 
 ---
 

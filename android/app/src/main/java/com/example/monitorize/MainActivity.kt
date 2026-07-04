@@ -1141,10 +1141,10 @@ fun ReceiveScreen(
     onInputEvent: (android.view.MotionEvent, Float, Float) -> Unit
 ) {
     BackHandler(onBack = onBack)
-    var surfaceKey by remember(hostIp, width, height) { mutableStateOf(0) }
-    var surfaceRecreateUsed by remember(hostIp, width, height) { mutableStateOf(false) }
+    var surfaceKey by remember(hostIp, width, height, fps) { mutableStateOf(0) }
+    var surfaceRecreateUsed by remember(hostIp, width, height, fps) { mutableStateOf(false) }
 
-    LaunchedEffect(hostIp, width, height) {
+    LaunchedEffect(hostIp, width, height, fps) {
         delay(300)
         if (!surfaceRecreateUsed) {
             surfaceRecreateUsed = true
@@ -1232,6 +1232,7 @@ fun StreamSurface(
                     private var readinessRetryStartedAt = 0L
                     private var lastReadinessBlockedLogAt = 0L
                     private var readinessRetry: Runnable? = null
+                    private var firstFrameWatchdog: Runnable? = null
 
                     override fun surfaceCreated(holder: SurfaceHolder) {
                         hasSurfaceEvent = true
@@ -1254,6 +1255,7 @@ fun StreamSurface(
 
                     override fun surfaceDestroyed(holder: SurfaceHolder) {
                         stopSurfaceReadyChecks()
+                        stopFirstFrameWatchdog()
                         hasSurfaceEvent = false
                         hasSizedSurfaceChange = false
                         callbackSurfaceWidth = 0
@@ -1341,9 +1343,11 @@ fun StreamSurface(
                     }
 
                     private fun scheduleFirstFrameWatchdog(generation: Long, surfaceWidth: Int, surfaceHeight: Int) {
-                        postDelayed({
+                        stopFirstFrameWatchdog()
+                        val watchdog = Runnable {
+                            firstFrameWatchdog = null
                             if (generation != surfaceGeneration || firstFrameRendered) {
-                                return@postDelayed
+                                return@Runnable
                             }
                             if (!watchdogRestartUsed) {
                                 watchdogRestartUsed = true
@@ -1353,7 +1357,9 @@ fun StreamSurface(
                             } else {
                                 onSurfaceRenderTimeout()
                             }
-                        }, 2000L)
+                        }
+                        firstFrameWatchdog = watchdog
+                        postDelayed(watchdog, 2000L)
                     }
 
                     private fun stopSurfaceReadyChecks() {
@@ -1361,6 +1367,21 @@ fun StreamSurface(
                         readinessRetry = null
                         pendingForceRestart = false
                         readinessRetryStartedAt = 0L
+                    }
+
+                    private fun stopFirstFrameWatchdog() {
+                        firstFrameWatchdog?.let { removeCallbacks(it) }
+                        firstFrameWatchdog = null
+                    }
+
+                    fun release() {
+                        stopSurfaceReadyChecks()
+                        stopFirstFrameWatchdog()
+                        hasSurfaceEvent = false
+                        hasSizedSurfaceChange = false
+                        callbackSurfaceWidth = 0
+                        callbackSurfaceHeight = 0
+                        stopActiveStream()
                     }
 
                     private fun stopActiveStream() {
@@ -1376,7 +1397,7 @@ fun StreamSurface(
                         if (surface == null || !surface.isValid || Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
                             return
                         }
-                        val frameRate = fps.coerceIn(24, 240).toFloat()
+                        val frameRate = fps.coerceIn(MIN_STREAM_FPS, MAX_STREAM_FPS).toFloat()
                         try {
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                                 surface.setFrameRate(
@@ -1393,7 +1414,7 @@ fun StreamSurface(
                     }
 
                 }
-                holder.addCallback(streamCallback)
+                setStreamCallback(streamCallback) { streamCallback.release() }
                 addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
                     streamCallback.scheduleSurfaceReadyChecks(reason = "layout")
                 }
@@ -1419,11 +1440,32 @@ fun StreamSurface(
                 }
             }
         },
-        modifier = modifier
+        modifier = modifier,
+        onRelease = { view ->
+            view.releaseStreamCallback()
+        }
     )
 }
 
 private class AccessibleSurfaceView(context: Context) : SurfaceView(context) {
+    private var streamCallback: SurfaceHolder.Callback? = null
+    private var releaseStreamCallback: (() -> Unit)? = null
+
+    fun setStreamCallback(callback: SurfaceHolder.Callback, onRelease: () -> Unit) {
+        streamCallback = callback
+        releaseStreamCallback = onRelease
+        holder.addCallback(callback)
+    }
+
+    fun releaseStreamCallback() {
+        streamCallback?.let { holder.removeCallback(it) }
+        streamCallback = null
+        releaseStreamCallback?.invoke()
+        releaseStreamCallback = null
+        setOnTouchListener(null)
+        setOnHoverListener(null)
+    }
+
     override fun performClick(): Boolean {
         super.performClick()
         return true

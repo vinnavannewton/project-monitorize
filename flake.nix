@@ -54,6 +54,7 @@
           config = lib.mkIf cfg.enable {
             nixpkgs.overlays = [ overlay ];
             environment.systemPackages = [ pkgs.monitorize ];
+            boot.kernelModules = [ "uinput" ];
 
             # Dedicated group so only explicitly authorised users can create
             # virtual input devices via uinput.  Using the generic "input"
