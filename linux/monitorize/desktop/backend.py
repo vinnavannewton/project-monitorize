@@ -23,7 +23,7 @@ from monitorize.config.settings import (
 )
 from monitorize.desktop.streaming_controller import StreamingController
 from monitorize.desktop.usb_controller import UsbController
-from monitorize.platform.utils import get_local_ip
+from monitorize.platform.utils import get_local_ip, is_windows
 from monitorize.config.validation import (
     normalize_host,
     sanitize_decoder,
@@ -96,6 +96,14 @@ class MonitorizeBackend(QObject):
     def detectedDe(self):
         return self._detected_de
 
+    @pyqtProperty(bool, constant=True)
+    def canHostStream(self):
+        return self._detected_de != "windows"
+
+    @pyqtProperty(bool, constant=True)
+    def canAutostart(self):
+        return not is_windows()
+
     @pyqtProperty(str, notify=localIpChanged)
     def localIp(self):
         return self._local_ip
@@ -154,6 +162,9 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot()
     def startUsbScan(self):
+        if not self.canHostStream:
+            self.usb._set_status("Host streaming is not available on Windows yet.")
+            return
         self._pending_usb_preset = None
         self.usb.start()
 
@@ -187,6 +198,8 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot(bool, result=str)
     def setAutostartEnabled(self, enabled):
+        if not self.canAutostart:
+            return "Autostart is not available on Windows yet."
         return autostart.set_enabled(enabled)
 
     @pyqtSlot(str, str, str, str, str, str, str, str, str)
@@ -277,6 +290,9 @@ class MonitorizeBackend(QObject):
     def startStreaming(
         self, res, fps, bitrate, display_type, encoder, encoder_profile, wifi
     ):
+        if not self.canHostStream:
+            self.streaming._set_status("Host streaming is not available on Windows yet.")
+            return
         self._pending_usb_preset = None
         self.streaming.start(
             res, fps, bitrate, display_type, encoder, encoder_profile, wifi
@@ -289,6 +305,9 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot(str, str, str, str, str)
     def startSecondStream(self, res, fps, bitrate, encoder, encoder_profile):
+        if not self.canHostStream:
+            self.streaming._set_status("Host streaming is not available on Windows yet.")
+            return
         self.streaming.start_third(res, fps, bitrate, encoder, encoder_profile)
 
     @pyqtSlot()
@@ -335,6 +354,11 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot(int)
     def launchPreset(self, index):
+        if not self.canHostStream:
+            self._set_preset_launch_status(
+                "Host streaming presets are not available on Windows yet."
+            )
+            return
         if index < 0 or index >= len(self._presets):
             self._set_preset_launch_status("Preset no longer exists.")
             return
