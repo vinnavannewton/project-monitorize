@@ -25,9 +25,12 @@ def kill_patterns(*patterns):
     must also contain this checkout's linux directory, so unrelated GStreamer or
     Python processes are not killed.
     """
+    proc_dir = Path("/proc")
+    if not proc_dir.exists():
+        return
     compiled = [re.compile(pattern) for pattern in patterns]
     owned = []
-    for entry in Path("/proc").iterdir():
+    for entry in proc_dir.iterdir():
         if not entry.name.isdigit():
             continue
         pid = int(entry.name)
