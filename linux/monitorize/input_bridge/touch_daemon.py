@@ -25,6 +25,7 @@ def main():
         stylus_only="--stylus-only" in sys.argv,
         udp_host=udp_host,
         udp_port=udp_port,
+        gnome_primary="--gnome-primary" in sys.argv,
     )
     try:
         daemon.run()
