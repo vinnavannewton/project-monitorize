@@ -121,10 +121,6 @@ Please read the [Contribution Guide](https://github.com/vinnavannewton/project-m
 
 ---
 
-Star History
-
-## Star History
-
 ## Star History
 
 <a href="https://www.star-history.com/?type=timeline&repos=vinnavannewton%2Fproject-monitorize">
