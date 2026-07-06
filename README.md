@@ -113,7 +113,9 @@ Please read the [Contribution Guide](https://github.com/vinnavannewton/project-m
 
 - [x] Stable gnome.
 
-- [x] Laptop as a viewer.
+- [x] Linux laptop as a viewer.
+
+- [ ] Windows laptop as a viewer.
 
 - [ ] Multi monitor setup.
 
