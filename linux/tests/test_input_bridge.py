@@ -229,6 +229,12 @@ class DaemonStartupTest(unittest.TestCase):
             daemon = daemon_module.InputDaemon(100, 100, de=de)
             self.assertIsInstance(daemon.backend, UInputBackend)
 
+    def test_gnome_primary_flag_reaches_geometry(self):
+        daemon = daemon_module.InputDaemon(
+            100, 100, de="gnome", gnome_primary=True,
+        )
+        self.assertTrue(daemon.geometry.gnome_primary)
+
     def test_backend_setup_completes_before_transport_starts(self):
         order = []
 
@@ -411,10 +417,33 @@ class GnomeGeometryTest(unittest.TestCase):
             {},
         )
 
+    def gnome_mixed_state(self):
+        mode = (
+            "1920x1200@60", 1920, 1200, 60.0, 1.0, [1.0],
+            {"is-current": True},
+        )
+        primary = ("eDP-1", "DEL", "Built-in Display", "serial-2")
+        virtual = ("Meta-0", "MTR", "Monitorize Virtual", "serial-1")
+        return (
+            1,
+            [(primary, [mode], {}), (virtual, [mode], {})],
+            [
+                (0, 0, 1.0, 0, True, [primary], {}),
+                (1920, 0, 1.0, 0, False, [virtual], {}),
+            ],
+            {},
+        )
+
     def test_gnome_virtual_monitor_edid_from_state(self):
         self.assertEqual(
             geometry.gnome_virtual_monitor_edid_from_state(self.gnome_state()),
             ("MTR", "Monitorize Virtual", "serial-1"),
+        )
+
+    def test_gnome_primary_monitor_edid_from_state(self):
+        self.assertEqual(
+            geometry.gnome_primary_monitor_edid_from_state(self.gnome_mixed_state()),
+            ("DEL", "Built-in Display", "serial-2"),
         )
 
     def test_gnome_virtual_monitor_edid_missing_without_virtual_connector(self):
@@ -501,6 +530,24 @@ class GnomeGeometryTest(unittest.TestCase):
         ):
             self.assertTrue(geom.map_gnome_devices(stylus_features=True))
         self.assertEqual(written, [(("MTR", "Monitorize Virtual", "serial-1"), True)])
+        self.assertTrue(geom._gnome_devices_mapped)
+
+    def test_gnome_map_devices_can_target_primary_monitor(self):
+        geom = geometry.Geometry("gnome", 1920, 1200, gnome_primary=True)
+        written = []
+
+        with (
+            patch.object(geom, "_mutter_state", return_value=self.gnome_mixed_state()),
+            patch(
+                "monitorize.input_bridge.geometry.write_gnome_input_mapping",
+                side_effect=lambda edid, stylus: (
+                    written.append((edid, stylus)) or True
+                ),
+            ),
+        ):
+            self.assertTrue(geom.map_gnome_devices(stylus_features=False))
+
+        self.assertEqual(written, [(("DEL", "Built-in Display", "serial-2"), False)])
         self.assertTrue(geom._gnome_devices_mapped)
 
     def test_gnome_map_devices_failed_write_leaves_devices_unmapped(self):

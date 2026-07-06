@@ -66,6 +66,27 @@ def gnome_virtual_monitor_edid_from_state(state):
     return None
 
 
+def gnome_primary_monitor_edid_from_state(state):
+    try:
+        _serial, physical, logical, _props = state
+    except (TypeError, ValueError):
+        return None
+    primary = next((layout for layout in logical if bool(layout[4])), None)
+    if not primary:
+        return None
+    connectors = {str(item[0]) for item in primary[5]}
+    for monitor in physical:
+        try:
+            connector, vendor, product, serial = monitor[0]
+        except (TypeError, ValueError, IndexError):
+            continue
+        if str(connector) in connectors:
+            edid = tuple(str(value) for value in (vendor, product, serial))
+            if all(edid):
+                return edid
+    return None
+
+
 def write_gnome_input_mapping(edid, stylus_features=False):
     try:
         values = [str(value) for value in edid]
@@ -166,10 +187,11 @@ def kde_virtual_output(outputs):
 
 
 class Geometry:
-    def __init__(self, de: str, screen_w: int, screen_h: int):
+    def __init__(self, de: str, screen_w: int, screen_h: int, gnome_primary=False):
         self.de = de
         self.screen_w = screen_w
         self.screen_h = screen_h
+        self.gnome_primary = gnome_primary
         self._cache = None
         self._gnome_devices_mapped = False
 
@@ -288,9 +310,13 @@ class Geometry:
         self._gnome_devices_mapped = False
         deadline = time.monotonic() + timeout
         last_error = None
+        edid_from_state = (
+            gnome_primary_monitor_edid_from_state
+            if self.gnome_primary else gnome_virtual_monitor_edid_from_state
+        )
         while time.monotonic() < deadline:
             try:
-                edid = gnome_virtual_monitor_edid_from_state(self._mutter_state())
+                edid = edid_from_state(self._mutter_state())
                 if edid:
                     mapped = write_gnome_input_mapping(edid, stylus_features)
                     self._gnome_devices_mapped = mapped
@@ -301,7 +327,8 @@ class Geometry:
         if last_error:
             log.warning("Failed to map GNOME uinput devices: %s", last_error)
         else:
-            log.warning("Failed to map GNOME uinput devices: no virtual monitor EDID")
+            target = "primary" if self.gnome_primary else "virtual"
+            log.warning("Failed to map GNOME uinput devices: no %s monitor EDID", target)
         return False
 
     def desktop_bounds(self):
