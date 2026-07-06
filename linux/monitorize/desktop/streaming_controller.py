@@ -349,6 +349,8 @@ class StreamingController(QObject):
             args.append("--wifi")
             if self.encrypted:
                 args.append("--local-udp")
+        if self.de == "gnome" and self.display_type == "Mirror":
+            args.append("--gnome-primary")
         if stylus:
             args.append("--stylus-features")
         if stylus and not touch:
