@@ -1349,6 +1349,7 @@ class StreamingControllerTest(unittest.TestCase):
         args = process.start.call_args.args[1]
         self.assertIn("--wifi", args)
         self.assertNotIn("--local-udp", args)
+        self.assertNotIn("--gnome-primary", args)
 
     def test_gnome_encrypted_wifi_input_uses_local_udp(self):
         controller = self.gnome_controller()
@@ -1366,6 +1367,21 @@ class StreamingControllerTest(unittest.TestCase):
         args = process.start.call_args.args[1]
         self.assertIn("--wifi", args)
         self.assertIn("--local-udp", args)
+
+    def test_gnome_mirror_input_targets_primary_monitor(self):
+        controller = self.gnome_controller()
+        controller.display_type = "Mirror"
+        process = process_mock()
+        with (
+            patch("monitorize.desktop.streaming_controller.QProcess", return_value=process),
+            patch(
+                "monitorize.desktop.streaming_controller.load_general_settings",
+                return_value={"enable_touch": True, "enable_stylus_features": False},
+            ),
+        ):
+            controller._launch_input(generation=7)
+        args = process.start.call_args.args[1]
+        self.assertIn("--gnome-primary", args)
 
     def test_gnome_stylus_input_args_are_preserved(self):
         controller = self.gnome_controller()

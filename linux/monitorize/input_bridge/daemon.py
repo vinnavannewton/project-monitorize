@@ -19,6 +19,7 @@ class InputDaemon:
     def __init__(
         self, width, height, wifi=False, stylus_features=False,
         stylus_only=False, de=None, udp_host="0.0.0.0", udp_port=7113,
+        gnome_primary=False,
     ):
         self.shutdown = threading.Event()
         self.de = de or detect_de()
@@ -26,7 +27,7 @@ class InputDaemon:
         self.udp_host = udp_host
         self.udp_port = udp_port
         self.stylus_features = stylus_features and self.de in UINPUT_DESKTOPS
-        self.geometry = Geometry(self.de, width, height)
+        self.geometry = Geometry(self.de, width, height, gnome_primary=gnome_primary)
         self.backend = UInputBackend(self.geometry, self.shutdown)
         self.dispatcher = InputDispatcher(self.backend, stylus_only)
 
