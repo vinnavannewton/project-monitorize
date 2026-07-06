@@ -123,6 +123,10 @@ Please read the [Contribution Guide](https://github.com/vinnavannewton/project-m
 
 ---
 
+## Support This Project
+
+[![Support me on Ko-fi](https://img.shields.io/badge/Support-Ko--fi-ff5e5b?logo=kofi&logoColor=white)](https://ko-fi.com/vinnavan)
+
 Star History
 
 <a href="https://www.star-history.com/#vinnavannewton/project-monitorize&Date">
