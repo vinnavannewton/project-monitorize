@@ -59,8 +59,6 @@
   </tr>
 </table>
 
-
-
 ### Android:
 
 **Install the APK from the [Releases](https://github.com/vinnavannewton/project-monitorize/releases/latest) section.**
@@ -80,8 +78,6 @@ adb shell am start -n com.example.monitorize/.MainActivity
 1. After starting the stream in the desktop application make sure you go to your display settings and configure the newly created virtual display.
 
 2. When made changes to the virtual display's position and applied, then the stream crashes, it's normal just restart the stream and the virtual monitor will spawn in the previous applied position.
-
-
 
 ### Notes:
 
@@ -124,10 +120,6 @@ Please read the [Contribution Guide](https://github.com/vinnavannewton/project-m
 - [ ] AppImage.
 
 ---
-
-## Support This Project
-
-[![Support me on Ko-fi](https://img.shields.io/badge/Support-Ko--fi-ff5e5b?logo=kofi&logoColor=white)](https://ko-fi.com/vinnavan)
 
 Star History
 
