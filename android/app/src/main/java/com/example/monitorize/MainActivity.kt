@@ -682,12 +682,24 @@ fun HomeScreen(
         else -> 28.dp
     }
     val topSpacerHeight = when {
-        isTablet -> 100.dp
-        isLandscapeMobile -> 40.dp
-        else -> 60.dp
+        isTablet -> 104.dp
+        isLandscapeMobile -> 56.dp
+        else -> 88.dp
     }
-    val devicesSpacing = if (isLandscapeMobile) 10.dp else 14.dp
+    val devicesSpacing = if (isLandscapeMobile) 12.dp else 22.dp
     val settingsButtonPadding = if (isLandscapeMobile) 16.dp else 24.dp
+    val settingsButtonSize = when {
+        isTablet -> 48.dp
+        isLandscapeMobile -> 36.dp
+        else -> 44.dp
+    }
+    val settingsIconSize = when {
+        isTablet -> 24.dp
+        isLandscapeMobile -> 18.dp
+        else -> 22.dp
+    }
+    val refreshButtonWidth = if (isLandscapeMobile) 82.dp else 94.dp
+    val refreshButtonHeight = if (isLandscapeMobile) 34.dp else 38.dp
     val manualRowPadding = if (isLandscapeMobile) 16.dp else 32.dp
     val manualSpacerHeight = if (isLandscapeMobile) 12.dp else 16.dp
     val manualFieldHeight = if (isLandscapeMobile) 48.dp else 56.dp
@@ -706,13 +718,21 @@ fun HomeScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        if (isTablet) {
-            IconButton(
-                onClick = onSettingsToggle,
-                modifier = Modifier.align(Alignment.TopEnd).padding(settingsButtonPadding).size(48.dp).background(CardDark, CircleShape)
-            ) {
-                Icon(Icons.Default.Settings, contentDescription = "Settings", tint = Color.White)
-            }
+        IconButton(
+            onClick = onSettingsToggle,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(settingsButtonPadding)
+                .size(settingsButtonSize)
+                .clip(CircleShape)
+                .background(CardDark)
+        ) {
+            Icon(
+                Icons.Default.Settings,
+                contentDescription = "Settings",
+                tint = Color.White,
+                modifier = Modifier.size(settingsIconSize)
+            )
         }
 
         Column(
@@ -732,40 +752,21 @@ fun HomeScreen(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 2.sp
                 )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(width = refreshButtonWidth, height = refreshButtonHeight)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(GreenAccent)
+                        .border(1.dp, GreenAccent.copy(alpha = 0.65f), RoundedCornerShape(8.dp))
+                        .clickable { onStartDiscovery() }
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(AccentIndigo.copy(alpha = 0.15f))
-                            .border(1.dp, AccentIndigo.copy(alpha = 0.4f), RoundedCornerShape(6.dp))
-                            .clickable { onStartDiscovery() }
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        Text(
-                            text = "REFRESH",
-                            color = AccentIndigo,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    if (!isTablet) {
-                        IconButton(
-                            onClick = onSettingsToggle,
-                            modifier = Modifier
-                                .size(if (isLandscapeMobile) 32.dp else 36.dp)
-                                .background(CardDark, CircleShape)
-                        ) {
-                            Icon(
-                                Icons.Default.Settings,
-                                contentDescription = "Settings",
-                                tint = Color.White,
-                                modifier = Modifier.size(if (isLandscapeMobile) 18.dp else 20.dp)
-                            )
-                        }
-                    }
+                    Text(
+                        text = "REFRESH",
+                        color = Color.White,
+                        fontSize = if (isLandscapeMobile) 10.sp else 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
             Spacer(modifier = Modifier.height(devicesSpacing))
