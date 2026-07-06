@@ -123,11 +123,13 @@ Please read the [Contribution Guide](https://github.com/vinnavannewton/project-m
 
 Star History
 
-<a href="https://www.star-history.com/#vinnavannewton/project-monitorize&Timeline">
+## Star History
+
+<a href="https://www.star-history.com/?type=timeline&repos=vinnavannewton%2Fproject-monitorize">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=vinnavannewton/project-monitorize&type=timeline&theme=dark&legend=top-left&cache=20260704" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=vinnavannewton/project-monitorize&type=timeline&legend=top-left&cache=20260704" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=vinnavannewton/project-monitorize&type=timeline&legend=top-left&cache=20260704" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=vinnavannewton/project-monitorize&type=timeline&theme=dark&legend=top-left&sealed_token=iERmKObqVlCm15dShERZcTu2jsXcjf_bBuJ4UN_MqjOWvTYshloVzUh-rt8evl6z8cEGhkd_bIgZ_oocUwCzXkbPIPYBM-AeiWVbUbad49AfWMdYaVbvaWZkNr36uGFv_kGyOXBKA2VlKdhZrNW3K8hQcF1Jjci1QTmB7PYtaYE15YgnJ33GUxgBSBJS" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=vinnavannewton/project-monitorize&type=timeline&legend=top-left&sealed_token=iERmKObqVlCm15dShERZcTu2jsXcjf_bBuJ4UN_MqjOWvTYshloVzUh-rt8evl6z8cEGhkd_bIgZ_oocUwCzXkbPIPYBM-AeiWVbUbad49AfWMdYaVbvaWZkNr36uGFv_kGyOXBKA2VlKdhZrNW3K8hQcF1Jjci1QTmB7PYtaYE15YgnJ33GUxgBSBJS" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=vinnavannewton/project-monitorize&type=timeline&legend=top-left&sealed_token=iERmKObqVlCm15dShERZcTu2jsXcjf_bBuJ4UN_MqjOWvTYshloVzUh-rt8evl6z8cEGhkd_bIgZ_oocUwCzXkbPIPYBM-AeiWVbUbad49AfWMdYaVbvaWZkNr36uGFv_kGyOXBKA2VlKdhZrNW3K8hQcF1Jjci1QTmB7PYtaYE15YgnJ33GUxgBSBJS" />
  </picture>
 </a>
 
