@@ -29,6 +29,7 @@ from monitorize.config.settings import (
 )
 from monitorize.platform.utils import LINUX_DIR
 from monitorize.config.validation import (
+    DEFAULT_FPS,
     DEFAULT_PRIMARY_RESOLUTION,
     DEFAULT_SECONDARY_RESOLUTION,
     sanitize_bitrate,
@@ -71,6 +72,7 @@ class StreamingController(QObject):
         self.pairing_code = ""
         self.wifi = False
         self.encrypted = False
+        self.fps = DEFAULT_FPS
         self.streamer = self.input_bridge = self.tls_proxy = None
         self.gst_pids = set()
         self.tls_buffer = ""
@@ -786,7 +788,7 @@ class StreamingController(QObject):
                 self.local_ip,
                 self.encrypted,
                 self.third_ready,
-                getattr(self, "fps", 60),
+                self.fps,
             )
 
     def stop(self):
