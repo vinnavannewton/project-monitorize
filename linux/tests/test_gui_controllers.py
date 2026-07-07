@@ -15,7 +15,11 @@ from PyQt6.QtCore import QCoreApplication, QProcess
 from monitorize.streaming import Streamer_gnome, pipeline_builder
 from monitorize.streaming import portal_streamer
 from monitorize.config import app_log, autostart, settings
-from monitorize.platform import gnome_virtual_monitor, kde_virtual_monitor, process_utils
+from monitorize.platform import (
+    gnome_virtual_monitor,
+    kde_virtual_monitor,
+    process_utils,
+)
 from monitorize.desktop.discovery_service import DiscoveryService
 from monitorize.desktop.backend import MonitorizeBackend
 from monitorize.desktop.receiver_controller import ReceiverController
@@ -1041,7 +1045,7 @@ class StreamingControllerTest(unittest.TestCase):
         self.assertEqual(args[-1], "HEADLESS-2")
         self.assertIn("wifi", args)
         discovery.advertise.assert_called_once_with(
-            "10.0.0.1", False, False
+            "10.0.0.1", False, False, 60
         )
 
     def test_gnome_streamer_command_uses_display_type_only(self):
@@ -1379,6 +1383,7 @@ class StreamingControllerTest(unittest.TestCase):
         controller.wifi = True
         controller.encrypted = False
         controller.primary_ready = True
+        controller.fps = 60
         events = []
         controller.secondStreamChanged.connect(events.append)
         process = process_mock()
@@ -1397,7 +1402,7 @@ class StreamingControllerTest(unittest.TestCase):
         self.assertEqual(env.value("MONITORIZE_PORT"), "7114")
         self.assertNotEqual(env.value("MONITORIZE_PORTAL_SOURCE_TYPE"), "4")
         self.assertEqual(events, [True])
-        discovery.advertise.assert_called_once_with("10.0.0.1", False, False)
+        discovery.advertise.assert_called_once_with("10.0.0.1", False, False, 60)
 
     def test_hyprland_third_display_uses_portal_monitor_picker(self):
         controller = StreamingController("hyprland", "10.0.0.1", Mock())
@@ -1479,7 +1484,7 @@ class StreamingControllerTest(unittest.TestCase):
         self.assertTrue(controller.third_ready)
         self.assertEqual(
             discovery.advertise.call_args_list[-1].args,
-            ("10.0.0.1", False, True),
+            ("10.0.0.1", False, True, 60),
         )
 
     def test_stale_third_streamer_output_is_ignored(self):
@@ -2228,6 +2233,120 @@ class KdeVirtualMonitorCompatTest(unittest.TestCase):
         self.assertFalse(any(".scale." in " ".join(command) for command in commands))
         self.assertFalse(any("output.eDP-1" in " ".join(command) for command in commands))
 
+    def test_portal_mode_registration_tries_reduced_blanking_after_full(self):
+        state = {"registered": False, "active": False}
+
+        def fake_run(args, **_kwargs):
+            if args == ["kscreen-doctor", "-j"]:
+                outputs = self.portal_outputs(
+                    mode_registered=state["registered"],
+                    mode_active=state["active"],
+                )
+                return Mock(
+                    returncode=0,
+                    stdout=json.dumps({"outputs": outputs}),
+                    stderr="",
+                )
+            if "addCustomMode.1920.1200.60000.full" in args[1]:
+                return Mock(returncode=0, stdout="", stderr="")
+            if "addCustomMode.1920.1200.60000.reduced" in args[1]:
+                state["registered"] = True
+                return Mock(returncode=0, stdout="", stderr="")
+            if args[1].endswith(".mode.2"):
+                state["active"] = True
+                return Mock(returncode=0, stdout="", stderr="")
+            if ".position." in args[1] or ".rotation." in args[1]:
+                return Mock(returncode=0, stdout="", stderr="")
+            raise AssertionError(f"Unexpected command: {args}")
+
+        with (
+            patch(
+                "monitorize.platform.kde_virtual_monitor.subprocess.run",
+                side_effect=fake_run,
+            ) as run,
+            patch("monitorize.platform.kde_virtual_monitor.load_kde_virtual_layout",
+                  return_value={"position": None, "rotation": ""}),
+            patch("monitorize.platform.kde_virtual_monitor.time.sleep"),
+        ):
+            ok, _output_name, message = (
+                kde_virtual_monitor.configure_portal_virtual_output(
+                    {"eDP-1"},
+                    1920,
+                    1200,
+                    60,
+                    attempts=1,
+                    delay=0,
+                )
+            )
+
+        self.assertTrue(ok, message)
+        commands = [call.args[0][1] for call in run.call_args_list if len(call.args[0]) > 1]
+        self.assertIn(
+            "output.Virtual-virtual-xdp-kde-monitorize.addCustomMode.1920.1200.60000.full",
+            commands,
+        )
+        self.assertIn(
+            "output.Virtual-virtual-xdp-kde-monitorize.addCustomMode.1920.1200.60000.reduced",
+            commands,
+        )
+
+    def test_portal_mode_registration_accepts_cvt_rounded_width(self):
+        state = {"registered": False, "active": False}
+
+        def rounded_outputs():
+            outputs = self.portal_outputs()
+            if state["registered"]:
+                outputs[0]["modes"].append({
+                    "id": "2",
+                    "name": "2336x1080@60",
+                    "refreshRate": 59.952,
+                    "size": {"width": 2336, "height": 1080},
+                })
+            outputs[0]["currentModeId"] = "2" if state["active"] else "1"
+            return outputs
+
+        def fake_run(args, **_kwargs):
+            if args == ["kscreen-doctor", "-j"]:
+                return Mock(
+                    returncode=0,
+                    stdout=json.dumps({"outputs": rounded_outputs()}),
+                    stderr="",
+                )
+            if "addCustomMode.2340.1080.60000.full" in args[1]:
+                state["registered"] = True
+                return Mock(returncode=0, stdout="", stderr="")
+            if args[1].endswith(".mode.2"):
+                state["active"] = True
+                return Mock(returncode=0, stdout="", stderr="")
+            if ".position." in args[1] or ".rotation." in args[1]:
+                return Mock(returncode=0, stdout="", stderr="")
+            raise AssertionError(f"Unexpected command: {args}")
+
+        with (
+            patch(
+                "monitorize.platform.kde_virtual_monitor.subprocess.run",
+                side_effect=fake_run,
+            ),
+            patch("monitorize.platform.kde_virtual_monitor.load_kde_virtual_layout",
+                  return_value={"position": None, "rotation": ""}),
+            patch("monitorize.platform.kde_virtual_monitor.time.sleep"),
+        ):
+            ok, output_name, message = (
+                kde_virtual_monitor.configure_portal_virtual_output(
+                    {"eDP-1"},
+                    2340,
+                    1080,
+                    60,
+                    attempts=2,
+                    delay=0,
+                )
+            )
+
+        self.assertTrue(ok, message)
+        self.assertEqual(output_name, "Virtual-virtual-xdp-kde-monitorize")
+        self.assertIn("2336x1080", message)
+        self.assertIn("rounded from 2340x1080@60", message)
+
     def test_portal_layout_uses_saved_primary_position_and_rotation(self):
         def fake_run(args, **_kwargs):
             if args == ["kscreen-doctor", "-j"]:
@@ -2937,7 +3056,7 @@ class BackendFacadeTest(unittest.TestCase):
         checkbox_qml = (qml_dir / "CustomCheckBox.qml").read_text(encoding="utf-8")
         self.assertEqual(qml.count("CustomToggle {"), 3)
         self.assertNotIn("CustomCheckBox {", qml)
-        self.assertIn('text: "Encrypted"', qml)
+        self.assertIn('text: "Use encryption"', qml)
         self.assertNotIn('text: "Use encryption (recommended)"', qml)
         self.assertIn("Switch {", toggle_qml)
         self.assertIn("theme.buttonBackgroundHover", toggle_qml)

@@ -27,6 +27,13 @@ selector_hint = os.environ.get(
     "MONITORIZE_PORTAL_SELECTOR_HINT",
     "Select 'TabletDisplay' in the picker.",
 )
+encoder = get_encoder(os.environ.get("MONITORIZE_ENCODER", "cpu"))
+host = os.environ.get("MONITORIZE_HOST", "0.0.0.0" if server_mode else "127.0.0.1")
+port = int(os.environ.get(
+    "MONITORIZE_PORT",
+    port_override or (7110 if server_mode else 7112),
+))
+
 baseline_names = active_kde_output_names() if source_type == 4 else set()
 prepare_stream = None
 if source_type == 4:
@@ -45,12 +52,9 @@ sys.exit(run_portal_streamer(
     fps,
     bitrate,
     mode,
-    int(os.environ.get(
-        "MONITORIZE_PORT",
-        port_override or (7110 if server_mode else 7112),
-    )),
-    get_encoder(os.environ.get("MONITORIZE_ENCODER", "cpu")),
-    os.environ.get("MONITORIZE_HOST", "0.0.0.0" if server_mode else "127.0.0.1"),
+    port,
+    encoder,
+    host,
     source_type=source_type,
     prepare_stream=prepare_stream,
 ))

@@ -193,7 +193,7 @@ class StreamingController(QObject):
             "MONITORIZE_PORTAL_SELECTOR_HINT",
             "KDE will create a virtual monitor for Monitorize.",
         )
-        self._set_status("Opening KDE virtual display portal…")
+        self._set_status("Opening KDE virtual display…")
         self._set_streaming(True)
         self._launch_streamer()
 
@@ -782,7 +782,12 @@ class StreamingController(QObject):
 
     def _advertise(self, *_args):
         if self.streaming and self.wifi:
-            self.discovery.advertise(self.local_ip, self.encrypted, self.third_ready, self.fps)
+            self.discovery.advertise(
+                self.local_ip,
+                self.encrypted,
+                self.third_ready,
+                getattr(self, "fps", 60),
+            )
 
     def stop(self):
         stopping_kde_portal = self._stopping_kde_portal_streamer()

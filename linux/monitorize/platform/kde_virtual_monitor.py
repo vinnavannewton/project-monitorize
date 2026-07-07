@@ -8,7 +8,7 @@ from monitorize.config.settings import load_kde_virtual_layout, save_kde_virtual
 
 
 KSCREEN_QUERY = ["kscreen-doctor", "-j"]
-KSCREEN_ATTEMPTS = 20
+KSCREEN_ATTEMPTS = 40
 KSCREEN_RETRY_DELAY = 0.1
 
 
@@ -63,6 +63,26 @@ def _matching_mode(output, width, height, fps):
     )
 
 
+def _rounded_cvt_width(width):
+    remainder = width % 8
+    return width - remainder if remainder else width
+
+
+def _compatible_mode(output, width, height, fps):
+    mode = _matching_mode(output, width, height, fps)
+    if mode:
+        return mode, False
+
+    rounded_width = _rounded_cvt_width(width)
+    if rounded_width == width:
+        return None, False
+
+    mode = _matching_mode(output, rounded_width, height, fps)
+    if mode:
+        return mode, True
+    return None, False
+
+
 def _find_output(name):
     return next(
         (
@@ -87,12 +107,25 @@ def _wait_for(getter, attempts, delay):
 
 def _output_with_mode(output_name, width, height, fps, active=False):
     output = _find_output(output_name)
-    mode = _matching_mode(output or {}, width, height, fps)
+    mode, rounded = _compatible_mode(output or {}, width, height, fps)
     if not output or not mode:
         return None
     if active and str(output.get("currentModeId")) != str(mode.get("id")):
         return None
-    return output, mode
+    return output, mode, rounded
+
+
+def _mode_summary(output):
+    modes = []
+    for mode in output.get("modes", []):
+        size = mode.get("size", {})
+        width = size.get("width")
+        height = size.get("height")
+        refresh = mode.get("refreshRate")
+        mode_id = mode.get("id", "")
+        if width and height and refresh:
+            modes.append(f"{mode_id}:{width}x{height}@{refresh}")
+    return ", ".join(modes) or "none"
 
 
 def _run_kscreen(setting):
@@ -190,24 +223,38 @@ def configure_portal_virtual_output(
         return False, "", "KDE portal virtual output could not be identified safely"
 
     output_name = str(output["name"])
-    mode = _matching_mode(output, width, height, fps)
+    mode, rounded = _compatible_mode(output, width, height, fps)
     if not mode:
-        error = _run_kscreen(
-            (
-                f"output.{output_name}.addCustomMode."
-                f"{width}.{height}.{fps * 1000}.full"
+        found = None
+        errors = []
+        for timing in ("full", "reduced"):
+            error = _run_kscreen(
+                (
+                    f"output.{output_name}.addCustomMode."
+                    f"{width}.{height}.{fps * 1000}.{timing}"
+                )
             )
-        )
-        if error:
-            return False, output_name, f"Could not register KDE custom mode: {error}"
-        found = _wait_for(
-            lambda: _output_with_mode(output_name, width, height, fps),
-            attempts,
-            delay,
-        )
+            if error:
+                errors.append(f"{timing}: {error}")
+                continue
+            found = _wait_for(
+                lambda: _output_with_mode(output_name, width, height, fps),
+                attempts,
+                delay,
+            )
+            if found:
+                break
         if not found:
-            return False, output_name, "KDE did not expose the registered custom mode"
-        output, mode = found
+            output = _find_output(output_name) or output
+            details = f"exposed modes: {_mode_summary(output)}"
+            if errors:
+                details = f"{details}; registration errors: {'; '.join(errors)}"
+            return (
+                False,
+                output_name,
+                f"KDE did not expose the registered custom mode ({details})",
+            )
+        output, mode, rounded = found
 
     mode_id = str(mode.get("id", ""))
     if not mode_id:
@@ -228,11 +275,19 @@ def configure_portal_virtual_output(
         return False, output_name, "KDE did not activate the requested custom mode"
     _position_virtual_output(output_name, kde_outputs())
 
+    size = mode.get("size", {})
+    actual_width = int(size.get("width", width))
+    actual_height = int(size.get("height", height))
+    actual_refresh = float(mode.get("refreshRate", fps))
+    mode_text = f"{actual_width}x{actual_height}@{actual_refresh:g}"
+    if rounded:
+        mode_text = f"{mode_text} (rounded from {width}x{height}@{fps})"
+
     return (
         True,
         output_name,
         (
-            f"Configured {output_name} to {width}x{height}@{fps} "
+            f"Configured {output_name} to {mode_text} "
             "while preserving KDE scale"
         ),
     )
