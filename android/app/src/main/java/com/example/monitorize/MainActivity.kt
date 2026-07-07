@@ -259,7 +259,7 @@ class MainActivity : ComponentActivity() {
                                         }
                                     },
                                     onSurfaceRenderTimeout = {
-                                        status.value = "video surface  did not render, try moving your mouse into the virtual display"
+                                        status.value = "Video surface did not render; try moving your mouse into the virtual display"
                                     },
                                     onInputEvent = { event, viewW, viewH -> inputSender?.send(event, viewW, viewH) }
                                 )
