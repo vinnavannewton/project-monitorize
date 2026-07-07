@@ -259,7 +259,7 @@ class MainActivity : ComponentActivity() {
                                         }
                                     },
                                     onSurfaceRenderTimeout = {
-                                        status.value = "Video surface did not render; reconnect the receiver"
+                                        status.value = "video surface  did not render, try moving your mouse into the virtual display"
                                     },
                                     onInputEvent = { event, viewW, viewH -> inputSender?.send(event, viewW, viewH) }
                                 )
@@ -273,7 +273,11 @@ class MainActivity : ComponentActivity() {
                             exit = slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(300)),
                             modifier = Modifier.align(Alignment.CenterEnd).zIndex(10f)
                         ) {
-                            val panelWidthFraction = if (isTablet || isLandscapeMobile) 0.45f else 0.85f
+                            val panelWidthFraction = when {
+                                isTablet -> 0.38f
+                                isLandscapeMobile -> 0.42f
+                                else -> 0.74f
+                            }
 
                             Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(panelWidthFraction).background(CardDark).border(1.dp, BorderDark)) {
                                 SettingsPanel(
@@ -1033,14 +1037,21 @@ fun SettingsPanel(
 
     val configuration = LocalConfiguration.current
     val isTablet = configuration.smallestScreenWidthDp >= 600
-    val panelPadding = if (isTablet) 28.dp else 20.dp
+    val panelHorizontalPadding = if (isTablet) 28.dp else 18.dp
+    val panelTopPadding = if (isTablet) 40.dp else 52.dp
+    val panelBottomPadding = if (isTablet) 28.dp else 20.dp
     val titleSize = if (isTablet) 22.sp else 18.sp
     val spacingHeight = if (isTablet) 24.dp else 16.dp
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(panelPadding)
+            .padding(
+                start = panelHorizontalPadding,
+                top = panelTopPadding,
+                end = panelHorizontalPadding,
+                bottom = panelBottomPadding,
+            )
             .verticalScroll(rememberScrollState())
     ) {
         Text("Resolution Settings", fontSize = titleSize, fontWeight = FontWeight.Bold, color = Color.White)
