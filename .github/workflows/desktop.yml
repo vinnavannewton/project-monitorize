@@ -67,6 +67,7 @@ jobs:
             python3-wheel \
             python3-zeroconf \
             rpm-build \
+            systemd-rpm-macros \
             systemd-udev \
             util-linux \
             xdg-desktop-portal
