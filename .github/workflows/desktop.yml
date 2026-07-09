@@ -63,6 +63,7 @@ jobs:
             python3-gobject \
             python3-pip \
             python3-pyqt6 \
+            python3-setuptools \
             python3-wheel \
             python3-zeroconf \
             rpm-build \
