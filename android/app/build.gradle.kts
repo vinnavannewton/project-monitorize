@@ -35,13 +35,13 @@ val hasReleaseSigning = listOf(
 ).all { !it.isNullOrBlank() }
 
 android {
-    namespace = "com.example.monitorize"
+    namespace = "app.monitorize.android"
     compileSdk {
         version = release(36)
     }
 
     defaultConfig {
-        applicationId = "com.example.monitorize"
+        applicationId = "app.monitorize.android"
         minSdk = 28
         targetSdk = 36
         versionCode = versionCodeFromSemver(appVersionName)

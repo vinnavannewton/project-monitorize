@@ -63,15 +63,20 @@ jobs:
             python3-gobject \
             python3-pip \
             python3-pyqt6 \
+            python3-setuptools \
             python3-wheel \
             python3-zeroconf \
             rpm-build \
+            systemd-rpm-macros \
             systemd-udev \
             util-linux \
             xdg-desktop-portal
 
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Trust checkout directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Validate desktop version
         run: |
@@ -169,11 +174,14 @@ jobs:
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release edit "$GITHUB_REF_NAME" \
               --title "$GITHUB_REF_NAME" \
-              --notes "$NOTES"
+              --notes "$NOTES" \
+              --draft=false \
+              --latest=false
           else
             gh release create "$GITHUB_REF_NAME" \
               --title "$GITHUB_REF_NAME" \
-              --notes "$NOTES"
+              --notes "$NOTES" \
+              --latest=false
           fi
 
       - name: Upload RPMs to GitHub release

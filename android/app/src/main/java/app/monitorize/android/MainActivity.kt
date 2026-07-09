@@ -1,4 +1,4 @@
-package com.example.monitorize
+package app.monitorize.android
 
 import android.content.Context
 import android.content.Intent
@@ -46,18 +46,18 @@ import androidx.compose.ui.zIndex
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import com.example.monitorize.discovery.DeviceDiscovery
-import com.example.monitorize.discovery.DiscoveredDevice
-import com.example.monitorize.input.InputEventSender
-import com.example.monitorize.streaming.H264Decoder
-import com.example.monitorize.streaming.StreamReceiver
-import com.example.monitorize.ui.theme.BreezeAccent as AccentIndigo
-import com.example.monitorize.ui.theme.BreezeBackground as BackgroundDark
-import com.example.monitorize.ui.theme.BreezeBorder as BorderDark
-import com.example.monitorize.ui.theme.BreezeButton as GreenAccent
-import com.example.monitorize.ui.theme.BreezeSurface as CardDark
-import com.example.monitorize.ui.theme.BreezeTextMuted as TextMuted
-import com.example.monitorize.ui.theme.MonitorizeTheme
+import app.monitorize.android.discovery.DeviceDiscovery
+import app.monitorize.android.discovery.DiscoveredDevice
+import app.monitorize.android.input.InputEventSender
+import app.monitorize.android.streaming.H264Decoder
+import app.monitorize.android.streaming.StreamReceiver
+import app.monitorize.android.ui.theme.BreezeAccent as AccentIndigo
+import app.monitorize.android.ui.theme.BreezeBackground as BackgroundDark
+import app.monitorize.android.ui.theme.BreezeBorder as BorderDark
+import app.monitorize.android.ui.theme.BreezeButton as GreenAccent
+import app.monitorize.android.ui.theme.BreezeSurface as CardDark
+import app.monitorize.android.ui.theme.BreezeTextMuted as TextMuted
+import app.monitorize.android.ui.theme.MonitorizeTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch

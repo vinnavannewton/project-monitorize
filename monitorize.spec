@@ -12,6 +12,7 @@ BuildRequires:  desktop-file-utils
 BuildRequires:  python3-devel
 BuildRequires:  python3-wheel
 BuildRequires:  pyproject-rpm-macros
+BuildRequires:  systemd-rpm-macros
 
 Requires:       gstreamer1
 Requires:       gstreamer1-plugin-openh264
