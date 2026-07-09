@@ -1,4 +1,4 @@
-package com.example.monitorize.security
+package app.monitorize.android.security
 
 import android.annotation.SuppressLint
 import java.net.InetSocketAddress
