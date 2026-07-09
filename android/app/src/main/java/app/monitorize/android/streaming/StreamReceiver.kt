@@ -1,8 +1,8 @@
-package com.example.monitorize.streaming
+package app.monitorize.android.streaming
 
 import android.util.Log
-import com.example.monitorize.security.connectTls
-import com.example.monitorize.security.readAsciiLine
+import app.monitorize.android.security.connectTls
+import app.monitorize.android.security.readAsciiLine
 import java.net.Socket
 import java.net.InetSocketAddress
 import java.net.SocketTimeoutException
