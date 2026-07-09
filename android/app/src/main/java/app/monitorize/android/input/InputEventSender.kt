@@ -1,4 +1,4 @@
-package com.example.monitorize.input
+package app.monitorize.android.input
 
 import android.os.SystemClock
 import android.util.Log

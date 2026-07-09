@@ -1,4 +1,4 @@
-package com.example.monitorize.streaming
+package app.monitorize.android.streaming
 
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
