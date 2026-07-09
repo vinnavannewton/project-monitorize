@@ -59,19 +59,9 @@
   </tr>
 </table>
 
-Fedora Copr packages are published from desktop release tags such as `desktop-v0.2.7`:
-
-```bash
-sudo dnf copr enable vinnavannewton/monitorize
-sudo dnf install monitorize
-sudo usermod -aG monitorize "$USER"
-```
-
-Log out and back in after the `usermod` command to enable touch and stylus input.
-
 ### Android:
 
-**Install the APK from Android releases such as `android-v0.2.7` in the [Releases](https://github.com/vinnavannewton/project-monitorize/releases) section.**
+**Install the APK from Android [Releases](https://github.com/vinnavannewton/project-monitorize/releaseslatest).**
 
 Or build from source:
 
