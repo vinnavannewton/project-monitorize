@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools >= 69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "monitorize"
+version = "0.2.7"
+description = "Turn an Android or Linux device into a secondary monitor for Linux"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "AGPL-3.0-only"
+authors = [{ name = "Monitorize contributors" }]
+dependencies = [
+    "PyQt6",
+    "cryptography",
+    "dbus-python",
+    "evdev",
+    "PyGObject",
+    "zeroconf",
+]
+
+[project.scripts]
+monitorize = "monitorize.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["linux"]
+include = ["monitorize*"]
+
+[tool.setuptools.package-data]
+monitorize = [
+    "assets/*",
+    "assets/svg/*",
+    "assets/tray/*",
+    "qml/*.qml",
+]
