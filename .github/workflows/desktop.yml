@@ -73,6 +73,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Trust checkout directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       - name: Validate desktop version
         run: |
           set -euo pipefail
