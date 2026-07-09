@@ -29,6 +29,7 @@ from monitorize.config.settings import (
 )
 from monitorize.platform.utils import LINUX_DIR
 from monitorize.config.validation import (
+    DEFAULT_FPS,
     DEFAULT_PRIMARY_RESOLUTION,
     DEFAULT_SECONDARY_RESOLUTION,
     sanitize_bitrate,
@@ -38,6 +39,7 @@ from monitorize.config.validation import (
     sanitize_fps,
     sanitize_resolution,
 )
+from monitorize.input_bridge.uinput_backend import UINPUT_PERMISSION_HINT
 
 
 GNOME_LAYOUT_SAVE_INTERVAL_MS = 1000
@@ -71,6 +73,7 @@ class StreamingController(QObject):
         self.pairing_code = ""
         self.wifi = False
         self.encrypted = False
+        self.fps = DEFAULT_FPS
         self.streamer = self.input_bridge = self.tls_proxy = None
         self.gst_pids = set()
         self.tls_buffer = ""
@@ -446,11 +449,14 @@ class StreamingController(QObject):
         process = self.input_bridge if process is None else process
         if generation != self.generation or process is not self.input_bridge:
             return
+        raw = bytes(process.readAllStandardOutput()).decode(
+            "utf-8", errors="replace"
+        )
+        if "MONITORIZE_UINPUT_PERMISSION:" in raw:
+            self._set_status(UINPUT_PERMISSION_HINT.split(": ", 1)[1])
         self.logAppended.emit(
             "INPUT",
-            bytes(process.readAllStandardOutput()).decode(
-                "utf-8", errors="replace"
-            ),
+            raw,
         )
 
     def _process_error(self, label, generation, process, current_process):
@@ -786,7 +792,7 @@ class StreamingController(QObject):
                 self.local_ip,
                 self.encrypted,
                 self.third_ready,
-                getattr(self, "fps", 60),
+                self.fps,
             )
 
     def stop(self):
