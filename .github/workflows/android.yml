@@ -136,11 +136,13 @@ jobs:
             gh release edit "$GITHUB_REF_NAME" \
               --title "$GITHUB_REF_NAME" \
               --notes "Monitorize Android $GITHUB_REF_NAME" \
-              --draft=false
+              --draft=false \
+              --latest
           else
             gh release create "$GITHUB_REF_NAME" \
               --title "$GITHUB_REF_NAME" \
-              --notes "Monitorize Android $GITHUB_REF_NAME"
+              --notes "Monitorize Android $GITHUB_REF_NAME" \
+              --latest
           fi
 
       - name: Upload APK to GitHub release

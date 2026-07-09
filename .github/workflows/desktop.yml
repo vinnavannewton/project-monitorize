@@ -175,11 +175,13 @@ jobs:
             gh release edit "$GITHUB_REF_NAME" \
               --title "$GITHUB_REF_NAME" \
               --notes "$NOTES" \
-              --draft=false
+              --draft=false \
+              --latest=false
           else
             gh release create "$GITHUB_REF_NAME" \
               --title "$GITHUB_REF_NAME" \
-              --notes "$NOTES"
+              --notes "$NOTES" \
+              --latest=false
           fi
 
       - name: Upload RPMs to GitHub release
