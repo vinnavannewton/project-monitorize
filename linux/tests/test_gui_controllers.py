@@ -308,6 +308,30 @@ class AutostartTest(unittest.TestCase):
                 self.assertEqual(autostart.set_enabled(False), "")
                 self.assertFalse(autostart.autostart_path().exists())
 
+    def test_autostart_uses_system_desktop_entry_for_rpm_install(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config_home = Path(directory) / "config"
+            data_home = Path(directory) / "data"
+            system_app_dir = Path(directory) / "system-applications"
+            system_app_dir.mkdir()
+            (system_app_dir / "monitorize.desktop").write_text(
+                "[Desktop Entry]\n"
+                "Type=Application\n"
+                "Name=Monitorize\n"
+                "Exec=monitorize\n",
+                encoding="utf-8",
+            )
+            with (
+                patch.dict(os.environ, {
+                    "XDG_CONFIG_HOME": str(config_home),
+                    "XDG_DATA_HOME": str(data_home),
+                }),
+                patch.object(autostart, "SYSTEM_APPLICATIONS_DIR", system_app_dir),
+            ):
+                self.assertEqual(autostart.set_enabled(True), "")
+                content = autostart.autostart_path().read_text(encoding="utf-8")
+        self.assertIn("Exec=monitorize --tray-agent", content)
+
     def test_autostart_falls_back_when_installed_entry_is_missing(self):
         with tempfile.TemporaryDirectory() as directory:
             with patch.dict(os.environ, {
@@ -1313,6 +1337,17 @@ class StreamingControllerTest(unittest.TestCase):
         args = process.start.call_args.args[1]
         self.assertIn("--stylus-features", args)
         self.assertIn("--stylus-only", args)
+
+    def test_input_permission_marker_updates_status(self):
+        controller = self.kde_controller()
+        process = process_mock()
+        process.readAllStandardOutput.return_value = (
+            b"[TouchDaemon] ERROR MONITORIZE_UINPUT_PERMISSION: "
+            b"Monitorize needs uinput permission.\n"
+        )
+        controller.input_bridge = process
+        controller._read_input(generation=3, process=process)
+        self.assertIn("sudo usermod -aG monitorize", controller.status)
 
     def test_runtime_general_settings_override_saved_defaults(self):
         controller = self.kde_controller()
