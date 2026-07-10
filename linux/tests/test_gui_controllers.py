@@ -13,7 +13,7 @@ from subprocess import TimeoutExpired
 from PyQt6.QtCore import QCoreApplication, QProcess
 
 from monitorize.streaming import Streamer_gnome, pipeline_builder
-from monitorize.streaming import portal_streamer
+from monitorize.streaming import kde_native_streamer, portal_streamer
 from monitorize.config import app_log, autostart, settings
 from monitorize.platform import (
     gnome_virtual_monitor,
@@ -1066,8 +1066,6 @@ class StreamingControllerTest(unittest.TestCase):
             controller._launch_streamer()
         args = process.start.call_args.args[1]
         self.assertEqual(args[-1:], ["Extend"])
-        self.assertTrue(controller.gnome_layout_timer.isActive())
-        controller.gnome_layout_timer.stop()
 
     def test_gnome_extend_connects_display_config_signal(self):
         controller = self.gnome_controller()
@@ -1111,7 +1109,6 @@ class StreamingControllerTest(unittest.TestCase):
     def test_stop_disconnects_gnome_display_config_signal(self):
         controller = self.gnome_controller()
         controller.streamer = process_mock()
-        controller.gnome_layout_timer.start()
         controller.gnome_layout_change_timer.start()
         bus = Mock()
         controller.gnome_display_config_bus = bus
@@ -1128,7 +1125,6 @@ class StreamingControllerTest(unittest.TestCase):
         ):
             controller.stop()
         bus.disconnect.assert_called_once()
-        self.assertFalse(controller.gnome_layout_timer.isActive())
         self.assertFalse(controller.gnome_layout_change_timer.isActive())
         self.assertFalse(controller.gnome_display_config_connected)
 
@@ -1142,23 +1138,23 @@ class StreamingControllerTest(unittest.TestCase):
 
     def test_gnome_monitors_changed_debounces_passive_save(self):
         controller = self.gnome_controller()
+        controller.gnome_outputs = {"primary": "Meta-0"}
         controller._on_gnome_monitors_changed()
         self.assertTrue(controller.gnome_layout_change_timer.isActive())
         controller.gnome_layout_change_timer.stop()
 
     def test_gnome_layout_change_save_does_not_reconnect(self):
         controller = self.gnome_controller()
+        controller.gnome_outputs = {"primary": "Meta-0"}
         with (
             patch(
                 "monitorize.desktop.streaming_controller.save_current_gnome_virtual_layout",
                 return_value=True,
             ) as save,
-            patch.object(controller, "_restart_gnome") as restart,
             patch.object(controller, "_launch_streamer") as launch,
         ):
             controller.gnome_layout_change_timer.timeout.emit()
-        save.assert_called_once_with("primary")
-        restart.assert_not_called()
+        save.assert_called_once_with("primary", role_connectors={"primary": "Meta-0"})
         launch.assert_not_called()
 
     def test_stop_cleans_processes_and_advertisement(self):
@@ -1176,12 +1172,11 @@ class StreamingControllerTest(unittest.TestCase):
         discovery.stop_advertising.assert_called_once()
         self.assertFalse(controller.streaming)
 
-    def test_kde_portal_stop_waits_longer_and_skips_hard_kill_when_clean(self):
+    def test_kde_native_stop_cleans_tracked_pipeline_and_helper(self):
         discovery = Mock()
         controller = StreamingController("kde", "10.0.0.1", discovery)
         controller.streaming = True
         controller.env = Mock()
-        controller.env.value.return_value = "4"
         controller.streamer = process_mock()
         controller.input_bridge = process_mock()
         controller.gst_pids = {12345}
@@ -1192,17 +1187,16 @@ class StreamingControllerTest(unittest.TestCase):
             patch.object(controller.display, "cleanup"),
         ):
             controller.stop()
-        self.assertEqual(stop.call_args_list[0].kwargs, {"timeout_ms": 8000})
-        kill_pids.assert_not_called()
-        kill_patterns_mock.assert_not_called()
-        self.assertEqual(controller.gst_pids, set())
+        stop.assert_called_once()
+        kill_pids.assert_called_once_with({12345})
+        patterns = kill_patterns_mock.call_args.args
+        self.assertIn("monitorize-kde-virtual-output", patterns)
         discovery.stop_advertising.assert_called_once()
 
-    def test_kde_portal_stop_hard_kills_when_graceful_stop_fails(self):
+    def test_kde_stop_still_cleans_tracked_pipeline_after_terminate_failure(self):
         controller = StreamingController("kde", "10.0.0.1", Mock())
         controller.streaming = True
         controller.env = Mock()
-        controller.env.value.return_value = "4"
         controller.streamer = process_mock()
         controller.gst_pids = {12345}
         with (
@@ -1376,7 +1370,7 @@ class StreamingControllerTest(unittest.TestCase):
             "encoder_profile": "Quality",
         })
 
-    def test_kde_third_display_uses_portal_monitor_picker(self):
+    def test_kde_third_display_uses_distinct_native_virtual_slot(self):
         discovery = Mock()
         controller = StreamingController("kde", "10.0.0.1", discovery)
         controller.streaming = True
@@ -1398,9 +1392,11 @@ class StreamingControllerTest(unittest.TestCase):
         env = process.setProcessEnvironment.call_args.args[0]
         self.assertEqual(args[:2], ["-m", "monitorize.streaming.Streamer_kde"])
         self.assertEqual(args[-1], "wifi")
-        self.assertEqual(env.value("MONITORIZE_PORTAL_SOURCE_TYPE"), "1")
+        self.assertEqual(
+            env.value("MONITORIZE_KDE_VIRTUAL_SLOT"), "additional"
+        )
         self.assertEqual(env.value("MONITORIZE_PORT"), "7114")
-        self.assertNotEqual(env.value("MONITORIZE_PORTAL_SOURCE_TYPE"), "4")
+        self.assertEqual(env.value("MONITORIZE_PORTAL_SOURCE_TYPE"), "")
         self.assertEqual(events, [True])
         discovery.advertise.assert_called_once_with("10.0.0.1", False, False, 60)
 
@@ -1442,7 +1438,7 @@ class StreamingControllerTest(unittest.TestCase):
         self.assertEqual(env.value("MONITORIZE_PORT"), "7115")
         self.assertEqual(env.value("MONITORIZE_HOST"), "127.0.0.1")
 
-    def test_gnome_third_display_is_unsupported(self):
+    def test_gnome_third_display_uses_native_virtual_streamer(self):
         discovery = Mock()
         controller = StreamingController("gnome", "10.0.0.1", discovery)
         controller.streaming = True
@@ -1452,18 +1448,17 @@ class StreamingControllerTest(unittest.TestCase):
         controller.secondStreamChanged.connect(events.append)
         controller.logAppended.connect(lambda label, message: logs.append((label, message)))
 
-        with patch("monitorize.desktop.streaming_controller.QProcess") as process:
+        process = process_mock()
+        with patch("monitorize.desktop.streaming_controller.QProcess", return_value=process):
             controller.start_third(
                 "1920x1080", "60", "8000",
                 "Software (CPU / x264enc)", "Low Latency",
             )
 
-        process.assert_not_called()
-        self.assertEqual(events, [False])
-        self.assertIn(
-            ("STREAMER", "[Third display] Portal picker is only enabled for KDE and Hyprland."),
-            logs,
-        )
+        args = process.start.call_args.args[1]
+        self.assertEqual(args[1], "monitorize.streaming.Streamer_gnome")
+        self.assertEqual(events, [True])
+        self.assertTrue(any("Creating GNOME virtual display" in message for _, message in logs))
 
     def test_third_availability_waits_for_pipeline_ready(self):
         discovery = Mock()
@@ -1538,11 +1533,10 @@ class StreamingControllerTest(unittest.TestCase):
         controller.generation = 7
         old_process = process_mock()
         controller.streamer = process_mock()
-        with patch.object(controller, "_restart_gnome") as restart:
-            controller._streamer_finished(1, None, 6, old_process)
-        restart.assert_not_called()
+        controller._streamer_finished(1, None, 6, old_process)
+        self.assertTrue(controller.streaming)
 
-    def test_restart_gnome_saves_virtual_layout_before_relaunch(self):
+    def legacy_restart_gnome_saves_virtual_layout_before_relaunch(self):
         controller = StreamingController("gnome", "10.0.0.1", Mock())
         controller.streaming = True
         controller.generation = 7
@@ -1566,7 +1560,7 @@ class StreamingControllerTest(unittest.TestCase):
         launch.assert_called_once_with(7)
         self.assertEqual(events, ["save", "launch"])
 
-    def test_restart_gnome_logs_failed_layout_save_but_relaunches(self):
+    def legacy_restart_gnome_logs_failed_layout_save_but_relaunches(self):
         controller = StreamingController("gnome", "10.0.0.1", Mock())
         controller.streaming = True
         controller.generation = 7
@@ -1596,15 +1590,16 @@ class StreamingControllerTest(unittest.TestCase):
             logs,
         )
 
-    def test_gnome_layout_timer_saves_while_streaming(self):
+    def test_gnome_layout_save_uses_identified_primary(self):
         controller = StreamingController("gnome", "10.0.0.1", Mock())
         controller.streaming = True
         controller.display_type = "Extend"
+        controller.gnome_outputs = {"primary": "Meta-0"}
         with patch(
             "monitorize.desktop.streaming_controller.save_current_gnome_virtual_layout"
         ) as save:
             controller._save_gnome_virtual_layout()
-        save.assert_called_once_with("primary")
+        save.assert_called_once_with("primary", role_connectors={"primary": "Meta-0"})
 
     def test_gnome_layout_timer_ignores_mirror_mode(self):
         controller = StreamingController("gnome", "10.0.0.1", Mock())
@@ -1621,12 +1616,12 @@ class StreamingControllerTest(unittest.TestCase):
         controller.streaming = True
         controller.display_type = "Extend"
         controller.streamer = process_mock()
-        controller.gnome_layout_timer.start()
+        controller.gnome_outputs = {"primary": "Meta-0"}
         events = []
         with (
             patch(
                 "monitorize.desktop.streaming_controller.save_current_gnome_virtual_layout",
-                side_effect=lambda *_args: events.append("save"),
+                side_effect=lambda *_args, **_kwargs: events.append("save"),
             ) as save,
             patch(
                 "monitorize.desktop.streaming_controller.stop_processes",
@@ -1637,7 +1632,7 @@ class StreamingControllerTest(unittest.TestCase):
             patch.object(controller.display, "cleanup"),
         ):
             controller.stop()
-        save.assert_called_once_with("primary")
+        save.assert_called_once_with("primary", role_connectors={"primary": "Meta-0"})
         self.assertEqual(events[:2], ["save", "stop"])
 
     def test_stop_logs_failed_gnome_layout_save_but_stops(self):
@@ -1645,6 +1640,7 @@ class StreamingControllerTest(unittest.TestCase):
         controller.streaming = True
         controller.display_type = "Extend"
         controller.streamer = process_mock()
+        controller.gnome_outputs = {"primary": "Meta-0"}
         logs = []
         controller.logAppended.connect(
             lambda label, message: logs.append((label, message))
@@ -1670,7 +1666,6 @@ class StreamingControllerTest(unittest.TestCase):
             ),
             logs,
         )
-        self.assertFalse(controller.gnome_layout_timer.isActive())
 
     def test_stale_streamer_output_is_ignored(self):
         controller = StreamingController("hyprland", "10.0.0.1", Mock())
@@ -1685,30 +1680,35 @@ class StreamingControllerTest(unittest.TestCase):
         self.assertEqual(controller.gst_pids, set())
         self.assertEqual(controller.streamer_buffer, "")
 
-    def test_kde_virtual_portal_starts_input_after_pipewire_node(self):
+    def test_kde_native_capture_starts_input_after_exact_output_ready(self):
         controller = StreamingController("kde", "10.0.0.1", Mock())
         controller.streaming = True
         controller.generation = 7
         controller.input_launched = False
         controller.env = Mock()
-        controller.env.value.return_value = "4"
+        controller.env.value.return_value = "primary"
         process = process_mock()
         process.readAllStandardOutput.return_value = (
-            b"[Portal] Virtual output ready name=Virtual-1 mode=1920x1200@60\n"
-            b"[Portal] Got PipeWire node=42 fd=9\n"
+            b'MONITORIZE_EVENT {"type":"kde_output_ready","slot":"primary",'
+            b'"name":"Virtual-Monitorize-1","width":1920,"height":1200,'
+            b'"refresh_rate":60}\n'
+            b'MONITORIZE_EVENT {"type":"kde_capture_ready","slot":"primary",'
+            b'"node_id":42,"target_object":"88"}\n'
         )
         controller.streamer = process
         with patch("monitorize.desktop.streaming_controller.QTimer.singleShot") as single_shot:
             controller._read_streamer(7, process)
             self.assertTrue(controller.input_launched)
             single_shot.assert_called_once()
-        controller.env.insert.assert_called_with("MONITORIZE_OUTPUT", "Virtual-1")
+        controller.env.insert.assert_called_with(
+            "MONITORIZE_OUTPUT", "Virtual-Monitorize-1"
+        )
 
-    def test_kde_portal_crash_before_pipewire_node_reports_retryable_error(self):
+    def test_kde_native_start_failure_stops_streaming(self):
         controller = StreamingController("kde", "10.0.0.1", Mock())
         controller.streaming = True
         controller.env = Mock()
-        controller.env.value.return_value = "4"
+        controller.env.value.return_value = "primary"
         controller.streamer = process_mock()
         with (
             patch("monitorize.desktop.streaming_controller.stop_processes"),
@@ -1721,17 +1721,16 @@ class StreamingControllerTest(unittest.TestCase):
         self.assertFalse(controller.streaming)
         self.assertEqual(
             controller.status,
-            "KDE portal crashed while starting screen capture. Try again.",
+            "KDE streaming setup failed — see logs",
         )
 
-    def test_kde_portal_explicit_error_is_not_overwritten_on_exit(self):
+    def test_kde_native_explicit_error_is_not_overwritten_on_exit(self):
         controller = StreamingController("kde", "10.0.0.1", Mock())
         controller.streaming = True
         controller.env = Mock()
-        controller.env.value.return_value = "4"
+        controller.env.value.return_value = "primary"
         controller.streamer = process_mock()
-        controller.kde_portal_terminal_error = True
-        controller.status = "KDE portal selection was cancelled or denied"
+        controller.status = "KDE native helper is missing"
         with (
             patch("monitorize.desktop.streaming_controller.stop_processes"),
             patch("monitorize.desktop.streaming_controller.kill_tracked_pids"),
@@ -1741,17 +1740,18 @@ class StreamingControllerTest(unittest.TestCase):
                 1, None, controller.generation, controller.streamer
             )
         self.assertEqual(
-            controller.status, "KDE portal selection was cancelled or denied"
+            controller.status, "KDE native helper is missing"
         )
 
-    def test_kde_portal_output_ready_rejects_non_virtual_name(self):
+    def test_kde_native_output_ready_rejects_unexpected_name(self):
         controller = StreamingController("kde", "10.0.0.1", Mock())
         controller.streaming = True
         controller.generation = 7
         controller.env = Mock()
         process = process_mock()
         process.readAllStandardOutput.return_value = (
-            b"[Portal] Virtual output ready name=eDP-1 mode=1920x1200@60\n"
+            b'MONITORIZE_EVENT {"type":"kde_output_ready","slot":"primary",'
+            b'"name":"eDP-1","width":1920,"height":1200,"refresh_rate":60}\n'
         )
         controller.streamer = process
         controller._read_streamer(7, process)
@@ -1802,7 +1802,7 @@ class StreamingControllerTest(unittest.TestCase):
             )
         self.assertEqual(controller.env.value("MONITORIZE_ENCODER_PROFILE"), "Balanced")
 
-    def test_kde_extend_start_uses_portal_virtual_source(self):
+    def test_kde_extend_start_uses_native_primary_slot(self):
         controller = StreamingController("kde", "10.0.0.1", Mock())
         events = []
         controller.streamingChanged.connect(events.append)
@@ -1819,8 +1819,10 @@ class StreamingControllerTest(unittest.TestCase):
             )
         self.assertEqual(events, [True])
         self.assertTrue(controller.streaming)
-        controller.env.value("MONITORIZE_PORTAL_SOURCE_TYPE")
-        self.assertEqual(controller.env.value("MONITORIZE_PORTAL_SOURCE_TYPE"), "4")
+        self.assertEqual(
+            controller.env.value("MONITORIZE_KDE_VIRTUAL_SLOT"), "primary"
+        )
+        self.assertEqual(controller.env.value("MONITORIZE_PORTAL_SOURCE_TYPE"), "")
         launch.assert_called_once_with()
 
 class ProcessUtilsTest(unittest.TestCase):
@@ -2117,7 +2119,7 @@ class GnomeVirtualMonitorCompatTest(unittest.TestCase):
 
 class KdeVirtualMonitorCompatTest(unittest.TestCase):
     @staticmethod
-    def portal_outputs(mode_registered=False, mode_active=False):
+    def native_outputs(mode_registered=False, mode_active=False):
         modes = [
             {
                 "id": "1",
@@ -2136,7 +2138,8 @@ class KdeVirtualMonitorCompatTest(unittest.TestCase):
         return [
             {
                 "id": 1,
-                "name": "Virtual-virtual-xdp-kde-monitorize",
+                "uuid": "uuid-primary",
+                "name": "Virtual-Monitorize-1",
                 "connected": True,
                 "enabled": True,
                 "priority": 2,
@@ -2147,6 +2150,7 @@ class KdeVirtualMonitorCompatTest(unittest.TestCase):
             },
             {
                 "id": 2,
+                "uuid": "uuid-edp",
                 "name": "eDP-1",
                 "connected": True,
                 "enabled": True,
@@ -2158,20 +2162,21 @@ class KdeVirtualMonitorCompatTest(unittest.TestCase):
             },
         ]
 
-    def test_portal_output_detection_uses_name_when_ids_are_reused(self):
-        output = kde_virtual_monitor._new_portal_virtual_output(
-            {"eDP-1"},
-            self.portal_outputs(),
+    def test_virtual_slots_have_distinct_stable_names(self):
+        primary = kde_virtual_monitor.virtual_slot("primary")
+        additional = kde_virtual_monitor.virtual_slot("additional")
+        self.assertEqual(primary["output_name"], "Virtual-Monitorize-1")
+        self.assertEqual(
+            additional["output_name"], "Virtual-Monitorize-2"
         )
-        self.assertEqual(output["name"], "Virtual-virtual-xdp-kde-monitorize")
-        self.assertEqual(output["id"], 1)
+        self.assertNotEqual(primary["base_name"], additional["base_name"])
 
-    def test_portal_mode_registration_selects_discovered_mode_id(self):
+    def test_native_mode_registration_targets_exact_output_id(self):
         state = {"registered": False, "active": False}
 
         def fake_run(args, **_kwargs):
             if args == ["kscreen-doctor", "-j"]:
-                outputs = self.portal_outputs(
+                outputs = self.native_outputs(
                     mode_registered=state["registered"],
                     mode_active=state["active"],
                 )
@@ -2180,13 +2185,11 @@ class KdeVirtualMonitorCompatTest(unittest.TestCase):
                     stdout=json.dumps({"outputs": outputs}),
                     stderr="",
                 )
-            if "addCustomMode.1920.1200.60000.full" in args[1]:
+            if "addCustomMode.1920.1200.60000.reduced" in args[1]:
                 state["registered"] = True
                 return Mock(returncode=0, stdout="", stderr="")
             if args[1].endswith(".mode.2"):
                 state["active"] = True
-                return Mock(returncode=0, stdout="", stderr="")
-            if ".position." in args[1] or ".rotation." in args[1]:
                 return Mock(returncode=0, stdout="", stderr="")
             raise AssertionError(f"Unexpected command: {args}")
 
@@ -2195,13 +2198,11 @@ class KdeVirtualMonitorCompatTest(unittest.TestCase):
                 "monitorize.platform.kde_virtual_monitor.subprocess.run",
                 side_effect=fake_run,
             ) as run,
-            patch("monitorize.platform.kde_virtual_monitor.load_kde_virtual_layout",
-                  return_value={"position": None, "rotation": ""}),
             patch("monitorize.platform.kde_virtual_monitor.time.sleep"),
         ):
-            ok, output_name, message = (
-                kde_virtual_monitor.configure_portal_virtual_output(
-                    {"eDP-1"},
+            ok, details, message = (
+                kde_virtual_monitor.configure_native_virtual_output(
+                    "Virtual-Monitorize-1",
                     1920,
                     1200,
                     60,
@@ -2211,14 +2212,14 @@ class KdeVirtualMonitorCompatTest(unittest.TestCase):
             )
 
         self.assertTrue(ok, message)
-        self.assertEqual(output_name, "Virtual-virtual-xdp-kde-monitorize")
+        self.assertEqual(details["uuid"], "uuid-primary")
         commands = [call.args[0] for call in run.call_args_list]
         self.assertIn(
             [
                 "kscreen-doctor",
                 (
-                    "output.Virtual-virtual-xdp-kde-monitorize."
-                    "addCustomMode.1920.1200.60000.full"
+                    "output.1."
+                    "addCustomMode.1920.1200.60000.reduced"
                 ),
             ],
             commands,
@@ -2226,19 +2227,19 @@ class KdeVirtualMonitorCompatTest(unittest.TestCase):
         self.assertIn(
             [
                 "kscreen-doctor",
-                "output.Virtual-virtual-xdp-kde-monitorize.mode.2",
+                "output.1.mode.2",
             ],
             commands,
         )
         self.assertFalse(any(".scale." in " ".join(command) for command in commands))
-        self.assertFalse(any("output.eDP-1" in " ".join(command) for command in commands))
+        self.assertFalse(any("output.2." in " ".join(command) for command in commands))
 
-    def test_portal_mode_registration_tries_reduced_blanking_after_full(self):
+    def test_native_mode_registration_falls_back_to_full_blanking_once(self):
         state = {"registered": False, "active": False}
 
         def fake_run(args, **_kwargs):
             if args == ["kscreen-doctor", "-j"]:
-                outputs = self.portal_outputs(
+                outputs = self.native_outputs(
                     mode_registered=state["registered"],
                     mode_active=state["active"],
                 )
@@ -2248,14 +2249,12 @@ class KdeVirtualMonitorCompatTest(unittest.TestCase):
                     stderr="",
                 )
             if "addCustomMode.1920.1200.60000.full" in args[1]:
+                state["registered"] = True
                 return Mock(returncode=0, stdout="", stderr="")
             if "addCustomMode.1920.1200.60000.reduced" in args[1]:
-                state["registered"] = True
                 return Mock(returncode=0, stdout="", stderr="")
             if args[1].endswith(".mode.2"):
                 state["active"] = True
-                return Mock(returncode=0, stdout="", stderr="")
-            if ".position." in args[1] or ".rotation." in args[1]:
                 return Mock(returncode=0, stdout="", stderr="")
             raise AssertionError(f"Unexpected command: {args}")
 
@@ -2264,13 +2263,11 @@ class KdeVirtualMonitorCompatTest(unittest.TestCase):
                 "monitorize.platform.kde_virtual_monitor.subprocess.run",
                 side_effect=fake_run,
             ) as run,
-            patch("monitorize.platform.kde_virtual_monitor.load_kde_virtual_layout",
-                  return_value={"position": None, "rotation": ""}),
             patch("monitorize.platform.kde_virtual_monitor.time.sleep"),
         ):
-            ok, _output_name, message = (
-                kde_virtual_monitor.configure_portal_virtual_output(
-                    {"eDP-1"},
+            ok, _details, message = (
+                kde_virtual_monitor.configure_native_virtual_output(
+                    "Virtual-Monitorize-1",
                     1920,
                     1200,
                     60,
@@ -2282,19 +2279,19 @@ class KdeVirtualMonitorCompatTest(unittest.TestCase):
         self.assertTrue(ok, message)
         commands = [call.args[0][1] for call in run.call_args_list if len(call.args[0]) > 1]
         self.assertIn(
-            "output.Virtual-virtual-xdp-kde-monitorize.addCustomMode.1920.1200.60000.full",
+            "output.1.addCustomMode.1920.1200.60000.full",
             commands,
         )
         self.assertIn(
-            "output.Virtual-virtual-xdp-kde-monitorize.addCustomMode.1920.1200.60000.reduced",
+            "output.1.addCustomMode.1920.1200.60000.reduced",
             commands,
         )
 
-    def test_portal_mode_registration_accepts_cvt_rounded_width(self):
+    def test_native_mode_registration_accepts_cvt_rounded_width(self):
         state = {"registered": False, "active": False}
 
         def rounded_outputs():
-            outputs = self.portal_outputs()
+            outputs = self.native_outputs()
             if state["registered"]:
                 outputs[0]["modes"].append({
                     "id": "2",
@@ -2312,13 +2309,11 @@ class KdeVirtualMonitorCompatTest(unittest.TestCase):
                     stdout=json.dumps({"outputs": rounded_outputs()}),
                     stderr="",
                 )
-            if "addCustomMode.2340.1080.60000.full" in args[1]:
+            if "addCustomMode.2340.1080.60000.reduced" in args[1]:
                 state["registered"] = True
                 return Mock(returncode=0, stdout="", stderr="")
             if args[1].endswith(".mode.2"):
                 state["active"] = True
-                return Mock(returncode=0, stdout="", stderr="")
-            if ".position." in args[1] or ".rotation." in args[1]:
                 return Mock(returncode=0, stdout="", stderr="")
             raise AssertionError(f"Unexpected command: {args}")
 
@@ -2327,13 +2322,11 @@ class KdeVirtualMonitorCompatTest(unittest.TestCase):
                 "monitorize.platform.kde_virtual_monitor.subprocess.run",
                 side_effect=fake_run,
             ),
-            patch("monitorize.platform.kde_virtual_monitor.load_kde_virtual_layout",
-                  return_value={"position": None, "rotation": ""}),
             patch("monitorize.platform.kde_virtual_monitor.time.sleep"),
         ):
-            ok, output_name, message = (
-                kde_virtual_monitor.configure_portal_virtual_output(
-                    {"eDP-1"},
+            ok, details, message = (
+                kde_virtual_monitor.configure_native_virtual_output(
+                    "Virtual-Monitorize-1",
                     2340,
                     1080,
                     60,
@@ -2343,81 +2336,31 @@ class KdeVirtualMonitorCompatTest(unittest.TestCase):
             )
 
         self.assertTrue(ok, message)
-        self.assertEqual(output_name, "Virtual-virtual-xdp-kde-monitorize")
+        self.assertEqual(details["width"], 2336)
+        self.assertTrue(details["rounded"])
         self.assertIn("2336x1080", message)
-        self.assertIn("rounded from 2340x1080@60", message)
+        self.assertIn("requested 2340x1080@60", message)
 
-    def test_portal_layout_uses_saved_primary_position_and_rotation(self):
+    def test_native_configuration_leaves_layout_and_scale_to_kwin(self):
         def fake_run(args, **_kwargs):
             if args == ["kscreen-doctor", "-j"]:
                 return Mock(
                     returncode=0,
-                    stdout=json.dumps({"outputs": self.portal_outputs(True, True)}),
+                    stdout=json.dumps({"outputs": self.native_outputs(True, True)}),
                     stderr="",
                 )
             return Mock(returncode=0, stdout="", stderr="")
 
         with (
-            patch("monitorize.platform.kde_virtual_monitor.subprocess.run", side_effect=fake_run) as run,
             patch(
-                "monitorize.platform.kde_virtual_monitor.load_kde_virtual_layout",
-                return_value={"position": (77, 88), "rotation": "left"},
-            ) as load,
+                "monitorize.platform.kde_virtual_monitor.subprocess.run",
+                side_effect=fake_run,
+            ) as run,
             patch("monitorize.platform.kde_virtual_monitor.time.sleep"),
         ):
-            ok, _output_name, message = kde_virtual_monitor.configure_portal_virtual_output(
-                {"eDP-1"}, 1920, 1200, 60, attempts=1, delay=0,
-            )
-        self.assertTrue(ok, message)
-        load.assert_called_once_with("primary")
-        commands = [call.args[0] for call in run.call_args_list]
-        self.assertIn(
-            [
-                "kscreen-doctor",
-                "output.Virtual-virtual-xdp-kde-monitorize.position.77,88",
-            ],
-            commands,
-        )
-        self.assertIn(
-            [
-                "kscreen-doctor",
-                "output.Virtual-virtual-xdp-kde-monitorize.rotation.left",
-            ],
-            commands,
-        )
-
-    def test_current_virtual_layout_is_saved(self):
-        with (
-            patch("monitorize.platform.kde_virtual_monitor.kde_outputs", return_value=[
-                {"name": "Virtual-1", "connected": True, "enabled": True,
-                 "pos": {"x": 123, "y": 45}, "rotation": "right"},
-            ]),
-            patch("monitorize.platform.kde_virtual_monitor.save_kde_virtual_layout") as save,
-        ):
-            kde_virtual_monitor.save_current_virtual_layout("primary", "Virtual-1")
-        save.assert_called_once_with("primary", 123, 45, "right")
-
-    def test_portal_mode_configuration_rejects_ambiguous_virtual_outputs(self):
-        outputs = self.portal_outputs()
-        outputs.insert(1, {
-            "id": 3,
-            "name": "Virtual-other",
-            "connected": True,
-            "enabled": True,
-            "priority": 3,
-            "modes": [],
-        })
-        with (
-            patch(
-                "monitorize.platform.kde_virtual_monitor.kde_outputs",
-                return_value=outputs,
-            ),
-            patch("monitorize.platform.kde_virtual_monitor.time.sleep"),
-            patch("monitorize.platform.kde_virtual_monitor.subprocess.run") as run,
-        ):
-            ok, output_name, _message = (
-                kde_virtual_monitor.configure_portal_virtual_output(
-                    {"eDP-1"},
+            ok, _details, message = (
+                kde_virtual_monitor.configure_native_virtual_output(
+                    "Virtual-Monitorize-1",
                     1920,
                     1200,
                     60,
@@ -2425,9 +2368,134 @@ class KdeVirtualMonitorCompatTest(unittest.TestCase):
                     delay=0,
                 )
             )
-        self.assertFalse(ok)
-        self.assertEqual(output_name, "")
-        run.assert_not_called()
+        self.assertTrue(ok, message)
+        commands = [call.args[0] for call in run.call_args_list]
+        mutations = [command[1] for command in commands if len(command) > 1]
+        self.assertFalse(any(".position." in command for command in mutations))
+        self.assertFalse(any(".rotation." in command for command in mutations))
+        self.assertFalse(any(".scale." in command for command in mutations))
+
+    def test_output_presence_uses_exact_stable_name(self):
+        outputs = self.native_outputs()
+        outputs.insert(1, {
+            "id": 3,
+            "uuid": "uuid-other",
+            "name": "Virtual-other",
+            "connected": True,
+            "enabled": True,
+            "priority": 3,
+            "modes": [],
+        })
+        with patch(
+            "monitorize.platform.kde_virtual_monitor.kde_outputs",
+            return_value=outputs,
+        ):
+            output = kde_virtual_monitor.find_kde_output(
+                "Virtual-Monitorize-1"
+            )
+            self.assertEqual(output["uuid"], "uuid-primary")
+            self.assertFalse(
+                kde_virtual_monitor.output_is_active(
+                    "Virtual-Monitorize-2"
+                )
+            )
+
+    def test_native_configuration_uses_output_id_when_uuid_is_absent(self):
+        outputs = self.native_outputs(True, True)
+        outputs[0].pop("uuid")
+        with patch(
+            "monitorize.platform.kde_virtual_monitor.kde_outputs",
+            return_value=outputs,
+        ):
+            ok, details, message = (
+                kde_virtual_monitor.configure_native_virtual_output(
+                    "Virtual-Monitorize-1",
+                    1920,
+                    1200,
+                    60,
+                    attempts=1,
+                    delay=0,
+                )
+            )
+        self.assertTrue(ok, message)
+        self.assertEqual(details["uuid"], "")
+        self.assertEqual(details["selector"], "1")
+
+
+class KdeNativeStreamerTest(unittest.TestCase):
+    def test_native_stream_uses_second_stream_serial_after_mode_configuration(self):
+        helper = Mock()
+        helper.stdin = Mock()
+        helper.stdout = Mock()
+        helper.poll.return_value = 0
+        gst = Mock()
+        gst.poll.return_value = 0
+        gst.returncode = 0
+        actual = {
+            "name": "Virtual-Monitorize-1",
+            "uuid": "uuid-primary",
+            "width": 1920,
+            "height": 1200,
+            "refresh_rate": 59.95,
+            "mode_id": "2",
+            "rounded": True,
+        }
+        with (
+            patch.object(kde_native_streamer, "wait_for_output_absent", return_value=True),
+            patch.object(kde_native_streamer, "find_helper", return_value="/helper"),
+            patch.object(kde_native_streamer.subprocess, "Popen", return_value=helper),
+            patch.object(
+                kde_native_streamer,
+                "_read_helper_event",
+                side_effect=[
+                    {
+                        "event": "owner_ready",
+                        "name": "Virtual-Monitorize-1",
+                        "node_id": 10,
+                        "target_object": "100",
+                    },
+                    {
+                        "event": "capture_ready",
+                        "name": "Virtual-Monitorize-1",
+                        "node_id": 11,
+                        "target_object": "101",
+                    },
+                ],
+            ),
+            patch.object(
+                kde_native_streamer,
+                "configure_native_virtual_output",
+                return_value=(True, actual, "configured"),
+            ),
+            patch.object(
+                kde_native_streamer,
+                "launch_with_fallback",
+                return_value=gst,
+            ) as launch,
+            patch.object(kde_native_streamer.signal, "signal"),
+        ):
+            result = kde_native_streamer.run_native_streamer(
+                "primary", 1920, 1200, 60, 8000, "wifi", 7110, None,
+                "0.0.0.0",
+            )
+
+        self.assertEqual(result, 0)
+        helper.stdin.write.assert_called_once_with("capture\n")
+        self.assertEqual(launch.call_args.kwargs["target_object"], "101")
+        self.assertTrue(launch.call_args.kwargs["preserve_source_size"])
+        self.assertTrue(launch.call_args.kwargs["preserve_source_rate"])
+
+    def test_native_stream_refuses_duplicate_slot_before_spawning_helper(self):
+        with (
+            patch.object(kde_native_streamer, "wait_for_output_absent", return_value=False),
+            patch.object(kde_native_streamer.subprocess, "Popen") as popen,
+        ):
+            result = kde_native_streamer.run_native_streamer(
+                "additional", 1920, 1080, 60, 8000, "wifi", 7114,
+                None, "0.0.0.0",
+            )
+        self.assertEqual(result, 1)
+        popen.assert_not_called()
 
 
 class StreamerGnomeTest(unittest.TestCase):
@@ -2502,6 +2570,12 @@ class StreamerGnomeTest(unittest.TestCase):
         self.assertEqual(options["modes"][0]["size"].signature, "uu")
         self.assertEqual(options["modes"][0]["refresh-rate"], 60.0)
         self.assertTrue(options["modes"][0]["is-preferred"])
+        self.assertTrue(options["is-platform"])
+
+    def test_record_virtual_marks_stock_mutter_output_as_platform(self):
+        session = Mock()
+        Streamer_gnome._record_virtual(session, self.FakeDbus, Streamer_gnome.StreamerConfig())
+        self.assertTrue(session.RecordVirtual.call_args.args[0]["is-platform"])
 
     def test_restore_happens_before_gstreamer_launch(self):
         events = []
@@ -2569,6 +2643,14 @@ class PipelineBuilderTest(unittest.TestCase):
             **kwargs,
         )
         return " ".join(argv)
+
+    def test_native_pipewire_target_preserves_kwin_source_rate(self):
+        text = self._pipeline_text(
+            target_object="101", preserve_source_rate=True
+        )
+        self.assertIn("target-object=101", text)
+        self.assertNotIn("videorate", text)
+        self.assertNotIn("framerate=60/1", text)
 
     def test_low_latency_encoder_profile_keeps_current_nvenc_settings(self):
         text = self._pipeline_text(
@@ -2859,6 +2941,23 @@ class UsbControllerTest(unittest.TestCase):
 
 
 class BackendFacadeTest(unittest.TestCase):
+    def test_kde_helper_is_built_and_authorized_by_all_packages(self):
+        root = Path(__file__).resolve().parents[2]
+        installer = (root / "linux" / "scripts" / "install.sh").read_text(
+            encoding="utf-8"
+        )
+        nix_package = (root / "nix" / "package.nix").read_text(encoding="utf-8")
+        permission = (
+            "X-KDE-Wayland-Interfaces=zkde_screencast_unstable_v1"
+        )
+
+        for packaging in (installer, nix_package):
+            self.assertIn("native/kde_virtual_output/build.sh", packaging)
+            self.assertIn(permission, packaging)
+        self.assertIn('HELPER_DESKTOP_FILE="${HELPER_NAME}.desktop"', installer)
+        self.assertIn("monitorize-kde-virtual-output.desktop", nix_package)
+        self.assertIn("kbuildsycoca6", installer)
+
     def test_main_menu_desktop_badge_uses_backend_detected_de(self):
         qml_path = (
             Path(__file__).resolve().parents[1]
@@ -3146,7 +3245,7 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn("radius: theme.controlRadius", cancel_block)
         self.assertIn("Behavior on border.color", cancel_block)
 
-    def test_streaming_page_shows_add_display_for_kde_and_hyprland(self):
+    def test_streaming_page_shows_add_display_for_supported_wayland_desktops(self):
         qml_path = (
             Path(__file__).resolve().parents[1]
             / "monitorize"
@@ -3155,7 +3254,7 @@ class BackendFacadeTest(unittest.TestCase):
         )
         qml = qml_path.read_text(encoding="utf-8")
         self.assertIn(
-            'backend.detectedDe === "kde" || backend.detectedDe === "hyprland"',
+            'backend.detectedDe === "kde" || backend.detectedDe === "gnome" || backend.detectedDe === "hyprland"',
             qml,
         )
         stop_index = qml.index('text: "⏹ Stop Streaming"')
@@ -3165,6 +3264,8 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertLess(save_index, add_index)
         self.assertNotIn("Add Third Display", qml)
         self.assertIn("Add Another Display", qml)
+        display_config = qml[qml.index('text: "⚙ Display Config"'):]
+        self.assertIn('visible: backend.detectedDe === "hyprland"', display_config)
         self.assertIn("readonly property int actionButtonWidth: 160", qml)
         self.assertIn("readonly property int actionButtonHeight: 38", qml)
         self.assertEqual(qml.count("Layout.preferredWidth: page.actionButtonWidth"), 3)
@@ -3201,7 +3302,9 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertNotIn("Third Display Inactive", qml)
         popup_index = qml.index("id: addDisplayPopup")
         cancel_index = qml.index('text: "Cancel"', popup_index)
-        start_index = qml.index('text: "▶  Start Third Display"', cancel_index)
+        start_index = qml.index(
+            'text: backend.detectedDe === "kde"', cancel_index
+        )
         cancel_block = qml[cancel_index:start_index]
         self.assertIn("onClicked: addDisplayPopup.close()", cancel_block)
         self.assertIn("parent.hovered ? theme.borderHover : theme.surface", cancel_block)
@@ -3215,6 +3318,8 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertEqual(qml.count("ChoiceChips {"), 2)
         self.assertIn("width: Math.min(page.width - 40, 560)", qml)
         self.assertIn("Your desktop will open a screen-share picker.", qml)
+        self.assertIn("Creates Monitorize Display 2 in KDE.", qml)
+        self.assertIn("▶  Create Virtual Display", qml)
         self.assertNotIn("host-side display backend is currently disabled", qml)
 
     def test_receiver_setup_uses_port_input_and_decoder_chips(self):

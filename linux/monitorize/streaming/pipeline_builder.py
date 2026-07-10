@@ -114,6 +114,7 @@ def _cpu_encoder_params(
 def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
                    hw_encoder=None, host="127.0.0.1", stream_type="Speed",
                    wifi_mode=False, preserve_source_size=False,
+                   preserve_source_rate=False, target_object=None,
                    encoder_profile="Low Latency"):
     """
     Build a full gst-launch-1.0 argv list.
@@ -131,7 +132,9 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
     """
     
     always_copy = "false" if (hw_encoder and hw_encoder != "nvh264enc") else "true"
-    if pw_fd is not None:
+    if target_object is not None:
+        src = f"pipewiresrc target-object={target_object} do-timestamp=true always-copy={always_copy} keepalive-time=1000"
+    elif pw_fd is not None:
         src = f"pipewiresrc fd={pw_fd} path={node_id} do-timestamp=true always-copy={always_copy} keepalive-time=1000"
     else:
         src = f"pipewiresrc path={node_id} do-timestamp=true always-copy={always_copy} keepalive-time=1000"
@@ -161,7 +164,7 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
             encoder_profile=encoder_profile,
         )
     else:
-        rate_filter = f"videorate skip-to-first=false ! video/x-raw,framerate={fps}/1"
+        rate_filter = "" if preserve_source_rate else f"videorate skip-to-first=false ! video/x-raw,framerate={fps}/1"
         dimensions = "" if preserve_source_size else f",width={width},height={height}"
         scale = "" if preserve_source_size else " ! videoscale"
         convert = f"videoconvert n-threads=4{scale} ! video/x-raw,format=I420{dimensions}"
@@ -219,7 +222,9 @@ def _failed_immediately(proc, timeout=0.25):
 
 def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
                          hw_encoder=None, pass_fds=None,
-                         host="127.0.0.1", server_mode=False):
+                         host="127.0.0.1", server_mode=False,
+                         target_object=None, preserve_source_size=None,
+                         preserve_source_rate=False):
     """
     Launch the streaming pipeline.
 
@@ -228,12 +233,14 @@ def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
     import os
     stream_type = os.environ.get("MONITORIZE_STREAM_TYPE", "Speed")
     encoder_profile = os.environ.get("MONITORIZE_ENCODER_PROFILE", "Low Latency")
-    preserve_source_size = os.environ.get("MONITORIZE_PRESERVE_SOURCE_SIZE") == "1"
+    if preserve_source_size is None:
+        preserve_source_size = os.environ.get("MONITORIZE_PRESERVE_SOURCE_SIZE") == "1"
     pipeline = build_pipeline(
         pw_fd=pw_fd, node_id=node_id,
         width=width, height=height, fps=fps, bitrate=bitrate, port=port,
         hw_encoder=hw_encoder, host=host, stream_type=stream_type,
         wifi_mode=server_mode, preserve_source_size=preserve_source_size,
+        preserve_source_rate=preserve_source_rate, target_object=target_object,
         encoder_profile=encoder_profile,
     )
     label = hw_encoder or "x264enc (CPU)"
@@ -248,6 +255,7 @@ def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
             width=width, height=height, fps=fps, bitrate=bitrate, port=port,
             hw_encoder=None, host=host, stream_type=stream_type,
             wifi_mode=server_mode, preserve_source_size=preserve_source_size,
+            preserve_source_rate=preserve_source_rate, target_object=target_object,
             encoder_profile=encoder_profile,
         )
         print(f"[GStreamer] {shlex.join(pipeline)}\n")
