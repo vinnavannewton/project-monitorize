@@ -153,6 +153,109 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: 16
 
+            // Recent Wi-Fi Connections
+            ColumnLayout {
+                visible: page.isWifi && backend.recentWifiDevices.length > 0
+                Layout.fillWidth: true
+                spacing: 8
+                Layout.maximumWidth: 500
+                Layout.alignment: Qt.AlignHCenter
+
+                Text {
+                    text: "Recent Connections"
+                    font.pixelSize: 12
+                    font.weight: Font.Bold
+                    color: theme.textMuted
+                }
+
+                Repeater {
+                    model: backend.recentWifiDevices
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 52
+                        radius: theme.controlRadius
+                        color: wifiItemMouse.containsMouse ? theme.surfaceAlt : theme.surface
+                        border.color: wifiItemMouse.containsMouse ? theme.borderHover : theme.border
+                        border.width: 1
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 12
+                            anchors.rightMargin: 12
+                            spacing: 12
+
+                            Rectangle {
+                                width: 8
+                                height: 8
+                                radius: 4
+                                color: modelData.online ? "#4caf50" : theme.textMuted
+                                Layout.alignment: Qt.AlignVCenter
+                            }
+
+                            ColumnLayout {
+                                spacing: 1
+                                Layout.fillWidth: true
+                                Layout.alignment: Qt.AlignVCenter
+
+                                Text {
+                                    text: modelData.name
+                                    font.pixelSize: 13
+                                    font.weight: Font.DemiBold
+                                    color: theme.textPrimary
+                                }
+
+                                Text {
+                                    text: "IP: " + modelData.ip
+                                    font.pixelSize: 11
+                                    color: theme.textSecondary
+                                }
+                            }
+
+                            Text {
+                                text: modelData.online ? "Start Server" : "Offline"
+                                font.pixelSize: 12
+                                font.weight: Font.Bold
+                                color: modelData.online ? theme.accent : theme.textMuted
+                                Layout.alignment: Qt.AlignVCenter
+                            }
+                        }
+
+                        MouseArea {
+                            id: wifiItemMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            enabled: modelData.online
+                            onClicked: {
+                                let cleanRes = resCombo.currentText;
+                                if (cleanRes !== "Custom...") {
+                                    cleanRes = cleanRes.split(" ")[0];
+                                }
+                                page.saveGeneralSettings();
+                                page.saveSettings();
+                                backend.startStreaming(
+                                    resCombo.currentText === "Custom..." ? customW.text + "x" + customH.text : cleanRes,
+                                    fpsCombo.currentText === "Custom..." ? customFps.text : fpsCombo.currentText,
+                                    page.bitrateKbpsText(),
+                                    displayTypeCombo.visible ? displayTypeCombo.currentText : "Extend",
+                                    encoderCombo.currentText,
+                                    encoderProfileCombo.currentText,
+                                    true
+                                );
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: 1
+                    color: theme.border
+                    Layout.topMargin: 8
+                    Layout.bottomMargin: 8
+                }
+            }
+
             // Fields Grid
             GridLayout {
                 columns: 2
