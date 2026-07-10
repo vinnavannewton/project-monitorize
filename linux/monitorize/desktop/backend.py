@@ -61,7 +61,7 @@ class MonitorizeBackend(QObject):
     presetLaunchStatusChanged = pyqtSignal(str)
     recentUsbDevicesChanged = pyqtSignal()
     recentWifiDevicesChanged = pyqtSignal()
-    recentStatusUpdated = pyqtSignal(list,dict) #usb, wifi
+    recentStatusUpdated = pyqtSignal(list,dict) 
 
     def __init__(self, de, parent=None):
         super().__init__(parent)
@@ -80,7 +80,7 @@ class MonitorizeBackend(QObject):
         self.network_timer.timeout.connect(self._check_network_ip)
         self.network_timer.start()
 
-        #idk something for connection, dont exactly know how this one is working
+        
         self._recent_usb_devices = []
         self._recent_wifi_devices = []
         self.recentStatusUpdated.connect(self._on_recent_status_updated)
@@ -496,7 +496,7 @@ class MonitorizeBackend(QObject):
         except Exception as e:
             app_log.error(f"Error saving Wi-Fi device to recents: {e}")
 
-#holy hell its a big class didn't ever see it and I wont even try to comprehend what was above
+
 
 
 
@@ -512,7 +512,7 @@ class RecentDeviceStatusChecker(threading.Thread):
 
     def run(self):
         while self.running:
-            #for usb 
+            
             online_usb = []
             try:
                 res = subprocess.run(["adb", "devices"], capture_output=True, text=True, timeout=3)
@@ -523,7 +523,7 @@ class RecentDeviceStatusChecker(threading.Thread):
             except Exception:
                 pass
 
-            #for wifi
+            
             online_wifi = {}
             try:
                 recent_wifi = load_recent_wifi_devices()
@@ -538,7 +538,7 @@ class RecentDeviceStatusChecker(threading.Thread):
                     except Exception:  
                         online_wifi[ip] = False
 
-            #emit signal -> backend for ui update
+            
             try:
                 self.backend.recentStatusUpdated.emit(online_usb, online_wifi)
             except Exception:
