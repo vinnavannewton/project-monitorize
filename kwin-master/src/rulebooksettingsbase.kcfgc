@@ -1,5 +1,0 @@
-File=rulebooksettingsbase.kcfg
-NameSpace=KWin
-ClassName=RuleBookSettingsBase
-Mutators=true
-ParentInConstructor=true

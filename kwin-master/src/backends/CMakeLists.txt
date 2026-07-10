@@ -1,8 +1,0 @@
-add_subdirectory(drm)
-add_subdirectory(fakeinput)
-add_subdirectory(libinput)
-add_subdirectory(virtual)
-add_subdirectory(wayland)
-if (X11_XCB_FOUND)
-    add_subdirectory(x11)
-endif()

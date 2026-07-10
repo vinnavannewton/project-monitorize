@@ -125,10 +125,8 @@ tmp/
 # ==============================
 #  Miscellaneous
 # ==============================
-/kwin/
-/mutter/
-/kwin-master/
-/mutter-main/
+/kwin*/
+/mutter*/
 
 # Gradle wrapper JAR (can be re-downloaded)
 gradle/wrapper/gradle-wrapper.jar
