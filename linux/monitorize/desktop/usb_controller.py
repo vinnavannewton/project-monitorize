@@ -13,6 +13,7 @@ class UsbController(QObject):
         self.status = ""
         self.busy = False
         self.process = None
+        self.serial = None
 
     def _set_status(self, value):
         self.status = value
@@ -22,19 +23,22 @@ class UsbController(QObject):
         self.busy = value
         self.busyChanged.emit(value)
 
-    def start(self):
+    def start(self, serial=None):
+        self.serial = serial
         self._set_busy(True)
         self._set_status("Running adb devices…")
         self._run(["devices"], self._devices_done)
 
     def reset(self):
-        self._set_status("")
+        self.status = ""
+        self.serial = None
         self._set_busy(False)
 
     def _run(self, args, callback):
         self.process = QProcess(self)
         self.process.finished.connect(callback)
-        self.process.start("adb", args)
+        full_args = ["-s", self.serial] + args if (self.serial and args != ["devices"]) else args
+        self.process.start("adb", full_args)
 
     def _devices_done(self, code, _status):
         if code:
