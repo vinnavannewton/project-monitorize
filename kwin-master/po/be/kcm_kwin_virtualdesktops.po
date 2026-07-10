@@ -1,0 +1,215 @@
+# Darafei Praliaskouski <komzpa@licei2.com>, 2007.
+# Darafei Praliaskouski <komzpa@gmail.com>, 2008.
+msgid ""
+msgstr ""
+"Project-Id-Version: fc57ad16a28d02dea100ceb1c60de14e\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-04-14 00:45+0000\n"
+"PO-Revision-Date: 2024-07-06 23:47\n"
+"Last-Translator: Darafei Praliaskouski <komzpa@gmail.com>\n"
+"Language-Team: Belarusian\n"
+"Language: be\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: KAider 0.1\n"
+"Plural-Forms: nplurals=4; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
+"%10<=4 && (n%100<12 || n%100>14) ? 1 : n%10==0 || n%10>=5 && n%10<=9 || n"
+"%100>=11 && n%100<=14 ? 2 : 3);\n"
+"X-Crowdin-Project: fc57ad16a28d02dea100ceb1c60de14e\n"
+"X-Crowdin-Project-ID: 136\n"
+"X-Crowdin-Language: be\n"
+"X-Crowdin-File: /[antikruk.KDE] main/KDE6/be/messages/kwin/"
+"kcm_kwin_virtualdesktops.po\n"
+"X-Crowdin-File-ID: 10420\n"
+
+#, kde-format
+msgctxt "NAME OF TRANSLATORS"
+msgid "Your names"
+msgstr "Дарафей Праляскоўскі, Antikruk"
+
+#, kde-format
+msgctxt "EMAIL OF TRANSLATORS"
+msgid "Your emails"
+msgstr "komzpa@licei2. com, nashtlumach@gmail. com"
+
+#: desktopsmodel.cpp:188
+#, kde-format
+msgctxt "A numbered name for virtual desktops"
+msgid "Desktop %1"
+msgid_plural "Desktop %1"
+msgstr[0] "Працоўны стол %1"
+msgstr[1] "Працоўны стол %1"
+msgstr[2] "Працоўны стол %1"
+msgstr[3] "Працоўны стол %1"
+
+#: desktopsmodel.cpp:476
+#, kde-format
+msgid "There was an error connecting to the compositor."
+msgstr "Не ўдалося злучыцца са сродкам кампазітынгу."
+
+#: desktopsmodel.cpp:672
+#, kde-format
+msgid "There was an error saving the settings to the compositor."
+msgstr "Не ўдалося захаваць налады сродку кампазітынгу."
+
+#: desktopsmodel.cpp:675
+#, kde-format
+msgid "There was an error requesting information from the compositor."
+msgstr "Не ўдалося атрымаць звесткі пра сродак кампазітынгу."
+
+#: ui/main.qml:26
+#, kde-format
+msgctxt "@text:label Number of rows, label associated to a number input field"
+msgid "Rows:"
+msgstr "Радкі:"
+
+#: ui/main.qml:54
+#, kde-format
+msgctxt "@action:button"
+msgid "Add Desktop"
+msgstr "Дадаць працоўны стол"
+
+#: ui/main.qml:90
+#, fuzzy, kde-format
+#| msgctxt "@info:tooltip"
+#| msgid "Rename"
+msgctxt "@action:button"
+msgid "Rename"
+msgstr "Змяніць назву"
+
+#: ui/main.qml:100
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Remove"
+msgstr "Выдаліць"
+
+#: ui/main.qml:119
+#, fuzzy, kde-format
+#| msgctxt "@info:tooltip"
+#| msgid "Confirm new name"
+msgctxt "@info:tooltip"
+msgid "Apply new name"
+msgstr "Пацвердзіце новую назву"
+
+#: ui/main.qml:132
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Cancel rename"
+msgstr ""
+
+#: ui/main.qml:179
+#, kde-format
+msgid ""
+"Virtual desktops have been changed outside this settings application. Saving "
+"now will overwrite the changes."
+msgstr ""
+"Віртуальныя працоўныя сталы былі змененыя па-за межамі гэтай праграмы. Калі "
+"захаваць, то змены перазапішуцца."
+
+#: ui/main.qml:195
+#, kde-format
+msgid "Row %1"
+msgstr "Радок %1"
+
+#: ui/main.qml:209
+#, kde-format
+msgid "Options:"
+msgstr "Параметры:"
+
+#: ui/main.qml:211
+#, kde-format
+msgid "Navigation wraps around"
+msgstr "Навігацыя па коле"
+
+#: ui/main.qml:225
+#, kde-format
+msgid "Switch desktops independently for each screen"
+msgstr ""
+
+#: ui/main.qml:243
+#, kde-format
+msgid "Show animation when switching:"
+msgstr "Паказ анімацыі пры пераключэнні:"
+
+#: ui/main.qml:294
+#, kde-format
+msgid "Show on-screen display when switching:"
+msgstr "Паказ індыкацыі пры пераключэнні:"
+
+#: ui/main.qml:313
+#, kde-format
+msgid "%1 ms"
+msgstr "%1 мс"
+
+#: ui/main.qml:337
+#, kde-format
+msgid "Show desktop layout indicators"
+msgstr "Паказваць індыкатары макета працоўных сталоў"
+
+#~ msgid "1 Row"
+#~ msgid_plural "%1 Rows"
+#~ msgstr[0] "%1 радок"
+#~ msgstr[1] "%1 радкі"
+#~ msgstr[2] "%1 радкоў"
+#~ msgstr[3] "%1 радкі"
+
+#~ msgctxt "@action:button"
+#~ msgid "Add"
+#~ msgstr "Дадаць"
+
+#~ msgid ""
+#~ "This module lets you configure the navigation, number and layout of "
+#~ "virtual desktops."
+#~ msgstr ""
+#~ "Гэты модуль дазваляе вам наладжваць навігацыю, колькасць і макет "
+#~ "кампанавання віртуальных працоўных сталоў."
+
+#~ msgid "Virtual Desktops"
+#~ msgstr "Віртуальныя працоўныя сталы"
+
+#~ msgid "Desktop %1:"
+#~ msgstr "Працоўны стол %1:"
+
+#~ msgid "Here you can enter the name for desktop %1"
+#~ msgstr "Тут вы можаце вызначыць назву працоўнага стала %1"
+
+#~ msgid ""
+#~ "<h1>Multiple Desktops</h1>In this module, you can configure how many "
+#~ "virtual desktops you want and how these should be labeled."
+#~ msgstr ""
+#~ "<h1>Некалькі працоўных сталоў</h1>У гэтым модулі вы можаце наставіць "
+#~ "колькі віртуальных сталоў вы хочаце мець і як вы хочаце іх назваць."
+
+#, fuzzy
+#~| msgid "Desktop %1"
+#~ msgid "Switch to Desktop %1"
+#~ msgstr "Працоўны стол %1"
+
+#, fuzzy
+#~| msgid ""
+#~| "Here you can set how many virtual desktops you want on your KDE desktop. "
+#~| "Move the slider to change the value."
+#~ msgid ""
+#~ "Here you can set how many virtual desktops you want on your KDE desktop."
+#~ msgstr ""
+#~ "Тут вы можаце вызначыць патрэбнцю вам колькасць віртуальных працоўных "
+#~ "сталоў."
+
+#, fuzzy
+#~| msgid "N&umber of desktops: "
+#~ msgid "&Number of desktops:"
+#~ msgstr "&Колькасць працоўных сталоў: "
+
+#, fuzzy
+#~| msgid "N&umber of desktops: "
+#~ msgid "N&umber of rows:"
+#~ msgstr "&Колькасць працоўных сталоў: "
+
+#, fuzzy
+#~| msgid "Desktop &Names"
+#~ msgid "Desktop Names"
+#~ msgstr "&Назвы працоўных сталоў"
+
+#~ msgid "Mouse wheel over desktop background switches desktop"
+#~ msgstr "Пракручванне кола мышы над шпалерамі пераключае працоўны стол"

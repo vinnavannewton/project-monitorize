@@ -1,0 +1,281 @@
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# SPDX-FileCopyrightText: 2010, 2011, 2012, 2013, 2014, 2015, 2019, 2024 Vít Pelčák <vit@pelcak.org>
+# Lukáš Tinkl <ltinkl@redhat.com>, 2010.
+# Tomáš Chvátal <tomas.chvatal@gmail.com>, 2013.
+# Vit Pelcak <vit@pelcak.org>, 2021, 2023.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: kcmkwindecoration\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-05-14 00:45+0000\n"
+"PO-Revision-Date: 2024-09-18 15:27+0200\n"
+"Last-Translator: Vit Pelcak <vit@pelcak.org>\n"
+"Language-Team: Czech <kde-i18n-doc@kde.org>\n"
+"Language: cs\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2;\n"
+"X-Generator: Lokalize 24.08.1\n"
+"X-Language: cs_CZ\n"
+"X-Source-Language: en_US\n"
+
+#: declarative-plugin/buttonsmodel.cpp:56
+#, kde-format
+msgid "Window menu"
+msgstr ""
+
+#: declarative-plugin/buttonsmodel.cpp:58
+#, kde-format
+msgid "Application menu"
+msgstr "Nabídka aplikací"
+
+#: declarative-plugin/buttonsmodel.cpp:60
+#, kde-format
+msgid "On all desktops"
+msgstr "Na všech plochách"
+
+#: declarative-plugin/buttonsmodel.cpp:62
+#, kde-format
+msgid "Minimize"
+msgstr "Minimalizovat"
+
+#: declarative-plugin/buttonsmodel.cpp:64
+#, kde-format
+msgid "Maximize"
+msgstr "Maximalizovat"
+
+#: declarative-plugin/buttonsmodel.cpp:66
+#, kde-format
+msgid "Close"
+msgstr "Zavřít"
+
+#: declarative-plugin/buttonsmodel.cpp:68
+#, kde-format
+msgid "Context help"
+msgstr "Kontextová nápověda"
+
+#: declarative-plugin/buttonsmodel.cpp:70
+#, kde-format
+msgid "Keep below other windows"
+msgstr "Podržet pod ostatními okny"
+
+#: declarative-plugin/buttonsmodel.cpp:72
+#, kde-format
+msgid "Keep above other windows"
+msgstr "Ponechat nad jinými okny"
+
+#: declarative-plugin/buttonsmodel.cpp:74
+#, kde-format
+msgid "Hide from screenshots and screen recordings"
+msgstr ""
+
+#: declarative-plugin/buttonsmodel.cpp:76
+#, kde-format
+msgid "Spacer"
+msgstr "Mezera"
+
+#: kcm.cpp:188
+#, kde-format
+msgctxt "%1 is the name of a border size"
+msgid "Theme default (%1)"
+msgstr "Výchozí u motivu (%1)"
+
+#: kwin-applywindowdecoration.cpp:34
+#, kde-format
+msgid ""
+"This tool allows you to set the window decoration theme for the currently "
+"active session, without accidentally setting it to one that is either not "
+"available, or which is already set."
+msgstr ""
+
+#: kwin-applywindowdecoration.cpp:35
+#, kde-format
+msgid ""
+"The name of the window decoration theme you wish to set for KWin. Passing a "
+"full path will attempt to find a theme in that directory, and then apply "
+"that if one can be deduced."
+msgstr ""
+
+#: kwin-applywindowdecoration.cpp:36
+#, kde-format
+msgid ""
+"Show all the themes available on the system (and which is the current theme)"
+msgstr ""
+"Zobrazit všechny motivy dostupné na systému (a který je aktuální motiv)"
+
+#: kwin-applywindowdecoration.cpp:67
+#, kde-format
+msgid ""
+"Resolved %1 to the KWin Aurorae theme \"%2\", and will attempt to set that "
+"as your current theme."
+msgstr ""
+
+#: kwin-applywindowdecoration.cpp:73
+#, kde-format
+msgid ""
+"You attempted to pass a file path, but this could not be resolved to a "
+"theme, and we will have to abort, due to having no theme to set"
+msgstr ""
+
+#: kwin-applywindowdecoration.cpp:79
+#, kde-format
+msgid ""
+"The requested theme \"%1\" is already set as the window decoration theme."
+msgstr "Požadovaný motiv \"%1\" je již nastaven jako motiv dekorace okna."
+
+#: kwin-applywindowdecoration.cpp:101
+#, kde-format
+msgid ""
+"Successfully applied the pointer theme %1 to your current Plasma session"
+msgstr ""
+
+#: kwin-applywindowdecoration.cpp:105
+#, kde-format
+msgid ""
+"Failed to save your theme settings - the reason is unknown, but this is an "
+"unrecoverable error. You may find that simply trying again will work."
+msgstr ""
+
+#: kwin-applywindowdecoration.cpp:109
+#, kde-format
+msgid ""
+"Could not find theme \"%1\". The theme should be one of the following "
+"options: %2"
+msgstr ""
+"Nelze najít motiv \"%1\". Motiv by měl být jedna z následujících možností: %2"
+
+#: kwin-applywindowdecoration.cpp:114
+#, kde-format
+msgid "You have the following KWin window decoration themes on your system:"
+msgstr ""
+
+#: ui/Buttons.qml:85
+#, kde-format
+msgid "Titlebar"
+msgstr "Titulkový pruh"
+
+#: ui/Buttons.qml:245
+#, kde-format
+msgid "Drop button here to remove it"
+msgstr "Pro odstranění upusťte tlačítko zde"
+
+#: ui/Buttons.qml:261
+#, kde-format
+msgid "Drag buttons between here and the titlebar"
+msgstr "Přetáhněte tlačítka odsud na titulkový pruh"
+
+#: ui/ConfigureTitlebar.qml:16
+#, kde-format
+msgid "Titlebar Buttons"
+msgstr "Tlačítka titulkového pruhu"
+
+#: ui/ConfigureTitlebar.qml:35
+#, kde-format
+msgctxt "checkbox label"
+msgid "Close windows by double clicking the window menu button"
+msgstr ""
+
+#: ui/ConfigureTitlebar.qml:52
+#, kde-format
+msgctxt "popup tip"
+msgid "Click and hold on the window menu button to show the menu."
+msgstr ""
+
+#: ui/ConfigureTitlebar.qml:59
+#, kde-format
+msgctxt "checkbox label"
+msgid "Show titlebar button tooltips"
+msgstr "Zobrazovat nástrojové tipy tlačítek v liště"
+
+#: ui/ConfigureTitlebar.qml:73
+#, kde-format
+msgctxt "@option:check"
+msgid "Always show \"Hide from Screenshots and Screen Recordings\" button"
+msgstr ""
+
+#: ui/ConfigureTitlebar.qml:85
+#, kde-format
+msgctxt "@info:tooltip"
+msgid ""
+"When unchecked the button only appears if the window is hidden from "
+"screenshots and screen recordings"
+msgstr ""
+
+#: ui/ConfigureTitlebar.qml:86
+#, kde-format
+msgctxt "@info:tooltip"
+msgid ""
+"To enable this option, add the \"Hide from Screenshots and Screen Recordings"
+"\" button to the titlebar first"
+msgstr ""
+
+#: ui/main.qml:29
+#, kde-format
+msgctxt "Selector label"
+msgid "Window border size:"
+msgstr "Velikost okraje okna:"
+
+#: ui/main.qml:48
+#, kde-format
+msgctxt "button text"
+msgid "Configure Titlebar Buttons…"
+msgstr "Nastavit tlačítka titulkového pruhu..."
+
+#: ui/main.qml:54
+#, kde-format
+msgctxt "@action:button as in, \"Get New Window Decorations\""
+msgid "Get New…"
+msgstr "Získat nové…"
+
+#: ui/Themes.qml:93
+#, kde-format
+msgid "Edit %1 Theme…"
+msgstr "Upravit motiv %1…"
+
+#: utils.cpp:26
+#, kde-format
+msgid "No window borders"
+msgstr "Bez okrajů oken"
+
+#: utils.cpp:27
+#, kde-format
+msgid "No side window borders"
+msgstr "Bez postranních okrajů oken"
+
+#: utils.cpp:28
+#, kde-format
+msgid "Tiny window borders"
+msgstr "Tenké okraje oken"
+
+#: utils.cpp:29
+#, kde-format
+msgid "Normal window borders"
+msgstr "Normální okraje oken"
+
+#: utils.cpp:30
+#, kde-format
+msgid "Large window borders"
+msgstr "Silné okraje oken"
+
+#: utils.cpp:31
+#, kde-format
+msgid "Very large window borders"
+msgstr "Velmi silné okraje oken"
+
+#: utils.cpp:32
+#, kde-format
+msgid "Huge window borders"
+msgstr "Obrovské okraje oken"
+
+#: utils.cpp:33
+#, kde-format
+msgid "Very huge window borders"
+msgstr "Více než obrovské okraje oken"
+
+#: utils.cpp:34
+#, kde-format
+msgid "Oversized window borders"
+msgstr "Nadměrné okraje oken"

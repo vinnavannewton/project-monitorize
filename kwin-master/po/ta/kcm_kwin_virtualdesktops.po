@@ -1,0 +1,203 @@
+# translation of kcm_kwindesktop.po to தமிழ்
+# Copyright (C) YEAR This_file_is_part_of_KDE
+# This file is distributed under the same license as the PACKAGE package.
+#
+# ஆமாச்சு <amachu@ubuntu.com>, 2008.
+# SPDX-FileCopyrightText: 2021-2022, 2024, 2026 Kishore G <kishore96@gmail.com>
+msgid ""
+msgstr ""
+"Project-Id-Version: kcm_kwindesktop\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-04-14 00:45+0000\n"
+"PO-Revision-Date: 2026-05-02 18:40+0530\n"
+"Last-Translator: Kishore G <kishore96@gmail.com>\n"
+"Language-Team: Tamil <kde-l10n-ta@kde.org>\n"
+"Language: ta\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Lokalize 26.04.0\n"
+
+#, kde-format
+msgctxt "NAME OF TRANSLATORS"
+msgid "Your names"
+msgstr "கோ. கிஷோர்"
+
+#, kde-format
+msgctxt "EMAIL OF TRANSLATORS"
+msgid "Your emails"
+msgstr "Kde-l10n-ta@kde.org"
+
+#: desktopsmodel.cpp:188
+#, kde-format
+msgctxt "A numbered name for virtual desktops"
+msgid "Desktop %1"
+msgid_plural "Desktop %1"
+msgstr[0] "பணிமேடை %1"
+msgstr[1] "பணிமேடை %1"
+
+#: desktopsmodel.cpp:476
+#, kde-format
+msgid "There was an error connecting to the compositor."
+msgstr "சாளர மேலாளரை தொடர்பு கொள்வதில் சிக்கல்."
+
+#: desktopsmodel.cpp:672
+#, kde-format
+msgid "There was an error saving the settings to the compositor."
+msgstr "சாளர மேலாளரில் அமைப்புகளை சேமிப்பதில் சிக்கல்."
+
+#: desktopsmodel.cpp:675
+#, kde-format
+msgid "There was an error requesting information from the compositor."
+msgstr "சாளர மேலாளரிடமிருந்து விவரங்களை பெறுவதில் சிக்கல்."
+
+#: ui/main.qml:26
+#, kde-format
+msgctxt "@text:label Number of rows, label associated to a number input field"
+msgid "Rows:"
+msgstr "வரிசைகள்:"
+
+#: ui/main.qml:54
+#, kde-format
+msgctxt "@action:button"
+msgid "Add Desktop"
+msgstr "பணிமேடையை சேர்"
+
+#: ui/main.qml:90
+#, kde-format
+msgctxt "@action:button"
+msgid "Rename"
+msgstr "மறுபெயரிடு"
+
+#: ui/main.qml:100
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Remove"
+msgstr "நீக்கு"
+
+#: ui/main.qml:119
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Apply new name"
+msgstr "இப்பெயரை இடு"
+
+#: ui/main.qml:132
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Cancel rename"
+msgstr "மறுபெயரிடுவதை ரத்து செய்"
+
+#: ui/main.qml:179
+#, kde-format
+msgid ""
+"Virtual desktops have been changed outside this settings application. Saving "
+"now will overwrite the changes."
+msgstr ""
+"வேறு செயலியால் மெய்நிகர் பணிமேடைகள் மாற்றப்பட்டுள்ளன. இப்போது சேமித்தல், அம்மாற்றங்களை "
+"மேலெழுதும்."
+
+#: ui/main.qml:195
+#, kde-format
+msgid "Row %1"
+msgstr "வரிசை %1"
+
+#: ui/main.qml:209
+#, kde-format
+msgid "Options:"
+msgstr "விருப்பங்கள்:"
+
+#: ui/main.qml:211
+#, kde-format
+msgid "Navigation wraps around"
+msgstr "உலாவல் சுற்றி ஆரம்பத்திற்கே வரும்"
+
+#: ui/main.qml:225
+#, kde-format
+msgid "Switch desktops independently for each screen"
+msgstr "அனைத்து திரைகளிலும் பணிமேடையை ஒருங்கே மாற்று"
+
+#: ui/main.qml:243
+#, kde-format
+msgid "Show animation when switching:"
+msgstr "மாற்றும்போது இவ்வாறு அசைவூட்டு:"
+
+#: ui/main.qml:294
+#, kde-format
+msgid "Show on-screen display when switching:"
+msgstr "மாற்றும்போது இவ்வளவு நேரத்துக்கு மேல்படியும் அறிவிப்பை காட்டு:"
+
+#: ui/main.qml:313
+#, kde-format
+msgid "%1 ms"
+msgstr "%1 ms"
+
+#: ui/main.qml:337
+#, kde-format
+msgid "Show desktop layout indicators"
+msgstr "பணிமேடை தளவமைப்பை காட்டு"
+
+#~ msgid "1 Row"
+#~ msgid_plural "%1 Rows"
+#~ msgstr[0] "1 வரிசை"
+#~ msgstr[1] "%1 வரிசைகள்"
+
+#~ msgctxt "@action:button"
+#~ msgid "Add"
+#~ msgstr "சேர்"
+
+#~ msgid ""
+#~ "This module lets you configure the navigation, number and layout of "
+#~ "virtual desktops."
+#~ msgstr ""
+#~ "மெய்நிகர் பணிமேடைகளின் எண்ணிக்கை, அவற்றின் தளவமைப்பு, மற்றும் அவற்றுக்கிடையேயான "
+#~ "உலாவலை அமைக்க இக்கூறு உதவும்."
+
+#~ msgid "Virtual Desktops"
+#~ msgstr "மெய்நிகர் பணிமேடைகள்"
+
+#~ msgid "Desktop %1:"
+#~ msgstr "திரை %1:"
+
+#~ msgid "Here you can enter the name for desktop %1"
+#~ msgstr "%1 திரைக்கான பெயரை இங்கே இடலாம்"
+
+#~ msgid ""
+#~ "<h1>Multiple Desktops</h1>In this module, you can configure how many "
+#~ "virtual desktops you want and how these should be labeled."
+#~ msgstr ""
+#~ "<h1>பலத் திரைகள்</h1>இப்பாகத்தில், தாங்கள் எவ்வளவு நிகர்தி்திரைகள் வேண்டுமென்பதனையும் "
+#~ "இவை பெயரிடப்படும் விதத்தையும் வடிவமைக்கலாம்."
+
+#, fuzzy
+#~| msgid "Desktop %1"
+#~ msgid "Switch to Desktop %1"
+#~ msgstr "திரை %1"
+
+#, fuzzy
+#~| msgid ""
+#~| "Here you can set how many virtual desktops you want on your KDE desktop. "
+#~| "Move the slider to change the value."
+#~ msgid ""
+#~ "Here you can set how many virtual desktops you want on your KDE desktop."
+#~ msgstr ""
+#~ "தங்களது கேபசூ தரையில் எத்தனை நிகர் திரைகளை வேண்டுமென்பதை தாங்கள் வடிவமைக்கலாம். "
+#~ "மதிப்பினை மாற்ற இழுதியை நகர்த்துக."
+
+#, fuzzy
+#~| msgid "N&umber of desktops: "
+#~ msgid "&Number of desktops:"
+#~ msgstr "திரைகளின் &எண்ணிக்கை: "
+
+#, fuzzy
+#~| msgid "N&umber of desktops: "
+#~ msgid "N&umber of rows:"
+#~ msgstr "திரைகளின் &எண்ணிக்கை: "
+
+#, fuzzy
+#~| msgid "Desktop &Names"
+#~ msgid "Desktop Names"
+#~ msgstr "தரைகளின் &பெயர்கள்"
+
+#~ msgid "Mouse wheel over desktop background switches desktop"
+#~ msgstr "எலியம் திரைப்பின்னணியின் மீது நகர்வது திரையை மாற்றும்"

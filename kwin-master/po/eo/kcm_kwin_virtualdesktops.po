@@ -1,0 +1,142 @@
+# translation of kcm_kwin_virtualdesktops.pot to Esperanto
+# Copyright (C) 2007 Free Software Foundation, Inc.
+# This file is distributed under the same license as the kwin package.
+# Cindy McKee <cfmckee@gmail.com>, 2007.
+# Oliver Kellogg <olivermkellogg@gmail.com>, 2023.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: kcm_kwindesktop\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-04-14 00:45+0000\n"
+"PO-Revision-Date: 2024-04-27 17:28+0100\n"
+"Last-Translator: Oliver Kellogg <olivermkellogg@gmail.com>\n"
+"Language-Team: Esperanto <kde-i18n-eo@kde.org>\n"
+"Language: eo\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: KBabel 1.11.4\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+
+#, kde-format
+msgctxt "NAME OF TRANSLATORS"
+msgid "Your names"
+msgstr "Axel Rousseau, Oliver Kellogg"
+
+#, kde-format
+msgctxt "EMAIL OF TRANSLATORS"
+msgid "Your emails"
+msgstr "axel@esperanto-jeunes.org, olivermkellogg@gmail.com"
+
+#: desktopsmodel.cpp:188
+#, kde-format
+msgctxt "A numbered name for virtual desktops"
+msgid "Desktop %1"
+msgid_plural "Desktop %1"
+msgstr[0] "Labortablo %1"
+msgstr[1] "Labortablo %1"
+
+#: desktopsmodel.cpp:476
+#, kde-format
+msgid "There was an error connecting to the compositor."
+msgstr "Okazis eraro konektante al kompostisto."
+
+#: desktopsmodel.cpp:672
+#, kde-format
+msgid "There was an error saving the settings to the compositor."
+msgstr "Okazis eraro konservante la metojn al kompostisto."
+
+#: desktopsmodel.cpp:675
+#, kde-format
+msgid "There was an error requesting information from the compositor."
+msgstr "Estis eraro petante informon de la kompostisto."
+
+#: ui/main.qml:26
+#, kde-format
+msgctxt "@text:label Number of rows, label associated to a number input field"
+msgid "Rows:"
+msgstr "Vicoj:"
+
+#: ui/main.qml:54
+#, kde-format
+msgctxt "@action:button"
+msgid "Add Desktop"
+msgstr "Aldoni Labortablon"
+
+#: ui/main.qml:90
+#, fuzzy, kde-format
+#| msgctxt "@info:tooltip"
+#| msgid "Rename"
+msgctxt "@action:button"
+msgid "Rename"
+msgstr "Alinomi"
+
+#: ui/main.qml:100
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Remove"
+msgstr "Forigi"
+
+#: ui/main.qml:119
+#, fuzzy, kde-format
+#| msgctxt "@info:tooltip"
+#| msgid "Confirm new name"
+msgctxt "@info:tooltip"
+msgid "Apply new name"
+msgstr "Konfirmi novan nomon"
+
+#: ui/main.qml:132
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Cancel rename"
+msgstr ""
+
+#: ui/main.qml:179
+#, kde-format
+msgid ""
+"Virtual desktops have been changed outside this settings application. Saving "
+"now will overwrite the changes."
+msgstr ""
+"Virtualaj labortabloj estis ŝanĝitaj ekster ĉi tiu agord-aplikaĵo. Nuna "
+"konservado superskribos la ŝanĝojn."
+
+#: ui/main.qml:195
+#, kde-format
+msgid "Row %1"
+msgstr "Vico %1"
+
+#: ui/main.qml:209
+#, kde-format
+msgid "Options:"
+msgstr "Opcioj:"
+
+#: ui/main.qml:211
+#, kde-format
+msgid "Navigation wraps around"
+msgstr "Navigado ĉirkaŭfaldiĝas"
+
+#: ui/main.qml:225
+#, kde-format
+msgid "Switch desktops independently for each screen"
+msgstr ""
+
+#: ui/main.qml:243
+#, kde-format
+msgid "Show animation when switching:"
+msgstr "Montri animacion dum baskulado:"
+
+#: ui/main.qml:294
+#, kde-format
+msgid "Show on-screen display when switching:"
+msgstr "Montri surekranan bildon dum baskulado:"
+
+#: ui/main.qml:313
+#, kde-format
+msgid "%1 ms"
+msgstr "%1 ms"
+
+#: ui/main.qml:337
+#, kde-format
+msgid "Show desktop layout indicators"
+msgstr "Montri labortablajn aranĝoindikilojn"

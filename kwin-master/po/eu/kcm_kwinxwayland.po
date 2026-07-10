@@ -1,0 +1,283 @@
+# Translation for kcm_kwinxwayland.po to Euskara/Basque (eu).
+# Copyright (C) 2022-2025 This file is copyright:
+# This file is distributed under the same license as the kwin package.
+# SPDX-FileCopyrightText: 2023, 2024, 2025 KDE euskaratzeko proiektuaren arduraduna <xalba@ni.eus>
+#
+# Translators:
+# Iñigo Salvador Azurmendi <xalba@ni.eus>, 2022, 2023, 2024, 2025.
+msgid ""
+msgstr ""
+"Project-Id-Version: kwin\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-05-05 00:46+0000\n"
+"PO-Revision-Date: 2025-05-30 22:48+0200\n"
+"Last-Translator: Iñigo Salvador Azurmendi <xalba@ni.eus>\n"
+"Language-Team: Basque <kde-i18n-eu@kde.org>\n"
+"Language: eu\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: Lokalize 25.04.1\n"
+
+#: ui/main.qml:28
+#, kde-kuit-format
+msgctxt "@info:usagetip"
+msgid ""
+"Legacy X11 apps with global shortcuts and other features accessed while "
+"running in the background need to be able to listen for keystrokes all the "
+"time.<nl/><nl/>If you use any of these apps, you can choose your preferred "
+"balance of security and compatibility here."
+msgstr ""
+"Laster-tekla globalak eta atzeko planoan exekutatu bitartean atzitutako "
+"beste ezaugarri batzuk dituzten X11 aplikazioak, denbora guztian, tekla- "
+"sakatzeak entzuteko  gai izan behar dira.<nl/><nl/>Aplikazio hauetako "
+"edozein erabiltzen baduzu, segurtasuna eta bateragarritasunaren arteko oreka "
+"hobetsia hemen aukera dezakezu."
+
+#: ui/main.qml:49
+#, kde-format
+msgctxt "@title:group"
+msgid "Listening for keystrokes:"
+msgstr "Tekla-sakatzeak entzuten:"
+
+#: ui/main.qml:52
+#, kde-format
+msgctxt "@option:radio Listening for keystrokes is prohibited"
+msgid "Prohibited"
+msgstr "Debekatuta"
+
+#: ui/main.qml:61
+#, kde-format
+msgctxt "@info:usagetip"
+msgid "Most secure; global shortcuts will not work in X11 apps"
+msgstr "Seguruena; laster-tekla globalak ez dira ibiliko X11 aplikazioekin."
+
+#: ui/main.qml:67
+#, kde-format
+msgctxt "@option:radio Listening for keystrokes is allowed for…"
+msgid "Only the Meta, Control, Alt, and Shift keys"
+msgstr "Meta, Kontrol, Alt, eta Maius teklak bakarrik"
+
+#: ui/main.qml:76
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"High security; push-to-talk and other modifier-only global shortcuts will "
+"work in X11 apps"
+msgstr ""
+"Segurtasun handia; sakatu-hitz-egiteko eta beste laster-tekla  global, "
+"aldarazle bakarrik, batzuk X11 aplikazioetan ibiliko dira"
+
+#: ui/main.qml:81
+#, kde-format
+msgctxt "@option:radio Listening for keystrokes is allowed for…"
+msgid ""
+"As above, plus any key pressed while the Control, Alt, or Meta key is also "
+"pressed"
+msgstr ""
+"Goikoa bezala, Kontrol, Alt, edo Meta teklekin batera sakatutako teklak "
+"gehituta"
+
+#: ui/main.qml:90
+#, kde-format
+msgctxt "@info:usagetip"
+msgid "Moderate security; all global shortcuts will work in X11 apps"
+msgstr ""
+"Segurtasun moderatua; laster-tekla global guztiak X11 aplikazioekin ibiliko "
+"dira"
+
+#: ui/main.qml:96
+#, kde-format
+msgctxt "@option:radio Listening for keystrokes is always allowed"
+msgid "Always allowed"
+msgstr "Beti baimenduta"
+
+#: ui/main.qml:105
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"Least secure; all X11 apps will be able to see any text you type into any "
+"application"
+msgstr ""
+"Segurtasun txikienekoa; X11 aplikazio guztiak gai izango dira edozein "
+"aplikaziotan tekleatzen duzun testua ikusteko"
+
+#: ui/main.qml:111
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"Note that using this setting will reduce system security and permit "
+"malicious software to steal passwords and spy on the text that you type. "
+"Make sure you understand and accept this risk."
+msgstr ""
+"Kontuan izan konfigurazio hori erabiliz gero sistemaren segurtasuna "
+"murriztuko dela, software maltzurrei pasahitzak lapurtzen eta tekleatzen "
+"duzun testua zelatatzen utziko die. Ziurtatu arriskua ulertzen eta onartzen "
+"duzula."
+
+#: ui/main.qml:118
+#, kde-format
+msgctxt "@title:group"
+msgid "Listening for mouse buttons:"
+msgstr "Saguaren botoiak entzutea:"
+
+#: ui/main.qml:121
+#, kde-format
+msgctxt "@option:radio Listening for mouse buttons is allowed"
+msgid "Allowed"
+msgstr "Baimenduta"
+
+#: ui/main.qml:130
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"Moderate security; global shortcuts involving mouse buttons will work in X11 "
+"apps"
+msgstr ""
+"Segurtasun moderatua; saguaren botoiak erabiltzen dituzten laster-tekla "
+"globalak X11 aplikazioetan ibiliko dira"
+
+#: ui/main.qml:141
+#, kde-format
+msgctxt "@title:group"
+msgid "Control of pointer and keyboard:"
+msgstr "Erakuslearen eta teklatuaren agintea:"
+
+#: ui/main.qml:146
+#, fuzzy, kde-format
+#| msgctxt "@option:radio Listening for mouse buttons is allowed"
+#| msgid "Allowed"
+msgctxt ""
+"@option:check Allowed control of pointer and keyboard without asking for "
+"permissions for allowed apps"
+msgid "Allowed apps"
+msgstr "Baimenduta"
+
+#: ui/main.qml:152
+#, kde-format
+msgctxt "@action:button"
+msgid "See Allowed Applications…"
+msgstr ""
+
+#: ui/main.qml:163
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"Moderate security; XWayland-using apps claiming to be something on this list "
+"will be able to take control of the computer, because XWayland-using apps’ "
+"identities can’t be verified"
+msgstr ""
+
+#: ui/main.qml:169
+#, fuzzy, kde-format
+#| msgctxt ""
+#| "@option:check Allow control of pointer and keyboard without asking for "
+#| "permission"
+#| msgid "Allow without asking for permission"
+msgctxt ""
+"@option:radio Allow control of pointer and keyboard without asking for "
+"permission"
+msgid "Allow without asking for permission"
+msgstr "Baimenik eskatu gabe baimendu"
+
+#: ui/main.qml:174
+#, kde-format
+msgctxt "@info:usagetip"
+msgid "Least secure; all X11 apps will be able to take control of the computer"
+msgstr ""
+"Segurtasun txikienekoa; X11 aplikazio guztiak ordenagailuaren kontrola "
+"hartzeko gai izango dira"
+
+#: ui/main.qml:181
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"Note that using this setting will drastically reduce system security and "
+"permit malicious software to take complete control of your pointer and "
+"keyboard. Make sure you understand and accept this risk."
+msgstr ""
+"Kontuan izan konfigurazio hori erabiliz gero sistemaren segurtasuna nabarmen "
+"murriztuko dela eta software maltzurrei zure saguaren eta teklatuaren "
+"kontrol osoa hartzeko aukera emango diela. Ziurtatu arrisku hori ulertzen "
+"eta onartzen duzula."
+
+#: ui/main.qml:189
+#, fuzzy, kde-format
+#| msgctxt "@title:group"
+#| msgid "Control of pointer and keyboard:"
+msgctxt ""
+"@title:window title of the page opened by the 'See allowed applications' "
+"button"
+msgid "Applications allowed to control the pointer and keyboard"
+msgstr "Erakuslearen eta teklatuaren agintea:"
+
+#: ui/main.qml:209
+#, kde-format
+msgctxt "@info:tooltip %1 is the name of the app/binary"
+msgid "Do not allow %1 to control the pointer and keyboard without asking"
+msgstr ""
+
+#~ msgctxt "@info"
+#~ msgid "Changes will take effect the next time you log in."
+#~ msgstr "Aldaketak indarrean jarriko dira saio-hasten duzun hurrengoan."
+
+#~ msgctxt "@action:button"
+#~ msgid "Log Out Now"
+#~ msgstr "Saioa orain itxi"
+
+#~ msgid ""
+#~ "Some legacy X11 apps require the ability to read keystrokes typed in "
+#~ "other apps for certain features, such as handling global keyboard "
+#~ "shortcuts. This is allowed by default. However other features may require "
+#~ "the ability to read all keys, and this is disabled by default for "
+#~ "security reasons. If you need to use such apps, you can choose your "
+#~ "preferred balance of security and functionality here."
+#~ msgstr ""
+#~ "X11 ondare aplikazio batzuek, ezaugarri jakinetarako, beste aplikazioetan "
+#~ "sakatutako teklak irakurtzeko gaitasuna behar dute, teklatuko lasterbide "
+#~ "globalek maneiatzeko adibidez. Hori baimenduta dago era lehenetsian. Dena "
+#~ "den, beste ezaugarri batzuek tekla guztiak irakurtzeko gaitasuna eska "
+#~ "dezakete, eta hori, segurtasun arrazoiengatik, era lehenetsian ezgaituta "
+#~ "dago. Halako aplikazioak erabili beharrean bazaude, hemen zure "
+#~ "segurtasunaren eta funtzionaltasunaren arteko oreka hobetsia aukera "
+#~ "dezakezu."
+
+#~ msgid "Allow legacy X11 apps to read keystrokes typed in all apps:"
+#~ msgstr ""
+#~ "Baimendu X11 ondare aplikazioek aplikazio guztietan sakatutako "
+#~ "teklakirakurtzea:"
+
+#~ msgid "Never"
+#~ msgstr "Inoiz ez"
+
+#~ msgid "Only non-character keys"
+#~ msgstr "Karaktere ez diren teklak bakarrik"
+
+#~ msgid "All keys, but only while Meta, Ctrl, Alt, or Shift keys are pressed"
+#~ msgstr ""
+#~ "Tekla guztiak, baina bakarrik Meta, Ktrl, Alt, edo Maius teklak sakatuta "
+#~ "daudenean"
+
+#~ msgid ""
+#~ "This module lets configure which keyboard events are forwarded to X11 "
+#~ "apps regardless of their focus."
+#~ msgstr ""
+#~ "Modulu honek X11 aplikazioetara, haien fokua edozein dela, teklatuko zein "
+#~ "gertakari birbidaltzen diren konfiguratzen uzten du."
+
+#~ msgctxt "NAME OF TRANSLATORS"
+#~ msgid "Your names"
+#~ msgstr "Iñigo Salvador Azurmendi"
+
+#~ msgctxt "EMAIL OF TRANSLATORS"
+#~ msgid "Your emails"
+#~ msgstr "xalba@ni.eus"
+
+#~ msgid "Legacy X11 App Support"
+#~ msgstr "X11 ondare aplikazioen euskarria"
+
+#~ msgid "Allow legacy X11 apps to read keystrokes typed in other apps"
+#~ msgstr ""
+#~ "Baimendu X11 ondare aplikazioek beste aplikazio batzuetan tekleatutako "
+#~ "tekla-sakatzeak irakurtzea"

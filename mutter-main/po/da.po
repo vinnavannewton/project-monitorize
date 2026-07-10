@@ -1,0 +1,2074 @@
+# Danish translation of Mutter.
+# Copyright (C) 2002-2009, 2012-2019, 2023-2026.
+# This file is distributed under the same license as the metacity package.
+# Kjartan Maraas <kmaraas@gnome.org>, 2002
+# Keld simonsen <keld@dkuug.dk>, 2002
+# Ole Laursen <olau@hardworking.dk>, 2002.
+# Martin Willemoes Hansen <mwh@sysrq.dk>, 2004, 05.
+# Lasse Bang Mikkelsen <lbm@fatalerror.dk>, 2006.
+# Kenneth Nielsen <k.nielsen81@gmail.com>, 2008.
+# Joe Hansen <joedalton2@yahoo.dk>, 2011.
+# Ask Hjorth Larsen <asklarsen@gmail.com>, 2007, 09, 10, 12, 13, 14, 15, 16, 17, 18, 19, 21, 23, 24, 25, 26.
+#
+# Ordliste:
+#
+#   display -> terminal
+#
+# Når man multitasker mellem flere vinduer, vises der (afhængigt af indstillingerne) et pop op-vindue med ikoner for de forskellige programmer. Dette vindue kaldes navigationsvinduet.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: mutter\n"
+"Report-Msgid-Bugs-To: https://gitlab.gnome.org/GNOME/mutter/issues/\n"
+"POT-Creation-Date: 2026-02-28 15:06+0000\n"
+"PO-Revision-Date: 2026-03-07 15:13+0100\n"
+"Last-Translator: Ask Hjorth Larsen <asklarsen@gmail.com>\n"
+"Language-Team: Danish <dansk@dansk-gruppen.dk>\n"
+"Language: da\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 3.0.1\n"
+
+#: data/50-mutter-navigation.xml:6
+msgid "Navigation"
+msgstr "Navigation"
+
+#: data/50-mutter-navigation.xml:9
+msgid "Move window to workspace 1"
+msgstr "Flyt vindue til arbejdsområde 1"
+
+#: data/50-mutter-navigation.xml:12
+msgid "Move window to workspace 2"
+msgstr "Flyt vindue til arbejdsområde 2"
+
+#: data/50-mutter-navigation.xml:15
+msgid "Move window to workspace 3"
+msgstr "Flyt vindue til arbejdsområde 3"
+
+#: data/50-mutter-navigation.xml:18
+msgid "Move window to workspace 4"
+msgstr "Flyt vindue til arbejdsområde 4"
+
+#: data/50-mutter-navigation.xml:21
+msgid "Move window to last workspace"
+msgstr "Flyt vindue til sidste arbejdsområde"
+
+#: data/50-mutter-navigation.xml:24
+msgid "Move window one workspace to the left"
+msgstr "Flyt vindue et arbejdsområde til venstre"
+
+#: data/50-mutter-navigation.xml:27
+msgid "Move window one workspace to the right"
+msgstr "Flyt vindue et arbejdsområde til højre"
+
+#: data/50-mutter-navigation.xml:31
+msgid "Move window one workspace up"
+msgstr "Flyt vindue et arbejdsområde op"
+
+#: data/50-mutter-navigation.xml:35
+msgid "Move window one workspace down"
+msgstr "Flyt vindue et arbejdsområde ned"
+
+#: data/50-mutter-navigation.xml:38
+msgid "Move window one monitor to the left"
+msgstr "Flyt vindue en skærm til venstre"
+
+#: data/50-mutter-navigation.xml:41
+msgid "Move window one monitor to the right"
+msgstr "Flyt vindue en skærm til højre"
+
+#: data/50-mutter-navigation.xml:44
+msgid "Move window one monitor up"
+msgstr "Flyt vindue en skærm op"
+
+#: data/50-mutter-navigation.xml:47
+msgid "Move window one monitor down"
+msgstr "Flyt vindue en skærm ned"
+
+#: data/50-mutter-navigation.xml:51
+msgid "Switch applications"
+msgstr "Skift mellem programmer"
+
+#: data/50-mutter-navigation.xml:56
+msgid "Switch to previous application"
+msgstr "Skift til forrige program"
+
+#: data/50-mutter-navigation.xml:60
+msgid "Switch windows"
+msgstr "Skift mellem vinduer"
+
+#: data/50-mutter-navigation.xml:65
+msgid "Switch to previous window"
+msgstr "Skift til forrige vindue"
+
+#: data/50-mutter-navigation.xml:69
+msgid "Switch windows of an application"
+msgstr "Skift mellem vinduer i et program"
+
+#: data/50-mutter-navigation.xml:74
+msgid "Switch to previous window of an application"
+msgstr "Skift til forrige vindue af et program"
+
+#: data/50-mutter-navigation.xml:78
+msgid "Switch system controls"
+msgstr "Skift mellem systemkontroller"
+
+#: data/50-mutter-navigation.xml:83
+msgid "Switch to previous system control"
+msgstr "Skift til forrige systemkontrol"
+
+#: data/50-mutter-navigation.xml:87
+msgid "Switch windows directly"
+msgstr "Skift direkte mellem vinduer"
+
+#: data/50-mutter-navigation.xml:92
+msgid "Switch directly to previous window"
+msgstr "Skift direkte til forrige vindue"
+
+#: data/50-mutter-navigation.xml:96
+msgid "Switch windows of an app directly"
+msgstr "Skift direkte mellem vinduer i et program"
+
+#: data/50-mutter-navigation.xml:101
+msgid "Switch directly to previous window of an app"
+msgstr "Skift direkte til forrige vindue af et program"
+
+#: data/50-mutter-navigation.xml:105
+msgid "Switch system controls directly"
+msgstr "Skift direkte mellem systemkontroller"
+
+#: data/50-mutter-navigation.xml:110
+msgid "Switch directly to previous system control"
+msgstr "Skift direkte til forrige systemkontrol"
+
+#: data/50-mutter-navigation.xml:113
+msgid "Hide all normal windows"
+msgstr "Skjul alle normale vinduer"
+
+#: data/50-mutter-navigation.xml:116
+msgid "Switch to workspace 1"
+msgstr "Skift til arbejdsområde 1"
+
+#: data/50-mutter-navigation.xml:119
+msgid "Switch to workspace 2"
+msgstr "Skift til arbejdsområde 2"
+
+#: data/50-mutter-navigation.xml:122
+msgid "Switch to workspace 3"
+msgstr "Skift til arbejdsområde 3"
+
+#: data/50-mutter-navigation.xml:125
+msgid "Switch to workspace 4"
+msgstr "Skift til arbejdsområde 4"
+
+#: data/50-mutter-navigation.xml:128
+msgid "Switch to last workspace"
+msgstr "Skift til sidste arbejdsområde"
+
+#: data/50-mutter-navigation.xml:131
+msgid "Switch to workspace on the left"
+msgstr "Skift til arbejdsområdet til venstre"
+
+#: data/50-mutter-navigation.xml:134
+msgid "Switch to workspace on the right"
+msgstr "Skift til arbejdsområdet til højre"
+
+#: data/50-mutter-navigation.xml:138
+msgid "Switch to workspace above"
+msgstr "Skift til arbejdsområdet ovenover"
+
+#: data/50-mutter-navigation.xml:142
+msgid "Switch to workspace below"
+msgstr "Skift til arbejdsområde nedenunder"
+
+#: data/50-mutter-system.xml:6 data/50-mutter-wayland.xml:6
+msgid "System"
+msgstr "System"
+
+#: data/50-mutter-system.xml:8
+msgid "Show the run command prompt"
+msgstr "Vis “kør kommando”-prompten"
+
+#: data/50-mutter-wayland.xml:8
+msgid "Restore the keyboard shortcuts"
+msgstr "Gendan tastaturgenvejene"
+
+#: data/50-mutter-windows.xml:6
+msgid "Windows"
+msgstr "Vinduer"
+
+#: data/50-mutter-windows.xml:8
+msgid "Activate the window menu"
+msgstr "Aktivér vinduesmenuen"
+
+#: data/50-mutter-windows.xml:10
+msgid "Toggle fullscreen mode"
+msgstr "Slå fuldskærmstilstand til/fra"
+
+#: data/50-mutter-windows.xml:12
+msgid "Toggle maximization state"
+msgstr "Slå maksimering til/fra"
+
+#: data/50-mutter-windows.xml:14
+msgid "Maximize window"
+msgstr "Maksimér vindue"
+
+#: data/50-mutter-windows.xml:16
+msgid "Restore window"
+msgstr "Gendan vindue"
+
+#: data/50-mutter-windows.xml:18
+msgid "Close window"
+msgstr "Luk vindue"
+
+#: data/50-mutter-windows.xml:20
+msgid "Hide window"
+msgstr "Skjul vindue"
+
+#: data/50-mutter-windows.xml:22
+msgid "Move window"
+msgstr "Flyt vindue"
+
+#: data/50-mutter-windows.xml:24
+msgid "Resize window"
+msgstr "Ændr vinduesstørrelse"
+
+#: data/50-mutter-windows.xml:27
+msgid "Toggle window on all workspaces or one"
+msgstr "Slå visning af vindue på alle arbejdsområder til/fra"
+
+#: data/50-mutter-windows.xml:29
+msgid "Raise window if covered, otherwise lower it"
+msgstr "Hæv vindue hvis det er dækket, ellers sænk det"
+
+#: data/50-mutter-windows.xml:31
+msgid "Raise window above other windows"
+msgstr "Hæv vindue over andre vinduer"
+
+#: data/50-mutter-windows.xml:33
+msgid "Lower window below other windows"
+msgstr "Sænk vindue under andre vinduer"
+
+#: data/50-mutter-windows.xml:35
+msgid "Maximize window vertically"
+msgstr "Maksimér vindue lodret"
+
+#: data/50-mutter-windows.xml:37
+msgid "Maximize window horizontally"
+msgstr "Maksimér vindue vandret"
+
+#: data/50-mutter-windows.xml:41 data/org.gnome.mutter.gschema.xml.in:166
+msgid "View split on left"
+msgstr "Delt visning venstre"
+
+#: data/50-mutter-windows.xml:45 data/org.gnome.mutter.gschema.xml.in:171
+msgid "View split on right"
+msgstr "Delt visning højre"
+
+#: data/org.gnome.mutter.gschema.xml.in:15
+msgid "Modifier to use for extended window management operations"
+msgstr "Modifikationstast til brug for udvidede vindueshåndteringsoperationer"
+
+#: data/org.gnome.mutter.gschema.xml.in:16
+msgid ""
+"This key will initiate the “overlay”, which is a combination window overview "
+"and application launching system. The default is intended to be the “Windows "
+"key” on PC hardware. It’s expected that this binding either the default or "
+"set to the empty string."
+msgstr ""
+"Denne nøgle vil klargøre “overlay”, som er en kombineret vinduesoversigt og "
+"programstartersystem. Standardværdien på PC-hardware er tiltænkt som "
+"“Windows”-tasten. Det forventes, at denne binding enten har standardværdien, "
+"eller er sat til den tomme streng."
+
+#: data/org.gnome.mutter.gschema.xml.in:28
+msgid "Attach modal dialogs"
+msgstr "Fastgør modaldialoger"
+
+#: data/org.gnome.mutter.gschema.xml.in:29
+msgid ""
+"When true, instead of having independent titlebars, modal dialogs appear "
+"attached to the titlebar of the parent window and are moved together with "
+"the parent window."
+msgstr ""
+"Når sand, vil modaldialoger hænge sammen med titellinjen af ophavsvinduet og "
+"flyttes sammen med dette, frem for at have uafhængige titellinjer."
+
+#: data/org.gnome.mutter.gschema.xml.in:38
+msgid "Enable edge tiling when dropping windows on screen edges"
+msgstr ""
+"Aktivér maksimering eller halvmaksimering når vinduer slippes over "
+"skærmranden"
+
+#: data/org.gnome.mutter.gschema.xml.in:39
+msgid ""
+"If enabled, dropping windows on vertical screen edges maximizes them "
+"vertically and resizes them horizontally to cover half of the available "
+"area. Dropping windows on the top screen edge maximizes them completely."
+msgstr ""
+"Hvis slået til, vil vinduer, der slippes på en lodret skærmrand, blive "
+"maksimeret lodret, og vil vandret blive tildelt halvdelen af det "
+"tilgængelige område. Vinduer, der slippes på øverste skærmrand, maksimeres "
+"helt."
+
+#: data/org.gnome.mutter.gschema.xml.in:48
+msgid "Workspaces are managed dynamically"
+msgstr "Arbejdsområder håndteres dynamisk"
+
+#: data/org.gnome.mutter.gschema.xml.in:49
+msgid ""
+"Determines whether workspaces are managed dynamically or whether there’s a "
+"static number of workspaces (determined by the num-workspaces key in "
+"org.gnome.desktop.wm.preferences)."
+msgstr ""
+"Afgør om arbejdsområderne håndteres dynamisk, eller om der er et statisk "
+"antal arbejdsområder (angivet med nøglen num-workspaces i "
+"org.gnome.desktop.wm.preferences)."
+
+#: data/org.gnome.mutter.gschema.xml.in:58
+msgid "Workspaces only on primary"
+msgstr "Arbejdsområder kun på primær skærm"
+
+#: data/org.gnome.mutter.gschema.xml.in:59
+msgid ""
+"Determines whether workspace switching should happen for windows on all "
+"monitors or only for windows on the primary monitor."
+msgstr ""
+"Angiver om skift mellem arbejdsområder skal ske for vinduer på alle skærme, "
+"eller kun for vinduer på den primære skærm."
+
+#: data/org.gnome.mutter.gschema.xml.in:67
+msgid "Delay focus changes until the pointer stops moving"
+msgstr "Lad fokusændringer vente indtil markøren holder op med at bevæge sig"
+
+#: data/org.gnome.mutter.gschema.xml.in:68
+msgid ""
+"If set to true, and the focus mode is either “sloppy” or “mouse” then the "
+"focus will not be changed immediately when entering a window, but only after "
+"the pointer stops moving."
+msgstr ""
+"Hvis sat til sand, og fokustilstanden er enten “sloppy” eller “mouse”, vil "
+"fokus ikke blive ændret omgående når man går ind i et nyt vindue, men først "
+"efter markøren holder op med at bevæge sig."
+
+#: data/org.gnome.mutter.gschema.xml.in:78
+msgid "Draggable border width"
+msgstr "Bredde af den trækbare kant"
+
+#: data/org.gnome.mutter.gschema.xml.in:79
+msgid ""
+"The amount of total draggable borders. If the theme’s visible borders are "
+"not enough, invisible borders will be added to meet this value."
+msgstr ""
+"Samlet mængde kant der kan trækkes. Hvis temaets synlige grænser ikke er "
+"nok, så vil usynlige kanter blive tilføjet for at møde denne værdi."
+
+#: data/org.gnome.mutter.gschema.xml.in:88
+msgid "Auto maximize nearly monitor sized windows"
+msgstr "Maksimér automatisk vinduer hvis størrelse næsten passer til skærmen"
+
+#: data/org.gnome.mutter.gschema.xml.in:89
+msgid ""
+"If enabled, new windows that are initially the size of the monitor "
+"automatically get maximized."
+msgstr ""
+"Hvis aktiveret vil nye vinduer, som i begyndelsen har samme størrelse som "
+"skærmen, blive automatisk maksimeret."
+
+#: data/org.gnome.mutter.gschema.xml.in:97
+msgid "Place new windows in the center"
+msgstr "Placér nye vinduer i midten"
+
+#: data/org.gnome.mutter.gschema.xml.in:98
+msgid ""
+"When true, the new windows will always be put in the center of the active "
+"screen of the monitor."
+msgstr ""
+"Når sand, vil nye vinduer altid blive placeret i midten af den aktive skærm."
+
+#: data/org.gnome.mutter.gschema.xml.in:107
+msgid "Enable experimental features"
+msgstr "Slå eksperimentelle funktioner til"
+
+#: data/org.gnome.mutter.gschema.xml.in:108
+msgid ""
+"To enable experimental features, add the feature keyword to the list. "
+"Whether the feature requires restarting the compositor depends on the given "
+"feature. Any experimental feature is not required to still be available, or "
+"configurable. Don’t expect adding anything in this setting to be future "
+"proof. Currently possible keywords: • “kms-modifiers” — makes mutter always "
+"allocate scanout buffers with explicit modifiers, if supported by the "
+"driver. Requires a restart. • “autoclose-xwayland” — automatically "
+"terminates Xwayland if all relevant X11 clients are gone. Requires a restart."
+msgstr "For at slå eksperimentelle funktioner til skal du tilføje funktionsnøgleordet til listen. Om funktionen kræver genstart af kompositoren afhænger af den givne funktion. Der er ingen garanti for, at eksperimentelle funktioner forbliver tilgængelige eller mulige at konfigurere. Forvent ikke, at noget i denne indstilling nødvendigvis fungerer i fremtiden. Mulige nøgleord i øjeblikket: • “kms-modifiers” — gør, at mutter altid allokerer scanoutbuffere med eksplicitte modifikatorer, hvis det understøttes af driveren. Kræver genstart. • “autoclose-xwayland” — afslutter automatisk Xwayland, hvis alle relevante X11-klienter er væk. Kræver genstart."
+
+#: data/org.gnome.mutter.gschema.xml.in:130
+msgid "Modifier to use to locate the pointer"
+msgstr "Modifikationstast til at finde markøren"
+
+#: data/org.gnome.mutter.gschema.xml.in:131
+msgid "This key will initiate the “locate pointer” action."
+msgstr "Denne tast starter handlingen “find markør”."
+
+#: data/org.gnome.mutter.gschema.xml.in:138
+msgid "Timeout for check-alive ping"
+msgstr "Tidsudløb for kontrolping"
+
+#: data/org.gnome.mutter.gschema.xml.in:139
+msgid ""
+"Number of milliseconds a client has to respond to a ping request in order to "
+"not be detected as frozen. Using 0 will disable the alive check completely."
+msgstr ""
+"Antal millisekunder en klient har til at svare på en pingforespørgsel for "
+"ikke at blive registreret som frosset. Med 0 vil forespørgslen være helt "
+"deaktiveret."
+
+#. TRANSLATORS: Luminance is different from brightness.
+#. See https://en.wikipedia.org/wiki/Luminance
+#: data/org.gnome.mutter.gschema.xml.in:150
+msgid "Per output luminance settings"
+msgstr "Outputspecifikke indstillinger for luminans"
+
+#: data/org.gnome.mutter.gschema.xml.in:151
+msgid ""
+"Per output and color mode luminance setting. Each entry consists of a tuple "
+"with connector, vendor, product, serial, and a color mode, as well as an "
+"associated floating point value representing the output luminance in percent "
+"(%). The default when not specified is 100%."
+msgstr ""
+"Outputspecifik farvetilstand og luminansindstilling. Hver indgang består af "
+"en tupel med connector, udbyder, produkt, serienummer og farvetilstand samt "
+"en tilknyttet flydende talværdi, som repræsenterer outputluminansen i "
+"procent (%). Standard er 100 % hvis ikke angivet."
+
+#: data/org.gnome.mutter.gschema.xml.in:176
+msgid "Switch monitor configurations"
+msgstr "Skift skærmkonfiguration"
+
+# Mærkelig ting at rotere.  De mener nok at skifte cyclisk mellem nogle stykker, men "built-in"?
+#: data/org.gnome.mutter.gschema.xml.in:181
+msgid "Rotates the built-in monitor configuration"
+msgstr "Roterer den indbyggede skærmkonfiguration"
+
+#: data/org.gnome.mutter.gschema.xml.in:186
+msgid "Cancel any active input capture session"
+msgstr "Afbryd eventuel aktiv inputoptagelsessession"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:12
+msgid "Switch to VT 1"
+msgstr "Skift til VT 1"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:16
+msgid "Switch to VT 2"
+msgstr "Skift til VT 2"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:20
+msgid "Switch to VT 3"
+msgstr "Skift til VT 3"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:24
+msgid "Switch to VT 4"
+msgstr "Skift til VT 4"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:28
+msgid "Switch to VT 5"
+msgstr "Skift til VT 5"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:32
+msgid "Switch to VT 6"
+msgstr "Skift til VT 6"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:36
+msgid "Switch to VT 7"
+msgstr "Skift til VT 7"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:40
+msgid "Switch to VT 8"
+msgstr "Skift til VT 8"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:44
+msgid "Switch to VT 9"
+msgstr "Skift til VT 9"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:48
+msgid "Switch to VT 10"
+msgstr "Skift til VT 10"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:52
+msgid "Switch to VT 11"
+msgstr "Skift til VT 11"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:56
+msgid "Switch to VT 12"
+msgstr "Skift til VT 12"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:60
+msgid "Re-enable shortcuts"
+msgstr "Genaktivér genveje"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:70
+msgid "Allow X11 grabs to lock keyboard focus with Xwayland"
+msgstr "Tillad X11-indfangelse at låse tastaturfokus med Xwayland"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:71
+msgid ""
+"Allow all keyboard events to be routed to X11 “override redirect” windows "
+"with a grab when running in Xwayland. This option is to support X11 clients "
+"which map an “override redirect” window (which do not receive keyboard "
+"focus) and issue a keyboard grab to force all keyboard events to that "
+"window. This option is seldom used and has no effect on regular X11 windows "
+"which can receive keyboard focus under normal circumstances. For a X11 grab "
+"to be taken into account under Wayland, the client must also either send a "
+"specific X11 ClientMessage to the root window or be among the applications "
+"allowed in key “xwayland-grab-access-rules”."
+msgstr ""
+"Tillad at alle tastaturbegivenheder sendes til X11-vinduer med “override "
+"redirect” via indfangelse ved kørsel i Xwayland. Denne indstilling er der "
+"for at understøtte X11-klienter, som afbilder et “override redirect”-vindue "
+"(som ikke modtager tastaturfokus) og udsende en tastaturindfangelse, som "
+"tvinger alle tastaturbegivenheder til dét vindue. Denne indstilling bruges "
+"sjældent, og har ingen virkning på normale X11-vinduer, som kan modtage "
+"tastaturfokus under normale omstændigheder. For at en X11-"
+"tastaturindfangelse behandles i Wayland, skal klienten også enten sende en "
+"specifik X11-ClientMessage til rodvinduet eller være blandt de godkendte "
+"programmer i nøglen “xwayland-grab-access-rules”."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:90
+msgid "Xwayland applications allowed to issue keyboard grabs"
+msgstr "Xwayland-programmer, som må indfange tastatur"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:91
+msgid ""
+"List the resource names or resource class of X11 windows either allowed or "
+"not allowed to issue X11 keyboard grabs under Xwayland. The resource name or "
+"resource class of a given X11 window can be obtained using the command "
+"“xprop WM_CLASS”. Wildcards “*” and jokers “?” in the values are supported. "
+"Values starting with “!” are denied, which has precedence over the list of "
+"values allowed, to revoke applications from the default system list. The "
+"default system list includes the following applications: "
+"“@XWAYLAND_GRAB_DEFAULT_ACCESS_RULES@” Users can break an existing grab by "
+"using the specific keyboard shortcut defined by the keybinding key “restore-"
+"shortcuts”."
+msgstr ""
+"Anfør navne på ressourcer eller ressourceklasser for X11-vinduer som "
+"tillades eller ikke tillades at udføre X11-tastaturindfangelse under "
+"Xwayland. Ressourcenavnet eller ressourceklassen for et givent X11-vindue "
+"kan findes med kommandoen “xprop WM_CLASS”. Værdierne understøtter "
+"jokertegnene “*” og “?”. Værdier som begynder med “!” forbydes, hvilket har "
+"forrang over godkendelse, og dette tillader at fjerne programmer, som ellers "
+"findes i systemets standardliste. Denne liste inkluderer følgende "
+"programmer: “@XWAYLAND_GRAB_DEFAULT_ACCESS_RULES@”. Brugere kan afbryde en "
+"eksisterende indfangelse ved hjælp af den særlige tastaturgenvej defineret "
+"ved nøglen “restore-shortcuts”."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:116
+msgid "Disable selected X extensions in Xwayland"
+msgstr "Deaktivér valgte X-udvidelser i Xwayland"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:117
+msgid ""
+"This option disables the selected X extensions in Xwayland if Xwayland was "
+"built with support for those X extensions. This option has no effect if "
+"Xwayland was built without support for the selected extensions. Xwayland "
+"needs to be restarted for this setting to take effect."
+msgstr ""
+"Denne indstilling deaktiverer de valgte X-udvidelser i Xwayland, hvis "
+"Xwayland blev kompileret med understøttelse af disse X-udvidelser. Denne "
+"indstilling har ingen virkning, hvis Xwayland blev kompileret uden "
+"understøttelse for disse udvidelser. Xwayland skal genstartes, for at denne "
+"indstilling træder i kraft."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:130
+msgid "Allow X11 clients with a different endianness to connect to Xwayland"
+msgstr "Tillad X11-klienter med forskellig endianness at forbinde til Xwayland"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:131
+msgid ""
+"Allow connections from clients with an endianness different to that of "
+"Xwayland. The X server byte-swapping code is a huge attack surface, much of "
+"that code in Xwayland is prone to security issues. The use-case of byte-"
+"swapped clients is very niche, and disabled by default in Xwayland. Enable "
+"this option to instruct Xwayland to accept connections from X11 clients with "
+"a different endianness. This option has no effect if Xwayland does not "
+"support the command line option +byteswappedclients/-byteswappedclients to "
+"control that setting. Xwayland needs to be restarted for this setting to "
+"take effect."
+msgstr ""
+"Tillad forbindelser fra klient med anden endianness end Xwaylands. X-"
+"serverens byteswapkode udgør en enorm angrebsoverflade — en stor del af "
+"denne kode i Xwayland er åben for sikkerhedsproblemer. Samtidig udgør "
+"byteswap i klienter en meget begrænset use case, og er som standard "
+"deaktiveret i Xwayland. Slå denne indstilling til for at få Xwayland til at "
+"acceptere forbindelser fra X11-klienter med anden endianness. Denne "
+"indstilling har ingen virkning, hvis Xwayland ikke understøtter "
+"kommandolinjetilvalget +byteswappedclients/-byteswappedclients, som styrer "
+"denne indstilling. Xwayland skal genstartes for, at denne ændring træder i "
+"kraft."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:154
+msgid "Configure the Xwayland scaling factor"
+msgstr "Konfigurér skaleringsfaktor for Xwayland"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:155
+msgid ""
+"Scale the Xwayland coordinate space according to this factor. This will "
+"affect what scale HiDPI capable X11 clients will present themselves as, and "
+"how the compositor scales X11 client windows. Setting the scale to 0 means "
+"the scale will be automatically calculated. The scale will as of now be "
+"rounded to the closest integer."
+msgstr "Skalér Xwayland-koordinatrummet med denne faktor. Dette påvirker skaleringen, som rapporteres af X11-klienter med HiDPI-understøttelse, og hvordan kompositoren skalerer X11-klientvinduer. Hvis skaleringen sættes til 0, beregnes den automatisk. Skaleringen afrundes pt. til nærmeste heltal."
+
+#: mdk/mdk-launcher-adder.c:451 mdk/mdk-launcher-adder.ui:22
+msgid "Application"
+msgstr "Program"
+
+#: mdk/mdk-launcher-adder.c:456 mdk/mdk-launcher-adder.ui:23
+msgid "Executable"
+msgstr "Kørbar fil"
+
+#: mdk/mdk-launcher-adder.ui:3
+msgid "Add Launcher"
+msgstr "Tilføj programstarter"
+
+#: mdk/mdk-launcher-adder.ui:15
+msgid "Launcher"
+msgstr "Programstarter"
+
+#: mdk/mdk-launcher-adder.ui:18
+msgid "Type"
+msgstr "Type"
+
+#: mdk/mdk-launcher-adder.ui:38 mdk/mdk-launchers-editor.ui:22
+msgid "Add"
+msgstr "Tilføj"
+
+#: mdk/mdk-launcher-entry.c:198
+msgid "Run"
+msgstr "Kør"
+
+#: mdk/mdk-launcher-entry.ui:12
+msgid "Delete"
+msgstr "Slet"
+
+#: mdk/mdk-launcher-entry.ui:20
+msgid "Action"
+msgstr "Handling"
+
+#: mdk/mdk-launchers-editor.ui:3
+msgid "Edit Launchers"
+msgstr "Redigér programstartere"
+
+#: mdk/mdk-launchers-editor.ui:16
+msgid "Launchers"
+msgstr "Programstartere"
+
+#: mdk/mdk-main-window.ui:7
+msgid "_Input"
+msgstr "_Input"
+
+#: mdk/mdk-main-window.ui:9
+msgid "_Emulate touch"
+msgstr "_Emulér berøring"
+
+#: mdk/mdk-main-window.ui:13
+msgid "_Inhibit system shortcuts"
+msgstr "_Hindr systemgenveje"
+
+#: mdk/mdk-main-window.ui:17
+msgid "Use host _keymap"
+msgstr "Brug værtssystems _tasteafbildning"
+
+#: mdk/mdk-main-window.ui:24
+msgid "_Monitors"
+msgstr "_Skærme"
+
+#: mdk/mdk-main-window.ui:26
+msgid "_Add monitor"
+msgstr "_Tilføj skærm"
+
+#: mdk/mdk-main-window.ui:30
+msgid "_Emulate monitor modes"
+msgstr "_Emulér skærmtilstande"
+
+#: mdk/mdk-main-window.ui:37
+msgid "_Launchers"
+msgstr "_Programstartere"
+
+#: mdk/mdk-main-window.ui:41
+msgid "_Edit launchers"
+msgstr "_Redigér programstartere"
+
+#: mdk/mdk-main-window.ui:48
+msgid "_About Mutter Development Kit"
+msgstr "_Om Udviklingsværktøjskassen Mutter"
+
+#: mdk/mdk-main-window.ui:54 mdk/mdk-main.c:56
+msgid "Mutter Development Kit"
+msgstr "Udviklingsværktøjskassen Mutter"
+
+#: mdk/mdk-main-window.ui:64
+msgid "Main Menu"
+msgstr "Hovedmenu"
+
+#: mdk/mdk-main.c:49
+msgid "The Mutter Team"
+msgstr "Mutter-gruppen"
+
+#: mdk/mdk-main.c:62
+msgid "Mutter software development kit"
+msgstr "Udviklingsværktøjskassen Mutter"
+
+#: mdk/mdk-main.c:65
+msgid "About Mutter Development Kit"
+msgstr "Om udviklingsværktøjskassen Mutter"
+
+#: mdk/mdk-monitor.c:557
+msgid "Failed to create monitor"
+msgstr "Kunne ikke oprette skærm"
+
+#: src/backends/meta-monitor.c:285
+msgid "Built-in display"
+msgstr "Indbygget skærm"
+
+#: src/backends/meta-monitor.c:312
+msgid "Unknown"
+msgstr "Ukendt"
+
+#: src/backends/meta-monitor.c:314
+msgid "Unknown Display"
+msgstr "Ukendt skærm"
+
+#: src/backends/meta-monitor.c:322
+#, c-format
+msgctxt ""
+"This is a monitor vendor name, followed by a size in inches, like 'Dell 15\"'"
+msgid "%s %s"
+msgstr "%s %s"
+
+#: src/backends/meta-monitor.c:330
+#, c-format
+msgctxt ""
+"This is a monitor vendor name followed by product/model name where size in "
+"inches could not be calculated, e.g. Dell U2414H"
+msgid "%s %s"
+msgstr "%s %s"
+
+#: src/core/bell.c:237
+msgid "Bell event"
+msgstr "Bip-hændelse"
+
+#: src/core/display.c:608
+msgid "Privacy Screen Enabled"
+msgstr "Privatlivsskærm aktiveret"
+
+#: src/core/display.c:609
+msgid "Privacy Screen Disabled"
+msgstr "Privatlivsskærm deaktiveret"
+
+#: src/core/meta-context-main.c:356
+msgid "Run as a wayland compositor"
+msgstr "Kør som en wayland-kompositor"
+
+#: src/core/meta-context-main.c:363
+msgid "Run wayland compositor without starting Xwayland"
+msgstr "Kør wayland-kompositoren uden at starte Xwayland"
+
+#: src/core/meta-context-main.c:370
+msgid "Specify Wayland display name to use"
+msgstr "Angiv Wayland-visningsnavnet, der skal bruges"
+
+#: src/core/meta-context-main.c:377
+msgid "Run as a full display server, rather than nested"
+msgstr "Kør som fuld terminalserver, frem for indlejret"
+
+#: src/core/meta-context-main.c:382
+msgid "Run as a headless display server"
+msgstr "Kør som headless terminalserver"
+
+#: src/core/meta-context-main.c:387
+msgid "Add persistent virtual monitor (WxH or WxH@R)"
+msgstr "Tilføj persistent virtuel skærm (WxH eller WxH@R)"
+
+#: src/core/meta-context-main.c:394
+msgid "Run development kit"
+msgstr "Kør udviklingsværktøjskasse"
+
+#: src/core/meta-context-main.c:405
+msgid "Profile performance using trace instrumentation"
+msgstr "Mål ydelse ved hjælp af funktionsstak-instrumentering (trace)"
+
+#: src/core/meta-context-main.c:411
+msgid "Enable debug control D-Bus interface"
+msgstr "Slå D-Bus-grænsefladen med fejlsøgningskontrol til"
+
+#. TRANSLATORS: This string refers to a button that switches between
+#. * different modes in that button group.
+#.
+#: src/core/meta-pad-action-mapper.c:617
+#, c-format
+msgid "Mode Switch (Group %d)"
+msgstr "Tilstandsskift (Gruppe %d)"
+
+#. TRANSLATORS: This string refers to a button that switches between
+#. * different modes.
+#.
+#: src/core/meta-pad-action-mapper.c:624
+#, c-format
+msgid "Mode Switch"
+msgstr "Tilstandsskift"
+
+#. TRANSLATORS: This string refers to an action, cycles drawing tablets'
+#. * mapping through the available outputs.
+#.
+#: src/core/meta-pad-action-mapper.c:647
+msgid "Switch monitor"
+msgstr "Skift skærm"
+
+#: src/core/meta-pad-action-mapper.c:649
+msgid "Show on-screen help"
+msgstr "Vis integreret hjælp"
+
+#. Translators: this string will appear in Sysprof
+#: src/core/meta-profiler.c:109 src/core/meta-profiler.c:299
+msgid "Compositor"
+msgstr "Kompositor"
+
+#: src/core/mutter.c:75
+msgid "Print version"
+msgstr "Vis version"
+
+#: src/core/mutter.c:81
+msgid "Mutter plugin to use"
+msgstr "Mutter-udvidelsesmodul der skal bruges"
+
+#: src/core/prefs.c:1874
+#, c-format
+msgid "Workspace %d"
+msgstr "Arbejdsområde %d"
+
+#: src/core/util.c:149
+msgid "Mutter was compiled without support for verbose mode"
+msgstr "Mutter blev kompileret uden understøttelse for uddybende tilstand"
+
+#: src/core/workspace.c:510
+msgid "Workspace switched"
+msgstr "Skiftede arbejdsområde"
+
+#: src/wayland/meta-wayland-tablet-pad.c:558
+#, c-format
+msgid "Mode Switch: Mode %d"
+msgstr "Tilstandsskift: Tilstand %d"
+
+#: src/x11/meta-x11-display.c:776
+#, c-format
+msgid "Display “%s” already has a window manager"
+msgstr "Terminalen “%s” har allerede en vindueshåndtering"
+
+#: src/x11/meta-x11-display.c:1139
+#, c-format
+msgid "Failed to open X Window System display “%s”"
+msgstr "Kunne ikke åbne X Window System-terminalen “%s”"
+
+#: src/x11/meta-x11-display.c:1284
+#, c-format
+msgid "Screen %d on display “%s” is invalid"
+msgstr "Skærm %d på terminal “%s” er ugyldig"
+
+#. This probably means that a non-WM compositor like xcompmgr is running;
+#. * we have no way to get it to exit
+#: src/x11/meta-x11-display.c:2469
+#, c-format
+msgid ""
+"Another compositing manager is already running on screen %i on display “%s”."
+msgstr "Der kører allerede en anden kompositor på skærm %i på terminal “%s”."
+
+#: src/x11/meta-x11-selection-input-stream.c:475
+#, c-format
+msgid "Format %s not supported"
+msgstr "Formatet %s understøttes ikke"
+
+# Lad os håbe dette er rigtigt
+#: src/x11/window-props.c:562
+#, c-format
+msgid "%s (on %s)"
+msgstr "%s (på %s)"
+
+#~ msgid "Replace the running window manager"
+#~ msgstr "Erstat den kørende vindueshåndtering"
+
+#~ msgid "X Display to use"
+#~ msgstr "X-terminal som bruges"
+
+#~ msgid "Make X calls synchronous"
+#~ msgstr "Gør kald til X synkrone"
+
+#~ msgid "Run as a nested compositor"
+#~ msgstr "Kør som en indlejret kompositor"
+
+#~ msgid "Run with X11 backend"
+#~ msgstr "Kør med X11-motor"
+
+#, c-format
+#~ msgid ""
+#~ "Display “%s” already has a window manager; try using the --replace option "
+#~ "to replace the current window manager."
+#~ msgstr ""
+#~ "Terminalen “%s” har allerede en vindueshåndtering; prøv tilvalget --"
+#~ "replace for at erstatte den aktuelle vindueshåndtering."
+
+#~ msgid "Disable connection to session manager"
+#~ msgstr "Deaktivér forbindelse til sessionshåndtering"
+
+#~ msgid "Specify session management ID"
+#~ msgstr "Angiv sessionhåndterings-id"
+
+#~ msgid "Initialize session from savefile"
+#~ msgstr "Initialisér session fra gemt fil"
+
+#~ msgid "Move to workspace above"
+#~ msgstr "Flyt til arbejdsområdet ovenover"
+
+#~ msgid "Move to workspace below"
+#~ msgstr "Flyt til arbejdsområdet nedenunder"
+
+#~ msgid "Failed to initialize GDK"
+#~ msgstr "Kunne ikke klargøre GDK"
+
+#~ msgid "Mutter"
+#~ msgstr "Mutter"
+
+#~ msgid "No tab popup"
+#~ msgstr "Ingen tab-pop-op"
+
+#~ msgid ""
+#~ "Determines whether the use of popup and highlight frame should be "
+#~ "disabled for window cycling."
+#~ msgstr ""
+#~ "Afgør om brugen af pop-op og fremhævet vinduesramme skal deaktiveres ved "
+#~ "vinduesskifte."
+
+#~ msgid "Select window from tab popup"
+#~ msgstr "Vælg vindue fra tab-pop-op"
+
+#~ msgid "Cancel tab popup"
+#~ msgstr "Annullér faneblads-pop-op"
+
+#, c-format
+#~ msgid "“%s” is not responding."
+#~ msgstr "“%s” svarer ikke."
+
+#~ msgid "Application is not responding."
+#~ msgstr "Program svarer ikke."
+
+#~ msgid ""
+#~ "You may choose to wait a short while for it to continue or force the "
+#~ "application to quit entirely."
+#~ msgstr ""
+#~ "Du kan vælge at vente et lille stykke tid på at programmet fortsætter, "
+#~ "eller du kan tvinge programmet til at afslutte fuldstændigt."
+
+#~ msgid "_Force Quit"
+#~ msgstr "_Tving til at afslutte"
+
+#~ msgid "_Wait"
+#~ msgstr "_Vent"
+
+#~ msgid ""
+#~ "These windows do not support “save current setup” and will have to be "
+#~ "restarted manually next time you log in."
+#~ msgstr ""
+#~ "Disse vinduer understøtter ikke at gemme deres opsætning og skal "
+#~ "genstartes manuelt næste gang, du logger på."
+
+#~ msgid "X display to use"
+#~ msgstr "X-terminal som bruges"
+
+#~ msgid "X screen to use"
+#~ msgstr "X-skærm som bruges"
+
+#~ msgid "Disable XInput support"
+#~ msgstr "Deaktivér understøttelse af XInput"
+
+#~ msgid "Show the activities overview"
+#~ msgstr "Vis aktivitetsoversigten"
+
+#~ msgid ""
+#~ "mutter %s\n"
+#~ "Copyright © 2001-%d Havoc Pennington, Red Hat, Inc., and others\n"
+#~ "This is free software; see the source for copying conditions.\n"
+#~ "There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A "
+#~ "PARTICULAR PURPOSE.\n"
+#~ msgstr ""
+#~ "mutter %s\n"
+#~ "Copyright © 2001–%d Havoc Pennington, Red Hat, Inc., og andre\n"
+#~ "Dette er frit programmel; se kildekoden for kopieringsbetingelser.\n"
+#~ "Der er INGEN garanti; ikke engang for SALGBARHED eller EGNETHED TIL ET "
+#~ "BESTEMT FORMÅL.\n"
+
+#~ msgid "Toggle shaded state"
+#~ msgstr "Slå vinduesoprulning til/fra"
+
+#~ msgid ""
+#~ "Could not find a theme! Be sure %s exists and contains the usual themes.\n"
+#~ msgstr ""
+#~ "Kunne ikke finde et tema! Sikr dig at %s eksisterer og indeholder de "
+#~ "sædvanlige temaer.\n"
+
+#~ msgid "%d x %d"
+#~ msgstr "%d x %d"
+
+#~ msgid "top"
+#~ msgstr "top"
+
+#~ msgid "bottom"
+#~ msgstr "bund"
+
+#~ msgid "left"
+#~ msgstr "venstre"
+
+#~ msgid "right"
+#~ msgstr "højre"
+
+#~ msgid "frame geometry does not specify \"%s\" dimension"
+#~ msgstr "rammegeometri angiver ikke dimensionen “%s”"
+
+#~ msgid "frame geometry does not specify dimension \"%s\" for border \"%s\""
+#~ msgstr "rammegeometri angiver ikke dimensionen “%s” for kanten “%s”"
+
+#~ msgid "Button aspect ratio %g is not reasonable"
+#~ msgstr "Knapformatforholdet %g er ikke fornuftigt"
+
+#~ msgid "Frame geometry does not specify size of buttons"
+#~ msgstr "Rammegeometri angiver ikke størrelsen af knapper"
+
+#~ msgid "Gradients should have at least two colors"
+#~ msgstr "Farveovergange skal mindst have to farver"
+
+#~ msgid ""
+#~ "GTK custom color specification must have color name and fallback in "
+#~ "parentheses, e.g. gtk:custom(foo,bar); could not parse \"%s\""
+#~ msgstr ""
+#~ "Specifikation for tilpasset GTK-farve skal have et farvenavn og standard "
+#~ "i parentes f.eks. gtk:custom(foo,bar); kunne ikke fortolke “%s”"
+
+#~ msgid ""
+#~ "Invalid character '%c' in color_name parameter of gtk:custom, only A-Za-"
+#~ "z0-9-_ are valid"
+#~ msgstr ""
+#~ "Ugyldigt tegn “%c” i parameteren color_name for gtk:custom, kun A-Za-z0-9-"
+#~ "_ er gyldig"
+
+#~ msgid ""
+#~ "Gtk:custom format is \"gtk:custom(color_name,fallback)\", \"%s\" does not "
+#~ "fit the format"
+#~ msgstr ""
+#~ "Gtk:custom-formatet er “gtk:custom(color_name,fallback)”, “%s” passer "
+#~ "ikke med formatet"
+
+#~ msgid ""
+#~ "GTK color specification must have the state in brackets, e.g. "
+#~ "gtk:fg[NORMAL] where NORMAL is the state; could not parse \"%s\""
+#~ msgstr ""
+#~ "GTK-farvespecifikation skal have tilstanden i firkantede klammer, f.eks. "
+#~ "gtk:fg[NORMAL] hvor NORMAL er tilstanden; kunne ikke fortolke “%s”"
+
+#~ msgid ""
+#~ "GTK color specification must have a close bracket after the state, e.g. "
+#~ "gtk:fg[NORMAL] where NORMAL is the state; could not parse \"%s\""
+#~ msgstr ""
+#~ "GTK-farvespecifikation skal have en afsluttende klamme efter tilstanden, "
+#~ "f.eks. gtk:fg[NORMAL] hvor NORMAL er tilstanden; kunne ikke fortolke “%s”"
+
+#~ msgid "Did not understand state \"%s\" in color specification"
+#~ msgstr "Forstod ikke tilstanden “%s” i farvespecifikationen"
+
+#~ msgid "Did not understand color component \"%s\" in color specification"
+#~ msgstr "Forstod ikke farvekomponenten “%s” i farvespecifikationen"
+
+#~ msgid ""
+#~ "Blend format is \"blend/bg_color/fg_color/alpha\", \"%s\" does not fit "
+#~ "the format"
+#~ msgstr ""
+#~ "Blandingsformat er “blend/bg_color/fg_color/alpha”, “%s” passer ikke med "
+#~ "formatet"
+
+#~ msgid "Could not parse alpha value \"%s\" in blended color"
+#~ msgstr "Kunne ikke fortolke alfaværdien “%s” i blandet farve"
+
+#~ msgid "Alpha value \"%s\" in blended color is not between 0.0 and 1.0"
+#~ msgstr "Alfaværdien “%s” i blandet farve er ikke mellem 0,0 og 1,0"
+
+#~ msgid ""
+#~ "Shade format is \"shade/base_color/factor\", \"%s\" does not fit the "
+#~ "format"
+#~ msgstr ""
+#~ "Skyggeformat er “shade/base_color/factor”, “%s” passer ikke med formatet"
+
+#~ msgid "Could not parse shade factor \"%s\" in shaded color"
+#~ msgstr "Kunne ikke fortolke skyggeværdien “%s” i skygget farve"
+
+#~ msgid "Shade factor \"%s\" in shaded color is negative"
+#~ msgstr "Skyggefaktoren “%s” i skygget farve er negativ"
+
+#~ msgid "Could not parse color \"%s\""
+#~ msgstr "Kunne ikke fortolke farven “%s”"
+
+#~ msgid "Coordinate expression contains character '%s' which is not allowed"
+#~ msgstr "Koordinatudtryk indeholder tegnet “%s” som ikke er tilladt"
+
+#~ msgid ""
+#~ "Coordinate expression contains floating point number '%s' which could not "
+#~ "be parsed"
+#~ msgstr "Koordinatudtryk indeholder kommatallet “%s” som ikke kunne tolkes"
+
+#~ msgid ""
+#~ "Coordinate expression contains integer '%s' which could not be parsed"
+#~ msgstr "Koordinatudtryk indeholder heltallet “%s” som ikke kunne tolkes"
+
+#~ msgid ""
+#~ "Coordinate expression contained unknown operator at the start of this "
+#~ "text: \"%s\""
+#~ msgstr ""
+#~ "Koordinatudtryk indeholdt en ukendt operator i begyndelsen af teksten: "
+#~ "“%s”"
+
+#~ msgid "Coordinate expression was empty or not understood"
+#~ msgstr "Koordinatudtrykket var tomt eller blev ikke forstået"
+
+#~ msgid "Coordinate expression results in division by zero"
+#~ msgstr "Koordinatudtrykket resulterer i division med nul"
+
+#~ msgid ""
+#~ "Coordinate expression tries to use mod operator on a floating-point number"
+#~ msgstr "Koordinatudtrykket prøver at bruge modulo-operator på et kommatal"
+
+#~ msgid ""
+#~ "Coordinate expression has an operator \"%s\" where an operand was expected"
+#~ msgstr "Koordinatudtrykket har en operator “%s” hvor en operand var ventet"
+
+#~ msgid "Coordinate expression had an operand where an operator was expected"
+#~ msgstr "Koordinatudtrykket havde en operand hvor en operator var ventet"
+
+#~ msgid "Coordinate expression ended with an operator instead of an operand"
+#~ msgstr "Koordinatudtrykket sluttede med en operator i stedet for en operand"
+
+#~ msgid ""
+#~ "Coordinate expression has operator \"%c\" following operator \"%c\" with "
+#~ "no operand in between"
+#~ msgstr ""
+#~ "Koordinatudtrykket har en operator “%c” efter en operator “%c” og ingen "
+#~ "operand mellem dem"
+
+#~ msgid "Coordinate expression had unknown variable or constant \"%s\""
+#~ msgstr "Koordinatudtrykket havde en ukendt variabel eller konstant “%s”"
+
+#~ msgid "Coordinate expression parser overflowed its buffer."
+#~ msgstr "Koordinatudtryksfortolkeren har fået bufferoverløb."
+
+#~ msgid ""
+#~ "Coordinate expression had a close parenthesis with no open parenthesis"
+#~ msgstr "Koordinatudtrykket havde en slutparantes uden startparantes"
+
+#~ msgid ""
+#~ "Coordinate expression had an open parenthesis with no close parenthesis"
+#~ msgstr "Koordinatudtrykket havde en startparantes uden en slutparantes"
+
+#~ msgid "Coordinate expression doesn't seem to have any operators or operands"
+#~ msgstr ""
+#~ "Koordinatudtrykket ser ikke ud til at have nogen operatorer eller "
+#~ "operander"
+
+#~ msgid "Theme contained an expression that resulted in an error: %s\n"
+#~ msgstr "Tema indeholdt et udtryk som resulterede i en fejl: %s\n"
+
+#~ msgid ""
+#~ "<button function=\"%s\" state=\"%s\" draw_ops=\"whatever\"/> must be "
+#~ "specified for this frame style"
+#~ msgstr ""
+#~ "<button function=\"%s\" state=\"%s\" draw_ops=\"et-eller-andet\"/> skal "
+#~ "angives for denne rammestil"
+
+#~ msgid ""
+#~ "Missing <frame state=\"%s\" resize=\"%s\" focus=\"%s\" style=\"whatever\"/"
+#~ ">"
+#~ msgstr ""
+#~ "Manglende <frame state=\"%s\" resize=\"%s\" focus=\"%s\" style=\"et-eller-"
+#~ "andet\"/>"
+
+#~ msgid "Failed to load theme \"%s\": %s\n"
+#~ msgstr "Kunne ikke indlæse temaet “%s”: %s\n"
+
+#~ msgid "No <%s> set for theme \"%s\""
+#~ msgstr "Ingen <%s> angivet for temaet \"%s\""
+
+#~ msgid ""
+#~ "No frame style set for window type \"%s\" in theme \"%s\", add a <window "
+#~ "type=\"%s\" style_set=\"whatever\"/> element"
+#~ msgstr ""
+#~ "Ingen rammestil angivet for vinduestypen \"%s\" i temaet \"%s\", tilføj "
+#~ "et <window type=\"%s\" style_set=\"et-eller-andet\"/>-element"
+
+#~ msgid ""
+#~ "User-defined constants must begin with a capital letter; \"%s\" does not"
+#~ msgstr ""
+#~ "Brugerdefinerede konstanter skal begynde med et stort bogstav; det gør "
+#~ "“%s” ikke"
+
+#~ msgid "Constant \"%s\" has already been defined"
+#~ msgstr "Konstanten “%s” er allerede defineret"
+
+#~ msgid "No \"%s\" attribute on element <%s>"
+#~ msgstr "Ingen \"%s\"-egenskab i elementet <%s>"
+
+#~ msgid "Line %d character %d: %s"
+#~ msgstr "Linje %d tegn %d: %s"
+
+#~ msgid "Attribute \"%s\" repeated twice on the same <%s> element"
+#~ msgstr "Egenskaben \"%s\" er gentaget to gange i det samme <%s>-element"
+
+#~ msgid "Attribute \"%s\" is invalid on <%s> element in this context"
+#~ msgstr "Egenskaben \"%s\" er ugyldig i <%s>-elementet i denne sammenhæng"
+
+#~ msgid "Could not parse \"%s\" as an integer"
+#~ msgstr "Kunne ikke fortolke “%s” som et heltal"
+
+#~ msgid "Did not understand trailing characters \"%s\" in string \"%s\""
+#~ msgstr "Forstod ikke de afsluttende tegn “%s” i tekststrengen “%s”"
+
+#~ msgid "Integer %ld must be positive"
+#~ msgstr "Heltallet %ld skal være positivt"
+
+#~ msgid "Integer %ld is too large, current max is %d"
+#~ msgstr "Heltallet %ld er for stort, det nuværende maksimum er %d"
+
+#~ msgid "Could not parse \"%s\" as a floating point number"
+#~ msgstr "Kunne ikke fortolke “%s” som et kommatal"
+
+#~ msgid "Boolean values must be \"true\" or \"false\" not \"%s\""
+#~ msgstr "Booleske værdier skal være “true” eller “false” ikke “%s”"
+
+#~ msgid "Angle must be between 0.0 and 360.0, was %g\n"
+#~ msgstr "Vinkel skal være mellem 0.0 og 360.0, var %g\n"
+
+#~ msgid ""
+#~ "Alpha must be between 0.0 (invisible) and 1.0 (fully opaque), was %g\n"
+#~ msgstr ""
+#~ "Alfa skal være mellem 0.0 (usynlig) og 1.0 (helt ugennemsigtig), var %g\n"
+
+#~ msgid ""
+#~ "Invalid title scale \"%s\" (must be one of xx-small,x-"
+#~ "small,small,medium,large,x-large,xx-large)\n"
+#~ msgstr ""
+#~ "Ugyldig titelskalering “%s” (skal være en af xx-small,x-"
+#~ "small,small,medium,large,x-large,xx-large)\n"
+
+#~ msgid "<%s> name \"%s\" used a second time"
+#~ msgstr "<%s>-navnet \"%s\" brugt to gange"
+
+#~ msgid "<%s> parent \"%s\" has not been defined"
+#~ msgstr "<%s>-ophavet \"%s\" er ikke blevet defineret"
+
+#~ msgid "<%s> geometry \"%s\" has not been defined"
+#~ msgstr "<%s>-geometrien \"%s\" er ikke blevet defineret"
+
+#~ msgid "<%s> must specify either a geometry or a parent that has a geometry"
+#~ msgstr ""
+#~ "<%s> skal enten angive en geometri eller et ophav der har en geometri"
+
+#~ msgid "You must specify a background for an alpha value to be meaningful"
+#~ msgstr "Du skal angive en baggrund hvis en alfaværdi skal være meningsfuld"
+
+#~ msgid "Unknown type \"%s\" on <%s> element"
+#~ msgstr "Ukendt type \"%s\" i <%s>-element"
+
+#~ msgid "Unknown style_set \"%s\" on <%s> element"
+#~ msgstr "Ukendt style_set \"%s\" i <%s>-element"
+
+#~ msgid "Window type \"%s\" has already been assigned a style set"
+#~ msgstr "Vinduestypen “%s” er allerede blevet tildelt et stilsæt"
+
+#~ msgid "Element <%s> is not allowed below <%s>"
+#~ msgstr "Elementet <%s> er ikke tilladt under <%s>"
+
+#~ msgid ""
+#~ "Cannot specify both \"button_width\"/\"button_height\" and "
+#~ "\"aspect_ratio\" for buttons"
+#~ msgstr ""
+#~ "Kan ikke angive både “button_width”/“button_height” og “aspect_ratio” for "
+#~ "knapper"
+
+#~ msgid "Distance \"%s\" is unknown"
+#~ msgstr "Afstanden “%s” er ukendt"
+
+#~ msgid "Aspect ratio \"%s\" is unknown"
+#~ msgstr "Formatforholdet “%s” er ukendt"
+
+#~ msgid "Border \"%s\" is unknown"
+#~ msgstr "Kanten “%s” er ukendt"
+
+#~ msgid "No \"start_angle\" or \"from\" attribute on element <%s>"
+#~ msgstr "Ingen \"start_angle\"- eller \"from\"-egenskab på elementet <%s>"
+
+#~ msgid "No \"extent_angle\" or \"to\" attribute on element <%s>"
+#~ msgstr "Ingen \"extent_angle\"- eller \"to\"-egenskab på elementet <%s>"
+
+#~ msgid "Did not understand value \"%s\" for type of gradient"
+#~ msgstr "Forstod ikke værdien “%s” for farveovergangstypen"
+
+#~ msgid "Did not understand fill type \"%s\" for <%s> element"
+#~ msgstr "Forstod ikke fyldtypen \"%s\" for <%s>-elementet"
+
+#~ msgid "Did not understand state \"%s\" for <%s> element"
+#~ msgstr "Forstod ikke tilstanden \"%s\" for <%s>-elementet"
+
+#~ msgid "Did not understand shadow \"%s\" for <%s> element"
+#~ msgstr "Forstod ikke skyggen \"%s\" for <%s>-elementet"
+
+#~ msgid "Did not understand arrow \"%s\" for <%s> element"
+#~ msgstr "Forstod ikke pilen \"%s\" for <%s>-elementet"
+
+#~ msgid "No <draw_ops> called \"%s\" has been defined"
+#~ msgstr "Ingen <draw_ops> med navnet \"%s\" er blevet defineret"
+
+#~ msgid "Including draw_ops \"%s\" here would create a circular reference"
+#~ msgstr "Medtagelse af draw_ops “%s” ville skabe en cirkulær reference"
+
+#~ msgid "Unknown position \"%s\" for frame piece"
+#~ msgstr "Ukendt position “%s” for rammestykke"
+
+#~ msgid "Frame style already has a piece at position %s"
+#~ msgstr "Rammestil har allerede et stykke på position %s"
+
+#~ msgid "No <draw_ops> with the name \"%s\" has been defined"
+#~ msgstr "Ingen <draw_ops> med navnet \"%s\" er blevet defineret"
+
+#~ msgid "Unknown function \"%s\" for button"
+#~ msgstr "Ukendt funktion “%s” for knap"
+
+#~ msgid "Button function \"%s\" does not exist in this version (%d, need %d)"
+#~ msgstr "Knapfunktionen “%s” findes ikke i denne version (%d, kræver %d)"
+
+#~ msgid "Unknown state \"%s\" for button"
+#~ msgstr "Ukendt tilstand “%s” for knap"
+
+#~ msgid "Frame style already has a button for function %s state %s"
+#~ msgstr "Rammestil har allerede en knap for funktion %s tilstand %s"
+
+#~ msgid "\"%s\" is not a valid value for focus attribute"
+#~ msgstr "“%s” er ikke en gyldig værdi for fokusegenskaben"
+
+#~ msgid "\"%s\" is not a valid value for state attribute"
+#~ msgstr "“%s” er ikke en gyldig værdi for tilstandsegenskaben"
+
+#~ msgid "A style called \"%s\" has not been defined"
+#~ msgstr "En stil ved navn “%s” er ikke blevet defineret"
+
+#~ msgid "\"%s\" is not a valid value for resize attribute"
+#~ msgstr "“%s” er ikke en gyldig værdi for størrelsesændringsegenskaben"
+
+#~ msgid ""
+#~ "Should not have \"resize\" attribute on <%s> element for maximized/shaded "
+#~ "states"
+#~ msgstr ""
+#~ "Skal ikke have en \"resize\"-egenskab i <%s>-elementet for maksimerede/"
+#~ "oprullede tilstande"
+
+#~ msgid ""
+#~ "Should not have \"resize\" attribute on <%s> element for maximized states"
+#~ msgstr ""
+#~ "Skal ikke have en \"resize\"-egenskab i <%s>-elementet for maksimerede "
+#~ "tilstande"
+
+#~ msgid "Style has already been specified for state %s resize %s focus %s"
+#~ msgstr ""
+#~ "Stilen er allerede blevet angivet for tilstand %s størrelsesændring %s "
+#~ "fokus %s"
+
+#~ msgid "Style has already been specified for state %s focus %s"
+#~ msgstr "Stilen er allerede blevet angivet for tilstand %s fokus %s"
+
+#~ msgid ""
+#~ "Can't have a two draw_ops for a <piece> element (theme specified a "
+#~ "draw_ops attribute and also a <draw_ops> element, or specified two "
+#~ "elements)"
+#~ msgstr ""
+#~ "Kan ikke have to draw_ops for et <piece>-element (tema angav en draw_ops "
+#~ "egenskab og også et <draw_ops>-element, eller angav to elementer)"
+
+#~ msgid ""
+#~ "Can't have a two draw_ops for a <button> element (theme specified a "
+#~ "draw_ops attribute and also a <draw_ops> element, or specified two "
+#~ "elements)"
+#~ msgstr ""
+#~ "Kan ikke have to draw_ops for et <button>-element (tema angav en draw_ops "
+#~ "egenskab og også et <draw_ops>-element, eller angav to elementer)"
+
+#~ msgid ""
+#~ "Can't have a two draw_ops for a <menu_icon> element (theme specified a "
+#~ "draw_ops attribute and also a <draw_ops> element, or specified two "
+#~ "elements)"
+#~ msgstr ""
+#~ "Kan ikke have to draw_ops for et <menu_icon>-element (tema angav en "
+#~ "draw_ops egenskab og også et <draw_ops>-element, eller angav to elementer)"
+
+#~ msgid "Bad version specification '%s'"
+#~ msgstr "Ugyldig versionsangivelse “%s”"
+
+#~ msgid ""
+#~ "\"version\" attribute cannot be used in metacity-theme-1.xml or metacity-"
+#~ "theme-2.xml"
+#~ msgstr ""
+#~ "Egenskaben “version” kan ikke bruges i metacity-theme-1.xml eller "
+#~ "metacity-theme-2.xml"
+
+#~ msgid ""
+#~ "Theme requires version %s but latest supported theme version is %d.%d"
+#~ msgstr ""
+#~ "Temaet kræver version %s, men sidste understøttede temaversion er %d.%d"
+
+#~ msgid "Outermost element in theme must be <metacity_theme> not <%s>"
+#~ msgstr "Det yderste element i temaet skal være <metacity_theme> ikke <%s>"
+
+#~ msgid ""
+#~ "Element <%s> is not allowed inside a name/author/date/description element"
+#~ msgstr ""
+#~ "Elementet <%s> er ikke tilladt inde i et navne-/forfatter-/dato-/"
+#~ "beskrivelseselement"
+
+#~ msgid "Element <%s> is not allowed inside a <constant> element"
+#~ msgstr "Elementet <%s> er ikke tilladt inde i et <constant>-element"
+
+#~ msgid ""
+#~ "Element <%s> is not allowed inside a distance/border/aspect_ratio element"
+#~ msgstr ""
+#~ "Elementet <%s> er ikke tilladt inde i et element af typen distance/border/"
+#~ "aspect_ratio"
+
+#~ msgid "Element <%s> is not allowed inside a draw operation element"
+#~ msgstr "Elementet <%s> er ikke tilladt inde i et tegneoperationselement"
+
+#~ msgid "Element <%s> is not allowed inside a <%s> element"
+#~ msgstr "Elementet <%s> er ikke tilladt inde i et <%s>-element"
+
+#~ msgid "No draw_ops provided for frame piece"
+#~ msgstr "Ingen draw_ops angivet for rammestykke"
+
+#~ msgid "No draw_ops provided for button"
+#~ msgstr "Ingen draw_ops angivet for knap"
+
+#~ msgid "No text is allowed inside element <%s>"
+#~ msgstr "Tekst er ikke tilladt inden i elementet <%s>"
+
+#~ msgid "<%s> specified twice for this theme"
+#~ msgstr "<%s> angivet to gange for dette tema"
+
+#~ msgid "Failed to find a valid file for theme %s\n"
+#~ msgstr "Kunne ikke finde en gyldig fil til temaet %s\n"
+
+#~ msgid "background texture could not be created from file"
+#~ msgstr "baggrundstekstur kunne ikke oprettes fra fil"
+
+#~ msgid "Unknown window information request: %d"
+#~ msgstr "Ukendt forespørgsel efter vinduesinformation: %d"
+
+#~ msgid "Missing %s extension required for compositing"
+#~ msgstr "Manglende %s-udvidelse som kræves til komposition"
+
+#~ msgid ""
+#~ "Some other program is already using the key %s with modifiers %x as a "
+#~ "binding\n"
+#~ msgstr ""
+#~ "Et andet program bruger allerede nøglen %s med modifikatorer %x som "
+#~ "binding\n"
+
+#~ msgid "\"%s\" is not a valid accelerator\n"
+#~ msgstr "“%s” er ikke en gyldig genvej\n"
+
+#~ msgid ""
+#~ "Workarounds for broken applications disabled. Some applications may not "
+#~ "behave properly.\n"
+#~ msgstr ""
+#~ "Omgåelser for ødelagte programmer deaktiveret. Nogle programmer opfører "
+#~ "sig måske ikke korrekt.\n"
+
+#~ msgid "Could not parse font description \"%s\" from GSettings key %s\n"
+#~ msgstr ""
+#~ "Kunne ikke fortolke skrifttypebeskrivelsen “%s” fra GSettings-nøglen %s\n"
+
+#~ msgid ""
+#~ "\"%s\" found in configuration database is not a valid value for mouse "
+#~ "button modifier\n"
+#~ msgstr ""
+#~ "“%s” fundet i konfigurationsdatabasen er ikke en gyldig værdi som "
+#~ "museknapsmodifikation\n"
+
+#~ msgid ""
+#~ "\"%s\" found in configuration database is not a valid value for "
+#~ "keybinding \"%s\"\n"
+#~ msgstr ""
+#~ "“%s” fundet i konfigurationsdatabasen er ikke en gyldig værdi for "
+#~ "tastebindingen “%s”\n"
+
+#~ msgid "Could not create directory '%s': %s\n"
+#~ msgstr "Kunne ikke oprette mappen “%s”: %s\n"
+
+#~ msgid "Could not open session file '%s' for writing: %s\n"
+#~ msgstr "Kunne ikke åbne sessionsfilen “%s” til skrivning: %s\n"
+
+#~ msgid "Error writing session file '%s': %s\n"
+#~ msgstr "Fejl under skrivning af sessionsfilen “%s”: %s\n"
+
+#~ msgid "Error closing session file '%s': %s\n"
+#~ msgstr "Fejl under lukning af sessionsfilen “%s”: %s\n"
+
+#~ msgid "Failed to parse saved session file: %s\n"
+#~ msgstr "Kunne ikke fortolke den lagrede sessionsfil: %s\n"
+
+#~ msgid "<mutter_session> attribute seen but we already have the session ID"
+#~ msgstr ""
+#~ "<mutter_session>-egenskaben blev fundet, men vi har allerede sessions-"
+#~ "id'en"
+
+#~ msgid "Unknown attribute %s on <%s> element"
+#~ msgstr "Ukendt egenskab %s for <%s>-element"
+
+#~ msgid "nested <window> tag"
+#~ msgstr "indlejret <window>-mærke"
+
+#~ msgid "Unknown element %s"
+#~ msgstr "Ukendt element %s"
+
+#~ msgid "Failed to open debug log: %s\n"
+#~ msgstr "Kunne ikke åbne fejlinformationslog: %s\n"
+
+#~ msgid "Failed to fdopen() log file %s: %s\n"
+#~ msgstr "Kunne ikke udføre fdopen() på logfilen %s: %s\n"
+
+#~ msgid "Opened log file %s\n"
+#~ msgstr "Åbnede logfilen %s\n"
+
+#~ msgid "Window manager: "
+#~ msgstr "Vindueshåndtering: "
+
+#~ msgid "Bug in window manager: "
+#~ msgstr "Fejl i vindueshåndtering: "
+
+#~ msgid "Window manager warning: "
+#~ msgstr "Vindueshåndteringsadvarsel: "
+
+#~ msgid "Window manager error: "
+#~ msgstr "Vindueshåndteringsfejl: "
+
+#~ msgid ""
+#~ "Window %s sets SM_CLIENT_ID on itself, instead of on the WM_CLIENT_LEADER "
+#~ "window as specified in the ICCCM.\n"
+#~ msgstr ""
+#~ "Vinduet %s angiver SM_CLIENT_ID for det selv i stedet for "
+#~ "WM_CLIENT_LEADER-vinduet som specificeret i ICCCM.\n"
+
+#~ msgid ""
+#~ "Window %s sets an MWM hint indicating it isn't resizable, but sets min "
+#~ "size %d x %d and max size %d x %d; this doesn't make much sense.\n"
+#~ msgstr ""
+#~ "Vinduet %s angiver et MWM-hint for at indikere at dets størrelse ikke kan "
+#~ "ændres, men angiver den mindste størrelse %d x %d og den maksimale "
+#~ "størrelse %d x %d; dette giver ikke mening.\n"
+
+#~ msgid "Application set a bogus _NET_WM_PID %lu\n"
+#~ msgstr "Program angav en ugyldig _NET_WM_PID %lu\n"
+
+#~ msgid "Invalid WM_TRANSIENT_FOR window 0x%lx specified for %s.\n"
+#~ msgstr "Ugyldig WM_TRANSIENT_FOR vindue 0x%lx specificeret for %s.\n"
+
+#~ msgid "WM_TRANSIENT_FOR window 0x%lx for %s would create loop.\n"
+#~ msgstr "WM_TRANSIENT_FOR vindue 0x%lx for %s vil oprette løkke.\n"
+
+#~ msgid ""
+#~ "Window 0x%lx has property %s\n"
+#~ "that was expected to have type %s format %d\n"
+#~ "and actually has type %s format %d n_items %d.\n"
+#~ "This is most likely an application bug, not a window manager bug.\n"
+#~ "The window has title=\"%s\" class=\"%s\" name=\"%s\"\n"
+#~ msgstr ""
+#~ "Vinduet 0x%lx har egenskaben %s\n"
+#~ "som forventedes at have typen %s format %d\n"
+#~ "og faktisk har typen %s format %d n_items %d.\n"
+#~ "Dette er sandsynligvis en fejl i programmet og ikke i "
+#~ "vindueshåndteringen.\n"
+#~ "Vinduet har titlen “%s”, klassen “%s” og navnet “%s”\n"
+
+#~ msgid "Property %s on window 0x%lx contained invalid UTF-8\n"
+#~ msgstr "Egenskaben %s for vinduet 0x%lx indeholdt ugyldig UTF-8\n"
+
+#~ msgid ""
+#~ "Property %s on window 0x%lx contained invalid UTF-8 for item %d in the "
+#~ "list\n"
+#~ msgstr ""
+#~ "Egenskaben %s for vinduet 0x%lx indeholdt ugyldig UTF-8 for element %d i "
+#~ "listen\n"
+
+#~ msgid "Mi_nimize"
+#~ msgstr "Mi_nimér"
+
+#~ msgid "Ma_ximize"
+#~ msgstr "Ma_ksimér"
+
+#~ msgid "Unma_ximize"
+#~ msgstr "_Gendan"
+
+#~ msgid "Roll _Up"
+#~ msgstr "Rul _op"
+
+#~ msgid "_Unroll"
+#~ msgstr "Rul _ned"
+
+#~ msgid "_Move"
+#~ msgstr "_Flyt"
+
+#~ msgid "_Resize"
+#~ msgstr "Ænd_re størrelse"
+
+#~ msgid "Move Titlebar On_screen"
+#~ msgstr "Flyt titellinje til _skærm"
+
+#~ msgid "Always on _Top"
+#~ msgstr "Altid _øverst"
+
+#~ msgid "_Always on Visible Workspace"
+#~ msgstr "_Altid på synligt arbejdsområde"
+
+#~ msgid "_Only on This Workspace"
+#~ msgstr "_Kun på dette arbejdsområde"
+
+#~ msgid "Move to Workspace _Left"
+#~ msgstr "Flyt til arbejdsområde til _venstre"
+
+#~ msgid "Move to Workspace R_ight"
+#~ msgstr "Flyt til arbejdsområde til _højre"
+
+#~ msgid "Move to Workspace _Up"
+#~ msgstr "Flyt til arbejdsområde _op"
+
+#~ msgid "Move to Workspace _Down"
+#~ msgstr "Flyt til arbejdsområde _ned"
+
+#~ msgid "_Close"
+#~ msgstr "_Luk"
+
+#~ msgid "Workspace %d%n"
+#~ msgstr "Arbejdsområde %d%n"
+
+#~ msgid "Workspace 1_0"
+#~ msgstr "Arbejdsområde 1_0"
+
+#~ msgid "Move to Another _Workspace"
+#~ msgstr "Flyt til andet _arbejdsområde"
+
+#~ msgid "Shift"
+#~ msgstr "Skift"
+
+#~ msgid "Ctrl"
+#~ msgstr "Ctrl"
+
+#~ msgid "Alt"
+#~ msgstr "Alt"
+
+#~ msgid "Meta"
+#~ msgstr "Meta"
+
+#~ msgid "Super"
+#~ msgstr "Super"
+
+#~ msgid "Hyper"
+#~ msgstr "Hyper"
+
+#~ msgid "Mod2"
+#~ msgstr "Mod2"
+
+#~ msgid "Mod3"
+#~ msgstr "Mod3"
+
+#~ msgid "Mod4"
+#~ msgstr "Mod4"
+
+#~ msgid "Mod5"
+#~ msgstr "Mod5"
+
+#~ msgid "Usage: %s\n"
+#~ msgstr "Brug: %s\n"
+
+#~ msgid "_Windows"
+#~ msgstr "_Vinduer"
+
+#~ msgid "_Dialog"
+#~ msgstr "_Dialog"
+
+#~ msgid "_Utility"
+#~ msgstr "_Værktøj"
+
+#~ msgid "_Splashscreen"
+#~ msgstr "_Velkomstskærm"
+
+#~ msgid "_Top dock"
+#~ msgstr "_Topdok"
+
+#~ msgid "_Bottom dock"
+#~ msgstr "_Bunddok"
+
+#~ msgid "_Left dock"
+#~ msgstr "_Venstre dok"
+
+#~ msgid "_Right dock"
+#~ msgstr "_Højre dok"
+
+#~ msgid "_All docks"
+#~ msgstr "_Alle dokke"
+
+#~ msgid "Des_ktop"
+#~ msgstr "Skrive_bord"
+
+#~ msgid "Open another one of these windows"
+#~ msgstr "Åbn endnu et af disse vinduer"
+
+#~ msgid "This is a demo button with an 'open' icon"
+#~ msgstr "Dette er en demoknap med et “åbn”-ikon"
+
+#~ msgid "This is a demo button with a 'quit' icon"
+#~ msgstr "Dette er en demoknap med et “afslut”-ikon"
+
+#~ msgid "This is a sample message in a sample dialog"
+#~ msgstr "Dette er en eksempelbesked i et eksempelmeddelelsevindue"
+
+#~ msgid "Fake menu item %d\n"
+#~ msgstr "Uægte menupunkt %d\n"
+
+#~ msgid "Border-only window"
+#~ msgstr "Vindue med kun ramme"
+
+#~ msgid "Bar"
+#~ msgstr "Linje"
+
+#~ msgid "Normal Application Window"
+#~ msgstr "Almindeligt programvindue"
+
+#~ msgid "Dialog Box"
+#~ msgstr "Meddelelsevindue"
+
+#~ msgid "Modal Dialog Box"
+#~ msgstr "Modalt meddelelsevindue"
+
+#~ msgid "Utility Palette"
+#~ msgstr "Værktøjspalet"
+
+#~ msgid "Torn-off Menu"
+#~ msgstr "Afrevet menu"
+
+#~ msgid "Border"
+#~ msgstr "Ramme"
+
+#~ msgid "Button layout test %d"
+#~ msgstr "Knaplayouttest %d"
+
+#~ msgid "%g milliseconds to draw one window frame"
+#~ msgstr "%g millisekunder for at tegne én vinduesramme"
+
+#~ msgid "Usage: metacity-theme-viewer [THEMENAME]\n"
+#~ msgstr "Brug: metacity-theme-viewer [TEMANAVN]\n"
+
+#~ msgid "Error loading theme: %s\n"
+#~ msgstr "Fejl under indlæsning af tema: %s\n"
+
+#~ msgid "Loaded theme \"%s\" in %g seconds\n"
+#~ msgstr "Indlæste tema “%s” på %g sekunder\n"
+
+#~ msgid "Normal Title Font"
+#~ msgstr "Normal titelskrifttype"
+
+#~ msgid "Small Title Font"
+#~ msgstr "Lille titelskrifttype"
+
+#~ msgid "Large Title Font"
+#~ msgstr "Stor titelskrifttype"
+
+#~ msgid "Button Layouts"
+#~ msgstr "Knaplayout"
+
+#~ msgid "Benchmark"
+#~ msgstr "Tidstest"
+
+#~ msgid "Window Title Goes Here"
+#~ msgstr "Vinduestitel er her"
+
+#~ msgid ""
+#~ "Drew %d frames in %g client-side seconds (%g milliseconds per frame) and "
+#~ "%g seconds wall clock time including X server resources (%g milliseconds "
+#~ "per frame)\n"
+#~ msgstr ""
+#~ "Tegnede %d rammer på %g klientsekunder (%g millisekunder pr. ramme) og %g "
+#~ "sekunders almindelig tid inkl. X-server-resurser (%g millisekunder pr. "
+#~ "ramme)\n"
+
+#~ msgid "position expression test returned TRUE but set error"
+#~ msgstr "positionsudtrykstest returnede TRUE, men sat fejl"
+
+#~ msgid "position expression test returned FALSE but didn't set error"
+#~ msgstr "positionsudtrykstest returnede FALSE, men satte ikke fejl"
+
+#~ msgid "Error was expected but none given"
+#~ msgstr "Fejl var forventet, men ingen givet"
+
+#~ msgid "Error %d was expected but %d given"
+#~ msgstr "Fejl %d var forventet, men %d givet"
+
+#~ msgid "Error not expected but one was returned: %s"
+#~ msgstr "Fejl var ikke forventet, men én blev returneret: %s"
+
+#~ msgid "x value was %d, %d was expected"
+#~ msgstr "x-værdi var %d, %d var forventet"
+
+#~ msgid "y value was %d, %d was expected"
+#~ msgstr "y-værdi var %d, %d var forventet"
+
+#~ msgid ""
+#~ "%d coordinate expressions parsed in %g seconds (%g seconds average)\n"
+#~ msgstr ""
+#~ "%d koordinatudtryk fortolket på %g sekunder (%g sekunder i gennemsnit)\n"
+
+#~ msgid "Comma-separated list of compositor plugins"
+#~ msgstr "Kommaadskilt liste af komposit-udvidelsesmoduler"
+
+#~ msgid ""
+#~ "Determines whether hidden windows (i.e., minimized windows and windows on "
+#~ "other workspaces than the current one) should be kept alive."
+#~ msgstr ""
+#~ "Angiver om skjulte vinduer (f.eks. minimerede vinduer og vinduer på andre "
+#~ "arbejdsområder end det nuværende) holdes i live."
+
+#~ msgid "Live Hidden Windows"
+#~ msgstr "Levende skjulte vinduer"
+
+#~ msgid "Close Window"
+#~ msgstr "Luk vindue"
+
+#~ msgid "Minimize Window"
+#~ msgstr "Minimér vindue"
+
+#~ msgid "Maximize Window"
+#~ msgstr "Maksimér vindue"
+
+#~ msgid "Restore Window"
+#~ msgstr "Gendan vindue"
+
+# roll up = sørg for at kun vindues-headeren er synlig.
+#~ msgid "Roll Up Window"
+#~ msgstr "Rul vinduet op"
+
+#~ msgid "Unroll Window"
+#~ msgstr "Rul vinduet ned"
+
+#~ msgid "Keep Window On Top"
+#~ msgstr "Behold vinduet øverst"
+
+#~ msgid "Remove Window From Top"
+#~ msgstr "Fjern vinduet fra toppen"
+
+#~ msgid "Always On Visible Workspace"
+#~ msgstr "Altid på synligt arbejdsområde"
+
+#~ msgid "Put Window On Only One Workspace"
+#~ msgstr "Vis vindue på kun ét arbejdsområde"
+
+#~ msgid "Switch to workspace 8"
+#~ msgstr "Skift til arbejdsområde 8"
+
+#~ msgid "Switch to workspace 9"
+#~ msgstr "Skift til arbejdsområde 9"
+
+#~ msgid "Switch to workspace 10"
+#~ msgstr "Skift til arbejdsområde 10"
+
+#~ msgid "Switch to workspace 11"
+#~ msgstr "Skift til arbejdsområde 11"
+
+#~ msgid "Switch to workspace 12"
+#~ msgstr "Skift til arbejdsområde 12"
+
+#~ msgid "Switch to workspace on the left of the current workspace"
+#~ msgstr "Skift til arbejdsområdet til venstre for det aktuelle arbejdsområde"
+
+#~ msgid "Switch to workspace on the right of the current workspace"
+#~ msgstr "Skift til arbejdsområdet til højre for det aktuelle arbejdsområde"
+
+#~ msgid "Switch to workspace above the current workspace"
+#~ msgstr "Skift til arbejdsområdet over det aktuelle arbejdsområde"
+
+#~ msgid "Switch to workspace below the current workspace"
+#~ msgstr "Skift til arbejdsområdet under det aktuelle arbejdsområde"
+
+#~ msgid "Move between windows of an application, using a popup window"
+#~ msgstr "Gå gennem et programs vinduer vha. navigationsvindue"
+
+#~ msgid ""
+#~ "Move backward between windows of an application, using a popup window"
+#~ msgstr "Gå baglæns gennem et programs vinduer vha. navigationsvindue"
+
+#~ msgid "Move between windows, using a popup window"
+#~ msgstr "Gå gennem vinduer vha. navigationsvindue"
+
+#~ msgid "Move backward between windows, using a popup window"
+#~ msgstr "Gå baglæns gennem vinduer vha. navigationsvindue"
+
+#~ msgid "Move between panels and the desktop, using a popup window"
+#~ msgstr "Gå gennem paneler og skrivebordet vha. navigationsvindue"
+
+#~ msgid "Move backward between panels and the desktop, using a popup window"
+#~ msgstr "Gå baglæns gennem paneler og skrivebordet vha. nagivationsvindue"
+
+#~ msgid "Move between windows of an application immediately"
+#~ msgstr "Gå gennem et programs vinduer omgående"
+
+#~ msgid "Move backward between windows of an application immediately"
+#~ msgstr "Gå baglæns gennem et programs vinduer omgående"
+
+#~ msgid "Move between windows immediately"
+#~ msgstr "Gå gennem vinduer omgående"
+
+#~ msgid "Move backward between windows immediately"
+#~ msgstr "Gå baglæns gennem vinduer omgående"
+
+#~ msgid "Move between panels and the desktop immediately"
+#~ msgstr "Skift mellem paneler og skrivebordet omgående"
+
+#~ msgid "Move backward between panels and the desktop immediately"
+#~ msgstr "Gå baglæns gennem paneler og skrivebordet omgående"
+
+#~ msgid "Hide all normal windows and set focus to the desktop"
+#~ msgstr "Skjul alle normale vinduer og fokusér skrivebordet"
+
+#~ msgid "Show the panel's main menu"
+#~ msgstr "Vis panelets hovedmenu"
+
+#~ msgid "Show the panel's \"Run Application\" dialog box"
+#~ msgstr "Vis panelets “Kør program”-vindue"
+
+#~ msgid "Start or stop recording the session"
+#~ msgstr "Start eller stop optagelse af sessionen"
+
+#~ msgid "Take a screenshot"
+#~ msgstr "Gem skærmbillede"
+
+#~ msgid "Take a screenshot of a window"
+#~ msgstr "Gem skærmbillede for et vindue"
+
+#~ msgid "Run a terminal"
+#~ msgstr "Start en terminal"
+
+# Nogen bedre forslag?
+#~ msgid "Toggle whether a window will always be visible over other windows"
+#~ msgstr ""
+#~ "Slå til eller fra hvorvidt et vindue altid vil være synligt over andre "
+#~ "vinduer"
+
+#~ msgid "Toggle whether window is on all workspaces or just one"
+#~ msgstr ""
+#~ "Skift mellem hvorvidt vinduet vises på alle arbejdsområder eller kun et"
+
+#~ msgid "Move window to workspace 5"
+#~ msgstr "Flyt vindue til arbejdsområde 5"
+
+#~ msgid "Move window to workspace 6"
+#~ msgstr "Flyt vindue til arbejdsområde 6"
+
+#~ msgid "Move window to workspace 7"
+#~ msgstr "Flyt vindue til arbejdsområde 7"
+
+#~ msgid "Move window to workspace 8"
+#~ msgstr "Flyt vindue til arbejdsområde 8"
+
+#~ msgid "Move window to workspace 9"
+#~ msgstr "Flyt vindue til arbejdsområde 9"
+
+#~ msgid "Move window to workspace 10"
+#~ msgstr "Flyt vindue til arbejdsområde 10"
+
+#~ msgid "Move window to workspace 11"
+#~ msgstr "Flyt vindue til arbejdsområde 11"
+
+#~ msgid "Move window to workspace 12"
+#~ msgstr "Flyt vindue til arbejdsområde 12"
+
+#~ msgid "Raise window if it's covered by another window, otherwise lower it"
+#~ msgstr "Hæv vindue hvis det er dækket af et andet vindue, ellers sænk det"
+
+#~ msgid "Move window to north-west (top left) corner"
+#~ msgstr "Flyt vindue til det nordvestlige (øverste venstre) hjørne"
+
+#~ msgid "Move window to north-east (top right) corner"
+#~ msgstr "Flyt vindue til det nordøstlige (øverste højre) hjørne"
+
+#~ msgid "Move window to south-west (bottom left) corner"
+#~ msgstr "Flyt vindue til det sydvestlige (nederste venstre) hjørne"
+
+#~ msgid "Move window to south-east (bottom right) corner"
+#~ msgstr "Flyt vindue til det sydøstlige (nederste højre) hjørne"
+
+#~ msgid "Move window to north (top) side of screen"
+#~ msgstr "Flyt vindue til skærmens nordlige (øverste) kant"
+
+#~ msgid "Move window to south (bottom) side of screen"
+#~ msgstr "Flyt vindue til skærmens sydlige (nederste) kant"
+
+#~ msgid "Move window to east (right) side of screen"
+#~ msgstr "Flyt vindue til skærmens østlige (højre) kant"
+
+#~ msgid "Move window to west (left) side of screen"
+#~ msgstr "Flyt vindue til skærmens vestlige (venstre) kant"
+
+#~ msgid "Move window to center of screen"
+#~ msgstr "Flyt vindue til skærmens centrum"
+
+#~ msgid ""
+#~ "There was an error running <tt>%s</tt>:\n"
+#~ "\n"
+#~ "%s"
+#~ msgstr ""
+#~ "Der opstod en fejl ved kørsel af <tt>%s</tt>:\n"
+#~ "\n"
+#~ "%s"
+
+#~ msgid "No command %d has been defined.\n"
+#~ msgstr "Ingen kommando %d er blevet defineret.\n"
+
+#~ msgid "No terminal command has been defined.\n"
+#~ msgstr "Ingen terminal-kommando er blevet defineret.\n"
+
+#~ msgid "GConf key '%s' is set to an invalid value\n"
+#~ msgstr "GConf-nøglen “%s” er sat til en ugyldig værdi\n"
+
+#~ msgid "%d stored in GConf key %s is out of range %d to %d\n"
+#~ msgstr "%d lagret i GConf-nøgle %s er uden for intervallet %d til %d\n"
+
+#~ msgid "GConf key \"%s\" is set to an invalid type\n"
+#~ msgstr "GConf-nøglen “%s” er sat til en ugyldig type\n"
+
+#~ msgid "GConf key %s is already in use and can't be used to override %s\n"
+#~ msgstr ""
+#~ "GConf-nøglen %s er allerede i brug og kan ikke bruges til at tilsidesætte "
+#~ "%s\n"
+
+#~ msgid "Can't override GConf key, %s not found\n"
+#~ msgstr "Kan ikke tilsidesætte GConf-nøgle, %s ikke fundet\n"
+
+#~ msgid "Error setting number of workspaces to %d: %s\n"
+#~ msgstr "Fejl under sætning af antallet af arbejdsområder til %d: %s\n"
+
+#~ msgid "Error setting name for workspace %d to \"%s\": %s\n"
+#~ msgstr "Fejl under sætning af navnet for arbejdsområde %d til “%s”: %s\n"
+
+#~ msgid "Error setting live hidden windows status status: %s\n"
+#~ msgstr "Fejl ved indstilling af status for skjulte levende vinduer: %s\n"
+
+# (hvad taler de om?)
+#~ msgid "Error setting no tab popup status: %s\n"
+#~ msgstr "Fejl ved indstilling af “intet faneblad”-popup-status: %s\n"

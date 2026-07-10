@@ -1,0 +1,140 @@
+# Spanish translations for kcm_kwin_virtualdesktops.po package.
+# Copyright (C) 2007-2026 This file is copyright:
+# This file is distributed under the same license as the kwin package.
+#
+# SPDX-FileCopyrightText: 2007 Jaime Robles <jaime@robles.nu>
+# SPDX-FileCopyrightText: 2010, 2013, 2014, 2018, 2019, 2021, 2022, 2024, 2025, 2026 Eloy Cuadra <ecuadra@eloihr.net>
+# SPDX-FileCopyrightText: 2012 Javier Vinal <fjvinal@gmail.com>
+msgid ""
+msgstr ""
+"Project-Id-Version: kcm_kwin_virtualdesktops\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-04-14 00:45+0000\n"
+"PO-Revision-Date: 2026-04-15 00:26+0100\n"
+"Last-Translator: Eloy Cuadra <ecuadra@eloihr.net>\n"
+"Language-Team: Spanish <kde-l10n-es@kde.org>\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Lokalize 25.12.3\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+
+#, kde-format
+msgctxt "NAME OF TRANSLATORS"
+msgid "Your names"
+msgstr "Eloy Cuadra,Cristina Yenyxe González García"
+
+#, kde-format
+msgctxt "EMAIL OF TRANSLATORS"
+msgid "Your emails"
+msgstr "ecuadra@eloihr.net,the.blue.valkyrie@gmail.com"
+
+#: desktopsmodel.cpp:188
+#, kde-format
+msgctxt "A numbered name for virtual desktops"
+msgid "Desktop %1"
+msgid_plural "Desktop %1"
+msgstr[0] "Escritorio %1"
+msgstr[1] "Escritorio %1"
+
+#: desktopsmodel.cpp:476
+#, kde-format
+msgid "There was an error connecting to the compositor."
+msgstr "Ha ocurrido un error al conectar con el compositor."
+
+#: desktopsmodel.cpp:672
+#, kde-format
+msgid "There was an error saving the settings to the compositor."
+msgstr "Ha ocurrido un error al guardar las preferencias en el compositor."
+
+#: desktopsmodel.cpp:675
+#, kde-format
+msgid "There was an error requesting information from the compositor."
+msgstr "Ha ocurrido un error al solicitar información del compositor."
+
+#: ui/main.qml:26
+#, kde-format
+msgctxt "@text:label Number of rows, label associated to a number input field"
+msgid "Rows:"
+msgstr "Filas:"
+
+#: ui/main.qml:54
+#, kde-format
+msgctxt "@action:button"
+msgid "Add Desktop"
+msgstr "Añadir escritorio"
+
+#: ui/main.qml:90
+#, kde-format
+msgctxt "@action:button"
+msgid "Rename"
+msgstr "Cambiar nombre"
+
+#: ui/main.qml:100
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Remove"
+msgstr "Eliminar"
+
+#: ui/main.qml:119
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Apply new name"
+msgstr "Aplicar nuevo nombre"
+
+#: ui/main.qml:132
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Cancel rename"
+msgstr "Cancelar cambio de nombre"
+
+#: ui/main.qml:179
+#, kde-format
+msgid ""
+"Virtual desktops have been changed outside this settings application. Saving "
+"now will overwrite the changes."
+msgstr ""
+"Se han modificado los escritorios virtuales desde fuera de esta aplicación "
+"de preferencias. Si guarda ahora estas preferencias se sobrescribirán las "
+"modificaciones."
+
+#: ui/main.qml:195
+#, kde-format
+msgid "Row %1"
+msgstr "Fila %1"
+
+#: ui/main.qml:209
+#, kde-format
+msgid "Options:"
+msgstr "Opciones:"
+
+#: ui/main.qml:211
+#, kde-format
+msgid "Navigation wraps around"
+msgstr "Navegación cíclica"
+
+#: ui/main.qml:225
+#, kde-format
+msgid "Switch desktops independently for each screen"
+msgstr "Cambiar escritorios independientemente para cada pantalla"
+
+#: ui/main.qml:243
+#, kde-format
+msgid "Show animation when switching:"
+msgstr "Mostrar animación al cambiar:"
+
+#: ui/main.qml:294
+#, kde-format
+msgid "Show on-screen display when switching:"
+msgstr "Mostrar información en la pantalla al cambiar:"
+
+#: ui/main.qml:313
+#, kde-format
+msgid "%1 ms"
+msgstr "%1 ms"
+
+#: ui/main.qml:337
+#, kde-format
+msgid "Show desktop layout indicators"
+msgstr "Mostrar indicadores de disposición de escritorio"

@@ -1,0 +1,397 @@
+/*
+    SPDX-FileCopyrightText: 2024 David Redondo <kde@david-redondo.de>
+    SPDX-FileCopyrightText: 2026 David Edmundson <davidedmundson@kde.org>
+
+    SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted-GPL
+*/
+
+#include "eiscontext.h"
+
+#include "config-eis.h"
+
+#include "main.h"
+#include "inputmethod.h"
+
+#include "eisbackend.h"
+#include "eisdevice.h"
+#include "libeis_logging.h"
+
+namespace KWin
+{
+
+static void eis_log_handler(eis *eis, eis_log_priority priority, const char *message, eis_log_context *context)
+{
+    switch (priority) {
+    case EIS_LOG_PRIORITY_DEBUG:
+        qCDebug(KWIN_EIS) << "Libeis:" << message;
+        break;
+    case EIS_LOG_PRIORITY_INFO:
+        qCInfo(KWIN_EIS) << "Libeis:" << message;
+        break;
+    case EIS_LOG_PRIORITY_WARNING:
+        qCWarning(KWIN_EIS) << "Libeis:" << message;
+        break;
+    case EIS_LOG_PRIORITY_ERROR:
+        qCritical(KWIN_EIS) << "Libeis:" << message;
+        break;
+    }
+}
+
+struct EisClient
+{
+public:
+    EisClient(eis_client *client, eis_seat *seat)
+        : handle(client)
+        , seat(seat)
+    {
+        eis_seat_set_user_data(seat, this);
+        eis_client_set_user_data(client, this);
+    }
+    ~EisClient()
+    {
+        eis_seat_unref(seat);
+        eis_client_disconnect(handle);
+    }
+    eis_client *handle;
+    eis_seat *seat;
+    std::unique_ptr<EisDevice> absoluteDevice;
+    std::unique_ptr<EisDevice> pointer;
+    std::unique_ptr<EisDevice> keyboard;
+#if EIS_HAVE_16
+    std::unique_ptr<EisDevice> text;
+#endif
+};
+
+DbusEisContext::DbusEisContext(KWin::EisBackend *backend, QFlags<eis_device_capability> allowedCapabilities, int cookie, const QString &dbusService)
+    : EisContext(backend, allowedCapabilities)
+    , cookie(cookie)
+    , dbusService(dbusService)
+{
+    eis_setup_backend_fd(m_eisContext);
+}
+
+int DbusEisContext::addClient()
+{
+    return eis_backend_fd_add_client(m_eisContext);
+}
+
+EisContext::EisContext(KWin::EisBackend *backend, QFlags<eis_device_capability> allowedCapabilities)
+    : m_eisContext(eis_new(this))
+    , m_backend(backend)
+    , m_allowedCapabilities(allowedCapabilities)
+    , m_socketNotifier(eis_get_fd(m_eisContext), QSocketNotifier::Read)
+{
+    eis_log_set_priority(m_eisContext, EIS_LOG_PRIORITY_DEBUG);
+    eis_log_set_handler(m_eisContext, eis_log_handler);
+    QObject::connect(&m_socketNotifier, &QSocketNotifier::activated, &m_socketNotifier, [this] {
+        handleEvents();
+    });
+}
+
+EisContext::~EisContext()
+{
+    for (const auto &client : m_clients) {
+        if (client->absoluteDevice) {
+            Q_EMIT m_backend->deviceRemoved(client->absoluteDevice.get());
+        }
+        if (client->pointer) {
+            Q_EMIT m_backend->deviceRemoved(client->pointer.get());
+        }
+        if (client->keyboard) {
+            Q_EMIT m_backend->deviceRemoved(client->keyboard.get());
+        }
+#if EIS_HAVE_16
+        if (client->text) {
+            Q_EMIT m_backend->deviceRemoved(client->text.get());
+        }
+#endif
+    }
+
+    eis_unref(m_eisContext);
+}
+
+void EisContext::updateScreens()
+{
+    for (const auto &client : m_clients) {
+        if (client->absoluteDevice) {
+            client->absoluteDevice->changeDevice(m_backend->createAbsoluteDevice(client->seat));
+        }
+    }
+}
+
+static std::chrono::microseconds currentTime()
+{
+    return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch());
+}
+
+void EisContext::updateKeymap()
+{
+    for (const auto &client : m_clients) {
+        if (client->keyboard) {
+            client->keyboard->changeDevice(m_backend->createKeyboard(client->seat));
+        }
+    }
+}
+
+void EisContext::forwardModifiers(uint32_t depressed, uint32_t latched, uint32_t locked, uint32_t group)
+{
+    for (const auto &client : m_clients) {
+        if (client->keyboard) {
+            eis_device_keyboard_send_xkb_modifiers(client->keyboard->handle(), depressed, latched, locked, group);
+        }
+    }
+}
+
+void EisContext::connectClient(eis_client *client)
+{
+    const char *clientName = eis_client_get_name(client);
+    eis_client_connect(client);
+    auto seat = eis_client_new_seat(client, QByteArrayLiteral(" seat").prepend(clientName));
+    constexpr std::array allCapabilities{
+        EIS_DEVICE_CAP_POINTER,
+        EIS_DEVICE_CAP_POINTER_ABSOLUTE,
+        EIS_DEVICE_CAP_KEYBOARD,
+        EIS_DEVICE_CAP_TOUCH,
+        EIS_DEVICE_CAP_SCROLL,
+        EIS_DEVICE_CAP_BUTTON,
+#if EIS_HAVE_16
+        EIS_DEVICE_CAP_TEXT,
+#endif
+    };
+    for (auto capability : allCapabilities) {
+        if (m_allowedCapabilities & capability) {
+            eis_seat_configure_capability(seat, capability);
+        }
+    }
+
+    eis_seat_add(seat);
+    m_clients.emplace_back(std::make_unique<EisClient>(client, seat));
+    qCDebug(KWIN_EIS) << "New eis client" << clientName;
+}
+
+void EisContext::handleEvents()
+{
+    eis_dispatch(m_eisContext);
+
+    while (eis_event *const event = eis_get_event(m_eisContext)) {
+        auto eisDevice = eis_event_get_device(event);
+        auto device = eisDevice ? static_cast<EisDevice *>(eis_device_get_user_data(eisDevice)) : nullptr;
+
+        if (eisDevice && !device) {
+            qCWarning(KWIN_EIS) << "Event for destroyed device - ignoring";
+            eis_event_unref(event);
+            continue;
+        }
+
+        switch (eis_event_get_type(event)) {
+        case EIS_EVENT_CLIENT_CONNECT: {
+            auto client = eis_event_get_client(event);
+            const char *clientName = eis_client_get_name(client);
+            if (!eis_client_is_sender(client)) {
+                qCDebug(KWIN_EIS) << "disconnecting receiving client" << clientName;
+                eis_client_disconnect(client);
+                break;
+            }
+            connectionRequested(client);
+            break;
+        }
+        case EIS_EVENT_CLIENT_DISCONNECT: {
+            auto client = eis_event_get_client(event);
+            qCDebug(KWIN_EIS) << "Client disconnected" << eis_client_get_name(client);
+            if (auto seat = static_cast<EisClient *>(eis_client_get_user_data(client))) {
+                m_clients.erase(std::ranges::find(m_clients, seat, &std::unique_ptr<EisClient>::get));
+            }
+            break;
+        }
+        case EIS_EVENT_SEAT_BIND: {
+            auto seat = eis_event_get_seat(event);
+            auto clientSeat = static_cast<EisClient *>(eis_seat_get_user_data(seat));
+            qCDebug(KWIN_EIS) << "Client" << eis_client_get_name(eis_event_get_client(event)) << "bound to seat" << eis_seat_get_name(seat);
+            auto updateDevice = [event, this](std::unique_ptr<EisDevice> &device, auto &&createFunc, bool shouldHave) {
+                if (shouldHave) {
+                    if (!device) {
+                        device = std::make_unique<EisDevice>(std::invoke(createFunc, m_backend, (eis_event_get_seat(event))));
+                        device->setEnabled(true);
+                        Q_EMIT m_backend->deviceAdded(device.get());
+                    }
+                } else if (device) {
+                    Q_EMIT m_backend->deviceRemoved(device.get());
+                    device.reset();
+                }
+            };
+            updateDevice(clientSeat->absoluteDevice, &EisBackend::createAbsoluteDevice, eis_event_seat_has_capability(event, EIS_DEVICE_CAP_POINTER_ABSOLUTE) || eis_event_seat_has_capability(event, EIS_DEVICE_CAP_TOUCH));
+            updateDevice(clientSeat->pointer, &EisBackend::createPointer, eis_event_seat_has_capability(event, EIS_DEVICE_CAP_POINTER));
+            updateDevice(clientSeat->keyboard, &EisBackend::createKeyboard, eis_event_seat_has_capability(event, EIS_DEVICE_CAP_KEYBOARD));
+#if EIS_HAVE_16
+            updateDevice(clientSeat->text, &EisBackend::createText, eis_event_seat_has_capability(event, EIS_DEVICE_CAP_TEXT));
+#endif
+
+            break;
+        }
+        case EIS_EVENT_DEVICE_CLOSED: {
+            qCDebug(KWIN_EIS) << "Device" << device->name() << "closed by client";
+            Q_EMIT m_backend->deviceRemoved(device);
+            auto seat = static_cast<EisClient *>(eis_seat_get_user_data(eis_device_get_seat(device->handle())));
+            if (device == seat->absoluteDevice.get()) {
+                seat->absoluteDevice.reset();
+            } else if (device == seat->keyboard.get()) {
+                seat->keyboard.reset();
+            } else if (device == seat->pointer.get()) {
+                seat->pointer.reset();
+#if EIS_HAVE_16
+            } else if (device == seat->text.get()) {
+                seat->text.reset();
+#endif
+            }
+            break;
+        }
+        case EIS_EVENT_FRAME: {
+            qCDebug(KWIN_EIS) << "Frame for device" << device->name();
+            if (device->isTouch()) {
+                Q_EMIT device->touchFrame(device);
+            }
+            if (device->isPointer()) {
+                Q_EMIT device->pointerFrame(device);
+            }
+            break;
+        }
+        case EIS_EVENT_DEVICE_START_EMULATING: {
+            qCDebug(KWIN_EIS) << "Device" << device->name() << "starts emulating";
+            device->setEmulating(true);
+            break;
+        }
+        case EIS_EVENT_DEVICE_STOP_EMULATING: {
+            qCDebug(KWIN_EIS) << "Device" << device->name() << "stops emulating";
+            device->setEmulating(false);
+            break;
+        }
+        case EIS_EVENT_POINTER_MOTION: {
+            const double x = eis_event_pointer_get_dx(event);
+            const double y = eis_event_pointer_get_dy(event);
+            qCDebug(KWIN_EIS) << device->name() << "pointer motion" << x << y;
+            const QPointF delta(x, y);
+            Q_EMIT device->pointerMotion(delta, delta, currentTime(), device);
+            break;
+        }
+        case EIS_EVENT_POINTER_MOTION_ABSOLUTE: {
+            const double x = eis_event_pointer_get_absolute_x(event);
+            const double y = eis_event_pointer_get_absolute_y(event);
+            qCDebug(KWIN_EIS) << device->name() << "pointer motion absolute" << x << y;
+            Q_EMIT device->pointerMotionAbsolute({x, y}, currentTime(), device);
+            break;
+        }
+        case EIS_EVENT_BUTTON_BUTTON: {
+            const quint32 button = eis_event_button_get_button(event);
+            const bool press = eis_event_button_get_is_press(event);
+            qCDebug(KWIN_EIS) << device->name() << "button" << button << press;
+            if (press) {
+                if (device->pressedButtons.contains(button)) {
+                    continue;
+                }
+                device->pressedButtons.insert(button);
+            } else {
+                if (!device->pressedButtons.remove(button)) {
+                    continue;
+                }
+            }
+            Q_EMIT device->pointerButtonChanged(button, press ? PointerButtonState::Pressed : PointerButtonState::Released, currentTime(), device);
+            break;
+        }
+        case EIS_EVENT_SCROLL_DELTA: {
+            const auto x = eis_event_scroll_get_dx(event);
+            const auto y = eis_event_scroll_get_dy(event);
+            qCDebug(KWIN_EIS) << device->name() << "scroll" << x << y;
+            if (x != 0) {
+                Q_EMIT device->pointerAxisChanged(PointerAxis::Horizontal, x, 0, PointerAxisSource::Unknown, false, currentTime(), device);
+            }
+            if (y != 0) {
+                Q_EMIT device->pointerAxisChanged(PointerAxis::Vertical, y, 0, PointerAxisSource::Unknown, false, currentTime(), device);
+            }
+            break;
+        }
+        case EIS_EVENT_SCROLL_STOP:
+        case EIS_EVENT_SCROLL_CANCEL: {
+            if (eis_event_scroll_get_stop_x(event)) {
+                qCDebug(KWIN_EIS) << device->name() << "scroll x" << (eis_event_get_type(event) == EIS_EVENT_SCROLL_STOP ? "stop" : "cancel");
+                Q_EMIT device->pointerAxisChanged(PointerAxis::Horizontal, 0, 0, PointerAxisSource::Unknown, false, currentTime(), device);
+            }
+            if (eis_event_scroll_get_stop_y(event)) {
+                qCDebug(KWIN_EIS) << device->name() << "scroll y" << (eis_event_get_type(event) == EIS_EVENT_SCROLL_STOP ? "stop" : "cancel");
+                Q_EMIT device->pointerAxisChanged(PointerAxis::Vertical, 0, 0, PointerAxisSource::Unknown, false, currentTime(), device);
+            }
+            break;
+        }
+        case EIS_EVENT_SCROLL_DISCRETE: {
+            const double x = eis_event_scroll_get_discrete_dx(event);
+            const double y = eis_event_scroll_get_discrete_dy(event);
+            qCDebug(KWIN_EIS) << device->name() << "scroll discrete" << x << y;
+            // otherwise no scroll event
+            constexpr auto anglePer120Step = 15 / 120.0;
+            if (x != 0) {
+                Q_EMIT device->pointerAxisChanged(PointerAxis::Horizontal, x * anglePer120Step, x, PointerAxisSource::Unknown, false, currentTime(), device);
+            }
+            if (y != 0) {
+                Q_EMIT device->pointerAxisChanged(PointerAxis::Vertical, y * anglePer120Step, y, PointerAxisSource::Unknown, false, currentTime(), device);
+            }
+            break;
+        }
+        case EIS_EVENT_KEYBOARD_KEY: {
+            const quint32 key = eis_event_keyboard_get_key(event);
+            const bool press = eis_event_keyboard_get_key_is_press(event);
+            device->sendKey(key, press ? KeyboardKeyState::Pressed : KeyboardKeyState::Released);
+            break;
+        }
+        case EIS_EVENT_TOUCH_DOWN: {
+            const auto x = eis_event_touch_get_x(event);
+            const auto y = eis_event_touch_get_y(event);
+            const auto id = eis_event_touch_get_id(event);
+            qCDebug(KWIN_EIS) << device->name() << "touch down" << id << x << y;
+            device->activeTouches.push_back(id);
+            Q_EMIT device->touchDown(id, {x, y}, currentTime(), device);
+            break;
+        }
+        case EIS_EVENT_TOUCH_UP: {
+            const auto id = eis_event_touch_get_id(event);
+            qCDebug(KWIN_EIS) << device->name() << "touch up" << id;
+            std::erase(device->activeTouches, id);
+            if (eis_event_touch_get_is_cancel(event)) {
+                Q_EMIT device->touchCanceled(device);
+                break;
+            }
+            Q_EMIT device->touchUp(id, currentTime(), device);
+            break;
+        }
+        case EIS_EVENT_TOUCH_MOTION: {
+            const auto x = eis_event_touch_get_x(event);
+            const auto y = eis_event_touch_get_y(event);
+            const auto id = eis_event_touch_get_id(event);
+            qCDebug(KWIN_EIS) << device->name() << "touch move" << id << x << y;
+            Q_EMIT device->touchMotion(id, {x, y}, currentTime(), device);
+            break;
+        }
+#if EIS_HAVE_16
+        case EIS_EVENT_TEXT_KEYSYM: {
+            const auto keySym = eis_event_text_get_keysym(event);
+            const bool isPress = eis_event_text_get_keysym_is_press(event);
+            device->sendKeySym(keySym, isPress ? KeyboardKeyState::Pressed : KeyboardKeyState::Released);
+            break;
+        }
+        case EIS_EVENT_TEXT_UTF8: {
+            const auto text = QString::fromUtf8(eis_event_text_get_utf8(event));
+            kwinApp()->inputMethod()->sendText(text);
+            break;
+        }
+#endif
+        case EIS_EVENT_PONG:
+        case EIS_EVENT_SYNC:
+#if EIS_HAVE_16
+        case EIS_EVENT_DEVICE_READY:
+        case EIS_EVENT_SEAT_DEVICE_REQUESTED:
+#endif
+            break;
+        }
+        eis_event_unref(event);
+    }
+}
+
+}

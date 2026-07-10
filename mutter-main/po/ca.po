@@ -1,0 +1,950 @@
+# Catalan translation of Metacity.
+# Copyright © 2002, 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
+# This file is distributed under the same license as the metacity package.
+# Softcatala <info@softcatala.org>, 2002.
+# Jesús Moreno <jmmolas@wanadoo.es>, 2002.
+# Jordi Mallach <jordi@sindominio.net>, 2003, 2004, 2005, 2006, 2007, 2008.
+# David Planella <david.planella@gmail.com>, 2008, 2009, 2011, 2012.
+# Jordi Serratosa <jordis@softcatala.cat>, 2012, 2017.
+# Gil Forcada <gilforcada@guifi.net>, 2012-2020.
+# Jordi Mas i Herǹandez <jmas@softcatala.org>, 2025
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: metacity 2.24\n"
+"Report-Msgid-Bugs-To: https://gitlab.gnome.org/GNOME/mutter/issues/\n"
+"POT-Creation-Date: 2026-02-27 08:40+0000\n"
+"PO-Revision-Date: 2026-02-27 18:11+0100\n"
+"Last-Translator: Jordi Mas i Herǹandez <jmas@softcatala.org>\n"
+"Language-Team: Catalan <tradgnome@softcatala.org>\n"
+"Language: ca\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: Poedit 3.6\n"
+
+#: data/50-mutter-navigation.xml:6
+msgid "Navigation"
+msgstr "Navegació"
+
+#: data/50-mutter-navigation.xml:9
+msgid "Move window to workspace 1"
+msgstr "Mou la finestra a l'espai de treball 1"
+
+#: data/50-mutter-navigation.xml:12
+msgid "Move window to workspace 2"
+msgstr "Mou la finestra a l'espai de treball 2"
+
+#: data/50-mutter-navigation.xml:15
+msgid "Move window to workspace 3"
+msgstr "Mou la finestra a l'espai de treball 3"
+
+#: data/50-mutter-navigation.xml:18
+msgid "Move window to workspace 4"
+msgstr "Mou la finestra a l'espai de treball 4"
+
+#: data/50-mutter-navigation.xml:21
+msgid "Move window to last workspace"
+msgstr "Mou la finestra a l'últim espai de treball"
+
+#: data/50-mutter-navigation.xml:24
+msgid "Move window one workspace to the left"
+msgstr "Mou la finestra un espai de treball a l'esquerra"
+
+#: data/50-mutter-navigation.xml:27
+msgid "Move window one workspace to the right"
+msgstr "Mou la finestra un espai de treball a la dreta"
+
+#: data/50-mutter-navigation.xml:31
+msgid "Move window one workspace up"
+msgstr "Mou la finestra un espai de treball amunt"
+
+#: data/50-mutter-navigation.xml:35
+msgid "Move window one workspace down"
+msgstr "Mou la finestra un espai de treball avall"
+
+#: data/50-mutter-navigation.xml:38
+msgid "Move window one monitor to the left"
+msgstr "Mou la finestra un monitor a l'esquerra"
+
+#: data/50-mutter-navigation.xml:41
+msgid "Move window one monitor to the right"
+msgstr "Mou la finestra un monitor a la dreta"
+
+#: data/50-mutter-navigation.xml:44
+msgid "Move window one monitor up"
+msgstr "Mou la finestra un monitor amunt"
+
+#: data/50-mutter-navigation.xml:47
+msgid "Move window one monitor down"
+msgstr "Mou la finestra un monitor avall"
+
+#: data/50-mutter-navigation.xml:51
+msgid "Switch applications"
+msgstr "Canvia d'aplicacions"
+
+#: data/50-mutter-navigation.xml:56
+msgid "Switch to previous application"
+msgstr "Canvia a l'aplicació anterior"
+
+#: data/50-mutter-navigation.xml:60
+msgid "Switch windows"
+msgstr "Canvia de finestres"
+
+#: data/50-mutter-navigation.xml:65
+msgid "Switch to previous window"
+msgstr "Canvia a la finestra anterior"
+
+#: data/50-mutter-navigation.xml:69
+msgid "Switch windows of an application"
+msgstr "Canvia entre les finestres d'una aplicació"
+
+#: data/50-mutter-navigation.xml:74
+msgid "Switch to previous window of an application"
+msgstr "Canvia a la finestra anterior d'una aplicació"
+
+#: data/50-mutter-navigation.xml:78
+msgid "Switch system controls"
+msgstr "Canvia els controls del sistema"
+
+#: data/50-mutter-navigation.xml:83
+msgid "Switch to previous system control"
+msgstr "Canvia al control del sistema anterior"
+
+#: data/50-mutter-navigation.xml:87
+msgid "Switch windows directly"
+msgstr "Canvia immediatament entre finestres"
+
+#: data/50-mutter-navigation.xml:92
+msgid "Switch directly to previous window"
+msgstr "Canvia immediatament a la finestra anterior"
+
+#: data/50-mutter-navigation.xml:96
+msgid "Switch windows of an app directly"
+msgstr "Canvia immediatament entre les finestres d'una aplicació"
+
+#: data/50-mutter-navigation.xml:101
+msgid "Switch directly to previous window of an app"
+msgstr "Canvia immediatament a la finestra anterior d'una aplicació"
+
+#: data/50-mutter-navigation.xml:105
+msgid "Switch system controls directly"
+msgstr "Canvia immediatament entre els controls del sistema"
+
+#: data/50-mutter-navigation.xml:110
+msgid "Switch directly to previous system control"
+msgstr "Canvia immediatament al control del sistema anterior"
+
+#: data/50-mutter-navigation.xml:113
+msgid "Hide all normal windows"
+msgstr "Oculta totes les finestres normals"
+
+#: data/50-mutter-navigation.xml:116
+msgid "Switch to workspace 1"
+msgstr "Canvia a l'espai de treball 1"
+
+#: data/50-mutter-navigation.xml:119
+msgid "Switch to workspace 2"
+msgstr "Canvia a l'espai de treball 2"
+
+#: data/50-mutter-navigation.xml:122
+msgid "Switch to workspace 3"
+msgstr "Canvia a l'espai de treball 3"
+
+#: data/50-mutter-navigation.xml:125
+msgid "Switch to workspace 4"
+msgstr "Canvia a l'espai de treball 4"
+
+#: data/50-mutter-navigation.xml:128
+msgid "Switch to last workspace"
+msgstr "Canvia a l'últim espai de treball"
+
+#: data/50-mutter-navigation.xml:131
+msgid "Switch to workspace on the left"
+msgstr "Canvia a l'espai de treball de l'esquerra"
+
+#: data/50-mutter-navigation.xml:134
+msgid "Switch to workspace on the right"
+msgstr "Canvia a l'espai de treball a la dreta"
+
+#: data/50-mutter-navigation.xml:138
+msgid "Switch to workspace above"
+msgstr "Canvia a l'espai de treball de sobre"
+
+#: data/50-mutter-navigation.xml:142
+msgid "Switch to workspace below"
+msgstr "Canvia a l'espai de treball de sota"
+
+#: data/50-mutter-system.xml:6 data/50-mutter-wayland.xml:6
+msgid "System"
+msgstr "Sistema"
+
+#: data/50-mutter-system.xml:8
+msgid "Show the run command prompt"
+msgstr "Mostra l'indicador d'execució d'aplicacions"
+
+#: data/50-mutter-wayland.xml:8
+msgid "Restore the keyboard shortcuts"
+msgstr "Restaura les dreceres de teclat"
+
+#: data/50-mutter-windows.xml:6
+msgid "Windows"
+msgstr "Finestres"
+
+#: data/50-mutter-windows.xml:8
+msgid "Activate the window menu"
+msgstr "Activa el menú de finestra"
+
+#: data/50-mutter-windows.xml:10
+msgid "Toggle fullscreen mode"
+msgstr "Canvia entre el mode a pantalla completa"
+
+#: data/50-mutter-windows.xml:12
+msgid "Toggle maximization state"
+msgstr "Canvia l'estat de maximització"
+
+#: data/50-mutter-windows.xml:14
+msgid "Maximize window"
+msgstr "Maximitza la finestra"
+
+#: data/50-mutter-windows.xml:16
+msgid "Restore window"
+msgstr "Restaura la finestra"
+
+#: data/50-mutter-windows.xml:18
+msgid "Close window"
+msgstr "Tanca la finestra"
+
+#: data/50-mutter-windows.xml:20
+msgid "Hide window"
+msgstr "Oculta la finestra"
+
+#: data/50-mutter-windows.xml:22
+msgid "Move window"
+msgstr "Mou la finestra"
+
+#: data/50-mutter-windows.xml:24
+msgid "Resize window"
+msgstr "Redimensiona la finestra"
+
+#: data/50-mutter-windows.xml:27
+msgid "Toggle window on all workspaces or one"
+msgstr ""
+"Canvia la funció que fa que la finestra estigui en tots els espais de "
+"treball o només en un"
+
+#: data/50-mutter-windows.xml:29
+msgid "Raise window if covered, otherwise lower it"
+msgstr "Alça la finestra si està coberta per una altra; altrament, baixa-la"
+
+#: data/50-mutter-windows.xml:31
+msgid "Raise window above other windows"
+msgstr "Alça la finestra per damunt de les altres"
+
+#: data/50-mutter-windows.xml:33
+msgid "Lower window below other windows"
+msgstr "Baixa la finestra sota les altres"
+
+#: data/50-mutter-windows.xml:35
+msgid "Maximize window vertically"
+msgstr "Maximitza la finestra verticalment"
+
+#: data/50-mutter-windows.xml:37
+msgid "Maximize window horizontally"
+msgstr "Maximitza la finestra horitzontalment"
+
+#: data/50-mutter-windows.xml:41 data/org.gnome.mutter.gschema.xml.in:166
+msgid "View split on left"
+msgstr "Mostra la partició a l'esquerra"
+
+#: data/50-mutter-windows.xml:45 data/org.gnome.mutter.gschema.xml.in:171
+msgid "View split on right"
+msgstr "Mostra la partició a la dreta"
+
+#: data/org.gnome.mutter.gschema.xml.in:15
+msgid "Modifier to use for extended window management operations"
+msgstr ""
+"Modificador que s'utilitzarà per les operacions ampliades de gestió de "
+"finestres"
+
+#: data/org.gnome.mutter.gschema.xml.in:16
+msgid ""
+"This key will initiate the “overlay”, which is a combination window overview "
+"and application launching system. The default is intended to be the “Windows "
+"key” on PC hardware. It’s expected that this binding either the default or "
+"set to the empty string."
+msgstr ""
+"Aquesta tecla iniciarà l'«overlay» (superposador), el qual és una combinació "
+"de visualització de finestres i sistema de llançament d'aplicacions. El "
+"valor predeterminat és la «tecla Windows» en maquinari basat en ordinadors "
+"PC. El valor d'aquesta vinculació s'espera que sigui el predeterminat o text "
+"en blanc."
+
+#: data/org.gnome.mutter.gschema.xml.in:28
+msgid "Attach modal dialogs"
+msgstr "Adjunta els diàlegs modals"
+
+#: data/org.gnome.mutter.gschema.xml.in:29
+msgid ""
+"When true, instead of having independent titlebars, modal dialogs appear "
+"attached to the titlebar of the parent window and are moved together with "
+"the parent window."
+msgstr ""
+"Quan sigui «true» (cert), en lloc de tenir barres de títol independents, els "
+"diàlegs modals apareixeran adjuntats a la barra de títol de la finestra mare "
+"i es mouran juntament amb aquesta."
+
+#: data/org.gnome.mutter.gschema.xml.in:38
+msgid "Enable edge tiling when dropping windows on screen edges"
+msgstr ""
+"Habilita la tessel·lació a les vores en deixar anar les finestres a les "
+"vores de la pantalla"
+
+#: data/org.gnome.mutter.gschema.xml.in:39
+msgid ""
+"If enabled, dropping windows on vertical screen edges maximizes them "
+"vertically and resizes them horizontally to cover half of the available "
+"area. Dropping windows on the top screen edge maximizes them completely."
+msgstr ""
+"Si s'habilita, es maximitzaran les finestres verticalment i es "
+"redimensionaran horitzontalment per a cobrir la meitat de l'àrea disponible "
+"en deixar-les anar a les vores verticals de la pantalla. Si es deixen anar a "
+"la vora superior de la pantalla es maximitzaran completament."
+
+#: data/org.gnome.mutter.gschema.xml.in:48
+msgid "Workspaces are managed dynamically"
+msgstr "Els espais de treball es gestionen dinàmicament"
+
+#: data/org.gnome.mutter.gschema.xml.in:49
+msgid ""
+"Determines whether workspaces are managed dynamically or whether there’s a "
+"static number of workspaces (determined by the num-workspaces key in "
+"org.gnome.desktop.wm.preferences)."
+msgstr ""
+"Determina si els espais de treball es gestionen dinàmicament o hi ha un "
+"nombre determinat d'espais de treball (determinat per la clau «num-"
+"workspaces» a «org.gnome.desktop.wm.preferences»)."
+
+#: data/org.gnome.mutter.gschema.xml.in:58
+msgid "Workspaces only on primary"
+msgstr "Espais de treball només en el primari"
+
+#: data/org.gnome.mutter.gschema.xml.in:59
+msgid ""
+"Determines whether workspace switching should happen for windows on all "
+"monitors or only for windows on the primary monitor."
+msgstr ""
+"Determina si el canvi d'espai de treball hauria de ser per les finestres en "
+"tots els monitors o només en les finestres del monitor primari."
+
+#: data/org.gnome.mutter.gschema.xml.in:67
+msgid "Delay focus changes until the pointer stops moving"
+msgstr "Retarda el canvi del focus fins que s'aturi el punter"
+
+#: data/org.gnome.mutter.gschema.xml.in:68
+msgid ""
+"If set to true, and the focus mode is either “sloppy” or “mouse” then the "
+"focus will not be changed immediately when entering a window, but only after "
+"the pointer stops moving."
+msgstr ""
+"Si és «true» (cert), i el mode del focus és «sloppy» o «mouse», no es "
+"canviarà el focus immediatament quan s'entri a una finestra, només es "
+"canviarà quan el punter deixi de moure's."
+
+#: data/org.gnome.mutter.gschema.xml.in:78
+msgid "Draggable border width"
+msgstr "Amplada del contorn arrossegable"
+
+#: data/org.gnome.mutter.gschema.xml.in:79
+msgid ""
+"The amount of total draggable borders. If the theme’s visible borders are "
+"not enough, invisible borders will be added to meet this value."
+msgstr ""
+"La quantitat total de contorn arrossegable. Si els contorns visibles del "
+"tema no són suficients, s'afegiran contorns invisibles per a aconseguir "
+"aquest valor."
+
+#: data/org.gnome.mutter.gschema.xml.in:88
+msgid "Auto maximize nearly monitor sized windows"
+msgstr ""
+"Maximitza automàticament les finestres que gairebé facin la mida de la "
+"pantalla"
+
+#: data/org.gnome.mutter.gschema.xml.in:89
+msgid ""
+"If enabled, new windows that are initially the size of the monitor "
+"automatically get maximized."
+msgstr ""
+"Si s'habilita, les finestres que inicialment gairebé fan la mida de la "
+"pantalla es maximitzaran automàticament."
+
+#: data/org.gnome.mutter.gschema.xml.in:97
+msgid "Place new windows in the center"
+msgstr "Posiciona les finestres noves al centre"
+
+#: data/org.gnome.mutter.gschema.xml.in:98
+msgid ""
+"When true, the new windows will always be put in the center of the active "
+"screen of the monitor."
+msgstr ""
+"Si és «true» (cert), les finestres noves seran posicionades al centre de la "
+"pantalla activa del monitor."
+
+#: data/org.gnome.mutter.gschema.xml.in:107
+msgid "Enable experimental features"
+msgstr "Habilita les funcionalitats experimentals"
+
+#: data/org.gnome.mutter.gschema.xml.in:108
+msgid ""
+"To enable experimental features, add the feature keyword to the list. "
+"Whether the feature requires restarting the compositor depends on the given "
+"feature. Any experimental feature is not required to still be available, or "
+"configurable. Don’t expect adding anything in this setting to be future "
+"proof. Currently possible keywords: • “kms-modifiers” — makes mutter always "
+"allocate scanout buffers with explicit modifiers, if supported by the "
+"driver. Requires a restart. • “autoclose-xwayland” — automatically "
+"terminates Xwayland if all relevant X11 clients are gone. Requires a restart."
+msgstr ""
+"Per a habilitar característiques experimentals, afegiu la paraula clau de la "
+"característica a la llista. Que la característica requereixi reiniciar el "
+"compositor o no depèn de cada característica. És possible que alguna "
+"característica experimental no estigui disponible o no es pugui configurar. "
+"No espereu que res afegit en aquest paràmetre es mantingui en el futur. "
+"Actualment, les paraules clau possibles són: • «kms-modifiers»: fa que el "
+"«mutter» assigni sempre memòries intermèdies d'escaneig amb modificadors "
+"explícits, si és compatible amb el controlador. Requereix reiniciar. • "
+"«autoclose-xwayland»: acaba automàticament l'«Xwayland» si tots els clients "
+"X11 rellevants han desaparegut. Requereix reiniciar."
+
+#: data/org.gnome.mutter.gschema.xml.in:130
+msgid "Modifier to use to locate the pointer"
+msgstr "Modificar a usar per a localitzar el punter"
+
+#: data/org.gnome.mutter.gschema.xml.in:131
+msgid "This key will initiate the “locate pointer” action."
+msgstr "Aquesta clau inicialitzarà l'acció «locate pointer»."
+
+#: data/org.gnome.mutter.gschema.xml.in:138
+msgid "Timeout for check-alive ping"
+msgstr "Temps d'espera per a la comprovació «ping alive»"
+
+#: data/org.gnome.mutter.gschema.xml.in:139
+msgid ""
+"Number of milliseconds a client has to respond to a ping request in order to "
+"not be detected as frozen. Using 0 will disable the alive check completely."
+msgstr ""
+"Nombre de mil·lisegons en què un client ha de respondre a una sol·licitud de "
+"«ping» per no ser detectat com a congelat. L'ús de 0 inhabilitarà "
+"completament la comprovació."
+
+#. TRANSLATORS: Luminance is different from brightness.
+#. See https://en.wikipedia.org/wiki/Luminance
+#: data/org.gnome.mutter.gschema.xml.in:150
+msgid "Per output luminance settings"
+msgstr "Paràmetres de luminància per sortida"
+
+#: data/org.gnome.mutter.gschema.xml.in:151
+msgid ""
+"Per output and color mode luminance setting. Each entry consists of a tuple "
+"with connector, vendor, product, serial, and a color mode, as well as an "
+"associated floating point value representing the output luminance in percent "
+"(%). The default when not specified is 100%."
+msgstr ""
+"Ajustament de luminància per sortida i mode de color. Cada entrada consta "
+"d'una tupla amb connector, proveïdor, producte, número de sèrie i un mode de "
+"color, així com un valor de coma flotant associat que representa la "
+"luminància de sortida en percentatge (%). El valor predeterminat quan no "
+"s'especifica és del 100%."
+
+#: data/org.gnome.mutter.gschema.xml.in:176
+msgid "Switch monitor configurations"
+msgstr "Canvia configuracions de monitor"
+
+#: data/org.gnome.mutter.gschema.xml.in:181
+msgid "Rotates the built-in monitor configuration"
+msgstr "Gira la configuració del monitor integrada"
+
+#: data/org.gnome.mutter.gschema.xml.in:186
+msgid "Cancel any active input capture session"
+msgstr "Cancel·la qualsevol sessió  activa de captura de l'entrada"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:12
+msgid "Switch to VT 1"
+msgstr "Canvia al terminal virtual 1"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:16
+msgid "Switch to VT 2"
+msgstr "Canvia al terminal virtual 2"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:20
+msgid "Switch to VT 3"
+msgstr "Canvia al terminal virtual 3"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:24
+msgid "Switch to VT 4"
+msgstr "Canvia al terminal virtual 4"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:28
+msgid "Switch to VT 5"
+msgstr "Canvia al terminal virtual 5"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:32
+msgid "Switch to VT 6"
+msgstr "Canvia al terminal virtual 6"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:36
+msgid "Switch to VT 7"
+msgstr "Canvia al terminal virtual 7"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:40
+msgid "Switch to VT 8"
+msgstr "Canvia al terminal virtual 8"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:44
+msgid "Switch to VT 9"
+msgstr "Canvia al terminal virtual 9"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:48
+msgid "Switch to VT 10"
+msgstr "Canvia al terminal virtual 10"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:52
+msgid "Switch to VT 11"
+msgstr "Canvia al terminal virtual 11"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:56
+msgid "Switch to VT 12"
+msgstr "Canvia al terminal virtual 12"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:60
+msgid "Re-enable shortcuts"
+msgstr "Torna a habilitar les dreceres"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:70
+msgid "Allow X11 grabs to lock keyboard focus with Xwayland"
+msgstr ""
+"Permetre la captura amb X11 per a bloquejar el focus del teclat amb Xwayland"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:71
+msgid ""
+"Allow all keyboard events to be routed to X11 “override redirect” windows "
+"with a grab when running in Xwayland. This option is to support X11 clients "
+"which map an “override redirect” window (which do not receive keyboard "
+"focus) and issue a keyboard grab to force all keyboard events to that "
+"window. This option is seldom used and has no effect on regular X11 windows "
+"which can receive keyboard focus under normal circumstances. For a X11 grab "
+"to be taken into account under Wayland, the client must also either send a "
+"specific X11 ClientMessage to the root window or be among the applications "
+"allowed in key “xwayland-grab-access-rules”."
+msgstr ""
+"Permet que tots els esdeveniments de teclat s'encaminin a les finestres X11 "
+"«sobredirigir redirecció» amb una captura en executar-se a Xwayland. Aquesta "
+"opció és per a permetre als clients X11 que mapen una finestra «override "
+"redirect» (que no rep el focus del teclat) i emeten un teclat per a forçar "
+"tots els esdeveniments del teclat a aquesta finestra. Aquesta opció "
+"s'utilitza rarament i no té cap efecte en les finestres X11 regulars que "
+"poden rebre el focus del teclat en circumstàncies normals. Perquè una "
+"captura de X11 es tingui en compte a Wayland, el client ha d'enviar, o bé un "
+"ClientMessage de X11 específic a la finestra arrel, o bé estar entre les "
+"aplicacions permeses en la clau «xwayland-grab-access-rules»."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:90
+msgid "Xwayland applications allowed to issue keyboard grabs"
+msgstr "Les aplicacions Xwayland poden capturar el teclat"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:91
+msgid ""
+"List the resource names or resource class of X11 windows either allowed or "
+"not allowed to issue X11 keyboard grabs under Xwayland. The resource name or "
+"resource class of a given X11 window can be obtained using the command "
+"“xprop WM_CLASS”. Wildcards “*” and jokers “?” in the values are supported. "
+"Values starting with “!” are denied, which has precedence over the list of "
+"values allowed, to revoke applications from the default system list. The "
+"default system list includes the following applications: "
+"“@XWAYLAND_GRAB_DEFAULT_ACCESS_RULES@” Users can break an existing grab by "
+"using the specific keyboard shortcut defined by the keybinding key “restore-"
+"shortcuts”."
+msgstr ""
+"Llista els noms o classes dels recursos de les finestres X11 que estiguin "
+"permesos o denegades per a emetre captures de teclat X11 sota Xwayland. El "
+"nom o la classe dels recursos d'una finestra X11 donada es pot obtenir amb "
+"l'ordre «xprop WM_CLASS». Es poden utilitzar comodins «*» o «?» als valors. "
+"Els valors que comencin amb «!» es deneguen i tenen precedència per sobre de "
+"la llista dels valors permesos, així es permet la denegació d'aplicacions "
+"que estan a la llista predeterminada del sistema. La llista predeterminada "
+"del sistema inclou les aplicacions següents: "
+"“@XWAYLAND_GRAB_DEFAULT_ACCESS_RULES@” Els usuaris poden trencar una captura "
+"existent si utilitzen una drecera de teclat concreta definida en la clau de "
+"drecera de teclat “restore-shortcuts”."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:116
+msgid "Disable selected X extensions in Xwayland"
+msgstr "Inhabilita les extensions de X a Xwayland"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:117
+msgid ""
+"This option disables the selected X extensions in Xwayland if Xwayland was "
+"built with support for those X extensions. This option has no effect if "
+"Xwayland was built without support for the selected extensions. Xwayland "
+"needs to be restarted for this setting to take effect."
+msgstr ""
+"Aquesta opció inhabilita les extensions de X seleccionades a Xwayland si "
+"aquest es va construir permetent l'ús d'aquestes extensions. Aquesta opció "
+"no té cap efecte si Xwayland no es va construir permetent l'ús de les "
+"extensions seleccionades. S'ha de reiniciar Xwayland perquè es tingui en "
+"compte aquesta llista."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:130
+msgid "Allow X11 clients with a different endianness to connect to Xwayland"
+msgstr ""
+"Permet que els clients X11 amb una «endianness» diferent es puguin connectar "
+"a Xwayland"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:131
+msgid ""
+"Allow connections from clients with an endianness different to that of "
+"Xwayland. The X server byte-swapping code is a huge attack surface, much of "
+"that code in Xwayland is prone to security issues. The use-case of byte-"
+"swapped clients is very niche, and disabled by default in Xwayland. Enable "
+"this option to instruct Xwayland to accept connections from X11 clients with "
+"a different endianness. This option has no effect if Xwayland does not "
+"support the command line option +byteswappedclients/-byteswappedclients to "
+"control that setting. Xwayland needs to be restarted for this setting to "
+"take effect."
+msgstr ""
+"Permet connexions de clients amb una «endianness» diferent de la de "
+"l'Xwayland. El codi d'intercanvi de bytes del servidor X és una superfície "
+"d'atac enorme, i gran part d'aquest codi a Xwayland és propens a tenir "
+"problemes de seguretat. El cas d'ús dels clients amb els bytes intercanviats "
+"és molt reduït i està desactivat per defecte a Xwayland. Activeu aquesta "
+"opció per a instruir a Xwayland que accepti les connexions dels clients X11 "
+"amb una «endianness» diferent. Aquesta opció no té efecte si Xwayland no "
+"admet l'opció de línia d'ordres +byteswappedclients/-byteswappedclients per "
+"a controlar aquesta opció. Cal reiniciar l'Xwayland perquè aquesta opció "
+"tingui efecte."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:154
+msgid "Configure the Xwayland scaling factor"
+msgstr "Configura el factor d'escalat de Xwayland"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:155
+msgid ""
+"Scale the Xwayland coordinate space according to this factor. This will "
+"affect what scale HiDPI capable X11 clients will present themselves as, and "
+"how the compositor scales X11 client windows. Setting the scale to 0 means "
+"the scale will be automatically calculated. The scale will as of now be "
+"rounded to the closest integer."
+msgstr ""
+"Escala l'espai de coordenades de Xwayland d'acord amb aquest factor. Això "
+"afectarà a quina escala es presentaran els clients X11 capaços de HiDPI i "
+"com el compositor escala les finestres del client X11. Establir l'escala a 0 "
+"significa que l'escala es calcularà automàticament. L'escala s'arrodonirà a "
+"partir d'ara a l'enter més proper."
+
+#: mdk/mdk-launcher-adder.c:451 mdk/mdk-launcher-adder.ui:22
+msgid "Application"
+msgstr "Aplicació"
+
+#: mdk/mdk-launcher-adder.c:456 mdk/mdk-launcher-adder.ui:23
+msgid "Executable"
+msgstr "Executable"
+
+#: mdk/mdk-launcher-adder.ui:3
+msgid "Add Launcher"
+msgstr "Afegeix un llançador"
+
+#: mdk/mdk-launcher-adder.ui:15
+msgid "Launcher"
+msgstr "Llançador"
+
+#: mdk/mdk-launcher-adder.ui:18
+msgid "Type"
+msgstr "Tipus"
+
+#: mdk/mdk-launcher-adder.ui:38 mdk/mdk-launchers-editor.ui:22
+msgid "Add"
+msgstr "Afegeix"
+
+#: mdk/mdk-launcher-entry.c:198
+msgid "Run"
+msgstr "Executa"
+
+#: mdk/mdk-launcher-entry.ui:12
+msgid "Delete"
+msgstr "Suprimeix"
+
+#: mdk/mdk-launcher-entry.ui:20
+msgid "Action"
+msgstr "Acció"
+
+#: mdk/mdk-launchers-editor.ui:3
+msgid "Edit Launchers"
+msgstr "Edita els llançadors"
+
+#: mdk/mdk-launchers-editor.ui:16
+msgid "Launchers"
+msgstr "Llançadors"
+
+#: mdk/mdk-main-window.ui:7
+msgid "_Input"
+msgstr "_Entrada"
+
+#: mdk/mdk-main-window.ui:9
+msgid "_Emulate touch"
+msgstr "_Emula el toc"
+
+#: mdk/mdk-main-window.ui:13
+msgid "_Inhibit system shortcuts"
+msgstr "_Inhibeix les dreceres del sistema"
+
+#: mdk/mdk-main-window.ui:17
+msgid "Use host _keymap"
+msgstr "_Usa el mapa de tecles de l'amfitrió"
+
+#: mdk/mdk-main-window.ui:24
+msgid "_Monitors"
+msgstr "_Monitors"
+
+#: mdk/mdk-main-window.ui:26
+msgid "_Add monitor"
+msgstr "_Afegeix un monitor"
+
+#: mdk/mdk-main-window.ui:30
+msgid "_Emulate monitor modes"
+msgstr "_Emula els modes del monitor"
+
+#: mdk/mdk-main-window.ui:37
+msgid "_Launchers"
+msgstr "_Llançadors"
+
+#: mdk/mdk-main-window.ui:41
+msgid "_Edit launchers"
+msgstr "_Edita els llançadors"
+
+#: mdk/mdk-main-window.ui:48
+msgid "_About Mutter Development Kit"
+msgstr "_Quant al kit de desenvolupament del Mutter"
+
+#: mdk/mdk-main-window.ui:54 mdk/mdk-main.c:56
+msgid "Mutter Development Kit"
+msgstr "Kit de desenvolupament del Mutter"
+
+#: mdk/mdk-main-window.ui:64
+msgid "Main Menu"
+msgstr "Menú principal"
+
+#: mdk/mdk-main.c:49
+msgid "The Mutter Team"
+msgstr "L'equip del Mutter"
+
+#: mdk/mdk-main.c:62
+msgid "Mutter software development kit"
+msgstr "Kit de desenvolupament de programari del Mutter"
+
+#: mdk/mdk-main.c:65
+msgid "About Mutter Development Kit"
+msgstr "Quant al kit de desenvolupament del Mutter"
+
+#: mdk/mdk-monitor.c:556
+msgid "Failed to create monitor"
+msgstr "No s'ha pogut crear el monitor"
+
+#: src/backends/meta-monitor.c:285
+msgid "Built-in display"
+msgstr "Pantalla integrada"
+
+#: src/backends/meta-monitor.c:312
+msgid "Unknown"
+msgstr "Desconeguda"
+
+#: src/backends/meta-monitor.c:314
+msgid "Unknown Display"
+msgstr "Pantalla desconeguda"
+
+#: src/backends/meta-monitor.c:322
+#, c-format
+msgctxt ""
+"This is a monitor vendor name, followed by a size in inches, like 'Dell 15\"'"
+msgid "%s %s"
+msgstr "%s %s"
+
+#: src/backends/meta-monitor.c:330
+#, c-format
+msgctxt ""
+"This is a monitor vendor name followed by product/model name where size in "
+"inches could not be calculated, e.g. Dell U2414H"
+msgid "%s %s"
+msgstr "%s %s"
+
+#: src/core/bell.c:237
+msgid "Bell event"
+msgstr "Esdeveniment de campana"
+
+#: src/core/display.c:608
+msgid "Privacy Screen Enabled"
+msgstr "S'ha habilitat la pantalla de privadesa"
+
+#: src/core/display.c:609
+msgid "Privacy Screen Disabled"
+msgstr "S'ha inhabilitat la pantalla de privadesa"
+
+#: src/core/meta-context-main.c:356
+msgid "Run as a wayland compositor"
+msgstr "Funciona com a compositor de Wayland"
+
+#: src/core/meta-context-main.c:363
+msgid "Run wayland compositor without starting Xwayland"
+msgstr "Executa el compositor wayland sense iniciar Xwayland"
+
+#: src/core/meta-context-main.c:370
+msgid "Specify Wayland display name to use"
+msgstr "Especifica el nom de pantalla de Wayland a utilitzar"
+
+#: src/core/meta-context-main.c:377
+msgid "Run as a full display server, rather than nested"
+msgstr "Funciona com a servidor de pantalla completa, en comptes d'imbricat"
+
+#: src/core/meta-context-main.c:382
+msgid "Run as a headless display server"
+msgstr "Executa com a servidor de visualització sense cap capçalera"
+
+#: src/core/meta-context-main.c:387
+msgid "Add persistent virtual monitor (WxH or WxH@R)"
+msgstr "Afegeix un monitor virtual persistent (WxH or WxH@R)"
+
+#: src/core/meta-context-main.c:394
+msgid "Run development kit"
+msgstr "Executa el kit de desenvolupament"
+
+#: src/core/meta-context-main.c:405
+msgid "Profile performance using trace instrumentation"
+msgstr "Analitza el rendiment usant la instrumentació de traça"
+
+#: src/core/meta-context-main.c:411
+msgid "Enable debug control D-Bus interface"
+msgstr "Activa la interfície D-Bus per al control de la depuració"
+
+#. TRANSLATORS: This string refers to a button that switches between
+#. * different modes in that button group.
+#.
+#: src/core/meta-pad-action-mapper.c:617
+#, c-format
+msgid "Mode Switch (Group %d)"
+msgstr "Mode de commutació (grup %d)"
+
+#. TRANSLATORS: This string refers to a button that switches between
+#. * different modes.
+#.
+#: src/core/meta-pad-action-mapper.c:624
+#, c-format
+msgid "Mode Switch"
+msgstr "Commuta el mode"
+
+#. TRANSLATORS: This string refers to an action, cycles drawing tablets'
+#. * mapping through the available outputs.
+#.
+#: src/core/meta-pad-action-mapper.c:647
+msgid "Switch monitor"
+msgstr "Commuta el monitor"
+
+#: src/core/meta-pad-action-mapper.c:649
+msgid "Show on-screen help"
+msgstr "Mostra l'ajuda en pantalla"
+
+#. Translators: this string will appear in Sysprof
+#: src/core/meta-profiler.c:109 src/core/meta-profiler.c:299
+msgid "Compositor"
+msgstr "Compositor"
+
+#: src/core/mutter.c:75
+msgid "Print version"
+msgstr "Escriu versió"
+
+#: src/core/mutter.c:81
+msgid "Mutter plugin to use"
+msgstr "Connector del Mutter a utilitzar"
+
+#: src/core/prefs.c:1874
+#, c-format
+msgid "Workspace %d"
+msgstr "Espai de treball %d"
+
+#: src/core/util.c:149
+msgid "Mutter was compiled without support for verbose mode"
+msgstr "El Mutter s'ha compilat sense compatibilitat amb el mode detallat"
+
+#: src/core/workspace.c:510
+msgid "Workspace switched"
+msgstr "S'ha commutat d'espai de treball"
+
+#: src/wayland/meta-wayland-tablet-pad.c:558
+#, c-format
+msgid "Mode Switch: Mode %d"
+msgstr "Mode de commutació: mode %d"
+
+#: src/x11/meta-x11-display.c:776
+#, c-format
+msgid "Display “%s” already has a window manager"
+msgstr "La pantalla «%s» ja té un gestor de finestres"
+
+#: src/x11/meta-x11-display.c:1139
+#, c-format
+msgid "Failed to open X Window System display “%s”"
+msgstr "No s'ha pogut obrir la pantalla del sistema de finestres X «%s»"
+
+#: src/x11/meta-x11-display.c:1284
+#, c-format
+msgid "Screen %d on display “%s” is invalid"
+msgstr "El monitor %d de la pantalla «%s» no és vàlid"
+
+#. This probably means that a non-WM compositor like xcompmgr is running;
+#. * we have no way to get it to exit
+#: src/x11/meta-x11-display.c:2469
+#, c-format
+msgid ""
+"Another compositing manager is already running on screen %i on display “%s”."
+msgstr ""
+"Ja s'està executant un altre gestor de composició al monitor %i a la "
+"pantalla «%s»."
+
+#: src/x11/meta-x11-selection-input-stream.c:475
+#, c-format
+msgid "Format %s not supported"
+msgstr "El format %s no és compatible"
+
+#: src/x11/window-props.c:562
+#, c-format
+msgid "%s (on %s)"
+msgstr "%s (a %s)"
+
+#~ msgid "_Resizable"
+#~ msgstr "_Redimensionable"
+
+#~ msgid "Replace the running window manager"
+#~ msgstr "Reemplaça el gestor de finestres en execució"
+
+#~ msgid "X Display to use"
+#~ msgstr "Visualització X per a usar"
+
+#~ msgid "Make X calls synchronous"
+#~ msgstr "Fes que les crides a X siguin síncrones"
+
+# Notes:
+# Afegeix una nota
+#
+# Camins:
+# ../src/core/main.c:223
+#~ msgid "Run as a nested compositor"
+#~ msgstr "Funciona com a compositor imbricat"
+
+#~ msgid "Run with X11 backend"
+#~ msgstr "Executa amb un rerefons X11"
+
+#, c-format
+#~ msgid ""
+#~ "Display “%s” already has a window manager; try using the --replace option "
+#~ "to replace the current window manager."
+#~ msgstr ""
+#~ "La pantalla «%s» ja té un gestor de finestres; proveu l'opció --replace "
+#~ "per a reemplaçar el gestor de finestres actual."

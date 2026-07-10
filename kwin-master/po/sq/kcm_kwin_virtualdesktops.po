@@ -1,0 +1,177 @@
+# Albanian translation for kdebase-workspace
+# Copyright (c) 2009 Rosetta Contributors and Canonical Ltd 2009
+# This file is distributed under the same license as the kdebase-workspace package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2009.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: kdebase-workspace\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-04-14 00:45+0000\n"
+"PO-Revision-Date: 2010-04-06 13:55+0000\n"
+"Last-Translator: Vilson Gjeci <vilsongjeci@gmail.com>\n"
+"Language-Team: Albanian <sq@li.org>\n"
+"Language: sq\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Launchpad-Export-Date: 2011-05-06 02:11+0000\n"
+"X-Generator: Launchpad (build 12959)\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+
+#, kde-format
+msgctxt "NAME OF TRANSLATORS"
+msgid "Your names"
+msgstr "KDE Shqip, Launchpad Contributions: Vilson Gjeci"
+
+#, kde-format
+msgctxt "EMAIL OF TRANSLATORS"
+msgid "Your emails"
+msgstr "kde-shqip@yahoogroups.com,vilsongjeci@gmail.com"
+
+#: desktopsmodel.cpp:188
+#, fuzzy, kde-format
+#| msgid "Desktop %1"
+msgctxt "A numbered name for virtual desktops"
+msgid "Desktop %1"
+msgid_plural "Desktop %1"
+msgstr[0] "Desktopi %1"
+msgstr[1] "Desktopi %1"
+
+#: desktopsmodel.cpp:476
+#, kde-format
+msgid "There was an error connecting to the compositor."
+msgstr ""
+
+#: desktopsmodel.cpp:672
+#, kde-format
+msgid "There was an error saving the settings to the compositor."
+msgstr ""
+
+#: desktopsmodel.cpp:675
+#, kde-format
+msgid "There was an error requesting information from the compositor."
+msgstr ""
+
+#: ui/main.qml:26
+#, kde-format
+msgctxt "@text:label Number of rows, label associated to a number input field"
+msgid "Rows:"
+msgstr ""
+
+#: ui/main.qml:54
+#, fuzzy, kde-format
+#| msgid "Desktops"
+msgctxt "@action:button"
+msgid "Add Desktop"
+msgstr "Desktopët"
+
+#: ui/main.qml:90
+#, kde-format
+msgctxt "@action:button"
+msgid "Rename"
+msgstr ""
+
+#: ui/main.qml:100
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Remove"
+msgstr ""
+
+#: ui/main.qml:119
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Apply new name"
+msgstr ""
+
+#: ui/main.qml:132
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Cancel rename"
+msgstr ""
+
+#: ui/main.qml:179
+#, kde-format
+msgid ""
+"Virtual desktops have been changed outside this settings application. Saving "
+"now will overwrite the changes."
+msgstr ""
+
+#: ui/main.qml:195
+#, kde-format
+msgid "Row %1"
+msgstr ""
+
+#: ui/main.qml:209
+#, kde-format
+msgid "Options:"
+msgstr ""
+
+#: ui/main.qml:211
+#, kde-format
+msgid "Navigation wraps around"
+msgstr ""
+
+#: ui/main.qml:225
+#, kde-format
+msgid "Switch desktops independently for each screen"
+msgstr ""
+
+#: ui/main.qml:243
+#, kde-format
+msgid "Show animation when switching:"
+msgstr ""
+
+#: ui/main.qml:294
+#, kde-format
+msgid "Show on-screen display when switching:"
+msgstr ""
+
+#: ui/main.qml:313
+#, kde-format
+msgid "%1 ms"
+msgstr ""
+
+#: ui/main.qml:337
+#, kde-format
+msgid "Show desktop layout indicators"
+msgstr ""
+
+#, fuzzy
+#~| msgid "Desktops"
+#~ msgid "Virtual Desktops"
+#~ msgstr "Desktopët"
+
+#~ msgid "Desktop %1:"
+#~ msgstr "Desktop %1:"
+
+#~ msgid "Switch to Next Desktop"
+#~ msgstr "Ndrysho në Desktopin Tjetër"
+
+#~ msgid "Desktop Switching"
+#~ msgstr "Ndryshimi i Desktopit"
+
+#~ msgid "Layout"
+#~ msgstr "Planimetria"
+
+#, fuzzy
+#~| msgid "Number of rows:"
+#~ msgid "&Number of desktops:"
+#~ msgstr "Numri i rreshtave:"
+
+#, fuzzy
+#~| msgid "Number of rows:"
+#~ msgid "N&umber of rows:"
+#~ msgstr "Numri i rreshtave:"
+
+#~ msgid "Animation:"
+#~ msgstr "Animacioni:"
+
+#~ msgid "Duration:"
+#~ msgstr "Kohëzgjatja:"
+
+#~ msgid " msec"
+#~ msgstr " msec"
+
+#~ msgid "Shortcuts"
+#~ msgstr "Shkurtore"

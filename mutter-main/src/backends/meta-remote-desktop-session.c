@@ -1,0 +1,1851 @@
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
+
+/*
+ * Copyright (C) 2015-2017 Red Hat Inc.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
+ *
+ */
+
+#include "config.h"
+
+#include "backends/meta-remote-desktop-session.h"
+
+#include <fcntl.h>
+#include <gio/gunixfdlist.h>
+#include <glib-unix.h>
+#include <linux/input.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <xkbcommon/xkbcommon.h>
+
+#include "backends/meta-backend-private.h"
+#include "backends/meta-clipboard-session.h"
+#include "backends/meta-dbus-session-watcher.h"
+#include "backends/meta-dbus-session-manager.h"
+#include "backends/meta-eis.h"
+#include "backends/meta-keymap-description-private.h"
+#include "backends/meta-logical-monitor-private.h"
+#include "backends/meta-screen-cast-session.h"
+#include "backends/meta-stream.h"
+#include "backends/meta-remote-access-controller-private.h"
+#include "cogl/cogl.h"
+#include "core/display-private.h"
+#include "core/meta-sealed-fd.h"
+#include "meta/meta-backend.h"
+
+#include "meta-dbus-remote-desktop.h"
+
+#define META_REMOTE_DESKTOP_SESSION_DBUS_PATH "/org/gnome/Mutter/RemoteDesktop/Session"
+
+typedef enum _MetaRemoteDesktopKeymapFormat
+{
+  META_REMOTE_DESKTOP_KEYMAP_FORMAT_XKB_V1 = 1,
+  META_REMOTE_DESKTOP_KEYMAP_FORMAT_XKB_V2 = 2,
+} MetaRemoteDesktopKeymapFormat;
+
+typedef enum _MetaRemoteDesktopKeymapSource
+{
+  META_REMOTE_DESKTOP_KEYMAP_SOURCE_EXTERNAL = 0,
+  META_REMOTE_DESKTOP_KEYMAP_SOURCE_SESSION = 1,
+} MetaRemoteDesktopKeymapSource;
+
+#define SUPPORTED_KEYMAP_FORMATS (1 << META_REMOTE_DESKTOP_KEYMAP_FORMAT_XKB_V1)
+
+enum
+{
+  PROP_0,
+
+  N_PROPS
+};
+
+typedef enum _MetaRemoteDesktopNotifyAxisFlags
+{
+  META_REMOTE_DESKTOP_NOTIFY_AXIS_FLAGS_NONE = 0,
+  META_REMOTE_DESKTOP_NOTIFY_AXIS_FLAGS_FINISH = 1 << 0,
+  META_REMOTE_DESKTOP_NOTIFY_AXIS_FLAGS_SOURCE_WHEEL = 1 << 1,
+  META_REMOTE_DESKTOP_NOTIFY_AXIS_FLAGS_SOURCE_FINGER = 1 << 2,
+  META_REMOTE_DESKTOP_NOTIFY_AXIS_FLAGS_SOURCE_CONTINUOUS = 1 << 3,
+} MetaRemoteDesktopNotifyAxisFlags;
+
+struct _MetaRemoteDesktopSession
+{
+  MetaDBusRemoteDesktopSessionSkeleton parent;
+
+  MetaDbusSessionManager *session_manager;
+
+  GDBusConnection *connection;
+  char *peer_name;
+
+  char *session_id;
+  char *object_path;
+
+  MetaScreenCastSession *screen_cast_session;
+  gulong screen_cast_session_closed_handler_id;
+  guint started : 1;
+
+  MetaEis *eis;
+  ClutterVirtualInputDevice *virtual_pointer;
+  ClutterVirtualInputDevice *virtual_keyboard;
+  ClutterVirtualInputDevice *virtual_touchscreen;
+
+  MetaRemoteDesktopSessionHandle *handle;
+
+  MetaClipboardSession *clipboard;
+
+  gulong keymap_changed_handler_id;
+  gulong keymap_layout_group_changed_handler_id;
+  gulong keymap_state_changed_handler_id;
+
+  MetaKeymapDescription *keymap_description;
+  MetaKeymapDescriptionOwner *keymap_owner;
+
+  GCancellable *cancellable;
+};
+
+static void initable_init_iface (GInitableIface *iface);
+
+static void
+meta_remote_desktop_session_init_iface (MetaDBusRemoteDesktopSessionIface *iface);
+
+static void
+meta_dbus_session_init_iface (MetaDbusSessionInterface *iface);
+
+G_DEFINE_TYPE_WITH_CODE (MetaRemoteDesktopSession,
+                         meta_remote_desktop_session,
+                         META_DBUS_TYPE_REMOTE_DESKTOP_SESSION_SKELETON,
+                         G_IMPLEMENT_INTERFACE (G_TYPE_INITABLE,
+                                                initable_init_iface)
+                         G_IMPLEMENT_INTERFACE (META_DBUS_TYPE_REMOTE_DESKTOP_SESSION,
+                                                meta_remote_desktop_session_init_iface)
+                         G_IMPLEMENT_INTERFACE (META_TYPE_DBUS_SESSION,
+                                                meta_dbus_session_init_iface))
+
+struct _MetaRemoteDesktopSessionHandle
+{
+  MetaRemoteAccessHandle parent;
+
+  MetaRemoteDesktopSession *session;
+};
+
+G_DEFINE_TYPE (MetaRemoteDesktopSessionHandle,
+               meta_remote_desktop_session_handle,
+               META_TYPE_REMOTE_ACCESS_HANDLE)
+
+static MetaRemoteDesktopSessionHandle *
+meta_remote_desktop_session_handle_new (MetaRemoteDesktopSession *session);
+
+#ifndef G_DISABLE_ASSERT
+static gboolean
+meta_remote_desktop_session_is_running (MetaRemoteDesktopSession *session)
+{
+  return !!session->started;
+}
+#endif
+
+static void
+init_remote_access_handle (MetaRemoteDesktopSession *session)
+{
+  MetaBackend *backend =
+    meta_dbus_session_manager_get_backend (session->session_manager);
+  MetaRemoteAccessController *remote_access_controller;
+  MetaRemoteAccessHandle *remote_access_handle;
+
+  session->handle = meta_remote_desktop_session_handle_new (session);
+
+  remote_access_controller = meta_backend_get_remote_access_controller (backend);
+  remote_access_handle = META_REMOTE_ACCESS_HANDLE (session->handle);
+  meta_remote_access_controller_notify_new_handle (remote_access_controller,
+                                                   remote_access_handle);
+}
+
+static void
+ensure_virtual_device (MetaRemoteDesktopSession *session,
+                       ClutterInputDeviceType    device_type)
+{
+  MetaBackend *backend =
+    meta_dbus_session_manager_get_backend (session->session_manager);
+  ClutterBackend *clutter_backend = meta_backend_get_clutter_backend (backend);
+  ClutterSeat *seat = clutter_backend_get_default_seat (clutter_backend);
+  ClutterVirtualInputDevice **virtual_device_ptr = NULL;
+
+  switch (device_type)
+    {
+    case CLUTTER_POINTER_DEVICE:
+      virtual_device_ptr = &session->virtual_pointer;
+      break;
+    case CLUTTER_KEYBOARD_DEVICE:
+      virtual_device_ptr = &session->virtual_keyboard;
+      break;
+    case CLUTTER_TOUCHSCREEN_DEVICE:
+      virtual_device_ptr = &session->virtual_touchscreen;
+      break;
+    default:
+      g_assert_not_reached ();
+    }
+
+  g_assert (virtual_device_ptr);
+
+  if (*virtual_device_ptr)
+    return;
+
+  *virtual_device_ptr = clutter_seat_create_virtual_device (seat, device_type);
+}
+
+static void
+on_stream_is_configured (MetaStream               *stream,
+                         GParamSpec               *pspec,
+                         MetaRemoteDesktopSession *session)
+{
+  g_signal_handlers_disconnect_by_func (stream,
+                                        on_stream_is_configured,
+                                        session);
+
+  g_return_if_fail (meta_stream_is_configured (stream));
+
+  meta_eis_add_viewport (session->eis, META_EIS_VIEWPORT (stream));
+}
+
+static void
+on_stream_added (MetaScreenCastSession    *screen_cast_session,
+                 MetaScreenCastStream     *screen_cast_stream,
+                 MetaRemoteDesktopSession *session)
+{
+  MetaStream *stream = meta_screen_cast_stream_get_stream (screen_cast_stream);
+
+  if (meta_stream_is_configured (stream))
+    {
+      meta_eis_add_viewport (session->eis, META_EIS_VIEWPORT (stream));
+    }
+  else
+    {
+      g_signal_connect (stream, "notify::is-configured",
+                        G_CALLBACK (on_stream_is_configured), session);
+    }
+}
+
+static void
+on_stream_removed (MetaScreenCastSession    *screen_cast_session,
+                   MetaScreenCastStream     *screen_cast_stream,
+                   MetaRemoteDesktopSession *session)
+{
+  MetaStream *stream = meta_screen_cast_stream_get_stream (screen_cast_stream);
+
+  if (g_signal_handlers_disconnect_by_func (stream,
+                                            on_stream_is_configured,
+                                            session) == 0)
+    meta_eis_remove_viewport (session->eis, META_EIS_VIEWPORT (stream));
+}
+
+static void
+initialize_viewports (MetaRemoteDesktopSession *session)
+{
+  if (session->screen_cast_session)
+    {
+      GList *streams;
+      GList *l;
+
+      streams =
+        meta_screen_cast_session_peek_streams (session->screen_cast_session);
+      for (l = streams; l; l = l->next)
+        {
+          MetaScreenCastStream *screen_cast_stream =
+            META_SCREEN_CAST_STREAM (l->data);
+          MetaStream *stream =
+            meta_screen_cast_stream_get_stream (screen_cast_stream);
+
+          if (meta_stream_is_configured (stream))
+            {
+              meta_eis_add_viewport (session->eis, META_EIS_VIEWPORT (stream));
+            }
+          else
+            {
+              g_signal_connect (stream, "notify::is-configured",
+                                G_CALLBACK (on_stream_is_configured), session);
+            }
+        }
+
+      g_signal_connect (session->screen_cast_session,
+                        "stream-added",
+                        G_CALLBACK (on_stream_added),
+                        session);
+      g_signal_connect (session->screen_cast_session,
+                        "stream-removed",
+                        G_CALLBACK (on_stream_removed),
+                        session);
+    }
+  else
+    {
+      meta_eis_enable_monitor_viewports (session->eis);
+    }
+}
+
+static gboolean
+meta_remote_desktop_session_start (MetaRemoteDesktopSession *session,
+                                   GError                  **error)
+{
+  g_assert (!session->started);
+
+  if (session->screen_cast_session)
+    {
+      if (!meta_screen_cast_session_start (session->screen_cast_session, error))
+        return FALSE;
+    }
+
+  if (session->eis)
+    initialize_viewports (session);
+
+  init_remote_access_handle (session);
+  session->started = TRUE;
+
+  return TRUE;
+}
+
+static void
+meta_remote_desktop_session_close (MetaDbusSession *dbus_session)
+{
+  MetaRemoteDesktopSession *session =
+    META_REMOTE_DESKTOP_SESSION (dbus_session);
+  MetaDBusRemoteDesktopSession *skeleton =
+    META_DBUS_REMOTE_DESKTOP_SESSION (session);
+  MetaBackend *backend =
+    meta_dbus_session_manager_get_backend (session->session_manager);
+  ClutterSeat *seat = meta_backend_get_default_seat (backend);
+  ClutterKeymap *keymap = clutter_seat_get_keymap (seat);
+
+  session->started = FALSE;
+
+  if (session->screen_cast_session)
+    {
+      MetaDbusSession *screen_cast_session =
+        META_DBUS_SESSION (session->screen_cast_session);
+
+      g_clear_signal_handler (&session->screen_cast_session_closed_handler_id,
+                              session->screen_cast_session);
+      meta_dbus_session_close (screen_cast_session);
+      session->screen_cast_session = NULL;
+    }
+
+  g_clear_signal_handler (&session->keymap_changed_handler_id,
+                          backend);
+  g_clear_signal_handler (&session->keymap_layout_group_changed_handler_id,
+                          backend);
+  g_clear_signal_handler (&session->keymap_state_changed_handler_id,
+                          keymap);
+
+  g_clear_object (&session->virtual_pointer);
+  g_clear_object (&session->virtual_keyboard);
+  g_clear_object (&session->virtual_touchscreen);
+  g_clear_object (&session->eis);
+
+  meta_dbus_session_notify_closed (META_DBUS_SESSION (session));
+  meta_dbus_remote_desktop_session_emit_closed (skeleton);
+  g_dbus_interface_skeleton_unexport (G_DBUS_INTERFACE_SKELETON (session));
+
+  if (session->handle)
+    {
+      MetaRemoteAccessHandle *remote_access_handle =
+        META_REMOTE_ACCESS_HANDLE (session->handle);
+
+      meta_remote_access_handle_notify_stopped (remote_access_handle);
+    }
+
+  g_object_unref (session);
+}
+
+char *
+meta_remote_desktop_session_get_object_path (MetaRemoteDesktopSession *session)
+{
+  return session->object_path;
+}
+
+static void
+on_screen_cast_session_closed (MetaScreenCastSession    *screen_cast_session,
+                               MetaRemoteDesktopSession *session)
+{
+  session->screen_cast_session = NULL;
+  meta_dbus_session_close (META_DBUS_SESSION (session));
+}
+
+gboolean
+meta_remote_desktop_session_register_screen_cast (MetaRemoteDesktopSession  *session,
+                                                  MetaScreenCastSession     *screen_cast_session,
+                                                  GError                   **error)
+{
+  if (session->started)
+    {
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                   "Remote desktop session already started");
+      return FALSE;
+    }
+
+  if (session->screen_cast_session)
+    {
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                   "Remote desktop session already have an associated "
+                   "screen cast session");
+      return FALSE;
+    }
+
+  session->screen_cast_session = screen_cast_session;
+  session->screen_cast_session_closed_handler_id =
+    g_signal_connect (screen_cast_session, "session-closed",
+                      G_CALLBACK (on_screen_cast_session_closed),
+                      session);
+
+  return TRUE;
+}
+
+static gboolean
+check_permission (MetaRemoteDesktopSession *session,
+                  GDBusMethodInvocation    *invocation)
+{
+  return g_strcmp0 (session->peer_name,
+                    g_dbus_method_invocation_get_sender (invocation)) == 0;
+}
+
+static gboolean
+meta_remote_desktop_session_check_can_notify (MetaRemoteDesktopSession *session,
+                                              GDBusMethodInvocation    *invocation)
+{
+  if (!session->started)
+    {
+      g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR,
+                                             G_DBUS_ERROR_FAILED,
+                                             "Session not started");
+      return FALSE;
+    }
+
+  if (!check_permission (session, invocation))
+    {
+      g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR,
+                                             G_DBUS_ERROR_ACCESS_DENIED,
+                                             "Permission denied");
+      return FALSE;
+    }
+
+  return TRUE;
+}
+
+static gboolean
+handle_start (MetaDBusRemoteDesktopSession *skeleton,
+              GDBusMethodInvocation        *invocation)
+{
+  MetaRemoteDesktopSession *session = META_REMOTE_DESKTOP_SESSION (skeleton);
+  g_autoptr (GError) error = NULL;
+
+  if (session->started)
+    {
+      g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR,
+                                             G_DBUS_ERROR_FAILED,
+                                             "Already started");
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  if (!check_permission (session, invocation))
+    {
+      g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR,
+                                             G_DBUS_ERROR_ACCESS_DENIED,
+                                             "Permission denied");
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  if (!meta_remote_desktop_session_start (session, &error))
+    {
+      g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR,
+                                             G_DBUS_ERROR_FAILED,
+                                             "Failed to start remote desktop: %s",
+                                             error->message);
+
+      meta_dbus_session_close (META_DBUS_SESSION (session));
+
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  meta_dbus_remote_desktop_session_complete_start (skeleton, invocation);
+
+  return G_DBUS_METHOD_INVOCATION_HANDLED;
+}
+
+static gboolean
+handle_stop (MetaDBusRemoteDesktopSession *skeleton,
+             GDBusMethodInvocation        *invocation)
+{
+  MetaRemoteDesktopSession *session = META_REMOTE_DESKTOP_SESSION (skeleton);
+
+  if (!session->started)
+    {
+      g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR,
+                                             G_DBUS_ERROR_FAILED,
+                                             "Session not started");
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  if (!check_permission (session, invocation))
+    {
+      g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR,
+                                             G_DBUS_ERROR_ACCESS_DENIED,
+                                             "Permission denied");
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  meta_dbus_session_close (META_DBUS_SESSION (session));
+
+  meta_dbus_remote_desktop_session_complete_stop (skeleton, invocation);
+
+  return G_DBUS_METHOD_INVOCATION_HANDLED;
+}
+
+static gboolean
+handle_notify_keyboard_keycode (MetaDBusRemoteDesktopSession *skeleton,
+                                GDBusMethodInvocation        *invocation,
+                                unsigned int                  keycode,
+                                gboolean                      pressed)
+{
+  MetaRemoteDesktopSession *session = META_REMOTE_DESKTOP_SESSION (skeleton);
+  ClutterKeyState state;
+
+  if (!meta_remote_desktop_session_check_can_notify (session, invocation))
+    return G_DBUS_METHOD_INVOCATION_HANDLED;
+
+  if (pressed)
+    {
+      ensure_virtual_device (session, CLUTTER_KEYBOARD_DEVICE);
+      state = CLUTTER_KEY_STATE_PRESSED;
+    }
+  else
+    {
+      if (!session->virtual_keyboard)
+        {
+          g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR,
+                                                 G_DBUS_ERROR_FAILED,
+                                                 "Invalid key event");
+          return G_DBUS_METHOD_INVOCATION_HANDLED;
+        }
+
+      state = CLUTTER_KEY_STATE_RELEASED;
+    }
+
+  clutter_virtual_input_device_notify_key (session->virtual_keyboard,
+                                           CLUTTER_CURRENT_TIME,
+                                           keycode,
+                                           state);
+
+  meta_dbus_remote_desktop_session_complete_notify_keyboard_keycode (skeleton,
+                                                                     invocation);
+  return G_DBUS_METHOD_INVOCATION_HANDLED;
+}
+
+static gboolean
+handle_notify_keyboard_keysym (MetaDBusRemoteDesktopSession *skeleton,
+                               GDBusMethodInvocation        *invocation,
+                               unsigned int                  keysym,
+                               gboolean                      pressed)
+{
+  MetaRemoteDesktopSession *session = META_REMOTE_DESKTOP_SESSION (skeleton);
+  ClutterKeyState state;
+
+  if (!meta_remote_desktop_session_check_can_notify (session, invocation))
+    return G_DBUS_METHOD_INVOCATION_HANDLED;
+
+  if (pressed)
+    {
+      ensure_virtual_device (session, CLUTTER_KEYBOARD_DEVICE);
+      state = CLUTTER_KEY_STATE_PRESSED;
+    }
+  else
+    {
+      if (!session->virtual_keyboard)
+        {
+          g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR,
+                                                 G_DBUS_ERROR_FAILED,
+                                                 "Invalid key event");
+          return G_DBUS_METHOD_INVOCATION_HANDLED;
+        }
+
+      state = CLUTTER_KEY_STATE_RELEASED;
+    }
+
+  clutter_virtual_input_device_notify_keyval (session->virtual_keyboard,
+                                              CLUTTER_CURRENT_TIME,
+                                              keysym,
+                                              state);
+
+  meta_dbus_remote_desktop_session_complete_notify_keyboard_keysym (skeleton,
+                                                                    invocation);
+  return G_DBUS_METHOD_INVOCATION_HANDLED;
+}
+
+static gboolean
+handle_notify_pointer_button (MetaDBusRemoteDesktopSession *skeleton,
+                              GDBusMethodInvocation        *invocation,
+                              int                           button_code,
+                              gboolean                      pressed)
+{
+  MetaRemoteDesktopSession *session = META_REMOTE_DESKTOP_SESSION (skeleton);
+  uint32_t button;
+  ClutterButtonState state;
+
+  if (!meta_remote_desktop_session_check_can_notify (session, invocation))
+    return G_DBUS_METHOD_INVOCATION_HANDLED;
+
+  button = meta_evdev_button_to_clutter (button_code);
+
+  if (pressed)
+    {
+      ensure_virtual_device (session, CLUTTER_POINTER_DEVICE);
+      state = CLUTTER_BUTTON_STATE_PRESSED;
+    }
+  else
+    {
+      if (!session->virtual_pointer)
+        {
+          g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR,
+                                                 G_DBUS_ERROR_FAILED,
+                                                 "Invalid button event");
+          return G_DBUS_METHOD_INVOCATION_HANDLED;
+        }
+
+      state = CLUTTER_BUTTON_STATE_RELEASED;
+    }
+
+  clutter_virtual_input_device_notify_button (session->virtual_pointer,
+                                              CLUTTER_CURRENT_TIME,
+                                              button,
+                                              state);
+
+  meta_dbus_remote_desktop_session_complete_notify_pointer_button (skeleton,
+                                                                   invocation);
+
+  return G_DBUS_METHOD_INVOCATION_HANDLED;
+}
+
+static gboolean
+clutter_scroll_source_from_axis_flags (MetaRemoteDesktopNotifyAxisFlags  axis_flags,
+                                       ClutterScrollSource              *scroll_source)
+{
+  MetaRemoteDesktopNotifyAxisFlags scroll_mask;
+
+  scroll_mask = META_REMOTE_DESKTOP_NOTIFY_AXIS_FLAGS_SOURCE_WHEEL |
+                META_REMOTE_DESKTOP_NOTIFY_AXIS_FLAGS_SOURCE_FINGER |
+                META_REMOTE_DESKTOP_NOTIFY_AXIS_FLAGS_SOURCE_CONTINUOUS;
+
+  switch (axis_flags & scroll_mask)
+    {
+    case META_REMOTE_DESKTOP_NOTIFY_AXIS_FLAGS_SOURCE_WHEEL:
+      *scroll_source = CLUTTER_SCROLL_SOURCE_WHEEL;
+      return TRUE;
+    case META_REMOTE_DESKTOP_NOTIFY_AXIS_FLAGS_NONE:
+    case META_REMOTE_DESKTOP_NOTIFY_AXIS_FLAGS_SOURCE_FINGER:
+      *scroll_source = CLUTTER_SCROLL_SOURCE_FINGER;
+      return TRUE;
+    case META_REMOTE_DESKTOP_NOTIFY_AXIS_FLAGS_SOURCE_CONTINUOUS:
+      *scroll_source = CLUTTER_SCROLL_SOURCE_CONTINUOUS;
+      return TRUE;
+    }
+
+  return FALSE;
+}
+
+static gboolean
+handle_notify_pointer_axis (MetaDBusRemoteDesktopSession *skeleton,
+                            GDBusMethodInvocation        *invocation,
+                            double                        dx,
+                            double                        dy,
+                            uint32_t                      flags)
+{
+  MetaRemoteDesktopSession *session = META_REMOTE_DESKTOP_SESSION (skeleton);
+  ClutterScrollFinishFlags finish_flags = CLUTTER_SCROLL_FINISHED_NONE;
+  ClutterScrollSource scroll_source;
+
+  if (!meta_remote_desktop_session_check_can_notify (session, invocation))
+    return G_DBUS_METHOD_INVOCATION_HANDLED;
+
+  if (!clutter_scroll_source_from_axis_flags (flags, &scroll_source))
+    {
+      g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR,
+                                             G_DBUS_ERROR_FAILED,
+                                             "Invalid scroll source");
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  if (flags & META_REMOTE_DESKTOP_NOTIFY_AXIS_FLAGS_FINISH)
+    {
+      finish_flags |= (CLUTTER_SCROLL_FINISHED_HORIZONTAL |
+                       CLUTTER_SCROLL_FINISHED_VERTICAL);
+    }
+
+  ensure_virtual_device (session, CLUTTER_POINTER_DEVICE);
+
+  clutter_virtual_input_device_notify_scroll_continuous (session->virtual_pointer,
+                                                         CLUTTER_CURRENT_TIME,
+                                                         dx, dy,
+                                                         scroll_source,
+                                                         finish_flags);
+
+  meta_dbus_remote_desktop_session_complete_notify_pointer_axis (skeleton,
+                                                                 invocation);
+
+  return G_DBUS_METHOD_INVOCATION_HANDLED;
+}
+
+static ClutterScrollDirection
+discrete_steps_to_scroll_direction (unsigned int axis,
+                                    int          steps)
+{
+  if (axis == 0 && steps < 0)
+    return CLUTTER_SCROLL_UP;
+  if (axis == 0 && steps > 0)
+    return CLUTTER_SCROLL_DOWN;
+  if (axis == 1 && steps < 0)
+    return CLUTTER_SCROLL_LEFT;
+  if (axis == 1 && steps > 0)
+    return CLUTTER_SCROLL_RIGHT;
+
+  g_assert_not_reached ();
+  return 0;
+}
+
+static gboolean
+handle_notify_pointer_axis_discrete (MetaDBusRemoteDesktopSession *skeleton,
+                                     GDBusMethodInvocation        *invocation,
+                                     unsigned int                  axis,
+                                     int                           steps)
+{
+  MetaRemoteDesktopSession *session = META_REMOTE_DESKTOP_SESSION (skeleton);
+  ClutterScrollDirection direction;
+  int step_count;
+
+  if (!meta_remote_desktop_session_check_can_notify (session, invocation))
+    return G_DBUS_METHOD_INVOCATION_HANDLED;
+
+  if (axis > 1)
+    {
+      g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR,
+                                             G_DBUS_ERROR_FAILED,
+                                             "Invalid axis value");
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  if (steps == 0)
+    {
+      g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR,
+                                             G_DBUS_ERROR_FAILED,
+                                             "Invalid axis steps value");
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  ensure_virtual_device (session, CLUTTER_POINTER_DEVICE);
+
+  /*
+   * We don't have the actual scroll source, but only know they should be
+   * considered as discrete steps. The device that produces such scroll events
+   * is the scroll wheel, so pretend that is the scroll source.
+   */
+  direction = discrete_steps_to_scroll_direction (axis, steps);
+
+  for (step_count = 0; step_count < abs (steps); step_count++)
+    clutter_virtual_input_device_notify_discrete_scroll (session->virtual_pointer,
+                                                         CLUTTER_CURRENT_TIME,
+                                                         direction,
+                                                         CLUTTER_SCROLL_SOURCE_WHEEL);
+
+  meta_dbus_remote_desktop_session_complete_notify_pointer_axis_discrete (skeleton,
+                                                                          invocation);
+
+  return G_DBUS_METHOD_INVOCATION_HANDLED;
+}
+
+static gboolean
+handle_notify_pointer_motion_relative (MetaDBusRemoteDesktopSession *skeleton,
+                                       GDBusMethodInvocation        *invocation,
+                                       double                        dx,
+                                       double                        dy)
+{
+  MetaRemoteDesktopSession *session = META_REMOTE_DESKTOP_SESSION (skeleton);
+
+  if (!meta_remote_desktop_session_check_can_notify (session, invocation))
+    return G_DBUS_METHOD_INVOCATION_HANDLED;
+
+  ensure_virtual_device (session, CLUTTER_POINTER_DEVICE);
+
+  clutter_virtual_input_device_notify_relative_motion (session->virtual_pointer,
+                                                       CLUTTER_CURRENT_TIME,
+                                                       dx, dy);
+
+  meta_dbus_remote_desktop_session_complete_notify_pointer_motion_relative (skeleton,
+                                                                            invocation);
+
+  return G_DBUS_METHOD_INVOCATION_HANDLED;
+}
+
+static gboolean
+handle_notify_pointer_motion_absolute (MetaDBusRemoteDesktopSession *skeleton,
+                                       GDBusMethodInvocation        *invocation,
+                                       const char                   *stream_path,
+                                       double                        x,
+                                       double                        y)
+{
+  MetaRemoteDesktopSession *session = META_REMOTE_DESKTOP_SESSION (skeleton);
+  MetaScreenCastStream *screen_cast_stream;
+  MetaStream *stream;
+  double abs_x, abs_y;
+
+  if (!meta_remote_desktop_session_check_can_notify (session, invocation))
+    return G_DBUS_METHOD_INVOCATION_HANDLED;
+
+  if (!session->screen_cast_session)
+    {
+      g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR,
+                                             G_DBUS_ERROR_FAILED,
+                                             "No screen cast active");
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  screen_cast_stream =
+    meta_screen_cast_session_get_stream (session->screen_cast_session,
+                                         stream_path);
+  if (!screen_cast_stream)
+    {
+      g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR,
+                                             G_DBUS_ERROR_FAILED,
+                                             "Unknown stream");
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  ensure_virtual_device (session, CLUTTER_POINTER_DEVICE);
+
+  stream = meta_screen_cast_stream_get_stream (screen_cast_stream);
+  if (meta_stream_transform_position (stream, x, y, &abs_x, &abs_y))
+    {
+      clutter_virtual_input_device_notify_absolute_motion (session->virtual_pointer,
+                                                           CLUTTER_CURRENT_TIME,
+                                                           abs_x, abs_y);
+    }
+  else
+    {
+      meta_topic (META_DEBUG_REMOTE_DESKTOP,
+                  "Dropping early absolute pointer motion (%f, %f)", x, y);
+    }
+
+  meta_dbus_remote_desktop_session_complete_notify_pointer_motion_absolute (skeleton,
+                                                                            invocation);
+
+  return G_DBUS_METHOD_INVOCATION_HANDLED;
+}
+
+static gboolean
+handle_notify_touch_down (MetaDBusRemoteDesktopSession *skeleton,
+                          GDBusMethodInvocation        *invocation,
+                          const char                   *stream_path,
+                          unsigned int                  slot,
+                          double                        x,
+                          double                        y)
+{
+  MetaRemoteDesktopSession *session = META_REMOTE_DESKTOP_SESSION (skeleton);
+  MetaScreenCastStream *screen_cast_stream;
+  MetaStream *stream;
+  double abs_x, abs_y;
+
+  if (!meta_remote_desktop_session_check_can_notify (session, invocation))
+    return G_DBUS_METHOD_INVOCATION_HANDLED;
+
+  if (slot > CLUTTER_VIRTUAL_INPUT_DEVICE_MAX_TOUCH_SLOTS)
+    {
+      g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR,
+                                             G_DBUS_ERROR_FAILED,
+                                             "Touch slot out of range");
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  if (!session->screen_cast_session)
+    {
+      g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR,
+                                             G_DBUS_ERROR_FAILED,
+                                             "No screen cast active");
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  screen_cast_stream =
+    meta_screen_cast_session_get_stream (session->screen_cast_session,
+                                         stream_path);
+  if (!screen_cast_stream)
+    {
+      g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR,
+                                             G_DBUS_ERROR_FAILED,
+                                             "Unknown stream");
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  ensure_virtual_device (session, CLUTTER_TOUCHSCREEN_DEVICE);
+
+  stream = meta_screen_cast_stream_get_stream (screen_cast_stream);
+  if (meta_stream_transform_position (stream, x, y, &abs_x, &abs_y))
+    {
+      clutter_virtual_input_device_notify_touch_down (session->virtual_touchscreen,
+                                                      CLUTTER_CURRENT_TIME,
+                                                      slot,
+                                                      abs_x, abs_y);
+    }
+  else
+    {
+      meta_topic (META_DEBUG_REMOTE_DESKTOP,
+                  "Dropping early touch down (%f, %f)", x, y);
+    }
+
+  meta_dbus_remote_desktop_session_complete_notify_touch_down (skeleton,
+                                                               invocation);
+
+  return G_DBUS_METHOD_INVOCATION_HANDLED;
+}
+
+static gboolean
+handle_notify_touch_motion (MetaDBusRemoteDesktopSession *skeleton,
+                            GDBusMethodInvocation        *invocation,
+                            const char                   *stream_path,
+                            unsigned int                  slot,
+                            double                        x,
+                            double                        y)
+{
+  MetaRemoteDesktopSession *session = META_REMOTE_DESKTOP_SESSION (skeleton);
+  MetaScreenCastStream *screen_cast_stream;
+  MetaStream *stream;
+  double abs_x, abs_y;
+
+  if (!meta_remote_desktop_session_check_can_notify (session, invocation))
+    return G_DBUS_METHOD_INVOCATION_HANDLED;
+
+  if (slot > CLUTTER_VIRTUAL_INPUT_DEVICE_MAX_TOUCH_SLOTS)
+    {
+      g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR,
+                                             G_DBUS_ERROR_FAILED,
+                                             "Touch slot out of range");
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  if (!session->screen_cast_session)
+    {
+      g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR,
+                                             G_DBUS_ERROR_FAILED,
+                                             "No screen cast active");
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  screen_cast_stream =
+    meta_screen_cast_session_get_stream (session->screen_cast_session,
+                                         stream_path);
+  if (!screen_cast_stream)
+    {
+      g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR,
+                                             G_DBUS_ERROR_FAILED,
+                                             "Unknown stream");
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  if (!session->virtual_touchscreen)
+    {
+      g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR,
+                                             G_DBUS_ERROR_FAILED,
+                                             "Invalid touch point");
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  stream = meta_screen_cast_stream_get_stream (screen_cast_stream);
+  if (meta_stream_transform_position (stream, x, y, &abs_x, &abs_y))
+    {
+      clutter_virtual_input_device_notify_touch_motion (session->virtual_touchscreen,
+                                                        CLUTTER_CURRENT_TIME,
+                                                        slot,
+                                                        abs_x, abs_y);
+    }
+  else
+    {
+      meta_topic (META_DEBUG_REMOTE_DESKTOP,
+                  "Dropping early touch motion (%f, %f)", x, y);
+    }
+
+  meta_dbus_remote_desktop_session_complete_notify_touch_motion (skeleton,
+                                                                 invocation);
+
+  return G_DBUS_METHOD_INVOCATION_HANDLED;
+}
+
+static gboolean
+handle_notify_touch_up (MetaDBusRemoteDesktopSession *skeleton,
+                        GDBusMethodInvocation        *invocation,
+                        unsigned int                  slot)
+{
+  MetaRemoteDesktopSession *session = META_REMOTE_DESKTOP_SESSION (skeleton);
+
+  if (!meta_remote_desktop_session_check_can_notify (session, invocation))
+    return G_DBUS_METHOD_INVOCATION_HANDLED;
+
+  if (slot > CLUTTER_VIRTUAL_INPUT_DEVICE_MAX_TOUCH_SLOTS)
+    {
+      g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR,
+                                             G_DBUS_ERROR_FAILED,
+                                             "Touch slot out of range");
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  if (!session->virtual_touchscreen)
+    {
+      g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR,
+                                             G_DBUS_ERROR_FAILED,
+                                             "Invalid touch point");
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  clutter_virtual_input_device_notify_touch_up (session->virtual_touchscreen,
+                                                       CLUTTER_CURRENT_TIME,
+                                                       slot);
+
+  meta_dbus_remote_desktop_session_complete_notify_touch_up (skeleton,
+                                                             invocation);
+
+  return G_DBUS_METHOD_INVOCATION_HANDLED;
+}
+
+static GVariant *
+pack_mime_types (GVariant *options)
+{
+  GVariantBuilder options_builder;
+  GVariantIter iter;
+  const char *key;
+  GVariant *value;
+
+  g_variant_builder_init (&options_builder, G_VARIANT_TYPE ("a{sv}"));
+
+  g_variant_iter_init (&iter, options);
+  while (g_variant_iter_next (&iter, "{&sv}", &key, &value))
+    {
+      if (g_strcmp0 (key, "mime-types") == 0)
+        {
+          g_variant_builder_add (&options_builder, "{sv}", key,
+                                 g_variant_new_tuple (&value, 1));
+        }
+      else
+        {
+          g_variant_builder_add (&options_builder, "{sv}", key, value);
+        }
+      g_clear_pointer (&value, g_variant_unref);
+    }
+
+  return g_variant_builder_end (&options_builder);
+}
+
+static void
+on_clipboard_owner_changed (MetaClipboardSession     *clipboard_session,
+                            GVariant                 *options_variant,
+                            MetaRemoteDesktopSession *session)
+{
+  const char *object_path;
+  GVariant *options;
+
+  options = pack_mime_types (options_variant);
+
+  object_path = g_dbus_interface_skeleton_get_object_path (
+    G_DBUS_INTERFACE_SKELETON (session));
+  g_dbus_connection_emit_signal (session->connection,
+                                 session->peer_name,
+                                 object_path,
+                                 "org.gnome.Mutter.RemoteDesktop.Session",
+                                 "SelectionOwnerChanged",
+                                 g_variant_new ("(@a{sv})", options),
+                                 NULL);
+}
+
+static void
+on_clipboard_transfer (MetaClipboardSession     *clipboard_session,
+                       const char               *mime_type,
+                       unsigned int              transfer_serial,
+                       MetaRemoteDesktopSession *session)
+{
+  const char *object_path;
+
+  object_path = g_dbus_interface_skeleton_get_object_path (
+    G_DBUS_INTERFACE_SKELETON (session));
+  g_dbus_connection_emit_signal (session->connection,
+                                 session->peer_name,
+                                 object_path,
+                                 "org.gnome.Mutter.RemoteDesktop.Session",
+                                 "SelectionTransfer",
+                                 g_variant_new ("(su)",
+                                                mime_type, transfer_serial),
+                                 NULL);
+}
+
+static gboolean
+handle_enable_clipboard (MetaDBusRemoteDesktopSession *skeleton,
+                         GDBusMethodInvocation        *invocation,
+                         GVariant                     *arg_options)
+{
+  MetaRemoteDesktopSession *session = META_REMOTE_DESKTOP_SESSION (skeleton);
+  g_autoptr (GError) error = NULL;
+
+  if (!meta_clipboard_session_enable (session->clipboard, arg_options, &error))
+    {
+      g_dbus_method_invocation_return_gerror (invocation, error);
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  meta_dbus_remote_desktop_session_complete_enable_clipboard (skeleton,
+                                                              invocation);
+
+  return G_DBUS_METHOD_INVOCATION_HANDLED;
+}
+
+static gboolean
+handle_disable_clipboard (MetaDBusRemoteDesktopSession *skeleton,
+                          GDBusMethodInvocation        *invocation)
+{
+  MetaRemoteDesktopSession *session = META_REMOTE_DESKTOP_SESSION (skeleton);
+  g_autoptr (GError) error = NULL;
+
+  if (!meta_clipboard_session_disable (session->clipboard, &error))
+    {
+      g_dbus_method_invocation_return_gerror (invocation, error);
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  meta_dbus_remote_desktop_session_complete_disable_clipboard (skeleton,
+                                                               invocation);
+
+  return G_DBUS_METHOD_INVOCATION_HANDLED;
+}
+
+static gboolean
+handle_set_selection (MetaDBusRemoteDesktopSession *skeleton,
+                      GDBusMethodInvocation        *invocation,
+                      GVariant                     *arg_options)
+{
+  MetaRemoteDesktopSession *session = META_REMOTE_DESKTOP_SESSION (skeleton);
+  g_autoptr (GVariant) mime_types_variant = NULL;
+  g_autoptr (GError) error = NULL;
+
+  if (!session->clipboard)
+    {
+      g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR,
+                                             G_DBUS_ERROR_FAILED,
+                                             "Clipboard not enabled");
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  if (!meta_clipboard_session_set_selection (session->clipboard, arg_options, &error))
+    {
+      g_dbus_method_invocation_return_gerror (invocation, error);
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  meta_dbus_remote_desktop_session_complete_set_selection (skeleton,
+                                                           invocation);
+
+  return G_DBUS_METHOD_INVOCATION_HANDLED;
+}
+
+static gboolean
+handle_selection_write (MetaDBusRemoteDesktopSession *skeleton,
+                        GDBusMethodInvocation        *invocation,
+                        GUnixFDList                  *fd_list_in,
+                        unsigned int                  serial)
+{
+  MetaRemoteDesktopSession *session = META_REMOTE_DESKTOP_SESSION (skeleton);
+  g_autoptr (GError) error = NULL;
+  g_autoptr (GUnixFDList) fd_list = NULL;
+  g_autoptr (GVariant) fd_variant = NULL;
+
+  if (!session->clipboard)
+    {
+      g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR,
+                                             G_DBUS_ERROR_FAILED,
+                                             "Clipboard not enabled");
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  if (!meta_clipboard_session_selection_write (session->clipboard,
+                                               serial,
+                                               &fd_list,
+                                               &fd_variant,
+                                               &error))
+    {
+      g_dbus_method_invocation_return_gerror (invocation, error);
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  meta_dbus_remote_desktop_session_complete_selection_write (skeleton,
+                                                             invocation,
+                                                             fd_list,
+                                                             fd_variant);
+
+  return G_DBUS_METHOD_INVOCATION_HANDLED;
+}
+
+static gboolean
+handle_selection_write_done (MetaDBusRemoteDesktopSession *skeleton,
+                             GDBusMethodInvocation        *invocation,
+                             unsigned int                  arg_serial,
+                             gboolean                      arg_success)
+{
+  MetaRemoteDesktopSession *session = META_REMOTE_DESKTOP_SESSION (skeleton);
+
+  meta_topic (META_DEBUG_REMOTE_DESKTOP,
+              "Write selection done for %s",
+              g_dbus_method_invocation_get_sender (invocation));
+
+  if (!session->clipboard)
+    {
+      g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR,
+                                             G_DBUS_ERROR_FAILED,
+                                             "Clipboard not enabled");
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  meta_dbus_remote_desktop_session_complete_selection_write_done (skeleton,
+                                                                  invocation);
+
+  return G_DBUS_METHOD_INVOCATION_HANDLED;
+}
+
+static gboolean
+handle_selection_read (MetaDBusRemoteDesktopSession *skeleton,
+                       GDBusMethodInvocation        *invocation,
+                       GUnixFDList                  *fd_list_in,
+                       const char                   *mime_type)
+{
+  MetaRemoteDesktopSession *session = META_REMOTE_DESKTOP_SESSION (skeleton);
+  g_autoptr (GError) error = NULL;
+  g_autoptr (GUnixFDList) fd_list = NULL;
+  g_autoptr (GVariant) fd_variant = NULL;
+
+  if (!session->clipboard)
+    {
+      g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR,
+                                             G_DBUS_ERROR_FAILED,
+                                             "Clipboard not enabled");
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  if (!meta_clipboard_session_selection_read (session->clipboard,
+                                              mime_type,
+                                              &fd_list,
+                                              &fd_variant,
+                                              &error))
+    {
+      g_dbus_method_invocation_return_gerror (invocation, error);
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  meta_dbus_remote_desktop_session_complete_selection_read (skeleton,
+                                                            invocation,
+                                                            fd_list,
+                                                            fd_variant);
+
+  return G_DBUS_METHOD_INVOCATION_HANDLED;
+}
+
+static MetaEisDeviceTypes
+device_types_to_eis_device_types (MetaRemoteDesktopDeviceTypes device_types)
+{
+  MetaEisDeviceTypes eis_device_types = META_EIS_DEVICE_TYPE_NONE;
+
+  if (device_types & META_REMOTE_DESKTOP_DEVICE_TYPE_KEYBOARD)
+    eis_device_types |= META_EIS_DEVICE_TYPE_KEYBOARD;
+  if (device_types & META_REMOTE_DESKTOP_DEVICE_TYPE_POINTER)
+    eis_device_types |= META_EIS_DEVICE_TYPE_POINTER;
+  if (device_types & META_REMOTE_DESKTOP_DEVICE_TYPE_TOUCHSCREEN)
+    eis_device_types |= META_EIS_DEVICE_TYPE_TOUCHSCREEN;
+
+  return eis_device_types;
+}
+
+MetaEis *
+meta_remote_desktop_session_get_eis (MetaRemoteDesktopSession *session)
+{
+  return session->eis;
+}
+
+static gboolean
+handle_connect_to_eis (MetaDBusRemoteDesktopSession *skeleton,
+                       GDBusMethodInvocation        *invocation,
+                       GUnixFDList                  *fd_list_in,
+                       GVariant                     *arg_options)
+{
+  MetaRemoteDesktopSession *session = META_REMOTE_DESKTOP_SESSION (skeleton);
+  g_autoptr (GUnixFDList) fd_list = NULL;
+  g_autoptr (GError) error = NULL;
+  int fd_idx;
+  GVariant *fd_variant;
+  g_autofd int fd = -1;
+
+  if (!meta_eis_is_enabled (session->eis))
+    {
+      MetaRemoteDesktopDeviceTypes device_types = META_REMOTE_DESKTOP_DEVICE_TYPE_NONE;
+      MetaEisDeviceTypes eis_device_types;
+      GVariant *v;
+
+      v = g_variant_lookup_value (arg_options, "device-types", G_VARIANT_TYPE_UINT32);
+      if (v)
+        {
+          device_types = g_variant_get_uint32 (v);
+        }
+      else
+        {
+          device_types = (META_REMOTE_DESKTOP_DEVICE_TYPE_KEYBOARD |
+                          META_REMOTE_DESKTOP_DEVICE_TYPE_POINTER |
+                          META_REMOTE_DESKTOP_DEVICE_TYPE_TOUCHSCREEN);
+        }
+
+      eis_device_types = device_types_to_eis_device_types (device_types);
+      meta_eis_enable (session->eis, eis_device_types);
+
+      if (session->started)
+        initialize_viewports (session);
+    }
+
+  fd = meta_eis_add_client_get_fd (session->eis);
+  if (fd < 0)
+    {
+      g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR,
+                                             G_DBUS_ERROR_FAILED,
+                                             "Failed to create socket: %s",
+                                             g_strerror (-fd));
+      fd = -1;
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  fd_list = g_unix_fd_list_new ();
+  fd_idx = g_unix_fd_list_append (fd_list, fd, &error);
+  if (fd_idx < 0)
+    {
+      g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR,
+                                             G_DBUS_ERROR_FAILED,
+                                             "Failed to append socket fd to "
+                                             "fd list: %s",
+                                             error->message);
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+  fd_variant = g_variant_new_handle (fd_idx);
+
+  meta_dbus_remote_desktop_session_complete_connect_to_eis (skeleton,
+                                                            invocation,
+                                                            fd_list,
+                                                            fd_variant);
+
+  return G_DBUS_METHOD_INVOCATION_HANDLED;
+}
+
+static void
+update_current_keymap (MetaRemoteDesktopSession *session)
+{
+  MetaBackend *backend =
+    meta_dbus_session_manager_get_backend (session->session_manager);
+  ClutterSeat *seat = meta_backend_get_default_seat (backend);
+  ClutterKeymap *keymap;
+  MetaKeymapDescription *keymap_description;
+  GVariantBuilder builder;
+  const char *layout_name;
+  MetaRemoteDesktopKeymapSource source;
+
+  keymap = clutter_seat_get_keymap (seat);
+  keymap_description = meta_backend_get_keymap_description (backend);
+
+  g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
+
+  layout_name = clutter_keymap_get_current_display_name (keymap);
+  if (layout_name)
+    {
+      g_variant_builder_add (&builder, "{sv}",
+                             "name", g_variant_new_string (layout_name));
+    }
+
+  if (keymap_description == session->keymap_description)
+    source = META_REMOTE_DESKTOP_KEYMAP_SOURCE_SESSION;
+  else
+    source = META_REMOTE_DESKTOP_KEYMAP_SOURCE_EXTERNAL;
+  g_variant_builder_add (&builder, "{sv}",
+                         "source", g_variant_new_uint32 (source));
+
+  meta_dbus_remote_desktop_session_set_current_keymap (
+    META_DBUS_REMOTE_DESKTOP_SESSION (session),
+    g_variant_builder_end (&builder));
+}
+
+typedef struct _SetKeymapData
+{
+  MetaRemoteDesktopSession *session;
+  GDBusMethodInvocation *invocation;
+} SetKeymapData;
+
+static void
+set_keymap_data_free (gpointer user_data)
+{
+  SetKeymapData *data = user_data;
+
+  g_free (data);
+}
+
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (SetKeymapData, set_keymap_data_free)
+
+static void
+set_keymap_cb (GObject      *source_object,
+               GAsyncResult *result,
+               gpointer      user_data)
+{
+  MetaBackend *backend = META_BACKEND (source_object);
+  g_autoptr (SetKeymapData) data = user_data;
+  MetaRemoteDesktopSession *session = data->session;
+  g_autoptr (GError) error = NULL;
+
+  if (!meta_backend_set_keymap_finish (backend, result, &error))
+    {
+      g_dbus_method_invocation_return_gerror (data->invocation, error);
+      return;
+    }
+
+  meta_dbus_remote_desktop_session_complete_set_keymap (
+    META_DBUS_REMOTE_DESKTOP_SESSION (session),
+    data->invocation,
+    NULL);
+
+  update_current_keymap (session);
+}
+
+static void
+reset_keymap_cb (GObject      *source_object,
+                 GAsyncResult *result,
+                 gpointer      user_data)
+{
+  MetaBackend *backend = META_BACKEND (source_object);
+  g_autoptr (SetKeymapData) data = user_data;
+  MetaRemoteDesktopSession *session = data->session;
+  g_autoptr (GError) error = NULL;
+
+  if (!meta_backend_reset_keymap_finish (backend, result, &error))
+    {
+      g_dbus_method_invocation_return_gerror (data->invocation, error);
+      return;
+    }
+
+  g_clear_pointer (&session->keymap_description,
+                   meta_keymap_description_unref);
+
+  meta_dbus_remote_desktop_session_complete_set_keymap (
+    META_DBUS_REMOTE_DESKTOP_SESSION (session),
+    data->invocation,
+    NULL);
+
+  update_current_keymap (session);
+}
+
+static gboolean
+verify_keymap_format (uint32_t keymap_format)
+{
+  switch (keymap_format)
+    {
+    case META_REMOTE_DESKTOP_KEYMAP_FORMAT_XKB_V1:
+    case META_REMOTE_DESKTOP_KEYMAP_FORMAT_XKB_V2:
+      return TRUE;
+    }
+  return FALSE;
+}
+
+static gboolean
+handle_set_keymap (MetaDBusRemoteDesktopSession *skeleton,
+                   GDBusMethodInvocation        *invocation,
+                   GUnixFDList                  *fd_list_in,
+                   GVariant                     *arg_options)
+{
+  MetaRemoteDesktopSession *session = META_REMOTE_DESKTOP_SESSION (skeleton);
+  MetaBackend *backend =
+    meta_dbus_session_manager_get_backend (session->session_manager);
+  uint32_t keymap_type = UINT32_MAX;
+  uint32_t keymap_format = UINT32_MAX;
+  g_autoptr (GError) error = NULL;
+  g_autoptr (GVariant) keymap_handle = NULL;
+  g_autoptr (MetaSealedFd) sealed_keymap = NULL;
+  g_autoptr (MetaKeymapDescription) keymap_description = NULL;
+  uint32_t layout_index = 0;
+  gboolean lock_keymap;
+  SetKeymapData *data;
+
+  if (!g_variant_lookup (arg_options, "keymap-type", "u", &keymap_type))
+    {
+      data = g_new0 (SetKeymapData, 1);
+      data->session = session;
+      data->invocation = invocation;
+
+      meta_backend_reset_keymap_async (backend,
+                                       session->keymap_owner,
+                                       session->cancellable,
+                                       reset_keymap_cb,
+                                       data);
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  g_variant_lookup (arg_options, "xkb-keymap-format", "u", &keymap_format);
+
+  if (!verify_keymap_format (keymap_format))
+    {
+      g_dbus_method_invocation_return_error (invocation,
+                                             G_DBUS_ERROR,
+                                             G_DBUS_ERROR_INVALID_ARGS,
+                                             "Invalid keymap format");
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  if (!((1 << keymap_format) & SUPPORTED_KEYMAP_FORMATS))
+    {
+      g_dbus_method_invocation_return_error (invocation,
+                                             G_DBUS_ERROR,
+                                             G_DBUS_ERROR_NOT_SUPPORTED,
+                                             "Non-supported keymap format");
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  keymap_handle = g_variant_lookup_value (arg_options, "xkb-keymap",
+                                          G_VARIANT_TYPE_HANDLE);
+  if (!keymap_handle)
+    {
+      g_dbus_method_invocation_return_error (invocation,
+                                             G_DBUS_ERROR,
+                                             G_DBUS_ERROR_FAILED,
+                                             "No keymap handle");
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  sealed_keymap = meta_sealed_fd_new_from_handle (keymap_handle,
+                                                  fd_list_in,
+                                                  &error);
+
+  g_variant_lookup (arg_options, "xkb-keymap-layout-index", "u", &layout_index);
+
+  keymap_description = meta_keymap_description_new_from_fd (sealed_keymap,
+                                                            keymap_format);
+  if (g_variant_lookup (arg_options, "lock-keymap", "b", &lock_keymap) &&
+      lock_keymap)
+    meta_keymap_description_lock (keymap_description, session->keymap_owner);
+  else
+    meta_keymap_description_unlock (keymap_description, session->keymap_owner);
+
+  data = g_new0 (SetKeymapData, 1);
+  data->session = session;
+  data->invocation = invocation;
+
+  g_clear_pointer (&session->keymap_description,
+                   meta_keymap_description_unref);
+  session->keymap_description =
+    meta_keymap_description_ref (keymap_description);
+
+  meta_backend_set_keymap_async (backend,
+                                 keymap_description,
+                                 layout_index,
+                                 session->cancellable,
+                                 set_keymap_cb,
+                                 data);
+
+  return G_DBUS_METHOD_INVOCATION_HANDLED;
+
+}
+
+static void
+set_keymap_layout_group_cb (GObject      *source_object,
+                            GAsyncResult *result,
+                            gpointer      user_data)
+{
+  MetaBackend *backend = META_BACKEND (source_object);
+  g_autoptr (SetKeymapData) data = user_data;
+  g_autoptr (GError) error = NULL;
+
+ if (!meta_backend_set_keymap_finish (backend, result, &error))
+   {
+     g_dbus_method_invocation_return_gerror (data->invocation, error);
+     return;
+   }
+
+ meta_dbus_remote_desktop_session_complete_set_keymap_layout_index (
+   META_DBUS_REMOTE_DESKTOP_SESSION (data->session),
+   data->invocation);
+}
+
+static gboolean
+handle_set_keymap_layout_index (MetaDBusRemoteDesktopSession *skeleton,
+                                GDBusMethodInvocation        *invocation,
+                                uint32_t                      layout_index)
+{
+  MetaRemoteDesktopSession *session = META_REMOTE_DESKTOP_SESSION (skeleton);
+  MetaBackend *backend =
+    meta_dbus_session_manager_get_backend (session->session_manager);
+  MetaKeymapDescription *keymap_description;
+  SetKeymapData *data;
+
+  keymap_description = meta_backend_get_keymap_description (backend);
+
+  if (!session->keymap_description ||
+      keymap_description != session->keymap_description)
+    {
+      g_dbus_method_invocation_return_error (invocation,
+                                             G_DBUS_ERROR,
+                                             G_DBUS_ERROR_FAILED,
+                                             "Invalid current keymap");
+      return G_DBUS_METHOD_INVOCATION_HANDLED;
+    }
+
+  data = g_new0 (SetKeymapData, 1);
+  data->session = session;
+  data->invocation = invocation;
+
+  meta_backend_set_keymap_async (backend,
+                                 session->keymap_description,
+                                 layout_index,
+                                 session->cancellable,
+                                 set_keymap_layout_group_cb,
+                                 data);
+
+  return G_DBUS_METHOD_INVOCATION_HANDLED;
+}
+
+static gboolean
+meta_remote_desktop_session_initable_init (GInitable     *initable,
+                                           GCancellable  *cancellable,
+                                           GError       **error)
+{
+  MetaRemoteDesktopSession *session = META_REMOTE_DESKTOP_SESSION (initable);
+  MetaBackend *backend =
+    meta_dbus_session_manager_get_backend (session->session_manager);
+  ClutterSeat *seat = meta_backend_get_default_seat (backend);
+  ClutterKeymap *keymap = clutter_seat_get_keymap (seat);
+  GDBusInterfaceSkeleton *interface_skeleton = G_DBUS_INTERFACE_SKELETON (session);
+  MetaDBusRemoteDesktopSession *skeleton =
+    META_DBUS_REMOTE_DESKTOP_SESSION (interface_skeleton);
+
+  meta_dbus_remote_desktop_session_set_session_id (skeleton, session->session_id);
+
+  session->eis = meta_eis_new (backend);
+
+  session->connection =
+    meta_dbus_session_manager_get_connection (session->session_manager);
+  if (!g_dbus_interface_skeleton_export (interface_skeleton,
+                                         session->connection,
+                                         session->object_path,
+                                         error))
+    return FALSE;
+
+  session->clipboard = meta_clipboard_session_new (backend,
+                                                   session->peer_name,
+                                                   session->connection,
+                                                   session->object_path,
+                                                   error);
+  if (!session->clipboard)
+    return FALSE;
+
+  g_signal_connect (session->clipboard, "owner-changed",
+                    G_CALLBACK (on_clipboard_owner_changed), session);
+  g_signal_connect (session->clipboard, "transfer",
+                    G_CALLBACK (on_clipboard_transfer), session);
+
+  g_object_bind_property (keymap, "caps-lock-state",
+                          session, "caps-lock-state",
+                          G_BINDING_DEFAULT | G_BINDING_SYNC_CREATE);
+  g_object_bind_property (keymap, "num-lock-state",
+                          session, "num-lock-state",
+                          G_BINDING_DEFAULT | G_BINDING_SYNC_CREATE);
+
+  session->keymap_changed_handler_id =
+    g_signal_connect_swapped (backend, "keymap-changed",
+                              G_CALLBACK (update_current_keymap), session);
+  session->keymap_layout_group_changed_handler_id =
+    g_signal_connect_swapped (backend, "keymap-layout-group-changed",
+                              G_CALLBACK (update_current_keymap), session);
+  session->keymap_state_changed_handler_id =
+    g_signal_connect_swapped (keymap, "state-changed",
+                              G_CALLBACK (update_current_keymap), session);
+  update_current_keymap (session);
+
+  return TRUE;
+}
+
+static void
+initable_init_iface (GInitableIface *iface)
+{
+  iface->init = meta_remote_desktop_session_initable_init;
+}
+
+static void
+meta_remote_desktop_session_init_iface (MetaDBusRemoteDesktopSessionIface *iface)
+{
+  iface->handle_start = handle_start;
+  iface->handle_stop = handle_stop;
+  iface->handle_notify_keyboard_keycode = handle_notify_keyboard_keycode;
+  iface->handle_notify_keyboard_keysym = handle_notify_keyboard_keysym;
+  iface->handle_notify_pointer_button = handle_notify_pointer_button;
+  iface->handle_notify_pointer_axis = handle_notify_pointer_axis;
+  iface->handle_notify_pointer_axis_discrete = handle_notify_pointer_axis_discrete;
+  iface->handle_notify_pointer_motion_relative = handle_notify_pointer_motion_relative;
+  iface->handle_notify_pointer_motion_absolute = handle_notify_pointer_motion_absolute;
+  iface->handle_notify_touch_down = handle_notify_touch_down;
+  iface->handle_notify_touch_motion = handle_notify_touch_motion;
+  iface->handle_notify_touch_up = handle_notify_touch_up;
+  iface->handle_enable_clipboard = handle_enable_clipboard;
+  iface->handle_disable_clipboard = handle_disable_clipboard;
+  iface->handle_set_selection = handle_set_selection;
+  iface->handle_selection_write = handle_selection_write;
+  iface->handle_selection_write_done = handle_selection_write_done;
+  iface->handle_selection_read = handle_selection_read;
+  iface->handle_connect_to_eis = handle_connect_to_eis;
+  iface->handle_set_keymap = handle_set_keymap;
+  iface->handle_set_keymap_layout_index = handle_set_keymap_layout_index;
+}
+
+static void
+meta_dbus_session_init_iface (MetaDbusSessionInterface *iface)
+{
+  iface->close = meta_remote_desktop_session_close;
+}
+
+static void
+meta_remote_desktop_session_finalize (GObject *object)
+{
+  MetaRemoteDesktopSession *session = META_REMOTE_DESKTOP_SESSION (object);
+
+  g_assert (!meta_remote_desktop_session_is_running (session));
+
+  g_cancellable_cancel (session->cancellable);
+  g_clear_object (&session->cancellable);
+
+  g_clear_object (&session->clipboard);
+
+  g_clear_pointer (&session->keymap_description, meta_keymap_description_unref);
+  g_clear_pointer (&session->keymap_owner, meta_keymap_description_owner_unref);
+
+  g_clear_object (&session->handle);
+  g_free (session->peer_name);
+  g_free (session->session_id);
+  g_free (session->object_path);
+
+  G_OBJECT_CLASS (meta_remote_desktop_session_parent_class)->finalize (object);
+}
+
+static void
+meta_remote_desktop_session_set_property (GObject      *object,
+                                          guint         prop_id,
+                                          const GValue *value,
+                                          GParamSpec   *pspec)
+{
+  MetaRemoteDesktopSession *session = META_REMOTE_DESKTOP_SESSION (object);
+
+  switch (prop_id)
+    {
+    case N_PROPS + META_DBUS_SESSION_PROP_SESSION_MANAGER:
+      session->session_manager = g_value_get_object (value);
+      break;
+    case N_PROPS + META_DBUS_SESSION_PROP_PEER_NAME:
+      session->peer_name = g_value_dup_string (value);
+      break;
+    case N_PROPS + META_DBUS_SESSION_PROP_ID:
+      session->session_id = g_value_dup_string (value);
+      break;
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+      break;
+    }
+}
+
+static void
+meta_remote_desktop_session_get_property (GObject    *object,
+                                          guint       prop_id,
+                                          GValue     *value,
+                                          GParamSpec *pspec)
+{
+  MetaRemoteDesktopSession *session = META_REMOTE_DESKTOP_SESSION (object);
+
+  switch (prop_id)
+    {
+    case N_PROPS + META_DBUS_SESSION_PROP_SESSION_MANAGER:
+      g_value_set_object (value, session->session_manager);
+      break;
+    case N_PROPS + META_DBUS_SESSION_PROP_PEER_NAME:
+      g_value_set_string (value, session->peer_name);
+      break;
+    case N_PROPS + META_DBUS_SESSION_PROP_ID:
+      g_value_set_string (value, session->session_id);
+      break;
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+      break;
+    }
+}
+
+static void
+meta_remote_desktop_session_init (MetaRemoteDesktopSession *session)
+{
+  static unsigned int global_session_number = 0;
+
+  session->object_path =
+    g_strdup_printf (META_REMOTE_DESKTOP_SESSION_DBUS_PATH "/u%u",
+                     ++global_session_number);
+
+  session->keymap_owner = meta_keymap_description_owner_new ();
+
+  session->cancellable = g_cancellable_new ();
+}
+
+static void
+meta_remote_desktop_session_class_init (MetaRemoteDesktopSessionClass *klass)
+{
+
+  GObjectClass *object_class = G_OBJECT_CLASS (klass);
+
+  object_class->finalize = meta_remote_desktop_session_finalize;
+  object_class->set_property = meta_remote_desktop_session_set_property;
+  object_class->get_property = meta_remote_desktop_session_get_property;
+
+  meta_dbus_session_install_properties (object_class, N_PROPS);
+}
+
+static MetaRemoteDesktopSessionHandle *
+meta_remote_desktop_session_handle_new (MetaRemoteDesktopSession *session)
+{
+  MetaRemoteDesktopSessionHandle *handle;
+
+  handle = g_object_new (META_TYPE_REMOTE_DESKTOP_SESSION_HANDLE, NULL);
+  handle->session = session;
+
+  return handle;
+}
+
+static void
+meta_remote_desktop_session_handle_stop (MetaRemoteAccessHandle *handle)
+{
+  MetaRemoteDesktopSession *session;
+
+  session = META_REMOTE_DESKTOP_SESSION_HANDLE (handle)->session;
+  if (!session)
+    return;
+
+  meta_dbus_session_queue_close (META_DBUS_SESSION (session));
+}
+
+static void
+meta_remote_desktop_session_handle_init (MetaRemoteDesktopSessionHandle *handle)
+{
+}
+
+static void
+meta_remote_desktop_session_handle_class_init (MetaRemoteDesktopSessionHandleClass *klass)
+{
+  MetaRemoteAccessHandleClass *remote_access_handle_class =
+    META_REMOTE_ACCESS_HANDLE_CLASS (klass);
+
+  remote_access_handle_class->stop = meta_remote_desktop_session_handle_stop;
+}

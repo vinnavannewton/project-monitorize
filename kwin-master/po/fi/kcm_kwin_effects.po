@@ -1,0 +1,90 @@
+# Copyright (C) YEAR This file is copyright:
+# This file is distributed under the same license as the kwin package.
+# Tommi Nieminen <translator@legisign.org>, 2019, 2023.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: kwin\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2025-11-17 11:53+0000\n"
+"PO-Revision-Date: 2023-07-04 21:32+0300\n"
+"Last-Translator: Tommi Nieminen <translator@legisign.org>\n"
+"Language-Team: Finnish <kde-i18n-doc@kde.org>\n"
+"Language: fi\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: ui/Effect.qml:98
+#, kde-format
+msgid ""
+"Author: %1\n"
+"License: %2"
+msgstr ""
+"Tekijä: %1\n"
+"Lisenssi: %2"
+
+#: ui/Effect.qml:110
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Configure…"
+msgstr "Asetukset…"
+
+#: ui/main.qml:25
+#, kde-format
+msgctxt "@action:button get new KWin effects"
+msgid "Get New…"
+msgstr "Hae uusia…"
+
+#: ui/main.qml:54
+#, kde-format
+msgid "Configure Filter"
+msgstr "Muokkaa suodatinta"
+
+#: ui/main.qml:66
+#, kde-format
+msgid "Exclude unsupported effects"
+msgstr "Jätä pois ei-tuetut tehosteet"
+
+#~ msgctxt "@info:tooltip"
+#~ msgid "Show/Hide Video"
+#~ msgstr "Näytä tai piilota video"
+
+#~ msgid ""
+#~ "Hint: To find out or configure how to activate an effect, look at the "
+#~ "effect's settings."
+#~ msgstr ""
+#~ "Vihje: tehosteen asetuksista löytyy ohje, kuinka tehoste aktivoidaan."
+
+#~ msgid "Exclude internal effects"
+#~ msgstr "Jätä pois sisäiset tehosteet"
+
+#~ msgid "Get New Desktop Effects..."
+#~ msgstr "Hae uusia työpöytätehosteita…"
+
+#~ msgid "This module lets you configure desktop effects."
+#~ msgstr "Tässä voit asettaa työpöytätehosteet."
+
+#~ msgctxt "NAME OF TRANSLATORS"
+#~ msgid "Your names"
+#~ msgstr "Tommi Nieminen"
+
+#~ msgctxt "EMAIL OF TRANSLATORS"
+#~ msgid "Your emails"
+#~ msgstr "translator@legisign.org"
+
+#~ msgid "Desktop Effects"
+#~ msgstr "Työpöytätehosteet"
+
+#~ msgid "Vlad Zahorodnii"
+#~ msgstr "Vlad Zahorodnii"
+
+#~ msgid "Download New Desktop Effects"
+#~ msgstr "Lataa uusia työpöytätehosteita"
+
+#~ msgid "Exclude Desktop Effects not supported by the Compositor"
+#~ msgstr "Ohita työpöytätehosteet, joita koostin ei tue"
+
+#~ msgid "Search..."
+#~ msgstr "Etsi…"

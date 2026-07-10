@@ -1,0 +1,231 @@
+# Copyright (C) 2024 This file is copyright:
+# This file is distributed under the same license as the kwin package.
+# SPDX-FileCopyrightText: 2023, 2024, 2025, 2026 Shinjo Park <kde@peremen.name>
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: kwin\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-05-05 00:46+0000\n"
+"PO-Revision-Date: 2026-05-25 21:48+0200\n"
+"Last-Translator: Shinjo Park <kde@peremen.name>\n"
+"Language-Team: Korean <kde-kr@kde.org>\n"
+"Language: ko\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Generator: Lokalize 25.12.3\n"
+
+#: ui/main.qml:28
+#, kde-kuit-format
+msgctxt "@info:usagetip"
+msgid ""
+"Legacy X11 apps with global shortcuts and other features accessed while "
+"running in the background need to be able to listen for keystrokes all the "
+"time.<nl/><nl/>If you use any of these apps, you can choose your preferred "
+"balance of security and compatibility here."
+msgstr ""
+"전역 단축키를 사용하고 백그라운드에서 실행 중일 때 기능을 제공하는 레거시 "
+"X11 앱은 항상 키보드 입력을 읽을 수 있어야 합니다.<nl/><nl/>이러한 앱을 사용"
+"한다면 보안과 기능성 사이에서 선택할 수 있습니다."
+
+#: ui/main.qml:49
+#, kde-format
+msgctxt "@title:group"
+msgid "Listening for keystrokes:"
+msgstr "키보드 입력 듣기:"
+
+#: ui/main.qml:52
+#, kde-format
+msgctxt "@option:radio Listening for keystrokes is prohibited"
+msgid "Prohibited"
+msgstr "금지됨"
+
+#: ui/main.qml:61
+#, kde-format
+msgctxt "@info:usagetip"
+msgid "Most secure; global shortcuts will not work in X11 apps"
+msgstr "가장 안전함. X11 앱의 전역 단축키를 사용할 수 없음"
+
+#: ui/main.qml:67
+#, kde-format
+msgctxt "@option:radio Listening for keystrokes is allowed for…"
+msgid "Only the Meta, Control, Alt, and Shift keys"
+msgstr "Meta, Ctrl, Alt, Shift 키만"
+
+#: ui/main.qml:76
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"High security; push-to-talk and other modifier-only global shortcuts will "
+"work in X11 apps"
+msgstr ""
+"가장 안전함. X11 앱의 푸시-투-토크 및 다른 수정자 키만 있는 전역 단축키를 사"
+"용할 수 없음"
+
+#: ui/main.qml:81
+#, kde-format
+msgctxt "@option:radio Listening for keystrokes is allowed for…"
+msgid ""
+"As above, plus any key pressed while the Control, Alt, or Meta key is also "
+"pressed"
+msgstr "위 키와 Ctrl, Alt, Meta 키를 누르고 있을 때 입력한 모든 키"
+
+#: ui/main.qml:90
+#, kde-format
+msgctxt "@info:usagetip"
+msgid "Moderate security; all global shortcuts will work in X11 apps"
+msgstr "중간 수준으로 안전함. X11 앱의 모든 전역 단축키를 사용할 수 있음"
+
+#: ui/main.qml:96
+#, kde-format
+msgctxt "@option:radio Listening for keystrokes is always allowed"
+msgid "Always allowed"
+msgstr "항상 허용"
+
+#: ui/main.qml:105
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"Least secure; all X11 apps will be able to see any text you type into any "
+"application"
+msgstr ""
+"가장 안전하지 않음. 모든 X11 앱에서 임의의 앱에 입력하는 텍스트를 볼 수 있음"
+
+#: ui/main.qml:111
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"Note that using this setting will reduce system security and permit "
+"malicious software to steal passwords and spy on the text that you type. "
+"Make sure you understand and accept this risk."
+msgstr ""
+"이 설정을 사용하면 시스템 보안 수준을 감소시키며, 악성 소프트웨어에서 암호를 "
+"훔치거나 입력하는 텍스트를 엿볼 수 있습니다. 위험에 대해서 이해하는 경우에만 "
+"이 설정을 변경하십시오."
+
+#: ui/main.qml:118
+#, kde-format
+msgctxt "@title:group"
+msgid "Listening for mouse buttons:"
+msgstr "마우스 단추 듣기:"
+
+#: ui/main.qml:121
+#, kde-format
+msgctxt "@option:radio Listening for mouse buttons is allowed"
+msgid "Allowed"
+msgstr "허용됨"
+
+#: ui/main.qml:130
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"Moderate security; global shortcuts involving mouse buttons will work in X11 "
+"apps"
+msgstr ""
+"중간 수준으로 안전함. X11 앱에서 마우스 단추를 사용하는 전역 단축키를 사용할 "
+"수 있음"
+
+#: ui/main.qml:141
+#, kde-format
+msgctxt "@title:group"
+msgid "Control of pointer and keyboard:"
+msgstr "포인터와 키보드 제어:"
+
+#: ui/main.qml:146
+#, kde-format
+msgctxt ""
+"@option:check Allowed control of pointer and keyboard without asking for "
+"permissions for allowed apps"
+msgid "Allowed apps"
+msgstr "허용된 앱"
+
+#: ui/main.qml:152
+#, kde-format
+msgctxt "@action:button"
+msgid "See Allowed Applications…"
+msgstr "허용된 앱 보기…"
+
+#: ui/main.qml:163
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"Moderate security; XWayland-using apps claiming to be something on this list "
+"will be able to take control of the computer, because XWayland-using apps’ "
+"identities can’t be verified"
+msgstr ""
+"일반적인 보안 수준. XWayland를 사용하는 앱의 식별자를 검증할 수 없기 때문에, "
+"XWayland를 사용하는 앱 중 이 목록에 있는 앱으로 보이는 것은 컴퓨터를 제어할 "
+"수 있습니다."
+
+#: ui/main.qml:169
+#, kde-format
+msgctxt ""
+"@option:radio Allow control of pointer and keyboard without asking for "
+"permission"
+msgid "Allow without asking for permission"
+msgstr "권한을 묻지 않고 허용"
+
+#: ui/main.qml:174
+#, kde-format
+msgctxt "@info:usagetip"
+msgid "Least secure; all X11 apps will be able to take control of the computer"
+msgstr "가장 안전하지 않음. 모든 X11 앱에서 컴퓨터를 제어할 수 있음"
+
+#: ui/main.qml:181
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"Note that using this setting will drastically reduce system security and "
+"permit malicious software to take complete control of your pointer and "
+"keyboard. Make sure you understand and accept this risk."
+msgstr ""
+"이 설정을 사용하면 시스템 보안 수준을 감소시키며, 악성 소프트웨어에서 포인터"
+"와 키보드를 완전히 제어할 수 있습니다. 위험에 대해서 이해하는 경우에만 이 설"
+"정을 변경하십시오."
+
+#: ui/main.qml:189
+#, kde-format
+msgctxt ""
+"@title:window title of the page opened by the 'See allowed applications' "
+"button"
+msgid "Applications allowed to control the pointer and keyboard"
+msgstr "포인터와 키보드 제어가 허용된 앱"
+
+#: ui/main.qml:209
+#, kde-format
+msgctxt "@info:tooltip %1 is the name of the app/binary"
+msgid "Do not allow %1 to control the pointer and keyboard without asking"
+msgstr "%1에서 묻지 않고 포인터와 키보드 제어를 허용하지 않음"
+
+#~ msgctxt "@info"
+#~ msgid "Changes will take effect the next time you log in."
+#~ msgstr "다음에 로그인할 때 변경 사항이 적용됩니다."
+
+#~ msgctxt "@action:button"
+#~ msgid "Log Out Now"
+#~ msgstr "지금 로그아웃"
+
+#~ msgid ""
+#~ "Some legacy X11 apps require the ability to read keystrokes typed in "
+#~ "other apps for certain features, such as handling global keyboard "
+#~ "shortcuts. This is allowed by default. However other features may require "
+#~ "the ability to read all keys, and this is disabled by default for "
+#~ "security reasons. If you need to use such apps, you can choose your "
+#~ "preferred balance of security and functionality here."
+#~ msgstr ""
+#~ "일부 레거시 X11 앱은 전역 단축키 처리 등 일부 기능을 수행하기 위해 다른 앱"
+#~ "에서 입력한 키보드 입력을 읽을 수 있어야 합니다. 기본값으로 허용되어 있습"
+#~ "니다. 그러나 일부 기능은 모든 키 입력을 읽어야 할 수도 있으며, 보안 문제"
+#~ "로 인하여 이 기능은 기본적으로 비활성화되어 있습니다. 이러한 앱을 사용해"
+#~ "야 한다면 보안과 기능성 사이에서 선택할 수 있습니다."
+
+#~ msgid "Allow legacy X11 apps to read keystrokes typed in all apps:"
+#~ msgstr "레거시 X11 앱에서 모든 앱의 키보드 입력 읽기 허용:"
+
+#~ msgid "Never"
+#~ msgstr "하지 않음"
+
+#~ msgid "Only non-character keys"
+#~ msgstr "문자열이 아닌 키만"

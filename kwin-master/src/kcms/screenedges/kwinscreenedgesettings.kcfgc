@@ -1,0 +1,7 @@
+File=kwinscreenedgesettings.kcfg
+NameSpace=KWin
+ClassName=KWinScreenEdgeSettings
+IncludeFiles=\"effect/globals.h\"
+Mutators=true
+DefaultValueGetters=true
+ParentInConstructor=true

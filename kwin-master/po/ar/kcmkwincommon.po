@@ -1,0 +1,105 @@
+# Copyright (C) 2025 This file is copyright:
+# This file is distributed under the same license as the kwin package.
+# SPDX-FileCopyrightText: 2021, 2022, 2023, 2025, 2026 Zayed Al-Saidi <zayed.alsaidi@gmail.com>
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: kwin\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-06-19 00:45+0000\n"
+"PO-Revision-Date: 2026-03-23 22:29+0400\n"
+"Last-Translator: Zayed Al-Saidi <zayed.alsaidi@gmail.com>\n"
+"Language-Team: ar\n"
+"Language: ar\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=6; plural=n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 "
+"&& n%100<=10 ? 3 : n%100>=11 ? 4 : 5;\n"
+"X-Generator: Lokalize 23.08.5\n"
+
+#, kde-format
+msgctxt "NAME OF TRANSLATORS"
+msgid "Your names"
+msgstr "زايد السعيدي"
+
+#, kde-format
+msgctxt "EMAIL OF TRANSLATORS"
+msgid "Your emails"
+msgstr "zayed.alsaidi@gmail.com"
+
+#: effectsmodel.cpp:49
+#, kde-format
+msgctxt "Category of Desktop Effects, used as section header"
+msgid "Accessibility"
+msgstr "الإتاحة"
+
+#: effectsmodel.cpp:50
+#, kde-format
+msgctxt "Category of Desktop Effects, used as section header"
+msgid "Appearance"
+msgstr "المظهر"
+
+#: effectsmodel.cpp:51
+#, kde-format
+msgctxt "Category of Desktop Effects, used as section header"
+msgid "Focus"
+msgstr "التركيز"
+
+#: effectsmodel.cpp:52
+#, kde-format
+msgctxt "Category of Desktop Effects, used as section header"
+msgid "Peek at Desktop Animation"
+msgstr "تحريكات إلقاء النظرة على سطح المكتب"
+
+#: effectsmodel.cpp:53
+#, kde-format
+msgctxt "Category of Desktop Effects, used as section header"
+msgid "Tools"
+msgstr "الأدوات"
+
+#: effectsmodel.cpp:54
+#, kde-format
+msgctxt "Category of Desktop Effects, used as section header"
+msgid "Virtual Desktop Switching Animation"
+msgstr "الرسوم المتحركة لتبديل سطح المكتب الافتراضية"
+
+#: effectsmodel.cpp:55
+#, kde-format
+msgctxt "Category of Desktop Effects, used as section header"
+msgid "Window Management"
+msgstr "إدارة النّوافذ"
+
+#: effectsmodel.cpp:56
+#, kde-format
+msgctxt "Category of Desktop Effects, used as section header"
+msgid "Window Open/Close Animation"
+msgstr "حركات فتح/غلق النوافذ"
+
+#: effectsmodel.cpp:232
+#, kde-format
+msgid "KWin development team"
+msgstr "فريق تطوير كوين"
+
+#: genericscriptedconfig.cpp:76
+#, kde-format
+msgctxt "Error message"
+msgid "Could not locate package metadata"
+msgstr "تعذّر تحديد موقع البيانات الوصفية للحزمة"
+
+#: genericscriptedconfig.cpp:82
+#, kde-format
+msgctxt "Required file does not exist"
+msgid "%1 does not contain a valid metadata.json file"
+msgstr "لا يحوي %1 على ملف metadata.json صالح"
+
+#: genericscriptedconfig.cpp:88 genericscriptedconfig.cpp:94
+#, kde-format
+msgctxt "Required file does not exist"
+msgid "%1 does not exist"
+msgstr "%1 غير موجود"
+
+#: genericscriptedconfig.cpp:111 genericscriptedconfig.cpp:121
+#, kde-format
+msgid "Error loading widget from %1: %2"
+msgstr "حدث خطأ أثناء تحميل عنصر واجهة المستخدم من %1: %2"

@@ -1,0 +1,69 @@
+# Zmicier <zmicerturok@gmail.com>, 2022.
+msgid ""
+msgstr ""
+"Project-Id-Version: fc57ad16a28d02dea100ceb1c60de14e\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-06-07 00:46+0000\n"
+"PO-Revision-Date: 2024-02-11 18:54\n"
+"Last-Translator: Zmicier <zmicerturok@gmail.com>\n"
+"Language-Team: Belarusian\n"
+"Language: be\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=4; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
+"%10<=4 && (n%100<12 || n%100>14) ? 1 : n%10==0 || n%10>=5 && n%10<=9 || n"
+"%100>=11 && n%100<=14 ? 2 : 3);\n"
+"X-Generator: Lokalize 22.08.3\n"
+"X-Crowdin-Project: fc57ad16a28d02dea100ceb1c60de14e\n"
+"X-Crowdin-Project-ID: 136\n"
+"X-Crowdin-Language: be\n"
+"X-Crowdin-File: /[antikruk.KDE] main/KDE6/be/messages/kwin/"
+"kcm_virtualkeyboard.po\n"
+"X-Crowdin-File-ID: 10430\n"
+
+#: kcmvirtualkeyboard.cpp:84
+#, kde-format
+msgid "None"
+msgstr "Няма"
+
+#: kcmvirtualkeyboard.cpp:88
+#, kde-format
+msgid "Do not use any virtual keyboard"
+msgstr "Не выкарыстоўваць віртуальную клавіятуру"
+
+#: ui/main.qml:24
+#, fuzzy, kde-format
+#| msgid "Choose Virtual Keyboard"
+msgctxt "Selector label"
+msgid "Show Virtual Keyboard:"
+msgstr "Абраць віртуальную клавіятуру"
+
+#: ui/main.qml:32
+#, kde-format
+msgid "Never"
+msgstr ""
+
+#: ui/main.qml:33
+#, kde-format
+msgid "With Touch and Tablet"
+msgstr ""
+
+#: ui/main.qml:34
+#, kde-format
+msgid "With Touch, Tablet, and Mouse"
+msgstr ""
+
+#~ msgid "This module lets you choose the virtual keyboard to use."
+#~ msgstr "Гэты модуль дазваляе абраць віртуальную клавіятуру."
+
+#~ msgctxt "NAME OF TRANSLATORS"
+#~ msgid "Your names"
+#~ msgstr "Antikruk"
+
+#~ msgctxt "EMAIL OF TRANSLATORS"
+#~ msgid "Your emails"
+#~ msgstr "nashtlumach@gmail.com"
+
+#~ msgid "Virtual Keyboard"
+#~ msgstr "Віртуальная клавіятура"

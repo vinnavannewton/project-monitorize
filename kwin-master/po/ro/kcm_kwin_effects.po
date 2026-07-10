@@ -1,0 +1,87 @@
+# Copyright (C) YEAR This file is copyright:
+# This file is distributed under the same license as the kwin package.
+# Sergiu Bivol <sergiu@cip.md>, 2020, 2024.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: kwin\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2025-11-17 11:53+0000\n"
+"PO-Revision-Date: 2024-02-27 21:23+0000\n"
+"Last-Translator: Sergiu Bivol <sergiu@cip.md>\n"
+"Language-Team: Romanian <kde-i18n-ro@kde.org>\n"
+"Language: ro\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=n==1 ? 0 : (n==0 || (n%100 > 0 && n%100 < "
+"20)) ? 1 : 2;\n"
+"X-Generator: Lokalize 21.12.3\n"
+
+#: ui/Effect.qml:98
+#, kde-format
+msgid ""
+"Author: %1\n"
+"License: %2"
+msgstr ""
+"Autor: %1\n"
+"Licență: %2"
+
+#: ui/Effect.qml:110
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Configure…"
+msgstr "Configurează…"
+
+#: ui/main.qml:25
+#, kde-format
+msgctxt "@action:button get new KWin effects"
+msgid "Get New…"
+msgstr "Obține noi…"
+
+#: ui/main.qml:54
+#, kde-format
+msgid "Configure Filter"
+msgstr "Configurează filtru"
+
+#: ui/main.qml:66
+#, kde-format
+msgid "Exclude unsupported effects"
+msgstr "Exclude efectele nesusținute"
+
+#~ msgctxt "@info:tooltip"
+#~ msgid "Show/Hide Video"
+#~ msgstr "Arată/ascunde video"
+
+#~ msgid ""
+#~ "Hint: To find out or configure how to activate an effect, look at the "
+#~ "effect's settings."
+#~ msgstr ""
+#~ "Sfat: Pentru a afla sau configura cum se activează un efect, intrați în "
+#~ "configurările efectului."
+
+#~ msgid "Exclude internal effects"
+#~ msgstr "Exclude efectele interne"
+
+#~ msgid "Get New Desktop Effects..."
+#~ msgstr "Obține efecte de birou noi..."
+
+#~ msgid "This module lets you configure desktop effects."
+#~ msgstr "Acest modul vă permite să configurați efectele biroului."
+
+#~ msgctxt "NAME OF TRANSLATORS"
+#~ msgid "Your names"
+#~ msgstr "Sergiu Bivol"
+
+#~ msgctxt "EMAIL OF TRANSLATORS"
+#~ msgid "Your emails"
+#~ msgstr "sergiu@cip.md"
+
+#~ msgid "Desktop Effects"
+#~ msgstr "Efecte de birou"
+
+#~ msgid "Vlad Zahorodnii"
+#~ msgstr "Vlad Zahorodnii"
+
+#~ msgid "Download New Desktop Effects"
+#~ msgstr "Descarcă efecte de birou noi"

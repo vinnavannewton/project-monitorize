@@ -1,0 +1,151 @@
+<?xml version="1.0" ?>
+<!DOCTYPE article PUBLIC "-//KDE//DTD DocBook XML V4.5-Based Variant V1.1//EN"
+"dtd/kdedbx45.dtd" [
+<!ENTITY % addindex "IGNORE">
+<!ENTITY % English "INCLUDE" > <!-- change language only here -->
+]>
+
+<article id="kwindecoration" lang="&language;">
+<articleinfo>
+<title>Window Decorations</title>
+<authorgroup>
+<author>&Rik.Hemsley; &Rik.Hemsley.mail;</author>
+<author>&Anne-Marie.Mahfouf; &Anne-Marie.Mahfouf.mail;</author>
+<!-- TRANS:ROLES_OF_TRANSLATORS -->
+</authorgroup>
+
+<date>2021-04-09</date>
+<releaseinfo>Plasma 5.21</releaseinfo>
+
+<keywordset>
+<keyword>KDE</keyword>
+<keyword>Systemsettings</keyword>
+<keyword>kwin</keyword>
+<keyword>window</keyword>
+<keyword>border</keyword>
+<keyword>theme</keyword>
+<keyword>style</keyword>
+</keywordset>
+</articleinfo>
+<sect1 id="window-deco">
+<title>Window Decorations</title>
+
+<para>This module allows you to select a style for the buttons and borders around
+the windows.</para>
+
+<sect2>
+<title>Window Decorations</title>
+
+<para>
+<screenshot>
+<screeninfo>Window Decoration Configuration Module</screeninfo>
+  <mediaobject>
+    <imageobject>
+      <imagedata fileref="main.png" format="PNG"/>
+    </imageobject>
+    <textobject>
+      <phrase>Window Decoration Configuration Module</phrase>
+    </textobject>
+  </mediaobject>
+</screenshot>
+</para>
+
+<para>Choose a window decoration style from the preview list, or
+download a new style using the <guibutton>Get New Window Decorations</guibutton>
+button.</para>
+
+<para>The default window decoration is called <quote>Breeze</quote>.</para>
+
+<para>Each style has a different look, but also a different
+<quote>feel</quote>. Some have (sometimes invisible)
+<quote>resize</quote> borders all around the edge, which make resizing
+easier but moving more difficult. Some have no borders on certain
+edges.</para>
+
+<para>You are encouraged to experiment with the different styles until
+you find one which best suits your pattern of work.</para>
+
+<para>In the preview of each style you find a <inlinemediaobject><imageobject>
+<imagedata fileref="configure.png" format="PNG"/></imageobject></inlinemediaobject> 
+configure button to open configuration dialogs for the decoration.</para>
+
+<para>The options in this configuration dialog are applied to all windows. 
+Some window decorations (&eg; <quote>Breeze</quote>)
+provide a <guilabel>Window-Specific Overrides</guilabel> tab.
+On this tab you can change the border size and the visibility 
+of the window titlebar for particular windows.</para>
+
+<para>Different options for particular windows you find in the &systemsettings;
+module <ulink url="help:/kcontrol/windowspecific">Window Rules</ulink>.
+</para>
+
+<tip>
+<para>For accessibility purposes, some window decorations support
+extra wide borders.  If this is available, you can also choose a
+<guilabel>Window border size</guilabel> here.  The large borders are easier to see for low
+vision users, and easier to grab for people with limited mobility or
+difficulty using a mouse.</para>
+</tip>
+
+<tip>
+<para>If you are interested in creating your own window decoration, you can learn more about it <ulink url="https://develop.kde.org/docs/plasma/aurorae/">in this tutorial</ulink>.</para>
+</tip>
+
+</sect2>
+
+<sect2>
+<title>Decorations</title>
+
+<para>In this dialog you can change the decoration of the window. 
+
+The available options depend on the selected style.
+</para>
+<para>
+<screenshot>
+<screeninfo>Breeze Decoration Options</screeninfo>
+  <mediaobject>
+    <imageobject>
+      <imagedata fileref="decoration.png" format="PNG"/>
+    </imageobject>
+    <textobject>
+      <phrase>Breeze Decoration Options</phrase>
+    </textobject>
+  </mediaobject>
+</screenshot>
+</para>
+</sect2>
+
+<sect2>
+<title>Titlebar Buttons</title>
+
+<para>This page allows you to customize the button location on the titlebar.
+You can drag buttons &eg; the <guilabel>Application menu</guilabel> into the 
+titlebar, remove them or drag around the
+buttons until you have the order that makes you comfortable.
+</para>
+
+<screenshot>
+<screeninfo>Button Options</screeninfo>
+  <mediaobject>
+    <imageobject>
+      <imagedata fileref="button.png" format="PNG"/>
+    </imageobject>
+    <textobject>
+      <phrase>Button Options</phrase>
+    </textobject>
+  </mediaobject>
+</screenshot>
+
+<para>Enable <guilabel>Close windows by double clicking the window menu button</guilabel>
+to have an additional option to the Close button or if you have removed the Close button from the titlebar.
+</para>
+
+<para>Check the <guilabel>Show titlebar buttons tooltips</guilabel> item if you
+want to see the default tooltips when you hover the titlebar buttons with the mouse pointer.
+</para>
+
+</sect2>
+
+</sect1>
+
+</article>

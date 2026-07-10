@@ -1,0 +1,110 @@
+# Translation of kcmkwincompositing into Japanese.
+# SPDX-FileCopyrightText: 2023, 2024 Ryuichi Yamada <ryuichi_ya220@outlook.jp>
+# This file is distributed under the same license as the kdebase package.
+# Yukiko Bando <ybando@k6.dion.ne.jp>, 2007, 2008, 2009, 2010.
+# Fuminobu TAKEYAMA <ftake@geeko.jp>, 2015.
+# TAKANO Yuji <takachan@running-dog.net>, 2015.
+# Fumiaki Okushi <fumiaki.okushi@gmail.com>, 2015.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: kcmkwincompositing\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-06-19 00:45+0000\n"
+"PO-Revision-Date: 2024-02-16 20:28+0900\n"
+"Last-Translator: Ryuichi Yamada <ryuichi_ya220@outlook.jp>\n"
+"Language-Team: Japanese <kde-jp@kde.org>\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Accelerator-Marker: &\n"
+"X-Text-Markup: kde4\n"
+"X-Generator: Lokalize 23.08.4\n"
+
+#, kde-format
+msgctxt "NAME OF TRANSLATORS"
+msgid "Your names"
+msgstr "Yukiko Bando, Ryuichi Yamada"
+
+#, kde-format
+msgctxt "EMAIL OF TRANSLATORS"
+msgid "Your emails"
+msgstr "ybando@k6.dion.ne.jp, ryuichi_ya220@outlook.jp"
+
+#: effectsmodel.cpp:49
+#, kde-format
+msgctxt "Category of Desktop Effects, used as section header"
+msgid "Accessibility"
+msgstr "アクセシビリティ"
+
+#: effectsmodel.cpp:50
+#, kde-format
+msgctxt "Category of Desktop Effects, used as section header"
+msgid "Appearance"
+msgstr "外観"
+
+#: effectsmodel.cpp:51
+#, kde-format
+msgctxt "Category of Desktop Effects, used as section header"
+msgid "Focus"
+msgstr "フォーカス"
+
+#: effectsmodel.cpp:52
+#, kde-format
+msgctxt "Category of Desktop Effects, used as section header"
+msgid "Peek at Desktop Animation"
+msgstr "ウィンドウを隠す際のアニメーション"
+
+#: effectsmodel.cpp:53
+#, kde-format
+msgctxt "Category of Desktop Effects, used as section header"
+msgid "Tools"
+msgstr "ツール"
+
+#: effectsmodel.cpp:54
+#, kde-format
+msgctxt "Category of Desktop Effects, used as section header"
+msgid "Virtual Desktop Switching Animation"
+msgstr "仮想デスクトップ切り替えアニメーション"
+
+#: effectsmodel.cpp:55
+#, kde-format
+msgctxt "Category of Desktop Effects, used as section header"
+msgid "Window Management"
+msgstr "ウィンドウ管理"
+
+#: effectsmodel.cpp:56
+#, kde-format
+msgctxt "Category of Desktop Effects, used as section header"
+msgid "Window Open/Close Animation"
+msgstr "ウィンドウ開閉アニメーション"
+
+#: effectsmodel.cpp:232
+#, kde-format
+msgid "KWin development team"
+msgstr "KWin 開発チーム"
+
+#: genericscriptedconfig.cpp:76
+#, kde-format
+msgctxt "Error message"
+msgid "Could not locate package metadata"
+msgstr "パッケージのメタデータが見つかりませんでした"
+
+#: genericscriptedconfig.cpp:82
+#, kde-format
+msgctxt "Required file does not exist"
+msgid "%1 does not contain a valid metadata.json file"
+msgstr "%1 は有効な matadata.json ファイルを含んでいません"
+
+#: genericscriptedconfig.cpp:88 genericscriptedconfig.cpp:94
+#, kde-format
+msgctxt "Required file does not exist"
+msgid "%1 does not exist"
+msgstr "%1 は存在しません"
+
+#: genericscriptedconfig.cpp:111 genericscriptedconfig.cpp:121
+#, kde-format
+msgid "Error loading widget from %1: %2"
+msgstr ""

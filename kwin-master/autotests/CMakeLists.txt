@@ -1,0 +1,357 @@
+add_definitions(-DKWIN_UNIT_TEST)
+remove_definitions(-DQT_USE_QSTRINGBUILDER)
+add_subdirectory(effect)
+add_subdirectory(integration)
+add_subdirectory(libinput)
+add_subdirectory(wayland)
+# drm autotests are broken on FreeBSD for yet unknown reasons
+# As the test isn't doing anything platform specific, only run it on Linux
+if(CMAKE_SYSTEM_NAME MATCHES "Linux")
+    add_subdirectory(drm)
+endif()
+
+########################################################
+# Test WindowPaintData
+########################################################
+set(testWindowPaintData_SRCS test_window_paint_data.cpp)
+add_executable(testWindowPaintData ${testWindowPaintData_SRCS})
+target_link_libraries(testWindowPaintData kwin Qt::Widgets Qt::Test )
+add_test(NAME kwin-testWindowPaintData COMMAND testWindowPaintData)
+ecm_mark_as_test(testWindowPaintData)
+
+########################################################
+# Test VirtualDesktopManager
+########################################################
+set(testVirtualDesktops_SRCS
+    test_virtual_desktops.cpp
+)
+add_executable(testVirtualDesktops ${testVirtualDesktops_SRCS})
+
+target_link_libraries(testVirtualDesktops
+    kwin
+
+    Qt::Test
+    Qt::Widgets
+
+    KF6::ConfigCore
+    KF6::GlobalAccel
+    KF6::I18n
+    KF6::WindowSystem
+
+    Plasma::Activities
+)
+add_test(NAME kwin-testVirtualDesktops COMMAND testVirtualDesktops)
+ecm_mark_as_test(testVirtualDesktops)
+
+########################################################
+# Test ClientMachine
+########################################################
+if(KWIN_BUILD_X11)
+    set(testClientMachine_SRCS
+        ../src/client_machine.cpp
+        test_client_machine.cpp
+        xcb_scaling_mock.cpp
+    )
+    add_executable(testClientMachine ${testClientMachine_SRCS})
+    set_target_properties(testClientMachine PROPERTIES COMPILE_DEFINITIONS "NO_NONE_WINDOW")
+
+    target_link_libraries(testClientMachine
+        Qt::Concurrent
+        Qt::GuiPrivate
+        Qt::Test
+        Qt::Widgets
+
+        KF6::ConfigCore
+        KF6::WindowSystem
+
+        XCB::XCB
+        XCB::XFIXES
+
+        ${X11_X11_LIB} # to make jenkins happy
+    )
+    add_test(NAME kwin-testClientMachine COMMAND testClientMachine)
+    ecm_mark_as_test(testClientMachine)
+
+    ########################################################
+    # Test XcbWrapper
+    ########################################################
+    add_executable(testXcbWrapper test_xcb_wrapper.cpp xcb_scaling_mock.cpp)
+
+    target_link_libraries(testXcbWrapper
+        Qt::GuiPrivate
+        Qt::Test
+        Qt::Widgets
+
+        KF6::ConfigCore
+        KF6::WindowSystem
+
+        XCB::XCB
+    )
+    add_test(NAME kwin-testXcbWrapper COMMAND testXcbWrapper)
+    ecm_mark_as_test(testXcbWrapper)
+
+    add_executable(testXcbSizeHints test_xcb_size_hints.cpp xcb_scaling_mock.cpp)
+    set_target_properties(testXcbSizeHints PROPERTIES COMPILE_DEFINITIONS "NO_NONE_WINDOW")
+    target_link_libraries(testXcbSizeHints
+        Qt::GuiPrivate
+        Qt::Test
+        Qt::Widgets
+
+        KF6::ConfigCore
+        KF6::WindowSystem
+
+        XCB::ICCCM
+        XCB::XCB
+    )
+    add_test(NAME kwin-testXcbSizeHints COMMAND testXcbSizeHints)
+    ecm_mark_as_test(testXcbSizeHints)
+
+    ########################################################
+    # Test XcbWindow
+    ########################################################
+    add_executable(testXcbWindow test_xcb_window.cpp xcb_scaling_mock.cpp)
+
+    target_link_libraries(testXcbWindow
+        Qt::GuiPrivate
+        Qt::Test
+        Qt::Widgets
+
+        KF6::ConfigCore
+        KF6::WindowSystem
+
+        XCB::XCB
+    )
+    add_test(NAME kwin-testXcbWindow COMMAND testXcbWindow)
+    ecm_mark_as_test(testXcbWindow)
+endif()
+
+########################################################
+# Test OnScreenNotification
+########################################################
+set(testOnScreenNotification_SRCS
+    ../src/input_event_spy.cpp
+    ../src/onscreennotification.cpp
+    onscreennotificationtest.cpp
+)
+add_executable(testOnScreenNotification ${testOnScreenNotification_SRCS})
+
+target_link_libraries(testOnScreenNotification
+    Qt::DBus
+    Qt::Quick
+    Qt::Test
+    Qt::Widgets # QAction include
+
+    KF6::ConfigCore
+)
+
+add_test(NAME kwin-testOnScreenNotification COMMAND testOnScreenNotification)
+ecm_mark_as_test(testOnScreenNotification)
+
+########################################################
+# Test Gestures
+########################################################
+set(testGestures_SRCS
+    ../src/gestures.cpp
+    test_gestures.cpp
+)
+add_executable(testGestures ${testGestures_SRCS})
+
+target_link_libraries(testGestures
+    Qt::Test
+    Qt::Widgets
+)
+
+add_test(NAME kwin-testGestures COMMAND testGestures)
+ecm_mark_as_test(testGestures)
+
+set(testOpenGLContextAttributeBuilder_SRCS
+    ../src/opengl/abstract_opengl_context_attribute_builder.cpp
+    ../src/opengl/egl_context_attribute_builder.cpp
+    opengl_context_attribute_builder_test.cpp
+)
+
+add_executable(testOpenGLContextAttributeBuilder ${testOpenGLContextAttributeBuilder_SRCS})
+target_link_libraries(testOpenGLContextAttributeBuilder epoxy::epoxy Qt::Test)
+add_test(NAME kwin-testOpenGLContextAttributeBuilder COMMAND testOpenGLContextAttributeBuilder)
+ecm_mark_as_test(testOpenGLContextAttributeBuilder)
+
+set(testXkb_SRCS
+    test_xkb.cpp
+)
+qt_add_dbus_interface(testXkb_SRCS ${CMAKE_SOURCE_DIR}/src/org.freedesktop.DBus.Properties.xml dbusproperties_interface)
+add_executable(testXkb ${testXkb_SRCS})
+target_link_libraries(testXkb
+    kwin
+
+    Qt::Gui
+    Qt::GuiPrivate
+    Qt::Test
+    Qt::Widgets
+
+    KF6::ConfigCore
+    KF6::WindowSystem
+
+    XKB::XKB
+)
+add_test(NAME kwin-testXkb COMMAND testXkb)
+ecm_mark_as_test(testXkb)
+
+########################################################
+# Test FTrace
+########################################################
+add_executable(testFtrace test_ftrace.cpp)
+target_link_libraries(testFtrace
+    Qt::Test
+    kwin
+)
+add_test(NAME kwin-testFtrace COMMAND testFtrace)
+ecm_mark_as_test(testFtrace)
+
+########################################################
+# Test KWin Utils
+########################################################
+add_executable(testUtils test_utils.cpp)
+target_link_libraries(testUtils
+    Qt::Test
+    kwin
+)
+add_test(NAME kwin-testUtils COMMAND testUtils)
+ecm_mark_as_test(testUtils)
+
+########################################################
+# Test OutputTransform
+########################################################
+add_executable(testOutputTransform output_transform_test.cpp)
+target_link_libraries(testOutputTransform
+    Qt::Test
+    kwin
+)
+add_test(NAME kwin-testOutputTransform COMMAND testOutputTransform)
+ecm_mark_as_test(testOutputTransform)
+
+########################################################
+# Test Colorspace
+########################################################
+add_executable(testColorspaces test_colorspaces.cpp)
+target_link_libraries(testColorspaces
+    Qt::Test
+    kwin
+    lcms2::lcms2
+)
+add_test(NAME kwin-testColorspaces COMMAND testColorspaces)
+ecm_mark_as_test(testColorspaces)
+
+########################################################
+# Test UInt32Serial
+########################################################
+add_executable(testSerial serial_test.cpp)
+target_link_libraries(testSerial
+    Qt::Test
+    kwin
+)
+add_test(NAME kwin-testSerial COMMAND testSerial)
+ecm_mark_as_test(testSerial)
+
+########################################################
+# Test Box
+########################################################
+add_executable(testRect test_rect.cpp)
+target_link_libraries(testRect
+    Qt::Test
+    kwin
+)
+add_test(NAME kwin-testRect COMMAND testRect)
+ecm_mark_as_test(testRect)
+
+########################################################
+# Test BoxF
+########################################################
+add_executable(testRectF test_rectf.cpp)
+target_link_libraries(testRectF
+    Qt::Test
+    kwin
+)
+add_test(NAME kwin-testRectF COMMAND testRectF)
+ecm_mark_as_test(testRectF)
+
+########################################################
+# Test Region
+########################################################
+add_executable(testRegion test_region.cpp)
+target_link_libraries(testRegion
+    Qt::Test
+    kwin
+)
+add_test(NAME kwin-testRegion COMMAND testRegion)
+ecm_mark_as_test(testRegion)
+
+########################################################
+# Test RegionF
+########################################################
+add_executable(testRegionF test_regionf.cpp)
+target_link_libraries(testRegionF
+    Qt::Test
+    kwin
+)
+add_test(NAME kwin-testRegionF COMMAND testRegionF)
+ecm_mark_as_test(testRegionF)
+
+add_test(NAME kcm_animations_smoketest COMMAND kcmshell6 --smoke-test kcm_animations)
+set_tests_properties(kcm_animations_smoketest PROPERTIES
+    ENVIRONMENT_MODIFICATION QT_PLUGIN_PATH=path_list_prepend:${CMAKE_BINARY_DIR}/bin
+)
+
+add_test(NAME kcm_kwindecoration_smoketest COMMAND kcmshell6 --smoke-test kcm_kwindecoration)
+set_tests_properties(kcm_kwindecoration_smoketest PROPERTIES
+    ENVIRONMENT_MODIFICATION QT_PLUGIN_PATH=path_list_prepend:${CMAKE_BINARY_DIR}/bin
+)
+
+add_test(NAME kcm_kwin_virtualdesktops_smoketest COMMAND kcmshell6 --smoke-test kcm_kwin_virtualdesktops)
+set_tests_properties(kcm_kwin_virtualdesktops_smoketest PROPERTIES
+    ENVIRONMENT_MODIFICATION QT_PLUGIN_PATH=path_list_prepend:${CMAKE_BINARY_DIR}/bin
+)
+
+add_test(NAME kcm_kwin_effects_smoketest COMMAND kcmshell6 --smoke-test kcm_kwin_effects)
+set_tests_properties(kcm_kwin_effects_smoketest PROPERTIES
+    ENVIRONMENT_MODIFICATION QT_PLUGIN_PATH=path_list_prepend:${CMAKE_BINARY_DIR}/bin
+)
+
+add_test(NAME kcm_kwinoptions_smoketest COMMAND kcmshell6 --smoke-test kcm_kwinoptions)
+set_tests_properties(kcm_kwinoptions_smoketest PROPERTIES
+    ENVIRONMENT_MODIFICATION QT_PLUGIN_PATH=path_list_prepend:${CMAKE_BINARY_DIR}/bin
+)
+
+add_test(NAME kcm_kwinrules_smoketest COMMAND kcmshell6 --smoke-test kcm_kwinrules)
+set_tests_properties(kcm_kwinrules_smoketest PROPERTIES
+    ENVIRONMENT_MODIFICATION QT_PLUGIN_PATH=path_list_prepend:${CMAKE_BINARY_DIR}/bin
+)
+
+add_test(NAME kcm_kwinscreenedges_smoketest COMMAND kcmshell6 --smoke-test kcm_kwinscreenedges)
+set_tests_properties(kcm_kwinscreenedges_smoketest PROPERTIES
+    ENVIRONMENT_MODIFICATION QT_PLUGIN_PATH=path_list_prepend:${CMAKE_BINARY_DIR}/bin
+)
+
+add_test(NAME kcm_kwintouchscreen_smoketest COMMAND kcmshell6 --smoke-test kcm_kwintouchscreen)
+set_tests_properties(kcm_kwintouchscreen_smoketest PROPERTIES
+    ENVIRONMENT_MODIFICATION QT_PLUGIN_PATH=path_list_prepend:${CMAKE_BINARY_DIR}/bin
+)
+
+add_test(NAME kcm_kwin_scripts_smoketest COMMAND kcmshell6 --smoke-test kcm_kwin_scripts)
+set_tests_properties(kcm_kwin_scripts_smoketest PROPERTIES
+    ENVIRONMENT_MODIFICATION QT_PLUGIN_PATH=path_list_prepend:${CMAKE_BINARY_DIR}/bin
+)
+
+add_test(NAME kcm_kwintabbox_smoketest COMMAND kcmshell6 --smoke-test kcm_kwintabbox)
+set_tests_properties(kcm_kwintabbox_smoketest PROPERTIES
+    ENVIRONMENT_MODIFICATION QT_PLUGIN_PATH=path_list_prepend:${CMAKE_BINARY_DIR}/bin
+)
+
+add_test(NAME kcm_virtualkeyboard_smoketest COMMAND kcmshell6 --smoke-test kcm_virtualkeyboard)
+set_tests_properties(kcm_virtualkeyboard_smoketest PROPERTIES
+    ENVIRONMENT_MODIFICATION QT_PLUGIN_PATH=path_list_prepend:${CMAKE_BINARY_DIR}/bin
+)
+
+add_test(NAME kcm_kwinxwayland_smoketest COMMAND kcmshell6 --smoke-test kcm_kwinxwayland)
+set_tests_properties(kcm_kwinxwayland_smoketest PROPERTIES
+    ENVIRONMENT_MODIFICATION QT_PLUGIN_PATH=path_list_prepend:${CMAKE_BINARY_DIR}/bin
+)

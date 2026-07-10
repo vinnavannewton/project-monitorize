@@ -1,0 +1,273 @@
+# Copyright (C) 2026 This file is copyright:
+# This file is distributed under the same license as the kwin package.
+# SPDX-FileCopyrightText: 2022, 2024, 2026 Sergiu Bivol <sergiu@cip.md>
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: kwin\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-05-05 00:46+0000\n"
+"PO-Revision-Date: 2026-02-08 13:36+0000\n"
+"Last-Translator: Sergiu Bivol <sergiu@cip.md>\n"
+"Language-Team: Romanian <kde-i18n-ro@kde.org>\n"
+"Language: ro\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=n==1 ? 0 : (n==0 || (n%100 > 0 && n%100 < "
+"20)) ? 1 : 2;\n"
+"X-Generator: Lokalize 25.08.1\n"
+
+#: ui/main.qml:28
+#, kde-kuit-format
+msgctxt "@info:usagetip"
+msgid ""
+"Legacy X11 apps with global shortcuts and other features accessed while "
+"running in the background need to be able to listen for keystrokes all the "
+"time.<nl/><nl/>If you use any of these apps, you can choose your preferred "
+"balance of security and compatibility here."
+msgstr ""
+"Aplicațiile X11 moștenite cu scurtături globale și alte caracteristici ce "
+"sunt accesate în timpul rulării în fundal trebuie să poată asculta pentru "
+"apăsări de taste tot timpul.<nl/><nl/>Dacă folosiți astfel de aplicații, "
+"puteți alege aici balanța preferată între securitate și compatibilitate."
+
+#: ui/main.qml:49
+#, kde-format
+msgctxt "@title:group"
+msgid "Listening for keystrokes:"
+msgstr "Ascultarea pentru apăsări de taste:"
+
+#: ui/main.qml:52
+#, kde-format
+msgctxt "@option:radio Listening for keystrokes is prohibited"
+msgid "Prohibited"
+msgstr "Interzisă"
+
+#: ui/main.qml:61
+#, kde-format
+msgctxt "@info:usagetip"
+msgid "Most secure; global shortcuts will not work in X11 apps"
+msgstr "Cel mai sigur; scurtăturile globale nu vor lucra în aplicații X11"
+
+#: ui/main.qml:67
+#, kde-format
+msgctxt "@option:radio Listening for keystrokes is allowed for…"
+msgid "Only the Meta, Control, Alt, and Shift keys"
+msgstr "Doar tastele Meta, Control, Alt, și Shift"
+
+#: ui/main.qml:76
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"High security; push-to-talk and other modifier-only global shortcuts will "
+"work in X11 apps"
+msgstr ""
+"Securitate înaltă; apasă-pentru-vorbire și alte scurtături globale limitate "
+"la modificare vor funcționa în aplicațiile X11"
+
+#: ui/main.qml:81
+#, kde-format
+msgctxt "@option:radio Listening for keystrokes is allowed for…"
+msgid ""
+"As above, plus any key pressed while the Control, Alt, or Meta key is also "
+"pressed"
+msgstr "Ca mai sus, plus orice tastă apăsată împreună cu Ctrl, Alt, sau Meta"
+
+#: ui/main.qml:90
+#, kde-format
+msgctxt "@info:usagetip"
+msgid "Moderate security; all global shortcuts will work in X11 apps"
+msgstr ""
+"Securitate moderată; toate scurtăturile globale vor funcționa în aplicațiile "
+"X11"
+
+#: ui/main.qml:96
+#, kde-format
+msgctxt "@option:radio Listening for keystrokes is always allowed"
+msgid "Always allowed"
+msgstr "Permis întotdeauna"
+
+#: ui/main.qml:105
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"Least secure; all X11 apps will be able to see any text you type into any "
+"application"
+msgstr ""
+"Cel mai puțin sigur; toate aplicațiile X11 vor putea să vadă orice text "
+"tastat în orice aplicație"
+
+#: ui/main.qml:111
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"Note that using this setting will reduce system security and permit "
+"malicious software to steal passwords and spy on the text that you type. "
+"Make sure you understand and accept this risk."
+msgstr ""
+"Rețineți că folosirea acestei configurări va reduce securitatea sistemului "
+"și va permite programelor dăunătoare să fure parole și să spioneze tastele "
+"apăsate. Asigurați-vă că înțelegeți și acceptați acest risc."
+
+#: ui/main.qml:118
+#, kde-format
+msgctxt "@title:group"
+msgid "Listening for mouse buttons:"
+msgstr "Ascultarea pentru butoanele șoricelului:"
+
+#: ui/main.qml:121
+#, kde-format
+msgctxt "@option:radio Listening for mouse buttons is allowed"
+msgid "Allowed"
+msgstr "Permisă"
+
+#: ui/main.qml:130
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"Moderate security; global shortcuts involving mouse buttons will work in X11 "
+"apps"
+msgstr ""
+"Securitate moderată; scurtăturile globale ce implică butoanele șoricelului "
+"vor funcționa în aplicațiile X11"
+
+#: ui/main.qml:141
+#, kde-format
+msgctxt "@title:group"
+msgid "Control of pointer and keyboard:"
+msgstr "Controlul indicatorului și tastaturii:"
+
+#: ui/main.qml:146
+#, fuzzy, kde-format
+#| msgctxt "@option:radio Listening for mouse buttons is allowed"
+#| msgid "Allowed"
+msgctxt ""
+"@option:check Allowed control of pointer and keyboard without asking for "
+"permissions for allowed apps"
+msgid "Allowed apps"
+msgstr "Permisă"
+
+#: ui/main.qml:152
+#, kde-format
+msgctxt "@action:button"
+msgid "See Allowed Applications…"
+msgstr ""
+
+#: ui/main.qml:163
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"Moderate security; XWayland-using apps claiming to be something on this list "
+"will be able to take control of the computer, because XWayland-using apps’ "
+"identities can’t be verified"
+msgstr ""
+
+#: ui/main.qml:169
+#, fuzzy, kde-format
+#| msgctxt ""
+#| "@option:check Allow control of pointer and keyboard without asking for "
+#| "permission"
+#| msgid "Allow without asking for permission"
+msgctxt ""
+"@option:radio Allow control of pointer and keyboard without asking for "
+"permission"
+msgid "Allow without asking for permission"
+msgstr "Permite fără a cere permisiunea"
+
+#: ui/main.qml:174
+#, kde-format
+msgctxt "@info:usagetip"
+msgid "Least secure; all X11 apps will be able to take control of the computer"
+msgstr ""
+"Cel mai puțin sigur; toate aplicațiile X11 vor putea să preia controlul "
+"asupra calculatorului"
+
+#: ui/main.qml:181
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"Note that using this setting will drastically reduce system security and "
+"permit malicious software to take complete control of your pointer and "
+"keyboard. Make sure you understand and accept this risk."
+msgstr ""
+"Rețineți că folosirea acestei configurări va reduce drastic securitatea "
+"sistemului și va permite programelor dăunătoare să preia controlul complet "
+"al indicatorului și tastaturii. Asigurați-vă că înțelegeți și acceptați "
+"acest risc."
+
+#: ui/main.qml:189
+#, fuzzy, kde-format
+#| msgctxt "@title:group"
+#| msgid "Control of pointer and keyboard:"
+msgctxt ""
+"@title:window title of the page opened by the 'See allowed applications' "
+"button"
+msgid "Applications allowed to control the pointer and keyboard"
+msgstr "Controlul indicatorului și tastaturii:"
+
+#: ui/main.qml:209
+#, kde-format
+msgctxt "@info:tooltip %1 is the name of the app/binary"
+msgid "Do not allow %1 to control the pointer and keyboard without asking"
+msgstr ""
+
+#~ msgctxt "@info"
+#~ msgid "Changes will take effect the next time you log in."
+#~ msgstr "Modificările vor intra în vigoare la următoarea autentificare."
+
+#~ msgctxt "@action:button"
+#~ msgid "Log Out Now"
+#~ msgstr "Ieși din sistem acum"
+
+#, fuzzy
+#~| msgid ""
+#~| "Legacy X11 apps require the ability to read keystrokes typed in other "
+#~| "apps for features that are activated using global keyboard shortcuts. "
+#~| "This is disabled by default for security reasons. If you need to use "
+#~| "such apps, you can choose your preferred balance of security and "
+#~| "functionality here."
+#~ msgid ""
+#~ "Some legacy X11 apps require the ability to read keystrokes typed in "
+#~ "other apps for certain features, such as handling global keyboard "
+#~ "shortcuts. This is allowed by default. However other features may require "
+#~ "the ability to read all keys, and this is disabled by default for "
+#~ "security reasons. If you need to use such apps, you can choose your "
+#~ "preferred balance of security and functionality here."
+#~ msgstr ""
+#~ "Aplicațiile X11 moștenite necesită capacitatea de a citi apăsările de "
+#~ "taste din alte aplicații pentru caracteristici ce sunt activate folosind "
+#~ "scurtături de taste globale. Aceasta e dezactivată implicit din motive de "
+#~ "securitate. Dacă aveți nevoie să folosiți astfel de aplicații, puteți "
+#~ "alege aici balanța preferată între securitate și funcționalitate."
+
+#~ msgid "Allow legacy X11 apps to read keystrokes typed in all apps:"
+#~ msgstr ""
+#~ "Permite aplicațiilor X11 moștenite să citească tastele apăsate în toate "
+#~ "aplicațiile:"
+
+#~ msgid "Never"
+#~ msgstr "Niciodată"
+
+#~ msgid ""
+#~ "This module lets configure which keyboard events are forwarded to X11 "
+#~ "apps regardless of their focus."
+#~ msgstr ""
+#~ "Acest modul permite configurarea evenimentelor de tastatură care să fie "
+#~ "înaintate spre aplicațiile X11 indiferent de focalizarea acestora."
+
+#~ msgctxt "NAME OF TRANSLATORS"
+#~ msgid "Your names"
+#~ msgstr "Sergiu Bivol"
+
+#~ msgctxt "EMAIL OF TRANSLATORS"
+#~ msgid "Your emails"
+#~ msgstr "sergiu@cip.md"
+
+#~ msgid "Legacy X11 App Support"
+#~ msgstr "Suport pentru aplicații moștenite X11"
+
+#~ msgid "Allow legacy X11 apps to read keystrokes typed in other apps"
+#~ msgstr ""
+#~ "Permite aplicațiilor X11 moștenite să citească tastele apăsate în alte "
+#~ "aplicații"

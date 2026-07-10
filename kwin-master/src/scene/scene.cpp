@@ -1,0 +1,720 @@
+/*
+    SPDX-FileCopyrightText: 2022 Vlad Zahorodnii <vlad.zahorodnii@kde.org>
+
+    SPDX-License-Identifier: GPL-2.0-or-later
+*/
+
+#include "scene/scene.h"
+#include "core/backendoutput.h"
+#include "core/outputlayer.h"
+#include "core/pixelgrid.h"
+#include "core/renderviewport.h"
+#include "effect/effect.h"
+#include "scene/cursoritem.h"
+#include "scene/item.h"
+#include "scene/itemrenderer.h"
+#include "scene/surfaceitem.h"
+
+namespace KWin
+{
+
+RenderView::RenderView(LogicalOutput *logicalOutput, BackendOutput *backendOutput, OutputLayer *layer)
+    : m_logicalOutput(logicalOutput)
+    , m_backendOutput(backendOutput)
+    , m_layer(layer)
+{
+}
+
+LogicalOutput *RenderView::logicalOutput() const
+{
+    return m_logicalOutput;
+}
+
+BackendOutput *RenderView::backendOutput() const
+{
+    return m_backendOutput;
+}
+
+OutputLayer *RenderView::layer() const
+{
+    return m_layer;
+}
+
+void RenderView::setLayer(OutputLayer *layer)
+{
+    m_layer = layer;
+}
+
+void RenderView::addDeviceRepaint(const Region &deviceRegion)
+{
+    if (!m_layer) {
+        return;
+    }
+    m_layer->addDeviceRepaint(deviceRegion);
+}
+
+void RenderView::scheduleRepaint(Item *item)
+{
+    if (!m_layer) {
+        return;
+    }
+    m_layer->scheduleRepaint(item);
+}
+
+bool RenderView::canSkipMoveRepaint(Item *item)
+{
+    return false;
+}
+
+bool RenderView::shouldRenderItem(Item *item) const
+{
+    return true;
+}
+
+void RenderView::setExclusive(bool enable)
+{
+}
+
+QPointF RenderView::hotspot() const
+{
+    return QPointF{};
+}
+
+bool RenderView::isVisible() const
+{
+    return true;
+}
+
+bool RenderView::shouldRenderHole(Item *item) const
+{
+    return false;
+}
+
+Rect RenderView::deviceRect() const
+{
+    return Rect(renderOffset(), deviceSize());
+}
+
+QSize RenderView::deviceSize() const
+{
+    return (viewport().size() * scale()).toSize();
+}
+
+RectF RenderView::mapToDeviceCoordinates(const RectF &logicalGeometry) const
+{
+    return logicalGeometry.translated(-viewport().topLeft()).scaled(scale()).translated(m_renderOffset);
+}
+
+Rect RenderView::mapToDeviceCoordinatesAligned(const Rect &logicalGeometry) const
+{
+    return mapToDeviceCoordinates(RectF(logicalGeometry)).roundedOut();
+}
+
+Rect RenderView::mapToDeviceCoordinatesAligned(const RectF &logicalGeometry) const
+{
+    return mapToDeviceCoordinates(logicalGeometry).roundedOut();
+}
+
+Rect RenderView::mapToDeviceCoordinatesContained(const Rect &logicalGeometry) const
+{
+    const RectF ret = RectF(logicalGeometry).translated(-viewport().topLeft()).scaled(scale());
+    return Rect(QPoint(std::ceil(ret.left()), std::ceil(ret.top())),
+                QPoint(std::floor(ret.right()), std::floor(ret.bottom())))
+        .translated(m_renderOffset);
+}
+
+Region RenderView::mapToDeviceCoordinatesAligned(const Region &logicalGeometry) const
+{
+    Region ret;
+    for (const Rect &logicalRect : logicalGeometry.rects()) {
+        ret |= mapToDeviceCoordinatesAligned(logicalRect);
+    }
+    return ret;
+}
+
+Region RenderView::mapToDeviceCoordinatesContained(const Region &logicalGeometry) const
+{
+    Region ret;
+    for (const Rect &logicalRect : logicalGeometry.rects()) {
+        ret |= mapToDeviceCoordinatesContained(logicalRect);
+    }
+    return ret;
+}
+
+RectF RenderView::mapFromDeviceCoordinates(const RectF &deviceGeometry) const
+{
+    return deviceGeometry.translated(-m_renderOffset).scaled(1.0 / scale()).translated(viewport().topLeft());
+}
+
+Rect RenderView::mapFromDeviceCoordinatesAligned(const Rect &deviceGeometry) const
+{
+    return deviceGeometry.translated(-m_renderOffset).scaled(1.0 / scale()).translated(viewport().topLeft()).toAlignedRect();
+}
+
+Region RenderView::mapFromDeviceCoordinatesAligned(const Region &deviceGeometry) const
+{
+    Region ret;
+    for (const Rect &deviceRect : deviceGeometry.rects()) {
+        ret |= mapFromDeviceCoordinatesAligned(deviceRect);
+    }
+    return ret;
+}
+
+QPoint RenderView::renderOffset() const
+{
+    return m_renderOffset;
+}
+
+void RenderView::setRenderOffset(const QPoint &offset)
+{
+    if (m_renderOffset == offset) {
+        return;
+    }
+    addDeviceRepaint(deviceRect());
+    m_renderOffset = offset;
+    addDeviceRepaint(deviceRect());
+}
+
+SceneView::SceneView(Scene *scene, LogicalOutput *logicalOutput, BackendOutput *backendOutput, OutputLayer *layer)
+    : RenderView(logicalOutput, backendOutput, layer)
+    , m_scene(scene)
+    , m_nextPresentationTimestamp(std::chrono::steady_clock::now().time_since_epoch())
+{
+    m_scene->addView(this);
+}
+
+SceneView::~SceneView()
+{
+    m_scene->removeView(this);
+}
+
+SurfaceItem *SceneView::scanoutCandidate() const
+{
+    return nullptr;
+}
+
+void SceneView::prePaint(OutputFrame *frame)
+{
+    m_scene->prePaint(this, frame);
+}
+
+Region SceneView::collectDamage()
+{
+    return m_scene->collectDamage();
+}
+
+void SceneView::postPaint()
+{
+    m_scene->postPaint();
+}
+
+void SceneView::paint(const RenderTarget &renderTarget, const QPoint &deviceOffset, const Region &deviceRegion)
+{
+    m_scene->paint(renderTarget, deviceOffset, deviceRegion);
+}
+
+double SceneView::desiredHdrHeadroom() const
+{
+    return m_scene->desiredHdrHeadroom();
+}
+
+void SceneView::setViewport(const RectF &viewport)
+{
+    if (viewport == m_viewport) {
+        return;
+    }
+    addDeviceRepaint(deviceRect());
+    m_viewport = viewport;
+    addDeviceRepaint(deviceRect());
+}
+
+void SceneView::setScale(qreal scale)
+{
+    if (scale == m_scale) {
+        return;
+    }
+    addDeviceRepaint(deviceRect());
+    m_scale = scale;
+    addDeviceRepaint(deviceRect());
+}
+
+void SceneView::setNextPresentationTimestamp(std::chrono::nanoseconds timestamp, uint32_t refreshRate)
+{
+    m_nextPresentationTimestamp = timestamp;
+    m_refreshRate = refreshRate;
+}
+
+RectF SceneView::viewport() const
+{
+    return m_viewport;
+}
+
+qreal SceneView::scale() const
+{
+    return m_scale;
+}
+
+std::chrono::nanoseconds SceneView::nextPresentationTimestamp() const
+{
+    return m_nextPresentationTimestamp;
+}
+
+uint SceneView::refreshRate() const
+{
+    return m_refreshRate;
+}
+
+void SceneView::addExclusiveView(RenderView *view)
+{
+    m_exclusiveViews.push_back(view);
+}
+
+void SceneView::removeExclusiveView(RenderView *view)
+{
+    m_exclusiveViews.removeOne(view);
+    m_underlayViews.removeOne(view);
+}
+
+void SceneView::addUnderlay(RenderView *view)
+{
+    m_underlayViews.push_back(view);
+}
+
+void SceneView::removeUnderlay(RenderView *view)
+{
+    m_underlayViews.removeOne(view);
+}
+
+bool SceneView::shouldRenderItem(Item *item) const
+{
+    return std::ranges::none_of(m_exclusiveViews, [item](RenderView *view) {
+        return view->shouldRenderItem(item);
+    });
+}
+
+bool SceneView::shouldRenderHole(Item *item) const
+{
+    return std::ranges::any_of(m_underlayViews, [item](RenderView *view) {
+        return view->shouldRenderItem(item);
+    });
+}
+
+Scene *SceneView::scene() const
+{
+    return m_scene;
+}
+
+void SceneView::addWindowFilter(std::function<bool(Window *)> filter)
+{
+    m_windowFilters.push_back(filter);
+}
+
+bool SceneView::shouldHideWindow(Window *window) const
+{
+    return std::ranges::any_of(m_windowFilters, [window](const auto filter) {
+        return filter(window);
+    });
+}
+
+ItemView::ItemView(SceneView *parentView, Item *item, LogicalOutput *logicalOutput, BackendOutput *backendOutput, OutputLayer *layer)
+    : RenderView(logicalOutput, backendOutput, layer)
+    , m_parentView(parentView)
+    , m_item(item)
+{
+    parentView->scene()->addView(this);
+}
+
+ItemView::~ItemView()
+{
+    m_parentView->scene()->removeView(this);
+    if (m_exclusive) {
+        m_parentView->removeExclusiveView(this);
+        if (m_item) {
+            m_item->scheduleSceneRepaint(m_item->rect());
+        }
+    }
+}
+
+qreal ItemView::scale() const
+{
+    return m_parentView->scale();
+}
+
+QPointF ItemView::hotspot() const
+{
+    if (auto cursor = qobject_cast<CursorItem *>(m_item)) {
+        return cursor->hotspot();
+    } else {
+        return QPointF{};
+    }
+}
+
+RectF ItemView::viewport() const
+{
+    // TODO make the viewport explicit instead?
+    if (!m_item) {
+        return RectF();
+    }
+    return calculateViewport(m_item->rect());
+}
+
+std::chrono::nanoseconds ItemView::nextPresentationTimestamp() const
+{
+    return m_parentView->nextPresentationTimestamp();
+}
+
+uint ItemView::refreshRate() const
+{
+    return m_parentView->refreshRate();
+}
+
+RectF ItemView::calculateViewport(const RectF &itemRect) const
+{
+    const RectF snapped = snapToPixels(itemRect, scale());
+    const auto recommendedSizes = m_layer ? m_layer->recommendedSizes() : QList<QSize>{};
+    if (!recommendedSizes.empty()) {
+        const auto bufferSize = itemRect.scaled(scale()).size();
+        auto bigEnough = recommendedSizes | std::views::filter([bufferSize](const auto &size) {
+            return size.width() >= bufferSize.width() && size.height() >= bufferSize.height();
+        });
+        const auto it = std::ranges::min_element(bigEnough, [](const auto &left, const auto &right) {
+            return left.width() * left.height() < right.width() * right.height();
+        });
+        if (it != bigEnough.end()) {
+            const auto logicalSize = QSizeF(*it) / scale();
+            return m_item->mapToView(RectF(snapped.topLeft(), logicalSize), this);
+        }
+    }
+    return m_item->mapToView(snapped, this);
+}
+
+bool ItemView::isVisible() const
+{
+    return m_item->isVisible();
+}
+
+SurfaceItem *ItemView::scanoutCandidate() const
+{
+    return dynamic_cast<SurfaceItem *>(m_item.get());
+}
+
+Region ItemView::collectDamage()
+{
+    return m_item->takeDeviceRepaints(this);
+}
+
+void ItemView::paint(const RenderTarget &renderTarget, const QPoint &deviceOffset, const Region &region)
+{
+    const Region globalRegion = region == Region::infinite() ? Region::infinite() : region.translated(viewport().topLeft().toPoint());
+    RenderViewport renderViewport(viewport(), m_logicalOutput->scale(), renderTarget, deviceOffset);
+    auto renderer = m_item->scene()->renderer();
+    renderer->beginFrame(renderTarget, renderViewport);
+    renderer->renderBackground(renderTarget, renderViewport, globalRegion);
+    WindowPaintData data;
+    renderer->renderItem(renderTarget, renderViewport, m_item, 0, globalRegion, data, [this](Item *toRender) {
+        return toRender != m_item;
+    }, {});
+    renderer->endFrame();
+}
+
+bool ItemView::shouldRenderItem(Item *item) const
+{
+    return m_item && item == m_item;
+}
+
+void ItemView::setExclusive(bool enable)
+{
+    if (m_exclusive == enable) {
+        return;
+    }
+    m_exclusive = enable;
+    if (enable) {
+        m_item->scheduleSceneRepaint(m_item->rect());
+        // also need to add all the Item's pending repaint regions to the scene,
+        // otherwise some required repaints may be missing
+        m_parentView->addDeviceRepaint(m_item->takeDeviceRepaints(m_parentView));
+        m_parentView->addExclusiveView(this);
+        if (m_underlay) {
+            m_parentView->addUnderlay(this);
+        }
+    } else {
+        m_parentView->removeExclusiveView(this);
+        m_item->scheduleRepaint(m_item->rect());
+    }
+}
+
+void ItemView::setUnderlay(bool underlay)
+{
+    if (m_underlay == underlay) {
+        return;
+    }
+    m_underlay = underlay;
+    if (!m_exclusive) {
+        return;
+    }
+    if (m_underlay) {
+        m_parentView->addUnderlay(this);
+    } else {
+        m_parentView->removeUnderlay(this);
+    }
+    m_item->scheduleSceneRepaint(m_item->rect());
+}
+
+bool ItemView::needsRepaint()
+{
+    return m_item->hasRepaints(this);
+}
+
+bool ItemView::canSkipMoveRepaint(Item *item)
+{
+    return m_layer && item == m_item;
+}
+
+Item *ItemView::item() const
+{
+    return m_item;
+}
+
+double ItemView::desiredHdrHeadroom() const
+{
+    const auto &color = m_item->colorDescription();
+    const double max = color->maxHdrLuminance().value_or(color->referenceLuminance());
+    return max / color->referenceLuminance();
+}
+
+ItemTreeView::ItemTreeView(SceneView *parentView, Item *item, LogicalOutput *logicalOutput, BackendOutput *backendOutput, OutputLayer *layer)
+    : ItemView(parentView, item, logicalOutput, backendOutput, layer)
+{
+}
+
+ItemTreeView::~ItemTreeView()
+{
+    setExclusive(false);
+}
+
+RectF ItemTreeView::viewport() const
+{
+    // TODO make the viewport explicit instead?
+    if (!m_item) {
+        return RectF();
+    }
+    return calculateViewport(m_item->boundingRect());
+}
+
+SurfaceItem *ItemTreeView::scanoutCandidate() const
+{
+    if (dynamic_cast<SurfaceItem *>(m_item.get())) {
+        const bool visibleChildren = std::ranges::any_of(m_item->childItems(), [](Item *child) {
+            return child->isVisible();
+        });
+        if (visibleChildren) {
+            return {};
+        }
+        return static_cast<SurfaceItem *>(m_item.get());
+    }
+    return {};
+}
+
+static void accumulateRepaints(Item *item, ItemTreeView *view, Region *repaints)
+{
+    *repaints += item->takeDeviceRepaints(view);
+
+    const auto childItems = item->childItems();
+    for (Item *childItem : childItems) {
+        accumulateRepaints(childItem, view, repaints);
+    }
+}
+
+Region ItemTreeView::collectDamage()
+{
+    Region ret;
+    accumulateRepaints(m_item, this, &ret);
+    // FIXME damage tracking for this layer still has some bugs, this effectively disables it
+    ret = Region::infinite();
+    return ret;
+}
+
+void ItemTreeView::paint(const RenderTarget &renderTarget, const QPoint &deviceOffset, const Region &deviceRegion)
+{
+    RenderViewport renderViewport(viewport(), m_logicalOutput->scale(), renderTarget, deviceOffset);
+    auto renderer = m_item->scene()->renderer();
+    renderer->beginFrame(renderTarget, renderViewport);
+    renderer->renderBackground(renderTarget, renderViewport, deviceRegion);
+    WindowPaintData data;
+    renderer->renderItem(renderTarget, renderViewport, m_item, 0, deviceRegion, data, {}, {});
+    renderer->endFrame();
+}
+
+bool ItemTreeView::shouldRenderItem(Item *item) const
+{
+    return item == m_item || m_item->isAncestorOf(item);
+}
+
+static void schedulePendingRepaints(RenderView *view, Item *item)
+{
+    view->addDeviceRepaint(item->takeDeviceRepaints(view));
+    const auto children = item->childItems();
+    for (Item *child : children) {
+        schedulePendingRepaints(view, child);
+    }
+}
+
+void ItemTreeView::setExclusive(bool enable)
+{
+    if (m_exclusive == enable) {
+        return;
+    }
+    m_exclusive = enable;
+    if (enable) {
+        m_item->scheduleSceneRepaint(m_item->boundingRect());
+        // also need to add all the Item's pending repaint regions to the scene,
+        // otherwise some required repaints may be missing
+        schedulePendingRepaints(m_parentView, m_item);
+        m_parentView->addExclusiveView(this);
+        if (m_underlay) {
+            m_parentView->addUnderlay(this);
+        }
+    } else {
+        m_parentView->removeExclusiveView(this);
+        m_item->scheduleRepaint(m_item->boundingRect());
+    }
+}
+
+static bool recursiveNeedsRepaint(Item *item, RenderView *view)
+{
+    if (item->hasRepaints(view)) {
+        return true;
+    }
+    const auto children = item->childItems();
+    return std::ranges::any_of(children, [view](Item *childItem) {
+        return recursiveNeedsRepaint(childItem, view);
+    });
+}
+
+bool ItemTreeView::needsRepaint()
+{
+    return recursiveNeedsRepaint(m_item, this);
+}
+
+bool ItemTreeView::isVisible() const
+{
+    // Item::isVisible isn't enough here, we only want to render the view
+    // if there's actual contents
+    return m_item->hasVisibleContents();
+}
+
+bool ItemTreeView::canSkipMoveRepaint(Item *item)
+{
+    // this could be more generic, but it's all we need for now
+    return m_layer && item == m_item;
+}
+
+static double recursiveMaxHdrHeadroom(Item *item)
+{
+    const auto &color = item->colorDescription();
+    const double max = color->maxHdrLuminance().value_or(color->referenceLuminance());
+    double headroom = max / color->referenceLuminance();
+    const auto children = item->childItems();
+    for (Item *child : children) {
+        headroom = std::max(headroom, recursiveMaxHdrHeadroom(child));
+    }
+    return headroom;
+}
+
+double ItemTreeView::desiredHdrHeadroom() const
+{
+    return recursiveMaxHdrHeadroom(m_item);
+}
+
+Scene::Scene()
+{
+}
+
+Scene::~Scene()
+{
+}
+
+ItemRenderer *Scene::renderer() const
+{
+    return m_renderer.get();
+}
+
+void Scene::addRepaintFull()
+{
+    for (const auto &view : std::as_const(m_views)) {
+        view->addDeviceRepaint(Region::infinite());
+    }
+}
+
+void Scene::addLogicalRepaint(int x, int y, int width, int height)
+{
+    addLogicalRepaint(Region(x, y, width, height));
+}
+
+void Scene::addLogicalRepaint(const Region &logicalRegion)
+{
+    for (const auto &view : std::as_const(m_views)) {
+        addLogicalRepaint(view, logicalRegion);
+    }
+}
+
+void Scene::addLogicalRepaint(RenderView *view, const Region &logicalRegion)
+{
+    Region dirtyRegion = view->mapToDeviceCoordinatesAligned(logicalRegion);
+    if (!dirtyRegion.isEmpty()) {
+        view->addDeviceRepaint(dirtyRegion);
+    }
+}
+
+void Scene::addDeviceRepaint(RenderView *view, const Region &deviceRegion)
+{
+    view->addDeviceRepaint(deviceRegion);
+}
+
+Region Scene::damage() const
+{
+    return Region();
+}
+
+Rect Scene::geometry() const
+{
+    return m_geometry;
+}
+
+void Scene::setGeometry(const Rect &rect)
+{
+    if (m_geometry != rect) {
+        m_geometry = rect;
+        addRepaintFull();
+    }
+}
+
+QList<RenderView *> Scene::views() const
+{
+    return m_views;
+}
+
+void Scene::addView(RenderView *view)
+{
+    m_views.append(view);
+}
+
+void Scene::removeView(RenderView *view)
+{
+    m_views.removeOne(view);
+    Q_EMIT viewRemoved(view);
+}
+
+void Scene::releaseResources(Item *item)
+{
+    item->releaseResources();
+
+    const auto childItems = item->m_childItems;
+    for (Item *childItem : childItems) {
+        releaseResources(childItem);
+    }
+}
+
+} // namespace KWin
+
+#include "moc_scene.cpp"

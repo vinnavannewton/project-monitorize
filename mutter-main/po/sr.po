@@ -1,0 +1,834 @@
+# Serbian translation of mutter.
+# Courtesy of Prevod.org team (http://prevod.org/) -- 2003—2022.
+# This file is distributed under the same license as the mutter package.
+# Translators:
+# Горан Ракић <grakic@devbase.net>
+# Данило Шеган <danilo@prevod.org>, 2005.
+# Мирослав Николић <miroslavnikolic@rocketmail.com>, 2011—2022.
+# Марко М. Костић <marko.m.kostic@gmail.com>, 2020-2026.
+# Милош Поповић <gpopac@gmail.com>, 2010-2025.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: mutter\n"
+"Report-Msgid-Bugs-To: https://gitlab.gnome.org/GNOME/mutter/issues/\n"
+"POT-Creation-Date: 2026-03-15 22:32+0000\n"
+"PO-Revision-Date: 2026-03-17 18:26+0100\n"
+"Last-Translator: Марко М. Костић <marko.m.kostic@gmail.com>\n"
+"Language-Team: Serbian <Serbian <gnome-sr@googlegroups.com>>\n"
+"Language: sr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=4; plural=n==1? 3 : n%10==1 && n%100!=11 ? 0 : "
+"n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
+"X-Generator: Poedit 3.9\n"
+
+#: data/50-mutter-navigation.xml:6
+msgid "Navigation"
+msgstr "Навигација"
+
+#: data/50-mutter-navigation.xml:9
+msgid "Move window to workspace 1"
+msgstr "Премести прозор на радни простор број 1"
+
+#: data/50-mutter-navigation.xml:12
+msgid "Move window to workspace 2"
+msgstr "Премести прозор на радни простор број 2"
+
+#: data/50-mutter-navigation.xml:15
+msgid "Move window to workspace 3"
+msgstr "Премести прозор на радни простор број 3"
+
+#: data/50-mutter-navigation.xml:18
+msgid "Move window to workspace 4"
+msgstr "Премести прозор на радни простор број 4"
+
+#: data/50-mutter-navigation.xml:21
+msgid "Move window to last workspace"
+msgstr "Премести прозор на последњи радни простор"
+
+#: data/50-mutter-navigation.xml:24
+msgid "Move window one workspace to the left"
+msgstr "Премести прозор један радни простор лево"
+
+#: data/50-mutter-navigation.xml:27
+msgid "Move window one workspace to the right"
+msgstr "Премести прозор један радни простор десно"
+
+#: data/50-mutter-navigation.xml:31
+msgid "Move window one workspace up"
+msgstr "Премести прозор један радни простор горе"
+
+#: data/50-mutter-navigation.xml:35
+msgid "Move window one workspace down"
+msgstr "Премести прозор један радни простор доле"
+
+#: data/50-mutter-navigation.xml:38
+msgid "Move window one monitor to the left"
+msgstr "Премести прозор један екран лево"
+
+#: data/50-mutter-navigation.xml:41
+msgid "Move window one monitor to the right"
+msgstr "Премести прозор један екран десно"
+
+#: data/50-mutter-navigation.xml:44
+msgid "Move window one monitor up"
+msgstr "Премести прозор један екран горе"
+
+#: data/50-mutter-navigation.xml:47
+msgid "Move window one monitor down"
+msgstr "Премести прозор један екран доле"
+
+#: data/50-mutter-navigation.xml:51
+msgid "Switch applications"
+msgstr "Пребацивање програма"
+
+#: data/50-mutter-navigation.xml:56
+msgid "Switch to previous application"
+msgstr "Пребацивање на претходни програм"
+
+#: data/50-mutter-navigation.xml:60
+msgid "Switch windows"
+msgstr "Пребацивање прозора"
+
+#: data/50-mutter-navigation.xml:65
+msgid "Switch to previous window"
+msgstr "Пребацивање на претходни прозор"
+
+#: data/50-mutter-navigation.xml:69
+msgid "Switch windows of an application"
+msgstr "Пребацивање прозора програма"
+
+#: data/50-mutter-navigation.xml:74
+msgid "Switch to previous window of an application"
+msgstr "Пребацивање на претходни прозор програма"
+
+#: data/50-mutter-navigation.xml:78
+msgid "Switch system controls"
+msgstr "Пребацивање контрола система"
+
+#: data/50-mutter-navigation.xml:83
+msgid "Switch to previous system control"
+msgstr "Пребацивање на претходну контролу система"
+
+#: data/50-mutter-navigation.xml:87
+msgid "Switch windows directly"
+msgstr "Директно пребацивање прозора"
+
+#: data/50-mutter-navigation.xml:92
+msgid "Switch directly to previous window"
+msgstr "Директно пребацивање на претходни прозор"
+
+#: data/50-mutter-navigation.xml:96
+msgid "Switch windows of an app directly"
+msgstr "Директно пребацивање прозора програма"
+
+#: data/50-mutter-navigation.xml:101
+msgid "Switch directly to previous window of an app"
+msgstr "Директно пребацивање на претходни прозор програма"
+
+#: data/50-mutter-navigation.xml:105
+msgid "Switch system controls directly"
+msgstr "Директно пребацивање контрола система"
+
+#: data/50-mutter-navigation.xml:110
+msgid "Switch directly to previous system control"
+msgstr "Директно пребацивање на претходну контролу система"
+
+#: data/50-mutter-navigation.xml:113
+msgid "Hide all normal windows"
+msgstr "Скривање свих обичних прозора"
+
+#: data/50-mutter-navigation.xml:116
+msgid "Switch to workspace 1"
+msgstr "Пребацивање на радни простор 1"
+
+#: data/50-mutter-navigation.xml:119
+msgid "Switch to workspace 2"
+msgstr "Пребацивање на радни простор 2"
+
+#: data/50-mutter-navigation.xml:122
+msgid "Switch to workspace 3"
+msgstr "Пребацивање на радни простор 3"
+
+#: data/50-mutter-navigation.xml:125
+msgid "Switch to workspace 4"
+msgstr "Пребацивање на радни простор 4"
+
+#: data/50-mutter-navigation.xml:128
+msgid "Switch to last workspace"
+msgstr "Пребацивање на последњи радни простор"
+
+#: data/50-mutter-navigation.xml:131
+msgid "Switch to workspace on the left"
+msgstr "Пребацивање на радни простор лево"
+
+#: data/50-mutter-navigation.xml:134
+msgid "Switch to workspace on the right"
+msgstr "Пребацивање на радни простор десно"
+
+#: data/50-mutter-navigation.xml:138
+msgid "Switch to workspace above"
+msgstr "Пребацивање на радни простор изнад"
+
+#: data/50-mutter-navigation.xml:142
+msgid "Switch to workspace below"
+msgstr "Пребацивање на радни простор испод"
+
+#: data/50-mutter-system.xml:6 data/50-mutter-wayland.xml:6
+msgid "System"
+msgstr "Систем"
+
+#: data/50-mutter-system.xml:8
+msgid "Show the run command prompt"
+msgstr "Приказивање упита за покретање наредбе"
+
+#: data/50-mutter-wayland.xml:8
+msgid "Restore the keyboard shortcuts"
+msgstr "Поврати пречице на тастатури"
+
+#: data/50-mutter-windows.xml:6
+msgid "Windows"
+msgstr "Прозори"
+
+#: data/50-mutter-windows.xml:8
+msgid "Activate the window menu"
+msgstr "Активирај мени прозора"
+
+#: data/50-mutter-windows.xml:10
+msgid "Toggle fullscreen mode"
+msgstr "Пребаци режим преко целог екрана"
+
+#: data/50-mutter-windows.xml:12
+msgid "Toggle maximization state"
+msgstr "Промени стање увећања"
+
+#: data/50-mutter-windows.xml:14
+msgid "Maximize window"
+msgstr "Увећај прозор"
+
+#: data/50-mutter-windows.xml:16
+msgid "Restore window"
+msgstr "Врати величину прозора"
+
+#: data/50-mutter-windows.xml:18
+msgid "Close window"
+msgstr "Затвори прозор"
+
+#: data/50-mutter-windows.xml:20
+msgid "Hide window"
+msgstr "Сакриј прозор"
+
+#: data/50-mutter-windows.xml:22
+msgid "Move window"
+msgstr "Премести прозор"
+
+#: data/50-mutter-windows.xml:24
+msgid "Resize window"
+msgstr "Промени величину прозора"
+
+#: data/50-mutter-windows.xml:27
+msgid "Toggle window on all workspaces or one"
+msgstr "Прикажи прозор на свим радним просторима или само на једном"
+
+#: data/50-mutter-windows.xml:29
+msgid "Raise window if covered, otherwise lower it"
+msgstr "Издвој прозор уколико га други прозор заклања, у противном га спусти"
+
+#: data/50-mutter-windows.xml:31
+msgid "Raise window above other windows"
+msgstr "Издвој прозор изнад осталих прозора"
+
+#: data/50-mutter-windows.xml:33
+msgid "Lower window below other windows"
+msgstr "Спусти прозор испод осталих прозора"
+
+#: data/50-mutter-windows.xml:35
+msgid "Maximize window vertically"
+msgstr "Увећај прозор усправно"
+
+#: data/50-mutter-windows.xml:37
+msgid "Maximize window horizontally"
+msgstr "Увећај прозор водоравно"
+
+#: data/50-mutter-windows.xml:41 data/org.gnome.mutter.gschema.xml.in:166
+msgid "View split on left"
+msgstr "Подели приказ на лево"
+
+#: data/50-mutter-windows.xml:45 data/org.gnome.mutter.gschema.xml.in:171
+msgid "View split on right"
+msgstr "Подели приказ на десно"
+
+#: data/org.gnome.mutter.gschema.xml.in:15
+msgid "Modifier to use for extended window management operations"
+msgstr "Тастер који се користи за проширене радње управљања прозорима"
+
+#: data/org.gnome.mutter.gschema.xml.in:16
+msgid ""
+"This key will initiate the “overlay”, which is a combination window overview "
+"and application launching system. The default is intended to be the “Windows "
+"key” on PC hardware. It’s expected that this binding either the default or "
+"set to the empty string."
+msgstr ""
+"Овај кључ покреће „overlay“ (преклапање), које комбинује преглед прозора и "
+"покретач програма. Подразумевано је намењен као „Windows key“ (кључ прозора) "
+"за компоненте рачунара. Очекује се да ово везује или подразумевани или низ "
+"празних знакова."
+
+#: data/org.gnome.mutter.gschema.xml.in:28
+msgid "Attach modal dialogs"
+msgstr "Прилагање модалних прозорчића"
+
+#: data/org.gnome.mutter.gschema.xml.in:29
+msgid ""
+"When true, instead of having independent titlebars, modal dialogs appear "
+"attached to the titlebar of the parent window and are moved together with "
+"the parent window."
+msgstr "Када је постављено на тачно, уместо независних трака наслова, модални прозорчићи се појављују приложени на траку наслова матичног прозора и премештају се заједно са њим."
+
+#: data/org.gnome.mutter.gschema.xml.in:38
+msgid "Enable edge tiling when dropping windows on screen edges"
+msgstr ""
+"Укључује поплочавање ивице приликом отпуштања прозора на ивицама екрана"
+
+#: data/org.gnome.mutter.gschema.xml.in:39
+msgid ""
+"If enabled, dropping windows on vertical screen edges maximizes them "
+"vertically and resizes them horizontally to cover half of the available "
+"area. Dropping windows on the top screen edge maximizes them completely."
+msgstr ""
+"Ако је укључено, отпуштање прозора на усправним ивицама екрана увећава их "
+"усправно и мења им величину водоравно да прекрију половину доступне области. "
+"Отпуштање прозора на горњој ивици екрана увећава их у потпуности."
+
+#: data/org.gnome.mutter.gschema.xml.in:48
+msgid "Workspaces are managed dynamically"
+msgstr "Радним просторима се управља динамички"
+
+#: data/org.gnome.mutter.gschema.xml.in:49
+msgid ""
+"Determines whether workspaces are managed dynamically or whether there’s a "
+"static number of workspaces (determined by the num-workspaces key in "
+"org.gnome.desktop.wm.preferences)."
+msgstr ""
+"Одређује да ли се радним просторима управља динамички или ће постојати "
+"стални број радних простора (одређен бројем радних простора у "
+"„org.gnome.desktop.wm.preferences“)."
+
+#: data/org.gnome.mutter.gschema.xml.in:58
+msgid "Workspaces only on primary"
+msgstr "Радни простори само на главном екрану"
+
+#: data/org.gnome.mutter.gschema.xml.in:59
+msgid ""
+"Determines whether workspace switching should happen for windows on all "
+"monitors or only for windows on the primary monitor."
+msgstr "Одређује да ли пребацивање радних простора треба да се деси за прозоре на свим екранима или само за прозоре на главном екрану."
+
+#: data/org.gnome.mutter.gschema.xml.in:67
+msgid "Delay focus changes until the pointer stops moving"
+msgstr "Одложи промене фокуса док се показивач не заустави"
+
+#: data/org.gnome.mutter.gschema.xml.in:68
+msgid ""
+"If set to true, and the focus mode is either “sloppy” or “mouse” then the "
+"focus will not be changed immediately when entering a window, but only after "
+"the pointer stops moving."
+msgstr "Ако је постављено на тачно, а режим фокуса је или „sloppy“ или „mouse“, тада се фокус неће мењати одмах по уласку у прозор, већ само након што показивач престане да се помера."
+
+#: data/org.gnome.mutter.gschema.xml.in:78
+msgid "Draggable border width"
+msgstr "Ширина ивице за помицање"
+
+#: data/org.gnome.mutter.gschema.xml.in:79
+msgid ""
+"The amount of total draggable borders. If the theme’s visible borders are "
+"not enough, invisible borders will be added to meet this value."
+msgstr "Укупан износ ивица за помицање. Ако видљиве ивице теме нису довољне, биће додате невидљиве ивице како би се достигла ова вредност."
+
+#: data/org.gnome.mutter.gschema.xml.in:88
+msgid "Auto maximize nearly monitor sized windows"
+msgstr "Сам увећава прозоре који су скоро величине екрана"
+
+#: data/org.gnome.mutter.gschema.xml.in:89
+msgid ""
+"If enabled, new windows that are initially the size of the monitor "
+"automatically get maximized."
+msgstr "Ако је омогућено, нови прозори који су почетне величине екрана самостално бивају увећани."
+
+#: data/org.gnome.mutter.gschema.xml.in:97
+msgid "Place new windows in the center"
+msgstr "Нови прозор у средиште"
+
+#: data/org.gnome.mutter.gschema.xml.in:98
+msgid ""
+"When true, the new windows will always be put in the center of the active "
+"screen of the monitor."
+msgstr "Када је постављено на тачно, нови прозори ће увек бити постављени на средину активног екрана на екрану."
+
+#: data/org.gnome.mutter.gschema.xml.in:107
+msgid "Enable experimental features"
+msgstr "Укључује експерименталне функције"
+
+#: data/org.gnome.mutter.gschema.xml.in:108
+msgid ""
+"To enable experimental features, add the feature keyword to the list. "
+"Whether the feature requires restarting the compositor depends on the given "
+"feature. Any experimental feature is not required to still be available, or "
+"configurable. Don’t expect adding anything in this setting to be future "
+"proof. Currently possible keywords: • “kms-modifiers” — makes mutter always "
+"allocate scanout buffers with explicit modifiers, if supported by the "
+"driver. Requires a restart. • “autoclose-xwayland” — automatically "
+"terminates Xwayland if all relevant X11 clients are gone. Requires a restart."
+msgstr "Да укључите пробне могућности, додајте кључну реч могућности на списак. Да ли могућност захтева поновно покретање састављача зависи од дате могућности. Није потребно да нека пробна могућност буде и даље доступна или подесива. Немојте очекивати да додавање било чега унутар ових подешавања буде отпорно на будуће измене. Тренутно могуће кључне речи су: • „kms-modifiers“ — чини да матер увек захвата скенаут спремишта са експлицитним измењивачима, ако то управљачки програм подржава. Потребно је поновно покретање. • „autoclose-xwayland“ — аутоматски гаси Икс-вејленд уколико су сви Икс11 клијенти угашени. Захтева поновно покретање."
+
+#: data/org.gnome.mutter.gschema.xml.in:130
+msgid "Modifier to use to locate the pointer"
+msgstr "Тастер који се користи за проналажење показивача"
+
+#: data/org.gnome.mutter.gschema.xml.in:131
+msgid "This key will initiate the “locate pointer” action."
+msgstr "Овај тастер ће покренути радњу „пронађи показивач“."
+
+#: data/org.gnome.mutter.gschema.xml.in:138
+msgid "Timeout for check-alive ping"
+msgstr "Време истицања провере живахности"
+
+#: data/org.gnome.mutter.gschema.xml.in:139
+msgid ""
+"Number of milliseconds a client has to respond to a ping request in order to "
+"not be detected as frozen. Using 0 will disable the alive check completely."
+msgstr ""
+"Број милисекунди за које клијент мора одговорити на пинг захтев да се не би "
+"сматрао замрзнутим. Унос броја 0 ће онемогућити проверу живахности у "
+"потпуности."
+
+#. TRANSLATORS: Luminance is different from brightness.
+#. See https://en.wikipedia.org/wiki/Luminance
+#: data/org.gnome.mutter.gschema.xml.in:150
+msgid "Per output luminance settings"
+msgstr "Подешавање луминансе по излазу"
+
+#: data/org.gnome.mutter.gschema.xml.in:151
+msgid ""
+"Per output and color mode luminance setting. Each entry consists of a tuple "
+"with connector, vendor, product, serial, and a color mode, as well as an "
+"associated floating point value representing the output luminance in percent "
+"(%). The default when not specified is 100%."
+msgstr "Подешавање луминансе по излазу и режиму боје. Сваки унос се састоји од торке (уређеног низа) која садржи повезивач, произвођача, производ, серијски број и режим боје, као и придружену вредност у покретном зарезу која представља излазну луминансу у процентима (%). Подразумевана вредност, када није наведена, износи 100%."
+
+#: data/org.gnome.mutter.gschema.xml.in:176
+msgid "Switch monitor configurations"
+msgstr "Мења подешавања екрана"
+
+#: data/org.gnome.mutter.gschema.xml.in:181
+msgid "Rotates the built-in monitor configuration"
+msgstr "Заокреће уграђена подешавања екрана"
+
+#: data/org.gnome.mutter.gschema.xml.in:186
+msgid "Cancel any active input capture session"
+msgstr "Отказује све активне сесије снимања улаза"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:12
+msgid "Switch to VT 1"
+msgstr "Прелазак на ВТ 1"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:16
+msgid "Switch to VT 2"
+msgstr "Прелазак на ВТ 2"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:20
+msgid "Switch to VT 3"
+msgstr "Прелазак на ВТ 3"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:24
+msgid "Switch to VT 4"
+msgstr "Прелазак на ВТ 4"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:28
+msgid "Switch to VT 5"
+msgstr "Прелазак на ВТ 5"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:32
+msgid "Switch to VT 6"
+msgstr "Прелазак на ВТ 6"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:36
+msgid "Switch to VT 7"
+msgstr "Прелазак на ВТ 7"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:40
+msgid "Switch to VT 8"
+msgstr "Прелазак на ВТ 8"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:44
+msgid "Switch to VT 9"
+msgstr "Прелазак на ВТ 9"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:48
+msgid "Switch to VT 10"
+msgstr "Прелазак на ВТ 10"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:52
+msgid "Switch to VT 11"
+msgstr "Прелазак на ВТ 11"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:56
+msgid "Switch to VT 12"
+msgstr "Прелазак на ВТ 12"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:60
+msgid "Re-enable shortcuts"
+msgstr "Поновно омогућавање пречица"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:70
+msgid "Allow X11 grabs to lock keyboard focus with Xwayland"
+msgstr "Дозволи Икс11 захватима да закључају фокус тастатуре у Икс-вејленду"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:71
+msgid ""
+"Allow all keyboard events to be routed to X11 “override redirect” windows "
+"with a grab when running in Xwayland. This option is to support X11 clients "
+"which map an “override redirect” window (which do not receive keyboard "
+"focus) and issue a keyboard grab to force all keyboard events to that "
+"window. This option is seldom used and has no effect on regular X11 windows "
+"which can receive keyboard focus under normal circumstances. For a X11 grab "
+"to be taken into account under Wayland, the client must also either send a "
+"specific X11 ClientMessage to the root window or be among the applications "
+"allowed in key “xwayland-grab-access-rules”."
+msgstr "Дозволи да се сви догађаји тастатуре преусмере на Икс11 „override redirect“ прозоре са захватом када се извршавају унутар Икс-вејленда. Ова опција постоји као подршка за Икс11 клијенте који мапирају „override redirect“ прозор (који не добија фокус тастатуре) па онда пошаљу захват тастатуре који присили све догађаје са тастатуре на овај прозор. Ова опција се ретко користи и нема утицаја на обичне Икс11 прозоре који могу бити у фокусу тастатуре у обичним околностима. Да би се Икс11 захват узео у обзир под Вејлендом, клијент такође мора или послати одређену Икс11 клијентску поруку у корени прозор или мора бити међу програмима дозвољеним у кључу „xwayland-grab-access-rules“."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:90
+msgid "Xwayland applications allowed to issue keyboard grabs"
+msgstr "Икс-вејленд програми којима је дозвољено да захтевају захвате тастатуре"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:91
+msgid ""
+"List the resource names or resource class of X11 windows either allowed or "
+"not allowed to issue X11 keyboard grabs under Xwayland. The resource name or "
+"resource class of a given X11 window can be obtained using the command "
+"“xprop WM_CLASS”. Wildcards “*” and jokers “?” in the values are supported. "
+"Values starting with “!” are denied, which has precedence over the list of "
+"values allowed, to revoke applications from the default system list. The "
+"default system list includes the following applications: "
+"“@XWAYLAND_GRAB_DEFAULT_ACCESS_RULES@” Users can break an existing grab by "
+"using the specific keyboard shortcut defined by the keybinding key “restore-"
+"shortcuts”."
+msgstr "Списак назива ресурса или класа ресурса Икс11 прозора којима је дозвољено или забрањено да захтевају Икс11 захвате тастатуре под Икс-вејлендом. Назив ресурса или класа ресурса датог Икс11 прозора се може наћи преко наредбе „xprop WM_CLASS“. Џокер знакови „*“ и „?“ унутар вредности су подржани. Вредности које почињу са „!“ се одбацују, што има предност у односу на списак дозвољених вредности, за опозив програма са подразумеваног системског списка. Подразумевани системски списак садржи следеће програме: „@XWAYLAND_GRAB_DEFAULT_ACCESS_RULES@“. Корисници могу прекинути постојећи захват тако што ће употребити посебну пречицу на тастатури која је наведена у кључу за везивање тастера „restore-shortcuts“."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:116
+msgid "Disable selected X extensions in Xwayland"
+msgstr "Онемогући изабрана Икс проширења у Икс-вејленду"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:117
+msgid ""
+"This option disables the selected X extensions in Xwayland if Xwayland was "
+"built with support for those X extensions. This option has no effect if "
+"Xwayland was built without support for the selected extensions. Xwayland "
+"needs to be restarted for this setting to take effect."
+msgstr "Ова опција онемогућава изабрана Икс проширења у Икс-вејленду ако је Икс-вејленд изграђен са подршком за та Икс проширења. Ова опција нема ефекта ако је Икс-вејленд изграђен без подршке за изабрана проширења. Икс-вејленд мора бити поново покренут да би ово подешавање ступило на снагу."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:130
+msgid "Allow X11 clients with a different endianness to connect to Xwayland"
+msgstr "Дозволи Икс11 клијентима са другачијим поретком бајтова (endianness) повезивање на Икс-вејленд"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:131
+msgid ""
+"Allow connections from clients with an endianness different to that of "
+"Xwayland. The X server byte-swapping code is a huge attack surface, much of "
+"that code in Xwayland is prone to security issues. The use-case of byte-"
+"swapped clients is very niche, and disabled by default in Xwayland. Enable "
+"this option to instruct Xwayland to accept connections from X11 clients with "
+"a different endianness. This option has no effect if Xwayland does not "
+"support the command line option +byteswappedclients/-byteswappedclients to "
+"control that setting. Xwayland needs to be restarted for this setting to "
+"take effect."
+msgstr "Дозвољава везе са клијената са поретком бајтова различитим од оног на Икс-вејленду. Код Икс сервера за размену бајтова је огромна површина за нападе, велики део тог кода у Икс-вејленду је подложан безбедносним проблемима. Случај коришћења клијената са размењеним бајтовима је врло специфичан и подразумевано је онемогућен у Икс-вејленду. Омогућите ову опцију да наложите Икс-вејленду да прихвати везе са Икс11 клијената са другачијим поретком бајтова. Ова опција нема ефекта ако Икс-вејленд не подржава опцију командне линије +byteswappedclients/-byteswappedclients за контролу тог подешавања. Икс-вејленд мора бити поново покренут да би ово подешавање ступило на снагу."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:154
+msgid "Configure the Xwayland scaling factor"
+msgstr "Подеси чинилац сразмере за Икс-вејленд"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:155
+msgid ""
+"Scale the Xwayland coordinate space according to this factor. This will "
+"affect what scale HiDPI capable X11 clients will present themselves as, and "
+"how the compositor scales X11 client windows. Setting the scale to 0 means "
+"the scale will be automatically calculated. The scale will as of now be "
+"rounded to the closest integer."
+msgstr "Промените величину Икс-вејленд координатног простора према овом фактору. Ово ће утицати на то како ће се Икс11 клијенти са подршком за HiDPI представљати и како композитор мења величину прозора Икс11 клијената. Постављање сразмере на 0 значи да ће се сразмера самостално израчунати. Сразмера ће за сада бити заокружена на најближи цео број."
+
+#: mdk/mdk-launcher-adder.c:451 mdk/mdk-launcher-adder.ui:22
+msgid "Application"
+msgstr "Програм"
+
+#: mdk/mdk-launcher-adder.c:456 mdk/mdk-launcher-adder.ui:23
+msgid "Executable"
+msgstr "Извршна датотека"
+
+#: mdk/mdk-launcher-adder.ui:3
+msgid "Add Launcher"
+msgstr "Додај покретач"
+
+#: mdk/mdk-launcher-adder.ui:15
+msgid "Launcher"
+msgstr "Покретач"
+
+#: mdk/mdk-launcher-adder.ui:18
+msgid "Type"
+msgstr "Врста"
+
+#: mdk/mdk-launcher-adder.ui:38 mdk/mdk-launchers-editor.ui:22
+msgid "Add"
+msgstr "Додај"
+
+#: mdk/mdk-launcher-entry.c:198
+msgid "Run"
+msgstr "Покрени"
+
+#: mdk/mdk-launcher-entry.ui:12
+msgid "Delete"
+msgstr "Обриши"
+
+#: mdk/mdk-launcher-entry.ui:20
+msgid "Action"
+msgstr "Радња"
+
+#: mdk/mdk-launchers-editor.ui:3
+msgid "Edit Launchers"
+msgstr "Уреди покретаче"
+
+#: mdk/mdk-launchers-editor.ui:16
+msgid "Launchers"
+msgstr "Покретачи"
+
+#: mdk/mdk-main-window.ui:7
+msgid "_Input"
+msgstr "_Улаз"
+
+#: mdk/mdk-main-window.ui:9
+msgid "_Emulate touch"
+msgstr "_Емулација додира"
+
+#: mdk/mdk-main-window.ui:13
+msgid "_Inhibit system shortcuts"
+msgstr "_Премости пречице из система"
+
+#: mdk/mdk-main-window.ui:17
+msgid "Use host _keymap"
+msgstr "_Користи мапу тастера домаћина"
+
+#: mdk/mdk-main-window.ui:24
+msgid "_Monitors"
+msgstr "Екра_ни"
+
+#: mdk/mdk-main-window.ui:26
+msgid "_Add monitor"
+msgstr "Дод_ај екран"
+
+#: mdk/mdk-main-window.ui:30
+msgid "_Emulate monitor modes"
+msgstr "_Емулирај режиме екрана"
+
+#: mdk/mdk-main-window.ui:37
+msgid "_Launchers"
+msgstr "_Покретачи"
+
+#: mdk/mdk-main-window.ui:41
+msgid "_Edit launchers"
+msgstr "_Уреди покретаче"
+
+#: mdk/mdk-main-window.ui:48
+msgid "_About Mutter Development Kit"
+msgstr "_О Мутеровом развојном скупу алата"
+
+#: mdk/mdk-main-window.ui:54 mdk/mdk-main.c:56
+msgid "Mutter Development Kit"
+msgstr "Мутеров развојни скуп алата"
+
+#: mdk/mdk-main-window.ui:64
+msgid "Main Menu"
+msgstr "Главни мени"
+
+#: mdk/mdk-main.c:49
+msgid "The Mutter Team"
+msgstr "Мутеров тим"
+
+#: mdk/mdk-main.c:62
+msgid "Mutter software development kit"
+msgstr "Мутеров развојни скуп софтвера"
+
+#: mdk/mdk-main.c:65
+msgid "About Mutter Development Kit"
+msgstr "О Мутеровом развојном скупу алата"
+
+#: mdk/mdk-monitor.c:557
+msgid "Failed to create monitor"
+msgstr "Нисам успео да направим екран"
+
+#: src/backends/meta-monitor.c:285
+msgid "Built-in display"
+msgstr "Уграђени екран"
+
+#: src/backends/meta-monitor.c:312
+msgid "Unknown"
+msgstr "Непознато"
+
+#: src/backends/meta-monitor.c:314
+msgid "Unknown Display"
+msgstr "Непознати екран"
+
+#: src/backends/meta-monitor.c:322
+#, c-format
+msgctxt ""
+"This is a monitor vendor name, followed by a size in inches, like 'Dell 15\"'"
+msgid "%s %s"
+msgstr "%s %s"
+
+#: src/backends/meta-monitor.c:330
+#, c-format
+msgctxt ""
+"This is a monitor vendor name followed by product/model name where size in "
+"inches could not be calculated, e.g. Dell U2414H"
+msgid "%s %s"
+msgstr "%s %s"
+
+#: src/core/bell.c:237
+msgid "Bell event"
+msgstr "Звонце"
+
+#: src/core/display.c:608
+msgid "Privacy Screen Enabled"
+msgstr "Екран приватности омогућен"
+
+#: src/core/display.c:609
+msgid "Privacy Screen Disabled"
+msgstr "Екран приватности онемогућен"
+
+#: src/core/meta-context-main.c:356
+msgid "Run as a wayland compositor"
+msgstr "Ради као Вејлендов композитор"
+
+#: src/core/meta-context-main.c:363
+msgid "Run wayland compositor without starting Xwayland"
+msgstr "Ради као Вејлендов композитор без покретања Икс-вејленда"
+
+#: src/core/meta-context-main.c:370
+msgid "Specify Wayland display name to use"
+msgstr "Наведите назив Вејленд приказа за коришћење"
+
+#: src/core/meta-context-main.c:377
+msgid "Run as a full display server, rather than nested"
+msgstr "Ради као пуни сервер приказа, уместо као угнеждени"
+
+#: src/core/meta-context-main.c:382
+msgid "Run as a headless display server"
+msgstr "Ради као безглави сервер приказа"
+
+#: src/core/meta-context-main.c:387
+msgid "Add persistent virtual monitor (WxH or WxH@R)"
+msgstr "Додајте трајни виртуелни екран (ШхВ или ШхВ@Р)"
+
+#: src/core/meta-context-main.c:394
+msgid "Run development kit"
+msgstr "Покрени развојни скуп алата"
+
+#: src/core/meta-context-main.c:405
+msgid "Profile performance using trace instrumentation"
+msgstr "Профилишите перформанси користећи инструментизацију трагова"
+
+#: src/core/meta-context-main.c:411
+msgid "Enable debug control D-Bus interface"
+msgstr "Омогућите Д-Бас сучеље за контролу отклањања грешака"
+
+#. TRANSLATORS: This string refers to a button that switches between
+#. * different modes in that button group.
+#.
+#: src/core/meta-pad-action-mapper.c:617
+#, c-format
+msgid "Mode Switch (Group %d)"
+msgstr "Промена режима (група %d)"
+
+#. TRANSLATORS: This string refers to a button that switches between
+#. * different modes.
+#.
+#: src/core/meta-pad-action-mapper.c:624
+#, c-format
+msgid "Mode Switch"
+msgstr "Промена режима"
+
+#. TRANSLATORS: This string refers to an action, cycles drawing tablets'
+#. * mapping through the available outputs.
+#.
+#: src/core/meta-pad-action-mapper.c:647
+msgid "Switch monitor"
+msgstr "Промените екран"
+
+#: src/core/meta-pad-action-mapper.c:649
+msgid "Show on-screen help"
+msgstr "Прикажи помоћ на екрану"
+
+#. Translators: this string will appear in Sysprof
+#: src/core/meta-profiler.c:109 src/core/meta-profiler.c:299
+msgid "Compositor"
+msgstr "Композитор"
+
+#: src/core/mutter.c:75
+msgid "Print version"
+msgstr "Исписује верзију"
+
+#: src/core/mutter.c:81
+msgid "Mutter plugin to use"
+msgstr "Мутеров прикључак за коришћење"
+
+#: src/core/prefs.c:1874
+#, c-format
+msgid "Workspace %d"
+msgstr "%d. радни простор"
+
+#: src/core/util.c:156
+msgid "Mutter was compiled without support for verbose mode"
+msgstr "Матер је изграђен без подршке за детаљан режим"
+
+#: src/core/workspace.c:510
+msgid "Workspace switched"
+msgstr "Радни простор је промењен"
+
+#: src/wayland/meta-wayland-tablet-pad.c:558
+#, c-format
+msgid "Mode Switch: Mode %d"
+msgstr "Промена режима: Режим %d"
+
+#: src/x11/meta-x11-display.c:776
+#, c-format
+msgid "Display “%s” already has a window manager"
+msgstr "Екран „%s“ већ има управника прозора"
+
+#: src/x11/meta-x11-display.c:1139
+#, c-format
+msgid "Failed to open X Window System display “%s”"
+msgstr "Нисам успео да отворим екран „%s“ X система прозора"
+
+#: src/x11/meta-x11-display.c:1284
+#, c-format
+msgid "Screen %d on display “%s” is invalid"
+msgstr "Екран %d на приказу „%s“ је неисправан"
+
+#. This probably means that a non-WM compositor like xcompmgr is running;
+#. * we have no way to get it to exit
+#: src/x11/meta-x11-display.c:2469
+#, c-format
+msgid ""
+"Another compositing manager is already running on screen %i on display “%s”."
+msgstr "Други управник компоновања је већ покренут на екрану %i на приказу „%s“."
+
+#: src/x11/meta-x11-selection-input-stream.c:475
+#, c-format
+msgid "Format %s not supported"
+msgstr "Формат %s није подржан"
+
+#: src/x11/window-props.c:562
+#, c-format
+msgid "%s (on %s)"
+msgstr "%s (на %s)"

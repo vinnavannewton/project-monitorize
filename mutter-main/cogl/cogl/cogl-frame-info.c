@@ -1,0 +1,133 @@
+/*
+ * Cogl
+ *
+ * A Low Level GPU Graphics and Utilities API
+ *
+ * Copyright (C) 2012 Red Hat, Inc.
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use, copy,
+ * modify, merge, publish, distribute, sublicense, and/or sell copies
+ * of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ *
+ *
+ */
+
+#include "config.h"
+
+#include "cogl/cogl-frame-info-private.h"
+#include "cogl/cogl-context-private.h"
+
+G_DEFINE_FINAL_TYPE (CoglFrameInfo, cogl_frame_info, G_TYPE_OBJECT);
+
+static void
+cogl_frame_info_init (CoglFrameInfo *info)
+{
+}
+
+static void
+cogl_frame_info_class_init (CoglFrameInfoClass *class)
+{
+}
+
+CoglFrameInfo *
+cogl_frame_info_new (CoglContext *context,
+                     int64_t      global_frame_counter,
+                     int64_t      view_frame_counter)
+{
+  CoglFrameInfo *info;
+
+  info = g_object_new (COGL_TYPE_FRAME_INFO, NULL);
+  info->context = context;
+  info->global_frame_counter = global_frame_counter;
+  info->view_frame_counter = view_frame_counter;
+
+  return info;
+}
+
+int64_t
+cogl_frame_info_get_frame_counter (CoglFrameInfo *info)
+{
+  return info->frame_counter;
+}
+
+int64_t
+cogl_frame_info_get_presentation_time_us (CoglFrameInfo *info)
+{
+  g_warn_if_fail (!(info->flags & COGL_FRAME_INFO_FLAG_SYMBOLIC));
+
+  return info->presentation_time_us;
+}
+
+float
+cogl_frame_info_get_refresh_rate (CoglFrameInfo *info)
+{
+  g_warn_if_fail (!(info->flags & COGL_FRAME_INFO_FLAG_SYMBOLIC));
+
+  return info->refresh_rate;
+}
+
+int64_t
+cogl_frame_info_get_global_frame_counter (CoglFrameInfo *info)
+{
+  return info->global_frame_counter;
+}
+
+int64_t
+cogl_frame_info_get_view_frame_counter (CoglFrameInfo *info)
+{
+  return info->view_frame_counter;
+}
+
+gboolean
+cogl_frame_info_get_is_symbolic (CoglFrameInfo *info)
+{
+  return !!(info->flags & COGL_FRAME_INFO_FLAG_SYMBOLIC);
+}
+
+gboolean
+cogl_frame_info_is_hw_clock (CoglFrameInfo *info)
+{
+  return !!(info->flags & COGL_FRAME_INFO_FLAG_HW_CLOCK);
+}
+
+gboolean
+cogl_frame_info_is_zero_copy (CoglFrameInfo *info)
+{
+  return !!(info->flags & COGL_FRAME_INFO_FLAG_ZERO_COPY);
+}
+
+gboolean
+cogl_frame_info_is_vsync (CoglFrameInfo *info)
+{
+  return !!(info->flags & COGL_FRAME_INFO_FLAG_VSYNC);
+}
+
+unsigned int
+cogl_frame_info_get_sequence (CoglFrameInfo *info)
+{
+  g_warn_if_fail (!(info->flags & COGL_FRAME_INFO_FLAG_SYMBOLIC));
+
+  return info->sequence;
+}
+
+int64_t
+cogl_frame_info_get_kms_ready_time_us (CoglFrameInfo *info)
+{
+  return info->kms_ready_time_us;
+}

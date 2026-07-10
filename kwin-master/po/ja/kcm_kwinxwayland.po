@@ -1,0 +1,206 @@
+# SPDX-FileCopyrightText: 2026 Mint <5602mint@gmail.com>
+msgid ""
+msgstr ""
+"Project-Id-Version: kwin\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-05-05 00:46+0000\n"
+"PO-Revision-Date: 2026-05-10 15:33+0900\n"
+"Last-Translator: Mint <5602mint@gmail.com>\n"
+"Language-Team: Japanese <kde-i18n-doc@kde.org>\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Accelerator-Marker: &\n"
+"X-Text-Markup: kde4\n"
+"X-Generator: Lokalize 26.04.1\n"
+
+#: ui/main.qml:28
+#, kde-kuit-format
+msgctxt "@info:usagetip"
+msgid ""
+"Legacy X11 apps with global shortcuts and other features accessed while "
+"running in the background need to be able to listen for keystrokes all the "
+"time.<nl/><nl/>If you use any of these apps, you can choose your preferred "
+"balance of security and compatibility here."
+msgstr ""
+"バックグラウンドで動作している間にグローバルショートカットや、その他の機能へ"
+"アクセスする必要がある従来の X11 アプリケーションでは、常にキー入力を監視でき"
+"る必要があります。<nl/><nl/>このようなアプリを使用している場合は、ここからセ"
+"キュリティと互換性のバランスを好みに応じて選択できます。"
+
+#: ui/main.qml:49
+#, kde-format
+msgctxt "@title:group"
+msgid "Listening for keystrokes:"
+msgstr "キー入力の監視:"
+
+#: ui/main.qml:52
+#, kde-format
+msgctxt "@option:radio Listening for keystrokes is prohibited"
+msgid "Prohibited"
+msgstr "禁止"
+
+#: ui/main.qml:61
+#, kde-format
+msgctxt "@info:usagetip"
+msgid "Most secure; global shortcuts will not work in X11 apps"
+msgstr ""
+"最も安全です。グローバルショートカットが X11 アプリで動作しなくなります。"
+
+#: ui/main.qml:67
+#, kde-format
+msgctxt "@option:radio Listening for keystrokes is allowed for…"
+msgid "Only the Meta, Control, Alt, and Shift keys"
+msgstr "Meta, Control, Alt, Shift キーのみ"
+
+#: ui/main.qml:76
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"High security; push-to-talk and other modifier-only global shortcuts will "
+"work in X11 apps"
+msgstr ""
+"高セキュリティです。プッシュトゥトークや修飾キーのみのショートカットが X11 ア"
+"プリで動作するようになります。"
+
+#: ui/main.qml:81
+#, kde-format
+msgctxt "@option:radio Listening for keystrokes is allowed for…"
+msgid ""
+"As above, plus any key pressed while the Control, Alt, or Meta key is also "
+"pressed"
+msgstr "上記に加えて、Control, Alt, Meta キーを押しながら入力したキー"
+
+#: ui/main.qml:90
+#, kde-format
+msgctxt "@info:usagetip"
+msgid "Moderate security; all global shortcuts will work in X11 apps"
+msgstr ""
+"通常レベルのセキュリティです。すべてのグローバルショートカットが X11 アプリで"
+"動作するようになります。"
+
+#: ui/main.qml:96
+#, kde-format
+msgctxt "@option:radio Listening for keystrokes is always allowed"
+msgid "Always allowed"
+msgstr "すべて許可"
+
+#: ui/main.qml:105
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"Least secure; all X11 apps will be able to see any text you type into any "
+"application"
+msgstr ""
+"弱いセキュリティです。すべての X11 アプリがどんなときでも入力したテキストを監"
+"視できるようになります。"
+
+#: ui/main.qml:111
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"Note that using this setting will reduce system security and permit "
+"malicious software to steal passwords and spy on the text that you type. "
+"Make sure you understand and accept this risk."
+msgstr ""
+"注意: この設定を使用すると、システムのセキュリティが低下し、悪意のあるソフト"
+"ウェアがパスワードを盗み、入力したテキストを覗き見ることができるようになりま"
+"す。リスクを理解し受け入れられる場合のみこの設定を使用してください。"
+
+#: ui/main.qml:118
+#, kde-format
+msgctxt "@title:group"
+msgid "Listening for mouse buttons:"
+msgstr "マウスボタンを監視:"
+
+#: ui/main.qml:121
+#, kde-format
+msgctxt "@option:radio Listening for mouse buttons is allowed"
+msgid "Allowed"
+msgstr "許可する"
+
+#: ui/main.qml:130
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"Moderate security; global shortcuts involving mouse buttons will work in X11 "
+"apps"
+msgstr ""
+"通常レベルのセキュリティです。マウスボタンを使うグローバルショートカットが "
+"X11 アプリで動作するようになります。"
+
+#: ui/main.qml:141
+#, kde-format
+msgctxt "@title:group"
+msgid "Control of pointer and keyboard:"
+msgstr "ポインタとキーボードの制御:"
+
+#: ui/main.qml:146
+#, kde-format
+msgctxt ""
+"@option:check Allowed control of pointer and keyboard without asking for "
+"permissions for allowed apps"
+msgid "Allowed apps"
+msgstr "個別に許可"
+
+#: ui/main.qml:152
+#, kde-format
+msgctxt "@action:button"
+msgid "See Allowed Applications…"
+msgstr "許可したアプリを確認…"
+
+#: ui/main.qml:163
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"Moderate security; XWayland-using apps claiming to be something on this list "
+"will be able to take control of the computer, because XWayland-using apps’ "
+"identities can’t be verified"
+msgstr ""
+"通常レベルのセキュリティです。XWayland アプリは本物かどうか確認できないため、"
+"XWayland アプリが許可リストにあるアプリに偽装すると、コンピューターを制御する"
+"ことができます。"
+
+#: ui/main.qml:169
+#, kde-format
+msgctxt ""
+"@option:radio Allow control of pointer and keyboard without asking for "
+"permission"
+msgid "Allow without asking for permission"
+msgstr "権限を確認することなく許可"
+
+#: ui/main.qml:174
+#, kde-format
+msgctxt "@info:usagetip"
+msgid "Least secure; all X11 apps will be able to take control of the computer"
+msgstr ""
+"弱いセキュリティです。すべての X11 アプリがコンピューターを制御することができ"
+"るようになります。"
+
+#: ui/main.qml:181
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"Note that using this setting will drastically reduce system security and "
+"permit malicious software to take complete control of your pointer and "
+"keyboard. Make sure you understand and accept this risk."
+msgstr ""
+"注意: この設定を使用すると、システムのセキュリティが急激に低下し、悪意のある"
+"ソフトウェアがポインタやキーボードの制御を完全に掌握することができるようにな"
+"ります。リスクを理解し受け入れられる場合のみこの設定を使用してください。"
+
+#: ui/main.qml:189
+#, kde-format
+msgctxt ""
+"@title:window title of the page opened by the 'See allowed applications' "
+"button"
+msgid "Applications allowed to control the pointer and keyboard"
+msgstr "ポインタとキーボードの制御が許可されたアプリ"
+
+#: ui/main.qml:209
+#, kde-format
+msgctxt "@info:tooltip %1 is the name of the app/binary"
+msgid "Do not allow %1 to control the pointer and keyboard without asking"
+msgstr ""

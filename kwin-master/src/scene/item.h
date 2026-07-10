@@ -1,0 +1,256 @@
+/*
+    SPDX-FileCopyrightText: 2021 Vlad Zahorodnii <vlad.zahorodnii@kde.org>
+
+    SPDX-License-Identifier: GPL-2.0-or-later
+*/
+
+#pragma once
+
+#include "core/colorspace.h"
+#include "core/rect.h"
+#include "core/region.h"
+#include "effect/globals.h"
+#include "scene/borderradius.h"
+#include "scene/itemgeometry.h"
+
+#include <QList>
+#include <QObject>
+#include <QPointer>
+#include <QTransform>
+
+#include <optional>
+
+namespace KWin
+{
+
+class RenderView;
+class Scene;
+class SyncReleasePoint;
+class DrmDevice;
+class Item;
+class LogicalOutput;
+class OutputFrame;
+
+class KWIN_EXPORT ItemEffect
+{
+public:
+    explicit ItemEffect(Item *item);
+    explicit ItemEffect(const ItemEffect &copy) = delete;
+    explicit ItemEffect(ItemEffect &&move);
+    explicit ItemEffect();
+    virtual ~ItemEffect();
+
+    ItemEffect &operator=(const ItemEffect &copy) = delete;
+    ItemEffect &operator=(ItemEffect &&move);
+
+private:
+    QPointer<Item> m_item;
+};
+
+/**
+ * The Item class is the base class for items in the scene.
+ */
+class KWIN_EXPORT Item : public QObject
+{
+    Q_OBJECT
+
+public:
+    explicit Item(Item *parent = nullptr);
+    ~Item() override;
+
+    Scene *scene() const;
+
+    qreal opacity() const;
+    void setOpacity(qreal opacity);
+
+    QPointF position() const;
+    void setPosition(const QPointF &point);
+
+    QSizeF size() const;
+    void setSize(const QSizeF &size);
+
+    void setGeometry(const RectF &rect);
+
+    int z() const;
+    void setZ(int z);
+
+    /**
+     * Returns the enclosing rectangle of the item. The rect equals Rect(0, 0, width(), height()).
+     */
+    RectF rect() const;
+    /**
+     * Returns the enclosing rectangle of the item and all of its descendants.
+     */
+    RectF boundingRect() const;
+
+    virtual RegionF shape() const;
+    virtual RegionF opaque() const;
+
+    /**
+     * Returns the visual parent of the item. Note that the visual parent differs from
+     * the QObject parent.
+     */
+    Item *parentItem() const;
+    void setParentItem(Item *parent);
+    QList<Item *> childItems() const;
+    QList<Item *> sortedChildItems() const;
+
+    QTransform transform() const;
+    void setTransform(const QTransform &transform);
+
+    /**
+     * Maps the given @a region from the item's coordinate system to the view's coordinate
+     * system, snapping positions to the view's coordinate grid to match the renderer
+     */
+    Region mapToView(const Region &region, const RenderView *view) const;
+    /**
+     * Maps the given @a region from the item's coordinate system to the view's coordinate
+     * system, snapping positions to the view's coordinate grid to match the renderer
+     */
+    RegionF mapToView(const RegionF &region, const RenderView *view) const;
+    /**
+     * Maps the given @a rect from the item's coordinate system to the view's coordinate
+     * system, snapping positions to the view's coordinate grid to match the renderer
+     */
+    RectF mapToView(const RectF &rect, const RenderView *view) const;
+
+    /**
+     * Maps the given @a region from the item's coordinate system to the scene's coordinate
+     * system.
+     */
+    Region mapToScene(const Region &region) const;
+    /**
+     * Maps the given @a region from the item's coordinate system to the scene's coordinate
+     * system.
+     */
+    RegionF mapToScene(const RegionF &region) const;
+    /**
+     * Maps the given @a rect from the item's coordinate system to the scene's coordinate
+     * system.
+     */
+    RectF mapToScene(const RectF &rect) const;
+    /**
+     * Maps the given @a rect from the scene's coordinate system to the item's coordinate
+     * system.
+     */
+    RectF mapFromScene(const RectF &rect) const;
+
+    /**
+     * Moves this item right before the specified @a sibling in the parent's children list.
+     */
+    void stackBefore(Item *sibling);
+    /**
+     * Moves this item right after the specified @a sibling in the parent's children list.
+     */
+    void stackAfter(Item *sibling);
+
+    bool explicitVisible() const;
+    bool isVisible() const;
+    void setVisible(bool visible);
+
+    BorderRadius borderRadius() const;
+    void setBorderRadius(const BorderRadius &radius);
+
+    Rect paintedDeviceArea(RenderView *delegate, const RectF &logicalRect) const;
+    Region paintedDeviceArea(RenderView *delegate, const RegionF &logicalRegion) const;
+
+    void scheduleRepaint(const RectF &region);
+    void scheduleSceneRepaint(const RectF &region);
+    void scheduleRepaint(const RegionF &region);
+    void scheduleSceneRepaint(const RegionF &region);
+    void scheduleRepaint(RenderView *delegate, const RegionF &region);
+    void scheduleFrame();
+    bool hasRepaints(RenderView *view) const;
+    Region takeDeviceRepaints(RenderView *delegate);
+    void resetRepaints(RenderView *delegate);
+
+    WindowQuadList quads() const;
+    virtual void preprocess();
+    const std::shared_ptr<ColorDescription> &colorDescription() const;
+    RenderingIntent renderingIntent() const;
+    PresentationModeHint presentationHint() const;
+
+    bool hasEffects() const;
+    void addEffect();
+    void removeEffect();
+
+    void collectItems(QList<QPointer<Item>> &list, LogicalOutput *filter);
+    void framePainted(RenderView *view, LogicalOutput *output, OutputFrame *frame, std::chrono::milliseconds timestamp);
+
+    bool isAncestorOf(const Item *item) const;
+    /**
+     * @returns if this Item or any of its children have contents to be rendered
+     */
+    bool hasVisibleContents() const;
+
+Q_SIGNALS:
+    void childAdded(Item *item);
+    void childRemoved(Item *item);
+    void visibleChanged();
+    /**
+     * This signal is emitted when the position of this item has changed.
+     */
+    void positionChanged();
+    /**
+     * This signal is emitted when the size of this item has changed.
+     */
+    void sizeChanged();
+
+    /**
+     * This signal is emitted when the rectangle that encloses this item and all of its children
+     * has changed.
+     */
+    void boundingRectChanged();
+
+protected:
+    virtual WindowQuadList buildQuads() const;
+    virtual void handleFramePainted(LogicalOutput *output, OutputFrame *frame, std::chrono::milliseconds timestamp);
+    virtual void releaseResources();
+    void discardQuads();
+    void setColorDescription(const std::shared_ptr<ColorDescription> &description);
+    void setRenderingIntent(RenderingIntent intent);
+    void setPresentationHint(PresentationModeHint hint);
+    void setScene(Scene *scene);
+
+private:
+    void addChild(Item *item);
+    void removeChild(Item *item);
+    void updateBoundingRect();
+    void updateItemToSceneTransform();
+    void scheduleRepaintInternal(const RegionF &region);
+    void scheduleRepaintInternal(RenderView *delegate, const RegionF &region);
+    void scheduleSceneRepaintInternal(const RegionF &region);
+    void markSortedChildItemsDirty();
+
+    bool computeEffectiveVisibility() const;
+    void updateEffectiveVisibility();
+    void removeRepaints(RenderView *delegate);
+
+    void scheduleMoveRepaint(Item *originallyMovedItem);
+
+    Scene *m_scene = nullptr;
+    QPointer<Item> m_parentItem;
+    QList<Item *> m_childItems;
+    QTransform m_transform;
+    QTransform m_itemToSceneTransform;
+    QTransform m_sceneToItemTransform;
+    RectF m_boundingRect;
+    QPointF m_position;
+    QSizeF m_size = QSize(0, 0);
+    BorderRadius m_borderRadius;
+    qreal m_opacity = 1;
+    int m_z = 0;
+    bool m_explicitVisible = true;
+    bool m_effectiveVisible = true;
+    QMap<RenderView *, Region> m_deviceRepaints;
+    mutable std::optional<WindowQuadList> m_quads;
+    mutable std::optional<QList<Item *>> m_sortedChildItems;
+    std::shared_ptr<ColorDescription> m_colorDescription = ColorDescription::sRGB;
+    RenderingIntent m_renderingIntent = RenderingIntent::Perceptual;
+    PresentationModeHint m_presentationHint = PresentationModeHint::VSync;
+    int m_effectCount = 0;
+
+    friend class Scene;
+};
+
+} // namespace KWin

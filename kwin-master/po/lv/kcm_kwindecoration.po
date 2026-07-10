@@ -1,0 +1,561 @@
+# translation of kcmkwindecoration.po to Lavtian
+# Copyright (C) 2007, 2008 Free Software Foundation, Inc.
+#
+# Aleksejs Zosims <locale@aleksejs.id.lv>, 2007.
+# Maris Nartiss <maris.kde@gmail.com>, 2007, 2008.
+# Viesturs Zarins <viesturs.zarins@mii.lu.lv>, 2008.
+# Viesturs Zariņš <viesturs.zarins@mii.lu.lv>, 2009.
+# Rūdofls Mazurs <rudolfs.mazurs@gmail.com>, 2011.
+# SPDX-FileCopyrightText: 2024, 2025, 2026 Toms Trasuns <toms.trasuns@posteo.net>
+msgid ""
+msgstr ""
+"Project-Id-Version: kcmkwindecoration\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-05-14 00:45+0000\n"
+"PO-Revision-Date: 2026-02-06 14:33+0200\n"
+"Last-Translator: Toms Trasuns <toms.trasuns@posteo.net>\n"
+"Language-Team: Latvian <kde-i18n-doc@kde.org>\n"
+"Language: lv\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Lokalize 25.12.1\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n != 0 ? 1 : "
+"2);\n"
+
+#: declarative-plugin/buttonsmodel.cpp:56
+#, kde-format
+msgid "Window menu"
+msgstr "Loga izvēlne"
+
+#: declarative-plugin/buttonsmodel.cpp:58
+#, kde-format
+msgid "Application menu"
+msgstr "Programmu izvēlne"
+
+#: declarative-plugin/buttonsmodel.cpp:60
+#, kde-format
+msgid "On all desktops"
+msgstr "Visās darbvirsmās"
+
+#: declarative-plugin/buttonsmodel.cpp:62
+#, kde-format
+msgid "Minimize"
+msgstr "Minimizēt"
+
+#: declarative-plugin/buttonsmodel.cpp:64
+#, kde-format
+msgid "Maximize"
+msgstr "Maksimizēt"
+
+#: declarative-plugin/buttonsmodel.cpp:66
+#, kde-format
+msgid "Close"
+msgstr "Aizvērt"
+
+#: declarative-plugin/buttonsmodel.cpp:68
+#, kde-format
+msgid "Context help"
+msgstr "Konteksta palīdzība"
+
+#: declarative-plugin/buttonsmodel.cpp:70
+#, kde-format
+msgid "Keep below other windows"
+msgstr "Turēt zem pārējiem logiem"
+
+#: declarative-plugin/buttonsmodel.cpp:72
+#, kde-format
+msgid "Keep above other windows"
+msgstr "Turēt virs pārējiem logiem"
+
+#: declarative-plugin/buttonsmodel.cpp:74
+#, kde-format
+msgid "Hide from screenshots and screen recordings"
+msgstr ""
+
+#: declarative-plugin/buttonsmodel.cpp:76
+#, kde-format
+msgid "Spacer"
+msgstr "Atdalītājs"
+
+#: kcm.cpp:188
+#, kde-format
+msgctxt "%1 is the name of a border size"
+msgid "Theme default (%1)"
+msgstr "Motīva noklusējums (%1)"
+
+#: kwin-applywindowdecoration.cpp:34
+#, kde-format
+msgid ""
+"This tool allows you to set the window decoration theme for the currently "
+"active session, without accidentally setting it to one that is either not "
+"available, or which is already set."
+msgstr ""
+"Šis rīks ļauj iestatīt logu noformējuma motīvu pašreizējai aktīvajai "
+"sesijai, to nejauši neiestatot uz motīvu, kas nav pieejams vai nav jau "
+"uzlikts."
+
+#: kwin-applywindowdecoration.cpp:35
+#, kde-format
+msgid ""
+"The name of the window decoration theme you wish to set for KWin. Passing a "
+"full path will attempt to find a theme in that directory, and then apply "
+"that if one can be deduced."
+msgstr ""
+"Logu noformējuma motīva nosaukums, kuru vēlaties iestatīt „KWin“. Pilna ceļa "
+"norādīšanas rezultātā sistēma mēģinās atrast motīvu attiecīgajā mapē un to "
+"uzlikt, ja tiks atrasts."
+
+#: kwin-applywindowdecoration.cpp:36
+#, kde-format
+msgid ""
+"Show all the themes available on the system (and which is the current theme)"
+msgstr "Parādīt visus sistēmā pieejamos motīvus (un norādīt pašreiz aktīvo)"
+
+#: kwin-applywindowdecoration.cpp:67
+#, kde-format
+msgid ""
+"Resolved %1 to the KWin Aurorae theme \"%2\", and will attempt to set that "
+"as your current theme."
+msgstr ""
+"Atrisināja %1 uz „KWin Aurorae“ motīvu „%2“, ko mēģinās iestatīt par "
+"pašreizējo motīvu."
+
+#: kwin-applywindowdecoration.cpp:73
+#, kde-format
+msgid ""
+"You attempted to pass a file path, but this could not be resolved to a "
+"theme, and we will have to abort, due to having no theme to set"
+msgstr ""
+"Mēģinājāt norādīt datnes ceļu, bet sistēma šajā ceļā neatrada motīvu, tāpēc "
+"darbības ir apturētas."
+
+#: kwin-applywindowdecoration.cpp:79
+#, kde-format
+msgid ""
+"The requested theme \"%1\" is already set as the window decoration theme."
+msgstr "Pieprasītais motīvs „%1“ jau ir uzlikts kā logu noformējuma motīvs."
+
+#: kwin-applywindowdecoration.cpp:101
+#, fuzzy, kde-format
+#| msgid ""
+#| "Successfully applied the cursor theme %1 to your current Plasma session"
+msgid ""
+"Successfully applied the pointer theme %1 to your current Plasma session"
+msgstr "Šai „Plasma“ sesijai ir uzlikts kursora motīvs „%1“"
+
+#: kwin-applywindowdecoration.cpp:105
+#, kde-format
+msgid ""
+"Failed to save your theme settings - the reason is unknown, but this is an "
+"unrecoverable error. You may find that simply trying again will work."
+msgstr ""
+"Neizdevās saglabāt motīva iestatījumus — nezināms iemesls, bet no šīs kļūdas "
+"nevar atkopties. Iespējams, darbība izdosies, ja vienkārši mēģināsiet "
+"vēlreiz."
+
+#: kwin-applywindowdecoration.cpp:109
+#, kde-format
+msgid ""
+"Could not find theme \"%1\". The theme should be one of the following "
+"options: %2"
+msgstr "Neizdevās atrast motīvu „%1“. Motīvam ir jābūt kādam no šiem: %2"
+
+#: kwin-applywindowdecoration.cpp:114
+#, kde-format
+msgid "You have the following KWin window decoration themes on your system:"
+msgstr "Jūsu sistēmā ir šādi „KWin“ logu noformējuma motīvi:"
+
+#: ui/Buttons.qml:85
+#, kde-format
+msgid "Titlebar"
+msgstr "Virsrakstjosla"
+
+#: ui/Buttons.qml:245
+#, kde-format
+msgid "Drop button here to remove it"
+msgstr "Pogu nometiet šeit, lai to noņemtu"
+
+#: ui/Buttons.qml:261
+#, kde-format
+msgid "Drag buttons between here and the titlebar"
+msgstr "Velciet pogas starp šo vietu un virsrakstjoslu"
+
+#: ui/ConfigureTitlebar.qml:16
+#, kde-format
+msgid "Titlebar Buttons"
+msgstr "Virsrakstjoslas pogas"
+
+#: ui/ConfigureTitlebar.qml:35
+#, kde-format
+msgctxt "checkbox label"
+msgid "Close windows by double clicking the window menu button"
+msgstr "Aizvērt logus ar dubultklikšķi uz loga izvēlnes pogas"
+
+#: ui/ConfigureTitlebar.qml:52
+#, kde-format
+msgctxt "popup tip"
+msgid "Click and hold on the window menu button to show the menu."
+msgstr "Lai parādītu izvēlni, klikšķināt un paturēt uz loga izvēlnes pogas."
+
+#: ui/ConfigureTitlebar.qml:59
+#, kde-format
+msgctxt "checkbox label"
+msgid "Show titlebar button tooltips"
+msgstr "Rādīt virsrakstjoslas pogu paskaidres"
+
+#: ui/ConfigureTitlebar.qml:73
+#, fuzzy, kde-format
+#| msgctxt "@option:check"
+#| msgid "Always show \"Hide from Screencast\" button"
+msgctxt "@option:check"
+msgid "Always show \"Hide from Screenshots and Screen Recordings\" button"
+msgstr "Vienmēr rādīt „Slēpt no ekrāna ierakstīšanas“ pogu"
+
+#: ui/ConfigureTitlebar.qml:85
+#, fuzzy, kde-format
+#| msgctxt "@info:tooltip"
+#| msgid ""
+#| "When unchecked the button only appears if the window is hidden from "
+#| "screencast"
+msgctxt "@info:tooltip"
+msgid ""
+"When unchecked the button only appears if the window is hidden from "
+"screenshots and screen recordings"
+msgstr ""
+"Ja nav atzīmēts, šī poga būs redzama tikai tad, kad logs ir paslēpts no "
+"ierakstīšanas"
+
+#: ui/ConfigureTitlebar.qml:86
+#, fuzzy, kde-format
+#| msgctxt "@info:tooltip"
+#| msgid ""
+#| "To enable this option, add the \"Hide from screencast\" button to the "
+#| "titlebar first"
+msgctxt "@info:tooltip"
+msgid ""
+"To enable this option, add the \"Hide from Screenshots and Screen Recordings"
+"\" button to the titlebar first"
+msgstr ""
+"Lai šo opciju ieslēgt, vispirms „Slēpt no ekrāna ierakstīšanas“ pogu "
+"pievienojiet virsrakstjoslai"
+
+#: ui/main.qml:29
+#, kde-format
+msgctxt "Selector label"
+msgid "Window border size:"
+msgstr "Logu apmales izmērs:"
+
+#: ui/main.qml:48
+#, kde-format
+msgctxt "button text"
+msgid "Configure Titlebar Buttons…"
+msgstr "Pielāgot virsrakstjoslas pogas…"
+
+#: ui/main.qml:54
+#, kde-format
+msgctxt "@action:button as in, \"Get New Window Decorations\""
+msgid "Get New…"
+msgstr "Iegūt jaunas…"
+
+#: ui/Themes.qml:93
+#, kde-format
+msgid "Edit %1 Theme…"
+msgstr "Rediģēt %1 motīvu…"
+
+#: utils.cpp:26
+#, kde-format
+msgid "No window borders"
+msgstr "Bez logu apmalēm"
+
+#: utils.cpp:27
+#, kde-format
+msgid "No side window borders"
+msgstr "Bez logu sānu apmalēm"
+
+#: utils.cpp:28
+#, kde-format
+msgid "Tiny window borders"
+msgstr "Mazas logu apmales"
+
+#: utils.cpp:29
+#, kde-format
+msgid "Normal window borders"
+msgstr "Normālas logu apmales"
+
+#: utils.cpp:30
+#, kde-format
+msgid "Large window borders"
+msgstr "Lielas logu apmales"
+
+#: utils.cpp:31
+#, kde-format
+msgid "Very large window borders"
+msgstr "Ļoti lielas logu apmales"
+
+#: utils.cpp:32
+#, kde-format
+msgid "Huge window borders"
+msgstr "Milzīgas logu apmales"
+
+#: utils.cpp:33
+#, kde-format
+msgid "Very huge window borders"
+msgstr "Pavisam milzīgas logu apmales"
+
+#: utils.cpp:34
+#, kde-format
+msgid "Oversized window borders"
+msgstr "Pārmērīgi lielas logu apmales"
+
+#~ msgid "Hide from screencast"
+#~ msgstr "Slēpt no ekrāna ierakstīšanas"
+
+#~ msgid "More actions for this window"
+#~ msgstr "Vairāk darbību ar šo logu"
+
+#~ msgid "Shade"
+#~ msgstr "Saritināt"
+
+#, fuzzy
+#~| msgid "Get New Decorations..."
+#~ msgctxt "button text"
+#~ msgid "Get New Window Decorations…"
+#~ msgstr "Iegūt jaunu apdari..."
+
+#, fuzzy
+#~| msgid "Border size:"
+#~ msgid "No Borders"
+#~ msgstr "Apmales izmērs:"
+
+#, fuzzy
+#~| msgctxt "@item:inlistbox Border size:"
+#~| msgid "Tiny"
+#~ msgid "Tiny"
+#~ msgstr "Sīks"
+
+#, fuzzy
+#~| msgctxt "@item:inlistbox Border size:"
+#~| msgid "Normal"
+#~ msgid "Normal"
+#~ msgstr "Normāls"
+
+#, fuzzy
+#~| msgctxt "@item:inlistbox Border size:"
+#~| msgid "Large"
+#~ msgid "Large"
+#~ msgstr "Liels"
+
+#, fuzzy
+#~| msgctxt "@item:inlistbox Border size:"
+#~| msgid "Very Large"
+#~ msgid "Very Large"
+#~ msgstr "Ļoti liels"
+
+#, fuzzy
+#~| msgctxt "@item:inlistbox Border size:"
+#~| msgid "Huge"
+#~ msgid "Huge"
+#~ msgstr "Milzīgs"
+
+#, fuzzy
+#~| msgctxt "@item:inlistbox Border size:"
+#~| msgid "Very Huge"
+#~ msgid "Very Huge"
+#~ msgstr "Ļoti milzīgs"
+
+#, fuzzy
+#~| msgctxt "@item:inlistbox Border size:"
+#~| msgid "Oversized"
+#~ msgid "Oversized"
+#~ msgstr "Pārmērīgs"
+
+#~ msgctxt "NAME OF TRANSLATORS"
+#~ msgid "Your names"
+#~ msgstr "Andris Maziks, Aleksejs Zosims"
+
+#~ msgctxt "EMAIL OF TRANSLATORS"
+#~ msgid "Your emails"
+#~ msgstr "andzha@latnet.lv, locale@aleksejs.id.lv"
+
+#~ msgid "Menu"
+#~ msgstr "Izvēlne"
+
+#, fuzzy
+#~| msgid "Keep Below Others"
+#~ msgid "Keep below"
+#~ msgstr "Turēt zem citiem"
+
+#, fuzzy
+#~| msgid "Keep Above Others"
+#~ msgid "Keep above"
+#~ msgstr "Turēt virs citiem"
+
+#, fuzzy
+#~| msgid "Get New Decorations..."
+#~ msgid "Download New Window Decorations"
+#~ msgstr "Iegūt jaunu apdari..."
+
+#, fuzzy
+#~| msgid "Search"
+#~ msgid "Search..."
+#~ msgstr "Meklēt"
+
+#, fuzzy
+#~| msgid "Border size:"
+#~ msgid "Border si&ze:"
+#~ msgstr "Apmales izmērs:"
+
+#, fuzzy
+#~| msgid "Configure Buttons..."
+#~ msgid "Configure %1..."
+#~ msgstr "Konfigurēt pogas..."
+
+#~ msgid "Button size:"
+#~ msgstr "Pogas izmērs:"
+
+#~ msgctxt "@item:inlistbox Button size:"
+#~ msgid "Tiny"
+#~ msgstr "Sīks"
+
+#~ msgctxt "@item:inlistbox Button size:"
+#~ msgid "Normal"
+#~ msgstr "Normāls"
+
+#~ msgctxt "@item:inlistbox Button size:"
+#~ msgid "Large"
+#~ msgstr "Liels"
+
+#~ msgctxt "@item:inlistbox Button size:"
+#~ msgid "Very Large"
+#~ msgstr "Ļoti liels"
+
+#~ msgctxt "@item:inlistbox Button size:"
+#~ msgid "Huge"
+#~ msgstr "Milzīgs"
+
+#~ msgctxt "@item:inlistbox Button size:"
+#~ msgid "Very Huge"
+#~ msgstr "Ļoti milzīgs"
+
+#~ msgctxt "@item:inlistbox Button size:"
+#~ msgid "Oversized"
+#~ msgstr "Pārmērīgs"
+
+#~ msgid "KDE"
+#~ msgstr "KDE"
+
+#~ msgid "%1 (unavailable)"
+#~ msgstr "%1 (nav pieejams)"
+
+#~ msgid ""
+#~ "To add or remove titlebar buttons, simply <i>drag</i> items between the "
+#~ "available item list and the titlebar preview. Similarly, drag items "
+#~ "within the titlebar preview to re-position them."
+#~ msgstr ""
+#~ "Lai pievienotu vai noņemtu titlujoslas pogas, vienkārši <i>pārvelciet</i> "
+#~ "elementus starp pieejamo elementu sarakstu un titlujoslas priekšskatu. "
+#~ "Līdzīgi, pārvelciet elementus titlujoslas priekšskata robežās, lai tos "
+#~ "pārkārtotu."
+
+#~ msgid "Resize"
+#~ msgstr "Mainīt izmēru"
+
+#~ msgid "Help"
+#~ msgstr "Palīdzība"
+
+#~ msgid "--- spacer ---"
+#~ msgstr "--- atstarpe ---"
+
+#~ msgid ""
+#~ "Enabling this checkbox will show window button tooltips. If this checkbox "
+#~ "is off, no window button tooltips will be shown."
+#~ msgstr ""
+#~ "Ieslēdzot šo opciju, tiks rādītas loga pogu paskaidres (tooltip). Bez šīs "
+#~ "opcijas paskaidres netiks rādītas."
+
+#~ msgid "Please note that this option is not available on all styles yet."
+#~ msgstr "Ņemiet vērā, ka šī opcija vēl nav pieejama visiem stiliem."
+
+#~ msgid "Use custom titlebar button &positions"
+#~ msgstr "Izmantot pielāgotu titlujoslas pogu &pozīciju"
+
+#~ msgid "B&order size:"
+#~ msgstr "&Apmales izmērs:"
+
+#~ msgid "Use this combobox to change the border size of the decoration."
+#~ msgstr "Lieto šo, lai izmainītu apmales izmēru loga apdarei."
+
+#~ msgid "Decoration Options"
+#~ msgstr "Apdares opcijas"
+
+#~ msgid ""
+#~ "Select the window decoration. This is the look and feel of both the "
+#~ "window borders and the window handle."
+#~ msgstr ""
+#~ "Izvēlieties loga apdari. Tā nosaka to, kā izskatās un kāda ir sajūta, "
+#~ "darbojoties gan ar loga apmali, gan loga virsrakstjoslu."
+
+#~ msgid "Configure Decoration..."
+#~ msgstr "Konfigurēt apdari..."
+
+#~ msgid "Window Decoration Control Module"
+#~ msgstr "Loga apdares vadības modulis"
+
+#~ msgid "(c) 2001 Karol Szwed"
+#~ msgstr "(c) 2001 Karols Sveds (Karol Szwed)"
+
+#~ msgid "Karol Szwed"
+#~ msgstr "Karols Sveds (Karol Szwed)"
+
+#~ msgid "Oxygen"
+#~ msgstr "Oxygen"
+
+#~ msgid ""
+#~ "<h1>Window Manager Decoration</h1><p>This module allows you to choose the "
+#~ "window border decorations, as well as titlebar button positions and "
+#~ "custom decoration options.</p>To choose a theme for your window "
+#~ "decoration click on its name and apply your choice by clicking the \"Apply"
+#~ "\" button below. If you do not want to apply your choice you can click "
+#~ "the \"Reset\" button to discard your changes.<p>You can configure each "
+#~ "theme. There are different options specific for each theme.</p><p>On the "
+#~ "\"Buttons\" tab check the \"Use custom titlebar button positions\" box "
+#~ "and you can change the positions of the buttons to your liking.</p>"
+#~ msgstr ""
+#~ "<h1>Logu pārvaldnieka apdare</h1><p>Šajā sadaļā varat izvēlēties logu "
+#~ "apmales apdari, virsrakstjoslas pogu izvietojumu un pielāgotas apdares "
+#~ "opcijas.</p><p>Lai izvēlētos tēmu savam logu noformējumam, noklikšķiniet "
+#~ "uz tās nosaukuma un pielietojiet izvēlēto, nospiežot \"Pielietot\" pogu "
+#~ "apakšā. Ja nevēlaties pielietot savu izvēli, varat nospiest pogu "
+#~ "\"Atstatīt\" un atmest izmaiņas.</p><p>Katru tēmu var pielāgot. Katrai "
+#~ "tēmai ir pieejamas savas specifiskas opcijas.</p><p>Cilnē \"Pogas\", "
+#~ "ieslēdziet \"Izmantot pielāgotu titlujoslas pogu pozīciju\" un tad varat "
+#~ "pēc saviem ieskatiem mainīt pogu izvietojumu.</p>"
+
+#~ msgid "Active Window"
+#~ msgstr "Aktīvais logs"
+
+#~ msgid "Inactive Window"
+#~ msgstr "Neaktīvais logs"
+
+#~ msgid "kcmkwindecoration"
+#~ msgstr "kcmkwindecoration"
+
+#~ msgctxt "Caption to decoration preview, %1 author name"
+#~ msgid "by %1"
+#~ msgstr "par %1"
+
+#~ msgid ""
+#~ "No preview available.\n"
+#~ "Most probably there\n"
+#~ "was a problem loading the plugin."
+#~ msgstr ""
+#~ "Priekšskata nav.\n"
+#~ "Visticamāk, ir kāda problēma\n"
+#~ "ar spraudņa ielādi."
+
+#~ msgid "&Buttons"
+#~ msgstr "&Pogas"
+
+#~ msgid "Ozone"
+#~ msgstr "Ozons"

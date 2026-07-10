@@ -1,0 +1,1038 @@
+# Translation of kcm_kwinrules.po to Catalan
+# Copyright (C) 2004-2026 This_file_is_part_of_KDE
+# This file is distributed under the license LGPL version 2.1 or
+# version 3 or later versions approved by the membership of KDE e.V.
+#
+# SPDX-FileCopyrightText: 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2026 Josep M. Ferrer <txemaq@gmail.com>
+# SPDX-FileCopyrightText: 2004, 2005, 2006 Sebastià Pla i Sanz <sps@sastia.com>
+# SPDX-FileCopyrightText: 2005 Albert Astals Cid <aacid@kde.org>
+# SPDX-FileCopyrightText: 2012, 2013, 2014, 2015, 2017, 2020 Antoni Bella Pérez <antonibella5@yahoo.com>
+# SPDX-FileCopyrightText: 2019 Empar Montoro Martín <montoro_mde@gva.es>
+# SPDX-FileCopyrightText: 2025 Josep M. Ferrer <txemaq@gmail.com>
+msgid ""
+msgstr ""
+"Project-Id-Version: kwin\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-07-10 00:46+0000\n"
+"PO-Revision-Date: 2026-05-14 10:46+0200\n"
+"Last-Translator: Josep M. Ferrer <txemaq@gmail.com>\n"
+"Language-Team: Catalan <kde-i18n-ca@kde.org>\n"
+"Language: ca\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Lokalize 25.04.0\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Accelerator-Marker: &\n"
+
+#: kcmrules.cpp:228
+#, kde-format
+msgid "Copy of %1"
+msgstr "Còpia de %1"
+
+#: kcmrules.cpp:426
+#, kde-format
+msgid "Application settings for %1"
+msgstr "Valors d'aplicació per a %1"
+
+#: kcmrules.cpp:448 rulesmodel.cpp:222 rulesmodel.cpp:225
+#, kde-format
+msgid "Window settings for %1"
+msgstr "Valors de la finestra per a %1"
+
+#: optionsmodel.cpp:199 optionsmodel.cpp:204
+#, kde-format
+msgctxt "@item:inlistbox"
+msgid "Unimportant"
+msgstr "Sense importància"
+
+#: optionsmodel.cpp:200
+#, kde-format
+msgctxt "@item:inlistbox"
+msgid "Exact match"
+msgstr "Coincidència exacta"
+
+#: optionsmodel.cpp:201
+#, kde-format
+msgctxt "@item:inlistbox"
+msgid "Substring match"
+msgstr "Coincidència parcial"
+
+#: optionsmodel.cpp:202
+#, kde-format
+msgctxt "@item:inlistbox"
+msgid "Regular expression"
+msgstr "Expressió regular"
+
+#: optionsmodel.cpp:205
+#, kde-format
+msgctxt "@item:inlistbox This is a noun"
+msgid "Match"
+msgstr "Coincidència"
+
+#: optionsmodel.cpp:210
+#, kde-format
+msgid "Apply initially"
+msgstr "Aplica inicialment"
+
+#: optionsmodel.cpp:211
+#, kde-format
+msgid ""
+"The window property will be only set to the given value after the window is "
+"created.\n"
+"No further changes will be affected."
+msgstr ""
+"La propietat de la finestra només s'establirà al valor indicat després de "
+"crear la finestra.\n"
+"Els canvis posteriors no es veuran afectats."
+
+#: optionsmodel.cpp:214
+#, kde-format
+msgid "Apply now"
+msgstr "Aplica ara"
+
+#: optionsmodel.cpp:215
+#, kde-format
+msgid ""
+"The window property will be set to the given value immediately and will not "
+"be affected later\n"
+"(this action will be deleted afterwards)."
+msgstr ""
+"La propietat de la finestra s'establirà immediatament al valor indicat i no "
+"es veurà afectat més tard\n"
+"(aquesta acció se suprimirà més tard)."
+
+#: optionsmodel.cpp:218
+#, kde-format
+msgid "Remember"
+msgstr "Recorda"
+
+#: optionsmodel.cpp:219
+#, kde-format
+msgid ""
+"The value of the window property will be remembered and, every time the "
+"window is created, the last remembered value will be applied."
+msgstr ""
+"Es recordarà el valor de la propietat de la finestra, i s'aplicarà el darrer "
+"valor recordat cada vegada que es creï la finestra."
+
+#: optionsmodel.cpp:222
+#, kde-format
+msgid "Do not affect"
+msgstr "No afecta"
+
+#: optionsmodel.cpp:223
+#, kde-format
+msgid ""
+"The window property will not be affected and therefore the default handling "
+"for it will be used.\n"
+"Specifying this will block more generic window settings from taking effect."
+msgstr ""
+"La propietat de la finestra no es veurà afectada i, per tant, s'usarà la "
+"gestió predeterminada per a ella.\n"
+"En especificar això, es blocaran que tinguin efecte les opcions més "
+"genèriques de finestra."
+
+#: optionsmodel.cpp:226
+#, kde-format
+msgid "Force"
+msgstr "Força"
+
+#: optionsmodel.cpp:227
+#, kde-format
+msgid "The window property will be always forced to the given value."
+msgstr "La propietat de la finestra sempre es forçarà al valor indicat."
+
+#: optionsmodel.cpp:229
+#, kde-format
+msgid "Force temporarily"
+msgstr "Força temporalment"
+
+#: optionsmodel.cpp:230
+#, kde-format
+msgid ""
+"The window property will be forced to the given value until it is hidden\n"
+"(this action will be deleted after the window is hidden)."
+msgstr ""
+"La propietat de la finestra es forçarà al valor indicat fins que s'oculti\n"
+"(aquesta acció se suprimirà després d'ocultar la finestra)."
+
+#: rulesmodel.cpp:228
+#, kde-format
+msgid "Settings for %1"
+msgstr "Valors per a %1"
+
+#: rulesmodel.cpp:231
+#, kde-format
+msgid "New window settings"
+msgstr "Configuració de les finestres noves"
+
+#: rulesmodel.cpp:247
+#, kde-format
+msgid ""
+"You have specified the window class as unimportant.\n"
+"This means the settings will possibly apply to windows from all "
+"applications. If you really want to create a generic setting, it is "
+"recommended you at least limit the window types to avoid special window "
+"types."
+msgstr ""
+"Heu especificat la classe de finestra com a sense importància.\n"
+"Això significa que els valors possiblement aplicaran a les finestres de "
+"totes les aplicacions. Si realment voleu crear un arranjament genèric, es "
+"recomana que, com a mínim, limiteu els tipus de finestra per tal d'evitar "
+"tipus de finestra especials."
+
+#: rulesmodel.cpp:254
+#, kde-format
+msgid ""
+"Some applications set their own geometry after starting, overriding your "
+"initial settings for size and position. To enforce these settings, also "
+"force the property \"%1\" to \"Yes\"."
+msgstr ""
+"Diverses aplicacions defineixen la seva pròpia geometria després d'iniciar-"
+"se, substituint la vostra configuració inicial de mida i posició. Per a "
+"forçar aquesta configuració, forceu també la propietat «%1» a «Sí»."
+
+#: rulesmodel.cpp:261
+#, kde-format
+msgid ""
+"Readability may be impaired with extremely low opacity values. At 0%, the "
+"window becomes invisible."
+msgstr ""
+"La llegibilitat es pot veure afectada amb valors d'opacitat extremadament "
+"baixos. Al 0%, la finestra es torna invisible."
+
+#: rulesmodel.cpp:388
+#, kde-format
+msgid "Description"
+msgstr "Descripció"
+
+#: rulesmodel.cpp:388 rulesmodel.cpp:396 rulesmodel.cpp:404 rulesmodel.cpp:411
+#: rulesmodel.cpp:417 rulesmodel.cpp:425 rulesmodel.cpp:430 rulesmodel.cpp:436
+#: rulesmodel.cpp:441 rulesmodel.cpp:447
+#, kde-format
+msgid "Window matching"
+msgstr "Coincidència de la finestra"
+
+#: rulesmodel.cpp:396
+#, kde-format
+msgid "Window class (application)"
+msgstr "Classe de finestra (aplicació)"
+
+#: rulesmodel.cpp:404
+#, kde-format
+msgid "Match whole window class"
+msgstr "Coincideix amb la classe de finestra completa"
+
+#: rulesmodel.cpp:411
+#, kde-format
+msgid "Whole window class"
+msgstr "Classe de finestra completa"
+
+#: rulesmodel.cpp:417
+#, kde-format
+msgid "Window types"
+msgstr "Tipus de finestra"
+
+#: rulesmodel.cpp:425
+#, kde-format
+msgid "Window role"
+msgstr "Funció de la finestra"
+
+#: rulesmodel.cpp:430
+#, kde-format
+msgid "Window title"
+msgstr "Títol de la finestra"
+
+#: rulesmodel.cpp:436
+#, kde-format
+msgid "Machine (hostname)"
+msgstr "Màquina (nom de la màquina)"
+
+#: rulesmodel.cpp:441
+#, kde-format
+msgid "Window tag"
+msgstr "Etiqueta de finestra"
+
+#: rulesmodel.cpp:447
+#, kde-format
+msgid "Has parent window"
+msgstr "Té una finestra pare"
+
+#: rulesmodel.cpp:453
+#, kde-format
+msgid "Position"
+msgstr "Posició"
+
+#: rulesmodel.cpp:453 rulesmodel.cpp:459 rulesmodel.cpp:465 rulesmodel.cpp:470
+#: rulesmodel.cpp:478 rulesmodel.cpp:484 rulesmodel.cpp:503 rulesmodel.cpp:519
+#: rulesmodel.cpp:524 rulesmodel.cpp:529 rulesmodel.cpp:534 rulesmodel.cpp:541
+#: rulesmodel.cpp:555 rulesmodel.cpp:560
+#, kde-format
+msgid "Size & Position"
+msgstr "Mida i posició"
+
+#: rulesmodel.cpp:459
+#, kde-format
+msgid "Size"
+msgstr "Mida"
+
+#: rulesmodel.cpp:465
+#, kde-format
+msgid "Maximized horizontally"
+msgstr "Maximitzada horitzontalment"
+
+#: rulesmodel.cpp:470
+#, kde-format
+msgid "Maximized vertically"
+msgstr "Maximitzada verticalment"
+
+#: rulesmodel.cpp:478
+#, kde-format
+msgid "Virtual desktop"
+msgstr "Escriptori virtual"
+
+#: rulesmodel.cpp:484
+#, kde-format
+msgid "Virtual desktops"
+msgstr "Escriptoris virtuals"
+
+#: rulesmodel.cpp:503
+#, kde-format
+msgid "Activities"
+msgstr "Activitats"
+
+#: rulesmodel.cpp:519
+#, kde-format
+msgid "Screen"
+msgstr "Pantalla"
+
+#: rulesmodel.cpp:524 rulesmodel.cpp:923
+#, kde-format
+msgid "Fullscreen"
+msgstr "Pantalla completa"
+
+#: rulesmodel.cpp:529
+#, kde-format
+msgid "Minimized"
+msgstr "Minimitzada"
+
+#: rulesmodel.cpp:534
+#, kde-format
+msgid "Initial placement"
+msgstr "Emplaçament inicial"
+
+#: rulesmodel.cpp:541
+#, kde-format
+msgid "Ignore requested geometry"
+msgstr "Ignora la geometria demanada"
+
+#: rulesmodel.cpp:544
+#, kde-kuit-format
+msgctxt "@info:tooltip"
+msgid ""
+"Some applications can set their own geometry, overriding the window manager "
+"preferences. Setting this property overrides their placement requests.<nl/"
+"><nl/>This affects <interface>Size</interface> and <interface>Position</"
+"interface> but not <interface>Maximized</interface> or "
+"<interface>Fullscreen</interface> states.<nl/><nl/>Note that the position "
+"can also be used to map to a different <interface>Screen</interface>"
+msgstr ""
+"Algunes aplicacions poden establir la seva pròpia geometria, substituint les "
+"preferències del gestor de finestres. Establir aquesta propietat substitueix "
+"les seves sol·licituds de col·locació.<nl/><nl/>Això afecta la "
+"<interface>Mida</interface> i la <interface>Posició</interface> però no els "
+"estats de <interface>Maximització</interface> o <interface>Pantalla "
+"completa</interface>.<nl/><nl/>Tingueu en compte que la posició també es pot "
+"emprar per a assignar a una <interface>Pantalla</interface> diferent"
+
+#: rulesmodel.cpp:555
+#, kde-format
+msgid "Minimum Size"
+msgstr "Mida mínima"
+
+#: rulesmodel.cpp:560
+#, kde-format
+msgid "Maximum Size"
+msgstr "Mida màxima"
+
+#: rulesmodel.cpp:566
+#, kde-format
+msgid "Keep above other windows"
+msgstr "Mantén sobre les altres finestres"
+
+#: rulesmodel.cpp:566 rulesmodel.cpp:571 rulesmodel.cpp:576 rulesmodel.cpp:582
+#: rulesmodel.cpp:588 rulesmodel.cpp:594
+#, kde-format
+msgid "Arrangement & Access"
+msgstr "Organització i accés"
+
+#: rulesmodel.cpp:571
+#, kde-format
+msgid "Keep below other windows"
+msgstr "Mantén sota les altres finestres"
+
+#: rulesmodel.cpp:576
+#, kde-format
+msgid "Skip taskbar"
+msgstr "Ignora la barra de tasques"
+
+#: rulesmodel.cpp:578
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Controls whether or not the window appears in the Task Manager."
+msgstr "Controla si la finestra apareix o no al Gestor de tasques."
+
+#: rulesmodel.cpp:582
+#, kde-format
+msgid "Skip pager"
+msgstr "Ignora el paginador"
+
+#: rulesmodel.cpp:584
+#, kde-format
+msgctxt "@info:tooltip"
+msgid ""
+"Controls whether or not the window appears in the Virtual Desktop manager."
+msgstr "Controla si la finestra apareix o no al gestor d'escriptoris virtuals."
+
+#: rulesmodel.cpp:588
+#, kde-format
+msgid "Skip switcher"
+msgstr "Ignora el commutador"
+
+#: rulesmodel.cpp:590
+#, kde-kuit-format
+msgctxt "@info:tooltip"
+msgid ""
+"Controls whether or not the window appears in the <shortcut>Alt+Tab</"
+"shortcut> window list."
+msgstr ""
+"Controla si la finestra apareix o no a la llista de finestres <shortcut>Alt"
+"+Tab</shortcut>."
+
+#: rulesmodel.cpp:594
+#, kde-format
+msgid "Shortcut"
+msgstr "Drecera"
+
+#: rulesmodel.cpp:600
+#, kde-format
+msgid "No titlebar and frame"
+msgstr "Sense barra de títol ni marc"
+
+#: rulesmodel.cpp:600 rulesmodel.cpp:605 rulesmodel.cpp:611 rulesmodel.cpp:616
+#: rulesmodel.cpp:622 rulesmodel.cpp:649 rulesmodel.cpp:677 rulesmodel.cpp:683
+#: rulesmodel.cpp:695 rulesmodel.cpp:700 rulesmodel.cpp:705 rulesmodel.cpp:711
+#: rulesmodel.cpp:716 rulesmodel.cpp:721
+#, kde-format
+msgid "Appearance & Fixes"
+msgstr "Aparença i esmenes"
+
+#: rulesmodel.cpp:605
+#, kde-format
+msgid "Titlebar color scheme"
+msgstr "Esquema de color de la barra de títol"
+
+#: rulesmodel.cpp:611
+#, kde-format
+msgid "Active opacity"
+msgstr "Opacitat activa"
+
+#: rulesmodel.cpp:616
+#, kde-format
+msgid "Inactive opacity"
+msgstr "Opacitat inactiva"
+
+#: rulesmodel.cpp:622
+#, kde-format
+msgid "Focus stealing prevention"
+msgstr "Prevenció de robatori de focus"
+
+#: rulesmodel.cpp:624
+#, kde-kuit-format
+msgctxt "@info:tooltip"
+msgid ""
+"KWin tries to prevent windows that were opened without direct user action "
+"from raising themselves and taking focus while you're currently interacting "
+"with another window. This property can be used to change the level of focus "
+"stealing prevention applied to individual windows and apps.<nl/><nl/>Here's "
+"what will happen to a window opened without your direct action at each level "
+"of focus stealing prevention:<nl/><list><item><emphasis strong='true'>None:</"
+"emphasis> The window will be raised and focused.</item><item><emphasis "
+"strong='true'>Low:</emphasis> Focus stealing prevention will be applied, but "
+"in the case of a situation KWin considers ambiguous, the window will be "
+"raised and focused.</item><item><emphasis strong='true'>Normal:</emphasis> "
+"Focus stealing prevention will be applied, but  in the case of a situation "
+"KWin considers ambiguous, the window will <emphasis>not</emphasis> be raised "
+"and focused.</item><item><emphasis strong='true'>High:</emphasis> The window "
+"will only be raised and focused if it belongs to the same app as the "
+"currently-focused window.</item><item><emphasis strong='true'>Extreme:</"
+"emphasis> The window will never be raised and focused.</item></list>"
+msgstr ""
+"El KWin intenta evitar que les finestres que s'han obert sense acció directa "
+"de l'usuari s'elevin i prenguin el focus mentre esteu interactuant amb una "
+"altra finestra. Aquesta propietat es pot utilitzar per a canviar el nivell "
+"de prevenció de robatori de focus aplicat a finestres i aplicacions "
+"individuals.<nl/><nl/>Això és el que passarà a una finestra oberta sense la "
+"vostra acció directa a cada nivell de prevenció de robatori de focus:<nl/"
+"><list><item><emphasis strong='true'>Sense:</emphasis> La finestra s'elevarà "
+"i prendrà el focus.</item><item><emphasis strong='true'>Baixa:</emphasis> "
+"S'aplicarà la política de prevenció de robatori de focus, però en cas d'una "
+"situació que el KWin consideri ambigua, la finestra s'elevarà i prendrà el "
+"focus.</item><item><emphasis strong='true'>Normal:</emphasis> S'aplicarà la "
+"política de prevenció de robatori de focus, però en cas d'una situació que "
+"el KWin consideri ambigua, la finestra <emphasis>no</emphasis> s'elevarà ni "
+"prendrà el focus. </item><item><emphasis strong='true'>Alta:</emphasis> La "
+"finestra només s'elevarà i prendrà el focus si pertany a la mateixa "
+"aplicació que la finestra actualment amb focus.</item><item><emphasis "
+"strong='true'>Extrema:</emphasis> La finestra mai s'elevarà ni prendrà el "
+"focus.</item></list>"
+
+#: rulesmodel.cpp:649
+#, kde-format
+msgid "Focus protection"
+msgstr "Protecció del focus"
+
+#: rulesmodel.cpp:651
+#, kde-kuit-format
+msgctxt "@info:tooltip"
+msgid ""
+"This property controls the focus protection level of the currently active "
+"window. It is used to override the focus stealing prevention applied to new "
+"windows that are opened without your direct action.<nl/><nl/>Here's what "
+"happens to new windows that are opened without your direct action at each "
+"level of focus protection while the window with this property applied to it "
+"has focus:<nl/><list><item><emphasis strong='true'>None</emphasis>: Newly-"
+"opened windows always raise themselves and take focus.</item><item><emphasis "
+"strong='true'>Low:</emphasis> Focus stealing prevention will be applied to "
+"the newly-opened window, but in the case of a situation KWin considers "
+"ambiguous, the window will be raised and focused.</item><item><emphasis "
+"strong='true'>Normal:</emphasis> Focus stealing prevention will be applied "
+"to the newly-opened window, but in the case of a situation KWin considers "
+"ambiguous, the window will <emphasis>not</emphasis> be raised and focused.</"
+"item><item><emphasis strong='true'>High:</emphasis> Newly-opened windows "
+"will only raise themselves and take focus if they belongs to the same app as "
+"the currently-focused window.</item><item><emphasis strong='true'>Extreme:</"
+"emphasis> Newly-opened windows never raise themselves and take focus.</"
+"item></list>"
+msgstr ""
+"Aquesta propietat controla el nivell de protecció del focus de la finestra "
+"actualment activa. S'utilitza per a substituir la prevenció de robatori de "
+"focus aplicada a les finestres noves que s'obren sense la vostra acció "
+"directa.<nl/><nl/>Això és el que passa a les finestres noves que s'obren "
+"sense la vostra acció directa a cada nivell de protecció de focus mentre la "
+"finestra amb aquesta propietat té el focus:<nl/><list><item><emphasis "
+"strong='true'>Sense</emphasis>: Les finestres obertes recentment sempre "
+"s'eleven i prenen el focus.</item><item><emphasis strong='true'>Baixa:</"
+"emphasis> S'aplicarà la prevenció de robatori de focus a les finestres "
+"obertes recentment, però en el cas d'una situació que el KWin consideri "
+"ambigua, la finestra s'elevarà i prendrà el focus.</item><item><emphasis "
+"strong='true'>Normal:</emphasis> S'aplicarà la prevenció de robatori de "
+"focus a les finestres obertes recentment, però en el cas d'una situació que "
+"el KWin consideri ambigua, la finestra <emphasis>no</emphasis> s'elevarà ni "
+"prendrà el focus.</item><item><emphasis strong='true'>Alta:</emphasis> Les "
+"finestres obertes recentment només s'elevaran i prendran el focus si "
+"pertanyen a la mateixa aplicació que la finestra actualment amb focus.</"
+"item><item><emphasis strong='true'>Extrema:</emphasis> Les finestres obertes "
+"recentment mai s'elevaran ni prendran el focus.</item></list>"
+
+#: rulesmodel.cpp:677
+#, kde-format
+msgid "Accept focus"
+msgstr "Accepta el focus"
+
+#: rulesmodel.cpp:679
+#, kde-format
+msgid "Controls whether or not the window becomes focused when clicked."
+msgstr "Controla si la finestra prendrà el focus o no quan s'hi fa clic."
+
+#: rulesmodel.cpp:683
+#, kde-format
+msgid "Ignore global shortcuts"
+msgstr "Ignora les dreceres globals"
+
+#: rulesmodel.cpp:685
+#, kde-kuit-format
+msgctxt "@info:tooltip"
+msgid ""
+"Use this property to prevent global keyboard shortcuts from working while "
+"the window is focused. This can be useful for apps like emulators or virtual "
+"machines that handle some of the same shortcuts themselves.<nl/><nl/>Note "
+"that you won't be able to <shortcut>Alt+Tab</shortcut> out of the window or "
+"use any other global shortcuts such as <shortcut>Alt+Space</shortcut> to "
+"activate KRunner."
+msgstr ""
+"Utilitzeu aquesta propietat per a evitar que les dreceres de teclat globals "
+"funcionin mentre la finestra tingui el focus. Això pot ser útil per a "
+"aplicacions com emuladors o màquines virtuals que gestionen algunes de les "
+"mateixes dreceres.<nl/><nl/>Tingueu en compte que no podreu fer <shortcut>Alt"
+"+Tab</shortcut> fora de la finestra o utilitzar altres dreceres globals com "
+"<shortcut>Alt+Espai</shortcut> per a activar el KRunner."
+
+#: rulesmodel.cpp:695
+#, kde-format
+msgid "Closeable"
+msgstr "Es pot tancar"
+
+#: rulesmodel.cpp:700
+#, kde-format
+msgid "Desktop file name"
+msgstr "Nom de fitxer «desktop»"
+
+#: rulesmodel.cpp:705
+#, kde-format
+msgid "Layer"
+msgstr "Capa"
+
+#: rulesmodel.cpp:711
+#, kde-format
+msgid "Adaptive sync"
+msgstr "Sincronització adaptativa"
+
+#: rulesmodel.cpp:716
+#, kde-format
+msgid "Allow tearing"
+msgstr "Permet l'esquinçament"
+
+#: rulesmodel.cpp:721
+#, kde-format
+msgid "Hide from screenshots and screen recordings"
+msgstr "Oculta de les captures de pantalla i enregistraments de pantalla"
+
+#: rulesmodel.cpp:774
+#, kde-format
+msgid "Window class not available"
+msgstr "Classe de finestra no disponible"
+
+#: rulesmodel.cpp:775
+#, kde-kuit-format
+msgctxt "@info"
+msgid ""
+"This application is not providing a class for the window, so KWin cannot use "
+"it to match and apply any rules. If you still want to apply some rules to "
+"it, try to match other properties like the window title instead.<nl/><nl/"
+">Please consider reporting this bug to the application's developers."
+msgstr ""
+"Aquesta aplicació no proporciona cap classe per a la finestra, així que el "
+"KWin no la pot utilitzar per a fer-la coincidir i aplicar les regles. Si "
+"encara voleu aplicar-hi regles, intenteu fer-hi coincidir altres propietats "
+"com el títol de la finestra.<nl/><nl/>Considereu informar d'aquest error als "
+"desenvolupadors de l'aplicació."
+
+#: rulesmodel.cpp:809
+#, kde-format
+msgid "All window types"
+msgstr "Tots els tipus de finestra"
+
+#: rulesmodel.cpp:810
+#, kde-format
+msgid "Normal window"
+msgstr "Finestra normal"
+
+#: rulesmodel.cpp:811
+#, kde-format
+msgid "Dialog window"
+msgstr "Finestra de diàleg"
+
+#: rulesmodel.cpp:812
+#, kde-format
+msgid "Utility window"
+msgstr "Finestra d'utilitat"
+
+#: rulesmodel.cpp:813
+#, kde-format
+msgid "Dock (panel)"
+msgstr "Acoblador (plafó)"
+
+#: rulesmodel.cpp:814
+#, kde-format
+msgid "Toolbar"
+msgstr "Barra d'eines"
+
+#: rulesmodel.cpp:815
+#, kde-format
+msgid "Torn-off menu"
+msgstr "Menú separable"
+
+#: rulesmodel.cpp:816
+#, kde-format
+msgid "Splash screen"
+msgstr "Pantalla de presentació"
+
+#: rulesmodel.cpp:817 rulesmodel.cpp:918
+#, kde-format
+msgid "Desktop"
+msgstr "Escriptori"
+
+#. i18n("Unmanaged Window")},  deprecated
+#: rulesmodel.cpp:819
+#, kde-format
+msgid "Standalone menubar"
+msgstr "Barra de menús autònoma"
+
+#: rulesmodel.cpp:820 rulesmodel.cpp:926
+#, kde-format
+msgid "On-screen display"
+msgstr "Visualització en pantalla"
+
+#: rulesmodel.cpp:830
+#, kde-format
+msgid "All desktops"
+msgstr "Tots els escriptoris"
+
+#: rulesmodel.cpp:832
+#, kde-format
+msgctxt "@info:tooltip in the virtual desktop list"
+msgid "Make the window available on all desktops"
+msgstr "Fa que la finestra estigui disponible en tots els escriptoris"
+
+#: rulesmodel.cpp:851
+#, kde-format
+msgid "All activities"
+msgstr "Totes les activitats"
+
+#: rulesmodel.cpp:853
+#, kde-format
+msgctxt "@info:tooltip in the activity list"
+msgid "Make the window available on all activities"
+msgstr "Fa que la finestra estigui disponible en totes les activitats"
+
+#: rulesmodel.cpp:874
+#, kde-format
+msgid "Default"
+msgstr "Omissió"
+
+#: rulesmodel.cpp:875
+#, kde-format
+msgid "No placement"
+msgstr "Sense emplaçament"
+
+#: rulesmodel.cpp:876
+#, kde-format
+msgid "Minimal overlapping"
+msgstr "Superposició mínima"
+
+#: rulesmodel.cpp:877
+#, kde-format
+msgid "Maximized"
+msgstr "Maximitzada"
+
+#: rulesmodel.cpp:878
+#, kde-format
+msgid "Centered"
+msgstr "Centrada"
+
+#: rulesmodel.cpp:879
+#, kde-format
+msgid "Random"
+msgstr "Aleatòria"
+
+#: rulesmodel.cpp:880
+#, kde-format
+msgid "In top-left corner"
+msgstr "A la cantonada superior esquerra"
+
+#: rulesmodel.cpp:881
+#, kde-format
+msgid "Under mouse"
+msgstr "Sota el ratolí"
+
+#: rulesmodel.cpp:882
+#, kde-format
+msgid "On main window"
+msgstr "A la finestra principal"
+
+#: rulesmodel.cpp:889
+#, kde-format
+msgid "None"
+msgstr "Sense"
+
+#: rulesmodel.cpp:890
+#, kde-format
+msgid "Low"
+msgstr "Baixa"
+
+#: rulesmodel.cpp:891 rulesmodel.cpp:920
+#, kde-format
+msgid "Normal"
+msgstr "Normal"
+
+#: rulesmodel.cpp:892
+#, kde-format
+msgid "High"
+msgstr "Alta"
+
+#: rulesmodel.cpp:893
+#, kde-format
+msgid "Extreme"
+msgstr "Extrema"
+
+#: rulesmodel.cpp:919
+#, kde-format
+msgid "Below"
+msgstr "Sota"
+
+#: rulesmodel.cpp:921
+#, kde-format
+msgid "Above"
+msgstr "Damunt"
+
+#: rulesmodel.cpp:922
+#, kde-format
+msgid "Notification"
+msgstr "Notificació"
+
+#: rulesmodel.cpp:924
+#, kde-format
+msgid "Popup"
+msgstr "Emergent"
+
+#: rulesmodel.cpp:925
+#, kde-format
+msgid "Critical notification"
+msgstr "Notificació crítica"
+
+#: rulesmodel.cpp:927
+#, kde-format
+msgid "Overlay"
+msgstr "Superposició"
+
+#: rulesmodel.cpp:952
+#, kde-format
+msgid "Unmanaged window"
+msgstr "Finestra no gestionada"
+
+#: rulesmodel.cpp:953
+#, kde-format
+msgid "Could not detect window properties. The window is not managed by KWin."
+msgstr ""
+"No s'han pogut detectar les propietats de la finestra. El KWin no gestiona "
+"aquesta finestra."
+
+#: ui/FileDialogLoader.qml:15
+#, kde-format
+msgid "Select File"
+msgstr "Selecció de fitxer"
+
+#: ui/FileDialogLoader.qml:27
+#, kde-format
+msgid "KWin Rules (*.kwinrule)"
+msgstr "Regles del KWin (*.kwinrule)"
+
+#: ui/main.qml:28
+#, kde-format
+msgid "Add New…"
+msgstr "Afegeix nova…"
+
+#: ui/main.qml:35
+#, kde-format
+msgid "Import…"
+msgstr "Importa…"
+
+#: ui/main.qml:40
+#, kde-format
+msgid "Cancel Export"
+msgstr "Cancel·la l'exportació"
+
+#: ui/main.qml:40
+#, kde-format
+msgid "Export…"
+msgstr "Exporta…"
+
+#: ui/main.qml:88
+#, kde-format
+msgid "No rules for specific windows are currently set"
+msgstr "Actualment no s'han definit regles per a finestres específiques"
+
+#: ui/main.qml:89
+#, kde-kuit-format
+msgctxt "@info"
+msgid "Click <interface>Add New…</interface> to add some"
+msgstr "Feu clic al botó <interface>Afegeix nova…</interface> per a afegir-ne"
+
+#: ui/main.qml:97
+#, kde-format
+msgid "Select the rules to export"
+msgstr "Selecció de les regles a exportar"
+
+#: ui/main.qml:101
+#, kde-format
+msgid "Unselect All"
+msgstr "Desselecciona-ho tot"
+
+#: ui/main.qml:101
+#, kde-format
+msgid "Select All"
+msgstr "Selecciona-ho tot"
+
+#: ui/main.qml:115
+#, kde-format
+msgid "Save Rules"
+msgstr "Desa les regles"
+
+#: ui/main.qml:202
+#, kde-format
+msgid "Edit"
+msgstr "Edita"
+
+#: ui/main.qml:208
+#, kde-format
+msgid "Duplicate"
+msgstr "Duplica"
+
+#: ui/main.qml:214
+#, kde-format
+msgid "Delete"
+msgstr "Suprimeix"
+
+#: ui/main.qml:246
+#, kde-format
+msgid "Import Rules"
+msgstr "Importa algunes regles"
+
+#: ui/main.qml:258
+#, kde-format
+msgid "Export Rules"
+msgstr "Exporta les regles"
+
+#: ui/OptionsComboBox.qml:35
+#, kde-format
+msgid "None selected"
+msgstr "Res seleccionat"
+
+#: ui/OptionsComboBox.qml:41
+#, kde-format
+msgid "All selected"
+msgstr "Tot seleccionat"
+
+#: ui/OptionsComboBox.qml:43
+#, kde-format
+msgid "%1 selected"
+msgid_plural "%1 selected"
+msgstr[0] "%1 seleccionat"
+msgstr[1] "%1 seleccionats"
+
+#: ui/RulesEditor.qml:66
+#, kde-format
+msgid "No window properties changed"
+msgstr "No han canviat les propietats de les finestres"
+
+#: ui/RulesEditor.qml:67
+#, kde-kuit-format
+msgctxt "@info"
+msgid ""
+"Click the <interface>Add Property...</interface> button below to add some "
+"window properties that will be affected by the rule"
+msgstr ""
+"Feu clic al botó <interface>Afegeix propietat...</interface> de sota per a "
+"afegir diverses propietats de les finestres que seran afectades per la regla"
+
+#: ui/RulesEditor.qml:88
+#, kde-format
+msgid "Add Property..."
+msgstr "Afegeix una propietat..."
+
+#: ui/RulesEditor.qml:99
+#, kde-format
+msgid "Detect Window Properties"
+msgstr "Detecta les propietats de la finestra"
+
+#: ui/RulesEditor.qml:115 ui/RulesEditor.qml:126
+#, kde-format
+msgid "Instantly"
+msgstr "Instantàniament"
+
+#: ui/RulesEditor.qml:116 ui/RulesEditor.qml:131
+#, kde-format
+msgid "After %1 second"
+msgid_plural "After %1 seconds"
+msgstr[0] "Després d'%1 segon"
+msgstr[1] "Després de %1 segons"
+
+#: ui/RulesEditor.qml:178
+#, kde-format
+msgid "Add property to the rule"
+msgstr "Afegeix una propietat a la regla"
+
+#: ui/RulesEditor.qml:269
+#, kde-format
+msgctxt "@info:placeholder"
+msgid "No properties left to add"
+msgstr "No queden propietats per a afegir"
+
+#: ui/RulesEditor.qml:271
+#, kde-format
+msgctxt "@info:placeholder %1 is a filter text introduced by the user"
+msgid "No properties match \"%1\""
+msgstr "Cap propietat coincideix amb «%1»"
+
+#: ui/RulesEditor.qml:292 ui/ValueEditor.qml:54
+#, kde-format
+msgid "Yes"
+msgstr "Sí"
+
+#: ui/RulesEditor.qml:292 ui/ValueEditor.qml:60
+#, kde-format
+msgid "No"
+msgstr "No"
+
+#: ui/RulesEditor.qml:294 ui/ValueEditor.qml:168 ui/ValueEditor.qml:175
+#, kde-format
+msgid "%1 %"
+msgstr "%1 %"
+
+#: ui/RulesEditor.qml:296
+#, kde-format
+msgctxt "Coordinates (x, y)"
+msgid "(%1, %2)"
+msgstr "(%1, %2)"
+
+#: ui/RulesEditor.qml:298
+#, kde-format
+msgctxt "Size (width, height)"
+msgid "(%1, %2)"
+msgstr "(%1, %2)"
+
+#: ui/ValueEditor.qml:203
+#, kde-format
+msgctxt "(x, y) coordinates separator in size/position"
+msgid "x"
+msgstr "x"
+
+#~ msgid "Obey geometry restrictions"
+#~ msgstr "Obeeix les restriccions de geometria"
+
+#~ msgctxt "@info:tooltip"
+#~ msgid ""
+#~ "Some apps like video players or terminals can ask KWin to constrain them "
+#~ "to certain aspect ratios or only grow by values larger than the "
+#~ "dimensions of one character. Use this property to ignore such "
+#~ "restrictions and allow those windows to be resized to arbitrary sizes.<nl/"
+#~ "><nl/>This can be helpful for windows that can't quite fit the full "
+#~ "screen area when maximized."
+#~ msgstr ""
+#~ "Algunes aplicacions com els reproductors de vídeo o els terminals poden "
+#~ "sol·licitar al KWin que es restringeixin a determinades relacions "
+#~ "d'aspecte, o créixer només per a les dimensions d'un caràcter. Useu "
+#~ "aquesta propietat per a ignorar aquestes restriccions i permetre que "
+#~ "aquelles finestres es redimensionin a mides arbitràries.<nl/><nl/>Això "
+#~ "pot ser útil per a les finestres que no es poden ajustar prou bé a l'àrea "
+#~ "de la pantalla completa si estan maximitzades."
+
+#~ msgid "Block compositing"
+#~ msgstr "Bloqueja la composició"
+
+#~ msgid "Hide from Screencast"
+#~ msgstr "Oculta dels vídeos de captura de pantalla"
+
+#~ msgid "Shaded"
+#~ msgstr "Plegada"
+
+#~ msgid "OSD"
+#~ msgstr "OSD"
+
+#~ msgid "Close"
+#~ msgstr "Tanca"
+
+#~ msgid "Set window type"
+#~ msgstr "Estableix el tipus de finestra"

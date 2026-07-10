@@ -1,0 +1,1823 @@
+# Slovak translation for mutter.
+# Copyright (C) 2001-2003, 2005, 2007-2010, 2013 Free Software Foundation, Inc.
+# This file is distributed under the same license as the mutter package.
+# Stanislav Višňovský <visnovsky@nenya.ms.mff.cuni.cz>, 2001-2003.
+# Stanislav Visnovsky <visnovsky@kde.org>, 2003.
+# Marcel Telka <marcel@telka.sk>, 2005.
+# Peter Tuharsky <tuharsky@misbb.sk>, 2007.
+# Pavol Šimo <palo.simo@gmail.com>, 2007-2010.
+# Ján Kyselica <kyselica.jan@gmail.com>, 2013.
+# Pavol Klačanský <pavol@klacansky.com>, 2013.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: mutter\n"
+"Report-Msgid-Bugs-To: https://gitlab.gnome.org/GNOME/mutter/issues/\n"
+"POT-Creation-Date: 2026-04-02 12:00+0000\n"
+"PO-Revision-Date: 2026-04-30 11:33+0200\n"
+"Last-Translator: Peter Mráz <etkinator@gmail.com>\n"
+"Language-Team: Slovak <gnome-sk-list@gnome.org>\n"
+"Language: sk\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n==1) ? 1 : (n>=2 && n<=4) ? 2 : 0;\n"
+"X-Generator: Poedit 3.6\n"
+
+#: data/50-mutter-navigation.xml:6
+msgid "Navigation"
+msgstr "Navigácia"
+
+# description
+#: data/50-mutter-navigation.xml:9
+msgid "Move window to workspace 1"
+msgstr "Presunúť okno na pracovný priestor č. 1"
+
+# description
+#: data/50-mutter-navigation.xml:12
+msgid "Move window to workspace 2"
+msgstr "Presunúť okno na pracovný priestor č. 2"
+
+# description
+#: data/50-mutter-navigation.xml:15
+msgid "Move window to workspace 3"
+msgstr "Presunúť okno na pracovný priestor č. 3"
+
+# description
+#: data/50-mutter-navigation.xml:18
+msgid "Move window to workspace 4"
+msgstr "Presunúť okno na pracovný priestor č. 4"
+
+# description
+#: data/50-mutter-navigation.xml:21
+msgid "Move window to last workspace"
+msgstr "Presunúť okno na posledný pracovný priestor"
+
+# description
+#: data/50-mutter-navigation.xml:24
+msgid "Move window one workspace to the left"
+msgstr "Presunúť okno o jeden pracovný priestor vľavo"
+
+# description
+#: data/50-mutter-navigation.xml:27
+msgid "Move window one workspace to the right"
+msgstr "Presunúť okno o jeden pracovný priestor vpravo"
+
+# description
+#: data/50-mutter-navigation.xml:31
+msgid "Move window one workspace up"
+msgstr "Presunúť okno o jeden pracovný priestor hore"
+
+# description
+#: data/50-mutter-navigation.xml:35
+msgid "Move window one workspace down"
+msgstr "Presunúť okno o jeden pracovný priestor dolu"
+
+# description
+#: data/50-mutter-navigation.xml:38
+msgid "Move window one monitor to the left"
+msgstr "Presunúť okno o jeden monitor vľavo"
+
+# description
+#: data/50-mutter-navigation.xml:41
+msgid "Move window one monitor to the right"
+msgstr "Presunúť okno o jeden monitor vpravo"
+
+# description
+#: data/50-mutter-navigation.xml:44
+msgid "Move window one monitor up"
+msgstr "Presunúť okno o jeden monitor hore"
+
+# description
+#: data/50-mutter-navigation.xml:47
+msgid "Move window one monitor down"
+msgstr "Presunúť okno o jeden monitor dolu"
+
+# description
+#: data/50-mutter-navigation.xml:51
+msgid "Switch applications"
+msgstr "Prepnúť aplikácie"
+
+# description
+#: data/50-mutter-navigation.xml:56
+msgid "Switch to previous application"
+msgstr "Prepnúť na predchádzajúcu aplikáciu"
+
+# description
+#: data/50-mutter-navigation.xml:60
+msgid "Switch windows"
+msgstr "Prepnúť okná"
+
+# description
+#: data/50-mutter-navigation.xml:65
+msgid "Switch to previous window"
+msgstr "Prepnúť na predchádzajúce okno"
+
+# description
+#: data/50-mutter-navigation.xml:69
+msgid "Switch windows of an application"
+msgstr "Prepnúť okná aplikácie"
+
+# description
+#: data/50-mutter-navigation.xml:74
+msgid "Switch to previous window of an application"
+msgstr "Prepnúť na predchádzajúce okno aplikácie"
+
+# PK: predpokladam ze to prepisane medzi tlacidlami
+# description
+#: data/50-mutter-navigation.xml:78
+msgid "Switch system controls"
+msgstr "Prepnúť medzi ovládacími prvkami systému"
+
+# PK: predpokladam ze to prepisane medzi tlacidlami
+# description
+#: data/50-mutter-navigation.xml:83
+msgid "Switch to previous system control"
+msgstr "Prepnúť na predchádzajúci ovládací prvok systému"
+
+# description
+#: data/50-mutter-navigation.xml:87
+msgid "Switch windows directly"
+msgstr "Prepnúť okná priamo"
+
+#: data/50-mutter-navigation.xml:92
+msgid "Switch directly to previous window"
+msgstr "Priamo prepnúť na predchádzajúce okno"
+
+# description
+#: data/50-mutter-navigation.xml:96
+msgid "Switch windows of an app directly"
+msgstr "Prepnúť okná aplikácie priamo"
+
+# description
+#: data/50-mutter-navigation.xml:101
+msgid "Switch directly to previous window of an app"
+msgstr "Priamo prepnúť na predchádzajúce okno aplikácie"
+
+# description
+#: data/50-mutter-navigation.xml:105
+msgid "Switch system controls directly"
+msgstr "Prepnúť medzi ovládacími prvkami systému priamo"
+
+# PK: predpokladam ze to prepisane medzi tlacidlami
+# description
+#: data/50-mutter-navigation.xml:110
+msgid "Switch directly to previous system control"
+msgstr "Priamo prepnúť na predchádzajúci ovládací prvok systému"
+
+# description
+#: data/50-mutter-navigation.xml:113
+msgid "Hide all normal windows"
+msgstr "Skryť všetky normálne okná"
+
+# description
+#: data/50-mutter-navigation.xml:116
+msgid "Switch to workspace 1"
+msgstr "Prepnúť na pracovný priestor č. 1"
+
+# description
+#: data/50-mutter-navigation.xml:119
+msgid "Switch to workspace 2"
+msgstr "Prepnúť na pracovný priestor č. 2"
+
+# description
+#: data/50-mutter-navigation.xml:122
+msgid "Switch to workspace 3"
+msgstr "Prepnúť na pracovný priestor č. 3"
+
+# description
+#: data/50-mutter-navigation.xml:125
+msgid "Switch to workspace 4"
+msgstr "Prepnúť na pracovný priestor č. 4"
+
+# description
+#: data/50-mutter-navigation.xml:128
+msgid "Switch to last workspace"
+msgstr "Prepnúť na posledný pracovný priestor"
+
+# description
+#: data/50-mutter-navigation.xml:131
+msgid "Switch to workspace on the left"
+msgstr "Prepnúť na pracovný priestor vľavo"
+
+# description
+#: data/50-mutter-navigation.xml:134
+msgid "Switch to workspace on the right"
+msgstr "Prepnúť na pracovný priestor vpravo"
+
+# description
+#: data/50-mutter-navigation.xml:138
+msgid "Switch to workspace above"
+msgstr "Prepnúť na pracovný priestor vyššie"
+
+# description
+#: data/50-mutter-navigation.xml:142
+msgid "Switch to workspace below"
+msgstr "Prepnúť na pracovný priestor nižšie"
+
+#: data/50-mutter-system.xml:6 data/50-mutter-wayland.xml:6
+msgid "System"
+msgstr "Systém"
+
+# description
+#: data/50-mutter-system.xml:8
+msgid "Show the run command prompt"
+msgstr "Zobraziť riadok pre spustenie príkazu"
+
+#: data/50-mutter-wayland.xml:8
+msgid "Restore the keyboard shortcuts"
+msgstr "Obnoviť klávesové skratky"
+
+#: data/50-mutter-windows.xml:6
+msgid "Windows"
+msgstr "Okná"
+
+# description
+#: data/50-mutter-windows.xml:8
+msgid "Activate the window menu"
+msgstr "Aktivovať ponuku okna"
+
+# description
+#: data/50-mutter-windows.xml:10
+msgid "Toggle fullscreen mode"
+msgstr "Prepnúť režim na celú obrazovku"
+
+# description
+#: data/50-mutter-windows.xml:12
+msgid "Toggle maximization state"
+msgstr "Prepnúť stav maximalizácie"
+
+# description
+#: data/50-mutter-windows.xml:14
+msgid "Maximize window"
+msgstr "Maximalizovať okno"
+
+# description
+#: data/50-mutter-windows.xml:16
+msgid "Restore window"
+msgstr "Obnoviť okno"
+
+# description
+#: data/50-mutter-windows.xml:18
+msgid "Close window"
+msgstr "Zatvoriť okno"
+
+# description
+#: data/50-mutter-windows.xml:20
+msgid "Hide window"
+msgstr "Skryť okno"
+
+# description
+#: data/50-mutter-windows.xml:22
+msgid "Move window"
+msgstr "Presunúť okno"
+
+# description
+#: data/50-mutter-windows.xml:24
+msgid "Resize window"
+msgstr "Zmeniť veľkosť okna"
+
+# description
+#: data/50-mutter-windows.xml:27
+msgid "Toggle window on all workspaces or one"
+msgstr "Prepnúť okno na všetky pracovné priestory alebo len na jeden"
+
+# description
+#: data/50-mutter-windows.xml:29
+msgid "Raise window if covered, otherwise lower it"
+msgstr "Presunúť okno dopredu ak je zakryté, inak presunúť dozadu"
+
+# description
+#: data/50-mutter-windows.xml:31
+msgid "Raise window above other windows"
+msgstr "Presunúť okno nad ostatné okná"
+
+# description
+#: data/50-mutter-windows.xml:33
+msgid "Lower window below other windows"
+msgstr "Presunúť okno pod ostatné okná"
+
+# description
+#: data/50-mutter-windows.xml:35
+msgid "Maximize window vertically"
+msgstr "Maximalizovať okno zvisle"
+
+# description
+#: data/50-mutter-windows.xml:37
+msgid "Maximize window horizontally"
+msgstr "Maximalizovať okno vodorovne"
+
+# Description
+#: data/50-mutter-windows.xml:41 data/org.gnome.mutter.gschema.xml.in:166
+msgid "View split on left"
+msgstr "Zobraziť rozdelenie naľavo"
+
+# Description
+#: data/50-mutter-windows.xml:45 data/org.gnome.mutter.gschema.xml.in:171
+msgid "View split on right"
+msgstr "Zobraziť rozdelenie napravo"
+
+# summary
+#: data/org.gnome.mutter.gschema.xml.in:15
+msgid "Modifier to use for extended window management operations"
+msgstr "Modifikátor pre rozšírené operácie správcu okien"
+
+# description
+#: data/org.gnome.mutter.gschema.xml.in:16
+msgid ""
+"This key will initiate the “overlay”, which is a combination window overview "
+"and application launching system. The default is intended to be the “Windows "
+"key” on PC hardware. It’s expected that this binding either the default or "
+"set to the empty string."
+msgstr ""
+"Tento kláves spustí „prekrytie“, čo znamená kombináciu náhľadu okna a "
+"systému na spustenie aplikácií. Štandardne nastavená je na osobných "
+"počítačoch „kláves Windows“. Očakáva sa štandardné nastavenie alebo "
+"nastavenie na prázdny reťazec."
+
+# summary
+#: data/org.gnome.mutter.gschema.xml.in:28
+msgid "Attach modal dialogs"
+msgstr "Pripojiť modálne dialógové okná"
+
+# description
+#: data/org.gnome.mutter.gschema.xml.in:29
+msgid ""
+"When true, instead of having independent titlebars, modal dialogs appear "
+"attached to the titlebar of the parent window and are moved together with "
+"the parent window."
+msgstr ""
+"Ak je nastavené na true, namiesto nezávislých titulkov okien sa modálne "
+"dialógové okná budú javiť ako pripojené k titulku okna rodiča. Súčasne budú "
+"spolu s oknom rodiča aj presúvané."
+
+# summary
+#: data/org.gnome.mutter.gschema.xml.in:38
+msgid "Enable edge tiling when dropping windows on screen edges"
+msgstr "Povoliť natiahnutie k okraju pri pustení okien na okrajoch obrazovky"
+
+# description
+#: data/org.gnome.mutter.gschema.xml.in:39
+msgid ""
+"If enabled, dropping windows on vertical screen edges maximizes them "
+"vertically and resizes them horizontally to cover half of the available "
+"area. Dropping windows on the top screen edge maximizes them completely."
+msgstr ""
+"Ak je povolené, upustenie okien pri zvislých okrajoch obrazovky ich zvislo "
+"maximalizuje a vodorovná veľkosť sa zmení na polovicu dostupnej plochy. "
+"Upustenie okien pri vrchnom okraji obrazovky ich maximalizuje úplne."
+
+# summary
+#: data/org.gnome.mutter.gschema.xml.in:48
+msgid "Workspaces are managed dynamically"
+msgstr "Pracovné priestory sú spravované dynamicky"
+
+# description
+#: data/org.gnome.mutter.gschema.xml.in:49
+msgid ""
+"Determines whether workspaces are managed dynamically or whether there’s a "
+"static number of workspaces (determined by the num-workspaces key in "
+"org.gnome.desktop.wm.preferences)."
+msgstr ""
+"Určuje, či pracovné priestory sú spravované dynamicky alebo ich počet je "
+"pevný (určený kľúčom num-workspaces v org.gnome.desktop.wm.preferences)."
+
+# summary
+#: data/org.gnome.mutter.gschema.xml.in:58
+msgid "Workspaces only on primary"
+msgstr "Pracovné priestory len na hlavnom monitore"
+
+# description
+#: data/org.gnome.mutter.gschema.xml.in:59
+msgid ""
+"Determines whether workspace switching should happen for windows on all "
+"monitors or only for windows on the primary monitor."
+msgstr ""
+"Určuje, či sa má pracovný priestor prepínať medzi oknami na všetkých "
+"monitoroch alebo iba medzi oknami na hlavnom monitore."
+
+# summary
+#: data/org.gnome.mutter.gschema.xml.in:67
+msgid "Delay focus changes until the pointer stops moving"
+msgstr "Odložiť zmeny zamerania až po zastavení pohybu ukazovateľa"
+
+# description
+#: data/org.gnome.mutter.gschema.xml.in:68
+msgid ""
+"If set to true, and the focus mode is either “sloppy” or “mouse” then the "
+"focus will not be changed immediately when entering a window, but only after "
+"the pointer stops moving."
+msgstr ""
+"Ak je nastavené na true a režim aktivácie okien je buď „sloppy“ (nedbalý) "
+"alebo „mouse“ (myš), potom sa zameranie nezmení okamžite, ale až po vstupe "
+"do okna a zastavení ukazovateľa."
+
+# summary
+#: data/org.gnome.mutter.gschema.xml.in:78
+msgid "Draggable border width"
+msgstr "Šírka posúvateľného okraja"
+
+# description
+#: data/org.gnome.mutter.gschema.xml.in:79
+msgid ""
+"The amount of total draggable borders. If the theme’s visible borders are "
+"not enough, invisible borders will be added to meet this value."
+msgstr ""
+"Celkový počet preťahovateľných okrajov. Ak nestačia viditeľné okraje, "
+"nastavené témou, budú pridané neviditeľné okraje až do požadovanej hodnoty."
+
+# summary
+#: data/org.gnome.mutter.gschema.xml.in:88
+msgid "Auto maximize nearly monitor sized windows"
+msgstr "Automaticky maximalizovať okná podobnej veľkosti ako je monitor"
+
+# description
+#: data/org.gnome.mutter.gschema.xml.in:89
+msgid ""
+"If enabled, new windows that are initially the size of the monitor "
+"automatically get maximized."
+msgstr ""
+"Ak je povolené, nové okná inicializované na veľkosť monitora budú "
+"automaticky maximalizované."
+
+#: data/org.gnome.mutter.gschema.xml.in:97
+msgid "Place new windows in the center"
+msgstr "Umiestniť nové okná do stredu"
+
+#: data/org.gnome.mutter.gschema.xml.in:98
+msgid ""
+"When true, the new windows will always be put in the center of the active "
+"screen of the monitor."
+msgstr ""
+"Ak je nastavené na true, budú nové okná vždy umiestnené v strede aktívnej "
+"obrazovky monitoru."
+
+#: data/org.gnome.mutter.gschema.xml.in:107
+msgid "Enable experimental features"
+msgstr "Povoliť experimentálne funkcie"
+
+#: data/org.gnome.mutter.gschema.xml.in:108
+msgid ""
+"To enable experimental features, add the feature keyword to the list. "
+"Whether the feature requires restarting the compositor depends on the given "
+"feature. Any experimental feature is not required to still be available, or "
+"configurable. Don’t expect adding anything in this setting to be future "
+"proof. Currently possible keywords: • “kms-modifiers” — makes mutter always "
+"allocate scanout buffers with explicit modifiers, if supported by the "
+"driver. Requires a restart. • “autoclose-xwayland” — automatically "
+"terminates Xwayland if all relevant X11 clients are gone. Requires a restart."
+msgstr ""
+"Na povolenie experimentálnych funkcií pridajte do zoznamu ich kľúčové slová. "
+"To, či funkcia vyžaduje reštart kompozitora, závisí od konkrétnej funkcie. "
+"Žiadna experimentálna funkcia nemusí byť zaručene dostupná alebo "
+"konfigurovateľná aj v budúcnosti. Neočakávajte, že čokoľvek pridáte do tohto "
+"nastavenia, bude odolné voči budúcim zmenám. Momentálne dostupné kľúčové "
+"slová: • „kms-modifiers“ — spôsobí, že Mutter bude vždy alokovať výstupné "
+"buffery s explicitnými modifikátormi, ak to ovládač podporuje. Vyžaduje "
+"reštart. • „autoclose-xwayland“ — automaticky ukončí Xwayland, ak sú všetky "
+"príslušné aplikácie využívajúce systém X11 zatvorené. Vyžaduje reštart."
+
+#: data/org.gnome.mutter.gschema.xml.in:130
+msgid "Modifier to use to locate the pointer"
+msgstr "Modifikátor použitý na lokalizovanie ukazovateľa"
+
+#: data/org.gnome.mutter.gschema.xml.in:131
+msgid "This key will initiate the “locate pointer” action."
+msgstr "Tento kláves spustí akciu „zisti polohu ukazovateľa“."
+
+#: data/org.gnome.mutter.gschema.xml.in:138
+msgid "Timeout for check-alive ping"
+msgstr "Časový limit pre check-alive ping"
+
+#: data/org.gnome.mutter.gschema.xml.in:139
+msgid ""
+"Number of milliseconds a client has to respond to a ping request in order to "
+"not be detected as frozen. Using 0 will disable the alive check completely."
+msgstr ""
+"Počet milisekúnd, ktoré ma klient na odpoveď na kontrolné pingnutie. Slúži "
+"na kontrolu zamrznutia. Nastavením na 0 sa kontrola úplne vypne."
+
+#. TRANSLATORS: Luminance is different from brightness.
+#. See https://en.wikipedia.org/wiki/Luminance
+#: data/org.gnome.mutter.gschema.xml.in:150
+msgid "Per output luminance settings"
+msgstr "Individuálne nastavenia jasu výstupov"
+
+#: data/org.gnome.mutter.gschema.xml.in:151
+msgid ""
+"Per output and color mode luminance setting. Each entry consists of a tuple "
+"with connector, vendor, product, serial, and a color mode, as well as an "
+"associated floating point value representing the output luminance in percent "
+"(%). The default when not specified is 100%."
+msgstr ""
+"Individuálne nastavenie jasu podľa výstupu a farebného režimu. Každá položka "
+"pozostáva z n-tice s konektorom, výrobcom, produktom, sériovým číslom a "
+"farebným režimom, ako aj z priradenej desatinnej hodnoty predstavujúcej jas "
+"výstupu v percentách (%). Predvolená hodnota, ak nie je uvedená, je 100 %."
+
+# PK: predpokladam ze to prepisane medzi tlacidlami
+# description
+#: data/org.gnome.mutter.gschema.xml.in:176
+msgid "Switch monitor configurations"
+msgstr "Prepnúť nastavenia monitorov"
+
+#: data/org.gnome.mutter.gschema.xml.in:181
+msgid "Rotates the built-in monitor configuration"
+msgstr "Otočí nastavenie vstavaného monitora"
+
+#: data/org.gnome.mutter.gschema.xml.in:186
+msgid "Cancel any active input capture session"
+msgstr "Zrušiť akúkoľvek aktívnu reláciu zachytávania vstupu"
+
+# description
+#: data/org.gnome.mutter.wayland.gschema.xml.in:12
+msgid "Switch to VT 1"
+msgstr "Prepnúť na VT č. 1"
+
+# description
+#: data/org.gnome.mutter.wayland.gschema.xml.in:16
+msgid "Switch to VT 2"
+msgstr "Prepnúť na VT č. 2"
+
+# description
+#: data/org.gnome.mutter.wayland.gschema.xml.in:20
+msgid "Switch to VT 3"
+msgstr "Prepnúť na VT č. 3"
+
+# description
+#: data/org.gnome.mutter.wayland.gschema.xml.in:24
+msgid "Switch to VT 4"
+msgstr "Prepnúť na VT č. 4"
+
+# description
+#: data/org.gnome.mutter.wayland.gschema.xml.in:28
+msgid "Switch to VT 5"
+msgstr "Prepnúť na VT č. 5"
+
+# description
+#: data/org.gnome.mutter.wayland.gschema.xml.in:32
+msgid "Switch to VT 6"
+msgstr "Prepnúť na VT č. 6"
+
+# description
+#: data/org.gnome.mutter.wayland.gschema.xml.in:36
+msgid "Switch to VT 7"
+msgstr "Prepnúť na VT č. 7"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:40
+msgid "Switch to VT 8"
+msgstr "Prepnúť na VT č. 8"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:44
+msgid "Switch to VT 9"
+msgstr "Prepnúť na VT č. 9"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:48
+msgid "Switch to VT 10"
+msgstr "Prepnúť na VT č. 10"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:52
+msgid "Switch to VT 11"
+msgstr "Prepnúť na VT č. 11"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:56
+msgid "Switch to VT 12"
+msgstr "Prepnúť na VT č. 12"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:60
+msgid "Re-enable shortcuts"
+msgstr "Znovu povoliť klávesové skratky"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:70
+msgid "Allow X11 grabs to lock keyboard focus with Xwayland"
+msgstr ""
+"Povoliť X11 zachytávanie, aby mohol zachytiť zameranie klávesnice pomocou "
+"Xwayland"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:71
+msgid ""
+"Allow all keyboard events to be routed to X11 “override redirect” windows "
+"with a grab when running in Xwayland. This option is to support X11 clients "
+"which map an “override redirect” window (which do not receive keyboard "
+"focus) and issue a keyboard grab to force all keyboard events to that "
+"window. This option is seldom used and has no effect on regular X11 windows "
+"which can receive keyboard focus under normal circumstances. For a X11 grab "
+"to be taken into account under Wayland, the client must also either send a "
+"specific X11 ClientMessage to the root window or be among the applications "
+"allowed in key “xwayland-grab-access-rules”."
+msgstr ""
+"Povolí „vynútenie presmerovania“ všetkých klávesových udalostí smerujúcich "
+"do okien X11 ak bežia v systéme Xwaylande. Táto voľba slúži na podporu "
+"aplikácií systému X11, ktoré samé mapujú „vynútenie presmerovania“ do okna "
+"(ktoré neprijíma zameranie z klávesnice) a zároveň žiadajú o zachytávanie "
+"všetkých udalostí klávesnice do tohto okna. Táto voľba sa používa zriedkavo "
+"a nemá vplyv na bežné X11 okná, ktoré môžu za normálnych okolností prijímať "
+"klávesové zameranie. Aby sa zachytávanie v X11 bralo do úvahy aj pod "
+"Waylandom, klient musí navyše buď odoslať špeciálnu X11 správu typu "
+"ClientMessage do koreňového okna, alebo byť medzi aplikáciami povolenými v "
+"kľúči „xwayland-grab-access-rules“."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:90
+msgid "Xwayland applications allowed to issue keyboard grabs"
+msgstr "Aplikácie Xwayland, ktorým je povolené vykonať zachytávanie klávesnice"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:91
+msgid ""
+"List the resource names or resource class of X11 windows either allowed or "
+"not allowed to issue X11 keyboard grabs under Xwayland. The resource name or "
+"resource class of a given X11 window can be obtained using the command "
+"“xprop WM_CLASS”. Wildcards “*” and jokers “?” in the values are supported. "
+"Values starting with “!” are denied, which has precedence over the list of "
+"values allowed, to revoke applications from the default system list. The "
+"default system list includes the following applications: "
+"“@XWAYLAND_GRAB_DEFAULT_ACCESS_RULES@” Users can break an existing grab by "
+"using the specific keyboard shortcut defined by the keybinding key “restore-"
+"shortcuts”."
+msgstr ""
+"Zoznam názvov a tried okien X11, ktorým je buď dovolené alebo nedovolené "
+"vykonať zachytávanie klávesnice systému X11 pod systémom Xwayland. Názvy a "
+"triedy daných okien systému X11 sa dajú získať pomocou príkazu „xprop "
+"WM_CLASS“. V hodnotách je možné použiť aj zástupné znaky ako * (nahrádza "
+"ľubovoľný počet znakov) a ? (nahrádza jeden znak). Hodnoty začínajúce "
+"výkričníkom ! sú zakázané, čo má prednosť na zoznamom povolených hodnôt, čím "
+"sa odvolá povolenie z predvoleného systémového zoznamu. Predvolený systémový "
+"zoznam obsahuje nasledujúce aplikácie: "
+"„@XWAYLAND_GRAB_DEFAULT_ACCESS_RULES@“ Používateľ môže prerušiť zachytávanie "
+"pomocou špecifickej klávesovej skratky, ktorá je nastavená v kľúči „restore-"
+"shortcuts“."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:116
+msgid "Disable selected X extensions in Xwayland"
+msgstr "Zakázať vybrané rozšírenia X v Xwaylande"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:117
+msgid ""
+"This option disables the selected X extensions in Xwayland if Xwayland was "
+"built with support for those X extensions. This option has no effect if "
+"Xwayland was built without support for the selected extensions. Xwayland "
+"needs to be restarted for this setting to take effect."
+msgstr ""
+"Táto voľba zakáže vybrané rozšírenia systému X11 v Xwaylande, ak bol "
+"Xwayland zostavený s podporou pre tieto rozšírenia systému X. Ak Xwayland "
+"nepodporuje dané rozšírenia, toto nastavenie nebude mať žiadny účinok. Aby "
+"sa zmena prejavila, je potrebné reštartovať Xwayland."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:130
+msgid "Allow X11 clients with a different endianness to connect to Xwayland"
+msgstr ""
+"Povoliť pripojenie k Xwaylandu X11 klientom používajúcim iné poradie bajtov "
+"(endianness)"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:131
+msgid ""
+"Allow connections from clients with an endianness different to that of "
+"Xwayland. The X server byte-swapping code is a huge attack surface, much of "
+"that code in Xwayland is prone to security issues. The use-case of byte-"
+"swapped clients is very niche, and disabled by default in Xwayland. Enable "
+"this option to instruct Xwayland to accept connections from X11 clients with "
+"a different endianness. This option has no effect if Xwayland does not "
+"support the command line option +byteswappedclients/-byteswappedclients to "
+"control that setting. Xwayland needs to be restarted for this setting to "
+"take effect."
+msgstr ""
+"Povoliť pripojenia od aplikácií s iným poradím bajtov (tzv endianness), než "
+"používa Xwayland. Kód v X serveri, ktorý sa stará o výmenu bajtov "
+"predstavuje veľký priestor pre potenciálne útoky. Využitie výmeny bajtov "
+"klientskymi aplikáciami je veľmi zriedkavé a je preto v predvolenom stave v "
+"Xwaylande zakázané. Povolením tejto voľby dáte pokyn pre Xwayland, aby "
+"prijímal spojenia od klientov s rozdielnym poradím bajtov. Táto voľba nemá "
+"žiadny efekt, ak Xwayland nepodporuje voľbu príkazového riadka "
+"+byteswappedclients/-byteswappedclients, ktorou sa ovláda toto nastavenie. "
+"Aby sa zmena prejavila, je potrebné reštartovať Xwayland."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:154
+msgid "Configure the Xwayland scaling factor"
+msgstr "Nastaviť faktor zmeny veľkosti Xwayland"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:155
+msgid ""
+"Scale the Xwayland coordinate space according to this factor. This will "
+"affect what scale HiDPI capable X11 clients will present themselves as, and "
+"how the compositor scales X11 client windows. Setting the scale to 0 means "
+"the scale will be automatically calculated. The scale will as of now be "
+"rounded to the closest integer."
+msgstr ""
+"Zmeniť mierku súradnicového priestoru Xwaylandu podľa tohto faktora. To bude "
+"mať vplyv na to, ako sa budú prezentovať X11 klienti podporujúci HiDPI a ako "
+"bude kompozitor meniť veľkosť okien klientov X11. Nastavenie mierky na 0 "
+"znamená, že sa vypočíta automaticky. Mierka sa v súčasnosti zaokrúhľuje na "
+"najbližšie celé číslo."
+
+# description
+#: mdk/mdk-launcher-adder.c:451 mdk/mdk-launcher-adder.ui:22
+msgid "Application"
+msgstr "Aplikácia"
+
+#: mdk/mdk-launcher-adder.c:456 mdk/mdk-launcher-adder.ui:23
+msgid "Executable"
+msgstr "Spustiteľný súbor"
+
+#: mdk/mdk-launcher-adder.ui:3
+msgid "Add Launcher"
+msgstr "Pridať spúšťač"
+
+#: mdk/mdk-launcher-adder.ui:15
+msgid "Launcher"
+msgstr "Spúšťač"
+
+#: mdk/mdk-launcher-adder.ui:18
+msgid "Type"
+msgstr "Typ"
+
+#: mdk/mdk-launcher-adder.ui:38 mdk/mdk-launchers-editor.ui:22
+msgid "Add"
+msgstr "Pridať"
+
+#: mdk/mdk-launcher-entry.c:198
+msgid "Run"
+msgstr "Spustiť"
+
+#: mdk/mdk-launcher-entry.ui:12
+msgid "Delete"
+msgstr "Odstrániť"
+
+#: mdk/mdk-launcher-entry.ui:20
+msgid "Action"
+msgstr "Akcia"
+
+#: mdk/mdk-launchers-editor.ui:3
+msgid "Edit Launchers"
+msgstr "Upraviť spúšťače"
+
+#: mdk/mdk-launchers-editor.ui:16
+msgid "Launchers"
+msgstr "Spúšťače"
+
+#: mdk/mdk-main-window.ui:7
+msgid "_Input"
+msgstr "_Vstup"
+
+#: mdk/mdk-main-window.ui:9
+msgid "_Emulate touch"
+msgstr "_Emulovať dotyk"
+
+#: mdk/mdk-main-window.ui:13
+msgid "_Inhibit system shortcuts"
+msgstr "_Potlačiť systémové skratky"
+
+#: mdk/mdk-main-window.ui:17
+msgid "Use host _keymap"
+msgstr "Použiť _klávesovú mapu hostiteľa"
+
+#: mdk/mdk-main-window.ui:24
+msgid "_Monitors"
+msgstr "_Monitory"
+
+# PK: predpokladam ze to prepisane medzi tlacidlami
+# description
+#: mdk/mdk-main-window.ui:26
+msgid "_Add monitor"
+msgstr "_Pridať monitor"
+
+#: mdk/mdk-main-window.ui:30
+msgid "_Emulate monitor modes"
+msgstr "_Emulovať režimy monitora"
+
+#: mdk/mdk-main-window.ui:37
+msgid "_Launchers"
+msgstr "_Spúšťače"
+
+#: mdk/mdk-main-window.ui:41
+msgid "_Edit launchers"
+msgstr "_Upraviť spúšťače"
+
+#: mdk/mdk-main-window.ui:48
+msgid "_About Mutter Development Kit"
+msgstr "_O vývojovej sade pre Mutter"
+
+#: mdk/mdk-main-window.ui:54 mdk/mdk-main.c:56
+msgid "Mutter Development Kit"
+msgstr "Vývojová sada pre Mutter"
+
+#: mdk/mdk-main-window.ui:64
+msgid "Main Menu"
+msgstr "Hlavná ponuka"
+
+#: mdk/mdk-main.c:49
+msgid "The Mutter Team"
+msgstr "Tím Mutteru"
+
+#: mdk/mdk-main.c:62
+msgid "Mutter software development kit"
+msgstr "Softvérová vývojová sada pre Mutter"
+
+#: mdk/mdk-main.c:65
+msgid "About Mutter Development Kit"
+msgstr "O vývojovej sade pre Mutter"
+
+#: mdk/mdk-monitor.c:557
+msgid "Failed to create monitor"
+msgstr "Zlyhalo vytvorenie monitora"
+
+#: src/backends/meta-monitor.c:285
+msgid "Built-in display"
+msgstr "Vstavaný displej"
+
+#: src/backends/meta-monitor.c:312
+msgid "Unknown"
+msgstr "Neznámy"
+
+#: src/backends/meta-monitor.c:314
+msgid "Unknown Display"
+msgstr "Neznámy displej"
+
+#: src/backends/meta-monitor.c:322
+#, c-format
+msgctxt ""
+"This is a monitor vendor name, followed by a size in inches, like 'Dell 15\"'"
+msgid "%s %s"
+msgstr "%s %s"
+
+#: src/backends/meta-monitor.c:330
+#, c-format
+msgctxt ""
+"This is a monitor vendor name followed by product/model name where size in "
+"inches could not be calculated, e.g. Dell U2414H"
+msgid "%s %s"
+msgstr "%s %s"
+
+#: src/core/bell.c:237
+msgid "Bell event"
+msgstr "Udalosť zvončeka"
+
+#: src/core/display.c:608
+msgid "Privacy Screen Enabled"
+msgstr "Súkromná obrazovka povolená"
+
+#: src/core/display.c:609
+msgid "Privacy Screen Disabled"
+msgstr "Súkromná obrazovka zakázaná"
+
+# cmd desc
+#: src/core/meta-context-main.c:356
+msgid "Run as a wayland compositor"
+msgstr "Spustí ako kompozitor protokolu wayland"
+
+#: src/core/meta-context-main.c:363
+msgid "Run wayland compositor without starting Xwayland"
+msgstr "Spustí kompozitor wayland bez spustenia Xwayland"
+
+#: src/core/meta-context-main.c:370
+msgid "Specify Wayland display name to use"
+msgstr "Určuje názov displeja Wayland, ktorý sa má použiť"
+
+#: src/core/meta-context-main.c:377
+msgid "Run as a full display server, rather than nested"
+msgstr "Spustí ako plnohodnotný zobrazovací server, namiesto vnoreného režimu"
+
+#: src/core/meta-context-main.c:382
+msgid "Run as a headless display server"
+msgstr "Spustí ako zobrazovací server bez monitora (headless)"
+
+#: src/core/meta-context-main.c:387
+msgid "Add persistent virtual monitor (WxH or WxH@R)"
+msgstr "Pridá trvalý virtuálny monitor (ŠxV alebo ŠxV@F)"
+
+#: src/core/meta-context-main.c:394
+msgid "Run development kit"
+msgstr "Spustí vývojársku sadu"
+
+#: src/core/meta-context-main.c:405
+msgid "Profile performance using trace instrumentation"
+msgstr "Premeria výkon pomocou techniky trasovania"
+
+#: src/core/meta-context-main.c:411
+msgid "Enable debug control D-Bus interface"
+msgstr "Povolí rozhranie zbernice D-Bus kvôli ovládaniu ladenia"
+
+#. TRANSLATORS: This string refers to a button that switches between
+#. * different modes in that button group.
+#.
+#: src/core/meta-pad-action-mapper.c:617
+#, c-format
+msgid "Mode Switch (Group %d)"
+msgstr "Prepínač režimu (skupina č. %d)"
+
+#. TRANSLATORS: This string refers to a button that switches between
+#. * different modes.
+#.
+#: src/core/meta-pad-action-mapper.c:624
+#, c-format
+msgid "Mode Switch"
+msgstr "Prepínač režimu"
+
+# PK: predpokladam ze to prepisane medzi tlacidlami
+# description
+#. TRANSLATORS: This string refers to an action, cycles drawing tablets'
+#. * mapping through the available outputs.
+#.
+#: src/core/meta-pad-action-mapper.c:647
+msgid "Switch monitor"
+msgstr "Prepnúť monitor"
+
+#: src/core/meta-pad-action-mapper.c:649
+msgid "Show on-screen help"
+msgstr "Zobraziť pomocníka na obrazovke"
+
+#. Translators: this string will appear in Sysprof
+#: src/core/meta-profiler.c:109 src/core/meta-profiler.c:299
+msgid "Compositor"
+msgstr "Kompozítor"
+
+# cmd desc
+#: src/core/mutter.c:75
+msgid "Print version"
+msgstr "Zobrazí verziu"
+
+# cmd desc
+#: src/core/mutter.c:81
+msgid "Mutter plugin to use"
+msgstr "Použije zásuvný modul Mutter"
+
+#: src/core/prefs.c:1874
+#, c-format
+msgid "Workspace %d"
+msgstr "Pracovný priestor č. %d"
+
+#: src/core/util.c:155
+msgid "Mutter was compiled without support for verbose mode"
+msgstr "Mutter bol skompilovaný bez výpisu podrobností pri behu"
+
+#: src/core/workspace.c:510
+msgid "Workspace switched"
+msgstr "Pracovný priestor prepnutý"
+
+#: src/wayland/meta-wayland-tablet-pad.c:558
+#, c-format
+msgid "Mode Switch: Mode %d"
+msgstr "Prepínač režimu: Režim č. %d"
+
+#: src/x11/meta-x11-display.c:770
+#, c-format
+msgid "Display “%s” already has a window manager"
+msgstr "Obrazovka „%s“ už správcu okien má"
+
+# X window system preloz, napr. system na spravu okien X
+#: src/x11/meta-x11-display.c:1133
+#, c-format
+msgid "Failed to open X Window System display “%s”"
+msgstr "Zlyhalo otvorenie displeja systému na správu okien X „%s“"
+
+#: src/x11/meta-x11-display.c:1278
+#, c-format
+msgid "Screen %d on display “%s” is invalid"
+msgstr "Obrazovka č. %d na displeji „%s“ nie je platná"
+
+#. This probably means that a non-WM compositor like xcompmgr is running;
+#. * we have no way to get it to exit
+#: src/x11/meta-x11-display.c:2463
+#, c-format
+msgid ""
+"Another compositing manager is already running on screen %i on display “%s”."
+msgstr ""
+"Pre obrazovku č. %i na displeji „%s“ je spustený už iný správca rozloženia."
+
+#: src/x11/meta-x11-selection-input-stream.c:475
+#, c-format
+msgid "Format %s not supported"
+msgstr "Formát %s nie je podporovaný"
+
+# window title; wm_client_machine
+#: src/x11/window-props.c:562
+#, c-format
+msgid "%s (on %s)"
+msgstr "%s (na %s)"
+
+# cmd desc
+#~ msgid "Replace the running window manager"
+#~ msgstr "Nahradí bežiaceho správcu okien"
+
+#~ msgid "X Display to use"
+#~ msgstr "X displej, ktorý bude použitý"
+
+# cmd desc
+#~ msgid "Make X calls synchronous"
+#~ msgstr "Použije synchrónne volania X"
+
+# cmd desc
+#~ msgid "Run as a nested compositor"
+#~ msgstr "Spustí ako kompozitor s vnoreným režimom"
+
+#~ msgid "Run with X11 backend"
+#~ msgstr "Spustí s obslužným programom X11"
+
+#, c-format
+#~ msgid ""
+#~ "Display “%s” already has a window manager; try using the --replace option "
+#~ "to replace the current window manager."
+#~ msgstr ""
+#~ "Displej „%s“ už má správcu okien. Skúste použiť prepínač --replace, aby "
+#~ "sa aktuálny správca nahradil."
+
+# cmd desc
+#~ msgid "Disable connection to session manager"
+#~ msgstr "Zakáže pripojenia k správcovi relácií"
+
+# cmd desc
+#~ msgid "Specify session management ID"
+#~ msgstr "Zadá identifikátor správy relácií"
+
+# cmd desc
+#~ msgid "Initialize session from savefile"
+#~ msgstr "Inicializuje reláciu z uloženého súboru"
+
+# description
+#~ msgid "Move to workspace above"
+#~ msgstr "Presunúť na pracovný priestor hore"
+
+# description
+#~ msgid "Move to workspace below"
+#~ msgstr "Presunúť na pracovný priestor dole"
+
+#~ msgid "Mutter"
+#~ msgstr "Mutter"
+
+# summary
+#~ msgid "No tab popup"
+#~ msgstr "Bez vyvolávania tabulátorom"
+
+# description
+#~ msgid ""
+#~ "Determines whether the use of popup and highlight frame should be "
+#~ "disabled for window cycling."
+#~ msgstr ""
+#~ "Určuje, či sa má používať rozbaľovacia ponuka a zvýraznenie rámcom sa má "
+#~ "vypnúť pri prepínaní okien."
+
+# summary
+#~ msgid "Select window from tab popup"
+#~ msgstr "Vybrať okno z rozbaľovacej ponuky tabulátora"
+
+# summary
+#~ msgid "Cancel tab popup"
+#~ msgstr "Zrušit rozbaľovaciu ponuku tabulátora"
+
+#~ msgid "Failed to initialize GDK"
+#~ msgstr "Zlyhala inicializácia GDK"
+
+# description
+#~ msgid "Show the activities overview"
+#~ msgstr "Zobraziť prehľad aktivít"
+
+# %s is a window title
+#, c-format
+#~ msgid "“%s” is not responding."
+#~ msgstr "„%s“ neodpovedá."
+
+#~ msgid "Application is not responding."
+#~ msgstr "Aplikácia neodpovedá."
+
+#~ msgid ""
+#~ "You may choose to wait a short while for it to continue or force the "
+#~ "application to quit entirely."
+#~ msgstr ""
+#~ "Môžete chvíľu počkať na pokračovanie aplikácie, alebo ju môžete ukončiť."
+
+#~ msgid "_Force Quit"
+#~ msgstr "_Vynútiť ukončenie"
+
+#~ msgid "_Wait"
+#~ msgstr "_Počkať"
+
+#~ msgid ""
+#~ "These windows do not support “save current setup” and will have to be "
+#~ "restarted manually next time you log in."
+#~ msgstr ""
+#~ "Tieto okná nepodporujú „uloženie aktuálnych nastavení“ a pri budúcom "
+#~ "prihlásení ich budete musieť znovu spustiť ručne."
+
+#~ msgid ""
+#~ "mutter %s\n"
+#~ "Copyright © 2001-%d Havoc Pennington, Red Hat, Inc., and others\n"
+#~ "This is free software; see the source for copying conditions.\n"
+#~ "There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A "
+#~ "PARTICULAR PURPOSE.\n"
+#~ msgstr ""
+#~ "mutter %s\n"
+#~ "Autorské práva © 2001-%d Havoc Pennington, Red Hat, Inc., a ostatní\n"
+#~ "Toto je slobodný softvér; pozrite podmienky kopírovania v zdrojových "
+#~ "kódoch.\n"
+#~ "Záruka sa NEPOSKYTUJE; ani na PREDAJNOSŤ alebo VHODNOSŤ PRE URČITÝ ÚČEL.\n"
+
+# description
+#~ msgid "Toggle shaded state"
+#~ msgstr "Prepnúť stav zatienenia"
+
+#~ msgid "background texture could not be created from file"
+#~ msgstr "nepodarilo sa vytvoriť textúru pozadia zo súboru"
+
+#~ msgid "Unknown window information request: %d"
+#~ msgstr "Neznáma požiadavka na informácie o okne: %d"
+
+#~ msgid "Missing %s extension required for compositing"
+#~ msgstr "Rozšírenie %s, potrebné pre kompozitné prostredie, chýba"
+
+#~ msgid ""
+#~ "Some other program is already using the key %s with modifiers %x as a "
+#~ "binding\n"
+#~ msgstr ""
+#~ "Iný program už používa kláves %s s modifikátormi %x ako klávesovú "
+#~ "skratku\n"
+
+#~ msgid "\"%s\" is not a valid accelerator\n"
+#~ msgstr "„%s“ nie je platný akcelerátor\n"
+
+#~ msgid ""
+#~ "Could not find a theme! Be sure %s exists and contains the usual themes.\n"
+#~ msgstr ""
+#~ "Nepodarilo sa nájsť tému! Overte, že %s existuje a obsahuje obvyklé "
+#~ "témy.\n"
+
+#~ msgid ""
+#~ "Workarounds for broken applications disabled. Some applications may not "
+#~ "behave properly.\n"
+#~ msgstr ""
+#~ "Náhradné riešenia pre chybné aplikácie nie sú povolené. Niektoré "
+#~ "aplikácie sa nemusia správať správne.\n"
+
+#~ msgid "Could not parse font description \"%s\" from GSettings key %s\n"
+#~ msgstr "Nepodarilo sa spracovať popis písma „%s“ z kľúča GSettings %s\n"
+
+#~ msgid ""
+#~ "\"%s\" found in configuration database is not a valid value for mouse "
+#~ "button modifier\n"
+#~ msgstr ""
+#~ "V konfiguračnej databáze sa našlo „%s“, čo nie je platná hodnota pre "
+#~ "modifikátor tlačidla myši\n"
+
+#~ msgid ""
+#~ "\"%s\" found in configuration database is not a valid value for "
+#~ "keybinding \"%s\"\n"
+#~ msgstr ""
+#~ "V konfiguračnej databáze sa našlo „%s“, čo nie je platná hodnota pre "
+#~ "klávesovú skratku „%s“\n"
+
+#~ msgid ""
+#~ "Could not acquire window manager selection on screen %d display \"%s\"\n"
+#~ msgstr ""
+#~ "Nepodarilo sa získať výber správcu okien pre obrazovku č. %d na displeji "
+#~ "„%s“\n"
+
+#~ msgid "Could not release screen %d on display \"%s\"\n"
+#~ msgstr "Nepodarilo sa uvoľniť obrazovku č. %d na displeji „%s“\n"
+
+#~ msgid "Could not create directory '%s': %s\n"
+#~ msgstr "Nepodarilo sa vytvoriť adresár „%s“: %s\n"
+
+#~ msgid "Could not open session file '%s' for writing: %s\n"
+#~ msgstr "Nepodarilo sa otvoriť súbor relácie „%s“ pre zápis: %s\n"
+
+#~ msgid "Error writing session file '%s': %s\n"
+#~ msgstr "Chyba pri zápise súboru relácie „%s“: %s\n"
+
+#~ msgid "Error closing session file '%s': %s\n"
+#~ msgstr "Chyba pri zatváraní súboru relácie „%s“: %s\n"
+
+#~ msgid "Failed to parse saved session file: %s\n"
+#~ msgstr "Zlyhalo spracovanie uloženého súboru relácie: %s\n"
+
+#~ msgid "<mutter_session> attribute seen but we already have the session ID"
+#~ msgstr ""
+#~ "Našiel sa atribút <mutter_session>, ale identifikátor relácie už je "
+#~ "nastavený"
+
+#~ msgid "Unknown attribute %s on <%s> element"
+#~ msgstr "Neznámy atribút %s v prvku <%s>"
+
+#~ msgid "nested <window> tag"
+#~ msgstr "vnorená značka <window>"
+
+#~ msgid "Unknown element %s"
+#~ msgstr "Neznámy prvok %s"
+
+#~ msgid "Failed to open debug log: %s\n"
+#~ msgstr "Zlyhalo otvorenie záznamu pre ladenie: %s\n"
+
+#~ msgid "Failed to fdopen() log file %s: %s\n"
+#~ msgstr "Zlyhalo otvorenie súboru so záznamom pomocou fdopen() %s: %s\n"
+
+#~ msgid "Opened log file %s\n"
+#~ msgstr "Otvorený súbor so záznamom %s\n"
+
+#  * https://bugzilla.gnome.org/show_bug.cgi?id=698123
+#~ msgid "Window manager: "
+#~ msgstr "Správca okien: "
+
+# * https://bugzilla.gnome.org/show_bug.cgi?id=698123
+#~ msgid "Bug in window manager: "
+#~ msgstr "Chyba v správcovi okien: "
+
+#  * https://bugzilla.gnome.org/show_bug.cgi?id=698123
+#~ msgid "Window manager warning: "
+#~ msgstr "Varovanie správcu okien: "
+
+#  * https://bugzilla.gnome.org/show_bug.cgi?id=698123
+#~ msgid "Window manager error: "
+#~ msgstr "Chyba správcu okien: "
+
+#~ msgid ""
+#~ "Window %s sets SM_CLIENT_ID on itself, instead of on the WM_CLIENT_LEADER "
+#~ "window as specified in the ICCCM.\n"
+#~ msgstr ""
+#~ "Okno %s nastavuje SM_CLIENT_ID na seba a nie na WM_CLIENT_LEADER, ako je "
+#~ "uvedené v ICCCM.\n"
+
+#~ msgid ""
+#~ "Window %s sets an MWM hint indicating it isn't resizable, but sets min "
+#~ "size %d x %d and max size %d x %d; this doesn't make much sense.\n"
+#~ msgstr ""
+#~ "Okno %s nastavuje radu MWM, že nie je možné zmeniť jeho veľkosť, ale "
+#~ "nastavuje minimálnu veľkosť %d x %d a maximálnu veľkosť %d x %d. To "
+#~ "nedáva zmysel.\n"
+
+#~ msgid "Application set a bogus _NET_WM_PID %lu\n"
+#~ msgstr "Aplikácia nastavila neplatné _NET_WM_PID %lu\n"
+
+#~ msgid "Invalid WM_TRANSIENT_FOR window 0x%lx specified for %s.\n"
+#~ msgstr "Neplatné WM_TRANSIENT_FOR okno 0x%lx nastavené pre %s.\n"
+
+# MČ: zacykliť sa, alebo vytvoriť slučku.
+#~ msgid "WM_TRANSIENT_FOR window 0x%lx for %s would create loop.\n"
+#~ msgstr "WM_TRANSIENT_FOR okno 0x%lx pre %s môže vytvoriť slučku.\n"
+
+#~ msgid ""
+#~ "Window 0x%lx has property %s\n"
+#~ "that was expected to have type %s format %d\n"
+#~ "and actually has type %s format %d n_items %d.\n"
+#~ "This is most likely an application bug, not a window manager bug.\n"
+#~ "The window has title=\"%s\" class=\"%s\" name=\"%s\"\n"
+#~ msgstr ""
+#~ "Okno 0x%lx má vlastnosť %s,\n"
+#~ "ktorá by mala mať typ %s, formát %d,\n"
+#~ "a v skutočnosti má typ %s a formát %d, počet položiek %d.\n"
+#~ "Asi sa jedná o chybu aplikácie, a nie správcu okien.\n"
+#~ "Okno má titulok „%s“, triedu „%s“ a názov „%s“\n"
+
+# * https://bugzilla.gnome.org/show_bug.cgi?id=697989
+#~ msgid "Property %s on window 0x%lx contained invalid UTF-8\n"
+#~ msgstr "Vlastnosť %s pre okno 0x%lx obsahuje neplatné UTF-8\n"
+
+# * https://bugzilla.gnome.org/show_bug.cgi?id=697989
+#~ msgid ""
+#~ "Property %s on window 0x%lx contained invalid UTF-8 for item %d in the "
+#~ "list\n"
+#~ msgstr ""
+#~ "Vlastnosť %s pre okno 0x%lx obsahuje neplatné UTF-8 pre položku č. %d v "
+#~ "zozname\n"
+
+#~ msgid "Mi_nimize"
+#~ msgstr "Mi_nimalizovať"
+
+#~ msgid "Ma_ximize"
+#~ msgstr "Ma_ximalizovať"
+
+#~ msgid "Unma_ximize"
+#~ msgstr "Zrušiť ma_ximalizáciu"
+
+#~ msgid "Roll _Up"
+#~ msgstr "_Zabaliť"
+
+#~ msgid "_Unroll"
+#~ msgstr "_Rozbaliť"
+
+#~ msgid "_Move"
+#~ msgstr "Pre_miestniť"
+
+#~ msgid "_Resize"
+#~ msgstr "Zmeniť veľko_sť"
+
+#~ msgid "Move Titlebar On_screen"
+#~ msgstr "Presunúť titulok na _obrazovku"
+
+#~ msgid "Always on _Top"
+#~ msgstr "Vždy na_vrchu"
+
+#~ msgid "_Always on Visible Workspace"
+#~ msgstr "Vž_dy na viditeľnom pracovnom priestore"
+
+#~ msgid "_Only on This Workspace"
+#~ msgstr "_Len na tomto pracovnom priestore"
+
+#~ msgid "Move to Workspace _Left"
+#~ msgstr "Presunúť na pracovný priestor vľav_o"
+
+#~ msgid "Move to Workspace R_ight"
+#~ msgstr "Presunúť na pracovný priestor v_pravo"
+
+#~ msgid "Move to Workspace _Up"
+#~ msgstr "Presunúť na pracovný priestor _hore"
+
+#~ msgid "Move to Workspace _Down"
+#~ msgstr "Presunúť na pracovný priestor _dole"
+
+#~ msgid "_Close"
+#~ msgstr "_Zavrieť"
+
+#~ msgid "Workspace %d%n"
+#~ msgstr "Pracovný priestor %d%n"
+
+#~ msgid "Workspace 1_0"
+#~ msgstr "Pracovný priestor 1_0"
+
+#~ msgid "Move to Another _Workspace"
+#~ msgstr "P_resunúť na iný pracovný priestor"
+
+#~ msgid "Shift"
+#~ msgstr "Shift"
+
+#~ msgid "Ctrl"
+#~ msgstr "Ctrl"
+
+#~ msgid "Alt"
+#~ msgstr "Alt"
+
+#~ msgid "Meta"
+#~ msgstr "Meta"
+
+#~ msgid "Super"
+#~ msgstr "Super"
+
+#~ msgid "Hyper"
+#~ msgstr "Hyper"
+
+#~ msgid "Mod2"
+#~ msgstr "Mod2"
+
+#~ msgid "Mod3"
+#~ msgstr "Mod3"
+
+#~ msgid "Mod4"
+#~ msgstr "Mod4"
+
+#~ msgid "Mod5"
+#~ msgstr "Mod5"
+
+#~ msgid "%d x %d"
+#~ msgstr "%d x %d"
+
+#~ msgid "top"
+#~ msgstr "hore"
+
+#~ msgid "bottom"
+#~ msgstr "dole"
+
+#~ msgid "left"
+#~ msgstr "vľavo"
+
+#~ msgid "right"
+#~ msgstr "vpravo"
+
+#~ msgid "frame geometry does not specify \"%s\" dimension"
+#~ msgstr "geometria rámca neurčuje rozmer „%s“"
+
+#~ msgid "frame geometry does not specify dimension \"%s\" for border \"%s\""
+#~ msgstr "geometria rámca neurčuje rozmer „%s“ pre okraj „%s“"
+
+#~ msgid "Button aspect ratio %g is not reasonable"
+#~ msgstr "Pomer strán tlačidla %g nedáva zmysel"
+
+#~ msgid "Frame geometry does not specify size of buttons"
+#~ msgstr "Geometria rámca neurčuje rozmer tlačidiel"
+
+#~ msgid "Gradients should have at least two colors"
+#~ msgstr "Prechody by mali mať aspoň dve farby"
+
+#~ msgid ""
+#~ "GTK custom color specification must have color name and fallback in "
+#~ "parentheses, e.g. gtk:custom(foo,bar); could not parse \"%s\""
+#~ msgstr ""
+#~ "Špecifikácia používateľskej farby GTK musí mať názov a náhradnú hodnotu "
+#~ "uzavretú v okrúhlych zátvorkách, napr. gtk:custom(foo,bar). Nepodarilo sa "
+#~ "spracovať „%s“"
+
+#~ msgid ""
+#~ "Invalid character '%c' in color_name parameter of gtk:custom, only A-Za-"
+#~ "z0-9-_ are valid"
+#~ msgstr ""
+#~ "V parametri color_name (názov farby) pre gtk:custom je neplatný znak "
+#~ "„%c“, platné sú len znaky A-Za-z0-9-_"
+
+#~ msgid ""
+#~ "Gtk:custom format is \"gtk:custom(color_name,fallback)\", \"%s\" does not "
+#~ "fit the format"
+#~ msgstr ""
+#~ "Formát Gtk:custom je  „gtk:custom(color_name,fallback)“, „%s“ tomu "
+#~ "nezodpovedá"
+
+#~ msgid ""
+#~ "GTK color specification must have the state in brackets, e.g. "
+#~ "gtk:fg[NORMAL] where NORMAL is the state; could not parse \"%s\""
+#~ msgstr ""
+#~ "Špecifikácia farby GTK musí mať stav v hranatých zátvorkách, napr. "
+#~ "gtk:fg[NORMAL], kde NORMAL je stav. Nepodarilo sa spracovať „%s“"
+
+#~ msgid ""
+#~ "GTK color specification must have a close bracket after the state, e.g. "
+#~ "gtk:fg[NORMAL] where NORMAL is the state; could not parse \"%s\""
+#~ msgstr ""
+#~ "Špecifikácia farby GTK musí mať za stavom pravú hranatú zátvorku, napr. "
+#~ "gtk:fg[NORMAL], kde NORMAL je stav. Nepodarilo sa spracovať „%s“"
+
+#~ msgid "Did not understand state \"%s\" in color specification"
+#~ msgstr "V špecifikácii farby je nerozpoznaný stav „%s“"
+
+#~ msgid "Did not understand color component \"%s\" in color specification"
+#~ msgstr "V špecifikácii farby je nerozpoznaný komponent „%s“"
+
+#~ msgid ""
+#~ "Blend format is \"blend/bg_color/fg_color/alpha\", \"%s\" does not fit "
+#~ "the format"
+#~ msgstr ""
+#~ "Formát miešania je „blend/bg_color/fg_color/alpha“, „%s“ tomu neodpovedá"
+
+#~ msgid "Could not parse alpha value \"%s\" in blended color"
+#~ msgstr "Nepodarilo sa spracovať hodnotu alfa „%s“ v miešanej farbe"
+
+#~ msgid "Alpha value \"%s\" in blended color is not between 0.0 and 1.0"
+#~ msgstr "Hodnota alfa „%s“ v miešanej farbe nie je medzi 0.0 a 1.0"
+
+#~ msgid ""
+#~ "Shade format is \"shade/base_color/factor\", \"%s\" does not fit the "
+#~ "format"
+#~ msgstr "Formát tieňa je „shade/base_color/factor“, „%s“ tomu neodpovedá"
+
+#~ msgid "Could not parse shade factor \"%s\" in shaded color"
+#~ msgstr "Nepodarilo sa spracovať hodnotu tieňa „%s“ v tieňovanej farbe"
+
+#~ msgid "Shade factor \"%s\" in shaded color is negative"
+#~ msgstr "Faktor tieňa „%s“ v tieňovanej farbe je záporný"
+
+#~ msgid "Could not parse color \"%s\""
+#~ msgstr "Nepodarilo sa spracovať farbu „%s“"
+
+#~ msgid "Coordinate expression contains character '%s' which is not allowed"
+#~ msgstr "Výraz umiestnenia obsahuje znak „%s“, ktorý nie je povolený"
+
+#~ msgid ""
+#~ "Coordinate expression contains floating point number '%s' which could not "
+#~ "be parsed"
+#~ msgstr ""
+#~ "Výraz umiestnenia obsahuje číslo s pohyblivou rádovou čiarkou „%s“, ktoré "
+#~ "nie je možné spracovať"
+
+#~ msgid ""
+#~ "Coordinate expression contains integer '%s' which could not be parsed"
+#~ msgstr ""
+#~ "Výraz umiestnenia obsahuje celé číslo „%s“, ktoré nie je možné spracovať"
+
+#~ msgid ""
+#~ "Coordinate expression contained unknown operator at the start of this "
+#~ "text: \"%s\""
+#~ msgstr ""
+#~ "Výraz umiestnenia obsahuje neznámy operátor na začiatku tohto textu: „%s“"
+
+#~ msgid "Coordinate expression was empty or not understood"
+#~ msgstr "Výraz umiestnenia je prázdny alebo nerozpoznaný"
+
+#~ msgid "Coordinate expression results in division by zero"
+#~ msgstr "Výsledok výrazu umiestnenia je delenie nulou"
+
+#~ msgid ""
+#~ "Coordinate expression tries to use mod operator on a floating-point number"
+#~ msgstr ""
+#~ "Výraz umiestnenia sa snaží použiť operátor modulo na číslo s pohyblivou "
+#~ "rádovou čiarkou"
+
+#~ msgid ""
+#~ "Coordinate expression has an operator \"%s\" where an operand was expected"
+#~ msgstr ""
+#~ "Výraz umiestnenia obsahuje operátor „%s“ tam, kde sa očakáva operand"
+
+#~ msgid "Coordinate expression had an operand where an operator was expected"
+#~ msgstr "Výraz umiestnenia obsahuje operand tam, kde sa očakáva operátor"
+
+#~ msgid "Coordinate expression ended with an operator instead of an operand"
+#~ msgstr "Výraz umiestnenia skončil operátorom namiesto operandom"
+
+#~ msgid ""
+#~ "Coordinate expression has operator \"%c\" following operator \"%c\" with "
+#~ "no operand in between"
+#~ msgstr ""
+#~ "Výraz umiestnenia obsahuje operátor „%c“ za operátorom „%c“ bez operandov "
+#~ "medzi nimi"
+
+#~ msgid "Coordinate expression had unknown variable or constant \"%s\""
+#~ msgstr "Výraz umiestnenia obsahuje neznámu premennú alebo konštantu „%s“"
+
+#~ msgid "Coordinate expression parser overflowed its buffer."
+#~ msgstr ""
+#~ "Výraz umiestnenia spôsobil pretečenie vyrovnávacej pamäte analyzátora."
+
+#~ msgid ""
+#~ "Coordinate expression had a close parenthesis with no open parenthesis"
+#~ msgstr "Výraz umiestnenia obsahuje pravú zátvorku bez ľavej zátvorky"
+
+#~ msgid ""
+#~ "Coordinate expression had an open parenthesis with no close parenthesis"
+#~ msgstr "Výraz umiestnenia má ľavú zátvorku bez pravej zátvorky"
+
+#~ msgid "Coordinate expression doesn't seem to have any operators or operands"
+#~ msgstr "Výraz umiestnenia asi neobsahuje žiadne operátory ani operandy"
+
+#~ msgid "Theme contained an expression that resulted in an error: %s\n"
+#~ msgstr "Téma obsahuje výraz, ktorý spôsobil chybu: %s\n"
+
+#~ msgid ""
+#~ "<button function=\"%s\" state=\"%s\" draw_ops=\"whatever\"/> must be "
+#~ "specified for this frame style"
+#~ msgstr ""
+#~ "Pre tento štýl rámca musí byť uvedené <button function=\"%s\" "
+#~ "state=\"%s\" draw_ops=\"whatever\"/>"
+
+#~ msgid ""
+#~ "Missing <frame state=\"%s\" resize=\"%s\" focus=\"%s\" style=\"whatever\"/"
+#~ ">"
+#~ msgstr ""
+#~ "Chýbajúce <frame state=\"%s\" resize=\"%s\" focus=\"%s\" "
+#~ "style=\"whatever\"/>"
+
+#~ msgid "Failed to load theme \"%s\": %s\n"
+#~ msgstr "Zlyhalo načítanie témy „%s“: %s\n"
+
+# JK: XML značka (XML tag)
+#~ msgid "No <%s> set for theme \"%s\""
+#~ msgstr "Pre tému „%s“ nie je nastavená <%s>"
+
+#~ msgid ""
+#~ "No frame style set for window type \"%s\" in theme \"%s\", add a <window "
+#~ "type=\"%s\" style_set=\"whatever\"/> element"
+#~ msgstr ""
+#~ "Pre typ okna „%s“ nie je sada štýlov v téme „%s“, pridajte prvok <window "
+#~ "type=\"%s\" style_set=\"whatever\"/>"
+
+#~ msgid ""
+#~ "User-defined constants must begin with a capital letter; \"%s\" does not"
+#~ msgstr ""
+#~ "Používateľské konštanty musia začínať veľkým písmenom, „%s“ nezačína"
+
+#~ msgid "Constant \"%s\" has already been defined"
+#~ msgstr "Konštanta „%s“ už je definovaná"
+
+#~ msgid "No \"%s\" attribute on element <%s>"
+#~ msgstr "Chýbajúci atribút „%s“ v prvku <%s>"
+
+#~ msgid "Line %d character %d: %s"
+#~ msgstr "Riadok č. %d znak č. %d: %s"
+
+#~ msgid "Attribute \"%s\" repeated twice on the same <%s> element"
+#~ msgstr "Atribút „%s“ je uvedený dvakrát v jednom prvku <%s>"
+
+#~ msgid "Attribute \"%s\" is invalid on <%s> element in this context"
+#~ msgstr "Atribút „%s“ je neplatný v tomto kontexte v prvku <%s>"
+
+#~ msgid "Could not parse \"%s\" as an integer"
+#~ msgstr "Nepodarilo sa spracovať „%s“ ako celé číslo"
+
+#~ msgid "Did not understand trailing characters \"%s\" in string \"%s\""
+#~ msgstr "Nerozpoznané znaky na konci „%s“ v reťazci „%s“"
+
+#~ msgid "Integer %ld must be positive"
+#~ msgstr "Celé číslo %ld musí byť kladné"
+
+#~ msgid "Integer %ld is too large, current max is %d"
+#~ msgstr "Celé číslo %ld je príliš veľké, maximum je %d"
+
+#~ msgid "Could not parse \"%s\" as a floating point number"
+#~ msgstr "Nepodarilo sa spracovať „%s“ ako číslo s pohyblivou rádovou čiarkou"
+
+#~ msgid "Boolean values must be \"true\" or \"false\" not \"%s\""
+#~ msgstr "Pravdivostná hodnota musí byť „true“ alebo „false“, nie „%s“"
+
+#~ msgid "Angle must be between 0.0 and 360.0, was %g\n"
+#~ msgstr "Uhol musí byť medzi 0.0 a 360.0, a teraz je %g\n"
+
+#~ msgid ""
+#~ "Alpha must be between 0.0 (invisible) and 1.0 (fully opaque), was %g\n"
+#~ msgstr ""
+#~ "Alfa musí byť medzi 0.0 (priehľadné) a 1.0 (nepriehľadné), a je %g\n"
+
+#~ msgid ""
+#~ "Invalid title scale \"%s\" (must be one of xx-small,x-"
+#~ "small,small,medium,large,x-large,xx-large)\n"
+#~ msgstr ""
+#~ "Neplatná mierka titulku „%s“ (musí byť xx-small, x-small, small, medium, "
+#~ "large, x-large, xx-large)\n"
+
+#~ msgid "<%s> name \"%s\" used a second time"
+#~ msgstr "Názov <%s> pre „%s“ použitý dvakrát"
+
+#~ msgid "<%s> parent \"%s\" has not been defined"
+#~ msgstr "Nedefinovaný rodič <%s> pre „%s“"
+
+#~ msgid "<%s> geometry \"%s\" has not been defined"
+#~ msgstr "Nedefinovaná geometria <%s> pre „%s“"
+
+#~ msgid "<%s> must specify either a geometry or a parent that has a geometry"
+#~ msgstr "<%s> musí uviesť, buď geometriu alebo rodiča, ktorý má geometriu"
+
+#~ msgid "You must specify a background for an alpha value to be meaningful"
+#~ msgstr "Ak má byť hodnota alfa zmysluplná, tak musíte vybrať nejaké pozadie"
+
+# * https://bugzilla.gnome.org/show_bug.cgi?id=698123
+#~ msgid "Unknown type \"%s\" on <%s> element"
+#~ msgstr "Neznámy typ „%s“ v prvku <%s>"
+
+# * https://bugzilla.gnome.org/show_bug.cgi?id=698123
+#~ msgid "Unknown style_set \"%s\" on <%s> element"
+#~ msgstr "Neznámy style_set „%s“ v prvku <%s>"
+
+#~ msgid "Window type \"%s\" has already been assigned a style set"
+#~ msgstr "Typ okna „%s“ už má priradenú sadu štýlov"
+
+#~ msgid "Element <%s> is not allowed below <%s>"
+#~ msgstr "Prvok <%s> nie je povolený pod <%s>"
+
+# * https://bugzilla.gnome.org/show_bug.cgi?id=698123
+#~ msgid ""
+#~ "Cannot specify both \"button_width\"/\"button_height\" and "
+#~ "\"aspect_ratio\" for buttons"
+#~ msgstr ""
+#~ "Pre tlačidlá nie je možné zadať zároveň „button_width“/„button_height“ "
+#~ "spolu s „aspect_ratio“"
+
+#~ msgid "Distance \"%s\" is unknown"
+#~ msgstr "Vzdialenosť „%s“ je neznáma"
+
+#~ msgid "Aspect ratio \"%s\" is unknown"
+#~ msgstr "Pomer strán „%s“ je neznámy"
+
+#~ msgid "Border \"%s\" is unknown"
+#~ msgstr "Okraj „%s“ je neznámy"
+
+#~ msgid "No \"start_angle\" or \"from\" attribute on element <%s>"
+#~ msgstr ""
+#~ "Chýba atribút „start_angle“ (počiatočný uhol) alebo „from“ (od) v prvku "
+#~ "<%s>"
+
+#~ msgid "No \"extent_angle\" or \"to\" attribute on element <%s>"
+#~ msgstr ""
+#~ "Chýba atribút „extent_angle“ (rozsah uhla) alebo „to“ (do) v prvku <%s>"
+
+#~ msgid "Did not understand value \"%s\" for type of gradient"
+#~ msgstr "Nerozpoznaná hodnota „%s“ pre typ prechodu"
+
+#~ msgid "Did not understand fill type \"%s\" for <%s> element"
+#~ msgstr "Nerozpoznaný typ výplne „%s“ pre prvok <%s>"
+
+#~ msgid "Did not understand state \"%s\" for <%s> element"
+#~ msgstr "Nerozpoznaný stav „%s“ pre prvok <%s>"
+
+#~ msgid "Did not understand shadow \"%s\" for <%s> element"
+#~ msgstr "Nerozpoznaný tieň „%s“ pre prvok <%s>"
+
+#~ msgid "Did not understand arrow \"%s\" for <%s> element"
+#~ msgstr "Nerozpoznaná šípka „%s“ pre prvok <%s>"
+
+#~ msgid "No <draw_ops> called \"%s\" has been defined"
+#~ msgstr "Nebola definovaná <draw_ops> nazvaná „%s“"
+
+# PK: asi ako v strukturach v C
+#~ msgid "Including draw_ops \"%s\" here would create a circular reference"
+#~ msgstr "Pridaním draw_ops „%s“ na tomto mieste vznikne cyklická referencia"
+
+#~ msgid "Unknown position \"%s\" for frame piece"
+#~ msgstr "Neznáma pozícia „%s“ pre časť rámca"
+
+#~ msgid "Frame style already has a piece at position %s"
+#~ msgstr "Štýl rámca už má časť na pozícii %s"
+
+#~ msgid "No <draw_ops> with the name \"%s\" has been defined"
+#~ msgstr "Nebola definovaná <draw_ops> nazvaná „%s“"
+
+#~ msgid "Unknown function \"%s\" for button"
+#~ msgstr "Neznáma funkcia „%s“ pre tlačidlo"
+
+#~ msgid "Button function \"%s\" does not exist in this version (%d, need %d)"
+#~ msgstr "Funkcia tlačidla „%s“ v tejto verzii neexistuje (%d, potrebná %d)"
+
+#~ msgid "Unknown state \"%s\" for button"
+#~ msgstr "Neznámy stav „%s“ pre tlačidlo"
+
+#~ msgid "Frame style already has a button for function %s state %s"
+#~ msgstr "Štýl rámca už má tlačidlo pre funkciu %s stav %s"
+
+#~ msgid "\"%s\" is not a valid value for focus attribute"
+#~ msgstr "„%s“ nie je platná hodnota pre atribút zamerania"
+
+#~ msgid "\"%s\" is not a valid value for state attribute"
+#~ msgstr "„%s“ nie je platná hodnota pre atribút stavu"
+
+#~ msgid "A style called \"%s\" has not been defined"
+#~ msgstr "Štýl „%s“ nie je definovaný"
+
+#~ msgid "\"%s\" is not a valid value for resize attribute"
+#~ msgstr "„%s“ nie je platná hodnota pre atribút zmeny veľkosti"
+
+# * https://bugzilla.gnome.org/show_bug.cgi?id=698123
+#~ msgid ""
+#~ "Should not have \"resize\" attribute on <%s> element for maximized/shaded "
+#~ "states"
+#~ msgstr ""
+#~ "Prvok <%s> by nemal mať atribút „resize“ (zmeniť veľkosť) pre stavy "
+#~ "maximized (maximalizovaný)/shaded (zatienený)"
+
+#~ msgid ""
+#~ "Should not have \"resize\" attribute on <%s> element for maximized states"
+#~ msgstr ""
+#~ "Prvok <%s> by nemal mať atribút „resize“ (zmeniť veľkosť) pre stavy "
+#~ "maximized (maximalizovaný)"
+
+#~ msgid "Style has already been specified for state %s resize %s focus %s"
+#~ msgstr "Pre stav %s zmena veľkosti %s zameranie %s už bol štýl definovaný"
+
+#~ msgid "Style has already been specified for state %s focus %s"
+#~ msgstr "Pre stav %s zameranie %s už bol štýl definovaný"
+
+# * https://bugzilla.gnome.org/show_bug.cgi?id=697988
+#~ msgid ""
+#~ "Can't have a two draw_ops for a <piece> element (theme specified a "
+#~ "draw_ops attribute and also a <draw_ops> element, or specified two "
+#~ "elements)"
+#~ msgstr ""
+#~ "Pre prvok <piece> nie je možné mať dve draw_ops (téma obsahuje atribút "
+#~ "draw_ops a aj prvok <draw_ops>, prípadne dva rovnaké prvky)"
+
+# * https://bugzilla.gnome.org/show_bug.cgi?id=697988
+#~ msgid ""
+#~ "Can't have a two draw_ops for a <button> element (theme specified a "
+#~ "draw_ops attribute and also a <draw_ops> element, or specified two "
+#~ "elements)"
+#~ msgstr ""
+#~ "Pre prvok <button> nie je možné mať dve draw_ops (téma obsahuje atribút "
+#~ "draw_ops a aj prvok <draw_ops>, prípadne dva rovnaké prvky)"
+
+# * https://bugzilla.gnome.org/show_bug.cgi?id=697988
+#~ msgid ""
+#~ "Can't have a two draw_ops for a <menu_icon> element (theme specified a "
+#~ "draw_ops attribute and also a <draw_ops> element, or specified two "
+#~ "elements)"
+#~ msgstr ""
+#~ "Pre prvok <menu_icon> nie je možné mať dve draw_ops (téma obsahuje "
+#~ "atribút draw_ops a aj prvok <draw_ops>, prípadne dva rovnaké prvky)"
+
+#~ msgid "Bad version specification '%s'"
+#~ msgstr "Zlá verzia špecifikácie „%s“"
+
+#~ msgid ""
+#~ "\"version\" attribute cannot be used in metacity-theme-1.xml or metacity-"
+#~ "theme-2.xml"
+#~ msgstr ""
+#~ "Atribút „version“ nemôže byť použitý v metacity-theme-1.xml alebo "
+#~ "metacity-theme-2.xml"
+
+#~ msgid ""
+#~ "Theme requires version %s but latest supported theme version is %d.%d"
+#~ msgstr ""
+#~ "Téma vyžaduje verziu %s, ale posledná podporovaná verzia témy je %d.%d"
+
+#~ msgid "Outermost element in theme must be <metacity_theme> not <%s>"
+#~ msgstr "Najvyšším prvkom témy musí byť <metacity_theme>, nie <%s>"
+
+# * https://bugzilla.gnome.org/show_bug.cgi?id=698123
+#~ msgid ""
+#~ "Element <%s> is not allowed inside a name/author/date/description element"
+#~ msgstr "Prvok <%s> nie je povolený v prvku name/author/date/description"
+
+#~ msgid "Element <%s> is not allowed inside a <constant> element"
+#~ msgstr "Prvok <%s> nie je povolený v prvku <constant>"
+
+# * https://bugzilla.gnome.org/show_bug.cgi?id=698123
+#~ msgid ""
+#~ "Element <%s> is not allowed inside a distance/border/aspect_ratio element"
+#~ msgstr "Prvok <%s> nie je povolený v prvku distance/border/aspect_ratio"
+
+#~ msgid "Element <%s> is not allowed inside a draw operation element"
+#~ msgstr "Prvok <%s> nie je povolený v prvku operácie pre kreslenie"
+
+#~ msgid "Element <%s> is not allowed inside a <%s> element"
+#~ msgstr "Prvok <%s> nie je povolený v prvku <%s>"
+
+#~ msgid "No draw_ops provided for frame piece"
+#~ msgstr "Pre časť rámca nie je uvedená operácia draw_ops"
+
+#~ msgid "No draw_ops provided for button"
+#~ msgstr "Pre tlačidlo nie je uvedená operácia draw_ops"
+
+#~ msgid "No text is allowed inside element <%s>"
+#~ msgstr "V prvku <%s> nie je povolený žiadny text"
+
+#~ msgid "<%s> specified twice for this theme"
+#~ msgstr "<%s> uvedený dvakrát pre túto tému"
+
+#~ msgid "Failed to find a valid file for theme %s\n"
+#~ msgstr "Zlyhalo nájdenie platného súboru pre tému %s\n"

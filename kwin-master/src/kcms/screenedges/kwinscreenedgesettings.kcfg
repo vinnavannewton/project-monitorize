@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0
+       http://www.kde.org/standards/kcfg/1.0/kcfg.xsd" >
+    <kcfgfile name="kwinrc"/>
+    <group name="Windows">
+        <entry key="ElectricBorders" type="Int">
+            <default>0</default>
+        </entry>
+        <entry key="ElectricBorderDelay" type="Int">
+            <default>75</default>
+        </entry>
+        <entry key="ElectricBorderCooldown" type="Int">
+            <default>350</default>
+        </entry>
+        <entry key="ElectricBorderMaximize" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry key="ElectricBorderTiling" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry key="ElectricBorderCornerRatio" type="Double">
+            <default>0.25</default>
+        </entry>
+        <entry name="ElectricBorderAllScreenCorner" type="Bool">
+            <default>true</default>
+        </entry>
+    </group>
+    <group name="ElectricBorders">
+        <entry key="Top" type="String">
+            <default>None</default>
+        </entry>
+        <entry key="TopRight" type="String">
+            <default>None</default>
+        </entry>
+        <entry key="Right" type="String">
+            <default>None</default>
+        </entry>
+        <entry key="BottomRight" type="String">
+            <default>None</default>
+        </entry>
+        <entry key="Bottom" type="String">
+            <default>None</default>
+        </entry>
+        <entry key="BottomLeft" type="String">
+            <default>None</default>
+        </entry>
+        <entry key="Left" type="String">
+            <default>None</default>
+        </entry>
+        <entry key="TopLeft" type="String">
+            <default>None</default>
+        </entry>
+    </group>
+    <group name="Effect-windowview">
+        <entry key="BorderActivateAll" type="IntList">
+            <default>ElectricNone</default>
+        </entry>
+        <entry name="BorderActivatePresentWindows" key="BorderActivate" type="IntList">
+            <default>ElectricNone</default>
+        </entry>
+        <entry key="BorderActivateClass" type="IntList">
+            <default>ElectricNone</default>
+        </entry>
+    </group>
+    <group name="Effect-overview">
+        <entry name="BorderActivateOverview" key="BorderActivate" type="IntList">
+            <default>ElectricTopLeft</default>
+        </entry>
+        <entry name="BorderActivateGrid" key="GridBorderActivate" type="IntList">
+            <default>ElectricNone</default>
+        </entry>
+    </group>
+    <group name="TabBox">
+        <entry name="BorderActivateTabBox" key="BorderActivate" type="IntList">
+            <default>ElectricNone</default>
+        </entry>
+        <entry key="BorderAlternativeActivate" type="IntList">
+            <default>ElectricNone</default>
+        </entry>
+    </group>
+    <group name="ScreenEdges">
+        <entry name="RemainActiveOnFullscreen" type="Bool">
+            <default>false</default>
+        </entry>
+    </group>
+    <group name="EdgeBarrier">
+        <entry name="CornerBarrier" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="EdgeBarrier" type="Int">
+            <default>100</default>
+            <min>0</min>
+            <max>1000</max>
+        </entry>
+    </group>
+</kcfg>

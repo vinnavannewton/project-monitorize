@@ -1,0 +1,64 @@
+# SPDX-FileCopyrightText: 2024 Ryuichi Yamada <ryuichi_ya220@outlook.jp>
+# R.Suga <21r.suga@gmail.com>, 2022.
+# Fumiaki Okushi <fumiaki.okushi@gmail.com>, 2022.
+msgid ""
+msgstr ""
+"Project-Id-Version: kwin\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2025-11-17 11:53+0000\n"
+"PO-Revision-Date: 2024-02-15 19:13+0900\n"
+"Last-Translator: Ryuichi Yamada <ryuichi_ya220@outlook.jp>\n"
+"Language-Team: Japanese <kde-jp@kde.org>\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Accelerator-Marker: &\n"
+"X-Text-Markup: kde4\n"
+"X-Generator: Lokalize 23.08.4\n"
+
+#: ui/Effect.qml:98
+#, kde-format
+msgid ""
+"Author: %1\n"
+"License: %2"
+msgstr ""
+"作者: %1\n"
+"ライセンス: %2"
+
+#: ui/Effect.qml:110
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Configure…"
+msgstr "設定..."
+
+#: ui/main.qml:25
+#, kde-format
+msgctxt "@action:button get new KWin effects"
+msgid "Get New…"
+msgstr "新規追加..."
+
+#: ui/main.qml:54
+#, kde-format
+msgid "Configure Filter"
+msgstr "設定フィルタ"
+
+#: ui/main.qml:66
+#, kde-format
+msgid "Exclude unsupported effects"
+msgstr "サポートされていない効果を除外する"
+
+#~ msgctxt "@info:tooltip"
+#~ msgid "Show/Hide Video"
+#~ msgstr "動画を表示/隠す"
+
+#~ msgid ""
+#~ "Hint: To find out or configure how to activate an effect, look at the "
+#~ "effect's settings."
+#~ msgstr ""
+#~ "ヒント: デスクトップ効果を有効化する方法を理解したり変更したりするには、効"
+#~ "果の設定を確認してください。"
+
+#~ msgid "Exclude internal effects"
+#~ msgstr "内部効果を除外する"

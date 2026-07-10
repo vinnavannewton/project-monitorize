@@ -342,30 +342,7 @@ def load_receiver_settings() -> dict:
     return data
 
 
-def _kde_virtual_group(slot: str) -> str:
-    return "kde_virtual_primary"
-
-
-def load_kde_virtual_layout(slot: str = "primary") -> dict:
-    data = _load_group(_kde_virtual_group(slot), {
-        "x": "", "y": "", "rotation": "",
-    })
-    if slot == "primary" and not data["x"] and not data["y"]:
-        data.update(_load_group("kde_virtual", {"x": "", "y": ""}))
-    try:
-        data["position"] = (int(float(data["x"])), int(float(data["y"])))
-    except (TypeError, ValueError):
-        data["position"] = None
-    return {"position": data["position"], "rotation": str(data["rotation"] or "")}
-
-
-def save_kde_virtual_layout(slot: str, x: int, y: int, rotation="") -> None:
-    _save_group(_kde_virtual_group(slot), {
-        "x": int(x), "y": int(y), "rotation": str(rotation or ""),
-    })
-
-
-def _gnome_virtual_group(slot: str) -> str:
+def _gnome_virtual_group(slot: str = "primary") -> str:
     return "gnome_virtual_primary"
 
 
@@ -375,14 +352,33 @@ def load_gnome_virtual_layout(slot: str = "primary") -> dict:
         layout = json.loads(data["layout"]) if data["layout"] else None
     except (TypeError, ValueError, json.JSONDecodeError):
         layout = None
-    if not isinstance(layout, list):
-        layout = None
-    return {"logical_monitors": layout}
+    if isinstance(layout, list):
+        layout = {"version": 2, "topologies": {"primary": layout}}
+    if not isinstance(layout, dict) or layout.get("version") != 2:
+        layout = {"version": 2, "topologies": {}}
+    topologies = layout.get("topologies")
+    if not isinstance(topologies, dict):
+        topologies = {}
+    saved = topologies.get(slot)
+    return {"logical_monitors": saved if isinstance(saved, list) else None}
 
 
 def save_gnome_virtual_layout(slot: str, logical_monitors: list) -> None:
-    _save_group(_gnome_virtual_group(slot), {
-        "layout": json.dumps(logical_monitors, separators=(",", ":")),
+    data = _load_group(_gnome_virtual_group(), {"layout": ""})
+    try:
+        stored = json.loads(data["layout"]) if data["layout"] else {}
+    except (TypeError, ValueError, json.JSONDecodeError):
+        stored = {}
+    if isinstance(stored, list):
+        stored = {"version": 2, "topologies": {"primary": stored}}
+    if not isinstance(stored, dict) or stored.get("version") != 2:
+        stored = {"version": 2, "topologies": {}}
+    topologies = stored.setdefault("topologies", {})
+    if not isinstance(topologies, dict):
+        topologies = stored["topologies"] = {}
+    topologies[slot] = logical_monitors
+    _save_group(_gnome_virtual_group(), {
+        "layout": json.dumps(stored, separators=(",", ":")),
     })
 
 

@@ -1,0 +1,85 @@
+/*
+    SPDX-FileCopyrightText: 2021 David Redondo <kde@david-redondo.de>
+    SPDX-FileCopyrightText: 2025 Vlad Zahorodnii <vlad.zahorodnii@kde.org>
+
+    SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted-GPL
+*/
+
+#include "datasource.h"
+#include "selection.h"
+
+namespace KWin
+{
+namespace Xwl
+{
+
+XwlDataSource::XwlDataSource(Selection *selection)
+    : m_selection(selection)
+{
+}
+
+XwlDataSource::~XwlDataSource()
+{
+    Q_EMIT aboutToBeDestroyed();
+}
+
+void XwlDataSource::requestData(const QString &mimeType, FileDescriptor fd)
+{
+    m_selection->startTransferToWayland(mimeType, std::move(fd));
+}
+
+void XwlDataSource::cancel()
+{
+}
+
+QStringList XwlDataSource::mimeTypes() const
+{
+    return m_mimeTypes;
+}
+void XwlDataSource::setMimeTypes(const QStringList &mimeTypes)
+{
+    m_mimeTypes = mimeTypes;
+}
+
+void XwlDataSource::accept(const QString &mimeType)
+{
+    m_accepted = !mimeType.isEmpty();
+    Q_EMIT acceptedChanged();
+}
+
+DnDActions XwlDataSource::supportedDragAndDropActions() const
+{
+    return m_supportedDndActions;
+}
+
+void XwlDataSource::setSupportedDndActions(DnDActions dndActions)
+{
+    m_supportedDndActions = dndActions;
+    Q_EMIT supportedDragAndDropActionsChanged();
+}
+
+DnDAction XwlDataSource::selectedDndAction() const
+{
+    return m_dndAction;
+}
+
+void XwlDataSource::dndAction(DnDAction action)
+{
+    m_dndAction = action;
+    Q_EMIT dndActionChanged();
+}
+
+bool XwlDataSource::isAccepted() const
+{
+    return m_accepted;
+}
+
+bool XwlDataSource::isDndFinished() const
+{
+    return m_dndFinished;
+}
+
+}
+}
+
+#include "moc_datasource.cpp"

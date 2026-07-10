@@ -1,0 +1,291 @@
+# Translation for kcm_kwin_virtualdesktops.po to Euskara/Basque (eu).
+# Copyright (C) 2007-2025 This file is copyright:
+# This file is distributed under the same license as the kwin package.
+# SPDX-FileCopyrightText: 2024, 2025 KDE euskaratzeko proiektuaren arduraduna <xalba@ni.eus>
+#
+# Translators:
+# marcos <marcos@euskalgnu.org>, 2007, 2008.
+# Iñigo Salvador Azurmendi <xalba@ni.eus>, 2010, 2011, 2014, 2018, 2019, 2021, 2022, 2024, 2025.
+# Hizkuntza Politikarako Sailburuordetza <hizpol@ej-gv.es>, 2013.
+msgid ""
+msgstr ""
+"Project-Id-Version: kwin\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-04-14 00:45+0000\n"
+"PO-Revision-Date: 2025-12-09 20:31+0100\n"
+"Last-Translator: Iñigo Salvador Azurmendi <xalba@ni.eus>\n"
+"Language-Team: Basque <kde-i18n-eu@kde.org>\n"
+"Language: eu\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Lokalize 25.08.3\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#, kde-format
+msgctxt "NAME OF TRANSLATORS"
+msgid "Your names"
+msgstr ""
+"Marcos Goyeneche,Iñigo Salvador Azurmendi,Hizkuntza Politikarako "
+"Sailburuordetza"
+
+#, kde-format
+msgctxt "EMAIL OF TRANSLATORS"
+msgid "Your emails"
+msgstr "marcos@euskalgnu.org,xalba@ni.eus,hizpol@ej-gv.es"
+
+#: desktopsmodel.cpp:188
+#, kde-format
+msgctxt "A numbered name for virtual desktops"
+msgid "Desktop %1"
+msgid_plural "Desktop %1"
+msgstr[0] "%1 mahaigaina"
+msgstr[1] "%1 mahaigaina"
+
+#: desktopsmodel.cpp:476
+#, kde-format
+msgid "There was an error connecting to the compositor."
+msgstr "Errorea gertatu da konposatzailera konektatzean."
+
+#: desktopsmodel.cpp:672
+#, kde-format
+msgid "There was an error saving the settings to the compositor."
+msgstr "Errorea gertatu da ezarpenak konposatzailera gordetzean."
+
+#: desktopsmodel.cpp:675
+#, kde-format
+msgid "There was an error requesting information from the compositor."
+msgstr "Errorea gertatu da konposatzailetik informazioa eskatzean."
+
+#: ui/main.qml:26
+#, kde-format
+msgctxt "@text:label Number of rows, label associated to a number input field"
+msgid "Rows:"
+msgstr "Errenkadak:"
+
+#: ui/main.qml:54
+#, kde-format
+msgctxt "@action:button"
+msgid "Add Desktop"
+msgstr "Gehitu mahaigaina"
+
+#: ui/main.qml:90
+#, kde-format
+msgctxt "@action:button"
+msgid "Rename"
+msgstr "Berrizendatu"
+
+#: ui/main.qml:100
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Remove"
+msgstr "Kendu"
+
+#: ui/main.qml:119
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Apply new name"
+msgstr "Aplikatu izen berria"
+
+#: ui/main.qml:132
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Cancel rename"
+msgstr "Ezeztatu berrizendatzea"
+
+#: ui/main.qml:179
+#, kde-format
+msgid ""
+"Virtual desktops have been changed outside this settings application. Saving "
+"now will overwrite the changes."
+msgstr ""
+"Alegiazko mahaigainak aldatu egin dira ezarpen aplikazio honetatik kanpo. "
+"Orain gordetzeak aldaketak gainidatziko ditu."
+
+#: ui/main.qml:195
+#, kde-format
+msgid "Row %1"
+msgstr "%1 errendaka"
+
+#: ui/main.qml:209
+#, kde-format
+msgid "Options:"
+msgstr "Aukerak:"
+
+#: ui/main.qml:211
+#, kde-format
+msgid "Navigation wraps around"
+msgstr "Nabigazio zirkularra"
+
+#: ui/main.qml:225
+#, kde-format
+msgid "Switch desktops independently for each screen"
+msgstr ""
+
+#: ui/main.qml:243
+#, kde-format
+msgid "Show animation when switching:"
+msgstr "Erakutsi animazioa aldatzean:"
+
+#: ui/main.qml:294
+#, kde-format
+msgid "Show on-screen display when switching:"
+msgstr "Erakutsi pantailan azalpena aldatzean:"
+
+#: ui/main.qml:313
+#, kde-format
+msgid "%1 ms"
+msgstr "%1 ms"
+
+#: ui/main.qml:337
+#, kde-format
+msgid "Show desktop layout indicators"
+msgstr "Erakutsi mahaigain-diseinuaren adierazleak"
+
+#~ msgid "1 Row"
+#~ msgid_plural "%1 Rows"
+#~ msgstr[0] "Errenkada 1"
+#~ msgstr[1] "%1 errenkada"
+
+#~ msgctxt "@action:button"
+#~ msgid "Add"
+#~ msgstr "Gehitu"
+
+#~ msgid ""
+#~ "This module lets you configure the navigation, number and layout of "
+#~ "virtual desktops."
+#~ msgstr ""
+#~ "Modulu honek nabigatzea, alegiazko mahaigainen kopurua eta antolamendua "
+#~ "aldatzen uzten dizu."
+
+#~ msgid "Virtual Desktops"
+#~ msgstr "Alegiazko mahaigainak"
+
+#~ msgid "Configure Virtual Desktops"
+#~ msgstr "Konfiguratu alegiazko mahaigainak"
+
+#~ msgid "Desktop %1:"
+#~ msgstr "%1 mahaigaina:"
+
+#~ msgid "Here you can enter the name for desktop %1"
+#~ msgstr "Hemen, %1 mahaigainaren izena sar dezakezu"
+
+#~ msgid ""
+#~ "<h1>Multiple Desktops</h1>In this module, you can configure how many "
+#~ "virtual desktops you want and how these should be labeled."
+#~ msgstr ""
+#~ "<h1>Askotariko mahaigainak</h1>Modulu honetan, zenbat alegiazko mahaigain "
+#~ "izango dituzun eta nola izendatuko diren konfigura dezakezu."
+
+#~ msgid "Switch to Next Desktop"
+#~ msgstr "Aldatu hurrengo mahaigainera"
+
+#~ msgid "Switch to Previous Desktop"
+#~ msgstr "Aldatu aurreko mahaigainera"
+
+#~ msgid "Switch One Desktop to the Right"
+#~ msgstr "Aldatu mahaigain bat eskuinera"
+
+#~ msgid "Switch One Desktop to the Left"
+#~ msgstr "Aldatu mahaigain bat ezkerrera"
+
+#~ msgid "Switch One Desktop Up"
+#~ msgstr "Aldatu mahaigain bat gora"
+
+#~ msgid "Switch One Desktop Down"
+#~ msgstr "Aldatu mahaigain bat behera"
+
+#~ msgid "Walk Through Desktops"
+#~ msgstr "Pasatu mahaigain batetik bestera"
+
+#~ msgid "Walk Through Desktops (Reverse)"
+#~ msgstr "Pasatu mahaigain batetik bestera (alderantziz)"
+
+#~ msgid "Walk Through Desktop List"
+#~ msgstr "Pasatu mahaigain-zerrenda batetik bestera"
+
+#~ msgid "Walk Through Desktop List (Reverse)"
+#~ msgstr "Pasatu mahaigain-zerrenda batetik bestera (alderantziz)"
+
+#~ msgid "Desktop Switching"
+#~ msgstr "Mahaigain-aldaketa"
+
+#~ msgid "Switch to Desktop %1"
+#~ msgstr "Aldatu %1 mahaigainera"
+
+#~ msgid "No Animation"
+#~ msgstr "Animaziorik gabe"
+
+#~ msgid "No suitable Shortcut for Desktop %1 found"
+#~ msgstr "Ez da aurkitu %1 mahaigainarentzako lasterbide egokirik"
+
+#~ msgid "Assigned global Shortcut \"%1\" to Desktop %2"
+#~ msgstr "\"%1\" lasterbide orokorra %2 mahaigainari esleituta"
+
+#~ msgid "Shortcut conflict: Could not set Shortcut %1 for Desktop %2"
+#~ msgstr ""
+#~ "Lasterbide-gatazka: %1 lasterbidea ezin izan zaio esleitu %2 mahaigainari"
+
+#~ msgid "KWin development team"
+#~ msgstr "KWin garatzaile taldea"
+
+#~ msgid "Layout"
+#~ msgstr "Diseinua"
+
+#~ msgid ""
+#~ "Here you can set how many virtual desktops you want on your KDE desktop."
+#~ msgstr ""
+#~ "Hemen, KDE mahaigainean zenbat alegiazko mahaigain izan nahi dituzun "
+#~ "konfigura dezakezu."
+
+#~ msgid "&Number of desktops:"
+#~ msgstr "Mahaigain &kopurua:"
+
+#~ msgid "N&umber of rows:"
+#~ msgstr "Errenkada kop&urua:"
+
+#~ msgid "Desktop Names"
+#~ msgstr "Mahaigainen izenak"
+
+#~ msgid "Switching"
+#~ msgstr "Aldaketa"
+
+#~ msgid ""
+#~ "Enable this option if you want keyboard or active desktop border "
+#~ "navigation beyond the edge of a desktop to take you to the opposite edge "
+#~ "of the new desktop."
+#~ msgstr ""
+#~ "Gaitu aukera hau, teklatu edo mahaigain aktiboaren mugetako nabigazioak, "
+#~ "mahagain baten ertzetik haragokoak, mahaigain berriko aurkako ertzera "
+#~ "eraman zaitzan nahi baduzu."
+
+#~ msgid "Desktop Effect Animation"
+#~ msgstr "Mahaigaineko animazio-efektua"
+
+#~ msgid "Animation:"
+#~ msgstr "Animazioa:"
+
+#~ msgid "Desktop Switch On-Screen Display"
+#~ msgstr "Mahaigain-aldaketa pantailan bistaratzea"
+
+#~ msgid "Duration:"
+#~ msgstr "Iraupena:"
+
+#~ msgid " msec"
+#~ msgstr " ms"
+
+#~ msgid ""
+#~ "Enabling this option will show a small preview of the desktop layout "
+#~ "indicating the selected desktop."
+#~ msgstr ""
+#~ "Aukera hau gaitzeak mahaigain-diseinuaren aurreikuspen txiki bat "
+#~ "erakutsiko du, hautatutako mahaigaina adieraziz."
+
+#~ msgid "Shortcuts"
+#~ msgstr "Lasterbideak"
+
+#~ msgid "Show shortcuts for all possible desktops"
+#~ msgstr "Erakutsi izan daitezkeen mahaigain guztien lasterbideak"
+
+#~ msgid "Different widgets for each desktop"
+#~ msgstr "Trepeta desberdinak mahaigain bakoitzerako"

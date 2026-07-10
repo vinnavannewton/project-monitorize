@@ -1,0 +1,124 @@
+/*
+    KWin - the KDE window manager
+    This file is part of the KDE project.
+
+    SPDX-FileCopyrightText: 2019 Roman Gilg <subdiff@gmail.com>
+
+    SPDX-License-Identifier: GPL-2.0-or-later
+*/
+#pragma once
+
+#include "drag.h"
+#include "wayland/abstract_data_source.h"
+
+#include <QList>
+#include <QPoint>
+#include <QPointer>
+
+namespace KWin
+{
+
+class SurfaceInterface;
+class Window;
+class X11Window;
+
+namespace Xwl
+{
+
+class Xvisit;
+class Dnd;
+
+class WlToXDrag : public Drag
+{
+    Q_OBJECT
+    using Drag::Drag;
+
+public:
+    explicit WlToXDrag(Dnd *dnd);
+    bool moveFilter(Window *target, const QPointF &position) override;
+    bool handleClientMessage(xcb_client_message_event_t *event) override;
+
+private:
+    Dnd *const m_dnd;
+    Q_DISABLE_COPY(WlToXDrag)
+};
+
+// visit to an X window
+class Xvisit : public QObject
+{
+    Q_OBJECT
+
+public:
+    // TODO: handle ask action
+
+    Xvisit(X11Window *target, AbstractDataSource *dataSource, Dnd *dnd, QObject *parent);
+
+    bool handleClientMessage(xcb_client_message_event_t *event);
+    bool handleStatus(xcb_client_message_event_t *event);
+    bool handleFinished(xcb_client_message_event_t *event);
+
+    void sendPosition(const QPointF &globalPos);
+    void enter(const QPointF &globalPos);
+    void leave();
+
+    bool isFinished() const
+    {
+        return m_state.finished;
+    }
+    X11Window *target() const
+    {
+        return m_target;
+    }
+    void drop();
+
+Q_SIGNALS:
+    void finished();
+
+private:
+    void sendEnter();
+    void sendDrop(uint32_t time);
+    void sendLeave();
+
+    void receiveOffer();
+
+    void retrieveSupportedActions();
+    void determineProposedAction();
+    void requestDragAndDropAction();
+    void setProposedAction();
+
+    void doFinish();
+
+    Dnd *const m_dnd;
+    X11Window *m_target;
+    QPointer<AbstractDataSource> m_dataSource;
+    uint32_t m_version = 0;
+
+    struct
+    {
+        bool pending = false;
+        bool cached = false;
+        QPoint cache;
+    } m_pos;
+
+    // supported by the Wl source
+    DnDActions m_supportedActions = DnDAction::None;
+    // preferred by the X client
+    DnDAction m_preferredAction = DnDAction::None;
+    // decided upon by the compositor
+    DnDAction m_proposedAction = DnDAction::None;
+
+    struct
+    {
+        bool entered = false;
+        bool dropRequested = false;
+        bool dropCompleted = false;
+        bool finished = false;
+    } m_state;
+
+    bool m_accepts = false;
+
+    Q_DISABLE_COPY(Xvisit)
+};
+
+} // namespace Xwl
+} // namespace KWin

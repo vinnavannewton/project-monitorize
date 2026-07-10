@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0
+                          http://www.kde.org/standards/kcfg/1.0/kcfg.xsd" >
+    <kcfgfile arg="true"/>
+    <group name="Effect-magnifier">
+        <entry name="Width" type="UInt">
+            <default>200</default>
+        </entry>
+        <entry name="Height" type="UInt">
+            <default>200</default>
+        </entry>
+    </group>
+
+    <!-- Shared with zoom effect for convenience -->
+    <group name="Effect-zoom">
+        <entry name="ZoomFactor" type="Double">
+            <default>1.2</default>
+        </entry>
+        <entry name="InitialZoom" type="Double">
+            <default>1.0</default>
+        </entry>
+        <entry name="PointerAxisGestureModifiers" type="String">
+            <default>Meta+Control</default>
+        </entry>
+    </group>
+</kcfg>

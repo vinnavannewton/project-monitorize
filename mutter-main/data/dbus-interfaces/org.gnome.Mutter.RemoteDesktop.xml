@@ -1,0 +1,472 @@
+<!DOCTYPE node PUBLIC
+'-//freedesktop//DTD D-BUS Object Introspection 1.0//EN'
+'http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd'>
+<node>
+
+  <!--
+      org.gnome.Mutter.RemoteDesktop:
+      @short_description: Remote desktop interface
+
+      This API is private and not intended to be used outside of the integrated
+      system that uses libmutter. No compatibility between versions are
+      promised.
+  -->
+  <interface name="org.gnome.Mutter.RemoteDesktop">
+
+    <!--
+        CreateSession:
+        @session_path: Path to the new session object
+    -->
+    <method name="CreateSession">
+      <arg name="session_path" type="o" direction="out" />
+    </method>
+
+    <!--
+        SupportedDeviceTypes:
+        @short_description: Bit mask of supported device types
+
+        Device types:
+          1: keyboard
+          2: pointer
+          4: touchscreen
+    -->
+    <property name="SupportedDeviceTypes" type="u" access="read" />
+
+    <!--
+        Version:
+        @short_description: API version
+    -->
+    <property name="Version" type="i" access="read" />
+
+  </interface>
+
+  <!--
+       org.gnome.Mutter.RemoteDesktop.Session:
+       @short_description: Remote desktop session
+  -->
+  <interface name="org.gnome.Mutter.RemoteDesktop.Session">
+
+    <!--
+        SessionId:
+
+        An identification string used for identifying a remote desktop session.
+        It can be used to associate screen cast sessions with a remote desktop
+        session.
+    -->
+    <property name="SessionId" type="s" access="read" />
+
+    <!--
+        Start:
+
+        Start the remote desktop session
+    -->
+    <method name="Start" />
+
+    <!--
+        Stop:
+
+        Stop the remote desktop session
+    -->
+    <method name="Stop" />
+
+    <!--
+        Closed:
+
+        The session has closed.
+
+        A session doesn't have to have been started before it may be closed.
+        After it being closed, it can no longer be used.
+    -->
+    <signal name="Closed" />
+
+    <!--
+        NotifyKeyboardKeycode:
+
+        A key identified by an evdev keycode was pressed or released
+     -->
+    <method name="NotifyKeyboardKeycode">
+      <arg name="keycode" type="u" direction="in" />
+      <arg name="state" type="b" direction="in" />
+    </method>
+
+    <!--
+        NotifyKeyboardKeysym:
+
+        A key identified by a keysym was pressed or released
+     -->
+    <method name="NotifyKeyboardKeysym">
+      <arg name="keysym" type="u" direction="in" />
+      <arg name="state" type="b" direction="in" />
+    </method>
+
+    <!--
+        NotifyPointerButton:
+
+        A pointer button was pressed or released
+     -->
+    <method name="NotifyPointerButton">
+      <arg name="button" type="i" direction="in" />
+      <arg name="state" type="b" direction="in" />
+    </method>
+
+    <!--
+        NotifyPointerAxis:
+
+        A smooth pointer axis event notification. Relative motion deltas are to
+        be interpreted as pixel movement of a standardized mouse.
+
+        Additionally to the smooth pointer axis event notification, an emulated
+        discrete pointer axis event notification is emitted based on the
+        submitted accumulated smooth scrolling steps.
+        The base for these emulated discrete pointer axis event is the discrete
+        step with the value 10.0.
+        This means that for a delta dx (or dy) with the value 10.0 one emulated
+        discrete scrolling event is emitted.
+        For a high resolution smooth pointer axis event, a smaller value is
+        submitted for each scrolling step.
+        This means: For a double resolution mouse wheel one emulated discrete
+        event is emitted for 2 smooth pointer axis events with each having the
+        value 5.0.
+
+        Possible @flags:
+          1: finish - scroll motion was finished (e.g. fingers lifted)
+          2: source_wheel - The scroll event is originated by a mouse wheel.
+          4: source_finger - The scroll event is originated by one or more
+                             fingers on the device (eg. touchpads).
+          8: source_continuous - The scroll event is originated by the motion
+                                 of some device (eg. a scroll button is set).
+
+          Maximum one of the @flags 'source_wheel', 'source_finger',
+          'source_continuous' may be specified.
+          If no source flag is specified, `source_finger` is assumed.
+     -->
+    <method name="NotifyPointerAxis">
+      <arg name="dx" type="d" direction="in" />
+      <arg name="dy" type="d" direction="in" />
+      <arg name="flags" type="u" direction="in" />
+    </method>
+
+    <!--
+        NotifyPointerAxisDiscrete:
+
+        A discrete pointer axis event notification
+     -->
+    <method name="NotifyPointerAxisDiscrete">
+      <arg name="axis" type="u" direction="in" />
+      <arg name="steps" type="i" direction="in" />
+    </method>
+
+    <!--
+        NotifyPointerMotionRelative:
+
+        A relative pointer motion event notification
+     -->
+    <method name="NotifyPointerMotionRelative">
+      <arg name="dx" type="d" direction="in" />
+      <arg name="dy" type="d" direction="in" />
+    </method>
+
+    <!--
+        NotifyPointerMotionAbsolute:
+
+        A absolute pointer motion event notification
+     -->
+    <method name="NotifyPointerMotionAbsolute">
+      <arg name="stream" type="s" direction="in" />
+      <arg name="x" type="d" direction="in" />
+      <arg name="y" type="d" direction="in" />
+    </method>
+
+    <!--
+        NotifyTouchDown:
+
+        A absolute pointer motion event notification
+     -->
+    <method name="NotifyTouchDown">
+      <arg name="stream" type="s" direction="in" />
+      <arg name="slot" type="u" direction="in" />
+      <arg name="x" type="d" direction="in" />
+      <arg name="y" type="d" direction="in" />
+    </method>
+
+    <!--
+        NotifyTouchMotion:
+
+        A absolute pointer motion event notification
+     -->
+    <method name="NotifyTouchMotion">
+      <arg name="stream" type="s" direction="in" />
+      <arg name="slot" type="u" direction="in" />
+      <arg name="x" type="d" direction="in" />
+      <arg name="y" type="d" direction="in" />
+    </method>
+
+    <!--
+        NotifyTouchUp:
+
+        A absolute pointer motion event notification
+     -->
+    <method name="NotifyTouchUp">
+      <arg name="slot" type="u" direction="in" />
+    </method>
+
+    <!--
+        EnableClipboard:
+        @options: Options for the clipboard
+
+        Available @options include:
+
+        * "mime-types" (as): List of mime types, for which the clipboard of the
+                             remote desktop client has content.
+                             Each mime-type is in string form, e.g. "image/jpeg",
+                             "text/plain", etc..
+                             If this list is included in @options, then this call
+                             is equivalent to calling 'EnableClipboard' and
+                             'SetSelection' atomically.
+
+        Enables the clipboard for the remote desktop client which will allow it
+        to call the methods 'SetSelection', 'DisableClipboard', 'SelectionWrite',
+        'SelectionWriteDone', 'SelectionRead'.
+        The 'SelectionOwnerChanged' signal will also be emitted when the
+        selection owner changes to inform the API user of new clipboard mime
+        types, and the 'SelectionTransfer' signal will be emitted to request the
+        advertised clipboard content of a mime type.
+    -->
+    <method name="EnableClipboard">
+      <arg name="options" type="a{sv}" direction="in" />
+    </method>
+
+    <!--
+        DisableClipboard:
+
+        Unregisters all clipboard types that were advertised by the
+        remote desktop client.
+        The 'SelectionOwnerChanged' or 'SelectionTransfer' signals will not be
+        emitted any more.
+        Any 'SelectionTransfer' signals that weren't answered yet with a
+        'SelectionWriteDone' call, will be answered with a 'SelectionWriteDone'
+        call where 'success' is 'false'.
+    -->
+    <method name="DisableClipboard" />
+
+    <!--
+        SetSelection:
+        @options: Options for the clipboard selection
+
+        Available @options include:
+
+        * "mime-types" (as): List of mime types, for which the clipboard of the
+                             remote desktop client has content.
+                             Each mime-type is in string form, e.g. "image/jpeg",
+                             "text/plain", etc..
+
+        Sets the owner of the clipboard formats in 'mime-types' in @options to
+        the remote desktop client, i.e. the remote desktop client has data for
+        these advertised clipboard formats.
+    -->
+    <method name="SetSelection">
+      <arg name="options" type="a{sv}" direction="in" />
+    </method>
+
+    <!--
+        SelectionWrite:
+        @serial: The serial of the request where this answer is directed to
+        @fd: The file descriptor where the data will be written to
+
+        Answer to 'SelectionTransfer' signal. Contains the fd where the clipboard
+        content will be written to.
+    -->
+    <method name="SelectionWrite">
+      <arg name="serial" type="u" direction="in" />
+      <annotation name="org.gtk.GDBus.C.UnixFD" value="true"/>
+      <arg name="fd" type="h" direction="out" />
+    </method>
+
+    <!--
+        SelectionWriteDone:
+        @serial: The serial of the request where this answer is directed to
+        @success: A boolean which indicates whether the transfer of the clipboard
+                  data was successful ('true') or not ('false').
+
+        Notifies that the transfer of the clipboard data has either completed
+        successfully, or failed.
+    -->
+    <method name="SelectionWriteDone">
+      <arg name="serial" type="u" direction="in" />
+      <arg name="success" type="b" direction="in" />
+    </method>
+
+    <!--
+        SelectionRead:
+        @mime_type: The mime-type string of the requested format
+        @fd: The file descriptor where the data will be written to
+
+        Transfer the clipboard content given the specified mime type to the
+        method caller via a file descriptor.
+        It is the callee that creates the file descriptor.
+    -->
+    <method name="SelectionRead">
+      <arg name="mime_type" type="s" direction="in" />
+      <annotation name="org.gtk.GDBus.C.UnixFD" value="true"/>
+      <arg name="fd" type="h" direction="out" />
+    </method>
+
+    <!--
+        SelectionOwnerChanged:
+        @options: Options for the clipboard selection
+
+        Available @options include:
+
+        * "mime-types" (as): List of mime types, for which the clipboard of the
+                             remote desktop client has content.
+                             Each mime-type is in string form, e.g. "image/jpeg",
+                             "text/plain", etc..
+        * "session-is-owner" (b): 'true', if the remote desktop clients clipboard
+                                  is already owner of these types, else 'false'.
+
+        Informs the remote desktop client of new clipboard formats that are
+        available.
+    -->
+    <signal name="SelectionOwnerChanged">
+      <arg name="options" type="a{sv}" direction="in" />
+    </signal>
+
+    <!--
+        SelectionTransfer:
+        @mime_type: The mime-type string of the requested format
+        @serial: The serial, that the answer of this particular request, MUST use
+
+        Requests the data for a clipboard format from the remote desktop client.
+        MUST NOT be called when the remote desktop clients clipboard is (already)
+        disabled.
+    -->
+    <signal name="SelectionTransfer">
+      <arg name="mime_type" type="s" direction="in" />
+      <arg name="serial" type="u" direction="in" />
+    </signal>
+
+    <property name="CapsLockState" type="b" access="read">
+      <annotation name="org.freedesktop.DBus.Deprecated" value="true"/>
+    </property>
+    <property name="NumLockState" type="b" access="read">
+      <annotation name="org.freedesktop.DBus.Deprecated" value="true"/>
+    </property>
+
+    <!--
+        ConnectToEIS:
+
+        Request a connection to an EIS implementation.
+
+        Available @options include:
+
+        * "device-types" u: Bitmask of device types to expose (see SupportedDeviceTypes)
+    -->
+    <method name="ConnectToEIS">
+      <arg type="a{sv}" name="options" direction="in"/>
+      <annotation name="org.gtk.GDBus.C.UnixFD" value="true"/>
+      <arg type="h" name="fd" direction="out"/>
+    </method>
+
+    <!--
+        KeymapCapabilities:
+
+        Available options:
+
+        * ``supported-keymap-types`` (``au``)
+
+          Supported keymap types.
+
+          Available types:
+            ``0``: XKB: A keymap specified as a XKB keymap.
+
+        * ``supported-xkb-keymap-formats`` (``au``)
+
+          Supported XKB keymap formats.
+
+          Available formats:
+            ``1``: XKB_TEXT_V1: XKB text format version 1.
+            ``2``: XKB_TEXT_V2: XKB text format version 2.
+
+    -->
+    <property name="KeymapCapabilities" type="a{sv}" access="read"/>
+
+    <!--
+        SetKeymap:
+        @options: Options vararg describing the keymap.
+
+        Set the current input source. The type indicates how the input source is
+        defined.
+
+        For possible types, see the ``type`` option in KeyboardLayouts.
+
+        Available options:
+
+        * ``keymap-type`` (``u``)
+
+          The keymap type. Must only use a format listed in
+          ``supported-keymap-types`` in ``KeymapCapabilities``. Not setting the
+          keymap type resets the current keymap according to display server
+          policy.
+
+        * ``xkb-keymap-format`` (``u``)
+
+          The XKB keymap format. Must only use a format listed in
+          ``supported-xkb-keymap-formats``` in ``KeymapCapabilites``.
+
+        * ``xkb-keymap`` (``h``)
+
+          The XKB keymap in the XKB text format version 1. Required when setting
+          input source with ``XKB``.
+
+        * ``xkb-keymap-layout-index`` (``u``)
+
+          The initial XKB layout index.
+
+        * ``lock-keymap`` (``b``)
+
+          Lock the keymap to the specified one. This will result in the
+          keymap not being changable via the regular methods normally
+          used within the remote system.
+
+          Defaults to false.
+
+    -->
+    <method name="SetKeymap">
+      <annotation name="org.gtk.GDBus.C.UnixFD" value="true"/>
+      <arg name="options" type="a{sv}" direction="in"/>
+    </method>
+
+    <!--
+        SetKeymapLayoutIndex:
+        @index: The layout index
+
+        Sets the layout group index in the keymap set via SetKeymap. Will only
+        succeed if the current keymap is one set by the last call to SetKeymap
+        on this session.
+    -->
+    <method name="SetKeymapLayoutIndex">
+      <arg name="index" type="u" direction="in"/>
+    </method>
+
+    <!--
+        CurrentKeymap:
+
+        Available options:
+
+        * ``name`` (``s``)
+
+          The name of the current active keymap.
+
+        * ``source`` (``u``)
+
+          The source of the current active keymap.
+
+          Available sources:
+            ``0``: EXTERNAL: Keymap was configured externally to this session.
+            ``1``: SESSION: Keymap was configured by this session.
+    -->
+    <property name="CurrentKeymap" type="a{sv}" access="read"/>
+
+  </interface>
+
+</node>

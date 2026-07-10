@@ -73,7 +73,10 @@ class UInputBackend:
             mapped = self.geometry.map_kde_devices([self.touch, self.stylus])
             touch_event = os.path.basename(self.touch.device.path)
             if touch_event not in mapped:
-                raise RuntimeError("KDE could not bind Monitorize-Touch to Virtual-TabletDisplay")
+                raise RuntimeError(
+                    f"KDE could not bind Monitorize-Touch to "
+                    f"{os.environ.get('MONITORIZE_OUTPUT', 'Virtual-Monitorize-1')}"
+                )
             if self.stylus and os.path.basename(self.stylus.device.path) not in mapped:
                 self.stylus.close()
                 self.stylus = None

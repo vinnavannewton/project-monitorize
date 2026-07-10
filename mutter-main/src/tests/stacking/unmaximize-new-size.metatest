@@ -1,0 +1,24 @@
+# This is only tested on Wayland since it's broken on X11
+
+new_client w wayland
+create w/1 csd
+
+resize w/1 500 400
+show w/1
+wait_reconfigure w/1
+assert_size w/1 500 400
+
+maximize w/1
+wait_reconfigure w/1
+assert_size w/1 MONITOR_WIDTH MONITOR_HEIGHT
+
+resize w/1 300 500
+# technically this is racy and the only way to wait for a resize is with
+# wait_size, but the size here isn't actually changing so it is useless
+wait
+sleep 1
+assert_size w/1 MONITOR_WIDTH MONITOR_HEIGHT
+
+unmaximize w/1
+wait_reconfigure w/1
+assert_size w/1 300 500

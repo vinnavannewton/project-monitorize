@@ -1,0 +1,217 @@
+/*
+    SPDX-FileCopyrightText: 2025 Vlad Zahorodnii <vlad.zahorodnii@kde.org>
+
+    SPDX-License-Identifier: GPL-2.0-or-later
+*/
+
+#include "kwin_wayland_test.h"
+
+#include "config-kwin.h"
+
+#include "wayland_server.h"
+#include "workspace.h"
+
+#if KWIN_BUILD_GLOBALSHORTCUTS
+#include <KGlobalAccel>
+#endif
+
+#include <linux/input-event-codes.h>
+
+namespace KWin
+{
+
+class KeyboardInputTest : public QObject
+{
+    Q_OBJECT
+
+private Q_SLOTS:
+    void initTestCase();
+    void init();
+    void cleanup();
+
+    void implicitGrab();
+    void implicitGrabByClosedWindow();
+    void globalShortcut();
+    void testServerSideKeyRepeat();
+
+private:
+    std::unique_ptr<Test::Connection> m_firstConnection;
+    std::unique_ptr<Test::WlKeyboard> m_firstKeyboard;
+    std::unique_ptr<KWayland::Client::Surface> m_firstSurface;
+    std::unique_ptr<Test::XdgToplevel> m_firstShellSurface;
+    QPointer<Window> m_firstWindow;
+
+    std::unique_ptr<Test::Connection> m_secondConnection;
+    std::unique_ptr<Test::WlKeyboard> m_secondKeyboard;
+    std::unique_ptr<KWayland::Client::Surface> m_secondSurface;
+    std::unique_ptr<Test::XdgToplevel> m_secondShellSurface;
+    QPointer<Window> m_secondWindow;
+};
+
+void KeyboardInputTest::initTestCase()
+{
+    QVERIFY(waylandServer()->init(qAppName()));
+    kwinApp()->start();
+    Test::setOutputConfig({
+        Rect(0, 0, 1280, 1024),
+        Rect(1280, 0, 1280, 1024),
+    });
+}
+
+void KeyboardInputTest::init()
+{
+    m_firstConnection = Test::Connection::setup(Test::AdditionalWaylandInterface::Seat);
+    QVERIFY(Test::waitForWaylandKeyboard(m_firstConnection->kwinSeat.get()));
+    m_firstKeyboard = m_firstConnection->kwinSeat->getKeyboard();
+    m_firstSurface = Test::createSurface(m_firstConnection->compositor);
+    m_firstShellSurface = Test::createXdgToplevelSurface(m_firstConnection->xdgShell, m_firstSurface.get());
+    m_firstWindow = Test::renderAndWaitForShown(m_firstConnection->shm, m_firstSurface.get(), QSize(100, 100), Qt::cyan);
+    QSignalSpy firstEnteredSpy(m_firstKeyboard.get(), &Test::WlKeyboard::enter);
+    QVERIFY(firstEnteredSpy.wait());
+
+    m_secondConnection = Test::Connection::setup(Test::AdditionalWaylandInterface::Seat);
+    QVERIFY(Test::waitForWaylandKeyboard(m_secondConnection->kwinSeat.get()));
+    m_secondKeyboard = m_secondConnection->kwinSeat->getKeyboard();
+    m_secondSurface = Test::createSurface(m_secondConnection->compositor);
+    m_secondShellSurface = Test::createXdgToplevelSurface(m_secondConnection->xdgShell, m_secondSurface.get());
+    m_secondWindow = Test::renderAndWaitForShown(m_secondConnection->shm, m_secondSurface.get(), QSize(100, 100), Qt::cyan);
+    QSignalSpy secondEnteredSpy(m_secondKeyboard.get(), &Test::WlKeyboard::enter);
+    QVERIFY(secondEnteredSpy.wait());
+}
+
+void KeyboardInputTest::cleanup()
+{
+    m_firstShellSurface.reset();
+    m_firstSurface.reset();
+    m_firstKeyboard.reset();
+    m_firstConnection.reset();
+
+    m_secondShellSurface.reset();
+    m_secondSurface.reset();
+    m_secondKeyboard.reset();
+    m_secondConnection.reset();
+}
+
+void KeyboardInputTest::implicitGrab()
+{
+    QSignalSpy firstEnteredSpy(m_firstKeyboard.get(), &Test::WlKeyboard::enter);
+    QSignalSpy firstKeyChangedSpy(m_firstKeyboard.get(), &Test::WlKeyboard::key);
+    QSignalSpy secondEnteredSpy(m_secondKeyboard.get(), &Test::WlKeyboard::enter);
+    QSignalSpy secondKeyChangedSpy(m_secondKeyboard.get(), &Test::WlKeyboard::key);
+
+    quint32 timestamp = 0;
+    Test::keyboardKeyPressed(KEY_Q, timestamp++);
+    QVERIFY(secondKeyChangedSpy.wait());
+    QCOMPARE(secondKeyChangedSpy.last().at(2).value<quint32>(), KEY_Q);
+    QCOMPARE(secondKeyChangedSpy.last().at(3).value<Test::WlKeyboard::key_state>(), Test::WlKeyboard::key_state::key_state_pressed);
+
+    workspace()->activateWindow(m_firstWindow);
+    QVERIFY(firstEnteredSpy.wait()); // TODO: perhaps we should not receive the enter event until the q key is released
+    QCOMPARE(m_firstKeyboard->heldKeys(), (QSet<quint32>{KEY_Q}));
+
+    Test::keyboardKeyReleased(KEY_Q, timestamp++);
+    QVERIFY(firstKeyChangedSpy.wait());
+    QCOMPARE(firstKeyChangedSpy.last().at(2).value<quint32>(), KEY_Q);
+    QCOMPARE(firstKeyChangedSpy.last().at(3).value<Test::WlKeyboard::key_state>(), Test::WlKeyboard::key_state::key_state_released);
+}
+
+void KeyboardInputTest::implicitGrabByClosedWindow()
+{
+    // This test verifies that an implicit grab is preserved even after the window is closed. Note:
+    // currently it is not the case, but it should be.
+
+    QSignalSpy firstEnteredSpy(m_firstKeyboard.get(), &Test::WlKeyboard::enter);
+    QSignalSpy firstKeyChangedSpy(m_firstKeyboard.get(), &Test::WlKeyboard::key);
+    QSignalSpy secondEnteredSpy(m_secondKeyboard.get(), &Test::WlKeyboard::enter);
+    QSignalSpy secondKeyChangedSpy(m_secondKeyboard.get(), &Test::WlKeyboard::key);
+
+    quint32 timestamp = 0;
+    Test::keyboardKeyPressed(KEY_Q, timestamp++);
+    QVERIFY(secondKeyChangedSpy.wait());
+    QCOMPARE(secondKeyChangedSpy.last().at(2).value<quint32>(), KEY_Q);
+    QCOMPARE(secondKeyChangedSpy.last().at(3).value<Test::WlKeyboard::key_state>(), Test::WlKeyboard::key_state::key_state_pressed);
+
+    m_secondShellSurface.reset();
+    m_secondSurface.reset();
+    QVERIFY(firstEnteredSpy.wait()); // TODO: perhaps we should not receive the enter event until the q key is released
+    QCOMPARE(m_firstKeyboard->heldKeys(), (QSet<quint32>{KEY_Q}));
+
+    Test::keyboardKeyReleased(KEY_Q, timestamp++);
+    QVERIFY(firstKeyChangedSpy.wait());
+    QCOMPARE(firstKeyChangedSpy.last().at(2).value<quint32>(), KEY_Q);
+    QCOMPARE(firstKeyChangedSpy.last().at(3).value<Test::WlKeyboard::key_state>(), Test::WlKeyboard::key_state::key_state_released);
+}
+
+void KeyboardInputTest::globalShortcut()
+{
+    // This test verifies that keys are not leaked to the clients when pressing a global shortcut.
+
+#if KWIN_BUILD_GLOBALSHORTCUTS
+    QSignalSpy firstEnteredSpy(m_firstKeyboard.get(), &Test::WlKeyboard::enter);
+    QSignalSpy firstKeyChangedSpy(m_firstKeyboard.get(), &Test::WlKeyboard::key);
+    QSignalSpy secondEnteredSpy(m_secondKeyboard.get(), &Test::WlKeyboard::enter);
+    QSignalSpy secondKeyChangedSpy(m_secondKeyboard.get(), &Test::WlKeyboard::key);
+
+    auto action = std::make_unique<QAction>();
+    action->setObjectName(QStringLiteral("test"));
+    action->setProperty("componentName", QStringLiteral("test"));
+    KGlobalAccel::self()->setShortcut(action.get(), QList<QKeySequence>{Qt::META | Qt::Key_Space}, KGlobalAccel::NoAutoloading);
+    QSignalSpy actionTriggeredSpy(action.get(), &QAction::triggered);
+
+    // the client should not see the space key being pressed or released
+    quint32 timestamp = 0;
+    Test::keyboardKeyPressed(KEY_LEFTMETA, timestamp++);
+    QVERIFY(secondKeyChangedSpy.wait());
+    Test::keyboardKeyPressed(KEY_SPACE, timestamp++);
+    QVERIFY(!secondKeyChangedSpy.wait(10));
+    QCOMPARE(actionTriggeredSpy.count(), 1);
+    Test::keyboardKeyReleased(KEY_SPACE, timestamp++);
+    QVERIFY(!secondKeyChangedSpy.wait(10));
+    Test::keyboardKeyReleased(KEY_LEFTMETA, timestamp++);
+    QVERIFY(secondKeyChangedSpy.wait());
+
+    // the space key should not be leaked even if the focused surface changes between pressing and releasing the space key
+    Test::keyboardKeyPressed(KEY_LEFTMETA, timestamp++);
+    QVERIFY(secondKeyChangedSpy.wait());
+    Test::keyboardKeyPressed(KEY_SPACE, timestamp++);
+    QVERIFY(!secondKeyChangedSpy.wait(10));
+    QCOMPARE(actionTriggeredSpy.count(), 2);
+    m_secondShellSurface.reset();
+    m_secondSurface.reset();
+    QVERIFY(firstEnteredSpy.wait());
+    QCOMPARE(m_firstKeyboard->heldKeys(), (QSet<quint32>{KEY_LEFTMETA}));
+    Test::keyboardKeyReleased(KEY_SPACE, timestamp++);
+    QVERIFY(!firstKeyChangedSpy.wait(10));
+    Test::keyboardKeyReleased(KEY_LEFTMETA, timestamp++);
+    QVERIFY(firstKeyChangedSpy.wait());
+#endif
+}
+
+void KeyboardInputTest::testServerSideKeyRepeat()
+{
+    const auto keyboard = m_firstConnection->kwinSeat->getKeyboard();
+    QSignalSpy enter(keyboard.get(), &Test::WlKeyboard::enter);
+    QSignalSpy key(keyboard.get(), &Test::WlKeyboard::key);
+
+    Test::XdgToplevelWindow window{m_firstConnection.get()};
+    QVERIFY(window.show());
+    QVERIFY(enter.wait());
+
+    uint32_t timestamp = 0;
+    Test::keyboardKeyPressed(KEY_SPACE, timestamp++);
+    QVERIFY(key.wait());
+    QCOMPARE(key.last().last().value<Test::WlKeyboard::key_state>(), Test::WlKeyboard::key_state::key_state_pressed);
+
+    // afer some time, we should get a key repeat
+    QVERIFY(key.wait());
+    QCOMPARE(key.last().last().value<Test::WlKeyboard::key_state>(), Test::WlKeyboard::key_state::key_state_repeated);
+
+    Test::keyboardKeyReleased(KEY_SPACE, timestamp++);
+    QVERIFY(key.wait());
+    QCOMPARE(key.last().last().value<Test::WlKeyboard::key_state>(), Test::WlKeyboard::key_state::key_state_released);
+}
+
+} // namespace KWin
+
+WAYLANDTEST_MAIN(KWin::KeyboardInputTest)
+#include "keyboard_input_test.moc"

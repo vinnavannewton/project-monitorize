@@ -1,0 +1,1465 @@
+# translation of kcmkwinrules.po to Latvian
+# Copyright (C) YEAR This_file_is_part_of_KDE
+# This file is distributed under the same license as the PACKAGE package.
+#
+# SPDX-FileCopyrightText: 2024, 2025 Toms Trasuns <toms.trasuns@posteo.net>
+# Atoms <atoms@tups.lv>, 2007.
+# Maris Nartiss <maris.kde@gmail.com>, 2007, 2008, 2010, 2011, 2024.
+# Viesturs Zarins <viesturs.zarins@mii.lu.lv>, 2007, 2008.
+# Viesturs Zariņš <viesturs.zarins@mii.lu.lv>, 2009.
+# Einars Sprugis <einars8@gmail.com>, 2011.
+msgid ""
+msgstr ""
+"Project-Id-Version: kcmkwinrules\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-07-10 00:46+0000\n"
+"PO-Revision-Date: 2025-05-08 16:37+0300\n"
+"Last-Translator: Toms Trasuns <toms.trasuns@posteo.net>\n"
+"Language-Team: Latvian <kde-i18n-doc@kde.org>\n"
+"Language: lv\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Lokalize 25.04.0\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n != 0 ? 1 : "
+"2);\n"
+
+#: kcmrules.cpp:228
+#, kde-format
+msgid "Copy of %1"
+msgstr "%1 kopija"
+
+#: kcmrules.cpp:426
+#, kde-format
+msgid "Application settings for %1"
+msgstr "%1 programmas iestatījumi"
+
+#: kcmrules.cpp:448 rulesmodel.cpp:222 rulesmodel.cpp:225
+#, kde-format
+msgid "Window settings for %1"
+msgstr "%1 loga iestatījumi"
+
+#: optionsmodel.cpp:199 optionsmodel.cpp:204
+#, fuzzy, kde-format
+#| msgid "Unimportant"
+msgctxt "@item:inlistbox"
+msgid "Unimportant"
+msgstr "Nav svarīgi"
+
+#: optionsmodel.cpp:200
+#, fuzzy, kde-format
+#| msgid "Exact match"
+msgctxt "@item:inlistbox"
+msgid "Exact match"
+msgstr "Precīza sakritība"
+
+#: optionsmodel.cpp:201
+#, fuzzy, kde-format
+#| msgid "Substring match"
+msgctxt "@item:inlistbox"
+msgid "Substring match"
+msgstr "Apakšvirknes sakritība"
+
+#: optionsmodel.cpp:202
+#, fuzzy, kde-format
+#| msgid "Regular expression"
+msgctxt "@item:inlistbox"
+msgid "Regular expression"
+msgstr "Regulārā izteiksme"
+
+#: optionsmodel.cpp:205
+#, kde-format
+msgctxt "@item:inlistbox This is a noun"
+msgid "Match"
+msgstr ""
+
+#: optionsmodel.cpp:210
+#, kde-format
+msgid "Apply initially"
+msgstr "Pielietot sākotnēji"
+
+#: optionsmodel.cpp:211
+#, kde-format
+msgid ""
+"The window property will be only set to the given value after the window is "
+"created.\n"
+"No further changes will be affected."
+msgstr ""
+"Loga īpašība tiks iestatīta uz norādīto vērtību pēc loga izveidošanas.\n"
+"Vairāk nekādas darbības netiks veiktas."
+
+#: optionsmodel.cpp:214
+#, kde-format
+msgid "Apply now"
+msgstr "Pielietot tagad"
+
+#: optionsmodel.cpp:215
+#, kde-format
+msgid ""
+"The window property will be set to the given value immediately and will not "
+"be affected later\n"
+"(this action will be deleted afterwards)."
+msgstr ""
+"Šī loga īpašība tiks iestatīta uz norādīto vērtību nekavējoties un vēlāk "
+"netiks ietekmēta.\n"
+"(šī darbība pēc tam tiks dzēsta)."
+
+#: optionsmodel.cpp:218
+#, kde-format
+msgid "Remember"
+msgstr "Atcerēties"
+
+#: optionsmodel.cpp:219
+#, kde-format
+msgid ""
+"The value of the window property will be remembered and, every time the "
+"window is created, the last remembered value will be applied."
+msgstr ""
+"Loga īpašību vērtība tiks saglabāta un katru reizi pēc loga izveidošanas "
+"tiks piemērota pēdējā saglabātā vērtība."
+
+#: optionsmodel.cpp:222
+#, kde-format
+msgid "Do not affect"
+msgstr "Neietekmēt"
+
+#: optionsmodel.cpp:223
+#, kde-format
+msgid ""
+"The window property will not be affected and therefore the default handling "
+"for it will be used.\n"
+"Specifying this will block more generic window settings from taking effect."
+msgstr ""
+"Loga vērtību neietekmēs un tāpēc izmantos tā noklusējuma vērtību.\n"
+"Šī iestatījuma precizēšana neļaus stāties spēkā vispārīgākiem loga "
+"iestatījumiem."
+
+#: optionsmodel.cpp:226
+#, kde-format
+msgid "Force"
+msgstr "Piespiest"
+
+#: optionsmodel.cpp:227
+#, kde-format
+msgid "The window property will be always forced to the given value."
+msgstr ""
+"Loga īpašība vienmēr tiks piespiedu kārtā iestatīta uz norādīto vērtību."
+
+#: optionsmodel.cpp:229
+#, kde-format
+msgid "Force temporarily"
+msgstr "Piespiest uz laiku"
+
+#: optionsmodel.cpp:230
+#, kde-format
+msgid ""
+"The window property will be forced to the given value until it is hidden\n"
+"(this action will be deleted after the window is hidden)."
+msgstr ""
+"Loga īpašība vienmēr piespiedu veidā tiks iestatīta uz norādīto vērtību līdz "
+"loga paslēpšanai\n"
+"(šī darbība tiks dzēsta pēc loga paslēpšanas)."
+
+#: rulesmodel.cpp:228
+#, kde-format
+msgid "Settings for %1"
+msgstr "%1 iestatījumi"
+
+#: rulesmodel.cpp:231
+#, kde-format
+msgid "New window settings"
+msgstr "Jauna loga iestatījumi"
+
+#: rulesmodel.cpp:247
+#, kde-format
+msgid ""
+"You have specified the window class as unimportant.\n"
+"This means the settings will possibly apply to windows from all "
+"applications. If you really want to create a generic setting, it is "
+"recommended you at least limit the window types to avoid special window "
+"types."
+msgstr ""
+"Jūs norādījāt, ka loga klase nav svarīga.\n"
+"Tas nozīmē, ka šie iestatījumi, iespējams, tiks pielietoti arī citām "
+"programmām. Ja tiešām vēlaties šādu vispārīgu iestatījumu, vēlams, lai jūs "
+"norādītu vismaz logu tipus, lai izvairītos no tā pielietošanas speciāliem "
+"logiem."
+
+#: rulesmodel.cpp:254
+#, kde-format
+msgid ""
+"Some applications set their own geometry after starting, overriding your "
+"initial settings for size and position. To enforce these settings, also "
+"force the property \"%1\" to \"Yes\"."
+msgstr ""
+"Dažas programmas pēc palaišanas pašas iestata savu ģeometriju, pārrakstot "
+"jūsu noteiktos sākotnējos izmēra un novietojuma iestatījumus. Lai piespiestu "
+"izmantot šos iestatījumus, izmantojiet piespiedu īpašību „%1“, tai atzīmējot "
+"„Jā“."
+
+#: rulesmodel.cpp:261
+#, kde-format
+msgid ""
+"Readability may be impaired with extremely low opacity values. At 0%, the "
+"window becomes invisible."
+msgstr ""
+"Ļoti zemas necaurspīdīguma vērtības var pasliktināt lasāmību. Pie 0% logs "
+"kļūst neredzams."
+
+#: rulesmodel.cpp:388
+#, kde-format
+msgid "Description"
+msgstr "Apraksts"
+
+#: rulesmodel.cpp:388 rulesmodel.cpp:396 rulesmodel.cpp:404 rulesmodel.cpp:411
+#: rulesmodel.cpp:417 rulesmodel.cpp:425 rulesmodel.cpp:430 rulesmodel.cpp:436
+#: rulesmodel.cpp:441 rulesmodel.cpp:447
+#, kde-format
+msgid "Window matching"
+msgstr "Loga atbilstība"
+
+#: rulesmodel.cpp:396
+#, kde-format
+msgid "Window class (application)"
+msgstr "Loga klase (programma)"
+
+#: rulesmodel.cpp:404
+#, kde-format
+msgid "Match whole window class"
+msgstr "Sakrīt visa logu klase"
+
+#: rulesmodel.cpp:411
+#, kde-format
+msgid "Whole window class"
+msgstr "Visa logu klase"
+
+#: rulesmodel.cpp:417
+#, kde-format
+msgid "Window types"
+msgstr "Logu tipi"
+
+#: rulesmodel.cpp:425
+#, kde-format
+msgid "Window role"
+msgstr "Loga loma"
+
+#: rulesmodel.cpp:430
+#, kde-format
+msgid "Window title"
+msgstr "Loga nosaukums"
+
+#: rulesmodel.cpp:436
+#, kde-format
+msgid "Machine (hostname)"
+msgstr "Ierīce (saimniekdatora nosaukums)"
+
+#: rulesmodel.cpp:441
+#, kde-format
+msgid "Window tag"
+msgstr "Loga birka"
+
+#: rulesmodel.cpp:447
+#, fuzzy, kde-format
+#| msgid "On main window"
+msgid "Has parent window"
+msgstr "Galvenajā logā"
+
+#: rulesmodel.cpp:453
+#, kde-format
+msgid "Position"
+msgstr "Novietojums"
+
+#: rulesmodel.cpp:453 rulesmodel.cpp:459 rulesmodel.cpp:465 rulesmodel.cpp:470
+#: rulesmodel.cpp:478 rulesmodel.cpp:484 rulesmodel.cpp:503 rulesmodel.cpp:519
+#: rulesmodel.cpp:524 rulesmodel.cpp:529 rulesmodel.cpp:534 rulesmodel.cpp:541
+#: rulesmodel.cpp:555 rulesmodel.cpp:560
+#, kde-format
+msgid "Size & Position"
+msgstr "Izmērs un novietojums"
+
+#: rulesmodel.cpp:459
+#, kde-format
+msgid "Size"
+msgstr "Izmērs"
+
+#: rulesmodel.cpp:465
+#, kde-format
+msgid "Maximized horizontally"
+msgstr "Maksimizēts horizontāli"
+
+#: rulesmodel.cpp:470
+#, kde-format
+msgid "Maximized vertically"
+msgstr "Maksimizēts vertikāli"
+
+#: rulesmodel.cpp:478
+#, kde-format
+msgid "Virtual desktop"
+msgstr "Virtuālā darbvirsma"
+
+#: rulesmodel.cpp:484
+#, kde-format
+msgid "Virtual desktops"
+msgstr "Virtuālās darbvirsmas"
+
+#: rulesmodel.cpp:503
+#, kde-format
+msgid "Activities"
+msgstr "Aktivitātes"
+
+#: rulesmodel.cpp:519
+#, kde-format
+msgid "Screen"
+msgstr "Ekrāns"
+
+#: rulesmodel.cpp:524 rulesmodel.cpp:923
+#, kde-format
+msgid "Fullscreen"
+msgstr "Pilnekrāns"
+
+#: rulesmodel.cpp:529
+#, kde-format
+msgid "Minimized"
+msgstr "Minimizēts"
+
+#: rulesmodel.cpp:534
+#, kde-format
+msgid "Initial placement"
+msgstr "Sākotnējais novietojums"
+
+#: rulesmodel.cpp:541
+#, kde-format
+msgid "Ignore requested geometry"
+msgstr "Ignorēt pieprasīto ģeometriju"
+
+#: rulesmodel.cpp:544
+#, kde-kuit-format
+msgctxt "@info:tooltip"
+msgid ""
+"Some applications can set their own geometry, overriding the window manager "
+"preferences. Setting this property overrides their placement requests.<nl/"
+"><nl/>This affects <interface>Size</interface> and <interface>Position</"
+"interface> but not <interface>Maximized</interface> or "
+"<interface>Fullscreen</interface> states.<nl/><nl/>Note that the position "
+"can also be used to map to a different <interface>Screen</interface>"
+msgstr ""
+"Atsevišķas programmas var iestatīt savu ģeometriju, pārrakstot logu "
+"pārvaldnieka iestatījumus. Šīs īpašības iestatīšana pārraksta to novietojuma "
+"pieprasījumus.<nl/><nl/>Tas ietekmē <interface>Izmēru</interface> un "
+"<interface>Novietojumu</interface>, bet ne <interface>Maksimizēšanas</"
+"interface> vai <interface>Pilnekrāna</interface> stāvokļus.<nl/><nl/"
+">Ievērojiet, ka novietojums var tikt izmantots, lai ekrānam liktu atvērties "
+"citā <interface>Ekrānā</interface>."
+
+#: rulesmodel.cpp:555
+#, kde-format
+msgid "Minimum Size"
+msgstr "Mazākais izmērs"
+
+#: rulesmodel.cpp:560
+#, kde-format
+msgid "Maximum Size"
+msgstr "Lielākais izmērs"
+
+#: rulesmodel.cpp:566
+#, kde-format
+msgid "Keep above other windows"
+msgstr "Turēt virs citiem logiem"
+
+#: rulesmodel.cpp:566 rulesmodel.cpp:571 rulesmodel.cpp:576 rulesmodel.cpp:582
+#: rulesmodel.cpp:588 rulesmodel.cpp:594
+#, kde-format
+msgid "Arrangement & Access"
+msgstr "Izvietojums un piekļuve"
+
+#: rulesmodel.cpp:571
+#, kde-format
+msgid "Keep below other windows"
+msgstr "Turēt zem citiem logiem"
+
+#: rulesmodel.cpp:576
+#, kde-format
+msgid "Skip taskbar"
+msgstr "Izlaist uzdevumu joslu"
+
+#: rulesmodel.cpp:578
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Controls whether or not the window appears in the Task Manager."
+msgstr "Kontrolē to, vai logs parādās uzdevumu pārvaldniekā."
+
+#: rulesmodel.cpp:582
+#, kde-format
+msgid "Skip pager"
+msgstr "Izlaist lapotāju"
+
+#: rulesmodel.cpp:584
+#, kde-format
+msgctxt "@info:tooltip"
+msgid ""
+"Controls whether or not the window appears in the Virtual Desktop manager."
+msgstr "Kontrolē to, vai logs parādīsies virtuālo darbvirsmu pārvaldniekā."
+
+#: rulesmodel.cpp:588
+#, kde-format
+msgid "Skip switcher"
+msgstr "Izlaist pārslēdzēju"
+
+#: rulesmodel.cpp:590
+#, kde-kuit-format
+msgctxt "@info:tooltip"
+msgid ""
+"Controls whether or not the window appears in the <shortcut>Alt+Tab</"
+"shortcut> window list."
+msgstr ""
+"Kontrolē, vai logs parādīsies <shortcut>Alt+Tab</shortcut> logu sarakstā."
+
+#: rulesmodel.cpp:594
+#, kde-format
+msgid "Shortcut"
+msgstr "Saīsne"
+
+#: rulesmodel.cpp:600
+#, kde-format
+msgid "No titlebar and frame"
+msgstr "Bez virsrakstjoslas un ietvara"
+
+#: rulesmodel.cpp:600 rulesmodel.cpp:605 rulesmodel.cpp:611 rulesmodel.cpp:616
+#: rulesmodel.cpp:622 rulesmodel.cpp:649 rulesmodel.cpp:677 rulesmodel.cpp:683
+#: rulesmodel.cpp:695 rulesmodel.cpp:700 rulesmodel.cpp:705 rulesmodel.cpp:711
+#: rulesmodel.cpp:716 rulesmodel.cpp:721
+#, kde-format
+msgid "Appearance & Fixes"
+msgstr "Izskats un labojumi"
+
+#: rulesmodel.cpp:605
+#, kde-format
+msgid "Titlebar color scheme"
+msgstr "Virsrakstjoslas krāsu shēma"
+
+#: rulesmodel.cpp:611
+#, kde-format
+msgid "Active opacity"
+msgstr "Aktīvā loga caurspīdība"
+
+#: rulesmodel.cpp:616
+#, kde-format
+msgid "Inactive opacity"
+msgstr "Neaktīvā loga caurspīdība"
+
+#: rulesmodel.cpp:622
+#, kde-format
+msgid "Focus stealing prevention"
+msgstr "Fokusa zaudēšanas novēršana"
+
+#: rulesmodel.cpp:624
+#, kde-kuit-format
+msgctxt "@info:tooltip"
+msgid ""
+"KWin tries to prevent windows that were opened without direct user action "
+"from raising themselves and taking focus while you're currently interacting "
+"with another window. This property can be used to change the level of focus "
+"stealing prevention applied to individual windows and apps.<nl/><nl/>Here's "
+"what will happen to a window opened without your direct action at each level "
+"of focus stealing prevention:<nl/><list><item><emphasis strong='true'>None:</"
+"emphasis> The window will be raised and focused.</item><item><emphasis "
+"strong='true'>Low:</emphasis> Focus stealing prevention will be applied, but "
+"in the case of a situation KWin considers ambiguous, the window will be "
+"raised and focused.</item><item><emphasis strong='true'>Normal:</emphasis> "
+"Focus stealing prevention will be applied, but  in the case of a situation "
+"KWin considers ambiguous, the window will <emphasis>not</emphasis> be raised "
+"and focused.</item><item><emphasis strong='true'>High:</emphasis> The window "
+"will only be raised and focused if it belongs to the same app as the "
+"currently-focused window.</item><item><emphasis strong='true'>Extreme:</"
+"emphasis> The window will never be raised and focused.</item></list>"
+msgstr ""
+"„KWin“ mēģina novērst logu, kas netika atvērti ar tiešu lietotāja darbību, "
+"pacelšanos un fokusa pārņemšanu laikā, kad strādājat ar citu logu. Šī "
+"īpašība var tikt izmantota, lai mainītu fokusa zaudēšanas novēršanu "
+"attiecībā uz atsevišķiem logiem un programmām<nl/><nl/>Te ir parādīts, kas "
+"notiks ar logu, kas atvērts bez jūsu tiešas rīcības katrā fokusa zaudēšanas "
+"novēršanas līmenī:<nl/><list><item><emphasis strong='true'>Nekas:</emphasis> "
+"Logs pacelsies un pārņems fokusu.</item><item><emphasis strong='true'>Zems:</"
+"emphasis> Tiks izmantota fokusa zaudēšanas novēršana, tomēr situācijās, "
+"kuras „KWin“ uzskatīs par divdomīgām, logam tiks ļauts pacelties un pārņemt "
+"fokusu.</item><item><emphasis strong='true'>Normāls:</emphasis> Tiks "
+"izmantota fokusa zaudēšanas novēršana, tomēr situācijās, kuras „KWin“ "
+"uzskatīs par divdomīgām, logam <emphasis>netiks</emphasis> ļauts pacelties "
+"un pārņemt fokusu.</item><item><emphasis strong='true'>Augsts:</emphasis> "
+"Logam būs ļauts pacelties un pārņemt fokusu tikai gadījumos, ja tas pieder "
+"programmai, kurai attiecīgajā brīdī ir fokuss.</item><item><emphasis "
+"strong='true'>Ekstrēms:</emphasis> Logam nekad nebūs ļauts pacelties un "
+"pārņemt fokusu.</item></list>"
+
+#: rulesmodel.cpp:649
+#, kde-format
+msgid "Focus protection"
+msgstr "Fokusa aizsardzība"
+
+#: rulesmodel.cpp:651
+#, kde-kuit-format
+msgctxt "@info:tooltip"
+msgid ""
+"This property controls the focus protection level of the currently active "
+"window. It is used to override the focus stealing prevention applied to new "
+"windows that are opened without your direct action.<nl/><nl/>Here's what "
+"happens to new windows that are opened without your direct action at each "
+"level of focus protection while the window with this property applied to it "
+"has focus:<nl/><list><item><emphasis strong='true'>None</emphasis>: Newly-"
+"opened windows always raise themselves and take focus.</item><item><emphasis "
+"strong='true'>Low:</emphasis> Focus stealing prevention will be applied to "
+"the newly-opened window, but in the case of a situation KWin considers "
+"ambiguous, the window will be raised and focused.</item><item><emphasis "
+"strong='true'>Normal:</emphasis> Focus stealing prevention will be applied "
+"to the newly-opened window, but in the case of a situation KWin considers "
+"ambiguous, the window will <emphasis>not</emphasis> be raised and focused.</"
+"item><item><emphasis strong='true'>High:</emphasis> Newly-opened windows "
+"will only raise themselves and take focus if they belongs to the same app as "
+"the currently-focused window.</item><item><emphasis strong='true'>Extreme:</"
+"emphasis> Newly-opened windows never raise themselves and take focus.</"
+"item></list>"
+msgstr ""
+"Šī īpašība kontrolē fokusa aizsardzības līmeni pašreizējam aktīvajam logam. "
+"Tā ir izmantojama, lai pārrakstītu fokusa zaudēšanas novēršanu, kas attiecas "
+"uz jauniem logiem, kas ir atvērti bez jūsu tiešas darbības.<nl/><nl/>Te ir "
+"norādīts, kas notiek ar jauniem logiem, kuri tiek atvērti bez jūsu tiešas "
+"darbības katrā fokusa aizsardzības līmenī, kad logam ar aktīvu šo īpašību ir "
+"fokuss:<nl/><list><item><emphasis strong='true'>Nav</emphasis>: No jauna "
+"atvērtie logi vienmēr paceļas un pārņem fokusu.</item><item><emphasis "
+"strong='true'>Zema:</emphasis> Fokusa zaudēšanas novēršana tika piemērota no "
+"jauna atvērtiem logiem, bet gadījumos, kurus „KWin“ uzskata par divdomīgiem, "
+"logam tiks ļauts pacelties un pārņemt fokusu.</item><item><emphasis "
+"strong='true'>Normāls:</emphasis> Fokusa zaudēšanas novēršana tiks piemērota "
+"no jauna atvērtiem logiem, bet gadījumos, kurus „KWin“ uzskata par "
+"divdomīgiem, logam <emphasis>netiks</emphasis> ļauts pacelties un pārņemt "
+"fokusu..</item><item><emphasis strong='true'>Augsts:</emphasis> No jauna "
+"atvērtiem logiem būs ļauts pacelties un pārņemt fokusu tikai tad, ja tie "
+"pieder tai pašai programmai, kas attiecīgajā brīdī atrodas fokusā.</"
+"item><item><emphasis strong='true'>Ekstrēms:</emphasis> No jauna atvērtiem "
+"logiem nekad nebūs ļauts pacelties un pārņemt fokusu.</item></list>"
+
+#: rulesmodel.cpp:677
+#, kde-format
+msgid "Accept focus"
+msgstr "Pieņemt fokusu"
+
+#: rulesmodel.cpp:679
+#, kde-format
+msgid "Controls whether or not the window becomes focused when clicked."
+msgstr "Kontrolē, vai logs pēc uzklikšķināšanas uz tā iegūst fokusu."
+
+#: rulesmodel.cpp:683
+#, kde-format
+msgid "Ignore global shortcuts"
+msgstr "Ignorēt globālās saīsnes"
+
+#: rulesmodel.cpp:685
+#, kde-kuit-format
+msgctxt "@info:tooltip"
+msgid ""
+"Use this property to prevent global keyboard shortcuts from working while "
+"the window is focused. This can be useful for apps like emulators or virtual "
+"machines that handle some of the same shortcuts themselves.<nl/><nl/>Note "
+"that you won't be able to <shortcut>Alt+Tab</shortcut> out of the window or "
+"use any other global shortcuts such as <shortcut>Alt+Space</shortcut> to "
+"activate KRunner."
+msgstr ""
+"Izmantojiet šo īpašību, lai novērstu globālo saīšņu darbību, kad logs "
+"atrodas fokusā. Tas var būt noderīgi tādām programmām kā emulatori vai "
+"virtuālās mašīnas, kurām pašām ir nepieciešamas atsevišķas šādas saīsnes. "
+"<nl/><nl/>Ievērojiet, ka nevarēsiet izmantot <shortcut>Alt+Tab</shortcut>, "
+"lai atstātu logu, vai izmantot jebkādu citu globālu saīsni, piemēram, "
+"<shortcut>Alt+Space</shortcut>, lai palaistu „KRunner“."
+
+#: rulesmodel.cpp:695
+#, kde-format
+msgid "Closeable"
+msgstr "Aizverams"
+
+#: rulesmodel.cpp:700
+#, kde-format
+msgid "Desktop file name"
+msgstr "Darbvirsmas datnes nosaukums"
+
+#: rulesmodel.cpp:705
+#, kde-format
+msgid "Layer"
+msgstr "Slānis"
+
+#: rulesmodel.cpp:711
+#, kde-format
+msgid "Adaptive sync"
+msgstr "Adaptīvā sinhronizācija"
+
+#: rulesmodel.cpp:716
+#, kde-format
+msgid "Allow tearing"
+msgstr "Atļaut ekrāna pārraušanu"
+
+#: rulesmodel.cpp:721
+#, kde-format
+msgid "Hide from screenshots and screen recordings"
+msgstr ""
+
+#: rulesmodel.cpp:774
+#, kde-format
+msgid "Window class not available"
+msgstr "Loga klase nav pieejama"
+
+#: rulesmodel.cpp:775
+#, kde-kuit-format
+msgctxt "@info"
+msgid ""
+"This application is not providing a class for the window, so KWin cannot use "
+"it to match and apply any rules. If you still want to apply some rules to "
+"it, try to match other properties like the window title instead.<nl/><nl/"
+">Please consider reporting this bug to the application's developers."
+msgstr ""
+"Šī programma nesniedz loga klasi, tāpēc „KWin“ to nevar izmantot un piemērot "
+"jebkādus noteikumus. Ja tomēr vēlaties šai programmai piemērot kādus "
+"noteikumus, mēģiniet to darīt pēc citām īpašībām, piemēram, loga nosaukuma."
+"<nl/><nl/>Apsveriet iespēju par šo kļūdu ziņot programmas izstrādātājiem."
+
+#: rulesmodel.cpp:809
+#, kde-format
+msgid "All window types"
+msgstr "Visi logu tipi"
+
+#: rulesmodel.cpp:810
+#, kde-format
+msgid "Normal window"
+msgstr "Normāls logs"
+
+#: rulesmodel.cpp:811
+#, kde-format
+msgid "Dialog window"
+msgstr "Lodziņš"
+
+#: rulesmodel.cpp:812
+#, kde-format
+msgid "Utility window"
+msgstr "Utilītas logs"
+
+#: rulesmodel.cpp:813
+#, kde-format
+msgid "Dock (panel)"
+msgstr "Doks (panelis)"
+
+#: rulesmodel.cpp:814
+#, kde-format
+msgid "Toolbar"
+msgstr "Rīkjosla"
+
+#: rulesmodel.cpp:815
+#, kde-format
+msgid "Torn-off menu"
+msgstr "Atdalīta izvēlne"
+
+#: rulesmodel.cpp:816
+#, kde-format
+msgid "Splash screen"
+msgstr "Sākuma ekrāns"
+
+#: rulesmodel.cpp:817 rulesmodel.cpp:918
+#, kde-format
+msgid "Desktop"
+msgstr "Darbvirsma"
+
+#. i18n("Unmanaged Window")},  deprecated
+#: rulesmodel.cpp:819
+#, kde-format
+msgid "Standalone menubar"
+msgstr "Pastāvīga izvēlnes josla"
+
+#: rulesmodel.cpp:820 rulesmodel.cpp:926
+#, kde-format
+msgid "On-screen display"
+msgstr "Virsekrāna logs"
+
+#: rulesmodel.cpp:830
+#, kde-format
+msgid "All desktops"
+msgstr "Visas darbvirsmas"
+
+#: rulesmodel.cpp:832
+#, kde-format
+msgctxt "@info:tooltip in the virtual desktop list"
+msgid "Make the window available on all desktops"
+msgstr "Padarīt visus logus pieejamus uz visām darbvirsmām"
+
+#: rulesmodel.cpp:851
+#, kde-format
+msgid "All activities"
+msgstr "Visas aktivitātes"
+
+#: rulesmodel.cpp:853
+#, kde-format
+msgctxt "@info:tooltip in the activity list"
+msgid "Make the window available on all activities"
+msgstr "Padarīt logus pieejamus visās aktivitātēs"
+
+#: rulesmodel.cpp:874
+#, kde-format
+msgid "Default"
+msgstr "Noklusētais"
+
+#: rulesmodel.cpp:875
+#, kde-format
+msgid "No placement"
+msgstr "Nav novietojuma"
+
+#: rulesmodel.cpp:876
+#, kde-format
+msgid "Minimal overlapping"
+msgstr "Minimāla pārklāšanās"
+
+#: rulesmodel.cpp:877
+#, kde-format
+msgid "Maximized"
+msgstr "Maksimizēts"
+
+#: rulesmodel.cpp:878
+#, kde-format
+msgid "Centered"
+msgstr "Centrēts"
+
+#: rulesmodel.cpp:879
+#, kde-format
+msgid "Random"
+msgstr "Nejaušs"
+
+#: rulesmodel.cpp:880
+#, kde-format
+msgid "In top-left corner"
+msgstr "Augšējais kreisais stūris"
+
+#: rulesmodel.cpp:881
+#, kde-format
+msgid "Under mouse"
+msgstr "Zem peles"
+
+#: rulesmodel.cpp:882
+#, kde-format
+msgid "On main window"
+msgstr "Galvenajā logā"
+
+#: rulesmodel.cpp:889
+#, kde-format
+msgid "None"
+msgstr "Nav"
+
+#: rulesmodel.cpp:890
+#, kde-format
+msgid "Low"
+msgstr "Zema"
+
+#: rulesmodel.cpp:891 rulesmodel.cpp:920
+#, kde-format
+msgid "Normal"
+msgstr "Normāla"
+
+#: rulesmodel.cpp:892
+#, kde-format
+msgid "High"
+msgstr "Augsta"
+
+#: rulesmodel.cpp:893
+#, kde-format
+msgid "Extreme"
+msgstr "Ekstrēma"
+
+#: rulesmodel.cpp:919
+#, kde-format
+msgid "Below"
+msgstr "Zem"
+
+#: rulesmodel.cpp:921
+#, kde-format
+msgid "Above"
+msgstr "Virs"
+
+#: rulesmodel.cpp:922
+#, kde-format
+msgid "Notification"
+msgstr "Paziņojums"
+
+#: rulesmodel.cpp:924
+#, kde-format
+msgid "Popup"
+msgstr "Uzlecošais logs"
+
+#: rulesmodel.cpp:925
+#, kde-format
+msgid "Critical notification"
+msgstr "Kritisks paziņojums"
+
+#: rulesmodel.cpp:927
+#, kde-format
+msgid "Overlay"
+msgstr "Pārskats"
+
+#: rulesmodel.cpp:952
+#, kde-format
+msgid "Unmanaged window"
+msgstr "Nepārvaldīts logs"
+
+#: rulesmodel.cpp:953
+#, kde-format
+msgid "Could not detect window properties. The window is not managed by KWin."
+msgstr "Neizdevās noteikt loga īpašības. Šo logu nepārvalda „KWin“"
+
+#: ui/FileDialogLoader.qml:15
+#, kde-format
+msgid "Select File"
+msgstr "Atlasīt datni"
+
+#: ui/FileDialogLoader.qml:27
+#, kde-format
+msgid "KWin Rules (*.kwinrule)"
+msgstr "KWin noteikumi (*.kwinrule)"
+
+#: ui/main.qml:28
+#, kde-format
+msgid "Add New…"
+msgstr "Pievienot jaunu…"
+
+#: ui/main.qml:35
+#, kde-format
+msgid "Import…"
+msgstr "Importēt…"
+
+#: ui/main.qml:40
+#, kde-format
+msgid "Cancel Export"
+msgstr "Atcelt eksportu"
+
+#: ui/main.qml:40
+#, kde-format
+msgid "Export…"
+msgstr "Eksportēt…"
+
+#: ui/main.qml:88
+#, kde-format
+msgid "No rules for specific windows are currently set"
+msgstr "Šobrīd nav iestatīti noteikumi atsevišķiem logiem"
+
+#: ui/main.qml:89
+#, kde-kuit-format
+msgctxt "@info"
+msgid "Click <interface>Add New…</interface> to add some"
+msgstr "Spiediet uz  <interface>Pievienot jaunu…</interface>, lai pievienotu"
+
+#: ui/main.qml:97
+#, kde-format
+msgid "Select the rules to export"
+msgstr "Atlasiet eksportējamos noteikumus"
+
+#: ui/main.qml:101
+#, kde-format
+msgid "Unselect All"
+msgstr "Noņemt atlasi visam"
+
+#: ui/main.qml:101
+#, kde-format
+msgid "Select All"
+msgstr "Atlasīt visus"
+
+#: ui/main.qml:115
+#, kde-format
+msgid "Save Rules"
+msgstr "Saglabāt noteikumus"
+
+#: ui/main.qml:202
+#, kde-format
+msgid "Edit"
+msgstr "Rediģēt"
+
+#: ui/main.qml:208
+#, kde-format
+msgid "Duplicate"
+msgstr "Dublēt"
+
+#: ui/main.qml:214
+#, kde-format
+msgid "Delete"
+msgstr "Dzēst"
+
+#: ui/main.qml:246
+#, kde-format
+msgid "Import Rules"
+msgstr "Importēt noteikumus"
+
+#: ui/main.qml:258
+#, kde-format
+msgid "Export Rules"
+msgstr "Eksportēt noteikumus"
+
+#: ui/OptionsComboBox.qml:35
+#, kde-format
+msgid "None selected"
+msgstr "Nekas nav atlasīts"
+
+#: ui/OptionsComboBox.qml:41
+#, kde-format
+msgid "All selected"
+msgstr "Atlasīti visi"
+
+#: ui/OptionsComboBox.qml:43
+#, kde-format
+msgid "%1 selected"
+msgid_plural "%1 selected"
+msgstr[0] "%1 atlasīts"
+msgstr[1] "%1 atlasīti"
+msgstr[2] "%1 atlasītu"
+
+#: ui/RulesEditor.qml:66
+#, kde-format
+msgid "No window properties changed"
+msgstr "Logu īpašības nav mainītas"
+
+#: ui/RulesEditor.qml:67
+#, kde-kuit-format
+msgctxt "@info"
+msgid ""
+"Click the <interface>Add Property...</interface> button below to add some "
+"window properties that will be affected by the rule"
+msgstr ""
+"Spiediet uz <interface>Pievienot īpašību...</interface> pogas, lai "
+"pievienotu loga īpašības, kuras ietekmēs šis noteikums."
+
+#: ui/RulesEditor.qml:88
+#, kde-format
+msgid "Add Property..."
+msgstr "Pievienot īpašību..."
+
+#: ui/RulesEditor.qml:99
+#, kde-format
+msgid "Detect Window Properties"
+msgstr "Noteikt loga īpašības"
+
+#: ui/RulesEditor.qml:115 ui/RulesEditor.qml:126
+#, kde-format
+msgid "Instantly"
+msgstr "Tūlītēji"
+
+#: ui/RulesEditor.qml:116 ui/RulesEditor.qml:131
+#, kde-format
+msgid "After %1 second"
+msgid_plural "After %1 seconds"
+msgstr[0] "Pēc %1 sekundes"
+msgstr[1] "Pēc %1 sekundēm"
+msgstr[2] "Pēc %1 sekundēm"
+
+#: ui/RulesEditor.qml:178
+#, kde-format
+msgid "Add property to the rule"
+msgstr "Noteikumam pievienot īpašību"
+
+#: ui/RulesEditor.qml:269
+#, kde-format
+msgctxt "@info:placeholder"
+msgid "No properties left to add"
+msgstr "Nav pievienojamu īpašību"
+
+#: ui/RulesEditor.qml:271
+#, kde-format
+msgctxt "@info:placeholder %1 is a filter text introduced by the user"
+msgid "No properties match \"%1\""
+msgstr "Neviena īpašība neatbilst „%1“"
+
+#: ui/RulesEditor.qml:292 ui/ValueEditor.qml:54
+#, kde-format
+msgid "Yes"
+msgstr "Jā"
+
+#: ui/RulesEditor.qml:292 ui/ValueEditor.qml:60
+#, kde-format
+msgid "No"
+msgstr "Nē"
+
+#: ui/RulesEditor.qml:294 ui/ValueEditor.qml:168 ui/ValueEditor.qml:175
+#, kde-format
+msgid "%1 %"
+msgstr "%1 %"
+
+#: ui/RulesEditor.qml:296
+#, kde-format
+msgctxt "Coordinates (x, y)"
+msgid "(%1, %2)"
+msgstr "(%1, %2)"
+
+#: ui/RulesEditor.qml:298
+#, kde-format
+msgctxt "Size (width, height)"
+msgid "(%1, %2)"
+msgstr "(%1, %2)"
+
+#: ui/ValueEditor.qml:203
+#, kde-format
+msgctxt "(x, y) coordinates separator in size/position"
+msgid "x"
+msgstr "×"
+
+#~ msgid "Obey geometry restrictions"
+#~ msgstr "Pakļauties ģeometrijas ierobežojumiem"
+
+#~ msgctxt "@info:tooltip"
+#~ msgid ""
+#~ "Some apps like video players or terminals can ask KWin to constrain them "
+#~ "to certain aspect ratios or only grow by values larger than the "
+#~ "dimensions of one character. Use this property to ignore such "
+#~ "restrictions and allow those windows to be resized to arbitrary sizes.<nl/"
+#~ "><nl/>This can be helpful for windows that can't quite fit the full "
+#~ "screen area when maximized."
+#~ msgstr ""
+#~ "Dažas programmas, piemēram, video atskaņotāji vai termināļi var jautāt "
+#~ "„KWin“ pēc noteiktas malu attiecības vai palielināt izmērus par vērtībām, "
+#~ "kas ir lielākas par vienu rakstzīmi. Izmantojiet šo īpašību, lai ignorētu "
+#~ "šādus ierobežojumus un šiem logiem ļautu mainīt izmēru uz jebkādiem "
+#~ "lielumiem<nl/><nl/>Tas var būt noderīgi logiem, kas pēc maksimizēšanas "
+#~ "līdz galam neietilpst pilnā ekrānā."
+
+#~ msgid "Block compositing"
+#~ msgstr "Bloķēt kompozitēšanu"
+
+#~ msgid "Shaded"
+#~ msgstr "Saritināts"
+
+#~ msgid "OSD"
+#~ msgstr "OSD"
+
+#~ msgid "Close"
+#~ msgstr "Aizvērt"
+
+#, fuzzy
+#~| msgid "Window &type"
+#~ msgid "Set window type"
+#~ msgstr "Loga &tips"
+
+#~ msgid "Window shall (not) appear in the taskbar."
+#~ msgstr "Logs (ne)parādīsies uzdevumu joslā."
+
+#~ msgid "Window shall (not) appear in the manager for virtual desktops"
+#~ msgstr "Logs (ne)parādīsies virtuālo darbvirsmu pārvaldniekā"
+
+#~ msgid "Window shall (not) appear in the Alt+Tab list"
+#~ msgstr "Logs (ne)parādīsies Alt+Tab sarakstā"
+
+#, fuzzy
+#~| msgid ""
+#~| "KWin tries to prevent windows from taking the focus\n"
+#~| "(\"activate\") while you're working in another window,\n"
+#~| "but this may sometimes fail or superact.\n"
+#~| "\"None\" will unconditionally allow this window to get the focus while\n"
+#~| "\"Extreme\" will completely prevent it from taking the focus."
+#~ msgid ""
+#~ "KWin tries to prevent windows from taking the focus (\"activate\") while "
+#~ "you're working in another window, but this may sometimes fail or "
+#~ "superact. \"None\" will unconditionally allow this window to get the "
+#~ "focus while \"Extreme\" will completely prevent it from taking the focus."
+#~ msgstr ""
+#~ "KWin novērst situāciju, kad citi logi saņem fokusu\n"
+#~ "(\"aktivizējas\"), kamēr jūs darbojaties citā logā,\n"
+#~ "tomēr tas dažreiz var neizdoties vai arī \"pārizdoties\".\n"
+#~ "\"Nav\" bez nosacījumiem ļaus šim logam saņemt fokusu,\n"
+#~ "bet \"Ekstrēms\" to pilnībā liegs."
+
+#, fuzzy
+#~| msgid ""
+#~| "Windows may prevent to get the focus (activate) when being clicked.\n"
+#~| "On the other hand you might wish to prevent a window\n"
+#~| "from getting focused on a mouse click."
+#~ msgid ""
+#~ "Windows may prevent to get the focus (activate) when being clicked. On "
+#~ "the other hand you might wish to prevent a window from getting focused on "
+#~ "a mouse click."
+#~ msgstr ""
+#~ "Logi var liegt tikt fokusētiem (aktivizētiem), kad uz tiem uzklikšķina.\n"
+#~ "No otras puses, jūs varētu vēlēties liegt logam saņemt\n"
+#~ "fokusu, kad tas saņem peles klikšķi."
+
+#, fuzzy
+#~| msgid ""
+#~| "When used, a window will receive\n"
+#~| "all keyboard inputs while it is active, including Alt+Tab etc.\n"
+#~| "This is especially interesting for emulators or virtual machines.\n"
+#~| "\n"
+#~| "Be warned:\n"
+#~| "you won't be able to Alt+Tab out of the window\n"
+#~| "nor use any other global shortcut (such as Alt+F2 to show KRunner)\n"
+#~| "while it's active!"
+#~ msgid ""
+#~ "When used, a window will receive all keyboard inputs while it is active, "
+#~ "including Alt+Tab etc. This is especially interesting for emulators or "
+#~ "virtual machines. \n"
+#~ "Be warned: you won't be able to Alt+Tab out of the window nor use any "
+#~ "other global shortcut (such as Alt+F2 to show KRunner) while it's active!"
+#~ msgstr ""
+#~ "Kad šī opcija tiks lietota, logs, kamēr\n"
+#~ "tas ir aktīvs, saņems visu tastatūras ievadi, ieskaitot Alt+Tab,\n"
+#~ "u.t.t. Īpaši noderīgi tas var būt emulatoriem un virtuālajām mašīnām.\n"
+#~ "\n"
+#~ "Uzmanieties:\n"
+#~ "kamēr šī opcija ir aktīva, jūs nevarēsiet izkļūt no loga,\n"
+#~ "izmantojot Alt+Tab, ne arī izmantot jebkādu citu globālo īsceļu\n"
+#~ "(piem., Alt+F2, lai parādītu KRunner)!"
+
+#~ msgid ""
+#~ "Windows can ask to appear in a certain position.\n"
+#~ "By default this overrides the placement strategy\n"
+#~ "what might be nasty if the client abuses the feature\n"
+#~ "to unconditionally popup in the middle of your screen."
+#~ msgstr ""
+#~ "Logi var pieprasīt parādīšanos noteiktā vietā.\n"
+#~ "Pēc noklusējuma tam ir augstāka prioritāte nekā\n"
+#~ "novietojuma stratēģijai, kas var būt nepatīkami,\n"
+#~ "ja klients šo iespēju izmanto ļaunprātīgi, lai\n"
+#~ "parādītos jūsu ekrāna vidū."
+
+#, fuzzy
+#~| msgid "WId of the window for special window settings."
+#~ msgid "KWin id of the window for special window settings."
+#~ msgstr "Loga WId speciālo logu iestatījumi."
+
+#~ msgid "Whether the settings should affect all windows of the application."
+#~ msgstr "Vai iestatījumiem vajadzētu ietekmēt visus programmas logus."
+
+#~ msgid "This helper utility is not supposed to be called directly."
+#~ msgstr "Šis palīdzības utilīts nav paredzēts lai to izsauktu pa tiešo."
+
+#, fuzzy
+#~| msgid "Edit Window-Specific Settings"
+#~ msgctxt "Window caption for the application wide rules dialog"
+#~ msgid "Edit Application-Specific Settings"
+#~ msgstr "Labot logiem specifiskos iestatījumus"
+
+#~ msgid "Edit Window-Specific Settings"
+#~ msgstr "Labot logiem specifiskos iestatījumus"
+
+#~ msgid ""
+#~ "<p><h1>Window-specific Settings</h1> Here you can customize window "
+#~ "settings specifically only for some windows.</p> <p>Please note that this "
+#~ "configuration will not take effect if you do not use KWin as your window "
+#~ "manager. If you do use a different window manager, please refer to its "
+#~ "documentation for how to customize window behavior.</p>"
+#~ msgstr ""
+#~ "<p><h1>Logu specifiskie iestatījumi</h1> Šeit jūs varat pielāgot logu "
+#~ "iestatījumus atsevišķiem logiem.</p> <p>Lūdzu atcerieties ka šī "
+#~ "konfigurācija nedarbosies, ja jūsu logu pārvaldnieks nav KWin. Ja jūs "
+#~ "lietojat citu logu pārvaldnieku, tad lasiet tā dokumentāciju par to kā "
+#~ "pielāgot logu uzvedību.</p>"
+
+#~ msgctxt "NAME OF TRANSLATORS"
+#~ msgid "Your names"
+#~ msgstr "Aivars Šterns, Viesturs Zariņš"
+
+#~ msgctxt "EMAIL OF TRANSLATORS"
+#~ msgid "Your emails"
+#~ msgstr "atoms@tups.lv, viesturs.zarins@mi.lu.lv"
+
+#, fuzzy
+#~| msgid "Window &role:"
+#~ msgid "Window Rules"
+#~ msgstr "Logu &loma:"
+
+#, fuzzy
+#~| msgid "Cascade"
+#~ msgid "Cascaded"
+#~ msgstr "Kaskāde"
+
+#, fuzzy
+#~| msgid "Keep &above"
+#~ msgid "Keep above"
+#~ msgstr "Paturēt &virs"
+
+#, fuzzy
+#~| msgid "Keep &below"
+#~ msgid "Keep below"
+#~ msgstr "Paturēt &zem"
+
+#~ msgid "KWin"
+#~ msgstr "KWin"
+
+#~ msgid "KWin helper utility"
+#~ msgstr "KWin palīdzības utilīta"
+
+#, fuzzy
+#~| msgid "&Detect Window Properties"
+#~ msgid "Select properties"
+#~ msgstr "&Noteikt logu īpašības"
+
+#~ msgid "Override Type"
+#~ msgstr "Aizstāšanas tips"
+
+#~ msgid "Unknown - will be treated as Normal Window"
+#~ msgstr "Nezināms - tiks uzskatīts par normālu logu"
+
+#~ msgid "Information About Selected Window"
+#~ msgstr "Informācija par izvelēto logu"
+
+#~ msgid "Class:"
+#~ msgstr "Klase:"
+
+#~ msgid "Role:"
+#~ msgstr "Loma:"
+
+#~ msgid "Type:"
+#~ msgstr "Tips:"
+
+#~ msgid "Title:"
+#~ msgstr "Nosaukums:"
+
+#~ msgid "Machine:"
+#~ msgstr "Mašīna:"
+
+#, fuzzy
+#~| msgid ""
+#~| "A single shortcut can be easily assigned or cleared using the two "
+#~| "buttons. Only shortcuts with modifiers can be used.<p>\n"
+#~| "It is possible to have several possible shortcuts, and the first "
+#~| "available shortcut will be used. The shortcuts are specified using space-"
+#~| "separated shortcut sets. One set is specified as <i>base</i>+(<i>list</"
+#~| "i>), where base are modifiers and list is a list of keys.<br>\n"
+#~| "For example \"<b>Shift+Alt+(123) Shift+Ctrl+(ABC)</b>\" will first try "
+#~| "<b>Shift+Alt+1</b>, then others with <b>Shift+Ctrl+C</b> as the last one."
+#~ msgid ""
+#~ "A single shortcut can be easily assigned or cleared using the two "
+#~ "buttons. Only shortcuts with modifiers can be used.<p>\n"
+#~ "It is possible to have several possible shortcuts, and the first "
+#~ "available shortcut will be used. The shortcuts are specified using "
+#~ "shortcut sets separated by \" - \". One set is specified as <i>base</i>"
+#~ "+(<i>list</i>), where base are modifiers and list is a list of keys.<br>\n"
+#~ "For example \"<b>Shift+Alt+(123) Shift+Ctrl+(ABC)</b>\" will first try "
+#~ "<b>Shift+Alt+1</b>, then others with <b>Shift+Ctrl+C</b> as the last one."
+#~ msgstr ""
+#~ "Viens īsceļš var tikt viegli piešķirts vai atbrīvots, lietojot divas "
+#~ "pogas. Var izmantot tikai īsceļus ar modifikatoriem.<p>\n"
+#~ "Ir iespējams lietot vairākus īsceļus, un tiks lietots pirmais pieejamais. "
+#~ "Īsceļus norāda, atdalot ar atstarpi. Īsceļš sastāv no <i>bāzes</i>"
+#~ "+(<i>saraksts</i>), kur bāze ir modifikators un saraksts ir saraksts ar "
+#~ "taustiņiem.<br>\n"
+#~ "Piemēram, \"<b>Shift+Alt+(123) Shift+Ctrl+(ABC)</b>\" vispirms mēģinās "
+#~ "izmantot<b>Shift+Alt+1</b>, pēc tam citus un tad <b>Shift+Ctrl+C</b> kā "
+#~ "pēdējo."
+
+#~ msgid "&Single Shortcut"
+#~ msgstr "&Vienīgais īsceļs"
+
+#~ msgid "C&lear"
+#~ msgstr "&Tīrīt"
+
+#~ msgid "Window-Specific Settings Configuration Module"
+#~ msgstr "Logu specifisko iestatījumu konfigurācijas modulis"
+
+#~ msgid "(c) 2004 KWin and KControl Authors"
+#~ msgstr "(c) 2004 KWin and KControl Authors"
+
+#~ msgid "Lubos Lunak"
+#~ msgstr "Lubos Lunak"
+
+#~ msgid "Remember settings separately for every window"
+#~ msgstr "Atcerēties iestatījumus atsevišķi katram logam"
+
+#~ msgid "Show internal settings for remembering"
+#~ msgstr "Parādīt internālos iestatījumus ko atcerēties"
+
+#~ msgid "Internal setting for remembering"
+#~ msgstr "Internālie iestatījumi ko atcerēties"
+
+#~ msgid "&Modify..."
+#~ msgstr "&Labot "
+
+#~ msgid "Move &Up"
+#~ msgstr "Pārvietot &augšup"
+
+#~ msgid "Move &Down"
+#~ msgstr "Pārvietot &lejup"
+
+#~ msgid ""
+#~ "Enable this checkbox to alter this window property for the specified "
+#~ "window(s)."
+#~ msgstr ""
+#~ "Ieslēdziet šo izvēles rūtiņu, lai norādītajiem logiem izmainītu šo "
+#~ "īpašību."
+
+#, fuzzy
+#~| msgid ""
+#~| "Specify how the window property should be affected:<ul><li><em>Do Not "
+#~| "Affect:</em> The window property will not be affected and therefore the "
+#~| "default handling for it will be used. Specifying this will block more "
+#~| "generic window settings from taking effect.</li><li><em>Apply Initially:"
+#~| "</em> The window property will be only set to the given value after the "
+#~| "window is created. No further changes will be affected.</"
+#~| "li><li><em>Remember:</em> The value of the window property will be "
+#~| "remembered and every time time the window is created, the last "
+#~| "remembered value will be applied.</li><li><em>Force:</em> The window "
+#~| "property will be always forced to the given value.</li><li><em>Apply Now:"
+#~| "</em> The window property will be set to the given value immediately and "
+#~| "will not be affected later (this action will be deleted afterwards).</"
+#~| "li><li><em>Force temporarily:</em> The window property will be forced to "
+#~| "the given value until it is hidden (this action will be deleted after "
+#~| "the window is hidden).</li></ul>"
+#~ msgid ""
+#~ "Specify how the window property should be affected:<ul><li><em>Do Not "
+#~ "Affect:</em> The window property will not be affected and therefore the "
+#~ "default handling for it will be used. Specifying this will block more "
+#~ "generic window settings from taking effect.</li><li><em>Apply Initially:</"
+#~ "em> The window property will be only set to the given value after the "
+#~ "window is created. No further changes will be affected.</"
+#~ "li><li><em>Remember:</em> The value of the window property will be "
+#~ "remembered and every time the window is created, the last remembered "
+#~ "value will be applied.</li><li><em>Force:</em> The window property will "
+#~ "be always forced to the given value.</li><li><em>Apply Now:</em> The "
+#~ "window property will be set to the given value immediately and will not "
+#~ "be affected later (this action will be deleted afterwards).</"
+#~ "li><li><em>Force temporarily:</em> The window property will be forced to "
+#~ "the given value until it is hidden (this action will be deleted after the "
+#~ "window is hidden).</li></ul>"
+#~ msgstr ""
+#~ "Norādiet, kādā veidā izmainīt šo loga īpašību:<ul><li><em>Neietekmēt:</"
+#~ "em> Loga īpašība netiks mainīta un tiks lietota noklusētā izturēšanās. "
+#~ "Norādot šo, logiem tiks ignorēti citi, vispārīgāki, mainīšanas likumi.</"
+#~ "li><li><em>Pielietot sākotnēji</em> Loga īpašība tiks uzstādīta uz "
+#~ "norādīto vērtību loga izveidošanas brīdī un tālākas tās izmaiņas netiks "
+#~ "kontrolētas.</li><li><em>Atcerēties:</em> Loga īpašibas vērtība tiks "
+#~ "saglabāta un loga izveidošanas brīdī atjaunota iepriekšējā vērtība.</"
+#~ "li><li><em>Piespiest:</em> Šī loga īpašības vērtība vienmēr būs šāda.</"
+#~ "li><li><em>Pielietot tagad:</em> Īpašības vērtība tiks uzstādīta uz "
+#~ "norādīto un vairs netiks kontrolēta (un šī darbība tiks izņemta).</"
+#~ "li><li><em>Piespiest uz laiku</em> Loga īpašības vērtība būs šāda līdz tā "
+#~ "noslēpšanai (pēc noslēpšanas šī darbība tiks izņemta).</li></ul>"
+
+#~ msgid ""
+#~ "Specify how the window property should be affected:<ul><li><em>Do Not "
+#~ "Affect:</em> The window property will not be affected and therefore the "
+#~ "default handling for it will be used. Specifying this will block more "
+#~ "generic window settings from taking effect.</li><li><em>Force:</em> The "
+#~ "window property will be always forced to the given value.</"
+#~ "li><li><em>Force temporarily:</em> The window property will be forced to "
+#~ "the given value until it is hidden (this action will be deleted after the "
+#~ "window is hidden).</li></ul>"
+#~ msgstr ""
+#~ "Norādiet, kādā veidā izmainīt šo loga īpašību:<ul><li><em>Neietekmēt:</"
+#~ "em> Loga īpašība netiks mainīta un tiks lietota noklusētā izturēšanās. "
+#~ "Norādot šo, logiem tiks ignorēti citi, vispārīgāki, mainīšanas likumi.</"
+#~ "li><li><em>Piespiest:</em> Šī loga īpašības vērtība vienmēr būs šāda.</"
+#~ "li><li><em>Piespiest uz laiku</em> Loga īpašības vērtība būs šāda līdz tā "
+#~ "noslēpšanai (pēc noslēpšanas šī darbība tiks izņemta).</li></ul>"
+
+#~ msgid "Unnamed entry"
+#~ msgstr "Nenosaukts ieraksts"
+
+#~ msgid ""
+#~ "This configuration dialog allows altering settings only for the selected "
+#~ "window or application. Find the setting you want to affect, enable the "
+#~ "setting using the checkbox, select in what way the setting should be "
+#~ "affected and to which value."
+#~ msgstr ""
+#~ "Šis konfigurācijas logs ļauj mainīt tikai aktīvā loga vai lietotnes "
+#~ "iestatījumus. Atrodiet, kuru iestatījumu vēlaties mainīt, izvēles rūtī "
+#~ "aktivizējiet to un norādiet, kādā veidā to ietekmēt un kādu vērību "
+#~ "izmantot."
+
+#~ msgid "Consult the documentation for more details."
+#~ msgstr "Vairāk informācijas atradīsiet dokumentācijā"
+
+#~ msgid "Edit Shortcut"
+#~ msgstr "Labot īsceļu"
+
+#~ msgid "s delay"
+#~ msgstr "s aizture"
+
+#~ msgid "x,y"
+#~ msgstr "x,y"
+
+#~ msgid "0123456789-+,xX:"
+#~ msgstr "0123456789-+,xX:"
+
+#~ msgid "width,height"
+#~ msgstr "platums,augstums"
+
+#~ msgid "&Desktop"
+#~ msgstr "&Darbvirsma"
+
+#~ msgid "Edit..."
+#~ msgstr "Rediģēt..."
+
+#~ msgid "Autog&roup in foreground"
+#~ msgstr "Autog&rupēt priekšplānā"
+
+#~ msgid "Autogroup by I&D"
+#~ msgstr "Autogrupēt pēc I&D"
+
+#~ msgid "Autogroup with &identical"
+#~ msgstr "Autogrupēt ar &identiskiem"
+
+#~ msgid "%"
+#~ msgstr "%"
+
+#~ msgid "Smart"
+#~ msgstr "Gurds"
+
+#~ msgid "kcmkwinrules"
+#~ msgstr "kcmkwinrules"
+
+#~ msgid "Opaque"
+#~ msgstr "Necaurspīdīgs"
+
+#~ msgid "Transparent"
+#~ msgstr "Caurspīdīgs"
+
+#~ msgid "&Moving/resizing"
+#~ msgstr "&Pārvietošana/izmēra mainīšana"
+
+#~ msgid "T&iling"
+#~ msgstr "M&ozaīkošana"
+
+#~ msgid "Tiled"
+#~ msgstr "Mozaīkots"
+
+#~ msgid "Floating"
+#~ msgstr "Peldošs"
+
+#~ msgid "Match Strategy"
+#~ msgstr "Atbilstības stratēģija"
+
+#~ msgid ""
+#~ "For selecting all windows belonging to a specific application, selecting "
+#~ "only window class should usually work."
+#~ msgstr ""
+#~ "Lai izvēlētos visus logus, kas pieder specifiskai programmai, parasti "
+#~ "vajadzētu pietikt tikai ar logu klases izvēlēšanos."
+
+#~ msgid "Use window &class (whole application)"
+#~ msgstr "Lietot logu &klasi (visa programma)"
+
+#~ msgid ""
+#~ "For selecting a specific window in an application, both window class and "
+#~ "window role should be selected. Window class will determine the "
+#~ "application, and window role the specific window in the application; many "
+#~ "applications do not provide useful window roles though."
+#~ msgstr ""
+#~ "Lai izvēletos specifiskus programmas logus, jābūt izvēlētai loga klasei "
+#~ "un loga lomai. Loga klase noteiks programmu un loga loma konkrēto "
+#~ "programmas logu. Daudzas programmas nepiedāvā noderīgas logu lomas."
+
+#~ msgid "Use window class and window &role (specific window)"
+#~ msgstr "Lietot logu klasi un logu &lomu (specifisks logs)"
+
+#~ msgid ""
+#~ "With some (non-KDE) applications whole window class can be sufficient for "
+#~ "selecting a specific window in an application, as they set whole window "
+#~ "class to contain both application and window role."
+#~ msgstr ""
+#~ "Dažām (ne-KDE) programmām, visa logu klase var būt pietiekoša, lai "
+#~ "norādītu konkrētu programmas logu, ko tās loga klasē norāda gan "
+#~ "programmu, gan konkrētā loga lomu."
+
+#~ msgid "Use &whole window class (specific window)"
+#~ msgstr "Lietot &visu logu klasi (konkrēts logs)"
+
+#~ msgid "Match also window &title"
+#~ msgstr "Lietot arī loga &nosaukumu"
+
+#~ msgid "Extra role:"
+#~ msgstr "Papildus loma:"

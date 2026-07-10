@@ -1,0 +1,242 @@
+/*
+    SPDX-FileCopyrightText: 2014 Martin Gräßlin <mgraesslin@kde.org>
+    SPDX-FileCopyrightText: 2020 Vlad Zahorodnii <vlad.zahorodnii@kde.org>
+
+    SPDX-License-Identifier: LGPL-2.1-only OR LGPL-3.0-only OR LicenseRef-KDE-Accepted-LGPL
+*/
+#pragma once
+
+#include "core/graphicsbuffer.h"
+#include "core/region.h"
+#include "surface.h"
+// Qt
+#include <QHash>
+#include <QList>
+#include <QPointer>
+#include <QTimer>
+// Wayland
+#include "qwayland-server-wayland.h"
+// C++
+#include <deque>
+#include <optional>
+
+namespace KWin
+{
+
+class IdleInhibitorV1Interface;
+class ViewportInterface;
+class ContentTypeV1Interface;
+class TearingControlV1Interface;
+class FractionalScaleV1Interface;
+class FractionalScaleV2;
+class PresentationTimeFeedback;
+class ColorSurfaceV1;
+class ColorFeedbackSurfaceV1;
+class LinuxDrmSyncObjSurfaceV1;
+class AlphaModifierSurfaceV1;
+class FifoV1Surface;
+class FifoBarrier;
+class ColorRepresentationSurfaceV1;
+class ExtBlurSurfaceV1;
+class ExtBackgroundEffectSurfaceV1;
+class SyncObjReleasePoint;
+
+struct SurfaceState
+{
+    SurfaceState();
+    SurfaceState(const SurfaceState &cpy) = delete;
+    ~SurfaceState();
+    SurfaceState &operator=(SurfaceState &&mv) = default;
+
+    enum class Field {
+        Input = 1 << 0,
+        Opaque = 1 << 1,
+        Buffer = 1 << 2,
+        Shadow = 1 << 3,
+        Blur = 1 << 4,
+        Slide = 1 << 6,
+        SubsurfaceOrder = 1 << 7,
+        SubsurfacePosition = 1 << 8,
+        BufferScale = 1 << 9,
+        BufferTransform = 1 << 10,
+        ContentType = 1 << 11,
+        PresentationModeHint = 1 << 12,
+        ColorDescription = 1 << 13,
+        AlphaMultiplier = 1 << 14,
+        YuvCoefficients = 1 << 15,
+        SourceGeometry = 1 << 16,
+        DestinationSize = 1 << 17,
+    };
+    Q_DECLARE_FLAGS(Fields, Field)
+
+    void mergeInto(SurfaceState *target);
+
+    Fields committed;
+    RegionF damage = RegionF();
+    Region bufferDamage = Region();
+    RegionF opaque = RegionF();
+    RegionF input = RegionF::infinite();
+    qint32 bufferScale = 1;
+    OutputTransform bufferTransform = OutputTransform::Normal;
+    wl_list frameCallbacks;
+    QPointF offset = QPointF();
+    QPointer<GraphicsBuffer> buffer;
+    QPointer<ShadowInterface> shadow;
+    QPointer<SlideInterface> slide;
+    ContentType contentType = ContentType::None;
+    PresentationModeHint presentationHint = PresentationModeHint::VSync;
+    std::shared_ptr<ColorDescription> colorDescription = ColorDescription::sRGB;
+    ColorDescriptionType colorDescriptionType = ColorDescriptionType::Normal;
+    RenderingIntent renderingIntent = RenderingIntent::Perceptual;
+    std::shared_ptr<PresentationTimeFeedback> presentationFeedback;
+    struct
+    {
+        std::shared_ptr<SyncTimeline> timeline;
+        uint64_t point = 0;
+    } acquirePoint;
+    std::shared_ptr<SyncObjReleasePoint> releasePoint;
+    double alphaMultiplier = 1;
+    YUVMatrixCoefficients yuvCoefficients = YUVMatrixCoefficients::Identity;
+    EncodingRange range = EncodingRange::Full;
+    bool fifoBarrier = false;
+    bool hasFifoWaitCondition = false;
+    RegionF blurRegion;
+
+    struct
+    {
+        // Subsurfaces are stored in two lists. The below list contains subsurfaces that
+        // are below their parent surface; the above list contains subsurfaces that are
+        // placed above the parent surface.
+        QList<SubSurfaceInterface *> below;
+        QList<SubSurfaceInterface *> above;
+
+        // Subsurface position is here because it is a part of the parent surface's state.
+        QHash<SubSurfaceInterface *, QPointF> position;
+    } subsurface;
+
+    struct
+    {
+        RectF sourceGeometry = RectF();
+        QSizeF destinationSize = QSizeF();
+    } viewport;
+
+    std::unordered_map<RawSurfaceExtension *, std::unique_ptr<RawSurfaceAttachedState>> extensions;
+};
+
+class SurfaceInterfacePrivate : public QtWaylandServer::wl_surface
+{
+public:
+    static SurfaceInterfacePrivate *get(SurfaceInterface *surface)
+    {
+        return surface->d.get();
+    }
+
+    explicit SurfaceInterfacePrivate(SurfaceInterface *q);
+
+    void addChild(SubSurfaceInterface *subsurface);
+    void removeChild(SubSurfaceInterface *subsurface);
+    bool raiseChild(SubSurfaceInterface *subsurface, SurfaceInterface *anchor);
+    bool lowerChild(SubSurfaceInterface *subsurface, SurfaceInterface *anchor);
+    void setShadow(const QPointer<ShadowInterface> &shadow);
+    void setSlide(const QPointer<SlideInterface> &slide);
+    void installPointerConstraint(LockedPointerV1Interface *lock);
+    void installPointerConstraint(ConfinedPointerV1Interface *confinement);
+    void installIdleInhibitor(IdleInhibitorV1Interface *inhibitor);
+    void removeIdleInhibitor(IdleInhibitorV1Interface *inhibitor);
+    void recursivelyEmitIdleInhibitChanged();
+
+    RectF computeBufferSourceBox() const;
+    void applyState(SurfaceState *next);
+
+    bool computeEffectiveMapped() const;
+    void updateEffectiveMapped();
+
+    /**
+     * Returns true if this surface (not including subsurfaces) contains a given point
+     * @param position in surface-local co-ordiantes
+     */
+    bool contains(const QPointF &position) const;
+    bool inputContains(const QPointF &position) const;
+    Region mapToBuffer(const RegionF &region) const;
+
+    CompositorInterface *compositor;
+    SurfaceInterface *q;
+    SurfaceRole *role = nullptr;
+    std::unique_ptr<SurfaceState> current;
+    std::unique_ptr<SurfaceState> pending;
+    RectF bufferSourceBox;
+    QSizeF surfaceSize = QSizeF(0, 0);
+
+    RegionF inputRegion;
+    RegionF opaqueRegion;
+    GraphicsBufferRef bufferRef;
+    Region bufferDamage;
+    bool mapped = false;
+    qreal serverScale = 1.0;
+    qreal clientToCompositorScale = 1.0;
+    qreal compositorToClientScale = 1.0;
+
+    Transaction *firstTransaction = nullptr;
+    Transaction *lastTransaction = nullptr;
+
+    QList<OutputInterface *> outputs;
+    QPointer<OutputInterface> primaryOutput;
+    std::optional<qreal> preferredBufferScale;
+    std::optional<OutputTransform> preferredBufferTransform;
+    std::optional<std::shared_ptr<ColorDescription>> preferredColorDescription;
+
+    LockedPointerV1Interface *lockedPointer = nullptr;
+    ConfinedPointerV1Interface *confinedPointer = nullptr;
+    QHash<OutputInterface *, QMetaObject::Connection> outputDestroyedConnections;
+    QHash<OutputInterface *, QMetaObject::Connection> outputBoundConnections;
+
+    QList<IdleInhibitorV1Interface *> idleInhibitors;
+    ViewportInterface *viewportExtension = nullptr;
+    std::unique_ptr<LinuxDmaBufV1Feedback> dmabufFeedbackV1;
+    QPointer<ContentTypeV1Interface> contentTypeInterface;
+    FractionalScaleV1Interface *fractionalScaleV1 = nullptr;
+    FractionalScaleV2 *fractionalScaleV2 = nullptr;
+    ClientConnection *client = nullptr;
+    TearingControlV1Interface *tearing = nullptr;
+    ColorSurfaceV1 *colorSurface = nullptr;
+    QList<ColorFeedbackSurfaceV1 *> colorFeedbackSurfaces;
+    LinuxDrmSyncObjSurfaceV1 *syncObjV1 = nullptr;
+    AlphaModifierSurfaceV1 *alphaModifier = nullptr;
+    FifoV1Surface *fifoSurface = nullptr;
+    ColorRepresentationSurfaceV1 *colorRepresentation = nullptr;
+    ExtBlurSurfaceV1 *extBlur = nullptr;
+    ExtBackgroundEffectSurfaceV1 *extBackgroundeffect = nullptr;
+    QTimer fifoFallbackTimer;
+
+    struct
+    {
+        SubSurfaceInterface *handle = nullptr;
+        std::unique_ptr<Transaction> transaction;
+    } subsurface;
+
+    std::vector<std::unique_ptr<PresentationTimeFeedback>> pendingPresentationFeedbacks;
+
+    bool m_tearingDown = false;
+
+protected:
+    void surface_destroy_resource(Resource *resource) override;
+    void surface_destroy(Resource *resource) override;
+    void surface_attach(Resource *resource, struct ::wl_resource *buffer, int32_t x, int32_t y) override;
+    void surface_damage(Resource *resource, int32_t x, int32_t y, int32_t width, int32_t height) override;
+    void surface_frame(Resource *resource, uint32_t callback) override;
+    void surface_set_opaque_region(Resource *resource, struct ::wl_resource *region) override;
+    void surface_set_input_region(Resource *resource, struct ::wl_resource *region) override;
+    void surface_commit(Resource *resource) override;
+    void surface_set_buffer_transform(Resource *resource, int32_t transform) override;
+    void surface_set_buffer_scale(Resource *resource, int32_t scale) override;
+    void surface_damage_buffer(Resource *resource, int32_t x, int32_t y, int32_t width, int32_t height) override;
+    void surface_offset(Resource *resource, int32_t x, int32_t y) override;
+
+private:
+    QMetaObject::Connection constrainsOneShotConnection;
+    QMetaObject::Connection constrainsUnboundConnection;
+};
+
+} // namespace KWin
+
+Q_DECLARE_OPERATORS_FOR_FLAGS(KWin::SurfaceState::Fields)

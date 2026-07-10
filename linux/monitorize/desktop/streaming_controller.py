@@ -1,5 +1,6 @@
 """Primary stream, TLS proxy and input bridge lifecycle."""
 
+import json
 import subprocess
 import sys
 
@@ -21,7 +22,6 @@ from monitorize.platform.display_controller import DisplayController
 from monitorize.platform.gnome_virtual_monitor import (
     save_current_virtual_layout as save_current_gnome_virtual_layout,
 )
-from monitorize.platform.kde_virtual_monitor import save_current_virtual_layout
 from monitorize.platform.process_utils import kill_patterns, kill_tracked_pids, stop_processes
 from monitorize.config.settings import (
     load_general_settings,
@@ -41,7 +41,6 @@ from monitorize.config.validation import (
 )
 
 
-GNOME_LAYOUT_SAVE_INTERVAL_MS = 1000
 GNOME_LAYOUT_CHANGE_DEBOUNCE_MS = 750
 THIRD_STREAM_PUBLIC_PORT = 7114
 THIRD_STREAM_BACKEND_PORT = 7115
@@ -79,21 +78,21 @@ class StreamingController(QObject):
         self.input_launched = False
         self.generation = 0
         self.streamer_has_pipewire_node = False
-        self.kde_portal_terminal_error = False
+        self.kde_event_buffer = ""
+        self.gnome_event_buffer = ""
+        self.gnome_outputs = {}
         self.primary_ready = False
         self.third_streamer = None
         self.third_streaming = False
         self.third_ready = False
         self.third_generation = 0
         self.third_gst_pids = set()
+        self.third_event_buffer = ""
         self.encoder_profile = "Low Latency"
         self.runtime_general = None
         self.countdown_timer = QTimer(self)
         self.countdown_timer.setInterval(1000)
         self.countdown_timer.timeout.connect(self._countdown_tick)
-        self.gnome_layout_timer = QTimer(self)
-        self.gnome_layout_timer.setInterval(GNOME_LAYOUT_SAVE_INTERVAL_MS)
-        self.gnome_layout_timer.timeout.connect(self._save_gnome_virtual_layout)
         self.gnome_layout_change_timer = QTimer(self)
         self.gnome_layout_change_timer.setSingleShot(True)
         self.gnome_layout_change_timer.setInterval(GNOME_LAYOUT_CHANGE_DEBOUNCE_MS)
@@ -146,6 +145,9 @@ class StreamingController(QObject):
             self.env.insert("MONITORIZE_PORT", "7112")
         if self.de in ("kde", "hyprland") and self.display_type == "Extend":
             self.env.insert("MONITORIZE_PRESERVE_SOURCE_SIZE", "1")
+        if self.de == "gnome" and self.display_type == "Extend":
+            self.env.insert("MONITORIZE_PRESERVE_SOURCE_SIZE", "1")
+            self.env.insert("MONITORIZE_GNOME_VIRTUAL_SLOT", "primary")
         if wifi:
             subprocess.run(["adb", "reverse", "--remove", "tcp:7110"], capture_output=True)
             subprocess.run(["adb", "reverse", "--remove", "tcp:7111"], capture_output=True)
@@ -160,7 +162,7 @@ class StreamingController(QObject):
         if self.display_type == "Mirror" and self.de in ("kde", "hyprland"):
             self._launch_streamer()
         elif self.de == "kde":
-            self._prepare_kde_portal_virtual_display()
+            self._prepare_kde_native_virtual_display()
         elif self.de == "hyprland":
             self._set_status("Setting up virtual monitor on Hyprland…")
             output, error = self.display.prepare_hyprland(
@@ -189,13 +191,9 @@ class StreamingController(QObject):
         else:
             self._launch_streamer()
 
-    def _prepare_kde_portal_virtual_display(self):
-        self.env.insert("MONITORIZE_PORTAL_SOURCE_TYPE", "4")
-        self.env.insert(
-            "MONITORIZE_PORTAL_SELECTOR_HINT",
-            "KDE will create a virtual monitor for Monitorize.",
-        )
-        self._set_status("Opening KDE virtual display…")
+    def _prepare_kde_native_virtual_display(self):
+        self.env.insert("MONITORIZE_KDE_VIRTUAL_SLOT", "primary")
+        self._set_status("Creating KDE virtual display…")
         self._set_streaming(True)
         self._launch_streamer()
 
@@ -238,7 +236,8 @@ class StreamingController(QObject):
         if not self.streaming or generation != self.generation:
             return
         self.streamer_has_pipewire_node = False
-        self.kde_portal_terminal_error = False
+        self.kde_event_buffer = ""
+        self.gnome_event_buffer = ""
         self.streamer = self._new_process()
         process = self.streamer
         self.streamer.readyReadStandardOutput.connect(
@@ -271,10 +270,12 @@ class StreamingController(QObject):
         self.streamer.start(sys.executable, args)
         self._start_gnome_layout_tracking()
         self._advertise()
-        if self._uses_kde_portal_virtual_source():
+        if self._uses_kde_native_virtual_source():
             self.input_launched = False
-        elif self.de in ("kde", "gnome"):
+        elif self.de == "kde":
             QTimer.singleShot(400, lambda: self._launch_input(generation))
+        elif self.de == "gnome":
+            self.input_launched = False
         else:
             self.input_launched = False
             self.streamer_buffer = ""
@@ -363,14 +364,11 @@ class StreamingController(QObject):
         else:
             self._set_status("Touch service starting via uinput…")
 
-    def _uses_kde_portal_virtual_source(self):
-        return self.de == "kde" and self.env.value("MONITORIZE_PORTAL_SOURCE_TYPE") == "4"
-
-    def _stopping_kde_portal_streamer(self):
+    def _uses_kde_native_virtual_source(self):
         return (
-            self.streamer is not None
+            self.de == "kde"
             and hasattr(self, "env")
-            and self._uses_kde_portal_virtual_source()
+            and self.env.value("MONITORIZE_KDE_VIRTUAL_SLOT") == "primary"
         )
 
     def _read_streamer(self, generation=None, process=None):
@@ -382,12 +380,25 @@ class StreamingController(QObject):
             "utf-8", errors="replace"
         )
         self.logAppended.emit("STREAMER", raw)
-        for line in raw.splitlines():
+        if self.de in ("kde", "gnome"):
+            if self.de == "kde":
+                self.kde_event_buffer += raw
+                lines = self.kde_event_buffer.split("\n")
+                self.kde_event_buffer = lines.pop()
+            else:
+                self.gnome_event_buffer += raw
+                lines = self.gnome_event_buffer.split("\n")
+                self.gnome_event_buffer = lines.pop()
+        else:
+            lines = raw.splitlines()
+        for line in lines:
             self._track_gst_pid(line)
             if "Setting pipeline to PLAYING" in line or "New clock:" in line:
                 self._set_primary_ready(True)
             if self.de == "kde":
                 self._handle_kde_streamer_line(line, generation)
+            elif self.de == "gnome":
+                self._handle_gnome_streamer_line(line, generation)
         self._maybe_start_wlroots_input(raw, generation)
 
     def _track_gst_pid(self, line):
@@ -406,32 +417,75 @@ class StreamingController(QObject):
         except ValueError:
             pass
 
+    @staticmethod
+    def _structured_event(line):
+        if not line.startswith("MONITORIZE_EVENT "):
+            return None
+        try:
+            return json.loads(line.split(" ", 1)[1])
+        except ValueError:
+            return None
+
     def _handle_kde_streamer_line(self, line, generation):
-        if "[Portal] Creating session" in line:
-            self._set_status("KDE portal opened — approve the virtual display.")
-        elif "[Portal] Virtual output ready name=" in line:
-            output_name = line.split("name=", 1)[1].split(" mode=", 1)[0].strip()
-            if output_name.lower().startswith("virtual-"):
+        event = self._structured_event(line)
+        if event and event.get("type") == "kde_output_ready":
+            if event.get("slot") != "primary":
+                return
+            output_name = str(event.get("name") or "")
+            if output_name == "Virtual-Monitorize-1":
                 self.env.insert("MONITORIZE_OUTPUT", output_name)
-            self._set_status(f"KDE virtual display configured: {output_name}")
-        elif "[ERROR] KDE virtual display configuration failed:" in line:
-            self.kde_portal_terminal_error = True
-            self._set_status(line.split("failed:", 1)[1].strip())
+            self.width = int(event.get("width") or self.width)
+            self.height = int(event.get("height") or self.height)
+            refresh = float(event.get("refresh_rate") or self.fps)
+            self._set_status(
+                f"KDE virtual display ready: {output_name} "
+                f"{self.width}x{self.height}@{refresh:g}"
+            )
+        elif event and event.get("type") == "kde_capture_ready":
+            self.streamer_has_pipewire_node = True
+            self._set_status("KDE native capture ready; stream pipeline starting…")
+            self._maybe_start_kde_native_input(generation)
+        elif "[Portal] Creating session" in line:
+            self._set_status("KDE portal opened — choose the display to mirror.")
         elif "[Portal] Got PipeWire node=" in line:
             self.streamer_has_pipewire_node = True
             self._set_status("KDE display selected; stream pipeline starting…")
-            self._maybe_start_kde_portal_input(generation)
-        elif "[ERROR] No streams" in line:
-            self.kde_portal_terminal_error = True
-            self._set_status(
-                "KDE portal returned no display; the virtual display may have disappeared"
-            )
-        elif "Portal denied" in line:
-            self.kde_portal_terminal_error = True
-            self._set_status("KDE portal selection was cancelled or denied")
+        elif line.startswith("[ERROR]"):
+            self._set_status(line.removeprefix("[ERROR]").strip())
 
-    def _maybe_start_kde_portal_input(self, generation):
-        if not self._uses_kde_portal_virtual_source() or self.input_launched:
+    def _handle_gnome_streamer_line(self, line, generation):
+        event = self._structured_event(line)
+        if not event:
+            return
+        slot = event.get("slot")
+        if event.get("type") == "gnome_output_ready" and slot == "primary":
+            connector = str(event.get("connector") or "")
+            if connector:
+                self.gnome_outputs["primary"] = connector
+                self.env.insert("MONITORIZE_OUTPUT", connector)
+            self.width = int(event.get("width") or self.width)
+            self.height = int(event.get("height") or self.height)
+            refresh = float(event.get("refresh_rate") or self.fps)
+            self._set_status(
+                f"GNOME display ready: {connector} {self.width}x{self.height}@{refresh:g}"
+            )
+        elif event.get("type") == "gnome_capture_ready" and slot == "primary":
+            self.streamer_has_pipewire_node = True
+            self._set_primary_ready(True)
+            if not self.input_launched:
+                self.input_launched = True
+                self._launch_input(generation)
+        elif event.get("type") == "gnome_retry" and slot == "primary":
+            self.logAppended.emit("STREAMER", "[GNOME] Retrying once after verified cleanup.")
+            stop_processes(self.input_bridge)
+            self.input_bridge = None
+            self.input_launched = False
+            self._set_primary_ready(False)
+        elif event.get("type") == "gnome_error":
+            self._set_status(str(event.get("message") or "GNOME virtual display failed"))
+
+    def _maybe_start_kde_native_input(self, generation):
+        if not self._uses_kde_native_virtual_source() or self.input_launched:
             return
         self.input_launched = True
         QTimer.singleShot(500, lambda: self._launch_input(generation))
@@ -470,23 +524,11 @@ class StreamingController(QObject):
             return
         self.logAppended.emit("STREAMER", f"Process exited (code {code})")
         if self.de == "gnome" and code and self.streaming:
-            self.logAppended.emit(
-                "STREAMER", "↺  GNOME streamer crashed — auto-restarting in 2s…"
-            )
-            self._set_status("↺  GNOME streamer crashed — restarting…")
-            current_generation = self.generation
-            QTimer.singleShot(
-                2000, lambda: self._restart_gnome(current_generation)
-            )
+            message = self.status or "GNOME virtual display failed — see logs"
+            self.stop()
+            self._set_status(message)
         elif self.de == "kde" and code and self.streaming:
-            if (
-                self._uses_kde_portal_virtual_source()
-                and not self.streamer_has_pipewire_node
-                and not self.kde_portal_terminal_error
-            ):
-                message = "KDE portal crashed while starting screen capture. Try again."
-            else:
-                message = self.status or "KDE streaming setup failed — see logs"
+            message = self.status or "KDE streaming setup failed — see logs"
             self.stop()
             self._set_status(message)
 
@@ -503,43 +545,30 @@ class StreamingController(QObject):
                 "ℹ️  Touch input not available — streaming continues without touch.",
             )
 
-    def _restart_gnome(self, generation=None):
-        if not self.streaming or (
-            generation is not None and generation != self.generation
-        ):
-            return
-        should_track_layout = self._should_track_gnome_virtual_layout()
-        saved_layout = self._save_gnome_virtual_layout()
-        if should_track_layout and not saved_layout:
-            self.logAppended.emit(
-                "STREAMER",
-                "GNOME virtual layout save failed before restart; using last saved layout.",
-            )
-        kill_tracked_pids(self.gst_pids)
-        kill_patterns("gst-launch-1.0.*port=7110", "gst-launch-1.0.*port=7112")
-        self._launch_streamer(self.generation)
-        self._set_status("Status: Streaming…  (restarted)")
-
     def _should_track_gnome_virtual_layout(self):
         return (
             self.de == "gnome"
             and self.streaming
-            and getattr(self, "display_type", "") == "Extend"
+            and bool(self.gnome_outputs)
         )
 
     def _start_gnome_layout_tracking(self):
-        if self._should_track_gnome_virtual_layout():
-            self.gnome_layout_timer.start()
+        if self.de == "gnome" and self.streaming and self.display_type == "Extend":
             self._connect_gnome_display_config_signal()
 
     def _stop_gnome_layout_tracking(self):
-        self.gnome_layout_timer.stop()
         self.gnome_layout_change_timer.stop()
         self._disconnect_gnome_display_config_signal()
 
     def _save_gnome_virtual_layout(self):
         if self._should_track_gnome_virtual_layout():
-            return save_current_gnome_virtual_layout("primary")
+            topology = "+".join(
+                role for role in ("primary", "additional")
+                if self.gnome_outputs.get(role)
+            )
+            return save_current_gnome_virtual_layout(
+                topology, role_connectors=dict(self.gnome_outputs)
+            )
         return False
 
     def _connect_gnome_display_config_signal(self):
@@ -583,10 +612,10 @@ class StreamingController(QObject):
         self.gnome_layout_change_timer.start()
 
     def start_third(self, res, fps, bitrate, encoder, encoder_profile):
-        if self.de not in ("kde", "hyprland"):
+        if self.de not in ("kde", "gnome", "hyprland"):
             self.logAppended.emit(
                 "STREAMER",
-                "[Third display] Portal picker is only enabled for KDE and Hyprland.",
+                "[Third display] Additional displays are only enabled on supported Wayland desktops.",
             )
             self.secondStreamChanged.emit(False)
             self._advertise()
@@ -623,11 +652,20 @@ class StreamingController(QObject):
             "Intel/AMD VA-API (vah264enc)": "vaapi",
         }.get(third_encoder, "cpu"))
         env.insert("MONITORIZE_ENCODER_PROFILE", third_encoder_profile)
-        env.insert("MONITORIZE_PORTAL_SOURCE_TYPE", "1")
-        env.insert(
-            "MONITORIZE_PORTAL_SELECTOR_HINT",
-            "Choose the display to stream as Monitorize's third display.",
-        )
+        if self.de == "kde":
+            env.insert("MONITORIZE_KDE_VIRTUAL_SLOT", "additional")
+            env.insert("MONITORIZE_PRESERVE_SOURCE_SIZE", "1")
+        elif self.de == "gnome":
+            env.insert("MONITORIZE_GNOME_VIRTUAL_SLOT", "additional")
+            env.insert("MONITORIZE_PRESERVE_SOURCE_SIZE", "1")
+            if self.gnome_outputs.get("primary"):
+                env.insert("MONITORIZE_GNOME_PRIMARY_OUTPUT", self.gnome_outputs["primary"])
+        else:
+            env.insert("MONITORIZE_PORTAL_SOURCE_TYPE", "1")
+            env.insert(
+                "MONITORIZE_PORTAL_SELECTOR_HINT",
+                "Choose the display to stream as Monitorize's third display.",
+            )
         env.insert(
             "MONITORIZE_PORT",
             str(THIRD_STREAM_BACKEND_PORT if self.encrypted else THIRD_STREAM_PUBLIC_PORT),
@@ -648,6 +686,7 @@ class StreamingController(QObject):
         self.third_ready = False
         self.third_streaming = True
         self.third_gst_pids.clear()
+        self.third_event_buffer = ""
         self.third_streamer = self._new_third_process(env)
         process = self.third_streamer
         process.readyReadStandardOutput.connect(
@@ -663,6 +702,7 @@ class StreamingController(QObject):
         )
         module = {
             "kde": "monitorize.streaming.Streamer_kde",
+            "gnome": "monitorize.streaming.Streamer_gnome",
             "hyprland": "monitorize.streaming.Streamer_hyprland",
         }[self.de]
         process.start(sys.executable, [
@@ -672,9 +712,14 @@ class StreamingController(QObject):
         ])
         self.secondStreamChanged.emit(True)
         self._advertise()
+        action = (
+            "Creating KDE virtual display" if self.de == "kde" else
+            "Creating GNOME virtual display" if self.de == "gnome" else
+            "Portal picker opened"
+        )
         self.logAppended.emit(
             "STREAMER",
-            f"[Third display] Portal picker opened on port "
+            f"[Third display] {action} on port "
             f"{THIRD_STREAM_PUBLIC_PORT if not self.encrypted else THIRD_STREAM_BACKEND_PORT}.",
         )
 
@@ -686,7 +731,9 @@ class StreamingController(QObject):
         raw = bytes(process.readAllStandardOutput()).decode(
             "utf-8", errors="replace"
         )
-        lines = raw.splitlines()
+        self.third_event_buffer += raw
+        lines = self.third_event_buffer.split("\n")
+        self.third_event_buffer = lines.pop()
         if lines:
             message = "\n".join(f"[Third display] {line}" for line in lines)
             if raw.endswith("\n"):
@@ -694,8 +741,35 @@ class StreamingController(QObject):
             self.logAppended.emit("STREAMER", message)
         for line in lines:
             self._track_third_gst_pid(line)
-            if "[Portal] Got PipeWire node=" in line:
+            event = self._structured_event(line)
+            if event and event.get("type") == "kde_output_ready":
+                self.third_width = int(event.get("width") or self.third_width)
+                self.third_height = int(event.get("height") or self.third_height)
+                refresh = float(event.get("refresh_rate") or self.third_fps)
+                self._set_status(
+                    f"Additional KDE display ready: {self.third_width}x"
+                    f"{self.third_height}@{refresh:g}"
+                )
+            elif event and event.get("type") == "kde_capture_ready":
+                self._set_status("Additional KDE capture ready; stream pipeline starting...")
+            elif event and event.get("type") == "gnome_output_ready":
+                connector = str(event.get("connector") or "")
+                if connector:
+                    self.gnome_outputs["additional"] = connector
+                    self._connect_gnome_display_config_signal()
+                self.third_width = int(event.get("width") or self.third_width)
+                self.third_height = int(event.get("height") or self.third_height)
+                refresh = float(event.get("refresh_rate") or self.third_fps)
+                self._set_status(
+                    f"Additional GNOME display ready: {connector} {self.third_width}x"
+                    f"{self.third_height}@{refresh:g}"
+                )
+            elif event and event.get("type") == "gnome_capture_ready":
+                self._set_status("Additional GNOME capture ready; stream pipeline starting...")
+            elif "[Portal] Got PipeWire node=" in line:
                 self._set_status("Third display selected; stream pipeline starting...")
+            elif line.startswith("[ERROR]"):
+                self._set_status(line.removeprefix("[ERROR]").strip())
             if "Setting pipeline to PLAYING" in line or "New clock:" in line:
                 if not self.third_ready:
                     self.third_ready = True
@@ -765,6 +839,8 @@ class StreamingController(QObject):
         return config
 
     def stop_third(self):
+        if self.de == "gnome":
+            self._save_gnome_virtual_layout()
         self.third_generation += 1
         if self.third_streamer is not None:
             stop_processes(self.third_streamer)
@@ -775,9 +851,11 @@ class StreamingController(QObject):
         kill_patterns(
             f"gst-launch-1.0.*port={THIRD_STREAM_PUBLIC_PORT}",
             f"gst-launch-1.0.*port={THIRD_STREAM_BACKEND_PORT}",
+            "monitorize-kde-virtual-output.*(Monitorize-2|monitorize-additional)",
         )
         self.third_streaming = False
         self.third_ready = False
+        self.gnome_outputs.pop("additional", None)
         self._advertise()
         self.secondStreamChanged.emit(False)
         self.logAppended.emit("STREAMER", "[Third display] Stopped.")
@@ -792,7 +870,6 @@ class StreamingController(QObject):
             )
 
     def stop(self):
-        stopping_kde_portal = self._stopping_kde_portal_streamer()
         should_track_layout = self._should_track_gnome_virtual_layout()
         saved_layout = self._save_gnome_virtual_layout()
         if should_track_layout and not saved_layout:
@@ -804,33 +881,24 @@ class StreamingController(QObject):
         self.generation += 1
         self.countdown_timer.stop()
         self.streamer_has_pipewire_node = False
-        self.kde_portal_terminal_error = False
+        self.kde_event_buffer = ""
+        self.gnome_event_buffer = ""
         self._set_primary_ready(False)
         self.runtime_general = None
         if self.third_streaming or self.third_streamer is not None:
             self.stop_third()
-        portal_clean = True
-        if stopping_kde_portal:
-            save_current_virtual_layout(
-                "primary", self.env.value("MONITORIZE_OUTPUT", "")
-            )
-            portal_clean = stop_processes(self.streamer, timeout_ms=8000)
-            self.streamer = None
-            stop_processes(self.input_bridge, self.tls_proxy)
-        else:
-            stop_processes(self.streamer, self.input_bridge, self.tls_proxy)
+        stop_processes(self.streamer, self.input_bridge, self.tls_proxy)
         self.streamer = self.input_bridge = self.tls_proxy = None
-        if stopping_kde_portal and portal_clean:
-            self.gst_pids.clear()
-        else:
-            kill_tracked_pids(self.gst_pids)
-            kill_patterns(
-                "gst-launch-1.0.*port=7110", "gst-launch-1.0.*port=7112",
-                "gst-launch-1.0.*port=7114", "gst-launch-1.0.*port=7115",
-                "monitorize\\.streaming\\.Streamer_.*",
-                "monitorize\\.security\\.tls_proxy",
-            )
+        kill_tracked_pids(self.gst_pids)
+        kill_patterns(
+            "gst-launch-1.0.*port=7110", "gst-launch-1.0.*port=7112",
+            "gst-launch-1.0.*port=7114", "gst-launch-1.0.*port=7115",
+            "monitorize\\.streaming\\.Streamer_.*",
+            "monitorize\\.security\\.tls_proxy",
+            "monitorize-kde-virtual-output",
+        )
         self.display.cleanup()
+        self.gnome_outputs.clear()
         self.discovery.stop_advertising()
         self.pairing_code = ""
         self.pairingCodeChanged.emit("")

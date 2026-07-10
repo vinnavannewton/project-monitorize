@@ -1,0 +1,308 @@
+# translation of kcmkwindecoration.po to Turkish
+# kde
+# Copyright (C) 2003, 2004, 2008 Free Software Foundation, Inc.
+#
+# Görkem Çetin <gorkem@kde.org>, 2001, 2003.
+# Adil Yıldız <adil@linux-sevenler.org>, 2004.
+# Serdar Soytetir <tulliana@gmail.com>, 2008, 2009, 2010.
+# Onur Küçük <onur@pardus.org.tr>, 2010.
+# Volkan Gezer <volkangezer@gmail.com>, 2013, 2014, 2015, 2017, 2021.
+# SPDX-FileCopyrightText: 2022-2026 Emir SARI <emir_sari@icloud.com>
+msgid ""
+msgstr ""
+"Project-Id-Version: kcmkwindecoration\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-05-14 00:45+0000\n"
+"PO-Revision-Date: 2026-05-14 13:07+0300\n"
+"Last-Translator: Emir SARI <emir_sari@icloud.com>\n"
+"Language-Team: Turkish <kde-l10n-tr@kde.org>\n"
+"Language: tr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"X-Generator: Lokalize 26.04.0\n"
+
+#: declarative-plugin/buttonsmodel.cpp:56
+#, kde-format
+msgid "Window menu"
+msgstr "Pencere menüsü"
+
+#: declarative-plugin/buttonsmodel.cpp:58
+#, kde-format
+msgid "Application menu"
+msgstr "Uygulama menüsü"
+
+#: declarative-plugin/buttonsmodel.cpp:60
+#, kde-format
+msgid "On all desktops"
+msgstr "Tüm masaüstlerinde"
+
+#: declarative-plugin/buttonsmodel.cpp:62
+#, kde-format
+msgid "Minimize"
+msgstr "Simge Durumuna Küçült"
+
+#: declarative-plugin/buttonsmodel.cpp:64
+#, kde-format
+msgid "Maximize"
+msgstr "Ekranı Kapla"
+
+#: declarative-plugin/buttonsmodel.cpp:66
+#, kde-format
+msgid "Close"
+msgstr "Kapat"
+
+#: declarative-plugin/buttonsmodel.cpp:68
+#, kde-format
+msgid "Context help"
+msgstr "Bağlam Yardımı"
+
+#: declarative-plugin/buttonsmodel.cpp:70
+#, kde-format
+msgid "Keep below other windows"
+msgstr "Diğer pencerelerin altında tut"
+
+#: declarative-plugin/buttonsmodel.cpp:72
+#, kde-format
+msgid "Keep above other windows"
+msgstr "Diğer pencerelerin üzerinde tut"
+
+#: declarative-plugin/buttonsmodel.cpp:74
+#, kde-format
+msgid "Hide from screenshots and screen recordings"
+msgstr "Ekran görüntülerinden ve kayıtlarından gizle"
+
+#: declarative-plugin/buttonsmodel.cpp:76
+#, kde-format
+msgid "Spacer"
+msgstr "Boşluklandırıcı"
+
+#: kcm.cpp:188
+#, kde-format
+msgctxt "%1 is the name of a border size"
+msgid "Theme default (%1)"
+msgstr "Tema öntanımlısı (%1)"
+
+#: kwin-applywindowdecoration.cpp:34
+#, kde-format
+msgid ""
+"This tool allows you to set the window decoration theme for the currently "
+"active session, without accidentally setting it to one that is either not "
+"available, or which is already set."
+msgstr ""
+"Bu araç; yanlışlıkla, mevcut olmayan veya önceden ayarlanmış olana "
+"ayarlamadan, o anda etkin olan oturum için pencere dekorasyon temasını "
+"ayarlamanıza olanak tanır."
+
+#: kwin-applywindowdecoration.cpp:35
+#, kde-format
+msgid ""
+"The name of the window decoration theme you wish to set for KWin. Passing a "
+"full path will attempt to find a theme in that directory, and then apply "
+"that if one can be deduced."
+msgstr ""
+"KWin için ayarlamak istediğiniz pencere dekorasyonu temasının adı. Tam bir "
+"yol geçmek, o dizinde bir tema bulmaya çalışacak ve ardından eğer bir tema "
+"çıkarılabilirse bunu uygulayacaktır."
+
+#: kwin-applywindowdecoration.cpp:36
+#, kde-format
+msgid ""
+"Show all the themes available on the system (and which is the current theme)"
+msgstr "Sistemde mevcut olan tüm temaları göster (ve mevcut tema hangisi ise)"
+
+#: kwin-applywindowdecoration.cpp:67
+#, kde-format
+msgid ""
+"Resolved %1 to the KWin Aurorae theme \"%2\", and will attempt to set that "
+"as your current theme."
+msgstr ""
+"%1 KWin Aurorae teması “%2” olarak çözüldü ve geçerli temanız olarak "
+"ayarlanmaya çalışacak."
+
+#: kwin-applywindowdecoration.cpp:73
+#, kde-format
+msgid ""
+"You attempted to pass a file path, but this could not be resolved to a "
+"theme, and we will have to abort, due to having no theme to set"
+msgstr ""
+"Bir dosya yolu iletmeye çalıştınız; ancak bu bir temaya çözümlenemedi ve "
+"ayarlanacak tema olmadığı için iptal etmek zorunda kalacağız"
+
+#: kwin-applywindowdecoration.cpp:79
+#, kde-format
+msgid ""
+"The requested theme \"%1\" is already set as the window decoration theme."
+msgstr ""
+"İstenen tema “%1”, hâlihazırda pencere dekorasyonu teması olarak ayarlanmış."
+
+#: kwin-applywindowdecoration.cpp:101
+#, kde-format
+msgid ""
+"Successfully applied the pointer theme %1 to your current Plasma session"
+msgstr "İşaretçi teması %1, geçerli Plasma oturumunuza başarıyla uygulandı"
+
+#: kwin-applywindowdecoration.cpp:105
+#, kde-format
+msgid ""
+"Failed to save your theme settings - the reason is unknown, but this is an "
+"unrecoverable error. You may find that simply trying again will work."
+msgstr ""
+"Tema ayarlarınız kaydedilemedi - nedeni bilinmiyor; ancak bu kurtarılamaz "
+"bir hata. Yeniden denemenin işe yarayacağını görebilirsiniz."
+
+#: kwin-applywindowdecoration.cpp:109
+#, kde-format
+msgid ""
+"Could not find theme \"%1\". The theme should be one of the following "
+"options: %2"
+msgstr "Tema “%1” bulunamadı. Tema şu seçeneklerden biri olmalı: %2"
+
+#: kwin-applywindowdecoration.cpp:114
+#, kde-format
+msgid "You have the following KWin window decoration themes on your system:"
+msgstr "Sisteminizde aşağıdaki KWin pencere dekorasyonu temalarına sahipsiniz:"
+
+#: ui/Buttons.qml:85
+#, kde-format
+msgid "Titlebar"
+msgstr "Başlık Çubuğu"
+
+#: ui/Buttons.qml:245
+#, kde-format
+msgid "Drop button here to remove it"
+msgstr "Kaldırmak için düğmeyi buraya bırakın"
+
+#: ui/Buttons.qml:261
+#, kde-format
+msgid "Drag buttons between here and the titlebar"
+msgstr "Düğmeleri burası ile başlık çubuğu arasında sürükleyin"
+
+#: ui/ConfigureTitlebar.qml:16
+#, kde-format
+msgid "Titlebar Buttons"
+msgstr "Başlık Çubuğu Düğmeleri"
+
+#: ui/ConfigureTitlebar.qml:35
+#, kde-format
+msgctxt "checkbox label"
+msgid "Close windows by double clicking the window menu button"
+msgstr "Pencere menüsü düğmesine çift tıklayarak pencereleri kapat"
+
+#: ui/ConfigureTitlebar.qml:52
+#, kde-format
+msgctxt "popup tip"
+msgid "Click and hold on the window menu button to show the menu."
+msgstr ""
+"Menüyü göstermek için pencere menüsü düğmesine tıklayın ve basılı tutun."
+
+#: ui/ConfigureTitlebar.qml:59
+#, kde-format
+msgctxt "checkbox label"
+msgid "Show titlebar button tooltips"
+msgstr "Başlık çubuğu düğmesi araç ipuçlarını göster"
+
+#: ui/ConfigureTitlebar.qml:73
+#, kde-format
+msgctxt "@option:check"
+msgid "Always show \"Hide from Screenshots and Screen Recordings\" button"
+msgstr ""
+"“Ekran Görüntülerinden ve Kayıtlarından Gizle” düğmesini her zaman göster"
+
+#: ui/ConfigureTitlebar.qml:85
+#, kde-format
+msgctxt "@info:tooltip"
+msgid ""
+"When unchecked the button only appears if the window is hidden from "
+"screenshots and screen recordings"
+msgstr ""
+"İşaretlenmediğinde, bu düğme yalnızca pencere ekran görüntülerinden ve "
+"kayıtlarından gizleniyorsa görünür."
+
+#: ui/ConfigureTitlebar.qml:86
+#, kde-format
+msgctxt "@info:tooltip"
+msgid ""
+"To enable this option, add the \"Hide from Screenshots and Screen Recordings"
+"\" button to the titlebar first"
+msgstr ""
+"Bu seçeneği etkinleştirmek için önce başlık çubuğuna “Ekran Görüntülerinden "
+"ve Kayıtlarından Gizle” seçeneğini ekleyin."
+
+#: ui/main.qml:29
+#, kde-format
+msgctxt "Selector label"
+msgid "Window border size:"
+msgstr "Pencere kenarlığı boyutu:"
+
+#: ui/main.qml:48
+#, kde-format
+msgctxt "button text"
+msgid "Configure Titlebar Buttons…"
+msgstr "Başlık Çubuğu Düğmelerini Yapılandır…"
+
+#: ui/main.qml:54
+#, kde-format
+msgctxt "@action:button as in, \"Get New Window Decorations\""
+msgid "Get New…"
+msgstr "Yeni Al…"
+
+#: ui/Themes.qml:93
+#, kde-format
+msgid "Edit %1 Theme…"
+msgstr "%1 Temasını Düzenle…"
+
+#: utils.cpp:26
+#, kde-format
+msgid "No window borders"
+msgstr "Pencere kenarlığı yok"
+
+#: utils.cpp:27
+#, kde-format
+msgid "No side window borders"
+msgstr "Yan pencere kenarlığı yok"
+
+#: utils.cpp:28
+#, kde-format
+msgid "Tiny window borders"
+msgstr "Ufak pencere kenarlıkları"
+
+#: utils.cpp:29
+#, kde-format
+msgid "Normal window borders"
+msgstr "Normal pencere kenarlıkları"
+
+#: utils.cpp:30
+#, kde-format
+msgid "Large window borders"
+msgstr "Büyük pencere kenarlıkları"
+
+#: utils.cpp:31
+#, kde-format
+msgid "Very large window borders"
+msgstr "Çok büyük pencere kenarlıkları"
+
+#: utils.cpp:32
+#, kde-format
+msgid "Huge window borders"
+msgstr "Kocaman pencere kenarlıkları"
+
+#: utils.cpp:33
+#, kde-format
+msgid "Very huge window borders"
+msgstr "En büyük pencere kenarlıkları"
+
+#: utils.cpp:34
+#, kde-format
+msgid "Oversized window borders"
+msgstr "Devasa pencere kenarlıkları"
+
+#~ msgid "Hide from screencast"
+#~ msgstr "Ekran Yayınından Gizle"
+
+#~ msgid "More actions for this window"
+#~ msgstr "Bu pencere için diğer eylemler"
+
+#~ msgid "Shade"
+#~ msgstr "Panjuru Kapat"

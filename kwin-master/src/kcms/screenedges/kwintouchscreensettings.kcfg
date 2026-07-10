@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0
+       http://www.kde.org/standards/kcfg/1.0/kcfg.xsd" >
+    <kcfgfile name="kwinrc"/>
+    <group name="TouchEdges">
+        <entry key="Top" type="String">
+            <default>None</default>
+        </entry>
+        <entry key="Right" type="String">
+            <default>None</default>
+        </entry>
+        <entry key="Bottom" type="String">
+            <default>None</default>
+        </entry>
+        <entry key="Left" type="String">
+            <default>None</default>
+        </entry>
+    </group>
+    <group name="Effect-windowview">
+        <entry key="TouchBorderActivateAll" type="IntList">
+            <default>ElectricNone</default>
+        </entry>
+        <entry name="TouchBorderActivatePresentWindows" key="TouchBorderActivate" type="IntList">
+            <default>ElectricNone</default>
+        </entry>
+        <entry key="TouchBorderActivateClass" type="IntList">
+            <default>ElectricNone</default>
+        </entry>
+    </group>
+    <group name="Effect-overview">
+        <entry name="TouchBorderActivateOverview" key="TouchBorderActivate" type="IntList">
+            <default>ElectricNone</default>
+        </entry>
+        <entry name="TouchBorderActivateGrid" key="GridTouchBorderActivate" type="IntList">
+            <default>ElectricNone</default>
+        </entry>
+    </group>
+    <group name="TabBox">
+        <entry name="TouchBorderActivateTabBox" key="TouchBorderActivate" type="IntList">
+            <default>ElectricNone</default>
+        </entry>
+        <entry key="TouchBorderAlternativeActivate" type="IntList">
+            <default>ElectricNone</default>
+        </entry>
+    </group>
+</kcfg>

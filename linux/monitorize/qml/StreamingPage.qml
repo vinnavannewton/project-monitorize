@@ -305,7 +305,7 @@ Item {
             Button {
                 id: displayActionButton
                 text: backend.secondStreamActive ? "Remove Third Display" : "Add Another Display"
-                visible: backend.detectedDe === "kde" || backend.detectedDe === "hyprland"
+                visible: backend.detectedDe === "kde" || backend.detectedDe === "gnome" || backend.detectedDe === "hyprland"
                 Layout.preferredWidth: page.actionButtonWidth
                 Layout.preferredHeight: page.actionButtonHeight
                 implicitWidth: page.actionButtonWidth
@@ -591,7 +591,11 @@ Item {
             }
 
             Text {
-                text: "Your desktop will open a screen-share picker.\nChoose the display to stream on the third-display port."
+                text: backend.detectedDe === "kde"
+                    ? "Creates Monitorize Display 2 in KDE.\nArrange it in System Settings → Display Configuration."
+                    : backend.detectedDe === "gnome"
+                    ? "Creates a second native GNOME virtual display.\nArrange it in Settings → Displays; GNOME may show matching monitor labels."
+                    : "Your desktop will open a screen-share picker.\nChoose the display to stream on the third-display port."
                 font.pixelSize: 12
                 color: theme.cardTextMuted
                 wrapMode: Text.Wrap
@@ -718,7 +722,9 @@ Item {
                 }
 
                 CustomButton {
-                    text: "▶  Start Third Display"
+                    text: backend.detectedDe === "kde" || backend.detectedDe === "gnome"
+                        ? "▶  Create Virtual Display"
+                        : "▶  Start Third Display"
                     implicitWidth: 170
                     implicitHeight: 36
                     onClicked: {

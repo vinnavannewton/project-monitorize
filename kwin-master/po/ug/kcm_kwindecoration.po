@@ -1,0 +1,464 @@
+# Uyghur translation for kcmkwindecoration.
+# Copyright (C) YEAR This_file_is_part_of_KDE
+# This file is distributed under the same license as the PACKAGE package.
+# Sahran <sahran.ug@gmail.com>, 2011.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: kcmkwindecoration\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-05-14 00:45+0000\n"
+"PO-Revision-Date: 2026-05-31 20:01-0400\n"
+"Last-Translator: Abduqadir Abliz <sahranbay@gmail.com>\n"
+"Language-Team: Uyghur Computer Science Association <UKIJ@yahoogroups.com>\n"
+"Language: ug\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Generator: Poedit 3.9\n"
+
+#: declarative-plugin/buttonsmodel.cpp:56
+#, kde-format
+msgid "Window menu"
+msgstr "كۆزنەك تىزىملىكى"
+
+#: declarative-plugin/buttonsmodel.cpp:58
+#, kde-format
+msgid "Application menu"
+msgstr "پىروگرامما تىزىملىكى"
+
+#: declarative-plugin/buttonsmodel.cpp:60
+#, kde-format
+msgid "On all desktops"
+msgstr "ھەممە ئۈستەلئۈستىدە"
+
+#: declarative-plugin/buttonsmodel.cpp:62
+#, kde-format
+msgid "Minimize"
+msgstr "كىچىكلەت"
+
+#: declarative-plugin/buttonsmodel.cpp:64
+#, kde-format
+msgid "Maximize"
+msgstr "چوڭايت"
+
+#: declarative-plugin/buttonsmodel.cpp:66
+#, kde-format
+msgid "Close"
+msgstr "ياپ"
+
+#: declarative-plugin/buttonsmodel.cpp:68
+#, kde-format
+msgid "Context help"
+msgstr "مەزمۇن ياردەم"
+
+#: declarative-plugin/buttonsmodel.cpp:70
+#, kde-format
+msgid "Keep below other windows"
+msgstr "باشقا كۆزنەكنىڭ ئاستىدا تۇتىدۇ"
+
+#: declarative-plugin/buttonsmodel.cpp:72
+#, kde-format
+msgid "Keep above other windows"
+msgstr "باشقا كۆزنەكنىڭ ئۈستىدە تۇتىدۇ"
+
+#: declarative-plugin/buttonsmodel.cpp:74
+#, kde-format
+msgid "Hide from screenshots and screen recordings"
+msgstr ""
+
+#: declarative-plugin/buttonsmodel.cpp:76
+#, kde-format
+msgid "Spacer"
+msgstr "بوشلۇق"
+
+#: kcm.cpp:188
+#, kde-format
+msgctxt "%1 is the name of a border size"
+msgid "Theme default (%1)"
+msgstr "ئۆرنەك كۆڭۈلدىكى (%1)"
+
+#: kwin-applywindowdecoration.cpp:34
+#, kde-format
+msgid ""
+"This tool allows you to set the window decoration theme for the currently "
+"active session, without accidentally setting it to one that is either not "
+"available, or which is already set."
+msgstr ""
+"بۇ قورال نۆۋەتتىكى ئاكتىپ جەريانچاقنىڭ بېزەك ئۆرنىكىنى تەڭشەشكە ئىشلىتىلىدۇ، "
+"ئۇنى ئىشلەتكىلى بولمايدىغان قىلىپ تەڭشەش ياكى  ئىشلىتىلىۋاتقان ئۆرنەك قىلىپ "
+"تەڭشەشتىن ساقلىنىدۇ."
+
+#: kwin-applywindowdecoration.cpp:35
+#, kde-format
+msgid ""
+"The name of the window decoration theme you wish to set for KWin. Passing a "
+"full path will attempt to find a theme in that directory, and then apply "
+"that if one can be deduced."
+msgstr ""
+"تەڭشەيدىغان KWin كۆزنەك بېزەك ئۆرنىكىنىڭ ئىسمى. تولۇق يولى بېرىلسە شۇ "
+"يولدىكى مۇندەرىجىدىن ئۆرنەكنى ئىزدەيدۇ ۋە ئۆرنەك بەلگىلىگەن ئىسىم "
+"ئىشلىتىلىدۇ."
+
+#: kwin-applywindowdecoration.cpp:36
+#, kde-format
+msgid ""
+"Show all the themes available on the system (and which is the current theme)"
+msgstr ""
+"سىستېمىدا ئىشلەتكىلى بولىدىغان ھەممە ئۆرنەك (ۋە قايسىسىنىڭ نۆۋەتتە "
+"ئىشلىتىلىۋاتقىنى ئىكەنلىكى) نى كۆرسىتىدۇ"
+
+#: kwin-applywindowdecoration.cpp:67
+#, kde-format
+msgid ""
+"Resolved %1 to the KWin Aurorae theme \"%2\", and will attempt to set that "
+"as your current theme."
+msgstr ""
+"%1 نى KWin Aurorae ئۆرنىكى «%2» دەپ يېشىدۇ ۋە نۆۋەتتىكى ئۆرنىكىڭىزگە "
+"تەڭشەشكە تىرىشىدۇ."
+
+#: kwin-applywindowdecoration.cpp:73
+#, kde-format
+msgid ""
+"You attempted to pass a file path, but this could not be resolved to a "
+"theme, and we will have to abort, due to having no theme to set"
+msgstr ""
+"سىز ھۆججەت يولىنى يەتكۈزمەكچى بولدىڭىز ئەمما بۇ يولدىكى ئۆرنەكنى يېشەلمىدى  "
+"ۋە تەڭشەيدىغان ئۆرنەك بولمىغانلىق سەۋەبىدىن نۆۋەتتىكى مەشغۇلاتتىن چېكىنىدۇ"
+
+#: kwin-applywindowdecoration.cpp:79
+#, kde-format
+msgid ""
+"The requested theme \"%1\" is already set as the window decoration theme."
+msgstr ""
+"ئىلتىماس قىلىنغان ئۆرنەك «%1» ئاللىبۇرۇن كۆزنەك بېزەك ئۆرنىكىگە تەڭشەلگەن."
+
+#: kwin-applywindowdecoration.cpp:101
+#, kde-format
+msgid ""
+"Successfully applied the pointer theme %1 to your current Plasma session"
+msgstr ""
+
+#: kwin-applywindowdecoration.cpp:105
+#, kde-format
+msgid ""
+"Failed to save your theme settings - the reason is unknown, but this is an "
+"unrecoverable error. You may find that simply trying again will work."
+msgstr ""
+"ئۆرنەك تەڭشىكىنى ساقلىيالمىدى - سەۋەبى ئېنىق ئەمەس، ئەمما ئەسلىگە كەلتۈرگىلى "
+"بولمايدىغان خاتالىق. ئۇنى قايتا سىناپ باقسىڭىز مەسىلە ھەل بولۇشى مۇمكىن."
+
+#: kwin-applywindowdecoration.cpp:109
+#, kde-format
+msgid ""
+"Could not find theme \"%1\". The theme should be one of the following "
+"options: %2"
+msgstr ""
+"«%1» ئۆرنەكنى تاپالمىدى. ئۆرنەك تۆۋەندىكى تاللانمىدىن بىرى بولۇشى كېرەك: %2"
+
+#: kwin-applywindowdecoration.cpp:114
+#, kde-format
+msgid "You have the following KWin window decoration themes on your system:"
+msgstr "سىستېمىڭىزدا تۆۋەندىكى KWin كۆزنەك بېزەك ئۆرنىكى بار:"
+
+#: ui/Buttons.qml:85
+#, kde-format
+msgid "Titlebar"
+msgstr "ماۋزۇ بالداق"
+
+#: ui/Buttons.qml:245
+#, kde-format
+msgid "Drop button here to remove it"
+msgstr "توپچە بۇ جايغا تاشلانسا چىقىرىۋېتىدۇ"
+
+#: ui/Buttons.qml:261
+#, kde-format
+msgid "Drag buttons between here and the titlebar"
+msgstr "توپچە بۇ جاي بىلەن ماۋزۇ بالداق ئارىسىدا سۆرىلىدۇ"
+
+#: ui/ConfigureTitlebar.qml:16
+#, kde-format
+msgid "Titlebar Buttons"
+msgstr "ماۋزۇ بالداق توپچە"
+
+#: ui/ConfigureTitlebar.qml:35
+#, kde-format
+msgctxt "checkbox label"
+msgid "Close windows by double clicking the window menu button"
+msgstr "كۆزنەك تىزىملىك توپچە قوش چېكىلسە كۆزنەكنى ياپىدۇ"
+
+#: ui/ConfigureTitlebar.qml:52
+#, kde-format
+msgctxt "popup tip"
+msgid "Click and hold on the window menu button to show the menu."
+msgstr "تىزىملىك كۆرسىتىشتە كۆزنەك تىزىملىكىنى چېكىپ بېسىپ تۇرۇلىدۇ."
+
+#: ui/ConfigureTitlebar.qml:59
+#, kde-format
+msgctxt "checkbox label"
+msgid "Show titlebar button tooltips"
+msgstr "ماۋزۇ بالداق توپچە قورال ئەسكەرتىشىنى كۆرسىتىدۇ"
+
+#: ui/ConfigureTitlebar.qml:73
+#, kde-format
+msgctxt "@option:check"
+msgid "Always show \"Hide from Screenshots and Screen Recordings\" button"
+msgstr ""
+
+#: ui/ConfigureTitlebar.qml:85
+#, kde-format
+msgctxt "@info:tooltip"
+msgid ""
+"When unchecked the button only appears if the window is hidden from "
+"screenshots and screen recordings"
+msgstr ""
+
+#: ui/ConfigureTitlebar.qml:86
+#, kde-format
+msgctxt "@info:tooltip"
+msgid ""
+"To enable this option, add the \"Hide from Screenshots and Screen Recordings"
+"\" button to the titlebar first"
+msgstr ""
+
+#: ui/main.qml:29
+#, kde-format
+msgctxt "Selector label"
+msgid "Window border size:"
+msgstr "كۆزنەك گىرۋەك چوڭلۇقى:"
+
+#: ui/main.qml:48
+#, kde-format
+msgctxt "button text"
+msgid "Configure Titlebar Buttons…"
+msgstr "ماۋزۇ بالداق توپچە سەپلىمىسى…"
+
+#: ui/main.qml:54
+#, kde-format
+msgctxt "@action:button as in, \"Get New Window Decorations\""
+msgid "Get New…"
+msgstr "يېڭىسىغا ئېرىش…"
+
+#: ui/Themes.qml:93
+#, kde-format
+msgid "Edit %1 Theme…"
+msgstr "%1 ئۆرنەك تەھرىر…"
+
+#: utils.cpp:26
+#, kde-format
+msgid "No window borders"
+msgstr "كۆزنەك گىرۋىكى يوق"
+
+#: utils.cpp:27
+#, kde-format
+msgid "No side window borders"
+msgstr "كۆزنەك گىرۋەك يېنى يوق"
+
+#: utils.cpp:28
+#, kde-format
+msgid "Tiny window borders"
+msgstr "كىچىك كۆزنەك گىرۋىكى"
+
+#: utils.cpp:29
+#, kde-format
+msgid "Normal window borders"
+msgstr "ئادەتتىكى كۆزنەك گىرۋىكى"
+
+#: utils.cpp:30
+#, kde-format
+msgid "Large window borders"
+msgstr "چوڭ كۆزنەك گىرۋىكى"
+
+#: utils.cpp:31
+#, kde-format
+msgid "Very large window borders"
+msgstr "ئىنتايىن چوڭ كۆزنەك گىرۋىكى"
+
+#: utils.cpp:32
+#, kde-format
+msgid "Huge window borders"
+msgstr "زور كۆزنەك گىرۋىكى"
+
+#: utils.cpp:33
+#, kde-format
+msgid "Very huge window borders"
+msgstr "ئىنتايىن زور كۆزنەك گىرۋىكى"
+
+#: utils.cpp:34
+#, kde-format
+msgid "Oversized window borders"
+msgstr "ئۆتە چوڭ كۆزنەك گىرۋىكى"
+
+#~ msgid "Hide from screencast"
+#~ msgstr "ئېكران تارقىتىشتىن يوشۇر"
+
+#~ msgid "Shade"
+#~ msgstr "تۈرۈش"
+
+#~| msgid "kcmkwindecoration"
+#~ msgctxt "button text"
+#~ msgid "Get New Window Decorations…"
+#~ msgstr "kcmkwindecoration"
+
+#~| msgctxt "@item:inlistbox Border size:"
+#~| msgid "No Border"
+#~ msgid "No Borders"
+#~ msgstr "گىرۋەكسىز"
+
+#~| msgctxt "@item:inlistbox Border size:"
+#~| msgid "Tiny"
+#~ msgid "Tiny"
+#~ msgstr "كىچىك"
+
+#~| msgctxt "@item:inlistbox Border size:"
+#~| msgid "Normal"
+#~ msgid "Normal"
+#~ msgstr "نورمال"
+
+#~| msgctxt "@item:inlistbox Border size:"
+#~| msgid "Large"
+#~ msgid "Large"
+#~ msgstr "چوڭ"
+
+#~| msgctxt "@item:inlistbox Border size:"
+#~| msgid "Very Large"
+#~ msgid "Very Large"
+#~ msgstr "بەك چوڭ"
+
+#~| msgctxt "@item:inlistbox Border size:"
+#~| msgid "Huge"
+#~ msgid "Huge"
+#~ msgstr "ئىنتايىن چوڭ"
+
+#~| msgctxt "@item:inlistbox Border size:"
+#~| msgid "Very Huge"
+#~ msgid "Very Huge"
+#~ msgstr "ئىنتايىن چوڭ"
+
+#~| msgctxt "@item:inlistbox Border size:"
+#~| msgid "Oversized"
+#~ msgid "Oversized"
+#~ msgstr "چوڭلۇقى ئېشىپ كەتكەن"
+
+#~ msgctxt "NAME OF TRANSLATORS"
+#~ msgid "Your names"
+#~ msgstr "ئابدۇقادىر ئابلىز, غەيرەت كەنجى"
+
+#~ msgctxt "EMAIL OF TRANSLATORS"
+#~ msgid "Your emails"
+#~ msgstr "sahran.ug@gmail.com,  gheyret@gmail.com"
+
+#~| msgid "kcmkwindecoration"
+#~ msgid "Window Decorations"
+#~ msgstr "kcmkwindecoration"
+
+#~| msgid "Close windows by double clicking the menu button"
+#~ msgctxt "popup tip"
+#~ msgid ""
+#~ "Close by double clicking: Keep the window's Menu button pressed until it "
+#~ "appears."
+#~ msgstr "تىزىملىك توپچا قوش چېكىلسە كۆنەكنى ياپىدۇ"
+
+#~ msgid "Menu"
+#~ msgstr "تىزىملىك"
+
+#~| msgid "Keep Below Others"
+#~ msgid "Keep below"
+#~ msgstr "ئەڭ ئاستىدا"
+
+#~| msgid "Keep Above Others"
+#~ msgid "Keep above"
+#~ msgstr "ئەڭ ئۈستىدە"
+
+#~| msgid "Search"
+#~ msgid "Search..."
+#~ msgstr "ئىزدە"
+
+#~| msgid "Close windows by double clicking the menu button"
+#~ msgid "Close windows by double clicking &the menu button"
+#~ msgstr "تىزىملىك توپچا قوش چېكىلسە كۆنەكنى ياپىدۇ"
+
+#~| msgid "Border size:"
+#~ msgid "Border si&ze:"
+#~ msgstr "گىرۋەك چوڭلۇقى:"
+
+#~| msgid "Configure Buttons..."
+#~ msgid "Configure %1..."
+#~ msgstr "توپچا سەپلىمە…"
+
+#~ msgid "Button size:"
+#~ msgstr "توپچا چوڭلۇقى:"
+
+#~ msgctxt "@item:inlistbox Button size:"
+#~ msgid "Tiny"
+#~ msgstr "كىچىك"
+
+#~ msgctxt "@item:inlistbox Button size:"
+#~ msgid "Normal"
+#~ msgstr "نورمال"
+
+#~ msgctxt "@item:inlistbox Button size:"
+#~ msgid "Large"
+#~ msgstr "چوڭ"
+
+#~ msgctxt "@item:inlistbox Button size:"
+#~ msgid "Very Large"
+#~ msgstr "بەك چوڭ"
+
+#~ msgctxt "@item:inlistbox Button size:"
+#~ msgid "Huge"
+#~ msgstr "ئىنتايىن چوڭ"
+
+#~ msgctxt "@item:inlistbox Button size:"
+#~ msgid "Very Huge"
+#~ msgstr "ئىنتايىن چوڭ"
+
+#~ msgctxt "@item:inlistbox Button size:"
+#~ msgid "Oversized"
+#~ msgstr "چوڭلۇقى ئېشىپ كەتكەن"
+
+#~ msgid "KDE"
+#~ msgstr "ك د ئې(KDE)"
+
+#~ msgid "%1 (unavailable)"
+#~ msgstr "%1 (يوق)"
+
+#~ msgid "Resize"
+#~ msgstr "چوڭلۇقىنى ئۆزگەرت"
+
+#~ msgid "Help"
+#~ msgstr "ياردەم"
+
+#~ msgid "B&order size:"
+#~ msgstr "گىرۋەك چوڭلۇقى(&O):"
+
+#~ msgctxt "@item:inlistbox Border size:"
+#~ msgid "No Side Border"
+#~ msgstr "يان گىرۋىكى يوق"
+
+#~ msgctxt "@item:inlistbox Border size:"
+#~ msgid "No Border"
+#~ msgstr "گىرۋەكسىز"
+
+#~ msgid "Decoration Options"
+#~ msgstr "بېزەش تاللانمىلىرى"
+
+#~ msgid "(c) 2001 Karol Szwed"
+#~ msgstr "(c) 2001 Karol Szwed"
+
+#~ msgid "Karol Szwed"
+#~ msgstr "Karol Szwed"
+
+#~ msgid "Oxygen"
+#~ msgstr "ئوكسېگىن"
+
+#~ msgid "Active Window"
+#~ msgstr "ئاكتىپ كۆزنەك"
+
+#~ msgid "Inactive Window"
+#~ msgstr "پاسسىپ كۆزنەك"
+
+#~ msgctxt "Caption to decoration preview, %1 author name"
+#~ msgid "by %1"
+#~ msgstr "ئاپتور %1"

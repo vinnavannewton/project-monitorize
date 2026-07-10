@@ -1,0 +1,97 @@
+# Copyright (C) YEAR This_file_is_part_of_KDE
+# This file is distributed under the same license as the PACKAGE package.
+# Nicola Ruggero <nicola@nxnt.org>, 2012.
+# SPDX-FileCopyrightText: 2014, 2017, 2018, 2020, 2022, 2023, 2024 Vincenzo Reale <smart2128vr@gmail.com>
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: kcm-kwin-scripts\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2025-11-17 11:53+0000\n"
+"PO-Revision-Date: 2024-09-27 03:30+0200\n"
+"Last-Translator: Vincenzo Reale <smart2128vr@gmail.com>\n"
+"Language-Team: Italian <kde-i18n-it@kde.org>\n"
+"Language: it\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: Lokalize 24.08.1\n"
+
+#: module.cpp:52
+#, kde-format
+msgid "Import KWin Script"
+msgstr "Importa script di KWin"
+
+#: module.cpp:53
+#, kde-format
+msgid "KWin Script (*.kwinscript)"
+msgstr "Script di KWin (*.kwinscript)"
+
+#: module.cpp:65
+#, kde-format
+msgctxt "Placeholder is error message returned from the install service"
+msgid ""
+"Cannot import selected script.\n"
+"%1"
+msgstr ""
+"Impossibile importare lo script selezionato.\n"
+"%1"
+
+#: module.cpp:69
+#, kde-format
+msgctxt "Placeholder is name of the script that was imported"
+msgid "The script \"%1\" was successfully imported."
+msgstr "Lo script «%1» è stato importato correttamente."
+
+#: module.cpp:131
+#, kde-format
+msgid "Error when uninstalling KWin Script: %1"
+msgstr "Errore durante la disinstallazione dello script di KWin: %1"
+
+#: ui/main.qml:23
+#, kde-format
+msgid "Install from File…"
+msgstr "Installa da file…"
+
+#: ui/main.qml:27
+#, kde-format
+msgctxt "@action:button get new KWin scripts"
+msgid "Get New…"
+msgstr "Scarica nuovi…"
+
+#: ui/main.qml:65
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Delete…"
+msgstr "Elimina…"
+
+#~ msgctxt "NAME OF TRANSLATORS"
+#~ msgid "Your names"
+#~ msgstr "Vincenzo Reale,Nicola Ruggero"
+
+#~ msgctxt "EMAIL OF TRANSLATORS"
+#~ msgid "Your emails"
+#~ msgstr "smart2128vr@gmail.com,"
+
+#~ msgid "KWin Scripts"
+#~ msgstr "Script kwin"
+
+#~ msgid "Configure KWin scripts"
+#~ msgstr "Configura script kwin"
+
+#~ msgid "Tamás Krutki"
+#~ msgstr "Tamás Krutki"
+
+#~ msgid "KWin script configuration"
+#~ msgstr "Configurazione script kwin"
+
+#~ msgid "Import KWin script..."
+#~ msgstr "Importa script kwin..."
+
+#~ msgid ""
+#~ "Cannot import selected script: maybe a script already exists with the "
+#~ "same name or there is a permission problem."
+#~ msgstr ""
+#~ "Impossibile importare lo script selezionato: forse esiste già uno script "
+#~ "con lo stesso nome oppure c'è un problema di permessi."

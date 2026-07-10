@@ -1,0 +1,18 @@
+include($KDE_DOCS/global/qt-module-defaults.qdocconf)
+
+project = kwin
+
+sourcedirs += .
+headerdirs += .
+
+documentationinheaders = true
+
+dependencies += \
+    qtcore \
+    qtgui \
+    qtquick \
+    kcoreaddons
+
+navigation.landingpage = "KWin"
+
+tagfile = kwin.tags

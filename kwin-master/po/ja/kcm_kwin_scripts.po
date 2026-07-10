@@ -1,0 +1,66 @@
+# SPDX-FileCopyrightText: 2023, 2024 Ryuichi Yamada <ryuichi_ya220@outlook.jp>
+msgid ""
+msgstr ""
+"Project-Id-Version: kcm-kwin-scripts\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2025-11-17 11:53+0000\n"
+"PO-Revision-Date: 2024-02-16 14:27+0900\n"
+"Last-Translator: Ryuichi Yamada <ryuichi_ya220@outlook.jp>\n"
+"Language-Team: Japanese <kde-jp@kde.org>\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Accelerator-Marker: &\n"
+"X-Text-Markup: kde4\n"
+"X-Generator: Lokalize 23.08.4\n"
+
+#: module.cpp:52
+#, kde-format
+msgid "Import KWin Script"
+msgstr "KWin スクリプトをインポートする"
+
+#: module.cpp:53
+#, fuzzy, kde-format
+#| msgid "*.kwinscript|KWin scripts (*.kwinscript)"
+msgid "KWin Script (*.kwinscript)"
+msgstr "*.kwinscript|KWin スクリプト (*.kwinscript)"
+
+#: module.cpp:65
+#, kde-format
+msgctxt "Placeholder is error message returned from the install service"
+msgid ""
+"Cannot import selected script.\n"
+"%1"
+msgstr ""
+"選択されたスクリプトをインポートできません。\n"
+"%1"
+
+#: module.cpp:69
+#, kde-format
+msgctxt "Placeholder is name of the script that was imported"
+msgid "The script \"%1\" was successfully imported."
+msgstr "\"%1\" のインポートに成功しました。"
+
+#: module.cpp:131
+#, kde-format
+msgid "Error when uninstalling KWin Script: %1"
+msgstr "KWin スクリプト %1 のアンインストール中にエラーが発生しました: %1"
+
+#: ui/main.qml:23
+#, kde-format
+msgid "Install from File…"
+msgstr "ファイルからインストール…"
+
+#: ui/main.qml:27
+#, kde-format
+msgctxt "@action:button get new KWin scripts"
+msgid "Get New…"
+msgstr "新規追加..."
+
+#: ui/main.qml:65
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Delete…"
+msgstr "削除..."

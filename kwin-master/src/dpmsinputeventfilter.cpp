@@ -1,0 +1,210 @@
+/*
+    KWin - the KDE window manager
+    This file is part of the KDE project.
+
+    SPDX-FileCopyrightText: 2015 Martin Gräßlin <mgraesslin@kde.org>
+
+    SPDX-License-Identifier: GPL-2.0-or-later
+*/
+#include "dpmsinputeventfilter.h"
+#include "core/backendoutput.h"
+#include "core/outputbackend.h"
+#include "input_event.h"
+#include "main.h"
+#include "utils/keys.h"
+#include "utils/proximitysensor.h"
+#include "wayland_server.h"
+#include "workspace.h"
+
+#include <QGuiApplication>
+#include <QKeyEvent>
+
+namespace KWin
+{
+
+DpmsInputEventFilter::DpmsInputEventFilter()
+    : InputEventFilter(InputFilterOrder::Dpms)
+{
+    KSharedConfig::Ptr kwinSettings = kwinApp()->config();
+    m_enableDoubleTap = kwinSettings->group(QStringLiteral("Wayland")).readEntry<bool>("DoubleTapWakeup", true);
+
+    if (m_enableDoubleTap) {
+        m_sensor = std::make_unique<ProximitySensor>();
+        m_sensor->setEnabled(true);
+
+        updateProximitySensor();
+        connect(m_sensor.get(), &ProximitySensor::readingReceived, this, &DpmsInputEventFilter::updateProximitySensor);
+    }
+}
+
+DpmsInputEventFilter::~DpmsInputEventFilter()
+{
+}
+
+void DpmsInputEventFilter::updateProximitySensor()
+{
+    if (m_sensor->reading()) {
+        m_proximityClose = *m_sensor->reading();
+    }
+}
+
+bool DpmsInputEventFilter::pointerMotion(PointerMotionEvent *event)
+{
+    if (!event->warp) {
+        // The intention is to wake the screen on user interactions
+        // warp events aren't user interactions, so ignore them.
+        notify();
+    }
+    return true;
+}
+
+bool DpmsInputEventFilter::pointerButton(PointerButtonEvent *event)
+{
+    notify();
+    return true;
+}
+
+bool DpmsInputEventFilter::pointerAxis(PointerAxisEvent *event)
+{
+    notify();
+    return true;
+}
+
+bool DpmsInputEventFilter::keyboardKey(KeyboardKeyEvent *event)
+{
+    if (isMediaKey(event->key)) {
+        // don't wake up the screens for media or volume keys
+        return false;
+    }
+
+    // Wakeup key is sent by either ACPI driver or other drivers when
+    // system is resumed from sleep but that is not necessarily wakeup intended
+    // to do full-scale dpms on event. Let system wake-up without display, only
+    // wake system up if we get actual keyboard key.
+    if (event->key == Qt::Key::Key_WakeUp) {
+        return false;
+    }
+
+    if (event->state == KeyboardKeyState::Pressed) {
+        notify();
+    } else if (event->state == KeyboardKeyState::Released) {
+        return false;
+    }
+    return true;
+}
+
+bool DpmsInputEventFilter::touchDown(TouchDownEvent *event)
+{
+    if (m_enableDoubleTap) {
+        if (m_touchPoints.isEmpty()) {
+            if (!m_doubleTapTimer.isValid()) {
+                // this is the first tap
+                m_doubleTapTimer.start();
+            } else {
+                if (m_doubleTapTimer.elapsed() < qApp->doubleClickInterval()) {
+                    m_secondTap = true;
+                } else {
+                    // took too long. Let's consider it a new click
+                    m_doubleTapTimer.restart();
+                }
+            }
+        } else {
+            // not a double tap
+            m_doubleTapTimer.invalidate();
+            m_secondTap = false;
+        }
+        m_touchPoints << event->id;
+    }
+    return true;
+}
+
+bool DpmsInputEventFilter::touchUp(TouchUpEvent *event)
+{
+    if (m_enableDoubleTap) {
+        m_touchPoints.removeAll(event->id);
+        if (m_touchPoints.isEmpty() && m_doubleTapTimer.isValid() && m_secondTap) {
+            // if device in pocket, do not wake device up
+            if (m_doubleTapTimer.elapsed() < qApp->doubleClickInterval() && !m_proximityClose) {
+                notify();
+            }
+            m_doubleTapTimer.invalidate();
+            m_secondTap = false;
+        }
+    }
+    return true;
+}
+
+bool DpmsInputEventFilter::touchMotion(TouchMotionEvent *event)
+{
+    // ignore the event
+    return true;
+}
+
+bool DpmsInputEventFilter::tabletToolProximityEvent(TabletToolProximityEvent *event)
+{
+    return true;
+}
+
+bool DpmsInputEventFilter::tabletToolAxisEvent(TabletToolAxisEvent *event)
+{
+    return true;
+}
+
+bool DpmsInputEventFilter::tabletToolTipEvent(TabletToolTipEvent *event)
+{
+    if (event->type == TabletToolTipEvent::Press) {
+        // Only wake when the tool is actually pressed down not just hovered over the tablet
+        notify();
+    }
+    return true;
+}
+
+bool DpmsInputEventFilter::tabletToolButtonEvent(TabletToolButtonEvent *event)
+{
+    if (event->pressed) {
+        notify();
+    }
+    return true;
+}
+
+bool DpmsInputEventFilter::tabletPadButtonEvent(TabletPadButtonEvent *event)
+{
+    if (event->pressed) {
+        notify();
+    }
+    return true;
+}
+
+bool DpmsInputEventFilter::tabletPadStripEvent(TabletPadStripEvent *event)
+{
+    notify();
+    return true;
+}
+
+bool DpmsInputEventFilter::tabletPadRingEvent(TabletPadRingEvent *event)
+{
+    notify();
+    return true;
+}
+
+bool DpmsInputEventFilter::tabletPadDialEvent(TabletPadDialEvent *event)
+{
+    notify();
+    return true;
+}
+
+bool DpmsInputEventFilter::switchEvent(SwitchEvent *event)
+{
+    if (event->device->isLidSwitch() && event->state == SwitchState::Off) {
+        notify();
+    }
+    return false;
+}
+
+void DpmsInputEventFilter::notify()
+{
+    workspace()->requestDpmsState(Workspace::DpmsState::On);
+}
+
+}
+#include "moc_dpmsinputeventfilter.cpp"

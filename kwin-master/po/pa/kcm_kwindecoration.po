@@ -1,0 +1,518 @@
+# translation of kcmkwindecoration.po to Punjabi
+# Amanpreet Singh Alam <aalam@redhat.com>, 2004, 2005.
+# Amanpreet Singh Brar <amanpreetalam@yahoo.com>, 2005.
+# SPDX-FileCopyrightText: 2007, 2010, 2024 A S Alam <aalam@users.sf.net>
+# Amanpreet Singh Alam <aalam@users.sf.net>, 2009, 2013.
+msgid ""
+msgstr ""
+"Project-Id-Version: kcmkwindecoration\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-05-14 00:45+0000\n"
+"PO-Revision-Date: 2024-01-28 17:10-0600\n"
+"Last-Translator: A S Alam <aalam@punlinux.org>\n"
+"Language-Team: Punjabi <kde-i18n-doc@kde.org>\n"
+"Language: pa\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Lokalize 23.08.4\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+
+#: declarative-plugin/buttonsmodel.cpp:56
+#, fuzzy, kde-format
+#| msgctxt "Button showing window actions menu"
+#| msgid "Window Menu"
+msgid "Window menu"
+msgstr "ਵਿੰਡੋ ਮੇਨੂ"
+
+#: declarative-plugin/buttonsmodel.cpp:58
+#, kde-format
+msgid "Application menu"
+msgstr "ਐਪਲੀਕੇਸ਼ਨ ਮੇਨੂ"
+
+#: declarative-plugin/buttonsmodel.cpp:60
+#, kde-format
+msgid "On all desktops"
+msgstr "ਸਭ ਡੈਸਕਟਾਪਾਂ ਉੱਤੇ"
+
+#: declarative-plugin/buttonsmodel.cpp:62
+#, kde-format
+msgid "Minimize"
+msgstr "ਘੱਟੋ-ਘੱਟ"
+
+#: declarative-plugin/buttonsmodel.cpp:64
+#, kde-format
+msgid "Maximize"
+msgstr "ਵੱਧ ਤੋਂ ਵੱਧ"
+
+#: declarative-plugin/buttonsmodel.cpp:66
+#, kde-format
+msgid "Close"
+msgstr "ਬੰਦ ਕਰੋ"
+
+#: declarative-plugin/buttonsmodel.cpp:68
+#, kde-format
+msgid "Context help"
+msgstr "ਪ੍ਰਸੰਗ ਮਦਦ"
+
+#: declarative-plugin/buttonsmodel.cpp:70
+#, kde-format
+msgid "Keep below other windows"
+msgstr "ਹੋਰ ਵਿੰਡੋਆਂ ਦੇ ਹੇਠਾਂ ਰੱਖੋ"
+
+#: declarative-plugin/buttonsmodel.cpp:72
+#, kde-format
+msgid "Keep above other windows"
+msgstr "ਹੋਰ ਵਿੰਡੋਆਂ ਦੇ ਉੱਤੇ ਰੱਖੋ"
+
+#: declarative-plugin/buttonsmodel.cpp:74
+#, kde-format
+msgid "Hide from screenshots and screen recordings"
+msgstr ""
+
+#: declarative-plugin/buttonsmodel.cpp:76
+#, kde-format
+msgid "Spacer"
+msgstr ""
+
+#: kcm.cpp:188
+#, fuzzy, kde-format
+#| msgctxt "%1 is the name of a border size"
+#| msgid "Theme's default (%1)"
+msgctxt "%1 is the name of a border size"
+msgid "Theme default (%1)"
+msgstr "ਥੀਮ ਦੇ ਮੂਲ (%1)"
+
+#: kwin-applywindowdecoration.cpp:34
+#, kde-format
+msgid ""
+"This tool allows you to set the window decoration theme for the currently "
+"active session, without accidentally setting it to one that is either not "
+"available, or which is already set."
+msgstr ""
+
+#: kwin-applywindowdecoration.cpp:35
+#, kde-format
+msgid ""
+"The name of the window decoration theme you wish to set for KWin. Passing a "
+"full path will attempt to find a theme in that directory, and then apply "
+"that if one can be deduced."
+msgstr ""
+
+#: kwin-applywindowdecoration.cpp:36
+#, kde-format
+msgid ""
+"Show all the themes available on the system (and which is the current theme)"
+msgstr ""
+
+#: kwin-applywindowdecoration.cpp:67
+#, kde-format
+msgid ""
+"Resolved %1 to the KWin Aurorae theme \"%2\", and will attempt to set that "
+"as your current theme."
+msgstr ""
+
+#: kwin-applywindowdecoration.cpp:73
+#, kde-format
+msgid ""
+"You attempted to pass a file path, but this could not be resolved to a "
+"theme, and we will have to abort, due to having no theme to set"
+msgstr ""
+
+#: kwin-applywindowdecoration.cpp:79
+#, kde-format
+msgid ""
+"The requested theme \"%1\" is already set as the window decoration theme."
+msgstr ""
+
+#: kwin-applywindowdecoration.cpp:101
+#, kde-format
+msgid ""
+"Successfully applied the pointer theme %1 to your current Plasma session"
+msgstr ""
+
+#: kwin-applywindowdecoration.cpp:105
+#, kde-format
+msgid ""
+"Failed to save your theme settings - the reason is unknown, but this is an "
+"unrecoverable error. You may find that simply trying again will work."
+msgstr ""
+
+#: kwin-applywindowdecoration.cpp:109
+#, kde-format
+msgid ""
+"Could not find theme \"%1\". The theme should be one of the following "
+"options: %2"
+msgstr ""
+
+#: kwin-applywindowdecoration.cpp:114
+#, kde-format
+msgid "You have the following KWin window decoration themes on your system:"
+msgstr ""
+
+#: ui/Buttons.qml:85
+#, kde-format
+msgid "Titlebar"
+msgstr "ਟਾਇਟਲ-ਪੱਟੀ"
+
+#: ui/Buttons.qml:245
+#, kde-format
+msgid "Drop button here to remove it"
+msgstr ""
+
+#: ui/Buttons.qml:261
+#, kde-format
+msgid "Drag buttons between here and the titlebar"
+msgstr ""
+
+#: ui/ConfigureTitlebar.qml:16
+#, kde-format
+msgid "Titlebar Buttons"
+msgstr "ਟਾਇਟਲ-ਬਾਰ ਬਟਨ"
+
+#: ui/ConfigureTitlebar.qml:35
+#, fuzzy, kde-format
+#| msgctxt "checkbox label"
+#| msgid "Close windows by double clicking the menu button"
+msgctxt "checkbox label"
+msgid "Close windows by double clicking the window menu button"
+msgstr "ਮੇਨੂ ਬਟਨ ਨੂੰ ਦੋ ਵਾਰ ਦਬਾ ਕੇ ਵਿੰਡੋਆਂ ਨੂੰ ਬੰਦ ਕਰੋ"
+
+#: ui/ConfigureTitlebar.qml:52
+#, kde-format
+msgctxt "popup tip"
+msgid "Click and hold on the window menu button to show the menu."
+msgstr ""
+
+#: ui/ConfigureTitlebar.qml:59
+#, kde-format
+msgctxt "checkbox label"
+msgid "Show titlebar button tooltips"
+msgstr "ਟਾਈਟਲ-ਪੱਟੀ ਬਟਨ ਟੂਲ-ਟਿੱਪ ਵੇਖੋ"
+
+#: ui/ConfigureTitlebar.qml:73
+#, kde-format
+msgctxt "@option:check"
+msgid "Always show \"Hide from Screenshots and Screen Recordings\" button"
+msgstr ""
+
+#: ui/ConfigureTitlebar.qml:85
+#, kde-format
+msgctxt "@info:tooltip"
+msgid ""
+"When unchecked the button only appears if the window is hidden from "
+"screenshots and screen recordings"
+msgstr ""
+
+#: ui/ConfigureTitlebar.qml:86
+#, kde-format
+msgctxt "@info:tooltip"
+msgid ""
+"To enable this option, add the \"Hide from Screenshots and Screen Recordings"
+"\" button to the titlebar first"
+msgstr ""
+
+#: ui/main.qml:29
+#, kde-format
+msgctxt "Selector label"
+msgid "Window border size:"
+msgstr "ਵਿੰਡੋ ਬਾਰਡਰ ਆਕਾਰ:"
+
+#: ui/main.qml:48
+#, kde-format
+msgctxt "button text"
+msgid "Configure Titlebar Buttons…"
+msgstr "ਟਾਈਟਲ-ਪੱਟੀ ਬਟਨਾਂ ਦੀ ਸੰਰਚਨਾ…"
+
+#: ui/main.qml:54
+#, kde-format
+msgctxt "@action:button as in, \"Get New Window Decorations\""
+msgid "Get New…"
+msgstr "ਨਵੀਂ ਚੀਜ਼ਾਂ ਲਵੋ…"
+
+#: ui/Themes.qml:93
+#, fuzzy, kde-format
+#| msgid "Edit %1 Theme"
+msgid "Edit %1 Theme…"
+msgstr "%1 ਥੀਮ ਨੂੰ ਸੋਧੋ"
+
+#: utils.cpp:26
+#, fuzzy, kde-format
+#| msgid "No Window Borders"
+msgid "No window borders"
+msgstr "ਕੋਈ ਵਿੰਡੋ ਬਾਰਡਰ ਨਹੀਂ"
+
+#: utils.cpp:27
+#, fuzzy, kde-format
+#| msgid "No Side Window Borders"
+msgid "No side window borders"
+msgstr "ਕੋਈ ਸਾਈਡ ਵਿੰਡੋ ਬਾਰਡਰ ਨਹੀਂ"
+
+#: utils.cpp:28
+#, fuzzy, kde-format
+#| msgid "Tiny Window Borders"
+msgid "Tiny window borders"
+msgstr "ਨਿੰਮੇ ਵਿੰਡੋ ਬਾਰਡਰ"
+
+#: utils.cpp:29
+#, fuzzy, kde-format
+#| msgid "Normal Window Borders"
+msgid "Normal window borders"
+msgstr "ਸਧਾਰਨ ਵਿੰਡੋ ਬਾਰਡਰ"
+
+#: utils.cpp:30
+#, fuzzy, kde-format
+#| msgid "Large Window Borders"
+msgid "Large window borders"
+msgstr "ਵੱਡੇ ਵਿੰਡੋ ਬਾਰਡਰ"
+
+#: utils.cpp:31
+#, fuzzy, kde-format
+#| msgid "Very Large Window Borders"
+msgid "Very large window borders"
+msgstr "ਬਹੁਤ ਵੱਡੇ ਵਿੰਡੋ ਬਾਰਡਰ"
+
+#: utils.cpp:32
+#, fuzzy, kde-format
+#| msgid "Huge Window Borders"
+msgid "Huge window borders"
+msgstr "ਵਿਸ਼ਾਲ ਵਿੰਡੋ ਬਾਰਡਰ"
+
+#: utils.cpp:33
+#, fuzzy, kde-format
+#| msgid "Very Huge Window Borders"
+msgid "Very huge window borders"
+msgstr "ਬਹੁਤ ਵਿਸ਼ਾਲ ਵਿੰਡੋ ਬਾਰਡਰ"
+
+#: utils.cpp:34
+#, fuzzy, kde-format
+#| msgid "Oversized Window Borders"
+msgid "Oversized window borders"
+msgstr "ਓਵਰ-ਸਾਈਜ਼ ਵਿੰਡੋ ਬਾਰਡਰ"
+
+#~ msgid "More actions for this window"
+#~ msgstr "ਇਸ ਵਿੰਡੋ ਲਈ ਹੋਰ ਕਾਰਵਾਈਆਂ"
+
+#~ msgid "Shade"
+#~ msgstr "ਸ਼ੇਡ"
+
+#, fuzzy
+#~| msgid "Get New Decorations..."
+#~ msgctxt "button text"
+#~ msgid "Get New Window Decorations…"
+#~ msgstr "ਨਵੀਂ ਸਜਾਵਟ ਲਵੋ..."
+
+#, fuzzy
+#~| msgid "Border size:"
+#~ msgid "No Borders"
+#~ msgstr "ਬਾਰਡਰ ਸਾਈਜ਼:"
+
+#, fuzzy
+#~| msgctxt "@item:inlistbox Border size:"
+#~| msgid "Tiny"
+#~ msgid "Tiny"
+#~ msgstr "ਨਿੱਕਾ"
+
+#, fuzzy
+#~| msgctxt "@item:inlistbox Border size:"
+#~| msgid "Normal"
+#~ msgid "Normal"
+#~ msgstr "ਸਧਾਰਨ"
+
+#, fuzzy
+#~| msgctxt "@item:inlistbox Border size:"
+#~| msgid "Large"
+#~ msgid "Large"
+#~ msgstr "ਵੱਡਾ"
+
+#, fuzzy
+#~| msgctxt "@item:inlistbox Border size:"
+#~| msgid "Very Large"
+#~ msgid "Very Large"
+#~ msgstr "ਬਹੁਤ ਵੱਡਾ"
+
+#, fuzzy
+#~| msgctxt "@item:inlistbox Border size:"
+#~| msgid "Huge"
+#~ msgid "Huge"
+#~ msgstr "ਵਿਰਾਟ"
+
+#, fuzzy
+#~| msgctxt "@item:inlistbox Border size:"
+#~| msgid "Very Huge"
+#~ msgid "Very Huge"
+#~ msgstr "ਬਹੁਤ ਵਿਰਾਟ"
+
+#, fuzzy
+#~| msgctxt "@item:inlistbox Border size:"
+#~| msgid "Oversized"
+#~ msgid "Oversized"
+#~ msgstr "ਵੱਧ-ਆਕਾਰ"
+
+#~ msgctxt "NAME OF TRANSLATORS"
+#~ msgid "Your names"
+#~ msgstr "ਅਮਨਪਰੀਤ ਸਿੰਘ ਆਲਮ"
+
+#~ msgctxt "EMAIL OF TRANSLATORS"
+#~ msgid "Your emails"
+#~ msgstr "aalam@users.sf.net"
+
+#, fuzzy
+#~| msgid "Get New Decorations..."
+#~ msgid "Window Decorations"
+#~ msgstr "ਨਵੀਂ ਸਜਾਵਟ ਲਵੋ..."
+
+#, fuzzy
+#~| msgid "Close windows by double clicking the menu button"
+#~ msgctxt "popup tip"
+#~ msgid ""
+#~ "Close by double clicking: Keep the window's Menu button pressed until it "
+#~ "appears."
+#~ msgstr "ਮੇਨੂ ਬਟਨ ਨੂੰ ਦੋ ਵਾਰ ਦਬਾ ਕੇ ਵਿੰਡੋਜ਼ ਬੰਦ ਕਰੋ"
+
+#~ msgid "Menu"
+#~ msgstr "ਮੇਨੂ"
+
+#, fuzzy
+#~| msgid "Keep Below Others"
+#~ msgid "Keep below"
+#~ msgstr "ਹੋਰਾਂ ਦੇ ਹੇਠਾਂ ਰੱਖੋ"
+
+#, fuzzy
+#~| msgid "Keep Above Others"
+#~ msgid "Keep above"
+#~ msgstr "ਹੋਰਾਂ ਦੇ ਉੱਤੇ ਰੱਖੋ"
+
+#, fuzzy
+#~| msgid "Get New Decorations..."
+#~ msgid "Download New Window Decorations"
+#~ msgstr "ਨਵੀਂ ਸਜਾਵਟ ਲਵੋ..."
+
+#, fuzzy
+#~| msgid "Search"
+#~ msgid "Search..."
+#~ msgstr "ਖੋਜ"
+
+#, fuzzy
+#~| msgid "Close windows by double clicking the menu button"
+#~ msgid "Close windows by double clicking &the menu button"
+#~ msgstr "ਮੇਨੂ ਬਟਨ ਨੂੰ ਦੋ ਵਾਰ ਦਬਾ ਕੇ ਵਿੰਡੋਜ਼ ਬੰਦ ਕਰੋ"
+
+#, fuzzy
+#~| msgid "Border size:"
+#~ msgid "Border si&ze:"
+#~ msgstr "ਬਾਰਡਰ ਸਾਈਜ਼:"
+
+#, fuzzy
+#~| msgid "Configure Buttons..."
+#~ msgid "Configure %1..."
+#~ msgstr "ਬਟਨ ਸੰਰਚਨਾ..."
+
+#, fuzzy
+#~| msgid "Normal"
+#~ msgid "Form"
+#~ msgstr "ਸਧਾਰਨ"
+
+#~ msgid "Button size:"
+#~ msgstr "ਬਟਨ ਸਾਈਜ਼:"
+
+#~ msgctxt "@item:inlistbox Button size:"
+#~ msgid "Tiny"
+#~ msgstr "ਨਿੱਕਾ"
+
+#~ msgctxt "@item:inlistbox Button size:"
+#~ msgid "Normal"
+#~ msgstr "ਸਧਾਰਨ"
+
+#~ msgctxt "@item:inlistbox Button size:"
+#~ msgid "Large"
+#~ msgstr "ਵੱਡਾ"
+
+#~ msgctxt "@item:inlistbox Button size:"
+#~ msgid "Very Large"
+#~ msgstr "ਬਹੁਤ ਵੱਡਾ"
+
+#~ msgctxt "@item:inlistbox Button size:"
+#~ msgid "Huge"
+#~ msgstr "ਵਿਰਾਟ"
+
+#~ msgctxt "@item:inlistbox Button size:"
+#~ msgid "Very Huge"
+#~ msgstr "ਬਹੁਤ ਵਿਰਾਟ"
+
+#~ msgctxt "@item:inlistbox Button size:"
+#~ msgid "Oversized"
+#~ msgstr "ਵੱਧ-ਆਕਾਰ"
+
+#~ msgid "KDE"
+#~ msgstr "KDE"
+
+#~ msgid "%1 (unavailable)"
+#~ msgstr "%1 (ਨਾ-ਉਪਲੱਬਧ)"
+
+#~ msgid "Resize"
+#~ msgstr "ਮੁੜ-ਆਕਾਰ"
+
+#~ msgid "Help"
+#~ msgstr "ਮੱਦਦ"
+
+#~ msgid "--- spacer ---"
+#~ msgstr "--- ਵੱਖਰੇਵਾਂ ---"
+
+#~ msgid "Please note that this option is not available on all styles yet."
+#~ msgstr "ਯਾਦ ਰੱਖੋ ਕਿ ਇਹ ਚੋਣ ਸਭ ਸਟਾਇਲ ਲਈ ਹਾਲੇ ਉਪਲੱਬਧ ਨਹੀਂ ਹੈ।"
+
+#~ msgid "Use custom titlebar button &positions"
+#~ msgstr "ਕਸਟਮ ਟਾਇਟਲਬਾਰ ਬਟਨ ਸਥਿਤੀ ਵਰਤੋਂ(&p)"
+
+#~ msgid "B&order size:"
+#~ msgstr "ਬਾਰਡਰ ਸਾਈਜ਼(&o):"
+
+#~ msgid "Use this combobox to change the border size of the decoration."
+#~ msgstr "ਸਜਾਵਟੀ ਬਾਰਡਰ ਦਾ ਸਾਈਜ਼ ਬਦਲਣ ਲਈ ਇਹ ਕੰਬੋਬਾਕਸ ਵਰਤੋਂ।"
+
+#~ msgid "Decoration Options"
+#~ msgstr "ਸਜਾਵਟੀ ਚੋਣ"
+
+#~ msgid "Configure Decoration..."
+#~ msgstr "ਸਜਾਵਟ ਸੰਰਚਨਾ..."
+
+#~ msgid "Window Decoration Control Module"
+#~ msgstr "ਵਿੰਡੋ ਸ਼ਿੰਗਾਰ ਕੰਟਰੋਲ ਮੋਡੀਊਲ"
+
+#~ msgid "(c) 2001 Karol Szwed"
+#~ msgstr "(c) 2001 Karol Szwed"
+
+#~ msgid "Karol Szwed"
+#~ msgstr "Karol Szwed"
+
+#~ msgid "Oxygen"
+#~ msgstr "ਆਕਸੀਜਨ"
+
+#~ msgid "Active Window"
+#~ msgstr "ਐਕਟਿਵ ਵਿੰਡੋ"
+
+#~ msgid "Inactive Window"
+#~ msgstr "ਗ਼ੈਰ-ਐਕਟਿਵ ਵਿੰਡੋ"
+
+#~ msgid "kcmkwindecoration"
+#~ msgstr "kcmkwindecoration"
+
+#~ msgctxt "Caption to decoration preview, %1 author name"
+#~ msgid "by %1"
+#~ msgstr "%1 ਵਲੋਂ"
+
+#~ msgid ""
+#~ "No preview available.\n"
+#~ "Most probably there\n"
+#~ "was a problem loading the plugin."
+#~ msgstr ""
+#~ "ਕੋਈ ਝਲਕ ਨਹੀਂ।\n"
+#~ "ਸੰਭਵ ਤੌਰ ਉੱਤੇ ਪਲੱਗਇਨ\n"
+#~ "ਨੂੰ ਲੋਡ ਕਰਨ ਦੌਰਾਨ ਸਮੱਸਿਆ ਹੈ।"
+
+#~ msgid "&Buttons"
+#~ msgstr "ਬਟਨ(&B)"
+
+#~ msgid "Ozone"
+#~ msgstr "ਓਜ਼ੋਨ"

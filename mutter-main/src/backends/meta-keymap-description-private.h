@@ -1,0 +1,63 @@
+/*
+ * Copyright (C) 2025 Red Hat
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
+ *
+ */
+
+#pragma once
+
+#include "meta/meta-keymap-description.h"
+
+#include "core/meta-sealed-fd.h"
+#include "core/util-private.h"
+
+typedef enum _MetaKeymapDescriptionSource
+{
+  META_KEYMAP_DESCRIPTION_SOURCE_RULES,
+  META_KEYMAP_DESCRIPTION_SOURCE_FD,
+} MetaKeymapDescriptionSource;
+
+typedef struct _MetaKeymapDescriptionOwner MetaKeymapDescriptionOwner;
+
+META_EXPORT_TEST
+MetaKeymapDescriptionOwner * meta_keymap_description_owner_new (void);
+
+MetaKeymapDescriptionOwner * meta_keymap_description_owner_ref (MetaKeymapDescriptionOwner *owner);
+
+META_EXPORT_TEST
+void meta_keymap_description_owner_unref (MetaKeymapDescriptionOwner *owner);
+
+MetaKeymapDescription * meta_keymap_description_new_from_fd (MetaSealedFd           *sealed_fd,
+                                                             enum xkb_keymap_format  format);
+
+struct xkb_keymap * meta_keymap_description_create_xkb_keymap (MetaKeymapDescription  *keymap_description,
+                                                               GStrv                  *out_display_names,
+                                                               GStrv                  *out_short_names,
+                                                               GError                **error);
+
+META_EXPORT_TEST
+void meta_keymap_description_lock (MetaKeymapDescription      *keymap_description,
+                                   MetaKeymapDescriptionOwner *owner);
+
+META_EXPORT_TEST
+void meta_keymap_description_unlock (MetaKeymapDescription      *keymap_description,
+                                     MetaKeymapDescriptionOwner *owner);
+
+void meta_keymap_description_reset_owner (MetaKeymapDescription      *keymap_description,
+                                          MetaKeymapDescriptionOwner *owner);
+
+MetaKeymapDescriptionOwner * meta_keymap_description_get_owner (MetaKeymapDescription *keymap_description);
+
+MetaKeymapDescriptionOwner * meta_keymap_description_resets_owner (MetaKeymapDescription *keymap_description);

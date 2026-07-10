@@ -1,0 +1,377 @@
+# Copyright (C) YEAR This_file_is_part_of_KDE
+# This file is distributed under the same license as the PACKAGE package.
+#
+# Martin Schlander <mschlander@opensuse.org>, 2009, 2010, 2012, 2013, 2014, 2016, 2017, 2018, 2020, 2022.
+# SPDX-FileCopyrightText: 2024 rasmus rosendahl-kaa <rasmus@rosendahl-kaa.name>
+msgid ""
+msgstr ""
+"Project-Id-Version: kcmkwinscreenedges\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-03-20 00:45+0000\n"
+"PO-Revision-Date: 2024-11-13 10:56+0100\n"
+"Last-Translator: rasmus rosendahl-kaa <rasmus@rosendahl-kaa.name>\n"
+"Language-Team: Danish <kde-i18n-doc@kde.org>\n"
+"Language: da\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Lokalize 24.08.3\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+
+#: main.cpp:152 touch.cpp:119
+#, kde-format
+msgid "No Action"
+msgstr "Ingen handling"
+
+#: main.cpp:153 touch.cpp:120
+#, kde-format
+msgid "Peek at Desktop"
+msgstr "Forhåndsvisning af skrivebord"
+
+#: main.cpp:154 touch.cpp:121
+#, kde-format
+msgid "Lock Screen"
+msgstr "Lås skærmen"
+
+#: main.cpp:155 touch.cpp:122
+#, kde-format
+msgid "Show KRunner"
+msgstr "Vis KRunner"
+
+#: main.cpp:156 touch.cpp:123
+#, kde-format
+msgid "Activity Manager"
+msgstr "Aktivitetshåndtering"
+
+#: main.cpp:157 touch.cpp:124
+#, kde-format
+msgid "Application Launcher"
+msgstr "Programstarter"
+
+#: main.cpp:161 touch.cpp:128
+#, kde-format
+msgid "Present Windows"
+msgstr "Præsentér vinduer"
+
+#: main.cpp:162 touch.cpp:129
+#, kde-format
+msgid "%1 - All Desktops"
+msgstr "%1 - Alle skriveborde"
+
+#: main.cpp:163 touch.cpp:130
+#, kde-format
+msgid "%1 - Current Desktop"
+msgstr "%1 - Aktuelt skrivebord"
+
+#: main.cpp:164 touch.cpp:131
+#, kde-format
+msgid "%1 - Current Application"
+msgstr "%1 - Aktuelt program"
+
+#: main.cpp:166 touch.cpp:133
+#, kde-format
+msgid "Overview"
+msgstr "Overblik"
+
+#: main.cpp:167 touch.cpp:134
+#, kde-format
+msgid "Grid"
+msgstr "Gitter"
+
+#: main.cpp:169 touch.cpp:136
+#, kde-format
+msgid "Toggle window switching"
+msgstr "Slå vindueskift til/fra"
+
+#: main.cpp:170 touch.cpp:137
+#, kde-format
+msgid "Toggle alternative window switching"
+msgstr "Slå alternativt vindueskift til/fra"
+
+#. i18n: ectx: property (text), widget (QLabel, infoLabel)
+#: main.ui:23
+#, fuzzy, kde-format
+#| msgid ""
+#| "You can trigger an action by pushing the mouse cursor against the "
+#| "corresponding screen edge or corner."
+msgid ""
+"You can trigger an action by pushing the mouse pointer against the "
+"corresponding screen edge or corner."
+msgstr ""
+"Du kan udløse en handling ved at presse musemarkøren mod pågældende kant "
+"eller hjørne af skærmen"
+
+#. i18n: ectx: property (text), widget (QLabel, quickMaximizeLabel)
+#: main.ui:67
+#, kde-format
+msgid "&Maximize:"
+msgstr "&Maksimér:"
+
+#. i18n: ectx: property (text), widget (QCheckBox, kcfg_ElectricBorderMaximize)
+#: main.ui:77
+#, kde-format
+msgid "Windows dragged to top edge"
+msgstr "Vinduer der trækkes til topkanten"
+
+#. i18n: ectx: property (text), widget (QLabel, quickTileLabel)
+#: main.ui:84
+#, kde-format
+msgid "&Tile:"
+msgstr "&Fliselæg:"
+
+#. i18n: ectx: property (text), widget (QCheckBox, kcfg_ElectricBorderTiling)
+#: main.ui:94
+#, kde-format
+msgid "Windows dragged to left or right edge"
+msgstr "Vinduer der trækkes til venstre eller højre kant"
+
+#. i18n: ectx: property (text), widget (QLabel, label)
+#: main.ui:101
+#, kde-format
+msgid "Behavior:"
+msgstr "Opførsel:"
+
+#. i18n: ectx: property (text), widget (QCheckBox, remainActiveOnFullscreen)
+#: main.ui:108
+#, kde-format
+msgid "Remain active when windows are fullscreen"
+msgstr "Forbliv aktiv når vinduer er fuld skærm"
+
+#. i18n: ectx: property (text), widget (QLabel, electricBorderCornerRatioLabel)
+#: main.ui:115
+#, kde-format
+msgid "Trigger &quarter tiling in:"
+msgstr "Udløs kvart fliseudlægning i:"
+
+#. i18n: ectx: property (suffix), widget (QSpinBox, electricBorderCornerRatioSpin)
+#: main.ui:130
+#, no-c-format, kde-format
+msgid "%"
+msgstr "%"
+
+#. i18n: ectx: property (prefix), widget (QSpinBox, electricBorderCornerRatioSpin)
+#: main.ui:133
+#, kde-format
+msgid "Outer "
+msgstr "Ydre"
+
+#. i18n: ectx: property (text), widget (QLabel, label_1)
+#: main.ui:149
+#, kde-format
+msgid "of the screen"
+msgstr "af skærmen"
+
+#. i18n: ectx: property (toolTip), widget (QLabel, desktopSwitchLabel)
+#: main.ui:174
+#, fuzzy, kde-format
+#| msgid ""
+#| "Change desktop when the mouse cursor is pushed against the edge of the "
+#| "screen"
+msgid ""
+"Change desktop when the mouse pointer is pushed against the edge of the "
+"screen"
+msgstr "Skift skrivebord når musemarkøren presses mod kanten af skærmen"
+
+#. i18n: ectx: property (text), widget (QLabel, desktopSwitchLabel)
+#: main.ui:177
+#, kde-format
+msgid "&Switch desktop on edge:"
+msgstr "&Skift skrivebord ved kanten:"
+
+#. i18n: ectx: property (text), item, widget (QComboBox, kcfg_ElectricBorders)
+#: main.ui:188
+#, kde-format
+msgctxt "Switch desktop on edge"
+msgid "Disabled"
+msgstr "Deaktiveret"
+
+#. i18n: ectx: property (text), item, widget (QComboBox, kcfg_ElectricBorders)
+#: main.ui:193
+#, kde-format
+msgid "Only when moving windows"
+msgstr "Kun ved flytning af vinduer"
+
+#. i18n: ectx: property (text), item, widget (QComboBox, kcfg_ElectricBorders)
+#: main.ui:198
+#, kde-format
+msgid "Always enabled"
+msgstr "Altid aktiveret"
+
+#. i18n: ectx: property (toolTip), widget (QLabel, activationDelayLabel)
+#: main.ui:206
+#, fuzzy, kde-format
+#| msgid ""
+#| "Amount of time required for the mouse cursor to be pushed against the "
+#| "edge of the screen before the action is triggered"
+msgid ""
+"Amount of time required for the mouse pointer to be pushed against the edge "
+"of the screen before the action is triggered"
+msgstr ""
+"Tidsmængde der kræves hvor musemarkøren presses mod kanten af skærmen før "
+"handlingen udløses"
+
+#. i18n: ectx: property (text), widget (QLabel, activationDelayLabel)
+#: main.ui:209
+#, kde-format
+msgid "Activation &delay:"
+msgstr "Forsinkelse &på aktivering:"
+
+#. i18n: ectx: property (suffix), widget (QSpinBox, kcfg_ElectricBorderDelay)
+#. i18n: ectx: property (suffix), widget (QSpinBox, kcfg_ElectricBorderCooldown)
+#: main.ui:219 main.ui:254
+#, kde-format
+msgid " ms"
+msgstr " ms"
+
+#. i18n: ectx: property (toolTip), widget (QLabel, triggerCooldownLabel)
+#: main.ui:238
+#, kde-format
+msgid ""
+"Amount of time required after triggering an action until the next trigger "
+"can occur"
+msgstr ""
+"Tidsmængde der kræves efter udløsning af en handling før den næste udløsning "
+"kan forekomme"
+
+#. i18n: ectx: property (text), widget (QLabel, triggerCooldownLabel)
+#: main.ui:241
+#, kde-format
+msgid "&Reactivation delay:"
+msgstr "Forsinkelse på &genaktivering:"
+
+#. i18n: ectx: property (text), widget (QLabel, CornerBarrierLabel)
+#: main.ui:270
+#, kde-format
+msgid "&Corner barrier:"
+msgstr "&Hjørnebarriere:"
+
+#. i18n: ectx: property (whatsThis), widget (QCheckBox, kcfg_CornerBarrier)
+#: main.ui:280
+#, fuzzy, kde-format
+#| msgid ""
+#| "Here you can enable or disable the virtual corner barrier between "
+#| "screens. The barrier prevents the cursor from moving to another screen "
+#| "when it is already touching a screen corner. This makes it easier to "
+#| "trigger user interface elements like maximized windows' close buttons "
+#| "when using multiple screens."
+msgid ""
+"Here you can enable or disable the virtual corner barrier between screens. "
+"The barrier prevents the pointer from moving to another screen when it is "
+"already touching a screen corner. This makes it easier to trigger user "
+"interface elements like maximized windows' close buttons when using multiple "
+"screens."
+msgstr ""
+"Her kan du slå den virtuelle hjørnebarriere mellem skærme til/fra. Barrieren "
+"forhindrer markøren i at flytte til en anden skærm, når den allerede rører "
+"et skærmhjørne. Dette gør det lettere at udløse brugerinterface-elementer "
+"såsom maksimerede vinduers lukknapper, når der bruges flere skærme."
+
+#. i18n: ectx: property (toolTip), widget (QCheckBox, kcfg_CornerBarrier)
+#: main.ui:283
+#, fuzzy, kde-format
+#| msgctxt "@info:tooltip"
+#| msgid "Prevents cursors from crossing at screen corners."
+msgctxt "@info:tooltip"
+msgid "Prevents the pointer from crossing at screen corners."
+msgstr "Forhindrer markører fra at krydse skærmhjørner."
+
+#. i18n: ectx: property (text), widget (QLabel, EdgeBarrierLabel)
+#: main.ui:290
+#, kde-format
+msgid "&Edge barrier:"
+msgstr "&Kantbarriere:"
+
+#. i18n: ectx: property (whatsThis), widget (QSpinBox, kcfg_EdgeBarrier)
+#: main.ui:300
+#, kde-format
+msgid ""
+"Here you can set size of the edge barrier between different screens. The "
+"barrier adds additional distance you have to move your pointer before it "
+"crosses the edge onto the other screen. This makes it easier to access user "
+"interface elements like Plasma Panels that are located on an edge between "
+"screens."
+msgstr ""
+"Her kan du sætte størrelsen på kantbarrieren mellem to forskellige skærme. "
+"Barrieren tilføjer yderligere distance, du skal bevæge markøren, før den "
+"krydser kanten til den anden skærm. Dette gør det lettere at få adgang til "
+"interfaceelementer såsom Plasma-paneler, der er placeret på kanten mellem "
+"skærme."
+
+#. i18n: ectx: property (toolTip), widget (QSpinBox, kcfg_EdgeBarrier)
+#: main.ui:303
+#, fuzzy, kde-format
+#| msgctxt "@info:tooltip"
+#| msgid "Additional distance cursor needs to travel to cross screen edges."
+msgctxt "@info:tooltip"
+msgid "Additional distance the pointer needs to travel to cross screen edges."
+msgstr "Yderligere distance, markøren skal rejse for at kryde skærmkanter."
+
+#. i18n: ectx: property (specialValueText), widget (QSpinBox, kcfg_EdgeBarrier)
+#: main.ui:306
+#, kde-format
+msgid "None"
+msgstr "Ingen"
+
+#. i18n: ectx: property (suffix), widget (QSpinBox, kcfg_EdgeBarrier)
+#: main.ui:309
+#, kde-format
+msgid " px"
+msgstr " px"
+
+#. i18n: ectx: property (text), widget (QLabel, label_1)
+#: touch.ui:17
+#, kde-format
+msgid ""
+"You can trigger an action by swiping from the screen edge towards the center "
+"of the screen."
+msgstr ""
+"Du kan udløse en handling ved at stryge fra kanten af skærmen mod skærmens "
+"midte"
+
+#~ msgctxt "NAME OF TRANSLATORS"
+#~ msgid "Your names"
+#~ msgstr "Martin Schlander"
+
+#~ msgctxt "EMAIL OF TRANSLATORS"
+#~ msgid "Your emails"
+#~ msgstr "mschlander@opensuse.org"
+
+#~ msgid "Show Desktop"
+#~ msgstr "Vis skrivebord"
+
+#~ msgid "%1 - Cube"
+#~ msgstr "%1 - Terning"
+
+#~ msgid "%1 - Cylinder"
+#~ msgstr "%1 - Cylinder"
+
+#~ msgid "%1 - Sphere"
+#~ msgstr "%1 - Kugle"
+
+#~ msgid "Active Screen Corners and Edges"
+#~ msgstr "Aktive skærmhjørner og -kanter"
+
+#~ msgid "Window Management"
+#~ msgstr "Vindueshåndtering"
+
+#~ msgid "Maximize windows by dragging them to the top edge of the screen"
+#~ msgstr "Maksimér vinduer ved at trække dem til skærmens topkant"
+
+#~ msgid "Quarter tiling triggered in the outer"
+#~ msgstr "Kvart fliseudlægning udløst i ydre"
+
+#~ msgid "Other Settings"
+#~ msgstr "Andre indstillinger"
+
+#~ msgctxt "Open krunner"
+#~ msgid "Run Command"
+#~ msgstr "Kør kommando"
+
+#~ msgid "Show Dashboard"
+#~ msgstr "Vis instrumentbræt"
+
+#~ msgid "Prevent Screen Locking"
+#~ msgstr "Forhindr låsning af skærmen"
+
+#~ msgid "Trigger &cooldown:"
+#~ msgstr "Udløs &nedkøling:"

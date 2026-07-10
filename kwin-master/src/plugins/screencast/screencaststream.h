@@ -1,0 +1,150 @@
+/*
+    SPDX-FileCopyrightText: 2018-2020 Red Hat Inc
+    SPDX-FileCopyrightText: 2020 Aleix Pol Gonzalez <aleixpol@kde.org>
+    SPDX-FileContributor: Jan Grulich <jgrulich@redhat.com>
+
+    SPDX-License-Identifier: LGPL-2.0-or-later
+*/
+
+#pragma once
+
+#include "core/drm_formats.h"
+#include "utils/damagejournal.h"
+#include "wayland/screencast_v1.h"
+
+#include <QHash>
+#include <QObject>
+#include <QTimer>
+#include <chrono>
+#include <memory>
+#include <optional>
+
+#include <pipewire/pipewire.h>
+#include <spa/param/format-utils.h>
+#include <spa/param/props.h>
+#include <spa/param/video/format-utils.h>
+
+namespace KWin
+{
+
+class Cursor;
+class PipeWireCore;
+class Region;
+class ScreenCastBuffer;
+class ScreenCastSource;
+
+struct ScreenCastDmaBufTextureParams
+{
+    int planeCount = 0;
+    int width = 0;
+    int height = 0;
+    uint32_t format = 0;
+    uint64_t modifier = 0;
+    bool supportsSyncObj = false;
+};
+
+class KWIN_EXPORT ScreenCastStream : public QObject
+{
+    Q_OBJECT
+
+public:
+    explicit ScreenCastStream(ScreenCastSource *source, std::shared_ptr<PipeWireCore> pwCore, QObject *parent);
+    ~ScreenCastStream();
+
+    enum class Content {
+        None,
+        Video = 0x1,
+        Cursor = 0x2,
+    };
+    Q_FLAG(Content)
+    Q_DECLARE_FLAGS(Contents, Content)
+
+    bool init();
+    uint framerate();
+    uint nodeId();
+    uint64_t objectSerial() const;
+    QString error() const
+    {
+        return m_error;
+    }
+
+    void close();
+
+    void scheduleRecord(Contents contents = Content::Video);
+
+    void setCursorMode(ScreencastV1Interface::CursorMode mode);
+
+public Q_SLOTS:
+    void invalidateCursor();
+
+Q_SIGNALS:
+    void ready(quint32 nodeId, quint64 objectSerial);
+    void closed();
+
+private:
+    void onStreamParamChanged(uint32_t id, const struct spa_pod *format);
+    void onStreamStateChanged(pw_stream_state old, pw_stream_state state, const char *error_message);
+    void onStreamAddBuffer(pw_buffer *buffer);
+    void onStreamRemoveBuffer(pw_buffer *buffer);
+
+    bool createStream();
+    QList<const spa_pod *> buildFormats(bool fixate, char buffer[2048]);
+    void updateParams();
+    void resize(const QSize &resolution);
+    void coreFailed(const QString &errorMessage);
+    void addCursorMetadata(spa_buffer *spaBuffer, Cursor *cursor);
+    void addHeader(spa_buffer *spaBuffer);
+    void corruptHeader(spa_buffer *spaBuffer);
+    void addDamage(spa_buffer *spaBuffer, const Region &damagedRegion);
+    void newStreamParams();
+    spa_pod *buildFormat(struct spa_pod_builder *b, enum spa_video_format format, struct spa_rectangle *resolution,
+                         struct spa_fraction *defaultFramerate, struct spa_fraction *minFramerate, struct spa_fraction *maxFramerate,
+                         const ModifierList &modifiers, quint32 modifiersFlags);
+    pw_buffer *dequeueBuffer();
+    void record(Contents contents);
+    void bumpBufferAge(ScreenCastBuffer *renderedBuffer);
+
+    std::optional<ScreenCastDmaBufTextureParams> testCreateDmaBuf(const QSize &size, quint32 format, const ModifierList &modifiers);
+
+    std::shared_ptr<PipeWireCore> m_pwCore;
+    std::unique_ptr<ScreenCastSource> m_source;
+    struct pw_stream *m_pwStream = nullptr;
+    spa_hook m_streamListener;
+    pw_stream_events m_pwStreamEvents = {};
+
+    uint32_t m_pwNodeId = 0;
+
+    QSize m_resolution;
+    bool m_closed = false;
+
+    spa_video_info_raw m_videoFormat;
+    QString m_error;
+    ModifierList m_modifiers;
+    std::optional<ScreenCastDmaBufTextureParams> m_dmabufParams; // when fixated
+
+    struct
+    {
+        ScreencastV1Interface::CursorMode mode = ScreencastV1Interface::Hidden;
+        const QSize bitmapSize = QSize(256, 256);
+        bool visible = false;
+        bool invalid = true;
+        QMetaObject::Connection changedConnection = QMetaObject::Connection();
+        QMetaObject::Connection positionChangedConnection = QMetaObject::Connection();
+    } m_cursor;
+
+    quint64 m_sequential = 0;
+    bool m_hasDmaBuf = false;
+    quint32 m_drmFormat = 0;
+
+    std::optional<std::chrono::steady_clock::time_point> m_lastSent;
+    QTimer m_pendingFrame;
+    Contents m_pendingContents = Content::None;
+    QList<pw_buffer *> m_dequeuedBuffers;
+
+    QList<ScreenCastBuffer *> m_allBuffers;
+    DamageJournal m_damageJournal;
+};
+
+} // namespace KWin
+
+Q_DECLARE_OPERATORS_FOR_FLAGS(KWin::ScreenCastStream::Contents)

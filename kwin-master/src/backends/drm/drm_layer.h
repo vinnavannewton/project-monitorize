@@ -1,0 +1,56 @@
+/*
+    KWin - the KDE window manager
+    This file is part of the KDE project.
+
+    SPDX-FileCopyrightText: 2022 Xaver Hugl <xaver.hugl@gmail.com>
+
+    SPDX-License-Identifier: GPL-2.0-or-later
+*/
+#pragma once
+#include "core/colorpipeline.h"
+#include "core/outputlayer.h"
+#include "drm_plane.h"
+
+#include <memory>
+#include <optional>
+
+namespace KWin
+{
+
+class SurfaceItem;
+class DrmFramebuffer;
+class GLTexture;
+class DrmPipeline;
+class DrmOutput;
+
+class DrmOutputLayer : public OutputLayer
+{
+public:
+    explicit DrmOutputLayer(BackendOutput *output, OutputLayerType type);
+    explicit DrmOutputLayer(BackendOutput *output, OutputLayerType type, int zpos, int minZpos, int maxZpos);
+    virtual ~DrmOutputLayer();
+};
+
+class DrmPipelineLayer : public DrmOutputLayer
+{
+public:
+    explicit DrmPipelineLayer(DrmPlane *plane);
+    explicit DrmPipelineLayer(DrmPlane::TypeIndex type);
+
+    FormatModifierMap supportedDrmFormats() const override;
+    QList<QSize> recommendedSizes() const override;
+    FormatModifierMap supportedAsyncDrmFormats() const override;
+
+    virtual std::shared_ptr<DrmFramebuffer> currentBuffer() const = 0;
+
+    DrmPlane *plane() const;
+
+protected:
+    DrmPipeline *pipeline() const;
+    DrmGpu *gpu() const;
+    DrmOutput *drmOutput() const;
+
+    DrmPlane *m_plane = nullptr;
+};
+
+}

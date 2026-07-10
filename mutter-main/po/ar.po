@@ -1,0 +1,1896 @@
+# Arabic translation for mutter
+# This file is distributed under the same license as the mutter package.
+# Copyright (C) 2003-2004, 2006-2015, 2017, 2019, 2022, 2025 mutter's COPYRIGHT HOLDER
+# Arafat Medini <lumina@silverpen.de>, 2003.
+# Abdulaziz Al-Arfaj <alarfaj0@yahoo.com>, 2004.
+# Djihed Afifi <djihed@gmail.com>, 2006.
+# Khaled Hosny <khaledhosny@eglug.org>, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2017, 2019.
+# Anas Afif Emad <anas.e87@gmail.com>, 2008.
+# Ali Aljishi <ahj696@hotmail.com>, 2022.
+# Ahmed Najmawi <iramosu@protonmail.com>, 2025.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: mutter main\n"
+"Report-Msgid-Bugs-To: https://gitlab.gnome.org/GNOME/mutter/issues/\n"
+"POT-Creation-Date: 2025-06-20 13:57+0000\n"
+"PO-Revision-Date: 2025-07-11 17:10+0300\n"
+"Last-Translator: Ahmed Najmawi <iramosu@protonmail.com>\n"
+"Language-Team: Arabic\n"
+"Language: ar\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=6; plural= n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 "
+"&& n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5;\n"
+"X-Generator: Gtranslator 48.0\n"
+"X-Project-Style: gnome\n"
+
+#: data/50-mutter-navigation.xml:6
+msgid "Navigation"
+msgstr "التنقُّل"
+
+#: data/50-mutter-navigation.xml:9
+msgid "Move window to workspace 1"
+msgstr "انقل النافذة إلى مساحة العمل 1"
+
+#: data/50-mutter-navigation.xml:12
+msgid "Move window to workspace 2"
+msgstr "انقل النافذة إلى مساحة العمل 2"
+
+#: data/50-mutter-navigation.xml:15
+msgid "Move window to workspace 3"
+msgstr "انقل النافذة إلى مساحة العمل 3"
+
+#: data/50-mutter-navigation.xml:18
+msgid "Move window to workspace 4"
+msgstr "انقل النافذة إلى مساحة العمل 4"
+
+#: data/50-mutter-navigation.xml:21
+msgid "Move window to last workspace"
+msgstr "انقل النافذة إلى مساحة العمل الأخيرة"
+
+#: data/50-mutter-navigation.xml:24
+msgid "Move window one workspace to the left"
+msgstr "انقل النافذة مساحة عمل واحدة إلى اليسار"
+
+#: data/50-mutter-navigation.xml:27
+msgid "Move window one workspace to the right"
+msgstr "انقل النافذة مساحة عمل واحدة إلى اليمين"
+
+#: data/50-mutter-navigation.xml:31
+msgid "Move window one workspace up"
+msgstr "انقل النافذة مساحة عمل واحدة إلى الأعلى"
+
+#: data/50-mutter-navigation.xml:35
+msgid "Move window one workspace down"
+msgstr "انقل النافذة مساحة عمل واحدة إلى الأسفل"
+
+#: data/50-mutter-navigation.xml:38
+msgid "Move window one monitor to the left"
+msgstr "انقل النافذة شاشة واحدة إلى اليسار"
+
+#: data/50-mutter-navigation.xml:41
+msgid "Move window one monitor to the right"
+msgstr "انقل النافذة شاشة واحدة إلى اليمين"
+
+#: data/50-mutter-navigation.xml:44
+msgid "Move window one monitor up"
+msgstr "انقل النافذة شاشة واحدة إلى الأعلى"
+
+#: data/50-mutter-navigation.xml:47
+msgid "Move window one monitor down"
+msgstr "انقل النافذة شاشة واحدة إلى الأسفل"
+
+#: data/50-mutter-navigation.xml:51
+msgid "Switch applications"
+msgstr "تنقَّل بين التطبيقات"
+
+#: data/50-mutter-navigation.xml:56
+msgid "Switch to previous application"
+msgstr "انتقل إلى التطبيق السابق"
+
+#: data/50-mutter-navigation.xml:60
+msgid "Switch windows"
+msgstr "تنقَّل بين النوافذ"
+
+#: data/50-mutter-navigation.xml:65
+msgid "Switch to previous window"
+msgstr "انتقل إلى النافذة السابقة"
+
+#: data/50-mutter-navigation.xml:69
+msgid "Switch windows of an application"
+msgstr "تنقَّل بين نوافذ التطبيق"
+
+#: data/50-mutter-navigation.xml:74
+msgid "Switch to previous window of an application"
+msgstr "انتقل إلى نافذة التطبيق السابقة"
+
+#: data/50-mutter-navigation.xml:78
+msgid "Switch system controls"
+msgstr "تنقَّل بين تحكُّمات النظام"
+
+#: data/50-mutter-navigation.xml:83
+msgid "Switch to previous system control"
+msgstr "انتقل إلى تحكم النظام السابق"
+
+#: data/50-mutter-navigation.xml:87
+msgid "Switch windows directly"
+msgstr "تنقَّل مباشرة بين النوافذ"
+
+#: data/50-mutter-navigation.xml:92
+msgid "Switch directly to previous window"
+msgstr "انتقل مباشرة إلى النافذة السابقة"
+
+#: data/50-mutter-navigation.xml:96
+msgid "Switch windows of an app directly"
+msgstr "تنقَّل مباشرة بين نوافذ التطبيق"
+
+#: data/50-mutter-navigation.xml:101
+msgid "Switch directly to previous window of an app"
+msgstr "انتقل مباشرة إلى نافذة التطبيق السابقة"
+
+#: data/50-mutter-navigation.xml:105
+msgid "Switch system controls directly"
+msgstr "تنقَّل مباشرة بين تحكُّمات النظام"
+
+#: data/50-mutter-navigation.xml:110
+msgid "Switch directly to previous system control"
+msgstr "انتقل مباشرة إلى تحكم النظام السابق"
+
+#: data/50-mutter-navigation.xml:113
+msgid "Hide all normal windows"
+msgstr "أخفِ كل النوافذ العادية"
+
+#: data/50-mutter-navigation.xml:116
+msgid "Switch to workspace 1"
+msgstr "انتقل إلى مساحة العمل 1"
+
+#: data/50-mutter-navigation.xml:119
+msgid "Switch to workspace 2"
+msgstr "انتقل إلى مساحة العمل 2"
+
+#: data/50-mutter-navigation.xml:122
+msgid "Switch to workspace 3"
+msgstr "انتقل إلى مساحة العمل 3"
+
+#: data/50-mutter-navigation.xml:125
+msgid "Switch to workspace 4"
+msgstr "انتقل إلى مساحة العمل 4"
+
+#: data/50-mutter-navigation.xml:128
+msgid "Switch to last workspace"
+msgstr "انتقل إلى مساحة العمل الأخيرة"
+
+#: data/50-mutter-navigation.xml:131
+msgid "Switch to workspace on the left"
+msgstr "انتقل إلى مساحة العمل اليسرى"
+
+#: data/50-mutter-navigation.xml:134
+msgid "Switch to workspace on the right"
+msgstr "انتقل إلى مساحة العمل اليمنى"
+
+#: data/50-mutter-navigation.xml:138
+msgid "Switch to workspace above"
+msgstr "انتقل إلى مساحة العمل العليا"
+
+#: data/50-mutter-navigation.xml:142
+msgid "Switch to workspace below"
+msgstr "انتقل إلى مساحة العمل الدنيا"
+
+#: data/50-mutter-system.xml:6 data/50-mutter-wayland.xml:6
+msgid "System"
+msgstr "النظام"
+
+#: data/50-mutter-system.xml:8
+msgid "Show the run command prompt"
+msgstr "أظهِر محث تشغيل أمر"
+
+#: data/50-mutter-wayland.xml:8
+msgid "Restore the keyboard shortcuts"
+msgstr "استعد اختصارات لوحة المفاتيح"
+
+#: data/50-mutter-windows.xml:6
+msgid "Windows"
+msgstr "النوافذ"
+
+#: data/50-mutter-windows.xml:8
+msgid "Activate the window menu"
+msgstr "فعِّل قائمة النافذة"
+
+#: data/50-mutter-windows.xml:10
+msgid "Toggle fullscreen mode"
+msgstr "بدِّل وضع ملء الشاشة"
+
+#: data/50-mutter-windows.xml:12
+msgid "Toggle maximization state"
+msgstr "بدِّل حالة التكبير"
+
+#: data/50-mutter-windows.xml:14
+msgid "Maximize window"
+msgstr "كبِّر النافذة"
+
+#: data/50-mutter-windows.xml:16
+msgid "Restore window"
+msgstr "استعد النافذة"
+
+#: data/50-mutter-windows.xml:18
+msgid "Close window"
+msgstr "أغلِق النافذة"
+
+#: data/50-mutter-windows.xml:20
+msgid "Hide window"
+msgstr "أخفِ النافذة"
+
+#: data/50-mutter-windows.xml:22
+msgid "Move window"
+msgstr "انقل النافذة"
+
+#: data/50-mutter-windows.xml:24
+msgid "Resize window"
+msgstr "حجِّم النافذة"
+
+#: data/50-mutter-windows.xml:27
+msgid "Toggle window on all workspaces or one"
+msgstr "بدِّل حالة ظهور النافذة على جميع مساحات العمل أو واحدة منها"
+
+#: data/50-mutter-windows.xml:29
+msgid "Raise window if covered, otherwise lower it"
+msgstr "ارفع النافذة إذا كانت أخرى تغطِّيها، أو أخفضها في ما عدا ذلك"
+
+#: data/50-mutter-windows.xml:31
+msgid "Raise window above other windows"
+msgstr "ارفع النافذة فوق النوافذ الأخرى"
+
+#: data/50-mutter-windows.xml:33
+msgid "Lower window below other windows"
+msgstr "اخفض النافذة تحت النوافذ الأخرى"
+
+#: data/50-mutter-windows.xml:35
+msgid "Maximize window vertically"
+msgstr "كبِّر النافذة رأسيًا"
+
+#: data/50-mutter-windows.xml:37
+msgid "Maximize window horizontally"
+msgstr "كبِّر النافذة أفقيًا"
+
+#: data/50-mutter-windows.xml:41 data/org.gnome.mutter.gschema.xml.in:187
+msgid "View split on left"
+msgstr "المنظور مقسوم على اليمين"
+
+#: data/50-mutter-windows.xml:45 data/org.gnome.mutter.gschema.xml.in:192
+msgid "View split on right"
+msgstr "المنظور مقسوم على اليسار"
+
+#: data/org.gnome.mutter.gschema.xml.in:16
+msgid "Modifier to use for extended window management operations"
+msgstr "المغيِّر المستعمل لتمديد عمليَّات إدارة النوافذ"
+
+#: data/org.gnome.mutter.gschema.xml.in:17
+msgid ""
+"This key will initiate the “overlay”, which is a combination window overview "
+"and application launching system. The default is intended to be the “Windows "
+"key” on PC hardware. It’s expected that this binding either the default or "
+"set to the empty string."
+msgstr ""
+"سيبدأ هذا المفتاح «المركَّبة»، وهي تجميعة النظرة العامَّة للنافذة ونظام بدء "
+"التطبيق. يُتوقَّع أن المبدئي سيكون «مفتاح ويندوز» في عتاد الحاسوب. يُتوقَّع أن هذا "
+"الارتباط يستخدم المبدئي أو يُعيَّن سلسلة فارغة."
+
+#: data/org.gnome.mutter.gschema.xml.in:29
+msgid "Attach modal dialogs"
+msgstr "أرفِق الحوارات المشروطة"
+
+#: data/org.gnome.mutter.gschema.xml.in:30
+msgid ""
+"When true, instead of having independent titlebars, modal dialogs appear "
+"attached to the titlebar of the parent window and are moved together with "
+"the parent window."
+msgstr ""
+"إن كان صحيحًا، فستظهر الحوارات المشروطة متَّصلة بالنافذة الأصل بدلًا من أن تكون "
+"لها أشرطة عناوين مستقلَّة، وستتحرَّك معها."
+
+#: data/org.gnome.mutter.gschema.xml.in:39
+msgid "Enable edge tiling when dropping windows on screen edges"
+msgstr "فعِّل الرصف باستخدام الحواف عند إفلات النوافذ قُرب حواف الشاشة"
+
+#: data/org.gnome.mutter.gschema.xml.in:40
+msgid ""
+"If enabled, dropping windows on vertical screen edges maximizes them "
+"vertically and resizes them horizontally to cover half of the available "
+"area. Dropping windows on the top screen edge maximizes them completely."
+msgstr ""
+"إن فُعِّل، فسيُكبِّر الإفلات على حوافِّ الشاشة الرأسيَّة النوافذ رأسيًّا ويحجِّمهم بحيث "
+"يستخدمون نصف المساحة المتوفِّرة. يُكبِّر الإفلات على الحافَّة العليا للشاشة النوافذ "
+"كلِّيًّا."
+
+#: data/org.gnome.mutter.gschema.xml.in:49
+msgid "Workspaces are managed dynamically"
+msgstr "تُدار مساحات العمل ديناميكيًّا"
+
+#: data/org.gnome.mutter.gschema.xml.in:50
+msgid ""
+"Determines whether workspaces are managed dynamically or whether there’s a "
+"static number of workspaces (determined by the num-workspaces key in org."
+"gnome.desktop.wm.preferences)."
+msgstr ""
+"يُقرِّر ما إذا كانت إدارة مساحات العمل ديناميكيَّة أم يوجد عدد مساحات عمل ثابت "
+"(يُحدَّد هذا باستخدام مفتاح num-workspaces في org.gnome.desktop.wm.preferences)."
+
+#: data/org.gnome.mutter.gschema.xml.in:59
+msgid "Workspaces only on primary"
+msgstr "مساحات العمل في الرئيس حصرًا"
+
+#: data/org.gnome.mutter.gschema.xml.in:60
+msgid ""
+"Determines whether workspace switching should happen for windows on all "
+"monitors or only for windows on the primary monitor."
+msgstr ""
+"يُقرِّر ما إذا كان يجب أن يؤثِّر تبديل مساحات العمل على كل النوافذ في كل الشاشات "
+"أم على النوافذ في الشاشة الرئيسية فقط."
+
+#: data/org.gnome.mutter.gschema.xml.in:68
+msgid "Delay focus changes until the pointer stops moving"
+msgstr "أخِّر تغيُّرات التركيز لحين توقُّف المؤشِّر"
+
+#: data/org.gnome.mutter.gschema.xml.in:69
+msgid ""
+"If set to true, and the focus mode is either “sloppy” or “mouse” then the "
+"focus will not be changed immediately when entering a window, but only after "
+"the pointer stops moving."
+msgstr ""
+"إن عُيِّن صحيحًا، وكان وضع التركيز «مُوحِل» أو «الفأرة»، فلن يُغيَّر التركيز عند دخول "
+"نافذة فورًا، بل عند توقُّف المؤشِّر."
+
+#: data/org.gnome.mutter.gschema.xml.in:79
+msgid "Draggable border width"
+msgstr "عرض حدٍّ يُسحب"
+
+#: data/org.gnome.mutter.gschema.xml.in:80
+msgid ""
+"The amount of total draggable borders. If the theme’s visible borders are "
+"not enough, invisible borders will be added to meet this value."
+msgstr ""
+"مقدار الحدود المسحوبة. إن لم تكفِ الحدود الظاهرة للسمة، فستُضاف حدود خفيَّة لتصل "
+"لهذه القيمة."
+
+#: data/org.gnome.mutter.gschema.xml.in:89
+msgid "Auto maximize nearly monitor sized windows"
+msgstr "كبِّر النوافذ التي تُقارب حجم الشاشة آليًا"
+
+#: data/org.gnome.mutter.gschema.xml.in:90
+msgid ""
+"If enabled, new windows that are initially the size of the monitor "
+"automatically get maximized."
+msgstr "إن فُعِّل، فستُكبَّر النوافذ التي بحجم الشاشة آليًا."
+
+#: data/org.gnome.mutter.gschema.xml.in:98
+msgid "Place new windows in the center"
+msgstr "ضع النوافذ الجديدة في الوسط"
+
+#: data/org.gnome.mutter.gschema.xml.in:99
+msgid ""
+"When true, the new windows will always be put in the center of the active "
+"screen of the monitor."
+msgstr "إن كان صحيحًا، فستوضع النوافذ الجديدة في وسط الشاشة النشطة دائمًا."
+
+#: data/org.gnome.mutter.gschema.xml.in:108
+msgid "Enable experimental features"
+msgstr "فعّّل المزايا التجريبية"
+
+#: data/org.gnome.mutter.gschema.xml.in:109
+msgid ""
+"To enable experimental features, add the feature keyword to the list. "
+"Whether the feature requires restarting the compositor depends on the given "
+"feature. Any experimental feature is not required to still be available, or "
+"configurable. Don’t expect adding anything in this setting to be future "
+"proof. Currently possible keywords: • “scale-monitor-framebuffer” — makes "
+"mutter default to layout logical monitors in a logical pixel coordinate "
+"space, while scaling monitor framebuffers instead of window content, to "
+"manage HiDPI monitors. Does not require a restart. • “kms-modifiers” — makes "
+"mutter always allocate scanout buffers with explicit modifiers, if supported "
+"by the driver. Requires a restart. • “autoclose-xwayland” — automatically "
+"terminates Xwayland if all relevant X11 clients are gone. Requires a "
+"restart. • “variable-refresh-rate” — makes mutter dynamically adjust the "
+"refresh rate of the monitor when applicable if supported by the monitor, GPU "
+"and DRM driver. Configurable in Settings. Requires a restart. • “xwayland-"
+"native-scaling” — lets Xwayland clients use their native scaling support. If "
+"scaling is not supported by client, the client will be unscaled. Setting "
+"only takes effect when “scale-monitor-framebuffer” is enabled as well."
+msgstr ""
+"أضِف الكلمة المفتاحية للميزة لتُفعِّل الميزة التجريبية. تعتمد الحاجة لإعادة "
+"تشغيل المُركِّب على الميزة. لا يُتطلَّب من أي ميزة تجريبية أن تكون متوفرة أو "
+"مضبوطة. لا تتوقَّع أن إضافة أي شيء في هذا الإعداد ستعمل مستقبلًا. الكلمات "
+"المفتاحية المتوفرة حاليًا هي: • «scale-monitor-framebuffer» — تجعل مَتَر يبتدئ "
+"لتخطيط الشاشات المنطقي في فضاء موقع بكسلات منطقي، بينما يُحجِّم مخزِّنات الإطارات "
+"المؤقتة للشاشة بدلًا من محتوى الشاشة، وذلك لإدارة شاشات HiDPI. لا تتطلَّب إعادة "
+"تشغيل. • «kms-modifiers» — تجعل مَتَر يخصِّص مخزِّنات scanout مؤقتة بمغايير صريحة، "
+"وذلك إن كان المشغِّل يدعمها. تتطلَّب إعادة تشغيل. • «autoclose-xwayland» — تُنهي "
+"«إكس‌وَيلَند» آليًا إذا أُغلِق جميع عملاء إكس11 المتصلين به. تتطلَّب إعادة تشغيل. • "
+"«variable-refresh-rate» — تجعل مَتَر يضبط معدل تحديث الشاشة ديناميكيًا عندما "
+"يكون ذلك ممكنًا ومدعومًا من الشاشة، ومعالج الرسوميَّات، ومشغِّل DRM. يمكن ضبطها من "
+"الإعدادات. تتطلَّب إعادة تشغيل. • «xwayland-native-scaling» — تسمح لعملاء "
+"«إكس‌وَيلَند» باستخدام دعم التحجيم الأصلي الخاص بهم. إذا لم يكن التحجيم مدعومًا "
+"من قِبَل العميل، فلن تُحجَّم نافذته. لا يُطبَّق هذا الإعداد إلا عند تفعيل «scale-"
+"monitor-framebuffer» معه."
+
+#: data/org.gnome.mutter.gschema.xml.in:151
+msgid "Modifier to use to locate the pointer"
+msgstr "المغيِّر المُستخدم لتحديد موقع المؤشِّر"
+
+#: data/org.gnome.mutter.gschema.xml.in:152
+msgid "This key will initiate the “locate pointer” action."
+msgstr "سيبدأ هذا المفتاح إجراء «أوجد المؤشِّر»."
+
+#: data/org.gnome.mutter.gschema.xml.in:159
+msgid "Timeout for check-alive ping"
+msgstr "مهلة طرق check-alive"
+
+#: data/org.gnome.mutter.gschema.xml.in:160
+msgid ""
+"Number of milliseconds a client has to respond to a ping request in order to "
+"not be detected as frozen. Using 0 will disable the alive check completely."
+msgstr ""
+"الزمن المتاح للعميل بالملِّي ثانية ليستجيب لطلب طَرْق وذلك لكي لا يُظنَّ بأنه مجمَّد. "
+"سيُعطِّل استخدام 0 هذا الفحص كلِّيًّا."
+
+#. TRANSLATORS: Luminance is different from brightness.
+#. See https://en.wikipedia.org/wiki/Luminance
+#: data/org.gnome.mutter.gschema.xml.in:171
+msgid "Per output luminance settings"
+msgstr "حسب إعدادات نُصوع المخرج"
+
+#: data/org.gnome.mutter.gschema.xml.in:172
+msgid ""
+"Per output and color mode luminance setting. Each entry consists of a tuple "
+"with connector, vendor, product, serial, and a color mode, as well as an "
+"associated floating point value representing the output luminance in percent "
+"(%). The default when not specified is 100%."
+msgstr ""
+"وفقًا لإعدادات نصوع المخرج ووضع اللون، يتكوَّن كل مُدخَل من صف علاقاتي يضم: "
+"الموصِّل، والمُصنِّع، والمُنتَج، والرقم التسلسلي، ووضع اللون؛ بالإضافة إلى قيمة "
+"فاصلة عائمة مرتبطة به تُمثِّل سطوع المَخرَج كنسبة مئوية (%). القيمة المبدئية هي "
+"100%."
+
+#: data/org.gnome.mutter.gschema.xml.in:197
+msgid "Switch monitor configurations"
+msgstr "بدِّل ضبط الشاشة"
+
+#: data/org.gnome.mutter.gschema.xml.in:202
+msgid "Rotates the built-in monitor configuration"
+msgstr "يُدوِّر ضبط الشاشة المدمجة"
+
+#: data/org.gnome.mutter.gschema.xml.in:207
+msgid "Cancel any active input capture session"
+msgstr "ألغِ أي جلسة تسجيل إدخال نشطة"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:12
+msgid "Switch to VT 1"
+msgstr "انتقل إلى مساحة العمل 1"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:16
+msgid "Switch to VT 2"
+msgstr "انتقل إلى مساحة العمل 2"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:20
+msgid "Switch to VT 3"
+msgstr "انتقل إلى مساحة العمل 3"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:24
+msgid "Switch to VT 4"
+msgstr "انتقل إلى مساحة العمل 4"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:28
+msgid "Switch to VT 5"
+msgstr "انتقل إلى مساحة العمل 5"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:32
+msgid "Switch to VT 6"
+msgstr "انتقل إلى مساحة العمل 6"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:36
+msgid "Switch to VT 7"
+msgstr "انتقل إلى مساحة العمل 7"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:40
+msgid "Switch to VT 8"
+msgstr "انتقل إلى مساحة العمل 8"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:44
+msgid "Switch to VT 9"
+msgstr "انتقل إلى مساحة العمل 9"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:48
+msgid "Switch to VT 10"
+msgstr "انتقل إلى مساحة العمل 10"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:52
+msgid "Switch to VT 11"
+msgstr "انتقل إلى مساحة العمل 11"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:56
+msgid "Switch to VT 12"
+msgstr "انتقل إلى مساحة العمل 12"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:60
+msgid "Re-enable shortcuts"
+msgstr "أعِد تفعيل الاختصارات"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:70
+msgid "Allow X11 grabs to lock keyboard focus with Xwayland"
+msgstr "اسمح لقبضات إكس11 بقفل تركيز لوحة المفاتيح في إكس‌وَيلَند"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:71
+msgid ""
+"Allow all keyboard events to be routed to X11 “override redirect” windows "
+"with a grab when running in Xwayland. This option is to support X11 clients "
+"which map an “override redirect” window (which do not receive keyboard "
+"focus) and issue a keyboard grab to force all keyboard events to that "
+"window. This option is seldom used and has no effect on regular X11 windows "
+"which can receive keyboard focus under normal circumstances. For a X11 grab "
+"to be taken into account under Wayland, the client must also either send a "
+"specific X11 ClientMessage to the root window or be among the applications "
+"allowed in key “xwayland-grab-access-rules”."
+msgstr ""
+"يسمح لكل أحداث لوحة المفاتيح بأن تُوجَّه لنوافذ «تجاوز إعادة التوجيه» من إكس11 "
+"بقبض عند التشغيل في إكس‌وَيلَند. يدعم هذا الخيار عملاء إكس11 الذين يُعيِّنون نافذة "
+"«تجاوز إعادة التوجيه» (التي لا تستقبل تركيز لوحة المفاتيح) وتصدر قبض لوحة "
+"مفاتيح لتُجبر كل أحداث لوحة المفاتيح للتوجُّه لتلك النافذة. نادرًا ما يستخدم هذا "
+"الخيار، وليس له تأثير على نوافذ إكس11 العادية التي تستطيع استقبال تركيز لوحة "
+"المفاتيح عادة. ليُنظر في قبض إكس11 في وَيلَند، يجب على العميل إما أن يُرسل رسالة "
+"عميل إكس11 محدَّدة للنافذة الجذر أو أن يكون ضمن التطبيقات المسموح لها في "
+"المفتاح «xwayland-grab-access-rules»."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:90
+msgid "Xwayland applications allowed to issue keyboard grabs"
+msgstr "تطبيقات إكس‌وَيلَند التي يسمح لها بطلب لقطات من لوحة المفاتيح"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:91
+msgid ""
+"List the resource names or resource class of X11 windows either allowed or "
+"not allowed to issue X11 keyboard grabs under Xwayland. The resource name or "
+"resource class of a given X11 window can be obtained using the command "
+"“xprop WM_CLASS”. Wildcards “*” and jokers “?” in the values are supported. "
+"Values starting with “!” are denied, which has precedence over the list of "
+"values allowed, to revoke applications from the default system list. The "
+"default system list includes the following applications: "
+"“@XWAYLAND_GRAB_DEFAULT_ACCESS_RULES@” Users can break an existing grab by "
+"using the specific keyboard shortcut defined by the keybinding key “restore-"
+"shortcuts”."
+msgstr ""
+"يسرد أسماء موارد نوافذ إكس11 التي يُسمح لها بإصدار قبض لوحة مفاتيح في "
+"إكس‌وَيلَند أو أصنافها. يمكن الحصول على أسماء أو أصناف نافذة إكس11 باستخدام "
+"الأمر «xprop WM_CLASS». تُدعم الحروف البديلة «*» والمعطِّلات «?» في القيم. تُمنع "
+"القيم البادئة ب‍ «!»، التي لديها أفضلية على قائمة القيم المسموح بها، لسحب "
+"التطبيقات من قائمة النظام المبدئية. تتضمَّن قائمة النظام المبدئية التطبيقات "
+"التالية: «@XWAYLAND_GRAB_DEFAULT_ACCESS_RULES@» يُمكن للمستخدمين كسر قبض "
+"موجود باستخدام اختصار لوحة المفاتيح المُعرَّف بالمفتاح «restore-shortcuts»."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:116
+msgid "Disable selected X extensions in Xwayland"
+msgstr "عطِّل امتدادات إكس المختارة عند استخدام إكس‌وَيلَند"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:117
+msgid ""
+"This option disables the selected X extensions in Xwayland if Xwayland was "
+"built with support for those X extensions. This option has no effect if "
+"Xwayland was built without support for the selected extensions. Xwayland "
+"needs to be restarted for this setting to take effect."
+msgstr ""
+"يعطِّل هذا الخيار امتدادات إكس المحدَّدة عند استخدام إكس‌وَيلَند إن بُنيَ بدعم لها. "
+"ليس لهذا الخيار أي أثر إن بُني إكس‌وَيلَند بدون دعم للإمتدادات المحدَّدة. يجب أن "
+"يُعاد تشغيل إكس‌وَيلَند لتطبيق هذا الخيار."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:130
+msgid "Allow X11 clients with a different endianness to connect to Xwayland"
+msgstr "اسمح لعملاء إكس11 ذوي ترتيب بايتات مختلف بالاتِّصال بإكس‌وَيلَند"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:131
+msgid ""
+"Allow connections from clients with an endianness different to that of "
+"Xwayland. The X server byte-swapping code is a huge attack surface, much of "
+"that code in Xwayland is prone to security issues. The use-case of byte-"
+"swapped clients is very niche, and disabled by default in Xwayland. Enable "
+"this option to instruct Xwayland to accept connections from X11 clients with "
+"a different endianness. This option has no effect if Xwayland does not "
+"support the command line option +byteswappedclients/-byteswappedclients to "
+"control that setting. Xwayland needs to be restarted for this setting to "
+"take effect."
+msgstr ""
+"يسمح لعملاء ذوي ترتيب بايتات مختلف بالاتصال بإكس‌وَيلَند. توفِّر شفرة ترتيب "
+"البايتات في خادم إكس مجالًا كبيرًا للهجوم، والكثير من هذه الشفرة في إكس‌وَيلَند "
+"معرَّض لمشاكل أمان. استخدام عملاء ترتيب البايتات دقيق جدًّا، وهو معطَّل مبدئيًّا في "
+"إكس‌وَيلَند. فعِّل هذا الخيار لتسمح لإكس‌وَيلَند بقبول الاتصالات من عملاء إكس11 "
+"بترتيب بايتات مختلف. ليس لهذا الخيار أي أثر حال ما لم يدعم إكس‌وَيلَند خيار سطر "
+"الأوامر «+byteswappedclients/-byteswappedclients» للتحكُّم بذلك الخيار. تجب "
+"إعادة تشغيل إكس‌وَيلَند ليفعَّل هذا الخيار."
+
+#: mdk/mdk-main-window.ui:7
+msgid "_Input"
+msgstr "الإ_دخال"
+
+#: mdk/mdk-main-window.ui:9
+msgid "_Emulate touch"
+msgstr "_حاكِ اللمس"
+
+#: mdk/mdk-main-window.ui:13
+msgid "_Inhibit system shortcuts"
+msgstr "أ_ثبِط اختصارات النظام"
+
+#: mdk/mdk-main-window.ui:19
+msgid "_About Mutter Development Kit"
+msgstr "_عَنْ عُدَّة تطوير مَتَر"
+
+#: mdk/mdk-main-window.ui:25 mdk/mdk-main.c:85 mdk/mdk-main.c:100
+msgid "Mutter Development Kit"
+msgstr "عُدَّة تطوير مَتَر"
+
+#: mdk/mdk-main-window.ui:35
+msgid "Main Menu"
+msgstr "القائمة الرئيسية"
+
+#: mdk/mdk-main.c:69
+msgid "The Mutter Team"
+msgstr "فريق مَتَر"
+
+#: mdk/mdk-main.c:91 mdk/mdk-main.c:105
+msgid "Mutter software development kit"
+msgstr "عُدَّة تطوير برمجيات مَتَر"
+
+#: mdk/mdk-main.c:94 mdk/mdk-main.c:108
+msgid "About Mutter Development Kit"
+msgstr "عَنْ عُدَّة تطوير مَتَر"
+
+#: mdk/mdk-monitor.c:672
+msgid "Failed to create monitor"
+msgstr "تعذَّر إنشاء المرقاب"
+
+#: src/backends/meta-monitor.c:275
+msgid "Built-in display"
+msgstr "شاشة مدمجة"
+
+#: src/backends/meta-monitor.c:302
+msgid "Unknown"
+msgstr "مجهولة"
+
+#: src/backends/meta-monitor.c:304
+msgid "Unknown Display"
+msgstr "شاشة مجهولة"
+
+#: src/backends/meta-monitor.c:312
+#, c-format
+msgctxt ""
+"This is a monitor vendor name, followed by a size in inches, like 'Dell 15\"'"
+msgid "%s %s"
+msgstr "%s %s"
+
+#: src/backends/meta-monitor.c:320
+#, c-format
+msgctxt ""
+"This is a monitor vendor name followed by product/model name where size in "
+"inches could not be calculated, e.g. Dell U2414H"
+msgid "%s %s"
+msgstr "%s %s"
+
+#: src/core/bell.c:237
+msgid "Bell event"
+msgstr "حدث جرس"
+
+#: src/core/display.c:741
+msgid "Privacy Screen Enabled"
+msgstr "فُعِّلت شاشة الخصوصية"
+
+#: src/core/display.c:742
+msgid "Privacy Screen Disabled"
+msgstr "عُطِّلت شاشة الخصوصية"
+
+#: src/core/meta-context-main.c:632
+msgid "Replace the running window manager"
+msgstr "استبدل مدير النوافذ العامل"
+
+#: src/core/meta-context-main.c:638
+msgid "X Display to use"
+msgstr "جهاز عرض إكس الذي سيستعمل"
+
+#: src/core/meta-context-main.c:644
+msgid "Make X calls synchronous"
+msgstr "زامِن نداءات إكس"
+
+#: src/core/meta-context-main.c:652
+msgid "Run as a wayland compositor"
+msgstr "شغِّل بصفته مُركِّب وَيلَند"
+
+#: src/core/meta-context-main.c:659
+msgid "Run as a nested compositor"
+msgstr "شغِّل بصفته مُركِّبًّا تداخليًّا"
+
+#: src/core/meta-context-main.c:667
+msgid "Run wayland compositor without starting Xwayland"
+msgstr "شغِّل مُركِّب وَيلَند بدون بدء إكس‌وَيلَند"
+
+#: src/core/meta-context-main.c:674
+msgid "Specify Wayland display name to use"
+msgstr "حدِّد اسم عرض وَيلَند ليُستخدم"
+
+#: src/core/meta-context-main.c:682
+msgid "Run as a full display server, rather than nested"
+msgstr "شغِّل بصفته خادوم عرض كامل، لا متداخل"
+
+#: src/core/meta-context-main.c:687
+msgid "Run as a headless display server"
+msgstr "شغِّل بصفته خادوم عرض بلا واجهة رسومية"
+
+#: src/core/meta-context-main.c:692
+msgid "Add persistent virtual monitor (WxH or WxH@R)"
+msgstr "أضِف شاشة ظاهريَّة دائمة (WxH أو WxH @R)"
+
+#: src/core/meta-context-main.c:699
+msgid "Run development kit"
+msgstr "شغِّل عُدَّة التطوير"
+
+#: src/core/meta-context-main.c:711
+msgid "Run with X11 backend"
+msgstr "شغِّل بخلفيَّة إكس11"
+
+#: src/core/meta-context-main.c:717
+msgid "Profile performance using trace instrumentation"
+msgstr "أداء اللاحة باستعمال آليات التتبع"
+
+#: src/core/meta-context-main.c:723
+msgid "Enable debug control D-Bus interface"
+msgstr "فعِّل واجهة تحكم التنقيح دي–بَس"
+
+#. TRANSLATORS: This string refers to a button that switches between
+#. * different modes in that button group.
+#.
+#: src/core/meta-pad-action-mapper.c:615
+#, c-format
+msgid "Mode Switch (Group %d)"
+msgstr "تغيير الأوضاع (مجموعة %d)"
+
+#. TRANSLATORS: This string refers to a button that switches between
+#. * different modes.
+#.
+#: src/core/meta-pad-action-mapper.c:622
+#, c-format
+msgid "Mode Switch"
+msgstr "تغيير الأوضاع"
+
+#. TRANSLATORS: This string refers to an action, cycles drawing tablets'
+#. * mapping through the available outputs.
+#.
+#: src/core/meta-pad-action-mapper.c:645
+msgid "Switch monitor"
+msgstr "غيِّر الشاشة"
+
+#: src/core/meta-pad-action-mapper.c:647
+msgid "Show on-screen help"
+msgstr "اعرض المساعدة على الشاشة"
+
+#. Translators: this string will appear in Sysprof
+#: src/core/meta-profiler.c:109 src/core/meta-profiler.c:299
+msgid "Compositor"
+msgstr "المركِّب"
+
+#: src/core/mutter.c:74
+msgid "Print version"
+msgstr "اطبع الإصدار"
+
+#: src/core/mutter.c:80
+msgid "Mutter plugin to use"
+msgstr "ملحق مَتَر الذي سيُستخدم"
+
+#: src/core/prefs.c:1869
+#, c-format
+msgid "Workspace %d"
+msgstr "مساحة العمل %d"
+
+#: src/core/util.c:140
+msgid "Mutter was compiled without support for verbose mode"
+msgstr "جُمِّع مَتَر دون دعم للوضع المطنب"
+
+#: src/core/workspace.c:508
+msgid "Workspace switched"
+msgstr "بُدِّلت مساحة العمل"
+
+#: src/wayland/meta-wayland-tablet-pad.c:558
+#, c-format
+msgid "Mode Switch: Mode %d"
+msgstr "تغيير الأوضاع: الوضع %d"
+
+#: src/x11/meta-x11-display.c:855
+#, c-format
+msgid ""
+"Display “%s” already has a window manager; try using the --replace option to "
+"replace the current window manager."
+msgstr ""
+"للشاشة «%s» مدير نوافذ بالفعل، حاول استعمال خيار التبديل --replace لتغيِّر "
+"مدير النوافذ الحالي."
+
+#: src/x11/meta-x11-display.c:1240
+#, c-format
+msgid "Failed to open X Window System display “%s”"
+msgstr "تعذَّر فتح جهاز عرض نظام نوافذ إكس «%s»"
+
+#: src/x11/meta-x11-display.c:1473
+#, c-format
+msgid "Screen %d on display “%s” is invalid"
+msgstr "الشاشة %d على جهاز العرض «%s» غير صالحة"
+
+#. This probably means that a non-WM compositor like xcompmgr is running;
+#. * we have no way to get it to exit
+#: src/x11/meta-x11-display.c:2801
+#, c-format
+msgid ""
+"Another compositing manager is already running on screen %i on display “%s”."
+msgstr "يعمل مدير تركيب آخر على الشاشة %i وجهاز العرض «%s»."
+
+#: src/x11/meta-x11-selection-input-stream.c:475
+#, c-format
+msgid "Format %s not supported"
+msgstr "النسق %s غير مدعوم"
+
+#: src/x11/window-props.c:564
+#, c-format
+msgid "%s (on %s)"
+msgstr "%s (على %s)"
+
+#~ msgid "Move to workspace above"
+#~ msgstr "انقل لمساحة العمل أعلى"
+
+#~ msgid "Move to workspace below"
+#~ msgstr "انقل لمساحة العمل أسفل"
+
+#~ msgid "Show the activities overview"
+#~ msgstr "أظهر نظرة عامة على الأنشطة"
+
+#~ msgid "Mutter"
+#~ msgstr "مَتَر"
+
+#~ msgid "Disable connection to session manager"
+#~ msgstr "عطّل الاتصال بمدير الجلسة"
+
+#~ msgid "Specify session management ID"
+#~ msgstr "حدّد رقم هويّة إدارة الجلسة"
+
+#~ msgid "Initialize session from savefile"
+#~ msgstr "ابدأ الجلسة من ملف محفوظ"
+
+#, c-format
+#~ msgid "“%s” is not responding."
+#~ msgstr "”‏%s“ لا يستجيب."
+
+#~ msgid "Application is not responding."
+#~ msgstr "لا يستجيب التطبيق"
+
+#~ msgid ""
+#~ "You may choose to wait a short while for it to continue or force the "
+#~ "application to quit entirely."
+#~ msgstr ""
+#~ "ربما ترغب في الانتظار قليلا ليُكمِل أو إجبار التطبيق على الإنهاء كُلّية."
+
+#~ msgid "_Force Quit"
+#~ msgstr "أ_جبر الإنهاء"
+
+#~ msgid "_Wait"
+#~ msgstr "ا_نتظر"
+
+#, c-format
+#~ msgid ""
+#~ "mutter %s\n"
+#~ "Copyright © 2001-%d Havoc Pennington, Red Hat, Inc., and others\n"
+#~ "This is free software; see the source for copying conditions.\n"
+#~ "There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A "
+#~ "PARTICULAR PURPOSE.\n"
+#~ msgstr ""
+#~ "مَتَر %s\n"
+#~ "حقوق النشر © 2001-%d هاڤوك بِنَِنجتون، شركة ردهات، وآخرون\n"
+#~ "هذا برنامج حر، راجع المصدر لشروط النسخ.\n"
+#~ "لا يوجد أي ضمان: و لا حتى ضمان قابلية التسويق أو المناسبة لأي هدف.\n"
+
+#~ msgid ""
+#~ "These windows do not support “save current setup” and will have to be "
+#~ "restarted manually next time you log in."
+#~ msgstr ""
+#~ "هذه النوافذ لا تدعم ” الضبط الحالي&quot; إعادة تشغيلها يدويا عند الولوج "
+#~ "المرة القادمة."
+
+#~ msgid "Move to workspace left"
+#~ msgstr "انقل لمساحة العمل على اليسار"
+
+#~ msgid "Move to workspace right"
+#~ msgstr "انقل لمساحة العمل على اليمين"
+
+#~ msgid "Toggle shaded state"
+#~ msgstr "بدّل حالة الإخفاء"
+
+#~ msgid "Unknown window information request: %d"
+#~ msgstr "طلب معلومات نافذة مجهول: %d"
+
+#~ msgid "Missing %s extension required for compositing"
+#~ msgstr "الامتداد %s مفقود، لكنه مطلوب للتركيب"
+
+#~ msgid ""
+#~ "Some other program is already using the key %s with modifiers %x as a "
+#~ "binding\n"
+#~ msgstr "يستعمل برنامج آخر المفتاح %s بالفعل مع المغيرين %x كرابط\n"
+
+#~ msgid "\"%s\" is not a valid accelerator\n"
+#~ msgstr "‏\"%s\" ليس اختصارا صحيحا\n"
+
+#~ msgid "Failed to scan themes directory: %s\n"
+#~ msgstr "فشلت قراءة دليل السِمات : %s\n"
+
+#~ msgid ""
+#~ "Could not find a theme! Be sure %s exists and contains the usual themes.\n"
+#~ msgstr "تعذّر إيجاد سِمة! تأكد من وجود %s و احتواءه على السِمات المعتادة.\n"
+
+#~ msgid ""
+#~ "Workarounds for broken applications disabled. Some applications may not "
+#~ "behave properly.\n"
+#~ msgstr ""
+#~ "عطّلت الحلول الجزئيّة للتطبيقات المعطوبة . ربما لن تتصرف بعض التطبيقات "
+#~ "بسلامة.\n"
+
+#~ msgid "Could not parse font description \"%s\" from GSettings key %s\n"
+#~ msgstr "لا يمكن تحليل وصف الخط \"%s\" من مفتاح GSettings‏ %s\n"
+
+#~ msgid ""
+#~ "\"%s\" found in configuration database is not a valid value for mouse "
+#~ "button modifier\n"
+#~ msgstr ""
+#~ "\"%s\" الموجود في قاعدة بيانات الإعدادات ليس قيمة سليمة لمغير أزرار "
+#~ "الفأرة\n"
+
+#~ msgid ""
+#~ "\"%s\" found in configuration database is not a valid value for "
+#~ "keybinding \"%s\"\n"
+#~ msgstr ""
+#~ "\"%s\" الموجود في قاعدة بيانات الإعدادات ليس قيمة سليمة لارتباط المفتاح "
+#~ "\"%s\"\n"
+
+#~ msgid ""
+#~ "Could not acquire window manager selection on screen %d display \"%s\"\n"
+#~ msgstr "لا يمكن الحصول على اختيار مدير النوافذ على الشاشة %d العرض \"%s\"\n"
+
+#~ msgid "Screen %d on display \"%s\" already has a window manager\n"
+#~ msgstr "الشاشة %d على العرض \"%s\" لها مدير نوافذ بالفعل\n"
+
+#~ msgid "Could not release screen %d on display \"%s\"\n"
+#~ msgstr "لا يمكن ترك الشاشة %d على العرض \"%s\"\n"
+
+#~ msgid "Could not create directory '%s': %s\n"
+#~ msgstr "لا يمكن إنشاء الدليل '%s': %s\n"
+
+#~ msgid "Could not open session file '%s' for writing: %s\n"
+#~ msgstr "لا يمكن فتح ملف الجلسة '%s' لكتابة: %s\n"
+
+#~ msgid "Error writing session file '%s': %s\n"
+#~ msgstr "خطأ عند كتابة ملف الجلسة '%s': %s\n"
+
+#~ msgid "Error closing session file '%s': %s\n"
+#~ msgstr "خطأ عند غلق ملف الجلسة '%s': %s\n"
+
+#~ msgid "Failed to parse saved session file: %s\n"
+#~ msgstr "خطأ عند تحليل ملف الجلسة المحفوظ: %s\n"
+
+#~ msgid "<mutter_session> attribute seen but we already have the session ID"
+#~ msgstr "صفة <mutter_session> مرئية لكن لدينا هوية الجلسة بالفعل"
+
+#~ msgid "Unknown attribute %s on <%s> element"
+#~ msgstr "صفة مجهولة %s على عنصر <%s>"
+
+#~ msgid "nested <window> tag"
+#~ msgstr "وسْم <window> معشّش"
+
+#~ msgid "Unknown element %s"
+#~ msgstr "عنصر مجهول %s"
+
+#~ msgid "Failed to open debug log: %s\n"
+#~ msgstr "فشل فتح سِجِلّ التنقيح: %s\n"
+
+#~ msgid "Failed to fdopen() log file %s: %s\n"
+#~ msgstr "فشل fdopen() ملف الرسائل %s: %s\n"
+
+#~ msgid "Opened log file %s\n"
+#~ msgstr "فُتِح ملف السِّجِل %s\n"
+
+#~ msgid "Window manager: "
+#~ msgstr "مدير النوافذ: "
+
+#~ msgid "Bug in window manager: "
+#~ msgstr "علّة في مدير النوافذ: "
+
+#~ msgid "Window manager warning: "
+#~ msgstr "تحذير مدير النوافذ: "
+
+#~ msgid "Window manager error: "
+#~ msgstr "خطأ مدير النوافذ: "
+
+#~ msgid ""
+#~ "Window %s sets SM_CLIENT_ID on itself, instead of on the WM_CLIENT_LEADER "
+#~ "window as specified in the ICCCM.\n"
+#~ msgstr ""
+#~ "ضبطت النافذة %s SM_CLIENT_ID على نفسه، عوض ضبطه على نافذةWM_CLIENT_LEADER "
+#~ "مثل ما هو محدد من طرف الـ ICCCM.\n"
+
+#~ msgid ""
+#~ "Window %s sets an MWM hint indicating it isn't resizable, but sets min "
+#~ "size %d x %d and max size %d x %d; this doesn't make much sense.\n"
+#~ msgstr ""
+#~ "ضبطت النافذة %s تلميحة MWM يدل على انه لا يمكن تحجيمها، لكنها تضبط الحجم "
+#~ "الأدنى %d x %d و الحجم الأقصى %d x %d، هذا ليس له أي معنى.\n"
+
+#~ msgid "Application set a bogus _NET_WM_PID %lu\n"
+#~ msgstr "ضبط التطبيق رمز NET_WM_PID غير مفهوم %lu\n"
+
+#~ msgid "Invalid WM_TRANSIENT_FOR window 0x%lx specified for %s.\n"
+#~ msgstr "نافذة WM_TRANSIENT_FOR  0x%lx غير صحيحة ل %s.\n"
+
+#, fuzzy
+#~ msgid "WM_TRANSIENT_FOR window 0x%lx for %s would create loop.\n"
+#~ msgstr "نافذة WM_TRANSIENT_FOR  0x%lx غير صحيحة ل %s.\n"
+
+#~ msgid ""
+#~ "Window 0x%lx has property %s\n"
+#~ "that was expected to have type %s format %d\n"
+#~ "and actually has type %s format %d n_items %d.\n"
+#~ "This is most likely an application bug, not a window manager bug.\n"
+#~ "The window has title=\"%s\" class=\"%s\" name=\"%s\"\n"
+#~ msgstr ""
+#~ "للنافذة 0x%lx الخاصية %s\n"
+#~ "التي كام مرتقبا ان تكون لها النوع %s التهيئة %d\n"
+#~ "لكنها فعليا لها النوع %s التهيئة %d n_items %d.\n"
+#~ "هذا خلل تطبيق، لا خلل في مدير النوافذ.\n"
+#~ "للنافذة العنوان =\"%s\" الطبقة=\"%s\" الاسم=\"%s\"\n"
+
+#~ msgid "Property %s on window 0x%lx contained invalid UTF-8\n"
+#~ msgstr "الخاصية %s على النافذة 0x%lx تحتوي UTF-8 غير صحيح\n"
+
+#~ msgid ""
+#~ "Property %s on window 0x%lx contained invalid UTF-8 for item %d in the "
+#~ "list\n"
+#~ msgstr ""
+#~ "الخاصية %s على النافذة 0x%lx تحتوي UTF-8 غير صحيح للعنصر %d في القائمة\n"
+
+#~ msgid "Mi_nimize"
+#~ msgstr "_صغّر"
+
+#~ msgid "Ma_ximize"
+#~ msgstr "_كبّر"
+
+#~ msgid "Unma_ximize"
+#~ msgstr "ألغ التكبي_ر"
+
+#~ msgid "Roll _Up"
+#~ msgstr "لف إلى ال_أعلى"
+
+#~ msgid "_Unroll"
+#~ msgstr "ال_غي اللف"
+
+#~ msgid "_Move"
+#~ msgstr "ا_نقل"
+
+#~ msgid "_Resize"
+#~ msgstr "_حجّم"
+
+#~ msgid "Move Titlebar On_screen"
+#~ msgstr "انقل _شريط العنوان على الشاشة"
+
+#~ msgid "Always on _Top"
+#~ msgstr "دائما في ال_قمّة"
+
+#~ msgid "_Always on Visible Workspace"
+#~ msgstr "دائمًا على مساحة العمل ال_مرئيّة"
+
+#~ msgid "_Only on This Workspace"
+#~ msgstr "فقط على مساحة العمل _هذه"
+
+#~ msgid "Move to Workspace _Left"
+#~ msgstr "انقل لمساحة العمل على ال_يسار"
+
+#~ msgid "Move to Workspace R_ight"
+#~ msgstr "انقل لمساحة العمل على الي_مين"
+
+#~ msgid "Move to Workspace _Up"
+#~ msgstr "انقل لمساحة العمل _فوق"
+
+#~ msgid "Move to Workspace _Down"
+#~ msgstr "انقل لمساحة العمل _تحت"
+
+#~ msgid "_Close"
+#~ msgstr "أ_غلق"
+
+#~ msgid "Workspace %d%n"
+#~ msgstr "مساحة العمل %d%n"
+
+#~ msgid "Workspace 1_0"
+#~ msgstr "مساحة العمل _10"
+
+#~ msgid "Move to Another _Workspace"
+#~ msgstr "انقل ل_مساحة عمل أخرى"
+
+#~ msgid "Shift"
+#~ msgstr "Shift"
+
+#~ msgid "Ctrl"
+#~ msgstr "Ctrl"
+
+#~ msgid "Alt"
+#~ msgstr "Alt"
+
+#~ msgid "Meta"
+#~ msgstr "Meta"
+
+#~ msgid "Super"
+#~ msgstr "Super"
+
+#~ msgid "Hyper"
+#~ msgstr "Hyper"
+
+#~ msgid "Mod2"
+#~ msgstr "Mod2"
+
+#~ msgid "Mod3"
+#~ msgstr "Mod3"
+
+#~ msgid "Mod4"
+#~ msgstr "Mod4"
+
+#~ msgid "Mod5"
+#~ msgstr "Mod5"
+
+#~ msgid "%d x %d"
+#~ msgstr "%d × %d"
+
+#~ msgid "top"
+#~ msgstr "أعلى"
+
+#~ msgid "bottom"
+#~ msgstr "أسفل"
+
+#~ msgid "left"
+#~ msgstr "يسار"
+
+#~ msgid "right"
+#~ msgstr "يمين"
+
+#~ msgid "frame geometry does not specify \"%s\" dimension"
+#~ msgstr "هندسة الإطار لا تخصص البعد \"%s\""
+
+#~ msgid "frame geometry does not specify dimension \"%s\" for border \"%s\""
+#~ msgstr "هندسة الإطار لا تخصص البعد \"%s\" للحد \"%s\""
+
+#~ msgid "Button aspect ratio %g is not reasonable"
+#~ msgstr "النسبة الجانبية للزر %g غير معقولة"
+
+#~ msgid "Frame geometry does not specify size of buttons"
+#~ msgstr "هندسة الإطار لا تخصص حجم الأزرار"
+
+#~ msgid "Gradients should have at least two colors"
+#~ msgstr "يجب أن يكون للتّدرُّجات لونان على الأقل"
+
+#, fuzzy
+#~ msgid ""
+#~ "GTK custom color specification must have color name and fallback in "
+#~ "parentheses, e.g. gtk:custom(foo,bar); could not parse \"%s\""
+#~ msgstr ""
+#~ "يحب أن يكون لتخصيص حالة ألوان جتك قوس غلق قائم بعد الحالة/ مثال gtk:"
+#~ "fg[NORMAL]، NORMAL هنا هو الحالة، لا يمكن تحليل \"%s\""
+
+#, fuzzy
+#~ msgid ""
+#~ "Gtk:custom format is \"gtk:custom(color_name,fallback)\", \"%s\" does not "
+#~ "fit the format"
+#~ msgstr ""
+#~ "تهيئة التظليل هي \"تظليل/اللون_الأساسي/العامل\"، \"%s\" لا يناسب التهيئة"
+
+#~ msgid ""
+#~ "GTK color specification must have the state in brackets, e.g. gtk:"
+#~ "fg[NORMAL] where NORMAL is the state; could not parse \"%s\""
+#~ msgstr ""
+#~ "يجب أن تكون حالة تخصيصات ألوان جتك  في قوسان قائمان، مثال gtk:fg[NORMAL] "
+#~ "NORMAL هنا هو الحالة، لا يمكن تحليل \"%s\""
+
+#~ msgid ""
+#~ "GTK color specification must have a close bracket after the state, e.g. "
+#~ "gtk:fg[NORMAL] where NORMAL is the state; could not parse \"%s\""
+#~ msgstr ""
+#~ "يحب أن يكون لتخصيص حالة ألوان جتك قوس غلق قائم بعد الحالة/ مثال gtk:"
+#~ "fg[NORMAL]، NORMAL هنا هو الحالة، لا يمكن تحليل \"%s\""
+
+#~ msgid "Did not understand state \"%s\" in color specification"
+#~ msgstr "لم تفهم الحالة \"%s\" في تخصيص الألوان"
+
+#~ msgid "Did not understand color component \"%s\" in color specification"
+#~ msgstr "لم يفهم جزء اللون \"%s\" في تخصيص اللون"
+
+#~ msgid ""
+#~ "Blend format is \"blend/bg_color/fg_color/alpha\", \"%s\" does not fit "
+#~ "the format"
+#~ msgstr ""
+#~ "تهيئة الخلط \"blend/bg_color/fg_color/alpha\"، \"%s\"لا يناسب التهيئة"
+
+#~ msgid "Could not parse alpha value \"%s\" in blended color"
+#~ msgstr "لا يمكن تحليل قيمة الشفافية \"%s\" في اللون المخلط"
+
+#~ msgid "Alpha value \"%s\" in blended color is not between 0.0 and 1.0"
+#~ msgstr "قيمة الشفافية \"%s\" في اللون المخلوط ليست بين 0.0 و 1.0"
+
+#~ msgid ""
+#~ "Shade format is \"shade/base_color/factor\", \"%s\" does not fit the "
+#~ "format"
+#~ msgstr ""
+#~ "تهيئة التظليل هي \"تظليل/اللون_الأساسي/العامل\"، \"%s\" لا يناسب التهيئة"
+
+#~ msgid "Could not parse shade factor \"%s\" in shaded color"
+#~ msgstr "لا يمكن تحليل عامل التظليل \"%s\" في اللون المظلل"
+
+#~ msgid "Shade factor \"%s\" in shaded color is negative"
+#~ msgstr "عامل التظليل \"%s\" في اللون المظلل سلبي"
+
+#~ msgid "Could not parse color \"%s\""
+#~ msgstr "لا يمكن تحليل اللون \"%s\""
+
+#~ msgid "Coordinate expression contains character '%s' which is not allowed"
+#~ msgstr "تعبير الإحداثيّات يحتوي على الرمز '%s' الممنوع"
+
+#~ msgid ""
+#~ "Coordinate expression contains floating point number '%s' which could not "
+#~ "be parsed"
+#~ msgstr "تعبير الإحداثيّات يحتوي على عدد نقطة متغيرة '%s' تعذّر تحليله"
+
+#~ msgid ""
+#~ "Coordinate expression contains integer '%s' which could not be parsed"
+#~ msgstr "تعبير الإحداثيّات يحتوي على عدد صحيح '%s' تعذّر تحليله"
+
+#~ msgid ""
+#~ "Coordinate expression contained unknown operator at the start of this "
+#~ "text: \"%s\""
+#~ msgstr "تعبير الإحداثيّات يحتوي على مقسوم مجهول عند بداية هذا النص: \"%s\""
+
+#~ msgid "Coordinate expression was empty or not understood"
+#~ msgstr "تعبير الإحداثيّات فارغ أو لم يفهم"
+
+#~ msgid "Coordinate expression results in division by zero"
+#~ msgstr "تعبير الإحداثيّات ينتُج عند القسمة على صفر"
+
+#~ msgid ""
+#~ "Coordinate expression tries to use mod operator on a floating-point number"
+#~ msgstr "تعبير الإحداثيّاتيّات يحاول استعمال مقسوم mod على عدد فاصلة متحرّكة"
+
+#~ msgid ""
+#~ "Coordinate expression has an operator \"%s\" where an operand was expected"
+#~ msgstr "تعبير الإحداثيّات له مقسوم \"%s\" بالرغم من ترقبه قاسم"
+
+#~ msgid "Coordinate expression had an operand where an operator was expected"
+#~ msgstr "تعبير الإحداثيّات له قاسم بالرغم من ترقبه لمقسوم"
+
+#~ msgid "Coordinate expression ended with an operator instead of an operand"
+#~ msgstr "انتهى تعبير الإحداثيّات بمقسوم عوضا عن قاسم"
+
+#~ msgid ""
+#~ "Coordinate expression has operator \"%c\" following operator \"%c\" with "
+#~ "no operand in between"
+#~ msgstr "لتعبير الإحداثيّات مقسوم \"%c\" يتبع القاسم \"%c\" بدون قاسم بينهما"
+
+#~ msgid "Coordinate expression had unknown variable or constant \"%s\""
+#~ msgstr "كان لتعبير الإحداثيّات متغير أو ثابت \"%s\""
+
+#~ msgid "Coordinate expression parser overflowed its buffer."
+#~ msgstr "غمر محلّل تعبير الإحداثيّات مجاله"
+
+#~ msgid ""
+#~ "Coordinate expression had a close parenthesis with no open parenthesis"
+#~ msgstr "كان لتعبير الإحداثيّات قوس غلق بدون قوس فتح"
+
+#~ msgid ""
+#~ "Coordinate expression had an open parenthesis with no close parenthesis"
+#~ msgstr "كان لتعبير الإحداثيات قوس فتح بدون قوس غلق"
+
+#~ msgid "Coordinate expression doesn't seem to have any operators or operands"
+#~ msgstr "تعبير الإحداثيات لا يملك قاسمات و مقسومات"
+
+#~ msgid "Theme contained an expression that resulted in an error: %s\n"
+#~ msgstr "احتوت السِمة على تعبير ادى الى خطأ: %s\n"
+
+#~ msgid ""
+#~ "<button function=\"%s\" state=\"%s\" draw_ops=\"whatever\"/> must be "
+#~ "specified for this frame style"
+#~ msgstr ""
+#~ "يجب تخصيص <button function=\"%s\" state=\"%s\" draw_ops=\"whatever\"/> "
+#~ "لأسلوب الإطار هذا"
+
+#~ msgid ""
+#~ "Missing <frame state=\"%s\" resize=\"%s\" focus=\"%s\" style=\"whatever\"/"
+#~ ">"
+#~ msgstr ""
+#~ "<frame state=\"%s\" resize=\"%s\" focus=\"%s\" style=\"whatever\"/> مفقود"
+
+#~ msgid "Failed to load theme \"%s\": %s\n"
+#~ msgstr "فشل تحميل السِمة \"%s\": %s\n"
+
+#~ msgid "No <%s> set for theme \"%s\""
+#~ msgstr "لا <%s> ضبط للسِمة \"%s\""
+
+#~ msgid ""
+#~ "No frame style set for window type \"%s\" in theme \"%s\", add a <window "
+#~ "type=\"%s\" style_set=\"whatever\"/> element"
+#~ msgstr ""
+#~ "لا أسلوب إطار مضبوط لنوع النافذة \"%s\" في السِمة \"%s\"، اضف عنصر <window "
+#~ "type=\"%s\" style_set=\"whatever\"/>"
+
+#~ msgid ""
+#~ "User-defined constants must begin with a capital letter; \"%s\" does not"
+#~ msgstr ""
+#~ "الثوابت المعرفة من طرف المستخدم يجب أن تبدأ بحروف كبيرة، \"%s\" لا يبدأ "
+#~ "بذلك"
+
+#~ msgid "Constant \"%s\" has already been defined"
+#~ msgstr "عُرِّف الثابت \"%s\" بالفعل"
+
+#~ msgid "No \"%s\" attribute on element <%s>"
+#~ msgstr "لا صفة \"%s\" على العنصر <%s>"
+
+#~ msgid "Line %d character %d: %s"
+#~ msgstr "سطر %d محْرف %d: %s"
+
+#~ msgid "Attribute \"%s\" repeated twice on the same <%s> element"
+#~ msgstr "الصفة \"%s\" معادة مرتان في نفس العنصر <%s>"
+
+#~ msgid "Attribute \"%s\" is invalid on <%s> element in this context"
+#~ msgstr "الصفة \"%s\" مغلوطة في العنصر <%s> في هذا السياق"
+
+#~ msgid "Could not parse \"%s\" as an integer"
+#~ msgstr "تعذّر تحليل \"%s\" كعدد صحيح"
+
+#~ msgid "Did not understand trailing characters \"%s\" in string \"%s\""
+#~ msgstr "لم أفهم المحارف المتدلية \"%s\" في السلسلة \"%s\""
+
+#~ msgid "Integer %ld must be positive"
+#~ msgstr "العدد الصحيح %ld يجب أن يكون ايجابيا"
+
+#~ msgid "Integer %ld is too large, current max is %d"
+#~ msgstr "العدد الصحيح %ld كبير جدا، الحد الأقصى هو %d"
+
+#~ msgid "Could not parse \"%s\" as a floating point number"
+#~ msgstr "لا يمكن تحليل \"%s\" كعدد فاصلة متحرّكة"
+
+#~ msgid "Boolean values must be \"true\" or \"false\" not \"%s\""
+#~ msgstr "يجب أن تكون القيم البوليانيّة \"صحيح\" أو \"خاطئ\" لا \"%s\""
+
+#~ msgid "Angle must be between 0.0 and 360.0, was %g\n"
+#~ msgstr "يجب أن تكون الزاوية بين 0.0 و 360.0،وهي كانت%g\n"
+
+#~ msgid ""
+#~ "Alpha must be between 0.0 (invisible) and 1.0 (fully opaque), was %g\n"
+#~ msgstr ""
+#~ "يجب أن تكون الشفافية بين 0.0 (مختف) و 1.0 (دامس تماما)، وهي كانت %g\n"
+
+#~ msgid ""
+#~ "Invalid title scale \"%s\" (must be one of xx-small,x-small,small,medium,"
+#~ "large,x-large,xx-large)\n"
+#~ msgstr ""
+#~ "حجم عنوان غير سليم \"%s\" (يجب أن يكون واحد من xx-small,x-small,small,"
+#~ "medium,large,x-large,xx-large)\n"
+
+#~ msgid "<%s> name \"%s\" used a second time"
+#~ msgstr "<%s> استُعمل الاسم \"%s\" للمرّة الثانية"
+
+#~ msgid "<%s> parent \"%s\" has not been defined"
+#~ msgstr "<%s> لم يُعرّف الأب \"%s\""
+
+#~ msgid "<%s> geometry \"%s\" has not been defined"
+#~ msgstr "<%s> لم تُعرّف الهندسة \"%s\""
+
+#~ msgid "<%s> must specify either a geometry or a parent that has a geometry"
+#~ msgstr "يجب ان يخصص <%s> هندسة أو اب له هندسة"
+
+#~ msgid "You must specify a background for an alpha value to be meaningful"
+#~ msgstr "يجب أن تحدّد خلفية ليصبح لقيمة ألفا معنى"
+
+#~ msgid "Unknown type \"%s\" on <%s> element"
+#~ msgstr "نوع مجهول \"%s\" على عنصر <%s>"
+
+#~ msgid "Unknown style_set \"%s\" on <%s> element"
+#~ msgstr "style_set مجهول \"%s\" على العنصر <%s>"
+
+#~ msgid "Window type \"%s\" has already been assigned a style set"
+#~ msgstr "اعطى لنوع النافذة \"%s\" مجموعة أساليب بالفعل"
+
+#~ msgid "Element <%s> is not allowed below <%s>"
+#~ msgstr "العنصر <%s> غير مسموح به تحت <%s>"
+
+#~ msgid ""
+#~ "Cannot specify both \"button_width\"/\"button_height\" and "
+#~ "\"aspect_ratio\" for buttons"
+#~ msgstr ""
+#~ "لا يمكن تخصيص \"button_width\"/\"button_height\" و \"aspect_ratio\" "
+#~ "للأزرار"
+
+#~ msgid "Distance \"%s\" is unknown"
+#~ msgstr "المسافة \"%s\" مجهولة"
+
+#~ msgid "Aspect ratio \"%s\" is unknown"
+#~ msgstr "نسبة الجانب \"%s\" مجهولة"
+
+#~ msgid "Border \"%s\" is unknown"
+#~ msgstr "الحدّ \"%s\" مجهول"
+
+#~ msgid "No \"start_angle\" or \"from\" attribute on element <%s>"
+#~ msgstr "لا صفة \"start_angle\"  أو \"from\" على العنصر <%s>"
+
+#~ msgid "No \"extent_angle\" or \"to\" attribute on element <%s>"
+#~ msgstr "لا صفة \"extent_angle\" أو \"to\" على العنصر <%s>"
+
+#~ msgid "Did not understand value \"%s\" for type of gradient"
+#~ msgstr "لم أفهم القيمة \"%s\" لنوع التدرّج"
+
+#~ msgid "Did not understand fill type \"%s\" for <%s> element"
+#~ msgstr "لم أفهم نوع الملأ \"%s\" للعنصر <%s>"
+
+#~ msgid "Did not understand state \"%s\" for <%s> element"
+#~ msgstr "لم أفهم حالة \"%s\" العنصر <%s>"
+
+#~ msgid "Did not understand shadow \"%s\" for <%s> element"
+#~ msgstr "لم أفهم ظل \"%s\" العنصر <%s>"
+
+#~ msgid "Did not understand arrow \"%s\" for <%s> element"
+#~ msgstr "لم أفهم السهم \"%s\" للعنصر <%s>"
+
+#~ msgid "No <draw_ops> called \"%s\" has been defined"
+#~ msgstr "لم يعرف <draw_ops> مسمى \"%s\""
+
+#~ msgid "Including draw_ops \"%s\" here would create a circular reference"
+#~ msgstr "تضمين draw_ops \"%s\" هنا سينشئ مرجعا دائريا"
+
+#~ msgid "Unknown position \"%s\" for frame piece"
+#~ msgstr "موقع مجهول \"%s\" لقطعة الإطار"
+
+#~ msgid "Frame style already has a piece at position %s"
+#~ msgstr "أسلوب الإطار له قطعة في الموقع %s"
+
+#~ msgid "No <draw_ops> with the name \"%s\" has been defined"
+#~ msgstr "لم تعرف <draw_ops> بالاسم \"%s\""
+
+#~ msgid "Unknown function \"%s\" for button"
+#~ msgstr "وظيفة مجهولة \"%s\" للزر"
+
+#~ msgid "Button function \"%s\" does not exist in this version (%d, need %d)"
+#~ msgstr "لا وجود لوظيفة الزر  \"%s\" في هذه الإصدارة (%d، تحتاج %d)"
+
+#~ msgid "Unknown state \"%s\" for button"
+#~ msgstr "حالة مجهولة \"%s\" للزر"
+
+#~ msgid "Frame style already has a button for function %s state %s"
+#~ msgstr "أسلوب الإطار له بالفعل زر للوظيفة %s الحالة %s"
+
+#~ msgid "\"%s\" is not a valid value for focus attribute"
+#~ msgstr "\"%s\" قيمة غير سليمة لصفة التركيز"
+
+#~ msgid "\"%s\" is not a valid value for state attribute"
+#~ msgstr "\"%s\" قيمة غير سليمة لصفة الحالة"
+
+#~ msgid "A style called \"%s\" has not been defined"
+#~ msgstr "لم يعرف أسلوب مسمى بـ \"%s\""
+
+#~ msgid "\"%s\" is not a valid value for resize attribute"
+#~ msgstr "\"%s\" ليس قيمة سليمة لصفة التحجيم"
+
+#~ msgid ""
+#~ "Should not have \"resize\" attribute on <%s> element for maximized/shaded "
+#~ "states"
+#~ msgstr "لا يجب أن تكون صفة \"التحجيم\" على عنصر <%s> لحالات التكبير/الاخفاء"
+
+#~ msgid ""
+#~ "Should not have \"resize\" attribute on <%s> element for maximized states"
+#~ msgstr "لا يجب أن تكون صفة \"التحجيم\" على عنصر <%s> لحالات التكبير"
+
+#~ msgid "Style has already been specified for state %s resize %s focus %s"
+#~ msgstr "حُدّد بالفعل أسلوب للحالة %s التحجيم %s التركيز %s"
+
+#~ msgid "Style has already been specified for state %s focus %s"
+#~ msgstr "حُدّد بالفعل أسلوب للحالة %s التركيز %s"
+
+#~ msgid ""
+#~ "Can't have a two draw_ops for a <piece> element (theme specified a "
+#~ "draw_ops attribute and also a <draw_ops> element, or specified two "
+#~ "elements)"
+#~ msgstr ""
+#~ "لا يمكن ان يوجد draw_ops اثنان لعنصر <piece> (خصصت السِمة صفة draw_ops و "
+#~ "عنصر <draw_ops>، أو عنصران محدّدان)"
+
+#~ msgid ""
+#~ "Can't have a two draw_ops for a <button> element (theme specified a "
+#~ "draw_ops attribute and also a <draw_ops> element, or specified two "
+#~ "elements)"
+#~ msgstr ""
+#~ "لا يمكن ان يوجد draw_ops اثنان لعنصر <button> (خصصت السِمة صفة draw_ops و "
+#~ "عنصر <draw_ops>، أو عنصران محدّدان)"
+
+#~ msgid ""
+#~ "Can't have a two draw_ops for a <menu_icon> element (theme specified a "
+#~ "draw_ops attribute and also a <draw_ops> element, or specified two "
+#~ "elements)"
+#~ msgstr ""
+#~ "لا يمكن ان يوجد draw_ops اثنان لعنصر<menu_icon>  (خصصت السِمة صفة draw_ops "
+#~ "و عنصر <draw_ops>، أو عنصران محدّدان)"
+
+#~ msgid "Outermost element in theme must be <metacity_theme> not <%s>"
+#~ msgstr "يجب أن يكون أخرج عنصر في السِمة <metacity_theme> لا <%s>"
+
+#~ msgid ""
+#~ "Element <%s> is not allowed inside a name/author/date/description element"
+#~ msgstr "العنصر <%s> غير مسموح به داخل عنصر اسم/كاتب/تاريخ/وصف"
+
+#~ msgid "Element <%s> is not allowed inside a <constant> element"
+#~ msgstr "العنصر <%s> غير مسموح به داخل عنصر <constant>"
+
+#~ msgid ""
+#~ "Element <%s> is not allowed inside a distance/border/aspect_ratio element"
+#~ msgstr "العنصر <%s> غير مسموح به داخل عنصر مسافة/حد/aspect_ratio"
+
+#~ msgid "Element <%s> is not allowed inside a draw operation element"
+#~ msgstr "العنصر <%s> غير مسموح به داخل عنصر عملية متعادلة"
+
+#~ msgid "Element <%s> is not allowed inside a <%s> element"
+#~ msgstr "العنصر <%s> غير مسموح به داخل عنصر <%s>"
+
+#~ msgid "No draw_ops provided for frame piece"
+#~ msgstr "لا draw_ops مزودة لقطعة الإطار"
+
+#~ msgid "No draw_ops provided for button"
+#~ msgstr "لا draw_ops مزودة للزر"
+
+#~ msgid "No text is allowed inside element <%s>"
+#~ msgstr "لا يُسمح بنص داخل العنصر <%s>"
+
+#~ msgid "<%s> specified twice for this theme"
+#~ msgstr "<%s> محدّد مرتان لهذه السِمة"
+
+#~ msgid "Failed to find a valid file for theme %s\n"
+#~ msgstr "فشل العثو على سِمة صحيحة في %s\n"
+
+#~ msgid "Usage: %s\n"
+#~ msgstr "الاستخدام: %s\n"
+
+#~ msgid "_Windows"
+#~ msgstr "_نوافذ"
+
+#~ msgid "_Dialog"
+#~ msgstr "_صندوق حوار"
+
+#~ msgid "_Modal dialog"
+#~ msgstr "صندوق حوار _سائد"
+
+#~ msgid "_Utility"
+#~ msgstr "أ_داة"
+
+#~ msgid "_Splashscreen"
+#~ msgstr "_شاشة بدء"
+
+#~ msgid "_Top dock"
+#~ msgstr "الرصيف ال_علوي"
+
+#~ msgid "_Bottom dock"
+#~ msgstr "الرصيف الس_فلي"
+
+#~ msgid "_Left dock"
+#~ msgstr "الرصيف الأ_يسر"
+
+#~ msgid "_Right dock"
+#~ msgstr "الرصيف الأي_من"
+
+#~ msgid "_All docks"
+#~ msgstr "_جميع الأرصفة"
+
+#~ msgid "Des_ktop"
+#~ msgstr "س_طح المكتب"
+
+#~ msgid "Open another one of these windows"
+#~ msgstr "افتح نافذة أخرى من هذه النوافذ"
+
+#~ msgid "This is a demo button with an 'open' icon"
+#~ msgstr "هذا زر عرض بأيقونة 'افتح'"
+
+#~ msgid "This is a demo button with a 'quit' icon"
+#~ msgstr "هذا زر عرض بأيقونة 'انهي'"
+
+#~ msgid "This is a sample message in a sample dialog"
+#~ msgstr "هذا رسالة عيّنة في حوار عيّنة"
+
+#~ msgid "Fake menu item %d\n"
+#~ msgstr "عنصر قائمة مستعار %d\n"
+
+#~ msgid "Border-only window"
+#~ msgstr "نافذة ذات حدود فقط"
+
+#~ msgid "Bar"
+#~ msgstr "شريط"
+
+#~ msgid "Normal Application Window"
+#~ msgstr "نافذة تطبيق عادية"
+
+#~ msgid "Dialog Box"
+#~ msgstr "صندوق حوار"
+
+#~ msgid "Modal Dialog Box"
+#~ msgstr "صندوق حوار سائد"
+
+#~ msgid "Utility Palette"
+#~ msgstr "لوحة أدوات"
+
+#~ msgid "Torn-off Menu"
+#~ msgstr "قائمة مفصولة"
+
+#~ msgid "Border"
+#~ msgstr "حد"
+
+#~ msgid "Button layout test %d"
+#~ msgstr "تجربة تصميم الأزرار %d"
+
+#~ msgid "%g milliseconds to draw one window frame"
+#~ msgstr "%g ملي ثانية لرسم إظار واحد للنافذة"
+
+#~ msgid "Usage: metacity-theme-viewer [THEMENAME]\n"
+#~ msgstr "الإستعمال: metacity-theme-viewer [THEMENAME]\n"
+
+#~ msgid "Error loading theme: %s\n"
+#~ msgstr "خطأ عند تحميل السِمة: %s\n"
+
+#~ msgid "Loaded theme \"%s\" in %g seconds\n"
+#~ msgstr "حُمِّلت السِمة \"%s\" في %g ثواني\n"
+
+#~ msgid "Normal Title Font"
+#~ msgstr "خط عنوان عادي"
+
+#~ msgid "Small Title Font"
+#~ msgstr "خط عنوان صغير"
+
+#~ msgid "Large Title Font"
+#~ msgstr "خط عنوان كبير"
+
+#~ msgid "Button Layouts"
+#~ msgstr "تصاميم الأزرار"
+
+#~ msgid "Benchmark"
+#~ msgstr "علامة إهتداء"
+
+#~ msgid "Window Title Goes Here"
+#~ msgstr "عنوان النافذة يكون هنا"
+
+#~ msgid ""
+#~ "Drew %d frames in %g client-side seconds (%g milliseconds per frame) and "
+#~ "%g seconds wall clock time including X server resources (%g milliseconds "
+#~ "per frame)\n"
+#~ msgstr ""
+#~ "دفعت %d إطارات في %g ثوان بإتجاه العميل (%g ملي ثانية لكل إطار) و %g "
+#~ "ثواني بوقت ساعة حائطية مع مصادر خادوم X (%g ملي ثانية لكل إطار)\n"
+
+#~ msgid "position expression test returned TRUE but set error"
+#~ msgstr "أرجع إختبار تعبير الموقع TRUE لكنه لم يكتشف الخطأ"
+
+#~ msgid "position expression test returned FALSE but didn't set error"
+#~ msgstr "أرجع إختبار تعبير الموقع خطأ لكنه لم يكتشف الخطأ"
+
+#~ msgid "Error was expected but none given"
+#~ msgstr "تُرُقِّب خطأ لكن لم يعطى أي خطأ"
+
+#~ msgid "Error %d was expected but %d given"
+#~ msgstr "تُرقّب %d لكن أعطى %d"
+
+#~ msgid "Error not expected but one was returned: %s"
+#~ msgstr "لم يُترقب خطأ لكنه أرجع واحدًا: %s"
+
+#~ msgid "x value was %d, %d was expected"
+#~ msgstr "قيمة س كانت %d، تُرُقِّب %d"
+
+#~ msgid "y value was %d, %d was expected"
+#~ msgstr "قيمة ص كانت %d، تُرُقَِب %d"
+
+#~ msgid ""
+#~ "%d coordinate expressions parsed in %g seconds (%g seconds average)\n"
+#~ msgstr "حُلِّلت %d تعابير الإحداثيات في %g ثواني (بمعدّل %g ثوان)\n"
+
+#~ msgid "Minimize window"
+#~ msgstr "صغّر النّافذة"
+
+#~ msgid "Comma-separated list of compositor plugins"
+#~ msgstr "قائمة بملحقات المزج مفصولة بفاصلة"
+
+#~ msgid "Switch to workspace on the left of the current workspace"
+#~ msgstr "انتقل إلى مساحة العمل على يسار الحالية"
+
+#~ msgid "Switch to workspace on the right of the current workspace"
+#~ msgstr "انتقل إلى مساحة العمل على يمين الحالية"
+
+#~ msgid "Switch to workspace above the current workspace"
+#~ msgstr "انتقل إلى مساحة العمل فوق الحالية"
+
+#~ msgid "Switch to workspace below the current workspace"
+#~ msgstr "انتقل إلى مساحة العمل تحت الحالية"
+
+#~ msgid "Move between windows of an application, using a popup window"
+#~ msgstr "تنقل بين نوافذ تطبيق بنافذةٍ قافزة"
+
+#~ msgid ""
+#~ "Move backward between windows of an application, using a popup window"
+#~ msgstr "تنقل إلى الوراء بين نوافذ تطبيق بنافذةٍ قافزة"
+
+#~ msgid "Move between windows, using a popup window"
+#~ msgstr "تنقل بين النوافذ بنافذةٍ قافزة"
+
+#~ msgid "Move backward between windows, using a popup window"
+#~ msgstr "تنقل إلى الوراء بين النوافذ بنافذةٍ قافزة"
+
+#~ msgid "Move between panels and the desktop, using a popup window"
+#~ msgstr "تنقل بين الأشرطة و سطح المكتب بنافذةٍ قافزة"
+
+#~ msgid "Move backward between panels and the desktop, using a popup window"
+#~ msgstr "تنقل إلى الوراء بين الأشرطة و سطح المكتب بنافذةٍ قافزة"
+
+#~ msgid "Move between windows of an application immediately"
+#~ msgstr "تنقل بين نوافذ تطبيق حالًا"
+
+#~ msgid "Move backward between windows of an application immediately"
+#~ msgstr "تنقل إلى الوراء بين نوافذ تطبيق حالًا"
+
+#~ msgid "Move between windows immediately"
+#~ msgstr "تنقل بين النوافذ حالًا"
+
+#~ msgid "Move backward between windows immediately"
+#~ msgstr "تنقل إلى الوراء بين النوافذ حالًا"
+
+#~ msgid "Move between panels and the desktop immediately"
+#~ msgstr "تنقل بين الأشرطة و سطح المكتب حالًا"
+
+#~ msgid "Move backward between panels and the desktop immediately"
+#~ msgstr "تنقل إلى الوراء بين الأشرطة و سطح المكتب حالًا"
+
+#~ msgid "Hide all normal windows and set focus to the desktop"
+#~ msgstr "أخفِ كل النوافذ و ركّز على سطح المكتب"
+
+#~ msgid "Show the panel's main menu"
+#~ msgstr "اعرض قائمة الشريط الرئيسية"
+
+#~ msgid "Show the panel's \"Run Application\" dialog box"
+#~ msgstr "أظهر حوار الشّريط لتشغيل التّطبيقات"
+
+#~ msgid "Start or stop recording the session"
+#~ msgstr "ابدأ أو أوقف تسجيل الجلسة"
+
+#~ msgid "Take a screenshot"
+#~ msgstr "خذ لقطة شاشة"
+
+#~ msgid "Take a screenshot of a window"
+#~ msgstr "خذ لقطة لنافذة"
+
+#~ msgid "Run a terminal"
+#~ msgstr "شغّل طرفية"
+
+#~ msgid "Toggle whether a window will always be visible over other windows"
+#~ msgstr "بدّل حالة ظهور النافذة فوق النوافذ الأخرى"
+
+#~ msgid "Toggle whether window is on all workspaces or just one"
+#~ msgstr "بدّل حالة ظهور النافذة على جميع مساحات العمل"
+
+#~ msgid "Move window to workspace 5"
+#~ msgstr "انقل النافذة إلى مساحة العمل 5"
+
+#~ msgid "Move window to workspace 6"
+#~ msgstr "انقل النافذة إلى مساحة العمل 6"
+
+#~ msgid "Move window to workspace 7"
+#~ msgstr "انقل النافذة إلى مساحة العمل 7"
+
+#~ msgid "Move window to workspace 8"
+#~ msgstr "انقل النافذة إلى مساحة العمل 8"
+
+#~ msgid "Move window to workspace 9"
+#~ msgstr "انقل النافذة إلى مساحة العمل 9"
+
+#~ msgid "Move window to workspace 10"
+#~ msgstr "انقل النافذة إلى مساحة العمل 10"
+
+#~ msgid "Move window to workspace 11"
+#~ msgstr "انقل النافذة إلى مساحة العمل 11"
+
+#~ msgid "Move window to workspace 12"
+#~ msgstr "انقل النافذة إلى مساحة العمل 12"
+
+#~ msgid "Raise window if it's covered by another window, otherwise lower it"
+#~ msgstr "ارفع النافذة إذا كانت أخرى تغطيها، أو أخفضها في ما عدا ذلك"
+
+#~ msgid "Move window to north-west (top left) corner"
+#~ msgstr "انقل النافذة للزاوية شمال-غربي الشاشة (أعلى اليسار)"
+
+#~ msgid "Move window to north-east (top right) corner"
+#~ msgstr "انقل النافذة للزاوية شمال-شرقي الشاشة (أعلى اليمين)"
+
+#~ msgid "Move window to south-west (bottom left) corner"
+#~ msgstr "انقل النافذة للزاوية جنوب-غرب الشاشة (أدنى اليسار)"
+
+#~ msgid "Move window to south-east (bottom right) corner"
+#~ msgstr "انقل النافذة للزاوية جنوب-شرق الشاشة (أدنى اليمين)"
+
+#~ msgid "Move window to north (top) side of screen"
+#~ msgstr "انقل النافذة للجانب الشمالي من الشاشة (فوق)"
+
+#~ msgid "Move window to south (bottom) side of screen"
+#~ msgstr "انقل النافذة للجانب الجنوبي من الشاشة (تحت)"
+
+#~ msgid "Move window to east (right) side of screen"
+#~ msgstr "انقل النافذة للجانب الشرقي من الشاشة (يمين)"
+
+#~ msgid "Move window to west (left) side of screen"
+#~ msgstr "انقل النافذة للجانب الغربي من الشاشة (يسار)"
+
+#~ msgid "Move window to center of screen"
+#~ msgstr "انقل النافذة إلى وسط الشاشة"
+
+#~ msgid ""
+#~ "There was an error running <tt>%s</tt>:\n"
+#~ "\n"
+#~ "%s"
+#~ msgstr ""
+#~ "حصل خطأ عند تشغيل <tt>%s</tt>:\n"
+#~ "\n"
+#~ "%s."
+
+#~ msgid "No command %d has been defined.\n"
+#~ msgstr "لم يُعرّف أمر %d.\n"
+
+#~ msgid "No terminal command has been defined.\n"
+#~ msgstr "لم يُعرّف أمر طرفيّة.\n"
+
+#~ msgid "GConf key '%s' is set to an invalid value\n"
+#~ msgstr "مفتاح GConf '%s' مضبوط لقيمة غير صحيحة\n"
+
+#~ msgid "%d stored in GConf key %s is out of range %d to %d\n"
+#~ msgstr "%d المحفوظ في مفتاح GConf %s خارج المدى من %d إلى %d\n"
+
+#~ msgid "GConf key \"%s\" is set to an invalid type\n"
+#~ msgstr "مفتاح GConf \"%s\" مضبوط لنوع غير صحيح\n"
+
+#~ msgid "Error setting number of workspaces to %d: %s\n"
+#~ msgstr "خطأ عند تعيين عدد مساحات العمل لـ %d: %s\n"
+
+#~ msgid "Error setting name for workspace %d to \"%s\": %s\n"
+#~ msgstr "خطأ عند تحديد اسم مساحة العمل %d لـ \"%s\": %s\n"
+
+#~ msgid "Error setting no tab popup status: %s\n"
+#~ msgstr "خطأ عند ضبط حالة لا لسان منبثق: %s\n"
+
+#~ msgid "Close Window"
+#~ msgstr "أغلق النافذة"
+
+#~ msgid "Minimize Window"
+#~ msgstr "صغّر النافذة"
+
+#~ msgid "Maximize Window"
+#~ msgstr "كبّر النافذة"
+
+#~ msgid "Restore Window"
+#~ msgstr "استعد النّافذة"
+
+#~ msgid "Roll Up Window"
+#~ msgstr "لُفّ النافذة الأعلى"
+
+#~ msgid "Unroll Window"
+#~ msgstr "ألغى لفّ النافذة"
+
+#~ msgid "Keep Window On Top"
+#~ msgstr "ابقي النافذة على القمة"
+
+#~ msgid "Always On Visible Workspace"
+#~ msgstr "دائما مساحة العمل المرئية"
+
+#~ msgid "Put Window On Only One Workspace"
+#~ msgstr "ضع النافذة على مساحة عمل واحدة فقط"
+
+#~ msgid ""
+#~ "Don't make fullscreen windows that are maximized and have no decorations"
+#~ msgstr "لا تنشئ نوافذ تملأ الشاشة وبدون حواف"
+
+#~ msgid "Error setting clutter plugin list: %s\n"
+#~ msgstr "خطأ عند تحديد قائمة ملحقات كلتر: %s\n"

@@ -1,0 +1,179 @@
+# translation of kcm_kwindesktop.po to
+# Copyright (C) 2008 This_file_is_part_of_KDE
+# This file is distributed under the same license as the kcm_kwindesktop package.
+# ANI PETER|അനി പീറ്റര്‍ <peter.ani@gmail.com>, 2008
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: kcm_kwindesktop\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-04-14 00:45+0000\n"
+"PO-Revision-Date: 2008-07-10 02:43+0530\n"
+"Last-Translator: ANI PETER|അനി പീറ്റര്‍ <peter.ani@gmail.com>\n"
+"Language-Team: Swathanthra|സ്വതന്ത്ര Malayalam|മലയാളം Computing|കമ്പ്യൂട്ടിങ്ങ് <smc-"
+"discuss@googlegroups.com>\n"
+"Language: ml\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#, kde-format
+msgctxt "NAME OF TRANSLATORS"
+msgid "Your names"
+msgstr ""
+
+#, kde-format
+msgctxt "EMAIL OF TRANSLATORS"
+msgid "Your emails"
+msgstr ""
+
+#: desktopsmodel.cpp:188
+#, fuzzy, kde-format
+#| msgid "Desktop %1"
+msgctxt "A numbered name for virtual desktops"
+msgid "Desktop %1"
+msgid_plural "Desktop %1"
+msgstr[0] "പണിയിടം %1"
+msgstr[1] "പണിയിടം %1"
+
+#: desktopsmodel.cpp:476
+#, kde-format
+msgid "There was an error connecting to the compositor."
+msgstr ""
+
+#: desktopsmodel.cpp:672
+#, kde-format
+msgid "There was an error saving the settings to the compositor."
+msgstr ""
+
+#: desktopsmodel.cpp:675
+#, kde-format
+msgid "There was an error requesting information from the compositor."
+msgstr ""
+
+#: ui/main.qml:26
+#, kde-format
+msgctxt "@text:label Number of rows, label associated to a number input field"
+msgid "Rows:"
+msgstr ""
+
+#: ui/main.qml:54
+#, fuzzy, kde-format
+msgctxt "@action:button"
+msgid "Add Desktop"
+msgstr "പണിയിടം %1"
+
+#: ui/main.qml:90
+#, kde-format
+msgctxt "@action:button"
+msgid "Rename"
+msgstr ""
+
+#: ui/main.qml:100
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Remove"
+msgstr ""
+
+#: ui/main.qml:119
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Apply new name"
+msgstr ""
+
+#: ui/main.qml:132
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Cancel rename"
+msgstr ""
+
+#: ui/main.qml:179
+#, kde-format
+msgid ""
+"Virtual desktops have been changed outside this settings application. Saving "
+"now will overwrite the changes."
+msgstr ""
+
+#: ui/main.qml:195
+#, kde-format
+msgid "Row %1"
+msgstr ""
+
+#: ui/main.qml:209
+#, kde-format
+msgid "Options:"
+msgstr ""
+
+#: ui/main.qml:211
+#, kde-format
+msgid "Navigation wraps around"
+msgstr ""
+
+#: ui/main.qml:225
+#, kde-format
+msgid "Switch desktops independently for each screen"
+msgstr ""
+
+#: ui/main.qml:243
+#, kde-format
+msgid "Show animation when switching:"
+msgstr ""
+
+#: ui/main.qml:294
+#, kde-format
+msgid "Show on-screen display when switching:"
+msgstr ""
+
+#: ui/main.qml:313
+#, kde-format
+msgid "%1 ms"
+msgstr ""
+
+#: ui/main.qml:337
+#, kde-format
+msgid "Show desktop layout indicators"
+msgstr ""
+
+#, fuzzy
+#~ msgid "Virtual Desktops"
+#~ msgstr "പണിയിടം %1"
+
+#~ msgid "Desktop %1:"
+#~ msgstr "പണിയിടം %1:"
+
+#~ msgid "Here you can enter the name for desktop %1"
+#~ msgstr "ഇവിടെ നിങ്ങള്‍ക്കു് പണിയിടം %1-നുള്ള പേരു് നല്‍കാം"
+
+#~ msgid ""
+#~ "<h1>Multiple Desktops</h1>In this module, you can configure how many "
+#~ "virtual desktops you want and how these should be labeled."
+#~ msgstr ""
+#~ "<h1>അനവധി പണിയിടങ്ങള്‍</h1>നിങ്ങള്‍ക്കാവശ്യമുള്ള വിര്‍ച്ച്വല്‍ പണിയിടങ്ങള്‍ ക്രമീകരിക്കുന്നതിനും "
+#~ "അവ ലേബല്‍ ചെയ്യുന്നതിനും ഈ ഘടകം സഹായിക്കുന്നു."
+
+#, fuzzy
+#~ msgid "Switch to Desktop %1"
+#~ msgstr "പണിയിടം %1"
+
+#, fuzzy
+#~ msgid ""
+#~ "Here you can set how many virtual desktops you want on your KDE desktop."
+#~ msgstr ""
+#~ "നിങ്ങളുടെ കെഡിഇ പണിയിടത്തില്‍ നിങ്ങള്‍ക്കാവശ്യമുള്ള വിര്‍ച്ചവല്‍ പണിയിടങ്ങള്‍ ഇവിടെ "
+#~ "ക്രമീകരിക്കാം. മൂല്യം മാറ്റുന്നതിനായി സ്ലൈഡര്‍ നീക്കുക."
+
+#, fuzzy
+#~ msgid "&Number of desktops:"
+#~ msgstr "&എത്ര പണിയിടങ്ങള്‍: "
+
+#, fuzzy
+#~ msgid "N&umber of rows:"
+#~ msgstr "&എത്ര പണിയിടങ്ങള്‍: "
+
+#, fuzzy
+#~ msgid "Desktop Names"
+#~ msgstr "പണിയിടത്തിനുള്ള &പേരുകള്‍"
+
+#~ msgid "Mouse wheel over desktop background switches desktop"
+#~ msgstr "മൌസിന്റെ വീലുകള്‍ ഓരോ പണിയിട പശ്ചാത്തലത്തില്‍ വയ്ക്കുന്നതനുസരിച്ചു് പണിയിടം മാറുന്നു"

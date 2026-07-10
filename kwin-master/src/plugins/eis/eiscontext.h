@@ -1,0 +1,76 @@
+/*
+    SPDX-FileCopyrightText: 2024 David Redondo <kde@david-redondo.de>
+
+    SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted-GPL
+*/
+
+#pragma once
+
+#include "config-kwin.h"
+
+#include <QFlag>
+#include <QSocketNotifier>
+#include <QString>
+
+#include <libeis.h>
+
+#include <memory>
+#include <vector>
+
+namespace KWin
+{
+
+class EisBackend;
+struct EisClient;
+
+class EisContext
+{
+public:
+    EisContext(EisBackend *backend, QFlags<eis_device_capability> allowedCapabilities);
+    virtual ~EisContext();
+
+    void updateScreens();
+    void updateKeymap();
+    void forwardModifiers(uint32_t depressed, uint32_t latched, uint32_t locked, uint32_t group);
+
+    virtual void connectionRequested(eis_client *client)
+    {
+        connectClient(client);
+    }
+    void connectClient(eis_client *client);
+
+protected:
+    eis *m_eisContext;
+    EisBackend *m_backend;
+
+private:
+    void handleEvents();
+
+    QFlags<eis_device_capability> m_allowedCapabilities;
+    QSocketNotifier m_socketNotifier;
+    std::vector<std::unique_ptr<EisClient>> m_clients;
+};
+
+class DbusEisContext : public EisContext
+{
+public:
+    DbusEisContext(EisBackend *backend, QFlags<eis_device_capability> allowedCapabilities, int cookie, const QString &dbusService);
+
+    int addClient();
+
+    const int cookie;
+    const QString dbusService;
+};
+
+#if KWIN_BUILD_X11
+class XWaylandEisContext : public EisContext
+{
+public:
+    XWaylandEisContext(EisBackend *backend);
+    void connectionRequested(eis_client *client) override;
+
+    const QByteArray socketName;
+};
+#endif
+
+}

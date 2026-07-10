@@ -1,0 +1,196 @@
+/*
+    SPDX-FileCopyrightText: 2018-2020 Red Hat Inc
+    SPDX-FileCopyrightText: 2020 Aleix Pol Gonzalez <aleixpol@kde.org>
+    SPDX-FileContributor: Jan Grulich <jgrulich@redhat.com>
+
+    SPDX-License-Identifier: LGPL-2.0-or-later
+*/
+
+#include "screencastmanager.h"
+#include "compositor.h"
+#include "core/backendoutput.h"
+#include "core/output.h"
+#include "core/outputbackend.h"
+#include "core/renderbackend.h"
+#include "outputscreencastsource.h"
+#include "pipewirecore.h"
+#include "regionscreencastsource.h"
+#include "screencaststream.h"
+#include "wayland/clientconnection.h"
+#include "wayland/display.h"
+#include "wayland/output.h"
+#include "wayland_server.h"
+#include "window.h"
+#include "windowscreencastsource.h"
+#include "workspace.h"
+
+#include <KLocalizedString>
+
+namespace KWin
+{
+
+ScreencastManager::ScreencastManager()
+    : m_screencast(new ScreencastV1Interface(waylandServer()->display(), this))
+{
+    getPipewireConnection();
+
+    connect(m_screencast, &ScreencastV1Interface::windowScreencastRequested, this, &ScreencastManager::streamWindow);
+    connect(m_screencast, &ScreencastV1Interface::outputScreencastRequested, this, &ScreencastManager::streamWaylandOutput);
+    connect(m_screencast, &ScreencastV1Interface::virtualOutputScreencastRequested, this, &ScreencastManager::streamVirtualOutput);
+    connect(m_screencast, &ScreencastV1Interface::regionScreencastRequested, this, &ScreencastManager::streamRegion);
+}
+
+static bool isSupportedCompositingType()
+{
+    if (auto backend = Compositor::self()->backend()) {
+        return backend->compositingType() == OpenGLCompositing;
+    }
+    return false;
+}
+
+void ScreencastManager::streamWindow(ScreencastStreamV1Interface *waylandStream,
+                                     const QString &winid,
+                                     ScreencastV1Interface::CursorMode mode)
+{
+    if (!isSupportedCompositingType()) {
+        waylandStream->sendFailed(i18n("Unsupported compositing type"));
+        return;
+    }
+
+    auto window = Workspace::self()->findWindow(QUuid(winid));
+    if (!window) {
+        waylandStream->sendFailed(i18n("Could not find window id %1", winid));
+        return;
+    }
+
+    auto stream = new ScreenCastStream(new WindowScreenCastSource(window), getPipewireConnection(), this);
+    stream->setObjectName(window->desktopFileName());
+    stream->setCursorMode(mode);
+
+    integrateStreams(waylandStream, stream);
+}
+
+void ScreencastManager::streamVirtualOutput(ScreencastStreamV1Interface *stream,
+                                            const QString &name,
+                                            const QString &description,
+                                            const QSize &size,
+                                            double scale,
+                                            ScreencastV1Interface::CursorMode mode)
+{
+    if (!isSupportedCompositingType()) {
+        stream->sendFailed(i18n("Unsupported compositing type"));
+        return;
+    }
+
+    auto output = kwinApp()->outputBackend()->createVirtualOutput(name, description, size, scale);
+    streamOutput(stream, workspace()->findOutput(output), mode);
+    connect(stream, &ScreencastStreamV1Interface::finished, output, [output] {
+        kwinApp()->outputBackend()->removeVirtualOutput(output);
+    });
+}
+
+void ScreencastManager::streamWaylandOutput(ScreencastStreamV1Interface *waylandStream,
+                                            OutputInterface *output,
+                                            ScreencastV1Interface::CursorMode mode)
+{
+    if (!isSupportedCompositingType()) {
+        waylandStream->sendFailed(i18n("Unsupported compositing type"));
+        return;
+    }
+
+    streamOutput(waylandStream, output->handle(), mode);
+}
+
+void ScreencastManager::streamOutput(ScreencastStreamV1Interface *waylandStream,
+                                     LogicalOutput *streamOutput,
+                                     ScreencastV1Interface::CursorMode mode)
+{
+    if (!streamOutput) {
+        waylandStream->sendFailed(i18n("Could not find output"));
+        return;
+    }
+
+    auto stream = new ScreenCastStream(new OutputScreenCastSource(streamOutput, waylandStream->connection()->processId()), getPipewireConnection(), this);
+    stream->setObjectName(streamOutput->name());
+    stream->setCursorMode(mode);
+
+    integrateStreams(waylandStream, stream);
+}
+
+static QString rectToString(const Rect &rect)
+{
+    return QStringLiteral("%1,%2 %3x%4").arg(rect.x()).arg(rect.y()).arg(rect.width()).arg(rect.height());
+}
+
+static qreal devicePixelRatioForRegion(const Rect &region)
+{
+    qreal devicePixelRatio = 1.0;
+
+    const auto outputs = workspace()->outputs();
+    for (const LogicalOutput *output : outputs) {
+        if (output->geometry().intersects(region)) {
+            devicePixelRatio = std::max(devicePixelRatio, output->scale());
+        }
+    }
+
+    return devicePixelRatio;
+}
+
+void ScreencastManager::streamRegion(ScreencastStreamV1Interface *waylandStream, const Rect &geometry, qreal scale, ScreencastV1Interface::CursorMode mode)
+{
+    if (!isSupportedCompositingType()) {
+        waylandStream->sendFailed(i18n("Unsupported compositing type"));
+        return;
+    }
+
+    if (!geometry.isValid()) {
+        waylandStream->sendFailed(i18n("Invalid region"));
+        return;
+    }
+
+    if (scale == 0) {
+        scale = devicePixelRatioForRegion(geometry);
+    }
+
+    auto source = new RegionScreenCastSource(geometry, scale, waylandStream->connection()->processId());
+    auto stream = new ScreenCastStream(source, getPipewireConnection(), this);
+    stream->setObjectName(rectToString(geometry));
+    stream->setCursorMode(mode);
+
+    integrateStreams(waylandStream, stream);
+}
+
+void ScreencastManager::integrateStreams(ScreencastStreamV1Interface *waylandStream, ScreenCastStream *stream)
+{
+    connect(waylandStream, &ScreencastStreamV1Interface::finished, stream, &ScreenCastStream::close);
+    connect(stream, &ScreenCastStream::closed, waylandStream, [stream, waylandStream] {
+        waylandStream->sendClosed();
+        stream->deleteLater();
+    });
+    connect(stream, &ScreenCastStream::ready, waylandStream, [waylandStream](uint nodeid, quint64 objectSerial) {
+        waylandStream->sendObjectSerial(objectSerial);
+        waylandStream->sendCreated(nodeid);
+    });
+    if (!stream->init()) {
+        waylandStream->sendFailed(stream->error());
+        delete stream;
+    }
+}
+
+std::shared_ptr<PipeWireCore> ScreencastManager::getPipewireConnection()
+{
+    if (m_pipewireConnectionCache && m_pipewireConnectionCache->isValid()) {
+        return m_pipewireConnectionCache;
+    } else {
+        std::shared_ptr<PipeWireCore> pipeWireCore = std::make_shared<PipeWireCore>();
+        if (pipeWireCore->init()) {
+            m_pipewireConnectionCache = pipeWireCore;
+        }
+        // return a valid object even if init fails
+        return pipeWireCore;
+    }
+}
+
+} // namespace KWin
+
+#include "moc_screencastmanager.cpp"

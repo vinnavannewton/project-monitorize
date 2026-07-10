@@ -1,0 +1,48 @@
+/*
+    KWin - the KDE window manager
+    This file is part of the KDE project.
+
+    SPDX-FileCopyrightText: 2018 Roman Gilg <subdiff@gmail.com>
+    SPDX-FileCopyrightText: 2021 Xaver Hugl <xaver.hugl@gmail.com>
+
+    SPDX-License-Identifier: GPL-2.0-or-later
+*/
+#pragma once
+
+#include "core/backendoutput.h"
+
+#include <QObject>
+
+namespace KWin
+{
+
+class SoftwareVsyncMonitor;
+class VirtualBackend;
+class DrmBackend;
+class DrmOutputLayer;
+
+class DrmVirtualOutput : public BackendOutput
+{
+    Q_OBJECT
+
+public:
+    explicit DrmVirtualOutput(DrmBackend *backend, const QString &name, const QString &description, const QSize &size, qreal scale);
+    ~DrmVirtualOutput() override;
+
+    bool testPresentation(const std::shared_ptr<OutputFrame> &frame) override;
+    bool present(const QList<OutputLayer *> &layersToUpdate, const std::shared_ptr<OutputFrame> &frame) override;
+    void applyChanges(const OutputConfiguration &config) override;
+
+    DrmOutputLayer *primaryLayer() const;
+    void recreateSurface();
+
+private:
+    void vblank(std::chrono::nanoseconds timestamp);
+
+    DrmBackend *const m_backend;
+    std::shared_ptr<DrmOutputLayer> m_layer;
+    std::shared_ptr<OutputFrame> m_frame;
+    std::unique_ptr<SoftwareVsyncMonitor> m_vsyncMonitor;
+};
+
+}

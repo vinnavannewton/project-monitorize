@@ -1,0 +1,301 @@
+# translation of kcm_kwindesktop.po to Russian
+# Copyright (C) YEAR This_file_is_part_of_KDE
+# This file is distributed under the same license as the PACKAGE package.
+#
+# Leonid Kanter <leon@asplinux.ru>, 2008.
+# Andrey Cherepanov <skull@kde.ru>, 2009.
+# Nick Shaforostoff <shafff@ukr.net>, 2009, 2010.
+# Alexander Potashev <aspotashev@gmail.com>, 2010, 2014, 2018, 2019.
+# Alexander Lakhin <exclusion@gmail.com>, 2013.
+# SPDX-FileCopyrightText: 2019-2022, 2024-2026 Alexander Yavorsky <kekcuha@gmail.com>
+msgid ""
+msgstr ""
+"Project-Id-Version: kcm_kwindesktop\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-04-14 00:45+0000\n"
+"PO-Revision-Date: 2026-06-18 17:59+0200\n"
+"Last-Translator: Alexander Yavorskiy <kekcuha@gmail.com>\n"
+"Language-Team: Russian <kde-russian@lists.kde.ru>\n"
+"Language: ru\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Lokalize 26.04.2\n"
+"Plural-Forms: nplurals=4; plural=n==1 ? 3 : n%10==1 && n%100!=11 ? 0 : n"
+"%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
+"X-Environment: kde\n"
+"X-Accelerator-Marker: &\n"
+"X-Text-Markup: kde4\n"
+
+#, kde-format
+msgctxt "NAME OF TRANSLATORS"
+msgid "Your names"
+msgstr "Николай Шафоростов, Александр Яворский"
+
+#, kde-format
+msgctxt "EMAIL OF TRANSLATORS"
+msgid "Your emails"
+msgstr "shaforostoff@kde.ru, kekcuha@gmail.com"
+
+#: desktopsmodel.cpp:188
+#, kde-format
+msgctxt "A numbered name for virtual desktops"
+msgid "Desktop %1"
+msgid_plural "Desktop %1"
+msgstr[0] "Рабочий стол %1"
+msgstr[1] "Рабочий стол %1"
+msgstr[2] "Рабочий стол %1"
+msgstr[3] "Рабочий стол %1"
+
+#: desktopsmodel.cpp:476
+#, kde-format
+msgid "There was an error connecting to the compositor."
+msgstr "Ошибка при подключении к компоновщику."
+
+#: desktopsmodel.cpp:672
+#, kde-format
+msgid "There was an error saving the settings to the compositor."
+msgstr "Ошибка при сохранении параметров в компоновщике."
+
+#: desktopsmodel.cpp:675
+#, kde-format
+msgid "There was an error requesting information from the compositor."
+msgstr "Ошибка при выполнении запроса информации из компоновщика."
+
+#: ui/main.qml:26
+#, kde-format
+msgctxt "@text:label Number of rows, label associated to a number input field"
+msgid "Rows:"
+msgstr "Рядов:"
+
+#: ui/main.qml:54
+#, kde-format
+msgctxt "@action:button"
+msgid "Add Desktop"
+msgstr "Добавить рабочий стол"
+
+#: ui/main.qml:90
+#, kde-format
+msgctxt "@action:button"
+msgid "Rename"
+msgstr "Переименовать"
+
+#: ui/main.qml:100
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Remove"
+msgstr "Удалить"
+
+#: ui/main.qml:119
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Apply new name"
+msgstr "Применить новое имя"
+
+#: ui/main.qml:132
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Cancel rename"
+msgstr "Отменить переименование"
+
+#: ui/main.qml:179
+#, kde-format
+msgid ""
+"Virtual desktops have been changed outside this settings application. Saving "
+"now will overwrite the changes."
+msgstr ""
+"Параметры рабочих столов были изменены другим приложением. При сохранении "
+"параметров в этом окне будут проигнорированы сторонние изменения."
+
+#: ui/main.qml:195
+#, kde-format
+msgid "Row %1"
+msgstr "Строка %1"
+
+#: ui/main.qml:209
+#, kde-format
+msgid "Options:"
+msgstr "Параметры:"
+
+#: ui/main.qml:211
+#, kde-format
+msgid "Navigation wraps around"
+msgstr "С переходом по циклу"
+
+#: ui/main.qml:225
+#, kde-format
+msgid "Switch desktops independently for each screen"
+msgstr "Переключать рабочие столы независимо для каждого экрана"
+
+#: ui/main.qml:243
+#, kde-format
+msgid "Show animation when switching:"
+msgstr "Анимация при переключении:"
+
+#: ui/main.qml:294
+#, kde-format
+msgid "Show on-screen display when switching:"
+msgstr "Показывать экранное уведомление при переключении:"
+
+#: ui/main.qml:313
+#, kde-format
+msgid "%1 ms"
+msgstr "%1 мс"
+
+#: ui/main.qml:337
+#, kde-format
+msgid "Show desktop layout indicators"
+msgstr "Схематический обзор всех рабочих столов"
+
+#~ msgid "1 Row"
+#~ msgid_plural "%1 Rows"
+#~ msgstr[0] "%1 строка"
+#~ msgstr[1] "%1 строки"
+#~ msgstr[2] "%1 строк"
+#~ msgstr[3] "1 строка"
+
+#~ msgctxt "@action:button"
+#~ msgid "Add"
+#~ msgstr "Добавить"
+
+#~ msgid ""
+#~ "This module lets you configure the navigation, number and layout of "
+#~ "virtual desktops."
+#~ msgstr ""
+#~ "Этот модуль позволяет настроить число, расположение и способ переключения "
+#~ "рабочих столов."
+
+#~ msgid "Virtual Desktops"
+#~ msgstr "Рабочие столы"
+
+#~ msgid "Configure Virtual Desktops"
+#~ msgstr "Настройка рабочих столов"
+
+#~ msgid "Desktop %1:"
+#~ msgstr "Рабочий стол %1:"
+
+#~ msgid "Here you can enter the name for desktop %1"
+#~ msgstr "Здесь можно ввести имя рабочего стола %1"
+
+#~ msgid ""
+#~ "<h1>Multiple Desktops</h1>In this module, you can configure how many "
+#~ "virtual desktops you want and how these should be labeled."
+#~ msgstr ""
+#~ "<h1>Рабочие столы</h1>Этот модуль позволяет настроить количество рабочих "
+#~ "столов и их названия."
+
+#~ msgid "KWin"
+#~ msgstr "KWin"
+
+#~ msgid "Switch to Next Desktop"
+#~ msgstr "На следующий рабочий стол"
+
+#~ msgid "Switch to Previous Desktop"
+#~ msgstr "На предыдущий рабочий стол"
+
+#~ msgid "Switch One Desktop to the Right"
+#~ msgstr "На один рабочий стол вправо"
+
+#~ msgid "Switch One Desktop to the Left"
+#~ msgstr "На один рабочий стол влево"
+
+#~ msgid "Switch One Desktop Up"
+#~ msgstr "На один рабочий стол вверх"
+
+#~ msgid "Switch One Desktop Down"
+#~ msgstr "На один рабочий стол вниз"
+
+#~ msgid "Walk Through Desktops"
+#~ msgstr "На один рабочий стол вперёд"
+
+#~ msgid "Walk Through Desktops (Reverse)"
+#~ msgstr "На один рабочий стол назад"
+
+#~ msgid "Walk Through Desktop List"
+#~ msgstr "По списку рабочих столов вперёд"
+
+#~ msgid "Walk Through Desktop List (Reverse)"
+#~ msgstr "По списку рабочих столов назад"
+
+#~ msgid "Desktop Switching"
+#~ msgstr "Переключение между рабочими столами"
+
+#~ msgid "Switch to Desktop %1"
+#~ msgstr "Переключиться на рабочий стол %1"
+
+#~ msgid "No Animation"
+#~ msgstr "Без анимации"
+
+#~ msgid "No suitable Shortcut for Desktop %1 found"
+#~ msgstr "Нет подходящей комбинации клавиш для рабочего стола %1"
+
+#~ msgid "Assigned global Shortcut \"%1\" to Desktop %2"
+#~ msgstr "Глобальная комбинация клавиш %1 выбрана для рабочего стола %2"
+
+#~ msgid "Shortcut conflict: Could not set Shortcut %1 for Desktop %2"
+#~ msgstr ""
+#~ "Конфликт комбинаций клавиш: не удалось установить комбинацию %1 для "
+#~ "рабочего стола %2"
+
+#~ msgid "KWin development team"
+#~ msgstr "Команда разработчиков KWin"
+
+#~ msgid "Layout"
+#~ msgstr "Конфигурация"
+
+#~ msgid ""
+#~ "Here you can set how many virtual desktops you want on your KDE desktop."
+#~ msgstr "Здесь вы можете указать количество виртуальных рабочих столов."
+
+#~ msgid "&Number of desktops:"
+#~ msgstr "К&оличество рабочих столов:"
+
+#~ msgid "N&umber of rows:"
+#~ msgstr "Количество &рядов:"
+
+#~ msgid "Desktop Names"
+#~ msgstr "Имена рабочих столов"
+
+#~ msgid "Switching"
+#~ msgstr "Переключение"
+
+#~ msgid ""
+#~ "Enable this option if you want keyboard or active desktop border "
+#~ "navigation beyond the edge of a desktop to take you to the opposite edge "
+#~ "of the new desktop."
+#~ msgstr ""
+#~ "Установите этот параметр, если хотите при перемещении за границу рабочего "
+#~ "стола попадать на противоположную сторону нового рабочего стола."
+
+#~ msgid "Desktop Effect Animation"
+#~ msgstr "Анимация переключения рабочих столов"
+
+#~ msgid "Animation:"
+#~ msgstr "Анимация:"
+
+#~ msgid "Desktop Switch On-Screen Display"
+#~ msgstr "Вывод имени рабочего стола при переключении"
+
+#~ msgid "Duration:"
+#~ msgstr "Продолжительность:"
+
+#~ msgid " msec"
+#~ msgstr " мс"
+
+#~ msgid ""
+#~ "Enabling this option will show a small preview of the desktop layout "
+#~ "indicating the selected desktop."
+#~ msgstr ""
+#~ "Показывать схему логического расположения рабочих столов при переключении."
+
+#~ msgid "Shortcuts"
+#~ msgstr "Комбинации клавиш"
+
+#~ msgid "Show shortcuts for all possible desktops"
+#~ msgstr "Показывать комбинации клавиш для выключенных рабочих столов"
+
+#~ msgid "Different widgets for each desktop"
+#~ msgstr "Отдельный набор виджетов для каждого рабочего стола"
+
+#~ msgid "Mouse wheel over desktop background switches desktop"
+#~ msgstr "Колесо мыши над рабочим столом переключает рабочий стол"

@@ -1,0 +1,258 @@
+# translation of kcm_kwindesktop.po to Persian
+# Saied Taghavi <s.taghavi@gmail.com>, 2008.
+# Ali Sarchami <ali.sarchami@gmail.com>, 2012.
+# Mohammad Reza Mirdamadi <mohi@linuxshop.ir>, 2012.
+msgid ""
+msgstr ""
+"Project-Id-Version: kcm_kwindesktop\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-04-14 00:45+0000\n"
+"PO-Revision-Date: 2012-02-28 15:37+0330\n"
+"Last-Translator: Mohammad Reza Mirdamadi <mohi@linuxshop.ir>\n"
+"Language-Team: American English <kde-i18n-fa@kde.org>\n"
+"Language: fa\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"X-Generator: Lokalize 1.4\n"
+
+#, kde-format
+msgctxt "NAME OF TRANSLATORS"
+msgid "Your names"
+msgstr "علی سرچمی,محمدرضا میردامادی"
+
+#, kde-format
+msgctxt "EMAIL OF TRANSLATORS"
+msgid "Your emails"
+msgstr "ali@sarchami.com,mohi@linuxshop.ir"
+
+#: desktopsmodel.cpp:188
+#, fuzzy, kde-format
+#| msgid "Desktop %1"
+msgctxt "A numbered name for virtual desktops"
+msgid "Desktop %1"
+msgid_plural "Desktop %1"
+msgstr[0] "رومیزی %1"
+msgstr[1] ""
+
+#: desktopsmodel.cpp:476
+#, kde-format
+msgid "There was an error connecting to the compositor."
+msgstr ""
+
+#: desktopsmodel.cpp:672
+#, kde-format
+msgid "There was an error saving the settings to the compositor."
+msgstr ""
+
+#: desktopsmodel.cpp:675
+#, kde-format
+msgid "There was an error requesting information from the compositor."
+msgstr ""
+
+#: ui/main.qml:26
+#, kde-format
+msgctxt "@text:label Number of rows, label associated to a number input field"
+msgid "Rows:"
+msgstr ""
+
+#: ui/main.qml:54
+#, fuzzy, kde-format
+#| msgid "Desktops"
+msgctxt "@action:button"
+msgid "Add Desktop"
+msgstr "رومیزی‌ها"
+
+#: ui/main.qml:90
+#, kde-format
+msgctxt "@action:button"
+msgid "Rename"
+msgstr ""
+
+#: ui/main.qml:100
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Remove"
+msgstr ""
+
+#: ui/main.qml:119
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Apply new name"
+msgstr ""
+
+#: ui/main.qml:132
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Cancel rename"
+msgstr ""
+
+#: ui/main.qml:179
+#, kde-format
+msgid ""
+"Virtual desktops have been changed outside this settings application. Saving "
+"now will overwrite the changes."
+msgstr ""
+
+#: ui/main.qml:195
+#, kde-format
+msgid "Row %1"
+msgstr ""
+
+#: ui/main.qml:209
+#, kde-format
+msgid "Options:"
+msgstr ""
+
+#: ui/main.qml:211
+#, fuzzy, kde-format
+#| msgid "Desktop navigation wraps around"
+msgid "Navigation wraps around"
+msgstr "ناوبری میزکار دور خودش میچرخد"
+
+#: ui/main.qml:225
+#, kde-format
+msgid "Switch desktops independently for each screen"
+msgstr ""
+
+#: ui/main.qml:243
+#, kde-format
+msgid "Show animation when switching:"
+msgstr ""
+
+#: ui/main.qml:294
+#, kde-format
+msgid "Show on-screen display when switching:"
+msgstr ""
+
+#: ui/main.qml:313
+#, kde-format
+msgid "%1 ms"
+msgstr ""
+
+#: ui/main.qml:337
+#, kde-format
+msgid "Show desktop layout indicators"
+msgstr "نمایش شاخصهای طرح‌بندی میزکار"
+
+#, fuzzy
+#~| msgid "Desktops"
+#~ msgid "Virtual Desktops"
+#~ msgstr "رومیزی‌ها"
+
+#~ msgid "Desktop %1:"
+#~ msgstr "رومیزی %1:"
+
+#~ msgid "Here you can enter the name for desktop %1"
+#~ msgstr "اینجا می‌توانید نام رومیزی %1 را وارد کنید"
+
+#~ msgid ""
+#~ "<h1>Multiple Desktops</h1>In this module, you can configure how many "
+#~ "virtual desktops you want and how these should be labeled."
+#~ msgstr ""
+#~ "<h1>چند رومیزی</h1>در این پیمانه، می‌توانید تعداد رومیزی مجازی دلخواه و "
+#~ "چگونگی برچسب‌گذاری آن‌ها را پیکربندی کنید."
+
+#~ msgid "Switch to Next Desktop"
+#~ msgstr "سو دهی به میزکار بعدی"
+
+#~ msgid "Switch to Previous Desktop"
+#~ msgstr "سو دهی به میز کار قبلی"
+
+#~ msgid "Switch One Desktop to the Right"
+#~ msgstr "سودهی یک به میز کار در سمت راست"
+
+#~ msgid "Switch One Desktop to the Left"
+#~ msgstr "سودهی به بک میز کار در سمت چپ"
+
+#~ msgid "Switch One Desktop Up"
+#~ msgstr "سودهی به یک میز کار در بالا"
+
+#~ msgid "Switch One Desktop Down"
+#~ msgstr "سودهی به یک میز کار در پایین"
+
+#~ msgid "Desktop Switching"
+#~ msgstr "سودهی میزکارها"
+
+#~ msgid "Switch to Desktop %1"
+#~ msgstr "سودهی به رومیزی %1"
+
+#~ msgid "No Animation"
+#~ msgstr "بدون پویانمایی"
+
+#~ msgid "No suitable Shortcut for Desktop %1 found"
+#~ msgstr "میانبر مناسبی برای میزکار %1 پیدا نشد"
+
+#~ msgid "Assigned global Shortcut \"%1\" to Desktop %2"
+#~ msgstr "میانبر عمومی «%1» به میزکار %2 اختصاص داده شد"
+
+#~ msgid "Shortcut conflict: Could not set Shortcut %1 for Desktop %2"
+#~ msgstr "ناسازگاری میانبر: نمی‌توان میانبر %1 را برای میزکار %2 تنظیم کرد"
+
+#~ msgid "Layout"
+#~ msgstr "طرح‌بندی"
+
+#~ msgid ""
+#~ "Here you can set how many virtual desktops you want on your KDE desktop."
+#~ msgstr ""
+#~ "اینجا می‌توانید تنظیم کنید که چند رومیزی مجازی روی میزکار کی‌دی‌ای خود "
+#~ "می‌خواهید."
+
+#, fuzzy
+#~| msgid "Number of desktops:"
+#~ msgid "&Number of desktops:"
+#~ msgstr "تعداد رومیزی‌ها:"
+
+#, fuzzy
+#~| msgid "Number of rows:"
+#~ msgid "N&umber of rows:"
+#~ msgstr "تعداد سطرها:"
+
+#~ msgid "Desktop Names"
+#~ msgstr "نام رومیزی‌ها"
+
+#~ msgid "Switching"
+#~ msgstr "سودهی"
+
+#~ msgid ""
+#~ "Enable this option if you want keyboard or active desktop border "
+#~ "navigation beyond the edge of a desktop to take you to the opposite edge "
+#~ "of the new desktop."
+#~ msgstr ""
+#~ "اگر می‌خواهید امکان هدایت از لبه میزکار به لبه دیگر میزکار جدید از طریق "
+#~ "صفحه کلید یا حاشیه میزکار فعال داشته باشید، این گزینه را انتخاب کنید."
+
+#~ msgid "Desktop Effect Animation"
+#~ msgstr "پویانمایی جلوه‌های میزکار"
+
+#~ msgid "Animation:"
+#~ msgstr "پویانمایی:"
+
+#~ msgid "Desktop Switch On-Screen Display"
+#~ msgstr "نمایش انتقال میزکار بر روی تصویر"
+
+#~ msgid "Duration:"
+#~ msgstr "مدت:"
+
+#~ msgid " msec"
+#~ msgstr "میلی‌ثانیه"
+
+#~ msgid ""
+#~ "Enabling this option will show a small preview of the desktop layout "
+#~ "indicating the selected desktop."
+#~ msgstr ""
+#~ "فعال‌سازی این گزینه پیش‌نمایشی کوچک از طرح‌بندی میزکار نشان می‌دهد که نشانگر "
+#~ "میزکار انتخابی است."
+
+#~ msgid "Shortcuts"
+#~ msgstr "میانبرها"
+
+#~ msgid "Show shortcuts for all possible desktops"
+#~ msgstr "نمایش میانبرها برای تمامی میزکارهای ممکن"
+
+#~ msgid "Different widgets for each desktop"
+#~ msgstr "ویجت‌های متفاوت برای هر میزکار"
+
+#~ msgid "Mouse wheel over desktop background switches desktop"
+#~ msgstr "چرخ موشی روی پس‌زمینهٔ رومیزی، رومیزی را تغییر می‌دهد"

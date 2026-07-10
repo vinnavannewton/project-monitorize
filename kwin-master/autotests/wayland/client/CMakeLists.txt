@@ -1,0 +1,200 @@
+########################################################
+# Test WaylandOutput
+########################################################
+set( testWaylandOutput_SRCS
+        test_wayland_output.cpp
+        ${PROJECT_SOURCE_DIR}/tests/fakeoutput.cpp
+    )
+add_executable(testWaylandOutput ${testWaylandOutput_SRCS})
+target_link_libraries( testWaylandOutput Qt::Test Qt::Gui Plasma::KWaylandClient kwin Wayland::Client Wayland::Server)
+add_test(NAME kwayland-testWaylandOutput COMMAND testWaylandOutput)
+ecm_mark_as_test(testWaylandOutput)
+
+########################################################
+# Test WaylandSurface
+########################################################
+set( testWaylandSurface_SRCS
+        test_wayland_surface.cpp
+        ${PROJECT_SOURCE_DIR}/tests/fakeoutput.cpp
+    )
+add_executable(testWaylandSurface ${testWaylandSurface_SRCS})
+target_link_libraries( testWaylandSurface Qt::Test Qt::Gui Plasma::KWaylandClient kwin Wayland::Client Wayland::Server)
+add_test(NAME kwayland-testWaylandSurface COMMAND testWaylandSurface)
+ecm_mark_as_test(testWaylandSurface)
+
+########################################################
+# Test WaylandSeat
+########################################################
+add_executable(testWaylandSeat)
+set( testWaylandSeat_SRCS
+        test_wayland_seat.cpp
+    )
+qt6_generate_wayland_protocol_client_sources(testWaylandSeat
+    PRIVATE_CODE
+    FILES
+        ${WaylandProtocols_DATADIR}/unstable/pointer-gestures/pointer-gestures-unstable-v1.xml
+)
+target_sources(testWaylandSeat PRIVATE ${testWaylandSeat_SRCS})
+target_link_libraries( testWaylandSeat Qt::Test Qt::Gui Plasma::KWaylandClient kwin Wayland::Client Wayland::Server)
+add_test(NAME kwayland-testWaylandSeat COMMAND testWaylandSeat)
+ecm_mark_as_test(testWaylandSeat)
+
+########################################################
+# Test SubSurface
+########################################################
+set( testSubSurface_SRCS
+        test_wayland_subsurface.cpp
+    )
+add_executable(testSubSurface ${testSubSurface_SRCS})
+target_link_libraries( testSubSurface Qt::Test Qt::Gui Plasma::KWaylandClient kwin Wayland::Client)
+add_test(NAME kwayland-testSubSurface COMMAND testSubSurface)
+ecm_mark_as_test(testSubSurface)
+
+########################################################
+# Test Slide
+########################################################
+set( testSlide_SRCS
+        test_wayland_slide.cpp
+    )
+add_executable(testSlide ${testSlide_SRCS})
+target_link_libraries( testSlide Qt::Test Qt::Gui Plasma::KWaylandClient kwin Wayland::Client)
+add_test(NAME kwayland-testSlide COMMAND testSlide)
+ecm_mark_as_test(testSlide)
+
+########################################################
+# Test Window Management
+########################################################
+set( testWindowmanagement_SRCS
+        test_wayland_windowmanagement.cpp
+    )
+add_executable(testWindowmanagement ${testWindowmanagement_SRCS})
+target_link_libraries( testWindowmanagement Qt::Test Qt::Gui Plasma::KWaylandClient kwin Wayland::Client)
+add_test(NAME kwayland-testWindowmanagement COMMAND testWindowmanagement)
+ecm_mark_as_test(testWindowmanagement)
+
+########################################################
+# Test PlasmaShell
+########################################################
+set( testPlasmaShell_SRCS
+        test_plasmashell.cpp
+    )
+add_executable(testPlasmaShell ${testPlasmaShell_SRCS})
+target_link_libraries( testPlasmaShell Qt::Test Qt::Gui Plasma::KWaylandClient kwin Wayland::Client)
+add_test(NAME kwayland-testPlasmaShell COMMAND testPlasmaShell)
+ecm_mark_as_test(testPlasmaShell)
+
+########################################################
+# Test Shadow
+########################################################
+set( testShadow_SRCS
+        test_shadow.cpp
+    )
+add_executable(testShadow ${testShadow_SRCS})
+target_link_libraries( testShadow Qt::Test Qt::Gui Plasma::KWaylandClient kwin)
+add_test(NAME kwayland-testShadow COMMAND testShadow)
+ecm_mark_as_test(testShadow)
+
+########################################################
+# Test TextInputV2
+########################################################
+set( testTextInputV2_SRCS
+        test_text_input_v2.cpp
+    )
+add_executable(testTextInputV2 ${testTextInputV2_SRCS})
+target_link_libraries( testTextInputV2 Qt::Test Qt::Gui Plasma::KWaylandClient kwin)
+add_test(NAME kwayland-testTextInputV2 COMMAND testTextInputV2)
+ecm_mark_as_test(testTextInputV2)
+
+########################################################
+# Test Error
+########################################################
+set( testError_SRCS
+        test_error.cpp
+    )
+add_executable(testError ${testError_SRCS})
+target_link_libraries( testError Qt::Test Qt::Gui Plasma::KWaylandClient kwin Wayland::Client)
+add_test(NAME kwayland-testError COMMAND testError)
+ecm_mark_as_test(testError)
+
+########################################################
+# Test XdgForeign
+########################################################
+set( testXdgForeign_SRCS
+      test_xdg_foreign.cpp
+      )
+add_executable(testXdgForeign ${testXdgForeign_SRCS})
+target_link_libraries( testXdgForeign Qt::Test Qt::Gui kwin Plasma::KWaylandClient Wayland::Client)
+add_test(NAME kwayland-testXdgForeign COMMAND testXdgForeign)
+ecm_mark_as_test(testXdgForeign)
+
+########################################################
+# Test Filter
+########################################################
+set( testFilter_SRCS
+        test_wayland_filter.cpp
+    )
+add_executable(testFilter ${testFilter_SRCS})
+target_link_libraries( testFilter Qt::Test Qt::Gui Plasma::KWaylandClient kwin Wayland::Server)
+add_test(NAME kwayland-testFilter COMMAND testFilter)
+ecm_mark_as_test(testFilter)
+
+########################################################
+# Test Appmenu
+########################################################
+set( testAppmenu_SRCS
+        test_wayland_appmenu.cpp
+    )
+add_executable(testAppmenu ${testAppmenu_SRCS})
+target_link_libraries( testAppmenu Qt::Test Qt::Gui Plasma::KWaylandClient kwin)
+add_test(NAME kwayland-testAppmenu COMMAND testAppmenu)
+ecm_mark_as_test(testAppmenu)
+
+########################################################
+# Test Appmenu
+########################################################
+set( testServerSideDecorationPalette_SRCS
+        test_server_side_decoration_palette.cpp
+    )
+add_executable(testServerSideDecorationPalette ${testServerSideDecorationPalette_SRCS})
+qt6_generate_wayland_protocol_client_sources(testServerSideDecorationPalette
+    PRIVATE_CODE
+    FILES
+        ${PLASMA_WAYLAND_PROTOCOLS_DIR}/server-decoration-palette.xml
+)
+target_link_libraries( testServerSideDecorationPalette Qt::Test Qt::Gui Plasma::KWaylandClient Wayland::Client kwin)
+add_test(NAME kwayland-testServerSideDecorationPalette COMMAND testServerSideDecorationPalette)
+ecm_mark_as_test(testServerSideDecorationPalette)
+
+########################################################
+# Test VirtualDesktop
+########################################################
+set( testPlasmaVirtualDesktop_SRCS
+        test_plasma_virtual_desktop.cpp
+    )
+add_executable(testPlasmaVirtualDesktop ${testPlasmaVirtualDesktop_SRCS})
+target_link_libraries( testPlasmaVirtualDesktop Qt::Test Qt::Gui Plasma::KWaylandClient kwin)
+add_test(NAME kwayland-testPlasmaVirtualDesktop COMMAND testPlasmaVirtualDesktop)
+ecm_mark_as_test(testPlasmaVirtualDesktop)
+
+########################################################
+# Test Activities
+########################################################
+set( testPlasmaActivities_SRCS
+        test_plasma_activities.cpp
+    )
+add_executable(testPlasmaActivities ${testPlasmaActivities_SRCS})
+target_link_libraries( testPlasmaActivities Qt::Test Qt::Gui Plasma::KWaylandClient kwin)
+add_test(NAME kwayland-testPlasmaActivities COMMAND testPlasmaActivities)
+ecm_mark_as_test(testPlasmaActivities)
+
+########################################################
+# Test XDG Output
+########################################################
+set( testXdgOutput_SRCS
+        test_xdg_output.cpp
+        ${PROJECT_SOURCE_DIR}/tests/fakeoutput.cpp
+    )
+add_executable(testXdgOutput ${testXdgOutput_SRCS})
+target_link_libraries( testXdgOutput Qt::Test Qt::Gui Plasma::KWaylandClient kwin Wayland::Client Wayland::Server)
+add_test(NAME kwayland-testXdgOutput COMMAND testXdgOutput)
+ecm_mark_as_test(testXdgOutput)

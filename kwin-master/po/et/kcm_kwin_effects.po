@@ -1,0 +1,88 @@
+# Copyright (C) YEAR This file is copyright:
+# This file is distributed under the same license as the kwin package.
+#
+# Marek Laane <qiilaq69@gmail.com>, 2019.
+msgid ""
+msgstr ""
+"Project-Id-Version: kwin\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2025-11-17 11:53+0000\n"
+"PO-Revision-Date: 2019-11-08 19:56+0200\n"
+"Last-Translator: Marek Laane <qiilaq69@gmail.com>\n"
+"Language-Team: Estonian <kde-et@lists.linux.ee>\n"
+"Language: et\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Lokalize 19.08.1\n"
+
+#: ui/Effect.qml:98
+#, kde-format
+msgid ""
+"Author: %1\n"
+"License: %2"
+msgstr ""
+"Autor: %1\n"
+"Litsents: %2"
+
+#: ui/Effect.qml:110
+#, fuzzy, kde-format
+#| msgctxt "@info:tooltip"
+#| msgid "Configure..."
+msgctxt "@info:tooltip"
+msgid "Configure…"
+msgstr "Seadista ..."
+
+#: ui/main.qml:25
+#, kde-format
+msgctxt "@action:button get new KWin effects"
+msgid "Get New…"
+msgstr ""
+
+#: ui/main.qml:54
+#, kde-format
+msgid "Configure Filter"
+msgstr "Filtri seadistamine"
+
+#: ui/main.qml:66
+#, kde-format
+msgid "Exclude unsupported effects"
+msgstr "Toetamata efektide välistamine"
+
+#~ msgctxt "@info:tooltip"
+#~ msgid "Show/Hide Video"
+#~ msgstr "Video näitamine/peitmine"
+
+#~ msgid ""
+#~ "Hint: To find out or configure how to activate an effect, look at the "
+#~ "effect's settings."
+#~ msgstr ""
+#~ "Vihje: teadasaamiseks, kuidas efekti esile kutsuda, tasub uurida vastava "
+#~ "efekti seadistusi."
+
+#~ msgid "Exclude internal effects"
+#~ msgstr "Sisemiste efektide välistamine"
+
+#~ msgid "Get New Desktop Effects..."
+#~ msgstr "Hangi uusi töölauaefekte ..."
+
+#~ msgid "This module lets you configure desktop effects."
+#~ msgstr "See moodul võimaldab seadistada töölauaefekte."
+
+#~ msgctxt "NAME OF TRANSLATORS"
+#~ msgid "Your names"
+#~ msgstr "Marek Laane"
+
+#~ msgctxt "EMAIL OF TRANSLATORS"
+#~ msgid "Your emails"
+#~ msgstr "qiilaq69@gmail.com"
+
+#~ msgid "Desktop Effects"
+#~ msgstr "Töölaua efektid"
+
+#~ msgid "Vlad Zahorodnii"
+#~ msgstr "Vlad Zahorodnii"
+
+#~ msgid "Download New Desktop Effects"
+#~ msgstr "Uute töölauaefektide allalaadimine"

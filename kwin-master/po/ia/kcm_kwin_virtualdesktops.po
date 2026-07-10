@@ -1,0 +1,283 @@
+# Copyright (C) YEAR This_file_is_part_of_KDE
+# This file is distributed under the same license as the PACKAGE package.
+#
+# SPDX-FileCopyrightText: 2010, 2011, 2013, 2014, 2019, 2021, 2023, 2024, 2026 g.sora <g.sora@tiscali.it>
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-04-14 00:45+0000\n"
+"PO-Revision-Date: 2026-04-14 12:34+0200\n"
+"Last-Translator: giovanni <g.sora@tiscali.it>\n"
+"Language-Team: Interlingua <kde-i18n-doc@kde.org>\n"
+"Language: ia\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Lokalize 25.04.0\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+
+#, kde-format
+msgctxt "NAME OF TRANSLATORS"
+msgid "Your names"
+msgstr "Giovanni Sora"
+
+#, kde-format
+msgctxt "EMAIL OF TRANSLATORS"
+msgid "Your emails"
+msgstr "g.sora@tiscali.it"
+
+#: desktopsmodel.cpp:188
+#, kde-format
+msgctxt "A numbered name for virtual desktops"
+msgid "Desktop %1"
+msgid_plural "Desktop %1"
+msgstr[0] "Scriptorio %1"
+msgstr[1] "Scriptorio %1"
+
+#: desktopsmodel.cpp:476
+#, kde-format
+msgid "There was an error connecting to the compositor."
+msgstr "Il habeva un error durante que il connecteva al compositor"
+
+#: desktopsmodel.cpp:672
+#, kde-format
+msgid "There was an error saving the settings to the compositor."
+msgstr ""
+"Il habeva un error durante que il salveguardava preferentias al compositor."
+
+#: desktopsmodel.cpp:675
+#, kde-format
+msgid "There was an error requesting information from the compositor."
+msgstr ""
+"Il habeva un error durante que il demandava information ex le compositor."
+
+#: ui/main.qml:26
+#, kde-format
+msgctxt "@text:label Number of rows, label associated to a number input field"
+msgid "Rows:"
+msgstr "Rangos:"
+
+#: ui/main.qml:54
+#, kde-format
+msgctxt "@action:button"
+msgid "Add Desktop"
+msgstr "Adde Scriptorio"
+
+#: ui/main.qml:90
+#, kde-format
+msgctxt "@action:button"
+msgid "Rename"
+msgstr "Renomina"
+
+#: ui/main.qml:100
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Remove"
+msgstr "Remove"
+
+#: ui/main.qml:119
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Apply new name"
+msgstr "Applica nove nomine"
+
+#: ui/main.qml:132
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Cancel rename"
+msgstr "Cancella Renomina"
+
+#: ui/main.qml:179
+#, kde-format
+msgid ""
+"Virtual desktops have been changed outside this settings application. Saving "
+"now will overwrite the changes."
+msgstr ""
+"Scriptorios virtual ha essite modificate foras de iste application de "
+"preferentias. Salveguardar ora superscribera le modificationes."
+
+#: ui/main.qml:195
+#, kde-format
+msgid "Row %1"
+msgstr "Rango %1"
+
+#: ui/main.qml:209
+#, kde-format
+msgid "Options:"
+msgstr "Optiones:"
+
+#: ui/main.qml:211
+#, kde-format
+msgid "Navigation wraps around"
+msgstr "Inveloppamento (wrap around) de navigation"
+
+#: ui/main.qml:225
+#, kde-format
+msgid "Switch desktops independently for each screen"
+msgstr "Commuta scriptorios independentemente per cata schermo"
+
+#: ui/main.qml:243
+#, kde-format
+msgid "Show animation when switching:"
+msgstr "Monstra animation quando commuta:"
+
+#: ui/main.qml:294
+#, kde-format
+msgid "Show on-screen display when switching:"
+msgstr "Monstra On Screen Display  quando commutante:"
+
+#: ui/main.qml:313
+#, kde-format
+msgid "%1 ms"
+msgstr "%1ms"
+
+#: ui/main.qml:337
+#, kde-format
+msgid "Show desktop layout indicators"
+msgstr "Monstra indicatores de disposition de scriptorio"
+
+#~ msgid "1 Row"
+#~ msgid_plural "%1 Rows"
+#~ msgstr[0] "1 Rango "
+#~ msgstr[1] "%1 Rangos"
+
+#~ msgctxt "@action:button"
+#~ msgid "Add"
+#~ msgstr "Adde"
+
+#~ msgid ""
+#~ "This module lets you configure the navigation, number and layout of "
+#~ "virtual desktops."
+#~ msgstr ""
+#~ "Iste modulo te permitte configurar le navigation, numero e disposition de "
+#~ "scriptorios virtual."
+
+#~ msgid "Virtual Desktops"
+#~ msgstr "Scriptorios virtual"
+
+#~ msgid "Desktop %1:"
+#~ msgstr "Scriptorio %1:"
+
+#~ msgid "Here you can enter the name for desktop %1"
+#~ msgstr "Ci tu pote insertar le nomine per scriptorio %1"
+
+#~ msgid ""
+#~ "<h1>Multiple Desktops</h1>In this module, you can configure how many "
+#~ "virtual desktops you want and how these should be labeled."
+#~ msgstr ""
+#~ "<h1>Scriptorios Multiple</h1>In iste modulo, tu pote configure quante "
+#~ "scriptorios virtual tu vole e como illos debe esser etiquettate."
+
+#~ msgid "Switch to Next Desktop"
+#~ msgstr "Commuta a proxime scriptorio"
+
+#~ msgid "Switch to Previous Desktop"
+#~ msgstr "Commuta a previe scriptorio"
+
+#~ msgid "Switch One Desktop to the Right"
+#~ msgstr "Commuta a un scriptorio a dextera"
+
+#~ msgid "Switch One Desktop to the Left"
+#~ msgstr "Commuta a un scriptorio a sinistra"
+
+#~ msgid "Switch One Desktop Up"
+#~ msgstr "Commuta a un scriptorio in alto"
+
+#~ msgid "Switch One Desktop Down"
+#~ msgstr "Commuta a un scriptorio a basso"
+
+#~ msgid "Walk Through Desktops"
+#~ msgstr "Transversa Scriptorios"
+
+#~ msgid "Walk Through Desktops (Reverse)"
+#~ msgstr "Transversa Scriptorios (Reverse)"
+
+#~ msgid "Walk Through Desktop List"
+#~ msgstr "Transversa Lista de Scriptorio"
+
+#~ msgid "Walk Through Desktop List (Reverse)"
+#~ msgstr "Transversa Lista de Scriptorio (Reverse)"
+
+#~ msgid "Desktop Switching"
+#~ msgstr "Commutar Scriptorio"
+
+#~ msgid "Switch to Desktop %1"
+#~ msgstr "Commuta a scriptorio %1"
+
+#~ msgid "No Animation"
+#~ msgstr "Nulle animation"
+
+#~ msgid "No suitable Shortcut for Desktop %1 found"
+#~ msgstr "Il non trovava alcun via breve adequate pro scriptorio %1"
+
+#~ msgid "Assigned global Shortcut \"%1\" to Desktop %2"
+#~ msgstr "Il assignava via breve global \"%1\" a scriptorio %2"
+
+#~ msgid "Shortcut conflict: Could not set Shortcut %1 for Desktop %2"
+#~ msgstr ""
+#~ "Conflicto de via breve: il non pote fixar via breve %1 pro scriptorio %2"
+
+#~ msgid "KWin development team"
+#~ msgstr "Equipa de disveloppamento de KWin"
+
+#~ msgid "Layout"
+#~ msgstr "Disposition"
+
+#~ msgid ""
+#~ "Here you can set how many virtual desktops you want on your KDE desktop."
+#~ msgstr ""
+#~ "Ci tu pote fixar quante scriptorios virtual tu vole sur tu scriptorio de "
+#~ "KDE."
+
+#~ msgid "&Number of desktops:"
+#~ msgstr "&Numero de scriptorios:"
+
+#~ msgid "N&umber of rows:"
+#~ msgstr "N&umero de rangos:"
+
+#~ msgid "Desktop Names"
+#~ msgstr "Nomines de scriptorio"
+
+#~ msgid "Switching"
+#~ msgstr "Commutar"
+
+#~ msgid ""
+#~ "Enable this option if you want keyboard or active desktop border "
+#~ "navigation beyond the edge of a desktop to take you to the opposite edge "
+#~ "of the new desktop."
+#~ msgstr ""
+#~ "Habilita iste option si tu vole que le navigation de bordo de claviero o "
+#~ "de scriptorio active ultra le limite de scriptorio duce te a le limite "
+#~ "opposite del nove scriptorio. "
+
+#~ msgid "Desktop Effect Animation"
+#~ msgstr "Animation de effecto de scriptorio"
+
+#~ msgid "Animation:"
+#~ msgstr "Animation:"
+
+#~ msgid "Desktop Switch On-Screen Display"
+#~ msgstr "Monstrator de scriptorio de ubi commutar schermo "
+
+#~ msgid "Duration:"
+#~ msgstr "Duration:"
+
+#~ msgid " msec"
+#~ msgstr "msec"
+
+#~ msgid ""
+#~ "Enabling this option will show a small preview of the desktop layout "
+#~ "indicating the selected desktop."
+#~ msgstr ""
+#~ "Habilitar iste option monstrara un parve vista preliminar del disposition "
+#~ "de scriptorio indicante le scriptorio selectionate."
+
+#~ msgid "Shortcuts"
+#~ msgstr "Vias breve"
+
+#~ msgid "Show shortcuts for all possible desktops"
+#~ msgstr "Monstra via breves pro omne possibile scriptorios"
+
+#~ msgid "Different widgets for each desktop"
+#~ msgstr "Widgets differente pro cata scriptorio"

@@ -1,0 +1,93 @@
+# Copyright (C) YEAR This_file_is_part_of_KDE
+# This file is distributed under the same license as the PACKAGE package.
+#
+# Diego Iastrubni <elcuco@kde.org>, 2012, 2013.
+# elkana bardugo <ttv200@gmail.com>, 2016.
+# Elkana Bardugo <ttv200@gmail.com>, 2017. #zanata
+# SPDX-FileCopyrightText: 2024, 2025 Yaron Shahrabani <sh.yaron@gmail.com>
+msgid ""
+msgstr ""
+"Project-Id-Version: kcm-kwin-scripts\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2025-11-17 11:53+0000\n"
+"PO-Revision-Date: 2025-12-18 13:17+0200\n"
+"Last-Translator: Yaron Shahrabani <sh.yaron@gmail.com>\n"
+"Language-Team: צוות התרגום של KDE ישראל\n"
+"Language: he\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=4; plural=(n == 1) ? 0 : ((n == 2) ? 1 : ((n > 10 && "
+"n % 10 == 0) ? 2 : 3));\n"
+"X-Generator: Lokalize 25.12.0\n"
+
+#: module.cpp:52
+#, kde-format
+msgid "Import KWin Script"
+msgstr "ייבוא סקריפט של KWin"
+
+#: module.cpp:53
+#, kde-format
+msgid "KWin Script (*.kwinscript)"
+msgstr "סקריפטים של KWin‏ (‎*.kwinscript)"
+
+#: module.cpp:65
+#, kde-format
+msgctxt "Placeholder is error message returned from the install service"
+msgid ""
+"Cannot import selected script.\n"
+"%1"
+msgstr ""
+"אי אפשר לייבא את הסקריפט הנבחר.\n"
+"%1"
+
+#: module.cpp:69
+#, kde-format
+msgctxt "Placeholder is name of the script that was imported"
+msgid "The script \"%1\" was successfully imported."
+msgstr "הסקריפט „%1” יובא בהצלחה."
+
+#: module.cpp:131
+#, kde-format
+msgid "Error when uninstalling KWin Script: %1"
+msgstr "שגיאה בהסרת סקריפט KWin:‏ %1"
+
+#: ui/main.qml:23
+#, kde-format
+msgid "Install from File…"
+msgstr "התקנה מקובץ…"
+
+#: ui/main.qml:27
+#, kde-format
+msgctxt "@action:button get new KWin scripts"
+msgid "Get New…"
+msgstr "הורדת חדש…"
+
+#: ui/main.qml:65
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Delete…"
+msgstr "מחיקה…"
+
+#~ msgctxt "NAME OF TRANSLATORS"
+#~ msgid "Your names"
+#~ msgstr "צוות התרגום של KDE ישראל"
+
+#~ msgctxt "EMAIL OF TRANSLATORS"
+#~ msgid "Your emails"
+#~ msgstr "kde-l10n-he@kde.org"
+
+#~ msgid "KWin Scripts"
+#~ msgstr "סקריפטים של KWin"
+
+#~ msgid "Configure KWin scripts"
+#~ msgstr "הגדרה של סקריפטים של KWin"
+
+#~ msgid "Tamás Krutki"
+#~ msgstr "Tamás Krutki"
+
+#~ msgid "KWin script configuration"
+#~ msgstr "הגדרות של סקריפטים של KWin"
+
+#~ msgid "Import KWin script..."
+#~ msgstr "ייבוא סקריפט של KWin.."

@@ -1,0 +1,587 @@
+/*
+    SPDX-FileCopyrightText: 2023 Xaver Hugl <xaver.hugl@gmail.com>
+
+    SPDX-License-Identifier: GPL-2.0-or-later
+*/
+#include "iccprofile.h"
+#include "colorlut3d.h"
+#include "colorpipelinestage.h"
+#include "colortransformation.h"
+#include "utils/common.h"
+
+#include <KLocalizedString>
+#include <QFileInfo>
+#include <lcms2.h>
+#include <span>
+#include <tuple>
+
+namespace KWin
+{
+
+static cmsTagSignature stringToSignature(std::string_view str)
+{
+    return cmsTagSignature((uint32_t(str[3]) << 0) | (uint32_t(str[2]) << 8) | (uint32_t(str[1]) << 16) | (uint32_t(str[0]) << 24));
+}
+
+static const Colorimetry CIEXYZD50 = Colorimetry{
+    XYZ{1.0, 0.0, 0.0},
+    XYZ{0.0, 1.0, 0.0},
+    XYZ{0.0, 0.0, 1.0},
+    XYZ(0.9642, 1.0, 0.8249),
+};
+
+const ColorDescription IccProfile::s_connectionSpace = ColorDescription(CIEXYZD50, TransferFunction(TransferFunction::linear, 0, 1), 1, 0, 1, 1);
+
+IccProfile::IccProfile(cmsHPROFILE handle, const Colorimetry &colorimetry,
+                       std::optional<ColorPipeline> &&bToA0Tag, std::optional<ColorPipeline> &&bToA1Tag,
+                       const std::shared_ptr<ColorTransformation> &inverseEOTF,
+                       const QMatrix4x4 &xyzMatrix, const std::shared_ptr<ColorTransformation> &vcgt,
+                       std::optional<double> relativeBlackPoint, std::optional<double> maxFALL, std::optional<double> maxCLL)
+    : m_handle(handle)
+    , m_colorimetry(colorimetry)
+    , m_bToA0Tag(std::move(bToA0Tag))
+    , m_bToA1Tag(std::move(bToA1Tag))
+    , m_inverseEOTF(inverseEOTF)
+    , m_xyzMatrix(xyzMatrix)
+    , m_vcgt(vcgt)
+    , m_relativeBlackPoint(relativeBlackPoint)
+    , m_maxFALL(maxFALL)
+    , m_maxCLL(maxCLL)
+    , m_hasMHC2(cmsIsTag(m_handle, stringToSignature("MHC2")))
+{
+}
+
+IccProfile::~IccProfile()
+{
+    cmsCloseProfile(m_handle);
+}
+
+std::optional<double> IccProfile::relativeBlackPoint() const
+{
+    return m_relativeBlackPoint;
+}
+
+std::optional<double> IccProfile::maxFALL() const
+{
+    return m_maxFALL;
+}
+
+std::optional<double> IccProfile::maxCLL() const
+{
+    return m_maxCLL;
+}
+
+const Colorimetry &IccProfile::colorimetry() const
+{
+    return m_colorimetry;
+}
+
+std::shared_ptr<ColorTransformation> IccProfile::inverseTransferFunction() const
+{
+    return m_inverseEOTF;
+}
+
+std::shared_ptr<ColorTransformation> IccProfile::vcgt() const
+{
+    return m_vcgt;
+}
+
+const QMatrix4x4 &IccProfile::mhc2Matrix() const
+{
+    return m_xyzMatrix;
+}
+
+bool IccProfile::hasMHC2Tag() const
+{
+    return m_hasMHC2;
+}
+
+const ColorPipeline *IccProfile::BToATag(RenderingIntent intent) const
+{
+    switch (intent) {
+    case RenderingIntent::Perceptual:
+        return m_bToA0Tag ? &*m_bToA0Tag : nullptr;
+    case RenderingIntent::RelativeColorimetric:
+        // these two are different from relative colorimetric
+        // but that has to be handled before the tag is applied
+    case RenderingIntent::RelativeColorimetricWithBPC:
+    case RenderingIntent::AbsoluteColorimetricNoAdaptation:
+        return m_bToA1Tag ? &*m_bToA1Tag : nullptr;
+    }
+    Q_UNREACHABLE();
+}
+
+static std::vector<uint8_t> readTagRaw(cmsHPROFILE profile, cmsTagSignature tag)
+{
+    const auto numBytes = cmsReadRawTag(profile, tag, nullptr, 0);
+    std::vector<uint8_t> data(numBytes);
+    cmsReadRawTag(profile, tag, data.data(), numBytes);
+    return data;
+}
+
+template<typename T>
+static T read(std::span<const uint8_t> data, size_t index)
+{
+    // ICC profile data is big-endian
+    T ret;
+    for (size_t i = 0; i < sizeof(T); i++) {
+        *(reinterpret_cast<uint8_t *>(&ret) + i) = data[index + sizeof(T) - i - 1];
+    }
+    return ret;
+}
+
+static float readS15Fixed16(std::span<const uint8_t> data, size_t index)
+{
+    return read<int32_t>(data, index) / 65536.0;
+}
+
+static std::optional<std::tuple<size_t, size_t, size_t>> parseBToACLUTSize(std::span<const uint8_t> data)
+{
+    const uint32_t tagType = read<uint32_t>(data, 0);
+    const bool isLutTag = tagType == cmsSigLut8Type || tagType == cmsSigLut16Type;
+    if (isLutTag) {
+        const uint8_t size = data[10];
+        return std::make_tuple(size, size, size);
+    } else {
+        const uint32_t clutOffset = read<uint32_t>(data, 24);
+        if (data.size() < clutOffset + 19) {
+            qCWarning(KWIN_CORE, "CLut offset points to invalid position %u", clutOffset);
+            return std::nullopt;
+        }
+        return std::make_tuple(data[clutOffset + 0], data[clutOffset + 1], data[clutOffset + 2]);
+    }
+}
+
+static std::optional<QMatrix4x4> parseMatrix(std::span<const uint8_t> data, bool hasOffset)
+{
+    const size_t matrixSize = hasOffset ? 12 : 9;
+    std::vector<float> floats;
+    floats.reserve(matrixSize);
+    for (size_t i = 0; i < matrixSize; i++) {
+        floats.push_back(readS15Fixed16(data, i * 4));
+    }
+    QMatrix4x4 ret;
+    ret(0, 0) = floats[0];
+    ret(0, 1) = floats[1];
+    ret(0, 2) = floats[2];
+    ret(1, 0) = floats[3];
+    ret(1, 1) = floats[4];
+    ret(1, 2) = floats[5];
+    ret(2, 0) = floats[6];
+    ret(2, 1) = floats[7];
+    ret(2, 2) = floats[8];
+    if (hasOffset) {
+        ret(0, 3) = floats[9];
+        ret(1, 3) = floats[10];
+        ret(2, 3) = floats[11];
+    }
+    return ret;
+}
+
+static std::optional<ColorPipeline> parseBToATag(cmsHPROFILE profile, cmsTagSignature tag)
+{
+    cmsPipeline *bToAPipeline = static_cast<cmsPipeline *>(cmsReadTag(profile, tag));
+    if (!bToAPipeline) {
+        return std::nullopt;
+    }
+    ColorPipeline ret;
+    // ICC profiles assume you're working in their encoding of XYZ
+    // this multiplier converts from our [0, 1] encoding to the ICC one
+    ret.addMultiplier(65536.0 / (2 * 65535.0));
+    auto data = readTagRaw(profile, tag);
+    const uint32_t tagType = read<uint32_t>(data, 0);
+    switch (tagType) {
+    case cmsSigLut8Type:
+    case cmsSigLut16Type:
+        if (data.size() < 48) {
+            qCWarning(KWIN_CORE) << "ICC profile tag is too small" << data.size();
+            return std::nullopt;
+        }
+        break;
+    case cmsSigLutBtoAType:
+        if (data.size() < 32) {
+            qCWarning(KWIN_CORE) << "ICC profile tag is too small" << data.size();
+            return std::nullopt;
+        }
+        break;
+    default:
+        qCWarning(KWIN_CORE).nospace() << "unknown lut type " << (char)data[0] << (char)data[1] << (char)data[2] << (char)data[3];
+        return std::nullopt;
+    }
+    for (auto stage = cmsPipelineGetPtrToFirstStage(bToAPipeline); stage != nullptr; stage = cmsStageNext(stage)) {
+        switch (const cmsStageSignature stageType = cmsStageType(stage)) {
+        case cmsStageSignature::cmsSigCurveSetElemType: {
+            // TODO read the actual functions and apply them in the shader instead
+            // of using LUTs for more accuracy
+            std::vector<std::unique_ptr<ColorPipelineStage>> stages;
+            stages.push_back(std::make_unique<ColorPipelineStage>(cmsStageDup(stage)));
+            auto transformation = std::make_shared<ColorTransformation>(std::move(stages));
+            ret.add(ColorOp{
+                .input = ValueRange(),
+                .operation = transformation,
+                .output = ValueRange(),
+            });
+        } break;
+        case cmsStageSignature::cmsSigMatrixElemType: {
+            const bool isLutTag = tagType == cmsSigLut8Type || tagType == cmsSigLut16Type;
+            const uint32_t matrixOffset = isLutTag ? 12 : read<uint32_t>(data, 16);
+            const uint32_t matrixSize = isLutTag ? 9 : 12;
+            if (data.size() < matrixOffset + matrixSize * 4) {
+                qCWarning(KWIN_CORE, "matrix offset points to invalid position %u", matrixOffset);
+                return std::nullopt;
+            }
+            const auto mat = parseMatrix(std::span(data).subspan(matrixOffset), !isLutTag);
+            if (!mat) {
+                return std::nullopt;
+            }
+            ret.add(ColorOp{
+                .input = ValueRange{},
+                .operation = ColorMatrix(*mat),
+                .output = ValueRange{},
+            });
+        }; break;
+        case cmsStageSignature::cmsSigCLutElemType: {
+            const auto size = parseBToACLUTSize(data);
+            if (!size) {
+                return std::nullopt;
+            }
+            const auto [x, y, z] = *size;
+            std::vector<std::unique_ptr<ColorPipelineStage>> stages;
+            stages.push_back(std::make_unique<ColorPipelineStage>(cmsStageDup(stage)));
+            ret.add(ColorOp{
+                .input = ValueRange{},
+                .operation = std::make_shared<ColorLUT3D>(std::make_unique<ColorTransformation>(std::move(stages)), x, y, z),
+                .output = ValueRange{},
+            });
+        } break;
+        default:
+            qCWarning(KWIN_CORE, "unknown stage type %u", stageType);
+            return std::nullopt;
+        }
+    }
+    return ret;
+}
+
+struct MHC2
+{
+    double minLuminance;
+    double maxLuminance;
+    QMatrix4x4 xyzMatrix;
+    std::vector<float> red;
+    std::vector<float> green;
+    std::vector<float> blue;
+};
+std::optional<MHC2> parseMhc2Tag(cmsHPROFILE profile)
+{
+    // see https://learn.microsoft.com/en-us/windows/win32/wcs/display-calibration-mhc
+    // for documentation of the tag
+    // NOTE that cmsTagSignature::cmsSigMHC2Tag isn't used here, because that requires
+    // newer LCMS
+    const cmsTagSignature tagSignature = stringToSignature("MHC2");
+    if (!cmsIsTag(profile, tagSignature)) {
+        return std::nullopt;
+    }
+    auto data = readTagRaw(profile, tagSignature);
+    if (data.size() < 36) {
+        qCWarning(KWIN_CORE, "MHC2 tag smaller than expected");
+        return std::nullopt;
+    }
+    MHC2 ret;
+    ret.minLuminance = readS15Fixed16(data, 12);
+    ret.maxLuminance = readS15Fixed16(data, 16);
+    const uint32_t lutSize = read<uint32_t>(data, 8);
+    const uint32_t matrixOffset = read<uint32_t>(data, 20);
+    const uint32_t redOffset = read<uint32_t>(data, 24);
+    const uint32_t greenOffset = read<uint32_t>(data, 28);
+    const uint32_t blueOffset = read<uint32_t>(data, 32);
+    if (matrixOffset != 0) {
+        if (data.size() < matrixOffset + 48) {
+            qCWarning(KWIN_CORE, "Parsing MHC2 tag failed");
+            return std::nullopt;
+        }
+        // NOTE That this technically also has an offset.
+        // Windows ignores it though, so it's best to ignore it too.
+        for (int row = 0; row < 3; ++row) {
+            for (int column = 0; column < 3; ++column) {
+                ret.xyzMatrix(row, column) = readS15Fixed16(data, matrixOffset + (row * 4 + column) * 4);
+            }
+        }
+    }
+    if (lutSize > 0) {
+        const uint32_t lutHeaderSize = 8;
+        const uint32_t lutDataSize = lutHeaderSize + lutSize * 4;
+        if (data.size() < std::max({redOffset, greenOffset, blueOffset}) + lutDataSize) {
+            qCWarning(KWIN_CORE, "Parsing MHC2 tag failed");
+            return std::nullopt;
+        }
+        for (uint32_t i = 0; i < lutSize; i++) {
+            ret.red.push_back(readS15Fixed16(data, redOffset + lutHeaderSize + i * 4));
+            ret.green.push_back(readS15Fixed16(data, greenOffset + lutHeaderSize + i * 4));
+            ret.blue.push_back(readS15Fixed16(data, blueOffset + lutHeaderSize + i * 4));
+        }
+    }
+    return ret;
+}
+
+static constexpr size_t trcSize = 4096;
+
+static uint16_t findToneCurveInput(cmsToneCurve *curve, uint16_t desiredOutput, uint16_t begin, uint16_t end)
+{
+    if (begin == end || begin + 1 == end) {
+        return begin;
+    }
+    const uint16_t middle = std::midpoint(begin, end);
+    const uint16_t v = cmsEvalToneCurve16(curve, middle);
+    if (desiredOutput == v) {
+        return middle;
+    } else if (desiredOutput < v) {
+        return findToneCurveInput(curve, desiredOutput, begin, middle);
+    } else {
+        return findToneCurveInput(curve, desiredOutput, middle, end);
+    }
+}
+
+/**
+ * NOTE this is different from cmsReverseToneCurve, which does not handle
+ *      100% segments at the end in the way we require
+ */
+static std::optional<std::array<uint16_t, trcSize>> inverseToneCurve(cmsToneCurve *curve)
+{
+    if (!cmsIsToneCurveMonotonic(curve) || cmsIsToneCurveDescending(curve)) {
+        return std::nullopt;
+    }
+    constexpr uint16_t max = std::numeric_limits<uint16_t>::max();
+
+    uint16_t peakInput = max;
+    const uint16_t peakValue = cmsEvalToneCurve16(curve, max);
+    if (!peakValue) {
+        return std::nullopt;
+    }
+    // some TRCs have a segment at 100% at the end,
+    // find the first non-100% value
+    for (int32_t i = trcSize - 2; i > 0; i--) {
+        const uint16_t in = std::clamp<double>(std::round(max * (i / double(trcSize - 1))), 0, max);
+        const uint16_t out = cmsEvalToneCurve16(curve, in);
+        if (out < peakValue) {
+            break;
+        } else {
+            peakInput = in;
+        }
+    }
+
+    // now calculate the curve, but ignore everything above peakInput
+    std::array<uint16_t, trcSize> ret;
+    for (uint16_t i = 0; i < trcSize; i++) {
+        const uint16_t desiredOut = std::clamp<double>(std::round(max * (i / double(trcSize - 1))), 0, max);
+        const uint16_t input = findToneCurveInput(curve, desiredOut, 0, peakInput);
+        ret[i] = input;
+    }
+    return ret;
+}
+
+static constexpr XYZ D50{
+    .X = 0.9642,
+    .Y = 1.0,
+    .Z = 0.8249,
+};
+
+std::expected<std::unique_ptr<IccProfile>, QString> IccProfile::load(const QString &path)
+{
+    if (path.isEmpty()) {
+        return nullptr;
+    }
+    cmsHPROFILE handle = cmsOpenProfileFromFile(path.toUtf8(), "r");
+    if (!handle) {
+        if (QFileInfo::exists(path)) {
+            return std::unexpected(i18n("Failed to open ICC profile \"%1\"", path));
+        } else {
+            return std::unexpected(i18n("ICC profile \"%1\" doesn't exist", path));
+        }
+    }
+    if (cmsGetDeviceClass(handle) != cmsSigDisplayClass) {
+        return std::unexpected(i18n("ICC profile \"%1\" is not usable for displays", path));
+    }
+    if (cmsGetPCS(handle) != cmsColorSpaceSignature::cmsSigXYZData) {
+        return std::unexpected(i18n("ICC profile \"%1\" has unsupported connection space, only XYZ is supported", path));
+    }
+    if (cmsGetColorSpace(handle) != cmsColorSpaceSignature::cmsSigRgbData) {
+        return std::unexpected(i18n("ICC profile \"%1\" is broken, input/output color space isn't RGB", path));
+    }
+
+    std::shared_ptr<ColorTransformation> vcgt;
+    cmsToneCurve **vcgtTag = static_cast<cmsToneCurve **>(cmsReadTag(handle, cmsSigVcgtTag));
+    if (vcgtTag && vcgtTag[0]) {
+        std::vector<std::unique_ptr<ColorPipelineStage>> stages;
+        stages.push_back(std::make_unique<ColorPipelineStage>(cmsStageAllocToneCurves(nullptr, 3, vcgtTag)));
+        vcgt = std::make_shared<ColorTransformation>(std::move(stages));
+    }
+
+    const cmsCIEXYZ *whitepoint = static_cast<cmsCIEXYZ *>(cmsReadTag(handle, cmsSigMediaWhitePointTag));
+    if (!whitepoint) {
+        return std::unexpected(i18n("ICC profile \"%1\" is broken, it has no whitepoint", path));
+    }
+    if (whitepoint->Y == 0) {
+        return std::unexpected(i18n("ICC profile \"%1\" is broken, its whitepoint is invalid", path));
+    }
+
+    XYZ red;
+    XYZ green;
+    XYZ blue;
+    XYZ white = XYZ{whitepoint->X, whitepoint->Y, whitepoint->Z};
+    std::optional<QMatrix4x4> chromaticAdaptationMatrix;
+    if (cmsIsTag(handle, cmsSigChromaticAdaptationTag)) {
+        // the chromatic adaptation tag is a 3x3 matrix that converts from the actual whitepoint to D50
+        const auto data = readTagRaw(handle, cmsSigChromaticAdaptationTag);
+        const auto mat = parseMatrix(std::span(data).subspan(8), false);
+        if (!mat) {
+            return std::unexpected(i18n("ICC profile \"%1\" is broken, parsing chromatic adaptation matrix failed", path));
+        }
+        bool invertable = false;
+        chromaticAdaptationMatrix = mat->inverted(&invertable);
+        if (!invertable) {
+            return std::unexpected(i18n("ICC profile \"%1\" is broken, inverting chromatic adaptation matrix failed", path));
+        }
+        white = XYZ::fromVector(*chromaticAdaptationMatrix * D50.asVector());
+    }
+    if (cmsCIExyYTRIPLE *chrmTag = static_cast<cmsCIExyYTRIPLE *>(cmsReadTag(handle, cmsSigChromaticityTag))) {
+        red = xyY{chrmTag->Red.x, chrmTag->Red.y, chrmTag->Red.Y}.toXYZ();
+        green = xyY{chrmTag->Green.x, chrmTag->Green.y, chrmTag->Green.Y}.toXYZ();
+        blue = xyY{chrmTag->Blue.x, chrmTag->Blue.y, chrmTag->Blue.Y}.toXYZ();
+    } else {
+        const cmsCIEXYZ *r = static_cast<cmsCIEXYZ *>(cmsReadTag(handle, cmsSigRedColorantTag));
+        const cmsCIEXYZ *g = static_cast<cmsCIEXYZ *>(cmsReadTag(handle, cmsSigGreenColorantTag));
+        const cmsCIEXYZ *b = static_cast<cmsCIEXYZ *>(cmsReadTag(handle, cmsSigBlueColorantTag));
+        if (!r || !g || !b) {
+            return std::unexpected(i18n("ICC profile \"%1\" is broken, it has no primaries", path));
+        }
+        if (chromaticAdaptationMatrix) {
+            red = XYZ::fromVector(*chromaticAdaptationMatrix * QVector3D(r->X, r->Y, r->Z));
+            green = XYZ::fromVector(*chromaticAdaptationMatrix * QVector3D(g->X, g->Y, g->Z));
+            blue = XYZ::fromVector(*chromaticAdaptationMatrix * QVector3D(b->X, b->Y, b->Z));
+        } else {
+            // if the chromatic adaptation tag isn't available, fall back to using the media whitepoint instead
+            cmsCIEXYZ adaptedR{};
+            cmsCIEXYZ adaptedG{};
+            cmsCIEXYZ adaptedB{};
+            bool success = cmsAdaptToIlluminant(&adaptedR, cmsD50_XYZ(), whitepoint, r);
+            success &= cmsAdaptToIlluminant(&adaptedG, cmsD50_XYZ(), whitepoint, g);
+            success &= cmsAdaptToIlluminant(&adaptedB, cmsD50_XYZ(), whitepoint, b);
+            if (!success) {
+                return std::unexpected(i18n("ICC profile \"%1\" is broken, couldn't calculate its primaries", path));
+            }
+            red = XYZ(adaptedR.X, adaptedR.Y, adaptedR.Z);
+            green = XYZ(adaptedG.X, adaptedG.Y, adaptedG.Z);
+            blue = XYZ(adaptedB.X, adaptedB.Y, adaptedB.Z);
+        }
+    }
+
+    if (red.Y == 0 || green.Y == 0 || blue.Y == 0 || white.Y == 0) {
+        return std::unexpected(i18n("ICC profile \"%1\" is broken, its primaries are invalid", path));
+    }
+
+    std::optional<double> maxFALL;
+    if (cmsCIEXYZ *luminance = static_cast<cmsCIEXYZ *>(cmsReadTag(handle, cmsSigLuminanceTag))) {
+        // for some reason, lcms exposes the luminance as a XYZ triple...
+        // only Y is non-zero, and it's the brightness in nits
+        maxFALL = luminance->Y;
+    }
+    std::optional<double> relativeBlackPoint;
+    cmsCIEXYZ blackPoint;
+    if (cmsDetectDestinationBlackPoint(&blackPoint, handle, INTENT_RELATIVE_COLORIMETRIC, 0)) {
+        relativeBlackPoint = blackPoint.Y;
+    }
+
+    if (cmsIsTag(handle, cmsSigBToD1Tag) && !cmsIsTag(handle, cmsSigBToA1Tag) && !cmsIsTag(handle, cmsSigBToA0Tag)) {
+        return std::unexpected(i18n("ICC profile \"%1\" with only BToD tags isn't supported", path));
+    }
+    std::optional<ColorPipeline> bToA0;
+    std::optional<ColorPipeline> bToA1;
+    if (cmsIsTag(handle, cmsSigBToA0Tag)) {
+        bToA0 = parseBToATag(handle, cmsSigBToA0Tag);
+    }
+    if (cmsIsTag(handle, cmsSigBToA1Tag)) {
+        bToA1 = parseBToATag(handle, cmsSigBToA1Tag);
+    }
+    std::array<cmsToneCurve *, 3> toneCurves;
+    if (bToA0 || bToA1) {
+        // the TRC tags are often nonsense when the BToA tag exists, so this estimates the
+        // inverse transfer function by doing a grayscale transform on the BToA tag instead
+        const QMatrix4x4 toXYZD50 = Colorimetry::chromaticAdaptationMatrix(white, D50) * Colorimetry(red, green, blue, white).toXYZ();
+        ColorPipeline pipeline;
+        pipeline.addMatrix(toXYZD50, ValueRange{}, ColorspaceType::AnyNonRGB);
+        pipeline.add(bToA1 ? *bToA1 : *bToA0);
+        std::array<float, trcSize> red;
+        std::array<float, trcSize> green;
+        std::array<float, trcSize> blue;
+        for (size_t i = 0; i < trcSize; i++) {
+            const float relativeI = i / float(trcSize - 1);
+            const QVector3D result = pipeline.evaluate(QVector3D{relativeI, relativeI, relativeI});
+            red[i] = result.x();
+            green[i] = result.y();
+            blue[i] = result.z();
+        }
+        toneCurves = {
+            cmsBuildTabulatedToneCurveFloat(nullptr, trcSize, red.data()),
+            cmsBuildTabulatedToneCurveFloat(nullptr, trcSize, green.data()),
+            cmsBuildTabulatedToneCurveFloat(nullptr, trcSize, blue.data()),
+        };
+    } else {
+        cmsToneCurve *r = static_cast<cmsToneCurve *>(cmsReadTag(handle, cmsSigRedTRCTag));
+        cmsToneCurve *g = static_cast<cmsToneCurve *>(cmsReadTag(handle, cmsSigGreenTRCTag));
+        cmsToneCurve *b = static_cast<cmsToneCurve *>(cmsReadTag(handle, cmsSigBlueTRCTag));
+        if (!r || !g || !b) {
+            return std::unexpected(i18n("Color profile is missing TRC tags"));
+        }
+
+        const auto redCurve = inverseToneCurve(r);
+        const auto greenCurve = inverseToneCurve(g);
+        const auto blueCurve = inverseToneCurve(b);
+        if (!redCurve || !greenCurve || !blueCurve) {
+            return std::unexpected(i18n("Couldn't invert tone curves of ICC profile \"%1\"", qPrintable(path)));
+        }
+
+        toneCurves = {
+            cmsBuildTabulatedToneCurve16(nullptr, redCurve->size(), redCurve->data()),
+            cmsBuildTabulatedToneCurve16(nullptr, greenCurve->size(), greenCurve->data()),
+            cmsBuildTabulatedToneCurve16(nullptr, blueCurve->size(), blueCurve->data()),
+        };
+    }
+    std::vector<std::unique_ptr<ColorPipelineStage>> stages;
+    stages.push_back(std::make_unique<ColorPipelineStage>(cmsStageAllocToneCurves(nullptr, toneCurves.size(), toneCurves.data())));
+    for (auto toneCurve : toneCurves) {
+        cmsFreeToneCurve(toneCurve);
+    }
+    const auto inverseEOTF = std::make_shared<ColorTransformation>(std::move(stages));
+
+    QMatrix4x4 xyzMatrix;
+    std::optional<double> maxCLL = maxFALL;
+    if (auto mhc2 = parseMhc2Tag(handle)) {
+        if (mhc2->maxLuminance != 0) {
+            maxCLL = mhc2->maxLuminance;
+        }
+        if (mhc2->minLuminance != 0 && maxFALL.has_value()) {
+            relativeBlackPoint = mhc2->minLuminance / *maxFALL;
+        }
+        if (!mhc2->red.empty()) {
+            std::array<cmsToneCurve *, 3> toneCurves = {
+                cmsBuildTabulatedToneCurveFloat(nullptr, mhc2->red.size(), mhc2->red.data()),
+                cmsBuildTabulatedToneCurveFloat(nullptr, mhc2->green.size(), mhc2->green.data()),
+                cmsBuildTabulatedToneCurveFloat(nullptr, mhc2->blue.size(), mhc2->blue.data()),
+            };
+            std::vector<std::unique_ptr<ColorPipelineStage>> stages;
+            stages.push_back(std::make_unique<ColorPipelineStage>(cmsStageAllocToneCurves(nullptr, toneCurves.size(), toneCurves.data())));
+            vcgt = std::make_shared<ColorTransformation>(std::move(stages));
+            for (auto toneCurve : toneCurves) {
+                cmsFreeToneCurve(toneCurve);
+            }
+        }
+        // NOTE that this matrix is usually used for bad hacks Windows needs
+        // like "sRGB clamping", which are completely unnecessary with KWin.
+        // Maybe warn the user about this in KScreen?
+        xyzMatrix = mhc2->xyzMatrix;
+    }
+
+    return std::make_unique<IccProfile>(handle, Colorimetry(red, green, blue, white), std::move(bToA0), std::move(bToA1), inverseEOTF, xyzMatrix, vcgt, relativeBlackPoint, maxFALL, maxCLL);
+}
+
+}

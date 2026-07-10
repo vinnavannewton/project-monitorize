@@ -1,0 +1,1011 @@
+# Translation of kcmkwinrules into Japanese.
+# SPDX-FileCopyrightText: 2023 Ryuichi Yamada <ryuichi_ya220@outlook.jp>
+# This file is distributed under the same license as the kdebase package.
+# Kenshi Muto <kmuto@debian.org>, 2004.
+# Shinichi Tsunoda <tsuno@ngy.1st.ne.jp>, 2005.
+# Yukiko Bando <ybando@k6.dion.ne.jp>, 2006, 2007, 2010.
+# R.Suga <21r.suga@gmail.com>, 2022.
+# Fumiaki Okushi <fumiaki.okushi@gmail.com>, 2005, 2015, 2022, 2023.
+# SPDX-FileCopyrightText: 2026 Mint <5602mint@gmail.com>
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: kcmkwinrules\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-07-10 00:46+0000\n"
+"PO-Revision-Date: 2026-06-14 17:51+0900\n"
+"Last-Translator: Mint <5602mint@gmail.com>\n"
+"Language-Team: Japanese <kde-i18n-doc@kde.org>\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Lokalize 26.04.2\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Accelerator-Marker: &\n"
+"X-Text-Markup: kde4\n"
+
+#: kcmrules.cpp:228
+#, kde-format
+msgid "Copy of %1"
+msgstr "%1 のコピー"
+
+#: kcmrules.cpp:426
+#, kde-format
+msgid "Application settings for %1"
+msgstr "%1 のアプリケーション設定"
+
+#: kcmrules.cpp:448 rulesmodel.cpp:222 rulesmodel.cpp:225
+#, kde-format
+msgid "Window settings for %1"
+msgstr "%1 のウィンドウ設定"
+
+#: optionsmodel.cpp:199 optionsmodel.cpp:204
+#, kde-format
+msgctxt "@item:inlistbox"
+msgid "Unimportant"
+msgstr "指定しない"
+
+#: optionsmodel.cpp:200
+#, kde-format
+msgctxt "@item:inlistbox"
+msgid "Exact match"
+msgstr "完全一致"
+
+#: optionsmodel.cpp:201
+#, kde-format
+msgctxt "@item:inlistbox"
+msgid "Substring match"
+msgstr "部分一致"
+
+#: optionsmodel.cpp:202
+#, kde-format
+msgctxt "@item:inlistbox"
+msgid "Regular expression"
+msgstr "正規表現"
+
+#: optionsmodel.cpp:205
+#, kde-format
+msgctxt "@item:inlistbox This is a noun"
+msgid "Match"
+msgstr "一致"
+
+#: optionsmodel.cpp:210
+#, kde-format
+msgid "Apply initially"
+msgstr "起動時に適用"
+
+#: optionsmodel.cpp:211
+#, kde-format
+msgid ""
+"The window property will be only set to the given value after the window is "
+"created.\n"
+"No further changes will be affected."
+msgstr ""
+"ウィンドウが作成された時点でウィンドウプロパティを指定した値に設定します。\n"
+"値は固定されず、これ以降も変更することができます。"
+
+#: optionsmodel.cpp:214
+#, kde-format
+msgid "Apply now"
+msgstr "今すぐ適用"
+
+#: optionsmodel.cpp:215
+#, kde-format
+msgid ""
+"The window property will be set to the given value immediately and will not "
+"be affected later\n"
+"(this action will be deleted afterwards)."
+msgstr ""
+"適用をクリックした時点で指定したウィンドウプロパティを即座に反映します。これ"
+"以降適用される設定に影響されません。\n"
+"(その後、このアクションは自動的に削除されます。)"
+
+#: optionsmodel.cpp:218
+#, kde-format
+msgid "Remember"
+msgstr "記憶"
+
+#: optionsmodel.cpp:219
+#, kde-format
+msgid ""
+"The value of the window property will be remembered and, every time the "
+"window is created, the last remembered value will be applied."
+msgstr ""
+"ウィンドウプロパティの値は保存され、ウィンドウが作成されるたびに最後に保存さ"
+"れた値に設定します。"
+
+#: optionsmodel.cpp:222
+#, kde-format
+msgid "Do not affect"
+msgstr "影響しない"
+
+#: optionsmodel.cpp:223
+#, kde-format
+msgid ""
+"The window property will not be affected and therefore the default handling "
+"for it will be used.\n"
+"Specifying this will block more generic window settings from taking effect."
+msgstr ""
+"このウィンドウプロパティに何もしません。そのためこの設定より前に適用された設"
+"定が使用されます。\n"
+"これに指定すると、これ以降このプロパティに適用される設定を無効化することがで"
+"きます。"
+
+#: optionsmodel.cpp:226
+#, kde-format
+msgid "Force"
+msgstr "強制"
+
+#: optionsmodel.cpp:227
+#, kde-format
+msgid "The window property will be always forced to the given value."
+msgstr "ウィンドウプロパティを常に設定した値に強制します。"
+
+#: optionsmodel.cpp:229
+#, kde-format
+msgid "Force temporarily"
+msgstr "一時的に強制"
+
+#: optionsmodel.cpp:230
+#, kde-format
+msgid ""
+"The window property will be forced to the given value until it is hidden\n"
+"(this action will be deleted after the window is hidden)."
+msgstr ""
+"ウィンドウが非表示になるまでウィンドウプロパティを指定した値に強制します。\n"
+"(このアクションはウィンドウが非表示になった後に削除されます。)"
+
+#: rulesmodel.cpp:228
+#, kde-format
+msgid "Settings for %1"
+msgstr "%1 の設定"
+
+#: rulesmodel.cpp:231
+#, kde-format
+msgid "New window settings"
+msgstr "新しいウィンドウ設定"
+
+#: rulesmodel.cpp:247
+#, kde-format
+msgid ""
+"You have specified the window class as unimportant.\n"
+"This means the settings will possibly apply to windows from all "
+"applications. If you really want to create a generic setting, it is "
+"recommended you at least limit the window types to avoid special window "
+"types."
+msgstr ""
+"ウィンドウクラスに「指定しない」が選択されました。\n"
+"これにより設定がすべてのアプリケーションのウィンドウに適用される可能性があり"
+"ます。全般的な設定を作成したいときは、特殊なタイプのウィンドウに設定が適用さ"
+"れてしまうことを防ぐため、ウィンドウタイプを指定することをおすすめします。"
+
+#: rulesmodel.cpp:254
+#, kde-format
+msgid ""
+"Some applications set their own geometry after starting, overriding your "
+"initial settings for size and position. To enforce these settings, also "
+"force the property \"%1\" to \"Yes\"."
+msgstr ""
+"一部のアプリケーションは、起動時に独自の座標を設定し、ここで指定したサイズと"
+"位置の設定を上書きすることがあります。強制的に設定するには、「%1」のプロパ"
+"ティを「はい」に強制してください。"
+
+#: rulesmodel.cpp:261
+#, kde-format
+msgid ""
+"Readability may be impaired with extremely low opacity values. At 0%, the "
+"window becomes invisible."
+msgstr ""
+"不透明度を極端に低くすると可読性が失われます。0% に設定すると、ウィンドウは見"
+"えなくなります。"
+
+#: rulesmodel.cpp:388
+#, kde-format
+msgid "Description"
+msgstr "説明"
+
+#: rulesmodel.cpp:388 rulesmodel.cpp:396 rulesmodel.cpp:404 rulesmodel.cpp:411
+#: rulesmodel.cpp:417 rulesmodel.cpp:425 rulesmodel.cpp:430 rulesmodel.cpp:436
+#: rulesmodel.cpp:441 rulesmodel.cpp:447
+#, kde-format
+msgid "Window matching"
+msgstr "一致するウィンドウ"
+
+#: rulesmodel.cpp:396
+#, kde-format
+msgid "Window class (application)"
+msgstr "ウィンドウクラス (アプリケーション)"
+
+#: rulesmodel.cpp:404
+#, kde-format
+msgid "Match whole window class"
+msgstr "すべてのウィンドウクラスに一致"
+
+#: rulesmodel.cpp:411
+#, kde-format
+msgid "Whole window class"
+msgstr "すべてのウィンドウクラス"
+
+#: rulesmodel.cpp:417
+#, kde-format
+msgid "Window types"
+msgstr "ウィンドウタイプ"
+
+#: rulesmodel.cpp:425
+#, kde-format
+msgid "Window role"
+msgstr "ウィンドウの役割"
+
+#: rulesmodel.cpp:430
+#, kde-format
+msgid "Window title"
+msgstr "ウィンドウタイトル"
+
+#: rulesmodel.cpp:436
+#, kde-format
+msgid "Machine (hostname)"
+msgstr "マシン (ホスト名)"
+
+#: rulesmodel.cpp:441
+#, kde-format
+msgid "Window tag"
+msgstr "ウィンドウのタグ"
+
+#: rulesmodel.cpp:447
+#, kde-format
+msgid "Has parent window"
+msgstr "親ウィンドウが存在"
+
+#: rulesmodel.cpp:453
+#, kde-format
+msgid "Position"
+msgstr "位置"
+
+#: rulesmodel.cpp:453 rulesmodel.cpp:459 rulesmodel.cpp:465 rulesmodel.cpp:470
+#: rulesmodel.cpp:478 rulesmodel.cpp:484 rulesmodel.cpp:503 rulesmodel.cpp:519
+#: rulesmodel.cpp:524 rulesmodel.cpp:529 rulesmodel.cpp:534 rulesmodel.cpp:541
+#: rulesmodel.cpp:555 rulesmodel.cpp:560
+#, kde-format
+msgid "Size & Position"
+msgstr "サイズと位置"
+
+#: rulesmodel.cpp:459
+#, kde-format
+msgid "Size"
+msgstr "サイズ"
+
+#: rulesmodel.cpp:465
+#, kde-format
+msgid "Maximized horizontally"
+msgstr "横に最大化"
+
+#: rulesmodel.cpp:470
+#, kde-format
+msgid "Maximized vertically"
+msgstr "縦に最大化"
+
+#: rulesmodel.cpp:478
+#, kde-format
+msgid "Virtual desktop"
+msgstr "仮想デスクトップ"
+
+#: rulesmodel.cpp:484
+#, kde-format
+msgid "Virtual desktops"
+msgstr "仮想デスクトップ"
+
+#: rulesmodel.cpp:503
+#, kde-format
+msgid "Activities"
+msgstr "アクティビティ"
+
+#: rulesmodel.cpp:519
+#, kde-format
+msgid "Screen"
+msgstr "スクリーン"
+
+#: rulesmodel.cpp:524 rulesmodel.cpp:923
+#, kde-format
+msgid "Fullscreen"
+msgstr "フルスクリーン"
+
+#: rulesmodel.cpp:529
+#, kde-format
+msgid "Minimized"
+msgstr "最小化"
+
+#: rulesmodel.cpp:534
+#, kde-format
+msgid "Initial placement"
+msgstr "初期配置"
+
+#: rulesmodel.cpp:541
+#, kde-format
+msgid "Ignore requested geometry"
+msgstr "要求されたジオメトリを無視"
+
+#: rulesmodel.cpp:544
+#, kde-kuit-format
+msgctxt "@info:tooltip"
+msgid ""
+"Some applications can set their own geometry, overriding the window manager "
+"preferences. Setting this property overrides their placement requests.<nl/"
+"><nl/>This affects <interface>Size</interface> and <interface>Position</"
+"interface> but not <interface>Maximized</interface> or "
+"<interface>Fullscreen</interface> states.<nl/><nl/>Note that the position "
+"can also be used to map to a different <interface>Screen</interface>"
+msgstr ""
+"一部のアプリケーションは、起動時に独自の座標を設定し、ウィンドウマネージャの"
+"設定を上書きすることがあります。このプロパティを設定することでアプリ側の配置"
+"設定を上書きすることができます。<nl/><nl/>この設定は<interface>サイズ</"
+"interface>と<interface>位置</interface>には影響しますが、<interface>最大化</"
+"interface>または<interface>フルスクリーン</interface>の状態には影響しません。"
+"<nl/><nl/>補足: 位置設定はほかのスクリーンにウィンドウを配置するためにも使用"
+"できます。"
+
+#: rulesmodel.cpp:555
+#, kde-format
+msgid "Minimum Size"
+msgstr "最小サイズ"
+
+#: rulesmodel.cpp:560
+#, kde-format
+msgid "Maximum Size"
+msgstr "最大サイズ"
+
+#: rulesmodel.cpp:566
+#, kde-format
+msgid "Keep above other windows"
+msgstr "他のウィンドウより上に保持"
+
+#: rulesmodel.cpp:566 rulesmodel.cpp:571 rulesmodel.cpp:576 rulesmodel.cpp:582
+#: rulesmodel.cpp:588 rulesmodel.cpp:594
+#, kde-format
+msgid "Arrangement & Access"
+msgstr "アレンジとアクセス"
+
+#: rulesmodel.cpp:571
+#, kde-format
+msgid "Keep below other windows"
+msgstr "他のウィンドウより下に保持"
+
+#: rulesmodel.cpp:576
+#, kde-format
+msgid "Skip taskbar"
+msgstr "タスクバーをスキップ"
+
+#: rulesmodel.cpp:578
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Controls whether or not the window appears in the Task Manager."
+msgstr "ウィンドウをタスクマネージャーで表示するかどうか設定できます。"
+
+#: rulesmodel.cpp:582
+#, kde-format
+msgid "Skip pager"
+msgstr "ページャをスキップ"
+
+#: rulesmodel.cpp:584
+#, kde-format
+msgctxt "@info:tooltip"
+msgid ""
+"Controls whether or not the window appears in the Virtual Desktop manager."
+msgstr "ウィンドウを仮想デスクトップマネージャで表示するかどうか設定できます。"
+
+#: rulesmodel.cpp:588
+#, kde-format
+msgid "Skip switcher"
+msgstr "スイッチャーをスキップ"
+
+#: rulesmodel.cpp:590
+#, kde-kuit-format
+msgctxt "@info:tooltip"
+msgid ""
+"Controls whether or not the window appears in the <shortcut>Alt+Tab</"
+"shortcut> window list."
+msgstr ""
+"ウィンドウを <shortcut>Alt+Tab</shortcut> のウィンドウ一覧で表示するかどうか"
+"設定できます。"
+
+#: rulesmodel.cpp:594
+#, kde-format
+msgid "Shortcut"
+msgstr "ショートカット"
+
+#: rulesmodel.cpp:600
+#, kde-format
+msgid "No titlebar and frame"
+msgstr "タイトルバーとフレームなし"
+
+#: rulesmodel.cpp:600 rulesmodel.cpp:605 rulesmodel.cpp:611 rulesmodel.cpp:616
+#: rulesmodel.cpp:622 rulesmodel.cpp:649 rulesmodel.cpp:677 rulesmodel.cpp:683
+#: rulesmodel.cpp:695 rulesmodel.cpp:700 rulesmodel.cpp:705 rulesmodel.cpp:711
+#: rulesmodel.cpp:716 rulesmodel.cpp:721
+#, kde-format
+msgid "Appearance & Fixes"
+msgstr "外観と改善"
+
+#: rulesmodel.cpp:605
+#, kde-format
+msgid "Titlebar color scheme"
+msgstr "タイトルバーのカラースキーム"
+
+#: rulesmodel.cpp:611
+#, kde-format
+msgid "Active opacity"
+msgstr "アクティブの不透明度"
+
+#: rulesmodel.cpp:616
+#, kde-format
+msgid "Inactive opacity"
+msgstr "非アクティブの不透明度"
+
+#: rulesmodel.cpp:622
+#, kde-format
+msgid "Focus stealing prevention"
+msgstr "フォーカスの移動を防止"
+
+#: rulesmodel.cpp:624
+#, kde-kuit-format
+msgctxt "@info:tooltip"
+msgid ""
+"KWin tries to prevent windows that were opened without direct user action "
+"from raising themselves and taking focus while you're currently interacting "
+"with another window. This property can be used to change the level of focus "
+"stealing prevention applied to individual windows and apps.<nl/><nl/>Here's "
+"what will happen to a window opened without your direct action at each level "
+"of focus stealing prevention:<nl/><list><item><emphasis strong='true'>None:</"
+"emphasis> The window will be raised and focused.</item><item><emphasis "
+"strong='true'>Low:</emphasis> Focus stealing prevention will be applied, but "
+"in the case of a situation KWin considers ambiguous, the window will be "
+"raised and focused.</item><item><emphasis strong='true'>Normal:</emphasis> "
+"Focus stealing prevention will be applied, but  in the case of a situation "
+"KWin considers ambiguous, the window will <emphasis>not</emphasis> be raised "
+"and focused.</item><item><emphasis strong='true'>High:</emphasis> The window "
+"will only be raised and focused if it belongs to the same app as the "
+"currently-focused window.</item><item><emphasis strong='true'>Extreme:</"
+"emphasis> The window will never be raised and focused.</item></list>"
+msgstr ""
+"KWin は、ほかのウィンドウが操作されている間、ユーザーの直接的な操作なしに開か"
+"れたウィンドウが前面に表示されてフォーカスを奪うのを防ごうとします。このプロ"
+"パティを使うと、個々のウィンドウやアプリに適用するフォーカス奪取防止のレベル"
+"を設定できます。<nl/><nl/>各レベルにおいて、直接的な操作なしに開かれたウィン"
+"ドウに起こる動作は以下のとおりです。<nl/><list><item><emphasis strong='true'>"
+"なし:</emphasis> ウィンドウが前面に表示され、フォーカスされます。</"
+"item><item><emphasis strong='true'>低:</emphasis> フォーカス奪取防止が適用さ"
+"れますが、KWin が曖昧と判断した状況では、ウィンドウが前面に表示され、フォーカ"
+"スされます。</item><item><emphasis strong='true'>標準:</emphasis> フォーカス"
+"奪取防止が適用されますが、KWin が曖昧と判断した状況では、ウィンドウは前面に表"
+"示<emphasis>されません</emphasis>。</item><item><emphasis strong='true'>高:</"
+"emphasis> 現在フォーカスされているウィンドウと同じアプリの場合にのみ、ウィン"
+"ドウが前面に表示され、フォーカスされます。</item><item><emphasis "
+"strong='true'>最大:</emphasis> ウィンドウが前面に表示されることも、フォーカス"
+"されることもありません。</item></list>"
+
+#: rulesmodel.cpp:649
+#, kde-format
+msgid "Focus protection"
+msgstr "フォーカス保護"
+
+#: rulesmodel.cpp:651
+#, kde-kuit-format
+msgctxt "@info:tooltip"
+msgid ""
+"This property controls the focus protection level of the currently active "
+"window. It is used to override the focus stealing prevention applied to new "
+"windows that are opened without your direct action.<nl/><nl/>Here's what "
+"happens to new windows that are opened without your direct action at each "
+"level of focus protection while the window with this property applied to it "
+"has focus:<nl/><list><item><emphasis strong='true'>None</emphasis>: Newly-"
+"opened windows always raise themselves and take focus.</item><item><emphasis "
+"strong='true'>Low:</emphasis> Focus stealing prevention will be applied to "
+"the newly-opened window, but in the case of a situation KWin considers "
+"ambiguous, the window will be raised and focused.</item><item><emphasis "
+"strong='true'>Normal:</emphasis> Focus stealing prevention will be applied "
+"to the newly-opened window, but in the case of a situation KWin considers "
+"ambiguous, the window will <emphasis>not</emphasis> be raised and focused.</"
+"item><item><emphasis strong='true'>High:</emphasis> Newly-opened windows "
+"will only raise themselves and take focus if they belongs to the same app as "
+"the currently-focused window.</item><item><emphasis strong='true'>Extreme:</"
+"emphasis> Newly-opened windows never raise themselves and take focus.</"
+"item></list>"
+msgstr ""
+"このプロパティは、現在アクティブなウィンドウのフォーカス保護レベルを制御しま"
+"す。これは、ユーザーが直接操作せずに開かれた新しいウィンドウに対して適用され"
+"るフォーカス奪取防止を上書きするために使用されます。<nl/><nl/>このプロパティ"
+"が適用されたウィンドウにフォーカスがある間、ユーザーの直接操作なしに開かれた"
+"新しいウィンドウは、フォーカス保護レベルごとに以下のように動作します。<nl/"
+"><list><item><emphasis strong='true'>なし</emphasis>: 新しく開かれたウィンド"
+"ウは常に前面に表示され、フォーカスを取得します。</item><item><emphasis "
+"strong='true'>低:</emphasis> 新しく開かれたウィンドウにフォーカス奪取防止が適"
+"用されますが、KWin が状況を曖昧と判断した場合は、そのウィンドウが前面に表示さ"
+"れ、フォーカスを取得します。</item><item><emphasis strong='true'>標準:</"
+"emphasis> 新しく開かれたウィンドウにフォーカス奪取防止が適用されますが、KWin "
+"が状況を曖昧と判断した場合でも、そのウィンドウは<emphasis>前面に表示されず</"
+"emphasis>、フォーカスも取得しません。</item><item><emphasis strong='true'>高:"
+"</emphasis> 新しく開かれたウィンドウは、現在フォーカスされているウィンドウと"
+"同じアプリに属している場合のみ、前面に表示され、フォーカスを取得します。</"
+"item><item><emphasis strong='true'>最高:</emphasis> 新しく開かれたウィンドウ"
+"は、前面に表示されたりフォーカスを取得したりしません。</item></list>"
+
+#: rulesmodel.cpp:677
+#, kde-format
+msgid "Accept focus"
+msgstr "フォーカスを受け付ける"
+
+#: rulesmodel.cpp:679
+#, kde-format
+msgid "Controls whether or not the window becomes focused when clicked."
+msgstr "ウィンドウをクリックしたときにフォーカスするかどうか設定できます。"
+
+#: rulesmodel.cpp:683
+#, kde-format
+msgid "Ignore global shortcuts"
+msgstr "グローバルショートカットを無視"
+
+#: rulesmodel.cpp:685
+#, kde-kuit-format
+msgctxt "@info:tooltip"
+msgid ""
+"Use this property to prevent global keyboard shortcuts from working while "
+"the window is focused. This can be useful for apps like emulators or virtual "
+"machines that handle some of the same shortcuts themselves.<nl/><nl/>Note "
+"that you won't be able to <shortcut>Alt+Tab</shortcut> out of the window or "
+"use any other global shortcuts such as <shortcut>Alt+Space</shortcut> to "
+"activate KRunner."
+msgstr ""
+"このプロパティを使用すると、ウィンドウがフォーカスされている間はグローバル"
+"キーボードショートカットを無効にできます。エミュレーターや仮想マシンなど、一"
+"部の同一ショートカットをアプリ側で処理する場合に便利です。<nl/><nl/>ただし、"
+"ウィンドウから <shortcut>Alt+Tab</shortcut> で切り替えたり、<shortcut>Alt"
+"+Space</shortcut> で KRunner を起動するなど、他のグローバルショートカットも使"
+"用できなくなります。"
+
+#: rulesmodel.cpp:695
+#, kde-format
+msgid "Closeable"
+msgstr "閉じることが可能"
+
+#: rulesmodel.cpp:700
+#, kde-format
+msgid "Desktop file name"
+msgstr "デスクトップファイルの名前"
+
+#: rulesmodel.cpp:705
+#, kde-format
+msgid "Layer"
+msgstr "レイヤー"
+
+#: rulesmodel.cpp:711
+#, kde-format
+msgid "Adaptive sync"
+msgstr "可変リフレッシュレート"
+
+#: rulesmodel.cpp:716
+#, kde-format
+msgid "Allow tearing"
+msgstr "ティアリングを許可"
+
+#: rulesmodel.cpp:721
+#, kde-format
+msgid "Hide from screenshots and screen recordings"
+msgstr "画面撮影と録画から消す"
+
+#: rulesmodel.cpp:774
+#, kde-format
+msgid "Window class not available"
+msgstr "ウィンドウクラスが利用できません"
+
+#: rulesmodel.cpp:775
+#, kde-kuit-format
+msgctxt "@info"
+msgid ""
+"This application is not providing a class for the window, so KWin cannot use "
+"it to match and apply any rules. If you still want to apply some rules to "
+"it, try to match other properties like the window title instead.<nl/><nl/"
+">Please consider reporting this bug to the application's developers."
+msgstr ""
+"このアプリケーションはウィンドウクラスを提供していません。そのため、KWin は"
+"ウィンドウクラスを利用してルールを適用することができません。ウィンドウタイト"
+"ルのような、他のプロパティを利用してルールの適用を試みてください。<nl/><nl/>"
+"アプリケーションの開発者にこのバグを報告することも検討してください。"
+
+#: rulesmodel.cpp:809
+#, kde-format
+msgid "All window types"
+msgstr "すべてのウィンドウタイプ"
+
+#: rulesmodel.cpp:810
+#, kde-format
+msgid "Normal window"
+msgstr "通常ウィンドウ"
+
+#: rulesmodel.cpp:811
+#, kde-format
+msgid "Dialog window"
+msgstr "ダイアログウィンドウ"
+
+#: rulesmodel.cpp:812
+#, kde-format
+msgid "Utility window"
+msgstr "ユーティリティウィンドウ"
+
+#: rulesmodel.cpp:813
+#, kde-format
+msgid "Dock (panel)"
+msgstr "ドック (パネル)"
+
+#: rulesmodel.cpp:814
+#, kde-format
+msgid "Toolbar"
+msgstr "ツールバー"
+
+#: rulesmodel.cpp:815
+#, kde-format
+msgid "Torn-off menu"
+msgstr "分離されたメニュー"
+
+#: rulesmodel.cpp:816
+#, kde-format
+msgid "Splash screen"
+msgstr "スプラッシュスクリーン"
+
+#: rulesmodel.cpp:817 rulesmodel.cpp:918
+#, kde-format
+msgid "Desktop"
+msgstr "デスクトップ"
+
+#. i18n("Unmanaged Window")},  deprecated
+#: rulesmodel.cpp:819
+#, kde-format
+msgid "Standalone menubar"
+msgstr "単独メニューバー"
+
+#: rulesmodel.cpp:820 rulesmodel.cpp:926
+#, kde-format
+msgid "On-screen display"
+msgstr "オンスクリーンディスプレイ"
+
+#: rulesmodel.cpp:830
+#, kde-format
+msgid "All desktops"
+msgstr "すべてのデスクトップ"
+
+#: rulesmodel.cpp:832
+#, kde-format
+msgctxt "@info:tooltip in the virtual desktop list"
+msgid "Make the window available on all desktops"
+msgstr "すべてのデスクトップでウィンドウを利用可能にする"
+
+#: rulesmodel.cpp:851
+#, kde-format
+msgid "All activities"
+msgstr "すべてのアクティビティ"
+
+#: rulesmodel.cpp:853
+#, kde-format
+msgctxt "@info:tooltip in the activity list"
+msgid "Make the window available on all activities"
+msgstr "すべてのアクティビティでウィンドウを利用可能にする"
+
+#: rulesmodel.cpp:874
+#, kde-format
+msgid "Default"
+msgstr "デフォルト"
+
+#: rulesmodel.cpp:875
+#, kde-format
+msgid "No placement"
+msgstr "配置なし"
+
+#: rulesmodel.cpp:876
+#, kde-format
+msgid "Minimal overlapping"
+msgstr "最小限の重なり"
+
+#: rulesmodel.cpp:877
+#, kde-format
+msgid "Maximized"
+msgstr "最大化"
+
+#: rulesmodel.cpp:878
+#, kde-format
+msgid "Centered"
+msgstr "中央に配置"
+
+#: rulesmodel.cpp:879
+#, kde-format
+msgid "Random"
+msgstr "ランダム"
+
+#: rulesmodel.cpp:880
+#, kde-format
+msgid "In top-left corner"
+msgstr "左上隅"
+
+#: rulesmodel.cpp:881
+#, kde-format
+msgid "Under mouse"
+msgstr "マウスの下"
+
+#: rulesmodel.cpp:882
+#, kde-format
+msgid "On main window"
+msgstr "メインウィンドウの上"
+
+#: rulesmodel.cpp:889
+#, kde-format
+msgid "None"
+msgstr "なし"
+
+#: rulesmodel.cpp:890
+#, kde-format
+msgid "Low"
+msgstr "低"
+
+#: rulesmodel.cpp:891 rulesmodel.cpp:920
+#, kde-format
+msgid "Normal"
+msgstr "中"
+
+#: rulesmodel.cpp:892
+#, kde-format
+msgid "High"
+msgstr "高"
+
+#: rulesmodel.cpp:893
+#, kde-format
+msgid "Extreme"
+msgstr "最高"
+
+#: rulesmodel.cpp:919
+#, kde-format
+msgid "Below"
+msgstr "低"
+
+#: rulesmodel.cpp:921
+#, kde-format
+msgid "Above"
+msgstr "高"
+
+#: rulesmodel.cpp:922
+#, kde-format
+msgid "Notification"
+msgstr "通知"
+
+#: rulesmodel.cpp:924
+#, kde-format
+msgid "Popup"
+msgstr "ポップアップ"
+
+#: rulesmodel.cpp:925
+#, kde-format
+msgid "Critical notification"
+msgstr "重要な通知"
+
+#: rulesmodel.cpp:927
+#, kde-format
+msgid "Overlay"
+msgstr "オーバーレイ"
+
+#: rulesmodel.cpp:952
+#, kde-format
+msgid "Unmanaged window"
+msgstr "管理されていないウィンドウ"
+
+#: rulesmodel.cpp:953
+#, kde-format
+msgid "Could not detect window properties. The window is not managed by KWin."
+msgstr ""
+"ウィンドウプロパティを検出できませんでした。このウィンドウは KWin によって管"
+"理されていません。"
+
+#: ui/FileDialogLoader.qml:15
+#, kde-format
+msgid "Select File"
+msgstr "ファイルを選択"
+
+#: ui/FileDialogLoader.qml:27
+#, kde-format
+msgid "KWin Rules (*.kwinrule)"
+msgstr "KWin ルール (*.kwinrule)"
+
+#: ui/main.qml:28
+#, kde-format
+msgid "Add New…"
+msgstr "新規追加..."
+
+#: ui/main.qml:35
+#, kde-format
+msgid "Import…"
+msgstr "インポート..."
+
+#: ui/main.qml:40
+#, kde-format
+msgid "Cancel Export"
+msgstr "エクスポートをキャンセル"
+
+#: ui/main.qml:40
+#, kde-format
+msgid "Export…"
+msgstr "エクスポート…"
+
+#: ui/main.qml:88
+#, kde-format
+msgid "No rules for specific windows are currently set"
+msgstr "現在、特定のウィンドウに設定されたルールはありません"
+
+#: ui/main.qml:89
+#, kde-kuit-format
+msgctxt "@info"
+msgid "Click <interface>Add New…</interface> to add some"
+msgstr "<interface>新規追加...</interface>ボタンをクリックして追加できます"
+
+#: ui/main.qml:97
+#, kde-format
+msgid "Select the rules to export"
+msgstr "エクスポートするルールを選択"
+
+#: ui/main.qml:101
+#, kde-format
+msgid "Unselect All"
+msgstr "すべて選択解除"
+
+#: ui/main.qml:101
+#, kde-format
+msgid "Select All"
+msgstr "すべて選択"
+
+#: ui/main.qml:115
+#, kde-format
+msgid "Save Rules"
+msgstr "ルールを保存"
+
+#: ui/main.qml:202
+#, kde-format
+msgid "Edit"
+msgstr "編集"
+
+#: ui/main.qml:208
+#, kde-format
+msgid "Duplicate"
+msgstr "複製"
+
+#: ui/main.qml:214
+#, kde-format
+msgid "Delete"
+msgstr "削除"
+
+#: ui/main.qml:246
+#, kde-format
+msgid "Import Rules"
+msgstr "ルールをインポート"
+
+#: ui/main.qml:258
+#, kde-format
+msgid "Export Rules"
+msgstr "ルールをエクスポート"
+
+#: ui/OptionsComboBox.qml:35
+#, kde-format
+msgid "None selected"
+msgstr "未選択"
+
+#: ui/OptionsComboBox.qml:41
+#, kde-format
+msgid "All selected"
+msgstr "全選択"
+
+#: ui/OptionsComboBox.qml:43
+#, kde-format
+msgid "%1 selected"
+msgid_plural "%1 selected"
+msgstr[0] "%1 選択済み"
+
+#: ui/RulesEditor.qml:66
+#, kde-format
+msgid "No window properties changed"
+msgstr "変更されたウィンドウプロパティはありません"
+
+#: ui/RulesEditor.qml:67
+#, kde-kuit-format
+msgctxt "@info"
+msgid ""
+"Click the <interface>Add Property...</interface> button below to add some "
+"window properties that will be affected by the rule"
+msgstr ""
+"下の<interface>プロパティを追加...</interface>ボタンをクリックして、ルールの"
+"影響を受けるウィンドウプロパティを追加できます"
+
+#: ui/RulesEditor.qml:88
+#, kde-format
+msgid "Add Property..."
+msgstr "プロパティを追加..."
+
+#: ui/RulesEditor.qml:99
+#, kde-format
+msgid "Detect Window Properties"
+msgstr "ウィンドウプロパティを検出"
+
+#: ui/RulesEditor.qml:115 ui/RulesEditor.qml:126
+#, kde-format
+msgid "Instantly"
+msgstr "すぐに"
+
+#: ui/RulesEditor.qml:116 ui/RulesEditor.qml:131
+#, kde-format
+msgid "After %1 second"
+msgid_plural "After %1 seconds"
+msgstr[0] "%1 秒後"
+
+#: ui/RulesEditor.qml:178
+#, kde-format
+msgid "Add property to the rule"
+msgstr "ルールにプロパティを追加"
+
+#: ui/RulesEditor.qml:269
+#, kde-format
+msgctxt "@info:placeholder"
+msgid "No properties left to add"
+msgstr "追加できるプロパティが残っていません"
+
+#: ui/RulesEditor.qml:271
+#, kde-format
+msgctxt "@info:placeholder %1 is a filter text introduced by the user"
+msgid "No properties match \"%1\""
+msgstr "\"%1\" の検索結果はありません"
+
+#: ui/RulesEditor.qml:292 ui/ValueEditor.qml:54
+#, kde-format
+msgid "Yes"
+msgstr "はい"
+
+#: ui/RulesEditor.qml:292 ui/ValueEditor.qml:60
+#, kde-format
+msgid "No"
+msgstr "いいえ"
+
+#: ui/RulesEditor.qml:294 ui/ValueEditor.qml:168 ui/ValueEditor.qml:175
+#, kde-format
+msgid "%1 %"
+msgstr "%1%"
+
+#: ui/RulesEditor.qml:296
+#, kde-format
+msgctxt "Coordinates (x, y)"
+msgid "(%1, %2)"
+msgstr "(%1, %2)"
+
+#: ui/RulesEditor.qml:298
+#, kde-format
+msgctxt "Size (width, height)"
+msgid "(%1, %2)"
+msgstr "(%1, %2)"
+
+#: ui/ValueEditor.qml:203
+#, kde-format
+msgctxt "(x, y) coordinates separator in size/position"
+msgid "x"
+msgstr "x"
+
+#~ msgid "Obey geometry restrictions"
+#~ msgstr "座標の制限に従う"
+
+#~ msgctxt "@info:tooltip"
+#~ msgid ""
+#~ "Some apps like video players or terminals can ask KWin to constrain them "
+#~ "to certain aspect ratios or only grow by values larger than the "
+#~ "dimensions of one character. Use this property to ignore such "
+#~ "restrictions and allow those windows to be resized to arbitrary sizes.<nl/"
+#~ "><nl/>This can be helpful for windows that can't quite fit the full "
+#~ "screen area when maximized."
+#~ msgstr ""
+#~ "ビデオプレイヤーやターミナルなどの一部のアプリは、特定の縦横比に固定した"
+#~ "り、1 文字分の大きさ単位でしか拡大できないように KWin に要求することがあり"
+#~ "ます。このプロパティでは、そうした制限を無視してウィンドウのサイズを自由に"
+#~ "変更できるようにします。<nl/><nl/>最大化時にフルスクリーン領域にきれいに収"
+#~ "まらないウィンドウに役立ちます。"
+
+#~ msgid "Block compositing"
+#~ msgstr "コンポジットをブロック"

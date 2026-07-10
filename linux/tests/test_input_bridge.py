@@ -343,6 +343,19 @@ class KdeGeometryTest(unittest.TestCase):
         ]
         self.assertEqual(geometry.kde_virtual_output(outputs)["name"], "Virtual-1")
 
+    def test_kde_virtual_output_prefers_explicit_primary_with_two_virtuals(self):
+        outputs = [
+            {"name": "Virtual-Monitorize-2", "enabled": True},
+            {"name": "Virtual-Monitorize-1", "enabled": True},
+        ]
+        with patch.dict(
+            geometry.os.environ,
+            {"MONITORIZE_OUTPUT": "Virtual-Monitorize-1"},
+            clear=False,
+        ):
+            output = geometry.kde_virtual_output(outputs)
+        self.assertEqual(output["name"], "Virtual-Monitorize-1")
+
     def test_kde_rect_uses_detected_virtual_output(self):
         geom = geometry.Geometry("kde", 2560, 1600)
         outputs = {
@@ -360,7 +373,7 @@ class KdeGeometryTest(unittest.TestCase):
         with patch("monitorize.input_bridge.geometry.json_command", return_value=outputs):
             self.assertEqual(geom._rect_kde(), (1463.0, 0.0, 2560.0, 1600.0))
 
-    def test_kde_portal_geometry_does_not_fallback_to_primary_output(self):
+    def test_kde_native_geometry_does_not_fallback_to_primary_output(self):
         geom = geometry.Geometry("kde", 1920, 1200)
         outputs = {
             "outputs": [
@@ -378,29 +391,30 @@ class KdeGeometryTest(unittest.TestCase):
         with (
             patch.dict(
                 geometry.os.environ,
-                {"MONITORIZE_PORTAL_SOURCE_TYPE": "4"},
+                {
+                    "MONITORIZE_KDE_VIRTUAL_SLOT": "primary",
+                    "MONITORIZE_OUTPUT": "Virtual-Monitorize-1",
+                },
                 clear=False,
             ),
             patch("monitorize.input_bridge.geometry.json_command", return_value=outputs),
         ):
             self.assertIsNone(geom._rect_kde())
 
-    def test_kde_rotation_accepts_numeric_and_lowercase_values(self):
-        cases = (
-            (1, 0), (2, 270), (4, 180), (8, 90),
-            ("none", 0), ("left", 270), ("inverted", 180), ("right", 90),
+    def test_kde_rotation_is_delegated_to_kwin_output_mapping(self):
+        geom = geometry.Geometry("kde", 1920, 1200)
+        with patch("monitorize.input_bridge.geometry.json_command") as query:
+            self.assertEqual(geom.rotation(), 0)
+        query.assert_not_called()
+
+    def test_kde_uinput_coordinates_are_output_local_for_live_layout_changes(self):
+        geom = geometry.Geometry("kde", 1920, 1200)
+        geom._cache = (2560.0, 300.0, 1920.0, 1200.0)
+
+        self.assertEqual(
+            geom.uinput_bounds(),
+            (1920, 1200, 0.0, 0.0, 1920.0, 1200.0),
         )
-        for value, expected in cases:
-            geom = geometry.Geometry("kde", 1920, 1200)
-            with patch("monitorize.input_bridge.geometry.json_command", return_value={
-                "outputs": [{
-                    "name": "Virtual-1",
-                    "enabled": True,
-                    "connected": True,
-                    "rotation": value,
-                }]
-            }):
-                self.assertEqual(geom.rotation(), expected)
 
 
 class GnomeGeometryTest(unittest.TestCase):
@@ -439,6 +453,16 @@ class GnomeGeometryTest(unittest.TestCase):
             geometry.gnome_virtual_monitor_edid_from_state(self.gnome_state()),
             ("MTR", "Monitorize Virtual", "serial-1"),
         )
+
+    def test_gnome_virtual_monitor_edid_uses_exact_meta_connector(self):
+        state = self.gnome_state()
+        second = ("Meta-1", "MTR", "Monitorize Virtual", "serial-3")
+        state = (state[0], [*state[1], (second, state[1][0][1], {})], state[2], state[3])
+        self.assertEqual(
+            geometry.gnome_virtual_monitor_edid_from_state(state, "Meta-1"),
+            ("MTR", "Monitorize Virtual", "serial-3"),
+        )
+        self.assertIsNone(geometry.gnome_virtual_monitor_edid_from_state(state, "Meta-9"))
 
     def test_gnome_primary_monitor_edid_from_state(self):
         self.assertEqual(

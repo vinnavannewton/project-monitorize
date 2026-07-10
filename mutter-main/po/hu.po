@@ -1,0 +1,914 @@
+# Hungarian translation for mutter.
+# Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026 Free Software Foundation, Inc.
+# This file is distributed under the same license as the mutter package.
+#
+# Andras Timar <timar at gnome dot hu>, 2002, 2003.
+# Gabor Sari <saga at externet dot hu>, 2003.
+# Laszlo Dvornik <dvornik at gnome dot hu>, 2004.
+# Gabor Kelemen <kelemeng at gnome dot hu>, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013.
+# Balázs Úr <ur.balazs at fsf dot hu>, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026.
+# Balázs Meskó <mesko.balazs at fsf dot hu>, 2021.
+msgid ""
+msgstr ""
+"Project-Id-Version: mutter master\n"
+"Report-Msgid-Bugs-To: https://gitlab.gnome.org/GNOME/mutter/issues/\n"
+"POT-Creation-Date: 2026-02-28 15:06+0000\n"
+"PO-Revision-Date: 2026-03-01 14:13+0100\n"
+"Last-Translator: Balázs Úr <ur.balazs at fsf dot hu>\n"
+"Language-Team: Hungarian <openscope at fsf dot hu>\n"
+"Language: hu\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Lokalize 25.08.1\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: data/50-mutter-navigation.xml:6
+msgid "Navigation"
+msgstr "Navigáció"
+
+#: data/50-mutter-navigation.xml:9
+msgid "Move window to workspace 1"
+msgstr "Ablak áthelyezése az 1. munkaterületre"
+
+#: data/50-mutter-navigation.xml:12
+msgid "Move window to workspace 2"
+msgstr "Ablak áthelyezése a 2. munkaterületre"
+
+#: data/50-mutter-navigation.xml:15
+msgid "Move window to workspace 3"
+msgstr "Ablak áthelyezése a 3. munkaterületre"
+
+#: data/50-mutter-navigation.xml:18
+msgid "Move window to workspace 4"
+msgstr "Ablak áthelyezése a 4. munkaterületre"
+
+#: data/50-mutter-navigation.xml:21
+msgid "Move window to last workspace"
+msgstr "Ablak áthelyezése az utolsó munkaterületre"
+
+#: data/50-mutter-navigation.xml:24
+msgid "Move window one workspace to the left"
+msgstr "Ablak áthelyezése a balra lévő munkaterületre"
+
+#: data/50-mutter-navigation.xml:27
+msgid "Move window one workspace to the right"
+msgstr "Ablak áthelyezése a jobbra lévő munkaterületre"
+
+#: data/50-mutter-navigation.xml:31
+msgid "Move window one workspace up"
+msgstr "Ablak áthelyezése a fentebb lévő munkaterületre"
+
+#: data/50-mutter-navigation.xml:35
+msgid "Move window one workspace down"
+msgstr "Ablak áthelyezése a lentebb lévő munkaterületre"
+
+#: data/50-mutter-navigation.xml:38
+msgid "Move window one monitor to the left"
+msgstr "Ablak áthelyezése a balra lévő monitorra"
+
+#: data/50-mutter-navigation.xml:41
+msgid "Move window one monitor to the right"
+msgstr "Ablak áthelyezése a jobbra lévő monitorra"
+
+#: data/50-mutter-navigation.xml:44
+msgid "Move window one monitor up"
+msgstr "Ablak áthelyezése egy monitorral feljebb"
+
+#: data/50-mutter-navigation.xml:47
+msgid "Move window one monitor down"
+msgstr "Ablak áthelyezése egy monitorral lejjebb"
+
+#: data/50-mutter-navigation.xml:51
+msgid "Switch applications"
+msgstr "Alkalmazásváltás"
+
+#: data/50-mutter-navigation.xml:56
+msgid "Switch to previous application"
+msgstr "Váltás az előző alkalmazásra"
+
+#: data/50-mutter-navigation.xml:60
+msgid "Switch windows"
+msgstr "Ablakváltás"
+
+#: data/50-mutter-navigation.xml:65
+msgid "Switch to previous window"
+msgstr "Váltás az előző ablakra"
+
+#: data/50-mutter-navigation.xml:69
+msgid "Switch windows of an application"
+msgstr "Váltás egy alkalmazás ablakai között"
+
+#: data/50-mutter-navigation.xml:74
+msgid "Switch to previous window of an application"
+msgstr "Váltás egy alkalmazás előző ablakára"
+
+#: data/50-mutter-navigation.xml:78
+msgid "Switch system controls"
+msgstr "Váltás a rendszer vezérlői közt"
+
+#: data/50-mutter-navigation.xml:83
+msgid "Switch to previous system control"
+msgstr "Váltás az előző rendszervezérlőre"
+
+#: data/50-mutter-navigation.xml:87
+msgid "Switch windows directly"
+msgstr "Váltás az ablakok közt közvetlenül"
+
+#: data/50-mutter-navigation.xml:92
+msgid "Switch directly to previous window"
+msgstr "Váltás közvetlenül az előző ablakra"
+
+#: data/50-mutter-navigation.xml:96
+msgid "Switch windows of an app directly"
+msgstr "Váltás egy alkalmazás ablakai között közvetlenül"
+
+#: data/50-mutter-navigation.xml:101
+msgid "Switch directly to previous window of an app"
+msgstr "Váltás közvetlenül egy alkalmazás előző ablakára"
+
+#: data/50-mutter-navigation.xml:105
+msgid "Switch system controls directly"
+msgstr "Váltás a rendszer vezérlői közt közvetlenül"
+
+#: data/50-mutter-navigation.xml:110
+msgid "Switch directly to previous system control"
+msgstr "Váltás közvetlenül az előző rendszervezérlőre"
+
+#: data/50-mutter-navigation.xml:113
+msgid "Hide all normal windows"
+msgstr "Minden normál ablak elrejtése"
+
+#: data/50-mutter-navigation.xml:116
+msgid "Switch to workspace 1"
+msgstr "Váltás az 1. munkaterületre"
+
+#: data/50-mutter-navigation.xml:119
+msgid "Switch to workspace 2"
+msgstr "Váltás a 2. munkaterületre"
+
+#: data/50-mutter-navigation.xml:122
+msgid "Switch to workspace 3"
+msgstr "Váltás a 3. munkaterületre"
+
+#: data/50-mutter-navigation.xml:125
+msgid "Switch to workspace 4"
+msgstr "Váltás a 4. munkaterületre"
+
+#: data/50-mutter-navigation.xml:128
+msgid "Switch to last workspace"
+msgstr "Váltás az utolsó munkaterületre"
+
+#: data/50-mutter-navigation.xml:131
+msgid "Switch to workspace on the left"
+msgstr "Váltás a bal oldali munkaterületre"
+
+#: data/50-mutter-navigation.xml:134
+msgid "Switch to workspace on the right"
+msgstr "Váltás a jobb oldali munkaterületre"
+
+#: data/50-mutter-navigation.xml:138
+msgid "Switch to workspace above"
+msgstr "Váltás a fenti munkaterületre"
+
+#: data/50-mutter-navigation.xml:142
+msgid "Switch to workspace below"
+msgstr "Váltás a lenti munkaterületre"
+
+#: data/50-mutter-system.xml:6 data/50-mutter-wayland.xml:6
+msgid "System"
+msgstr "Rendszer"
+
+#: data/50-mutter-system.xml:8
+msgid "Show the run command prompt"
+msgstr "A parancs futtatása ablak megjelenítése"
+
+#: data/50-mutter-wayland.xml:8
+msgid "Restore the keyboard shortcuts"
+msgstr "Gyorsbillentyűk helyreállítása"
+
+#: data/50-mutter-windows.xml:6
+msgid "Windows"
+msgstr "Ablakok"
+
+#: data/50-mutter-windows.xml:8
+msgid "Activate the window menu"
+msgstr "Ablakmenü aktiválása"
+
+#: data/50-mutter-windows.xml:10
+msgid "Toggle fullscreen mode"
+msgstr "Teljes képernyős üzemmód"
+
+#: data/50-mutter-windows.xml:12
+msgid "Toggle maximization state"
+msgstr "Maximalizált állapot átváltása"
+
+#: data/50-mutter-windows.xml:14
+msgid "Maximize window"
+msgstr "Ablak maximalizálása"
+
+#: data/50-mutter-windows.xml:16
+msgid "Restore window"
+msgstr "Ablak visszaállítása"
+
+#: data/50-mutter-windows.xml:18
+msgid "Close window"
+msgstr "Ablak bezárása"
+
+#: data/50-mutter-windows.xml:20
+msgid "Hide window"
+msgstr "Ablak elrejtése"
+
+#: data/50-mutter-windows.xml:22
+msgid "Move window"
+msgstr "Ablak áthelyezése"
+
+#: data/50-mutter-windows.xml:24
+msgid "Resize window"
+msgstr "Ablak átméretezése"
+
+#: data/50-mutter-windows.xml:27
+msgid "Toggle window on all workspaces or one"
+msgstr "Ablak megjelenítése minden munkaterületen vagy csak az egyiken"
+
+#: data/50-mutter-windows.xml:29
+msgid "Raise window if covered, otherwise lower it"
+msgstr "Fedett ablak előtérbe hozása, egyébként háttérbe küldése"
+
+#: data/50-mutter-windows.xml:31
+msgid "Raise window above other windows"
+msgstr "Ablak más ablakok elé hozása"
+
+#: data/50-mutter-windows.xml:33
+msgid "Lower window below other windows"
+msgstr "Ablak más ablakok mögé küldése"
+
+#: data/50-mutter-windows.xml:35
+msgid "Maximize window vertically"
+msgstr "Ablak függőleges maximalizálása"
+
+#: data/50-mutter-windows.xml:37
+msgid "Maximize window horizontally"
+msgstr "Ablak vízszintes maximalizálása"
+
+#: data/50-mutter-windows.xml:41 data/org.gnome.mutter.gschema.xml.in:166
+msgid "View split on left"
+msgstr "Bal oldali felosztás megjelenítése"
+
+#: data/50-mutter-windows.xml:45 data/org.gnome.mutter.gschema.xml.in:171
+msgid "View split on right"
+msgstr "Jobb oldali felosztás megjelenítése"
+
+#: data/org.gnome.mutter.gschema.xml.in:15
+msgid "Modifier to use for extended window management operations"
+msgstr "A kiterjesztett ablakkezelési műveletekhez használandó módosító"
+
+#: data/org.gnome.mutter.gschema.xml.in:16
+msgid ""
+"This key will initiate the “overlay”, which is a combination window overview "
+"and application launching system. The default is intended to be the “Windows "
+"key” on PC hardware. It’s expected that this binding either the default or "
+"set to the empty string."
+msgstr ""
+"Ez a kulcs indítja az „átfedést”, amely egy kombinációs ablakáttekintés és "
+"alkalmazásindító rendszer. Az alapértelmezés a „Windows” billentyű PC "
+"hardver esetén. Ezt vagy az alapértelmezetten, vagy üresen kell hagyni."
+
+#: data/org.gnome.mutter.gschema.xml.in:28
+msgid "Attach modal dialogs"
+msgstr "Kizárólagos párbeszédablakok csatolása"
+
+#: data/org.gnome.mutter.gschema.xml.in:29
+msgid ""
+"When true, instead of having independent titlebars, modal dialogs appear "
+"attached to the titlebar of the parent window and are moved together with "
+"the parent window."
+msgstr ""
+"Ha igazra van állítva, akkor a kizárólagos ablakok nem önálló címsorral, "
+"hanem a szülőablak címsorához csatolva jelennek meg, és a szülőablakkal "
+"együtt kerülnek mozgatásra."
+
+#: data/org.gnome.mutter.gschema.xml.in:38
+msgid "Enable edge tiling when dropping windows on screen edges"
+msgstr "Szélek csempézésének engedélyezése ablakok képernyőszélekre ejtésekor"
+
+#: data/org.gnome.mutter.gschema.xml.in:39
+msgid ""
+"If enabled, dropping windows on vertical screen edges maximizes them "
+"vertically and resizes them horizontally to cover half of the available "
+"area. Dropping windows on the top screen edge maximizes them completely."
+msgstr ""
+"Ha engedélyezett, akkor a függőleges képernyőélekre ejtett ablakok "
+"függőlegesen maximalizálva lesznek, vízszintesen pedig az elérhető terület "
+"felét fogják elfoglalni. Az ablakok felső képernyőszélre ejtése teljesen "
+"maximalizálja azokat."
+
+#: data/org.gnome.mutter.gschema.xml.in:48
+msgid "Workspaces are managed dynamically"
+msgstr "Munkaterületek dinamikus kezelése"
+
+#: data/org.gnome.mutter.gschema.xml.in:49
+msgid ""
+"Determines whether workspaces are managed dynamically or whether there’s a "
+"static number of workspaces (determined by the num-workspaces key in "
+"org.gnome.desktop.wm.preferences)."
+msgstr ""
+"A munkaterületek dinamikusan vannak-e kezelve, vagy a számuk rögzített (ezt "
+"a num-workspaces kulcs adja meg az org.gnome.desktop.wm.preferences fájlban)."
+
+#: data/org.gnome.mutter.gschema.xml.in:58
+msgid "Workspaces only on primary"
+msgstr "Munkaterületek csak az elsődlegesen"
+
+#: data/org.gnome.mutter.gschema.xml.in:59
+msgid ""
+"Determines whether workspace switching should happen for windows on all "
+"monitors or only for windows on the primary monitor."
+msgstr ""
+"A munkaterület-váltás minden monitor ablakaihoz, vagy csak az elsődleges "
+"monitor ablakaihoz történjen meg."
+
+#: data/org.gnome.mutter.gschema.xml.in:67
+msgid "Delay focus changes until the pointer stops moving"
+msgstr "Fókuszváltozások késleltetése a mutató mozgásának megállásáig"
+
+#: data/org.gnome.mutter.gschema.xml.in:68
+msgid ""
+"If set to true, and the focus mode is either “sloppy” or “mouse” then the "
+"focus will not be changed immediately when entering a window, but only after "
+"the pointer stops moving."
+msgstr ""
+"Ha igazra van állítva, és a fókuszmód a „sloppy” vagy „mouse”, akkor a "
+"fókusz nem változik meg azonnal egy ablakra mutatáskor, hanem csak a mutató "
+"megállása után."
+
+#: data/org.gnome.mutter.gschema.xml.in:78
+msgid "Draggable border width"
+msgstr "Húzható szegély szélessége"
+
+#: data/org.gnome.mutter.gschema.xml.in:79
+msgid ""
+"The amount of total draggable borders. If the theme’s visible borders are "
+"not enough, invisible borders will be added to meet this value."
+msgstr ""
+"A húzható szegélyek teljes mennyisége. Ha a téma látható szegélyei nem "
+"elegendők, akkor láthatatlan szegélyek kerülnek hozzáadásra ezen érték "
+"eléréséhez."
+
+#: data/org.gnome.mutter.gschema.xml.in:88
+msgid "Auto maximize nearly monitor sized windows"
+msgstr "Közel monitorméretű ablakok automatikus maximalizálása"
+
+#: data/org.gnome.mutter.gschema.xml.in:89
+msgid ""
+"If enabled, new windows that are initially the size of the monitor "
+"automatically get maximized."
+msgstr ""
+"Ha engedélyezve van, akkor a monitor méretével egyező méretű új ablakok "
+"automatikusan maximalizálva lesznek."
+
+#: data/org.gnome.mutter.gschema.xml.in:97
+msgid "Place new windows in the center"
+msgstr "Az új ablakok középre helyezése"
+
+#: data/org.gnome.mutter.gschema.xml.in:98
+msgid ""
+"When true, the new windows will always be put in the center of the active "
+"screen of the monitor."
+msgstr ""
+"Ha igaz, az új ablakok mindig a monitor aktív képernyőjének közepére lesznek "
+"helyezve."
+
+#: data/org.gnome.mutter.gschema.xml.in:107
+msgid "Enable experimental features"
+msgstr "Kísérleti funkciók engedélyezése"
+
+#: data/org.gnome.mutter.gschema.xml.in:108
+msgid ""
+"To enable experimental features, add the feature keyword to the list. "
+"Whether the feature requires restarting the compositor depends on the given "
+"feature. Any experimental feature is not required to still be available, or "
+"configurable. Don’t expect adding anything in this setting to be future "
+"proof. Currently possible keywords: • “kms-modifiers” — makes mutter always "
+"allocate scanout buffers with explicit modifiers, if supported by the "
+"driver. Requires a restart. • “autoclose-xwayland” — automatically "
+"terminates Xwayland if all relevant X11 clients are gone. Requires a restart."
+msgstr ""
+"A kísérleti funkciók engedélyezéséhez adja hozzá a funkció kulcsszavát a "
+"listához. A funkció a kompozitor újraindítását igényelheti az adott "
+"funkciótól függően. Egyik kísérleti funkciónál sem szükséges, hogy továbbra "
+"is elérhető vagy beállítható legyen. Ne várja el azt, hogy ha bármit hozzáad "
+"ehhez a beállításhoz, akkor az a jövőben is elérhető lesz. Jelenleg "
+"lehetséges kulcsszavak: • „kms-modifiers” — mindig explicit módosítókkal "
+"osztatja ki a mutter programmal a letapogatási puffereket, ha az "
+"illesztőprogram támogatja azokat. Újraindítást igényel. • „autoclose-"
+"xwayland” — automatikusan megszakítja az Xwayland kiszolgálót, ha az összes "
+"kapcsolódó X11 kliens eltűnt. Újraindítást igényel."
+
+#: data/org.gnome.mutter.gschema.xml.in:130
+msgid "Modifier to use to locate the pointer"
+msgstr "Használandó módosító a mutató elhelyezéséhez"
+
+#: data/org.gnome.mutter.gschema.xml.in:131
+msgid "This key will initiate the “locate pointer” action."
+msgstr "Ez a kulcs el fogja indítani a „mutató elhelyezése” műveletet."
+
+#: data/org.gnome.mutter.gschema.xml.in:138
+msgid "Timeout for check-alive ping"
+msgstr "Elérhetőség-ellenőrzés pingelésének időkorlátja"
+
+#: data/org.gnome.mutter.gschema.xml.in:139
+msgid ""
+"Number of milliseconds a client has to respond to a ping request in order to "
+"not be detected as frozen. Using 0 will disable the alive check completely."
+msgstr ""
+"Ezredmásodpercek száma, amely alatt az ügyfélnek válaszolnia kell egy ping "
+"kérésre, hogy ne lefagyottként legyen azonosítva. A 0 használata teljesen "
+"letiltja annak ellenőrzését, hogy életben van-e."
+
+#. TRANSLATORS: Luminance is different from brightness.
+#. See https://en.wikipedia.org/wiki/Luminance
+#: data/org.gnome.mutter.gschema.xml.in:150
+msgid "Per output luminance settings"
+msgstr "Kimenetenkénti fényességbeállítások"
+
+#: data/org.gnome.mutter.gschema.xml.in:151
+msgid ""
+"Per output and color mode luminance setting. Each entry consists of a tuple "
+"with connector, vendor, product, serial, and a color mode, as well as an "
+"associated floating point value representing the output luminance in percent "
+"(%). The default when not specified is 100%."
+msgstr ""
+"Kimenetenkénti és színmódonkénti fényességbeállítás. Minden egyes bejegyzés "
+"a csatlakozót, a gyártót, a terméket, a sorozatot, a színmódot, valamint a "
+"kimeneti fényességet százalékban (%) kifejező lebegőpontos értéket "
+"tartalmazó, rendezett sorozatból áll. Ha nincs megadva, akkor az "
+"alapértelmezett érték 100%."
+
+#: data/org.gnome.mutter.gschema.xml.in:176
+msgid "Switch monitor configurations"
+msgstr "Monitorkonfiguráció átváltása"
+
+#: data/org.gnome.mutter.gschema.xml.in:181
+msgid "Rotates the built-in monitor configuration"
+msgstr "Cserélgeti a beépített monitorkonfigurációkat"
+
+#: data/org.gnome.mutter.gschema.xml.in:186
+msgid "Cancel any active input capture session"
+msgstr "Bármely aktív bevitelrögzítő munkamenet megszakítása"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:12
+msgid "Switch to VT 1"
+msgstr "Váltás az 1. VT-re"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:16
+msgid "Switch to VT 2"
+msgstr "Váltás a 2. VT-re"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:20
+msgid "Switch to VT 3"
+msgstr "Váltás a 3. VT-re"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:24
+msgid "Switch to VT 4"
+msgstr "Váltás a 4. VT-re"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:28
+msgid "Switch to VT 5"
+msgstr "Váltás az 5. VT-re"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:32
+msgid "Switch to VT 6"
+msgstr "Váltás a 6. VT-re"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:36
+msgid "Switch to VT 7"
+msgstr "Váltás a 7. VT-re"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:40
+msgid "Switch to VT 8"
+msgstr "Váltás a 8. VT-re"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:44
+msgid "Switch to VT 9"
+msgstr "Váltás a 9. VT-re"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:48
+msgid "Switch to VT 10"
+msgstr "Váltás a 10. VT-re"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:52
+msgid "Switch to VT 11"
+msgstr "Váltás a 11. VT-re"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:56
+msgid "Switch to VT 12"
+msgstr "Váltás a 12. VT-re"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:60
+msgid "Re-enable shortcuts"
+msgstr "Gyorsbillentyűk újraengedélyezése"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:70
+msgid "Allow X11 grabs to lock keyboard focus with Xwayland"
+msgstr ""
+"X11 megragadások lehetővé tétele a billentyűzetfókusz zárolásához az "
+"Xwayland használatával"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:71
+msgid ""
+"Allow all keyboard events to be routed to X11 “override redirect” windows "
+"with a grab when running in Xwayland. This option is to support X11 clients "
+"which map an “override redirect” window (which do not receive keyboard "
+"focus) and issue a keyboard grab to force all keyboard events to that "
+"window. This option is seldom used and has no effect on regular X11 windows "
+"which can receive keyboard focus under normal circumstances. For a X11 grab "
+"to be taken into account under Wayland, the client must also either send a "
+"specific X11 ClientMessage to the root window or be among the applications "
+"allowed in key “xwayland-grab-access-rules”."
+msgstr ""
+"Lehetővé teszi az összes billentyűzeteseménynek, hogy át legyenek irányítva "
+"az X11 „felülbírálási átirányítás” ablakokhoz egy megragadással, ha az "
+"Xwaylandben fut. Ez a beállítás azért van, hogy támogassa azokat az X11 "
+"klienseket, amelyek egy „felülbírálási átirányítás” ablakot képeznek le "
+"(amely nem kap billentyűzetfókuszt), és kibocsátson egy "
+"billentyűzetelfogást, hogy kényszerítse az összes billentyűzeteseményt ahhoz "
+"az ablakhoz. Ez a beállítás ritkán használt, és nincs hatása azoknál a "
+"szabályos X11 ablakoknál, amelyek fogadhatnak billentyűzetfókuszt normál "
+"körülmények között. Ahhoz, hogy Wayland alatt figyelembe legyenek véve az "
+"X11 megragadások, a kliensnek vagy küldenie kell egy meghatározott X11 "
+"ClientMessage üzenetet a gyökérablaknak, vagy az „xwayland-grab-access-"
+"rules” kulcsban engedélyezettek között kell szerepelnie."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:90
+msgid "Xwayland applications allowed to issue keyboard grabs"
+msgstr "Xwayland alkalmazások, amelyek kérhetnek billentyűzet megragadást"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:91
+msgid ""
+"List the resource names or resource class of X11 windows either allowed or "
+"not allowed to issue X11 keyboard grabs under Xwayland. The resource name or "
+"resource class of a given X11 window can be obtained using the command "
+"“xprop WM_CLASS”. Wildcards “*” and jokers “?” in the values are supported. "
+"Values starting with “!” are denied, which has precedence over the list of "
+"values allowed, to revoke applications from the default system list. The "
+"default system list includes the following applications: "
+"“@XWAYLAND_GRAB_DEFAULT_ACCESS_RULES@” Users can break an existing grab by "
+"using the specific keyboard shortcut defined by the keybinding key “restore-"
+"shortcuts”."
+msgstr ""
+"Felsorolja azokat az X11 ablak erőforrásneveket vagy erőforrásosztályokat, "
+"amelyek Xwayland alatt vagy kiadhatnak X11 billentyűzet megragadásokat, vagy "
+"sem. A megadott X11 ablak erőforrásneve vagy erőforrásosztálya az „xprop "
+"WM_CLASS” paranccsal kérhető le. Az értékekben a „*” vagy „?” helyettesítő "
+"karakterek támogatottak. A „!” karakterrel kezdődő értékek tiltva lesznek, "
+"és az engedélyezett értékek előtt lesznek figyelembe véve, így felülbírálva "
+"az alapértelmezett rendszerlistát. Az alapértelmezett rendszerlistán a "
+"következő alkalmazások szerepelnek: „@XWAYLAND_GRAB_DEFAULT_ACCESS_RULES@”. "
+"A felhasználók megszakíthatják a létező megragadásokat a „restore-shortcuts” "
+"kulcsban megadott gyorsbillentyűvel."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:116
+msgid "Disable selected X extensions in Xwayland"
+msgstr "A kiválasztott X kiterjesztések letiltása Xwaylandben"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:117
+msgid ""
+"This option disables the selected X extensions in Xwayland if Xwayland was "
+"built with support for those X extensions. This option has no effect if "
+"Xwayland was built without support for the selected extensions. Xwayland "
+"needs to be restarted for this setting to take effect."
+msgstr ""
+"Ez a beállítás letiltja a kiválasztott X kiterjesztéseket Xwaylandben, ha az "
+"Xwayland úgy lett összeállítva, hogy támogatja ezeket. A beállításnak nincs "
+"hatása, ha az Xwayland a kiválasztott kiterjesztések támogatása nélkül lett "
+"összeállítva. A beállítás érvénybe lépéséhez újra kell indítani az "
+"Xwaylandet."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:130
+msgid "Allow X11 clients with a different endianness to connect to Xwayland"
+msgstr ""
+"Az eltérő bájtsorrenddel rendelkező X11 ügyfelek Xwaylandhez történő "
+"kapcsolódásának lehetővé tétele"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:131
+msgid ""
+"Allow connections from clients with an endianness different to that of "
+"Xwayland. The X server byte-swapping code is a huge attack surface, much of "
+"that code in Xwayland is prone to security issues. The use-case of byte-"
+"swapped clients is very niche, and disabled by default in Xwayland. Enable "
+"this option to instruct Xwayland to accept connections from X11 clients with "
+"a different endianness. This option has no effect if Xwayland does not "
+"support the command line option +byteswappedclients/-byteswappedclients to "
+"control that setting. Xwayland needs to be restarted for this setting to "
+"take effect."
+msgstr ""
+"Az Xwaylandtől eltérő bájtsorrenddel rendelkező ügyfelek kapcsolódásának "
+"lehetővé tétele. Az X kiszolgáló bájtcserélő kódja hatalmas támadási "
+"felület, az Xwaylandben ezen kód nagy része biztonsági problémákra hajlamos. "
+"A bájtcserélt ügyfelek használati esete meglehetősen hiányos, és "
+"alapértelmezetten le van tiltva az Xwaylandben. Engedélyezze ezt a "
+"beállítást, hogy az eltérő bájtsorrenddel rendelkező X11 ügyfelektől érkező "
+"kapcsolatok elfogadására utasítsa az Xwaylandet. Ennek a beállításnak nincs "
+"hatása, ha az Xwayland nem támogatja a +byteswappedclients/-"
+"byteswappedclients parancssori kapcsolót a beállítás vezérléséhez. Az "
+"Xwaylandet újra kell indítani ahhoz, hogy ez a beállítás érvénybe lépjen."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:154
+msgid "Configure the Xwayland scaling factor"
+msgstr "Az Xwayland méretezési tényezőjének beállítása"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:155
+msgid ""
+"Scale the Xwayland coordinate space according to this factor. This will "
+"affect what scale HiDPI capable X11 clients will present themselves as, and "
+"how the compositor scales X11 client windows. Setting the scale to 0 means "
+"the scale will be automatically calculated. The scale will as of now be "
+"rounded to the closest integer."
+msgstr ""
+"Az Xwayland koordinátatér méretezése ezen tényező szerint. Ez hatással lesz "
+"arra, hogy a HiDPI-képes X11-ügyfelek milyen méretezéssel jelenítik meg "
+"magukat, és hogy a kompozitáló hogyan méretezi az X11-ügyfél ablakait. A "
+"méretezés 0 értékre állítása azt jelenti, hogy a méretezés automatikusan "
+"lesz kiszámítva. A méretezés mostantól a legközelebbi egész számra lesz "
+"kerekítve."
+
+#: mdk/mdk-launcher-adder.c:451 mdk/mdk-launcher-adder.ui:22
+msgid "Application"
+msgstr "Alkalmazás"
+
+#: mdk/mdk-launcher-adder.c:456 mdk/mdk-launcher-adder.ui:23
+msgid "Executable"
+msgstr "Végrehajtható"
+
+#: mdk/mdk-launcher-adder.ui:3
+msgid "Add Launcher"
+msgstr "Indító hozzáadása"
+
+#: mdk/mdk-launcher-adder.ui:15
+msgid "Launcher"
+msgstr "Indító"
+
+#: mdk/mdk-launcher-adder.ui:18
+msgid "Type"
+msgstr "Típus"
+
+#: mdk/mdk-launcher-adder.ui:38 mdk/mdk-launchers-editor.ui:22
+msgid "Add"
+msgstr "Hozzáadás"
+
+#: mdk/mdk-launcher-entry.c:198
+msgid "Run"
+msgstr "Futtatás"
+
+#: mdk/mdk-launcher-entry.ui:12
+msgid "Delete"
+msgstr "Törlés"
+
+#: mdk/mdk-launcher-entry.ui:20
+msgid "Action"
+msgstr "Művelet"
+
+#: mdk/mdk-launchers-editor.ui:3
+msgid "Edit Launchers"
+msgstr "Indítók szerkesztése"
+
+#: mdk/mdk-launchers-editor.ui:16
+msgid "Launchers"
+msgstr "Indítók"
+
+#: mdk/mdk-main-window.ui:7
+msgid "_Input"
+msgstr "_Bemenet"
+
+#: mdk/mdk-main-window.ui:9
+msgid "_Emulate touch"
+msgstr "Érintés _emulálása"
+
+#: mdk/mdk-main-window.ui:13
+msgid "_Inhibit system shortcuts"
+msgstr "Rendszer gyorsbillentyűinek _elnyomása"
+
+#: mdk/mdk-main-window.ui:17
+msgid "Use host _keymap"
+msgstr "A gazdagép _billentyűleképezésének használata"
+
+#: mdk/mdk-main-window.ui:24
+msgid "_Monitors"
+msgstr "_Monitorok"
+
+#: mdk/mdk-main-window.ui:26
+#| msgid "_Monitors"
+msgid "_Add monitor"
+msgstr "Monitor _hozzáadása"
+
+#: mdk/mdk-main-window.ui:30
+msgid "_Emulate monitor modes"
+msgstr "Monitormódok _emulálása"
+
+#: mdk/mdk-main-window.ui:37
+msgid "_Launchers"
+msgstr "_Indítók"
+
+#: mdk/mdk-main-window.ui:41
+msgid "_Edit launchers"
+msgstr "Indítók _szerkesztése"
+
+#: mdk/mdk-main-window.ui:48
+msgid "_About Mutter Development Kit"
+msgstr "A Mutter fejlesztői készlet _névjegye"
+
+#: mdk/mdk-main-window.ui:54 mdk/mdk-main.c:56
+msgid "Mutter Development Kit"
+msgstr "Mutter fejlesztői készlet"
+
+#: mdk/mdk-main-window.ui:64
+msgid "Main Menu"
+msgstr "Főmenü"
+
+#: mdk/mdk-main.c:49
+msgid "The Mutter Team"
+msgstr "A Mutter csapata"
+
+#: mdk/mdk-main.c:62
+msgid "Mutter software development kit"
+msgstr "Mutter szoftverfejlesztői készlet"
+
+#: mdk/mdk-main.c:65
+msgid "About Mutter Development Kit"
+msgstr "A Mutter fejlesztői készlet névjegye"
+
+#: mdk/mdk-monitor.c:557
+msgid "Failed to create monitor"
+msgstr "Nem sikerült létrehozni a monitort"
+
+#: src/backends/meta-monitor.c:285
+msgid "Built-in display"
+msgstr "Beépített kijelző"
+
+#: src/backends/meta-monitor.c:312
+msgid "Unknown"
+msgstr "Ismeretlen"
+
+#: src/backends/meta-monitor.c:314
+msgid "Unknown Display"
+msgstr "Ismeretlen kijelző"
+
+#: src/backends/meta-monitor.c:322
+#, c-format
+msgctxt ""
+"This is a monitor vendor name, followed by a size in inches, like 'Dell 15\"'"
+msgid "%s %s"
+msgstr "%s %s"
+
+#: src/backends/meta-monitor.c:330
+#, c-format
+msgctxt ""
+"This is a monitor vendor name followed by product/model name where size in "
+"inches could not be calculated, e.g. Dell U2414H"
+msgid "%s %s"
+msgstr "%s %s"
+
+#: src/core/bell.c:237
+msgid "Bell event"
+msgstr "Csengetés esemény"
+
+#: src/core/display.c:608
+msgid "Privacy Screen Enabled"
+msgstr "Adatvédelem képernyő engedélyezve"
+
+#: src/core/display.c:609
+msgid "Privacy Screen Disabled"
+msgstr "Adatvédelem képernyő letiltva"
+
+#: src/core/meta-context-main.c:356
+msgid "Run as a wayland compositor"
+msgstr "Futtatás wayland kompozitálóként"
+
+#: src/core/meta-context-main.c:363
+msgid "Run wayland compositor without starting Xwayland"
+msgstr "Wayland kompozitáló futtatása az Xwayland elindítása nélkül"
+
+#: src/core/meta-context-main.c:370
+msgid "Specify Wayland display name to use"
+msgstr "Adja meg a használandó Wayland megjelenítőnevet"
+
+#: src/core/meta-context-main.c:377
+msgid "Run as a full display server, rather than nested"
+msgstr ""
+"Futtatás teljes megjelenítő kiszolgálóként az egymásba ágyazott helyett"
+
+#: src/core/meta-context-main.c:382
+msgid "Run as a headless display server"
+msgstr "Futtatás grafikus felület nélküli megjelenítő kiszolgálóként"
+
+#: src/core/meta-context-main.c:387
+msgid "Add persistent virtual monitor (WxH or WxH@R)"
+msgstr ""
+"Állandó virtuális monitor hozzáadása (SZÉLESSÉGxMAGASSÁG vagy "
+"SZÉLESSÉGxMAGASSÁG@FELBONTÁS)"
+
+#: src/core/meta-context-main.c:394
+msgid "Run development kit"
+msgstr "Fejlesztői készlet futtatása"
+
+#: src/core/meta-context-main.c:405
+msgid "Profile performance using trace instrumentation"
+msgstr "Nyomkövető műszereket használó profilteljesítmény"
+
+#: src/core/meta-context-main.c:411
+msgid "Enable debug control D-Bus interface"
+msgstr "Hibakeresés-vezérlő D-Bus interfész engedélyezése"
+
+#. TRANSLATORS: This string refers to a button that switches between
+#. * different modes in that button group.
+#.
+#: src/core/meta-pad-action-mapper.c:617
+#, c-format
+msgid "Mode Switch (Group %d)"
+msgstr "Módkapcsoló (%d. csoport)"
+
+#. TRANSLATORS: This string refers to a button that switches between
+#. * different modes.
+#.
+#: src/core/meta-pad-action-mapper.c:624
+#, c-format
+msgid "Mode Switch"
+msgstr "Módkapcsoló"
+
+#. TRANSLATORS: This string refers to an action, cycles drawing tablets'
+#. * mapping through the available outputs.
+#.
+#: src/core/meta-pad-action-mapper.c:647
+msgid "Switch monitor"
+msgstr "Monitorváltás"
+
+#: src/core/meta-pad-action-mapper.c:649
+msgid "Show on-screen help"
+msgstr "Képernyősúgó megjelenítése"
+
+#. Translators: this string will appear in Sysprof
+#: src/core/meta-profiler.c:109 src/core/meta-profiler.c:299
+msgid "Compositor"
+msgstr "Kompozitáló"
+
+#: src/core/mutter.c:75
+msgid "Print version"
+msgstr "Verzió kiírása"
+
+#: src/core/mutter.c:81
+msgid "Mutter plugin to use"
+msgstr "Használandó Mutter bővítmény"
+
+#: src/core/prefs.c:1874
+#, c-format
+msgid "Workspace %d"
+msgstr "%d. munkaterület"
+
+#: src/core/util.c:149
+msgid "Mutter was compiled without support for verbose mode"
+msgstr "A Muttert a részletes mód támogatása nélkül fordították"
+
+#: src/core/workspace.c:510
+msgid "Workspace switched"
+msgstr "Munkaterület átváltva"
+
+#: src/wayland/meta-wayland-tablet-pad.c:558
+#, c-format
+msgid "Mode Switch: Mode %d"
+msgstr "Módkapcsoló: %d. mód"
+
+#: src/x11/meta-x11-display.c:776
+#, c-format
+msgid "Display “%s” already has a window manager"
+msgstr "A(z) „%s” kijelző már rendelkezik ablakkezelővel"
+
+#: src/x11/meta-x11-display.c:1139
+#, c-format
+msgid "Failed to open X Window System display “%s”"
+msgstr "Nem sikerült megnyitni a(z) „%s” X Window rendszer megjelenítőt"
+
+#: src/x11/meta-x11-display.c:1284
+#, c-format
+msgid "Screen %d on display “%s” is invalid"
+msgstr "A(z) %d. képernyő a(z) „%s” megjelenítőn érvénytelen"
+
+#. This probably means that a non-WM compositor like xcompmgr is running;
+#. * we have no way to get it to exit
+#: src/x11/meta-x11-display.c:2469
+#, c-format
+msgid ""
+"Another compositing manager is already running on screen %i on display “%s”."
+msgstr ""
+"Már fut egy másik kompozitáláskezelő a(z) %i. képernyőn a(z) „%s” "
+"megjelenítőn."
+
+#: src/x11/meta-x11-selection-input-stream.c:475
+#, c-format
+msgid "Format %s not supported"
+msgstr "A(z) %s formátum nem támogatott"
+
+#: src/x11/window-props.c:562
+#, c-format
+msgid "%s (on %s)"
+msgstr "%s (ezen: %s)"

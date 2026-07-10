@@ -1,0 +1,1023 @@
+# Copyright (C) 2001 Free Software Foundation, Inc.
+# Yuriy Syrota <rasta@renome.rovno.ua>, 2001, 2002.
+# Maxim Dziumanenko <dziumanenko@gmail.com>, 2004-2008.
+# Daniel Korostil <ted.korostiled@gmail.com>, 2014, 2015.
+# Yuri Chornoivan <yurchor@ukr.net>, 2020, 2021, 2022, 2023, 2024, 2025, 2026.
+msgid ""
+msgstr ""
+"Project-Id-Version: metacity\n"
+"Report-Msgid-Bugs-To: https://gitlab.gnome.org/GNOME/mutter/issues/\n"
+"POT-Creation-Date: 2026-02-28 09:38+0000\n"
+"PO-Revision-Date: 2026-02-28 20:15+0200\n"
+"Last-Translator: Yuri Chornoivan <yurchor@ukr.net>\n"
+"Language-Team: Ukrainian <trans-uk@lists.fedoraproject.org>\n"
+"Language: uk\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
+"%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+"X-Generator: Lokalize 23.04.3\n"
+"X-Project-Style: gnome\n"
+
+#: data/50-mutter-navigation.xml:6
+msgid "Navigation"
+msgstr "Навігація"
+
+#: data/50-mutter-navigation.xml:9
+msgid "Move window to workspace 1"
+msgstr "Перемістити вікно на робочий простір 1"
+
+#: data/50-mutter-navigation.xml:12
+msgid "Move window to workspace 2"
+msgstr "Перемістити вікно на робочий простір 2"
+
+#: data/50-mutter-navigation.xml:15
+msgid "Move window to workspace 3"
+msgstr "Перемістити вікно на робочий простір 3"
+
+#: data/50-mutter-navigation.xml:18
+msgid "Move window to workspace 4"
+msgstr "Перемістити вікно на робочий простір 4"
+
+#: data/50-mutter-navigation.xml:21
+msgid "Move window to last workspace"
+msgstr "Перемістити вікно на останній робочий простір"
+
+#: data/50-mutter-navigation.xml:24
+msgid "Move window one workspace to the left"
+msgstr "Перемістити вікно на робочий простір ліворуч"
+
+#: data/50-mutter-navigation.xml:27
+msgid "Move window one workspace to the right"
+msgstr "Перемістити вікно на робочий простір праворуч"
+
+#: data/50-mutter-navigation.xml:31
+msgid "Move window one workspace up"
+msgstr "Перемістити вікно на робочий простір вище"
+
+#: data/50-mutter-navigation.xml:35
+msgid "Move window one workspace down"
+msgstr "Перемістити вікно на робочий простір нижче"
+
+#: data/50-mutter-navigation.xml:38
+msgid "Move window one monitor to the left"
+msgstr "Перемістити вікно на монітор ліворуч"
+
+#: data/50-mutter-navigation.xml:41
+msgid "Move window one monitor to the right"
+msgstr "Перемістити вікно на монітор праворуч"
+
+#: data/50-mutter-navigation.xml:44
+msgid "Move window one monitor up"
+msgstr "Перемістити вікно на монітор вище"
+
+#: data/50-mutter-navigation.xml:47
+msgid "Move window one monitor down"
+msgstr "Перемістити вікно на монітор нижче"
+
+#: data/50-mutter-navigation.xml:51
+msgid "Switch applications"
+msgstr "Перемкнути програми"
+
+#: data/50-mutter-navigation.xml:56
+msgid "Switch to previous application"
+msgstr "Перемкнути до попередньої програми"
+
+#: data/50-mutter-navigation.xml:60
+msgid "Switch windows"
+msgstr "Перемкнути вікна"
+
+#: data/50-mutter-navigation.xml:65
+msgid "Switch to previous window"
+msgstr "Перемкнути до попереднього вікна"
+
+#: data/50-mutter-navigation.xml:69
+msgid "Switch windows of an application"
+msgstr "Перемкнути вікна програм"
+
+#: data/50-mutter-navigation.xml:74
+msgid "Switch to previous window of an application"
+msgstr "Перемкнути до попереднього вікна програми"
+
+#: data/50-mutter-navigation.xml:78
+msgid "Switch system controls"
+msgstr "Перемкнути системні керування"
+
+#: data/50-mutter-navigation.xml:83
+msgid "Switch to previous system control"
+msgstr "Перемкнути до переднього системного керування"
+
+#: data/50-mutter-navigation.xml:87
+msgid "Switch windows directly"
+msgstr "Перемкнути вікна напряму"
+
+#: data/50-mutter-navigation.xml:92
+msgid "Switch directly to previous window"
+msgstr "Перемкнути напряму до попереднього вікна"
+
+#: data/50-mutter-navigation.xml:96
+msgid "Switch windows of an app directly"
+msgstr "Перемкнути вікна програм напряму"
+
+#: data/50-mutter-navigation.xml:101
+msgid "Switch directly to previous window of an app"
+msgstr "Перемкнути напряму до попереднього вікна програми"
+
+#: data/50-mutter-navigation.xml:105
+msgid "Switch system controls directly"
+msgstr "Перемкнути системні керування напряму"
+
+#: data/50-mutter-navigation.xml:110
+msgid "Switch directly to previous system control"
+msgstr "Перемкнути напряму до переднього системного керування"
+
+#: data/50-mutter-navigation.xml:113
+msgid "Hide all normal windows"
+msgstr "Сховати всі звичайні вікна"
+
+#: data/50-mutter-navigation.xml:116
+msgid "Switch to workspace 1"
+msgstr "Перейти до робочого простору 1"
+
+#: data/50-mutter-navigation.xml:119
+msgid "Switch to workspace 2"
+msgstr "Перейти до робочого простору 2"
+
+#: data/50-mutter-navigation.xml:122
+msgid "Switch to workspace 3"
+msgstr "Перейти до робочого простору 3"
+
+#: data/50-mutter-navigation.xml:125
+msgid "Switch to workspace 4"
+msgstr "Перейти до робочого простору 4"
+
+#: data/50-mutter-navigation.xml:128
+msgid "Switch to last workspace"
+msgstr "Перейти до останнього робочого простору"
+
+#: data/50-mutter-navigation.xml:131
+msgid "Switch to workspace on the left"
+msgstr "Перейти до робочого простору ліворуч"
+
+#: data/50-mutter-navigation.xml:134
+msgid "Switch to workspace on the right"
+msgstr "Перейти до робочого простору праворуч"
+
+#: data/50-mutter-navigation.xml:138
+msgid "Switch to workspace above"
+msgstr "Перейти до робочого простору вище"
+
+#: data/50-mutter-navigation.xml:142
+msgid "Switch to workspace below"
+msgstr "Перейти до робочого простору нижче"
+
+#: data/50-mutter-system.xml:6 data/50-mutter-wayland.xml:6
+msgid "System"
+msgstr "Система"
+
+#: data/50-mutter-system.xml:8
+msgid "Show the run command prompt"
+msgstr "Показати запуск командного рядка"
+
+#: data/50-mutter-wayland.xml:8
+msgid "Restore the keyboard shortcuts"
+msgstr "Відновити клавіатурні скорочення"
+
+#: data/50-mutter-windows.xml:6
+msgid "Windows"
+msgstr "Вікна"
+
+#: data/50-mutter-windows.xml:8
+msgid "Activate the window menu"
+msgstr "Активувати меню вікна"
+
+#: data/50-mutter-windows.xml:10
+msgid "Toggle fullscreen mode"
+msgstr "Перемикання повноекранного режиму"
+
+#: data/50-mutter-windows.xml:12
+msgid "Toggle maximization state"
+msgstr "Перемкнути стан розгортання вікна на весь екран"
+
+#: data/50-mutter-windows.xml:14
+msgid "Maximize window"
+msgstr "Розгорнути вікно"
+
+#: data/50-mutter-windows.xml:16
+msgid "Restore window"
+msgstr "Відновити вікно"
+
+#: data/50-mutter-windows.xml:18
+msgid "Close window"
+msgstr "Закрити вікно"
+
+#: data/50-mutter-windows.xml:20
+msgid "Hide window"
+msgstr "Сховати вікно"
+
+#: data/50-mutter-windows.xml:22
+msgid "Move window"
+msgstr "Перемістити вікно"
+
+#: data/50-mutter-windows.xml:24
+msgid "Resize window"
+msgstr "Змінити розміри вікна"
+
+#: data/50-mutter-windows.xml:27
+msgid "Toggle window on all workspaces or one"
+msgstr "Перемикання вікна на всі робочі простори або один"
+
+#: data/50-mutter-windows.xml:29
+msgid "Raise window if covered, otherwise lower it"
+msgstr ""
+"Підняти вікно на передній план, якщо воно прикрите іншим, інакше опустити "
+
+#: data/50-mutter-windows.xml:31
+msgid "Raise window above other windows"
+msgstr "Підняти вікно над іншими"
+
+#: data/50-mutter-windows.xml:33
+msgid "Lower window below other windows"
+msgstr "Перемістити вікна нижче усіх вікон"
+
+#: data/50-mutter-windows.xml:35
+msgid "Maximize window vertically"
+msgstr "Розгорнути вікно на весь екран вертикально"
+
+#: data/50-mutter-windows.xml:37
+msgid "Maximize window horizontally"
+msgstr "Розгорнути вікно на весь екран горизонтально"
+
+#: data/50-mutter-windows.xml:41 data/org.gnome.mutter.gschema.xml.in:166
+msgid "View split on left"
+msgstr "Перегляд розділити ліворуч"
+
+#: data/50-mutter-windows.xml:45 data/org.gnome.mutter.gschema.xml.in:171
+msgid "View split on right"
+msgstr "Перегляд розділити праворуч"
+
+#: data/org.gnome.mutter.gschema.xml.in:15
+msgid "Modifier to use for extended window management operations"
+msgstr ""
+"Модифікатор, що використовується для розширених дій віконного менеджера"
+
+#: data/org.gnome.mutter.gschema.xml.in:16
+msgid ""
+"This key will initiate the “overlay”, which is a combination window overview "
+"and application launching system. The default is intended to be the “Windows "
+"key” on PC hardware. It’s expected that this binding either the default or "
+"set to the empty string."
+msgstr ""
+"Ця клавіша ініціює «накладання», яке є поєднанням огляду вікон і системою "
+"запуску програм. Типово на це призначено клавішу «Win» в обладнанні. "
+"Очікується, що це буде прив'язка або типова, або порожній рядок."
+
+#: data/org.gnome.mutter.gschema.xml.in:28
+msgid "Attach modal dialogs"
+msgstr "Долучити модальні вікна"
+
+#: data/org.gnome.mutter.gschema.xml.in:29
+msgid ""
+"When true, instead of having independent titlebars, modal dialogs appear "
+"attached to the titlebar of the parent window and are moved together with "
+"the parent window."
+msgstr ""
+"Якщо це позначено, замість незалежних заголовків, модальні вікна буде "
+"долучено до батьківського вікна заголовка і пересунуто разом з батьківських "
+"вікном."
+
+#: data/org.gnome.mutter.gschema.xml.in:38
+msgid "Enable edge tiling when dropping windows on screen edges"
+msgstr "Увімкнути розбиття країв, коли кладуться вікна на краї екрана"
+
+#: data/org.gnome.mutter.gschema.xml.in:39
+msgid ""
+"If enabled, dropping windows on vertical screen edges maximizes them "
+"vertically and resizes them horizontally to cover half of the available "
+"area. Dropping windows on the top screen edge maximizes them completely."
+msgstr ""
+"Якщо ввімкнено, перекидання вікон на вертикальні розгорне їх вертикально й "
+"змінить їхній розмір горизонтально, щоб покрити половину доступної ділянки. "
+"Перекидання вікон на верхівку екрана розгорне їх повністю."
+
+#: data/org.gnome.mutter.gschema.xml.in:48
+msgid "Workspaces are managed dynamically"
+msgstr "Робочі простори організовуються динамічно"
+
+#: data/org.gnome.mutter.gschema.xml.in:49
+msgid ""
+"Determines whether workspaces are managed dynamically or whether there’s a "
+"static number of workspaces (determined by the num-workspaces key in "
+"org.gnome.desktop.wm.preferences)."
+msgstr ""
+"Визначає, чи робочі простори керуються динамічно, чи є певна статична "
+"кількість просторів (визначено ключем num-workspaces у "
+"org.gnome.desktop.wm.preferences)."
+
+#: data/org.gnome.mutter.gschema.xml.in:58
+msgid "Workspaces only on primary"
+msgstr "Робочий простір лише на первинному"
+
+#: data/org.gnome.mutter.gschema.xml.in:59
+msgid ""
+"Determines whether workspace switching should happen for windows on all "
+"monitors or only for windows on the primary monitor."
+msgstr ""
+"Визначає, чи перемикання робочого простору повинно здійснюватись для вікон "
+"на всіх моніторах, чи лише для вікон на первинному моніторі."
+
+#: data/org.gnome.mutter.gschema.xml.in:67
+msgid "Delay focus changes until the pointer stops moving"
+msgstr "Затримувати зміни фокусу, поки вказівник не перестане рухатись"
+
+#: data/org.gnome.mutter.gschema.xml.in:68
+msgid ""
+"If set to true, and the focus mode is either “sloppy” or “mouse” then the "
+"focus will not be changed immediately when entering a window, but only after "
+"the pointer stops moving."
+msgstr ""
+"Якщо вказано та фокусний режим «за вказівником» або «миша», то зміни не "
+"будуть негайні, коли переходите на вікно, але тільки після того, як "
+"вказівник не рухатиметься."
+
+#: data/org.gnome.mutter.gschema.xml.in:78
+msgid "Draggable border width"
+msgstr "Перетяжна ширина меж"
+
+#: data/org.gnome.mutter.gschema.xml.in:79
+msgid ""
+"The amount of total draggable borders. If the theme’s visible borders are "
+"not enough, invisible borders will be added to meet this value."
+msgstr ""
+"Загальний об'єм перетяжних меж. Якщо видимих меж теми не вистачає, буде "
+"використано це значення з невидимих меж."
+
+#: data/org.gnome.mutter.gschema.xml.in:88
+msgid "Auto maximize nearly monitor sized windows"
+msgstr "Автоматично розгортати вікна з розміром екрана"
+
+#: data/org.gnome.mutter.gschema.xml.in:89
+msgid ""
+"If enabled, new windows that are initially the size of the monitor "
+"automatically get maximized."
+msgstr ""
+"Якщо вказано, нові вікна, які запущено в розмірі екрана, автоматично "
+"розгортаються на ввесь екран."
+
+#: data/org.gnome.mutter.gschema.xml.in:97
+msgid "Place new windows in the center"
+msgstr "Помістити нове вікно в центр"
+
+#: data/org.gnome.mutter.gschema.xml.in:98
+msgid ""
+"When true, the new windows will always be put in the center of the active "
+"screen of the monitor."
+msgstr "Якщо вказано, нові вікна будуть завжди в центрі чинного екрана."
+
+#: data/org.gnome.mutter.gschema.xml.in:107
+msgid "Enable experimental features"
+msgstr "Увімкнути експериментальні можливості"
+
+#: data/org.gnome.mutter.gschema.xml.in:108
+msgid ""
+"To enable experimental features, add the feature keyword to the list. "
+"Whether the feature requires restarting the compositor depends on the given "
+"feature. Any experimental feature is not required to still be available, or "
+"configurable. Don’t expect adding anything in this setting to be future "
+"proof. Currently possible keywords: • “kms-modifiers” — makes mutter always "
+"allocate scanout buffers with explicit modifiers, if supported by the "
+"driver. Requires a restart. • “autoclose-xwayland” — automatically "
+"terminates Xwayland if all relevant X11 clients are gone. Requires a restart."
+msgstr ""
+"Щоб увімкнути експериментальну можливість, додайте до списку ключове слово "
+"можливості. Те, чи потребуватиме вмикання можливості перезапуску "
+"композитора, залежить від типу можливості. Експериментальні можливості не "
+"обов'язково завжди доступні чи придатні до налаштовування. Не слід "
+"очікувати, що у майбутніх версіях обов'язково буде збережено якусь із "
+"експериментальних можливостей. У поточній версії передбачено такі ключові "
+"слова: • «kms-modifiers» — наказує mutter завжди отримувати буфери "
+"сканування із явними модифікаторами, якщо у драйвері передбачено підтримку "
+"відповідних дій. Потребує перезапуску композитора. • «autoclose-xwayland» — "
+"автоматично перериває роботу Xwayland, якщо завершать роботу усі відповідні "
+"клієнти X11. Потребує перезапуску композитора."
+
+#: data/org.gnome.mutter.gschema.xml.in:130
+msgid "Modifier to use to locate the pointer"
+msgstr "Модифікатор для пошуку вказівника"
+
+#: data/org.gnome.mutter.gschema.xml.in:131
+msgid "This key will initiate the “locate pointer” action."
+msgstr "Ця комбінація ініціює дію «встановити розташування вказівника»"
+
+#: data/org.gnome.mutter.gschema.xml.in:138
+msgid "Timeout for check-alive ping"
+msgstr "Інтервал між послідовними перевірками працездатності"
+
+#: data/org.gnome.mutter.gschema.xml.in:139
+msgid ""
+"Number of milliseconds a client has to respond to a ping request in order to "
+"not be detected as frozen. Using 0 will disable the alive check completely."
+msgstr ""
+"Проміжок часу у мілісекундах, протягом якого клієнт має відповісти на луна-"
+"запит, щоб вважатися працездатним. Скористайтеся значенням 0, щоб повністю "
+"вимкнути перевірку працездатності."
+
+#. TRANSLATORS: Luminance is different from brightness.
+#. See https://en.wikipedia.org/wiki/Luminance
+#: data/org.gnome.mutter.gschema.xml.in:150
+msgid "Per output luminance settings"
+msgstr "Окремі параметри для освітленості виведеного"
+
+#: data/org.gnome.mutter.gschema.xml.in:151
+msgid ""
+"Per output and color mode luminance setting. Each entry consists of a tuple "
+"with connector, vendor, product, serial, and a color mode, as well as an "
+"associated floating point value representing the output luminance in percent "
+"(%). The default when not specified is 100%."
+msgstr ""
+"Окремі параметри для виведення та кольорового режиму освітлення. Кожен запис "
+"складається з кортежу записів з'єднувача, виробника, продукту, серійного "
+"номера та режиму кольорів, а також пов'язаного значення з рухомою крапкою, "
+"що відповідає освітленості результату у відсотках (%). Типовим значенням, "
+"якщо не задано, є 100%."
+
+#: data/org.gnome.mutter.gschema.xml.in:176
+msgid "Switch monitor configurations"
+msgstr "Перемкнути налаштування монітора"
+
+#: data/org.gnome.mutter.gschema.xml.in:181
+msgid "Rotates the built-in monitor configuration"
+msgstr "Зміна конфігурації вбудованого монітора"
+
+#: data/org.gnome.mutter.gschema.xml.in:186
+msgid "Cancel any active input capture session"
+msgstr "Скасувати усі активні сеанси перехоплення введення"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:12
+msgid "Switch to VT 1"
+msgstr "Перейти до VT 1"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:16
+msgid "Switch to VT 2"
+msgstr "Перейти до VT 2"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:20
+msgid "Switch to VT 3"
+msgstr "Перейти до VT 3"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:24
+msgid "Switch to VT 4"
+msgstr "Перейти до VT 4"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:28
+msgid "Switch to VT 5"
+msgstr "Перейти до VT 5"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:32
+msgid "Switch to VT 6"
+msgstr "Перейти до VT 6"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:36
+msgid "Switch to VT 7"
+msgstr "Перейти до VT 7"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:40
+msgid "Switch to VT 8"
+msgstr "Перейти до VT 8"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:44
+msgid "Switch to VT 9"
+msgstr "Перейти до VT 9"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:48
+msgid "Switch to VT 10"
+msgstr "Перейти до VT 10"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:52
+msgid "Switch to VT 11"
+msgstr "Перейти до VT 11"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:56
+msgid "Switch to VT 12"
+msgstr "Перейти до VT 12"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:60
+msgid "Re-enable shortcuts"
+msgstr "Повторно увімкнути клавіатурні скорочення"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:70
+msgid "Allow X11 grabs to lock keyboard focus with Xwayland"
+msgstr ""
+"Дозволити захопленням у X11 блокувати зміну фокусування клавіатури з Xwayland"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:71
+msgid ""
+"Allow all keyboard events to be routed to X11 “override redirect” windows "
+"with a grab when running in Xwayland. This option is to support X11 clients "
+"which map an “override redirect” window (which do not receive keyboard "
+"focus) and issue a keyboard grab to force all keyboard events to that "
+"window. This option is seldom used and has no effect on regular X11 windows "
+"which can receive keyboard focus under normal circumstances. For a X11 grab "
+"to be taken into account under Wayland, the client must also either send a "
+"specific X11 ClientMessage to the root window or be among the applications "
+"allowed in key “xwayland-grab-access-rules”."
+msgstr ""
+"Дозволяє маршрутизацію усіх подій клавіатури до вікон X11 із "
+"«перевизначенням переспрямовування», які захоплюють клавіатуру, коли їх "
+"запущено у Xwayland. Цей параметр призначено для реалізації підтримки "
+"клієнтів X11, які здійснюють відображення вікна із «перевизначенням "
+"переспрямовування» (вікна, яке не отримує фокусування клавіатури) і видають "
+"сигнал щодо захоплення клавіатури, щоб примусово переспрямувати усі події з "
+"клавіатури у відповідне вікно. Використання цього параметра є рідкісним. "
+"Воно не впливає на звичайні вікна X11, які можуть отримувати фокусування "
+"клавіатури за звичних обставин. Щоб захоплення клавіатури X11 бралося до "
+"уваги у Wayland, клієнтська програма також має або надіслати специфічне "
+"ClientMessage X11 до кореневого вікна, або мати свій пункт у списку "
+"дозволених програм ключа «xwayland-grab-access-rules»."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:90
+msgid "Xwayland applications allowed to issue keyboard grabs"
+msgstr ""
+"Програми Xwayland, яким дозволено надсилати запит щодо захоплення клавіатури"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:91
+msgid ""
+"List the resource names or resource class of X11 windows either allowed or "
+"not allowed to issue X11 keyboard grabs under Xwayland. The resource name or "
+"resource class of a given X11 window can be obtained using the command "
+"“xprop WM_CLASS”. Wildcards “*” and jokers “?” in the values are supported. "
+"Values starting with “!” are denied, which has precedence over the list of "
+"values allowed, to revoke applications from the default system list. The "
+"default system list includes the following applications: "
+"“@XWAYLAND_GRAB_DEFAULT_ACCESS_RULES@” Users can break an existing grab by "
+"using the specific keyboard shortcut defined by the keybinding key “restore-"
+"shortcuts”."
+msgstr ""
+"Список назв ресурсів або клас ресурсів вікон X11, яким дозволено або "
+"заборонено видавати запити на захоплення фокусу клавіатури X11 у Xwayland. "
+"Назву ресурсу або клас ресурсу певного вікна X11 можна визначити за "
+"допомогою команди «xprop WM_CLASS». Передбачено підтримку символів-"
+"замінників «*» і «?» у записах. Значення, які починатимуться з «!», буде "
+"додано до списку заборонених, який матиме пріоритет над списком дозволених "
+"значень, щоб програми можна було вилучати із типового загальносистемного "
+"списку. Типовий загальносистемний список містить записи таких програм: "
+"«@XWAYLAND_GRAB_DEFAULT_ACCESS_RULES@». Користувачі можуть усувати наявне "
+"захоплення фокуса за допомогою певного клавіатурного скорочення, яке "
+"визначається ключем «restore-shortcuts»."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:116
+msgid "Disable selected X extensions in Xwayland"
+msgstr "Вимкнути вибрані розширення X у Xwayland"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:117
+msgid ""
+"This option disables the selected X extensions in Xwayland if Xwayland was "
+"built with support for those X extensions. This option has no effect if "
+"Xwayland was built without support for the selected extensions. Xwayland "
+"needs to be restarted for this setting to take effect."
+msgstr ""
+"За допомогою цього пункту можна вимкнути вибрані розширення X у Xwayland, "
+"якщо Xwayland було зібрано із підтримкою цих розширень X. Цей пункт ні на що "
+"не впливає, якщо Xwayland було зібрано без підтримки вибраних розширень. Для "
+"набуття змінами у цьому параметрі чинності Xwayland слід перезапустити."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:130
+msgid "Allow X11 clients with a different endianness to connect to Xwayland"
+msgstr ""
+"Дозволити клієнтам X11 з іншим порядком байтів встановлювати з'єднання з "
+"Xwayland"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:131
+msgid ""
+"Allow connections from clients with an endianness different to that of "
+"Xwayland. The X server byte-swapping code is a huge attack surface, much of "
+"that code in Xwayland is prone to security issues. The use-case of byte-"
+"swapped clients is very niche, and disabled by default in Xwayland. Enable "
+"this option to instruct Xwayland to accept connections from X11 clients with "
+"a different endianness. This option has no effect if Xwayland does not "
+"support the command line option +byteswappedclients/-byteswappedclients to "
+"control that setting. Xwayland needs to be restarted for this setting to "
+"take effect."
+msgstr ""
+"Дозволити з'єднання від клієнтів із порядком байтів, який не збігається з "
+"порядком байтів у Xwayland. Код X-сервера, пов'язаний зі зміною порядку "
+"байтів, є ласим об'єктом для атак. Більша частина цього коду у Xwayland є "
+"джерелом проблем із захистом. Ніша використання клієнтів із іншим порядком "
+"байтів є дуже малою, тому можливість типово вимкнено у Xwayland. Увімкніть, "
+"щоб наказати Xwayland приймати з'єднання від клієнтів X11 із іншими порядком "
+"байтів. Значення цього параметра нічого не змінить, якщо у Xwayland не "
+"передбачено підтримка параметра командного рядка +byteswappedclients/-"
+"byteswappedclients для керування відповідною обробкою. Щоб значення цього "
+"параметра набуло чинності, Xwayland слід перезапустити."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:154
+msgid "Configure the Xwayland scaling factor"
+msgstr "Налаштувати коефіцієнт масштабування Xwayland"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:155
+msgid ""
+"Scale the Xwayland coordinate space according to this factor. This will "
+"affect what scale HiDPI capable X11 clients will present themselves as, and "
+"how the compositor scales X11 client windows. Setting the scale to 0 means "
+"the scale will be automatically calculated. The scale will as of now be "
+"rounded to the closest integer."
+msgstr ""
+"Масштабувати координатний простір Xwayland відповідно до цього коефіцієнта. "
+"Це вплине на те, в якому масштабі буде показано клієнтів X11 з підтримкою "
+"HiDPI, а також на те, як композитор масштабуватиме вікна клієнтів X11. "
+"Встановлення нульового масштабу означає, що масштаб буде розраховано "
+"автоматично. Поки масштаб буде округлено до найближчого цілого числа."
+
+#: mdk/mdk-launcher-adder.c:451 mdk/mdk-launcher-adder.ui:22
+msgid "Application"
+msgstr "Програма"
+
+#: mdk/mdk-launcher-adder.c:456 mdk/mdk-launcher-adder.ui:23
+msgid "Executable"
+msgstr "Виконуваний файл"
+
+#: mdk/mdk-launcher-adder.ui:3
+msgid "Add Launcher"
+msgstr "Додати засіб запуску"
+
+#: mdk/mdk-launcher-adder.ui:15
+msgid "Launcher"
+msgstr "Засіб запуску"
+
+#: mdk/mdk-launcher-adder.ui:18
+msgid "Type"
+msgstr "Тип"
+
+#: mdk/mdk-launcher-adder.ui:38 mdk/mdk-launchers-editor.ui:22
+msgid "Add"
+msgstr "Додати"
+
+#: mdk/mdk-launcher-entry.c:198
+msgid "Run"
+msgstr "Запустити"
+
+#: mdk/mdk-launcher-entry.ui:12
+msgid "Delete"
+msgstr "Вилучити"
+
+#: mdk/mdk-launcher-entry.ui:20
+msgid "Action"
+msgstr "Дія"
+
+#: mdk/mdk-launchers-editor.ui:3
+msgid "Edit Launchers"
+msgstr "Редагувати засоби запуску"
+
+#: mdk/mdk-launchers-editor.ui:16
+msgid "Launchers"
+msgstr "Засоби запуску"
+
+#: mdk/mdk-main-window.ui:7
+msgid "_Input"
+msgstr "В_хід"
+
+#: mdk/mdk-main-window.ui:9
+msgid "_Emulate touch"
+msgstr "_Імітувати торкання"
+
+#: mdk/mdk-main-window.ui:13
+msgid "_Inhibit system shortcuts"
+msgstr "З_аборонити загальносистемні скорочення"
+
+#: mdk/mdk-main-window.ui:17
+msgid "Use host _keymap"
+msgstr "Використати _розкладку вузла"
+
+#: mdk/mdk-main-window.ui:24
+msgid "_Monitors"
+msgstr "_Монітори"
+
+#: mdk/mdk-main-window.ui:26
+#| msgid "_Monitors"
+msgid "_Add monitor"
+msgstr "_Додати монітор"
+
+#: mdk/mdk-main-window.ui:30
+msgid "_Emulate monitor modes"
+msgstr "_Імітувати режими монітора"
+
+#: mdk/mdk-main-window.ui:37
+msgid "_Launchers"
+msgstr "Зас_оби запуску"
+
+#: mdk/mdk-main-window.ui:41
+msgid "_Edit launchers"
+msgstr "_Редагувати засоби запуску"
+
+#: mdk/mdk-main-window.ui:48
+msgid "_About Mutter Development Kit"
+msgstr "_Про «Інструменти для розробників Mutter»"
+
+#: mdk/mdk-main-window.ui:54 mdk/mdk-main.c:56
+msgid "Mutter Development Kit"
+msgstr "Інструменти для розробників Mutter"
+
+#: mdk/mdk-main-window.ui:64
+msgid "Main Menu"
+msgstr "Головне меню"
+
+#: mdk/mdk-main.c:49
+msgid "The Mutter Team"
+msgstr "Команда Mutter"
+
+#: mdk/mdk-main.c:62
+msgid "Mutter software development kit"
+msgstr "Набір для розробки програмного забезпечення Mutter"
+
+#: mdk/mdk-main.c:65
+msgid "About Mutter Development Kit"
+msgstr "Про «Інструменти для розробників Mutter»"
+
+#: mdk/mdk-monitor.c:557
+msgid "Failed to create monitor"
+msgstr "Не вдалося створити монітор"
+
+#: src/backends/meta-monitor.c:285
+msgid "Built-in display"
+msgstr "Вбудований екран"
+
+#: src/backends/meta-monitor.c:312
+msgid "Unknown"
+msgstr "Невідомо"
+
+#: src/backends/meta-monitor.c:314
+msgid "Unknown Display"
+msgstr "Невідомий екран"
+
+#: src/backends/meta-monitor.c:322
+#, c-format
+msgctxt ""
+"This is a monitor vendor name, followed by a size in inches, like 'Dell 15\"'"
+msgid "%s %s"
+msgstr "%s %s"
+
+#: src/backends/meta-monitor.c:330
+#, c-format
+msgctxt ""
+"This is a monitor vendor name followed by product/model name where size in "
+"inches could not be calculated, e.g. Dell U2414H"
+msgid "%s %s"
+msgstr "%s %s"
+
+#: src/core/bell.c:237
+msgid "Bell event"
+msgstr "Подія гудка"
+
+#: src/core/display.c:608
+msgid "Privacy Screen Enabled"
+msgstr "Конфіденційний екран увімкнено"
+
+#: src/core/display.c:609
+msgid "Privacy Screen Disabled"
+msgstr "Конфіденційний екран вимкнено"
+
+#: src/core/meta-context-main.c:356
+msgid "Run as a wayland compositor"
+msgstr "запустити як композитор wayland"
+
+#: src/core/meta-context-main.c:363
+msgid "Run wayland compositor without starting Xwayland"
+msgstr "Запустити композитор wayland без запуску Xwayland"
+
+#: src/core/meta-context-main.c:370
+msgid "Specify Wayland display name to use"
+msgstr "Вказати назву дисплея Wayland, якою слід скористатися"
+
+#: src/core/meta-context-main.c:377
+msgid "Run as a full display server, rather than nested"
+msgstr "Запустити як повноцінний сервер, а не вкладений"
+
+#: src/core/meta-context-main.c:382
+msgid "Run as a headless display server"
+msgstr "Запустити у форматі сервера без дисплея"
+
+#: src/core/meta-context-main.c:387
+msgid "Add persistent virtual monitor (WxH or WxH@R)"
+msgstr "Додати сталий віртуальний монітор (ШxВ або ШxВ@Ч)"
+
+#: src/core/meta-context-main.c:394
+msgid "Run development kit"
+msgstr "Запустити інструменти для розробників"
+
+#: src/core/meta-context-main.c:405
+msgid "Profile performance using trace instrumentation"
+msgstr "Профілювання швидкодії з використанням засобів трасування"
+
+#: src/core/meta-context-main.c:411
+msgid "Enable debug control D-Bus interface"
+msgstr "Увімкнути інтерфейс D-Bus керування діагностикою"
+
+#. TRANSLATORS: This string refers to a button that switches between
+#. * different modes in that button group.
+#.
+#: src/core/meta-pad-action-mapper.c:617
+#, c-format
+msgid "Mode Switch (Group %d)"
+msgstr "Перемкнути режим (група %d)"
+
+#. TRANSLATORS: This string refers to a button that switches between
+#. * different modes.
+#.
+#: src/core/meta-pad-action-mapper.c:624
+#, c-format
+msgid "Mode Switch"
+msgstr "Перемикач режимів"
+
+#. TRANSLATORS: This string refers to an action, cycles drawing tablets'
+#. * mapping through the available outputs.
+#.
+#: src/core/meta-pad-action-mapper.c:647
+msgid "Switch monitor"
+msgstr "Перемкнути монітор"
+
+#: src/core/meta-pad-action-mapper.c:649
+msgid "Show on-screen help"
+msgstr "Показати довідку на екрані"
+
+#. Translators: this string will appear in Sysprof
+#: src/core/meta-profiler.c:109 src/core/meta-profiler.c:299
+msgid "Compositor"
+msgstr "Композитор"
+
+#: src/core/mutter.c:75
+msgid "Print version"
+msgstr "Показати версію"
+
+#: src/core/mutter.c:81
+msgid "Mutter plugin to use"
+msgstr "Додатки Clutter для використання"
+
+#: src/core/prefs.c:1874
+#, c-format
+msgid "Workspace %d"
+msgstr "Робочий простір %d"
+
+#: src/core/util.c:149
+msgid "Mutter was compiled without support for verbose mode"
+msgstr "Mutter зібрано без підтримки докладного режиму"
+
+#: src/core/workspace.c:510
+msgid "Workspace switched"
+msgstr "Перемикання робочого простору"
+
+#: src/wayland/meta-wayland-tablet-pad.c:558
+#, c-format
+msgid "Mode Switch: Mode %d"
+msgstr "Перемикання режимів: режим %d"
+
+#: src/x11/meta-x11-display.c:776
+#, c-format
+msgid "Display “%s” already has a window manager"
+msgstr "У дисплея «%s» вже є засіб керування вікнами"
+
+#: src/x11/meta-x11-display.c:1139
+#, c-format
+msgid "Failed to open X Window System display “%s”"
+msgstr "Не вдалося відкрити дисплей віконної системи X «%s»"
+
+#: src/x11/meta-x11-display.c:1284
+#, c-format
+msgid "Screen %d on display “%s” is invalid"
+msgstr "Екран %d на дисплеї «%s» є некоректним"
+
+#. This probably means that a non-WM compositor like xcompmgr is running;
+#. * we have no way to get it to exit
+#: src/x11/meta-x11-display.c:2469
+#, c-format
+msgid ""
+"Another compositing manager is already running on screen %i on display “%s”."
+msgstr ""
+"Уже запущено інший композитний менеджер на екрані %i через показ «%s»."
+
+#: src/x11/meta-x11-selection-input-stream.c:475
+#, c-format
+msgid "Format %s not supported"
+msgstr "Підтримки формату %s не передбачено"
+
+#: src/x11/window-props.c:562
+#, c-format
+msgid "%s (on %s)"
+msgstr "%s (на %s)"
+
+#~ msgid "_Resizable"
+#~ msgstr "З_мінні розміри"
+
+#~ msgid "Replace the running window manager"
+#~ msgstr "Замінити запущений віконний менеджер"
+
+#~ msgid "X Display to use"
+#~ msgstr "Дисплей X"
+
+#~ msgid "Make X calls synchronous"
+#~ msgstr "Зробити виклики X синхронними"
+
+#~ msgid "Run as a nested compositor"
+#~ msgstr "Запустити як вкладений композитор"
+
+#~ msgid "Run with X11 backend"
+#~ msgstr "Запустити із модулем X11"
+
+#, c-format
+#~ msgid ""
+#~ "Display “%s” already has a window manager; try using the --replace option "
+#~ "to replace the current window manager."
+#~ msgstr ""
+#~ "Екран «%s» вже має менеджера вікон; спробуйте вказати параметр --replace, "
+#~ "щоб замінити поточний менеджер вікон."
+
+#~ msgid "Disable connection to session manager"
+#~ msgstr "Вимкнути з'єднання з менеджером сеансу"
+
+#~ msgid "Specify session management ID"
+#~ msgstr "Вказати ідентифікатор сеансу"
+
+#~ msgid "Initialize session from savefile"
+#~ msgstr "Розпочати сеанс зі збереженого файла"
+
+#~ msgid "Move to workspace above"
+#~ msgstr "Перейти до робочого простору вище"
+
+#~ msgid "Move to workspace below"
+#~ msgstr "Перейти до робочого простору нижче"
+
+#~ msgid "Mutter"
+#~ msgstr "Mutter"
+
+#~ msgid "Failed to initialize GDK"
+#~ msgstr "Не вдалося ініціалізувати GDK"
+
+#~ msgid "No tab popup"
+#~ msgstr "Без контекстних вкладок"
+
+#~ msgid ""
+#~ "Determines whether the use of popup and highlight frame should be "
+#~ "disabled for window cycling."
+#~ msgstr ""
+#~ "Визначає, чи слід вимкнути виринання і підкреслювання рамки для "
+#~ "повторюваних вікон. "
+
+#~ msgid "Select window from tab popup"
+#~ msgstr "Вибрати вікно з контекстних вкладок"
+
+#~ msgid "Cancel tab popup"
+#~ msgstr "Скасувати контекстні вкладки"
+
+#, c-format
+#~ msgid "“%s” is not responding."
+#~ msgstr "«%s» не відповідає."
+
+#~ msgid "Application is not responding."
+#~ msgstr "Програма не відповідає."
+
+#~ msgid ""
+#~ "You may choose to wait a short while for it to continue or force the "
+#~ "application to quit entirely."
+#~ msgstr ""
+#~ "Можете трошки зачекати відновлення активності або примусово закрити "
+#~ "програму."
+
+#~ msgid "_Force Quit"
+#~ msgstr "_Завершити примусово"
+
+#~ msgid "_Wait"
+#~ msgstr "_Зачекати"
+
+#~ msgid ""
+#~ "These windows do not support “save current setup” and will have to be "
+#~ "restarted manually next time you log in."
+#~ msgstr ""
+#~ "Ці вікна не підтримують «збереження поточних параметрів», і при "
+#~ "наступному входженні їх треба запустити власноруч."
+
+#~ msgid "Show the activities overview"
+#~ msgstr "Показати огляд активності"
+
+#~| msgid "X Display to use"
+#~ msgid "X display to use"
+#~ msgstr "Дисплей сервера X, який буде використано"
+
+#~| msgid "X Display to use"
+#~ msgid "X screen to use"
+#~ msgstr "X-екран, яким слід скористатися"
+
+#~ msgid "Disable XInput support"
+#~ msgstr "Вимкнути підтримку XInput"
+
+#~ msgid ""
+#~ "mutter %s\n"
+#~ "Copyright © 2001-%d Havoc Pennington, Red Hat, Inc., and others\n"
+#~ "This is free software; see the source for copying conditions.\n"
+#~ "There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A "
+#~ "PARTICULAR PURPOSE.\n"
+#~ msgstr ""
+#~ "Mutter %s\n"
+#~ "© 2001-%d Havoc Pennington, Red Hat, Inc., та інші\n"
+#~ "Це — вільне програмний засіб; умови копіювання дивіться в коді програми.\n"
+#~ "Не надається НІЯКИХ гарантій; навіть ПРИДАТНОСТІ ДЛЯ ПРОДАЖУ чи "
+#~ "ВІДПОВІДНОСТІ ПЕВНІЙ МЕТІ.\n"

@@ -1,0 +1,1468 @@
+# translation of kcmkwinrules.po to Greek
+# translation of kcmkwinrules.po to
+#
+# Spiros Georgaras <sngeorgaras@otenet.gr>, 2005, 2006, 2007.
+# Toussis Manolis <koppermind@yahoo.com>, 2005.
+# Spiros Georgaras <sng@hellug.gr>, 2007, 2008.
+# Toussis Manolis <manolis@koppermind.homelinux.org>, 2007.
+# Petros Vidalis <p_vidalis@hotmail.com>, 2010.
+# Dimitrios Glentadakis <dglent@gmail.com>, 2011, 2012.
+# Bouklis Panos <panos@echidna-band.com>, 2012.
+# Stelios <sstavra@gmail.com>, 2012.
+# SPDX-FileCopyrightText: 2013, 2014, 2024 Antonis Geralis <capoiosct@gmail.com>
+# Dimitris Kardarakos <dimkard@gmail.com>, 2016.
+msgid ""
+msgstr ""
+"Project-Id-Version: kcmkwinrules\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-07-10 00:46+0000\n"
+"PO-Revision-Date: 2024-09-19 17:36+0300\n"
+"Last-Translator: Antonis Geralis <capoiosct@gmail.com>\n"
+"Language-Team: Greek <kde-i18n-el@kde.org>\n"
+"Language: el\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Lokalize 24.08.1\n"
+
+#: kcmrules.cpp:228
+#, kde-format
+msgid "Copy of %1"
+msgstr "Αντίγραφο του %1"
+
+#: kcmrules.cpp:426
+#, kde-format
+msgid "Application settings for %1"
+msgstr "Ρύθμιση εφαρμογής για %1"
+
+#: kcmrules.cpp:448 rulesmodel.cpp:222 rulesmodel.cpp:225
+#, kde-format
+msgid "Window settings for %1"
+msgstr "Ρύθμιση παραθύρου για %1"
+
+#: optionsmodel.cpp:199 optionsmodel.cpp:204
+#, fuzzy, kde-format
+#| msgid "Unimportant"
+msgctxt "@item:inlistbox"
+msgid "Unimportant"
+msgstr "Αδιάφορο"
+
+#: optionsmodel.cpp:200
+#, fuzzy, kde-format
+#| msgid "Exact match"
+msgctxt "@item:inlistbox"
+msgid "Exact match"
+msgstr "Ακριβές ταίριασμα"
+
+#: optionsmodel.cpp:201
+#, fuzzy, kde-format
+#| msgid "Substring match"
+msgctxt "@item:inlistbox"
+msgid "Substring match"
+msgstr "Ταίριασμα υπο-συμβολοσειράς"
+
+#: optionsmodel.cpp:202
+#, fuzzy, kde-format
+#| msgid "Regular expression"
+msgctxt "@item:inlistbox"
+msgid "Regular expression"
+msgstr "Κανονική έκφραση"
+
+#: optionsmodel.cpp:205
+#, kde-format
+msgctxt "@item:inlistbox This is a noun"
+msgid "Match"
+msgstr ""
+
+#: optionsmodel.cpp:210
+#, kde-format
+msgid "Apply initially"
+msgstr "Αρχική εφαρμογή"
+
+#: optionsmodel.cpp:211
+#, kde-format
+msgid ""
+"The window property will be only set to the given value after the window is "
+"created.\n"
+"No further changes will be affected."
+msgstr ""
+"Η ιδιότητα παραθύρου θα οριστεί στη δεδομένη τιμή μόνο μετά τη δημιουργία "
+"του παραθύρου.\n"
+"Δεν θα επηρεαστούν περαιτέρω αλλαγές."
+
+#: optionsmodel.cpp:214
+#, kde-format
+msgid "Apply now"
+msgstr "Εφαρμογή τώρα"
+
+#: optionsmodel.cpp:215
+#, kde-format
+msgid ""
+"The window property will be set to the given value immediately and will not "
+"be affected later\n"
+"(this action will be deleted afterwards)."
+msgstr ""
+"Η ιδιότητα του παραθύρου θα οριστεί στη δεδομένη τιμή αμέσως και δεν θα "
+"επηρεαστεί αργότερα\n"
+"(αυτή η ενέργεια θα διαγραφεί αργότερα)."
+
+#: optionsmodel.cpp:218
+#, kde-format
+msgid "Remember"
+msgstr "Απομνημόνευση"
+
+#: optionsmodel.cpp:219
+#, kde-format
+msgid ""
+"The value of the window property will be remembered and, every time the "
+"window is created, the last remembered value will be applied."
+msgstr ""
+"Η τιμή της ιδιότητας παραθύρου θα απομνημονεύεται και, κάθε φορά που "
+"δημιουργείται το παράθυρο, θα εφαρμόζεται η τελευταία τιμή που "
+"απομνημονεύτηκε."
+
+#: optionsmodel.cpp:222
+#, kde-format
+msgid "Do not affect"
+msgstr "Να μην επηρεαστεί"
+
+#: optionsmodel.cpp:223
+#, kde-format
+msgid ""
+"The window property will not be affected and therefore the default handling "
+"for it will be used.\n"
+"Specifying this will block more generic window settings from taking effect."
+msgstr ""
+"Η ιδιότητα παραθύρου δεν θα επηρεαστεί και επομένως θα χρησιμοποιηθεί ο "
+"προεπιλεγμένος χειρισμός της.\n"
+"Ο καθορισμός αυτής της ιδιότητας θα εμποδίσει τις πιο γενικές ρυθμίσεις "
+"παραθύρου να τεθούν σε ισχύ."
+
+#: optionsmodel.cpp:226
+#, kde-format
+msgid "Force"
+msgstr "Εξαναγκασμός"
+
+#: optionsmodel.cpp:227
+#, kde-format
+msgid "The window property will be always forced to the given value."
+msgstr "Η ιδιότητα του παραθύρου θα επιβάλλεται πάντα στη δεδομένη τιμή."
+
+#: optionsmodel.cpp:229
+#, kde-format
+msgid "Force temporarily"
+msgstr "Προσωρινός εξαναγκασμός"
+
+#: optionsmodel.cpp:230
+#, kde-format
+msgid ""
+"The window property will be forced to the given value until it is hidden\n"
+"(this action will be deleted after the window is hidden)."
+msgstr ""
+"Η ιδιότητα του παραθύρου θα αναγκαστεί να πάρει τη δεδομένη τιμή μέχρι να "
+"κρυφτεί\n"
+"(αυτή η ενέργεια θα διαγραφεί μετά την απόκρυψη του παραθύρου)."
+
+#: rulesmodel.cpp:228
+#, kde-format
+msgid "Settings for %1"
+msgstr "Ρυθμίσεις για %1"
+
+#: rulesmodel.cpp:231
+#, kde-format
+msgid "New window settings"
+msgstr "Νέες ρυθμίσεις παραθύρου"
+
+#: rulesmodel.cpp:247
+#, kde-format
+msgid ""
+"You have specified the window class as unimportant.\n"
+"This means the settings will possibly apply to windows from all "
+"applications. If you really want to create a generic setting, it is "
+"recommended you at least limit the window types to avoid special window "
+"types."
+msgstr ""
+"Ορίσατε την κλάση παραθύρου ως μη σημαντική.\n"
+"Αυτό σημαίνει ότι οι ρυθμίσεις πιθανώς να εφαρμόζονται σε παράθυρα από όλες "
+"τις εφαρμογές. Αν πραγματικά θέλετε να δημιουργήσετε μια γενική ρύθμιση, "
+"προτείνεται τουλάχιστον ο ορισμός ορίων στους τύπους παραθύρων για την "
+"αποφυγή ειδικών τύπων παραθύρων."
+
+#: rulesmodel.cpp:254
+#, kde-format
+msgid ""
+"Some applications set their own geometry after starting, overriding your "
+"initial settings for size and position. To enforce these settings, also "
+"force the property \"%1\" to \"Yes\"."
+msgstr ""
+"Ορισμένες εφαρμογές ορίζουν τη δική τους γεωμετρία μετά την εκκίνηση, "
+"παρακάμπτοντας τις αρχικές σας ρυθμίσεις για το μέγεθος και τη θέση. Για να "
+"επιβάλλετε αυτές τις ρυθμίσεις, επιβάλλετε επίσης την ιδιότητα «%1» σε «Ναι»."
+
+#: rulesmodel.cpp:261
+#, kde-format
+msgid ""
+"Readability may be impaired with extremely low opacity values. At 0%, the "
+"window becomes invisible."
+msgstr ""
+"Η αναγνωσιμότητα μπορεί να μειωθεί με εξαιρετικά χαμηλές τιμές αδιαφάνειας. "
+"Στο 0%, το παράθυρο γίνεται αόρατο."
+
+#: rulesmodel.cpp:388
+#, kde-format
+msgid "Description"
+msgstr "Περιγραφή"
+
+#: rulesmodel.cpp:388 rulesmodel.cpp:396 rulesmodel.cpp:404 rulesmodel.cpp:411
+#: rulesmodel.cpp:417 rulesmodel.cpp:425 rulesmodel.cpp:430 rulesmodel.cpp:436
+#: rulesmodel.cpp:441 rulesmodel.cpp:447
+#, kde-format
+msgid "Window matching"
+msgstr "Ταίριασμα παραθύρων"
+
+#: rulesmodel.cpp:396
+#, kde-format
+msgid "Window class (application)"
+msgstr "Κλάση παραθύρου (εφαρμογή):"
+
+#: rulesmodel.cpp:404
+#, kde-format
+msgid "Match whole window class"
+msgstr "Ταίριασμα ολόκληρης κλάσης παραθύρου"
+
+#: rulesmodel.cpp:411
+#, kde-format
+msgid "Whole window class"
+msgstr "Ολόκληρη κλάση παραθύρου"
+
+#: rulesmodel.cpp:417
+#, kde-format
+msgid "Window types"
+msgstr "Τύποι παραθύρων"
+
+#: rulesmodel.cpp:425
+#, kde-format
+msgid "Window role"
+msgstr "Ρόλος παραθύρου"
+
+#: rulesmodel.cpp:430
+#, kde-format
+msgid "Window title"
+msgstr "Τίτλος παραθύρου:"
+
+#: rulesmodel.cpp:436
+#, kde-format
+msgid "Machine (hostname)"
+msgstr "Μηχάνημα (όνομα υπολογιστή):"
+
+#: rulesmodel.cpp:441
+#, fuzzy, kde-format
+#| msgid "Window &Extra"
+msgid "Window tag"
+msgstr "Έ&ξτρα Παραθύρου"
+
+#: rulesmodel.cpp:447
+#, fuzzy, kde-format
+#| msgid "On main window"
+msgid "Has parent window"
+msgstr "Στο κύριο παράθυρο"
+
+#: rulesmodel.cpp:453
+#, kde-format
+msgid "Position"
+msgstr "Θέση"
+
+#: rulesmodel.cpp:453 rulesmodel.cpp:459 rulesmodel.cpp:465 rulesmodel.cpp:470
+#: rulesmodel.cpp:478 rulesmodel.cpp:484 rulesmodel.cpp:503 rulesmodel.cpp:519
+#: rulesmodel.cpp:524 rulesmodel.cpp:529 rulesmodel.cpp:534 rulesmodel.cpp:541
+#: rulesmodel.cpp:555 rulesmodel.cpp:560
+#, kde-format
+msgid "Size & Position"
+msgstr "Μέγεθος και θέση"
+
+#: rulesmodel.cpp:459
+#, kde-format
+msgid "Size"
+msgstr "Μέγεθος"
+
+#: rulesmodel.cpp:465
+#, kde-format
+msgid "Maximized horizontally"
+msgstr "Οριζόντια μεγιστοποίηση"
+
+#: rulesmodel.cpp:470
+#, kde-format
+msgid "Maximized vertically"
+msgstr "Κατακόρυφη μεγιστοποίηση"
+
+#: rulesmodel.cpp:478
+#, kde-format
+msgid "Virtual desktop"
+msgstr "Επιφάνεια εργασίας"
+
+#: rulesmodel.cpp:484
+#, kde-format
+msgid "Virtual desktops"
+msgstr "Επιφάνειες εργασίας"
+
+#: rulesmodel.cpp:503
+#, kde-format
+msgid "Activities"
+msgstr "Δραστηριότητες"
+
+#: rulesmodel.cpp:519
+#, kde-format
+msgid "Screen"
+msgstr "Οθόνη"
+
+#: rulesmodel.cpp:524 rulesmodel.cpp:923
+#, kde-format
+msgid "Fullscreen"
+msgstr "Πλήρης οθόνη"
+
+#: rulesmodel.cpp:529
+#, kde-format
+msgid "Minimized"
+msgstr "Ελαχιστοποιημένο"
+
+#: rulesmodel.cpp:534
+#, kde-format
+msgid "Initial placement"
+msgstr "Αρχική τοποθέτηση"
+
+#: rulesmodel.cpp:541
+#, kde-format
+msgid "Ignore requested geometry"
+msgstr "Παράβλεψη της ζητούμενης γεωμετρίας"
+
+#: rulesmodel.cpp:544
+#, kde-kuit-format
+msgctxt "@info:tooltip"
+msgid ""
+"Some applications can set their own geometry, overriding the window manager "
+"preferences. Setting this property overrides their placement requests.<nl/"
+"><nl/>This affects <interface>Size</interface> and <interface>Position</"
+"interface> but not <interface>Maximized</interface> or "
+"<interface>Fullscreen</interface> states.<nl/><nl/>Note that the position "
+"can also be used to map to a different <interface>Screen</interface>"
+msgstr ""
+
+#: rulesmodel.cpp:555
+#, kde-format
+msgid "Minimum Size"
+msgstr "Ελάχιστο μέγεθος"
+
+#: rulesmodel.cpp:560
+#, kde-format
+msgid "Maximum Size"
+msgstr "Μέγιστο μέγεθος"
+
+#: rulesmodel.cpp:566
+#, kde-format
+msgid "Keep above other windows"
+msgstr ""
+
+#: rulesmodel.cpp:566 rulesmodel.cpp:571 rulesmodel.cpp:576 rulesmodel.cpp:582
+#: rulesmodel.cpp:588 rulesmodel.cpp:594
+#, kde-format
+msgid "Arrangement & Access"
+msgstr "Διάταξη και πρόσβαση"
+
+#: rulesmodel.cpp:571
+#, kde-format
+msgid "Keep below other windows"
+msgstr ""
+
+#: rulesmodel.cpp:576
+#, kde-format
+msgid "Skip taskbar"
+msgstr "Παράλειψη γραμμής εργασιών"
+
+#: rulesmodel.cpp:578
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Controls whether or not the window appears in the Task Manager."
+msgstr ""
+
+#: rulesmodel.cpp:582
+#, kde-format
+msgid "Skip pager"
+msgstr "Παράλειψη προβολέα επιφανειών εργασίας"
+
+#: rulesmodel.cpp:584
+#, kde-format
+msgctxt "@info:tooltip"
+msgid ""
+"Controls whether or not the window appears in the Virtual Desktop manager."
+msgstr ""
+
+#: rulesmodel.cpp:588
+#, kde-format
+msgid "Skip switcher"
+msgstr "Παράλειψη εναλλαγής"
+
+#: rulesmodel.cpp:590
+#, kde-kuit-format
+msgctxt "@info:tooltip"
+msgid ""
+"Controls whether or not the window appears in the <shortcut>Alt+Tab</"
+"shortcut> window list."
+msgstr ""
+
+#: rulesmodel.cpp:594
+#, kde-format
+msgid "Shortcut"
+msgstr "Συντόμευση"
+
+#: rulesmodel.cpp:600
+#, kde-format
+msgid "No titlebar and frame"
+msgstr "Χωρίς γραμμή τίτλου και πλαίσιο"
+
+#: rulesmodel.cpp:600 rulesmodel.cpp:605 rulesmodel.cpp:611 rulesmodel.cpp:616
+#: rulesmodel.cpp:622 rulesmodel.cpp:649 rulesmodel.cpp:677 rulesmodel.cpp:683
+#: rulesmodel.cpp:695 rulesmodel.cpp:700 rulesmodel.cpp:705 rulesmodel.cpp:711
+#: rulesmodel.cpp:716 rulesmodel.cpp:721
+#, kde-format
+msgid "Appearance & Fixes"
+msgstr "Εμφάνιση και διορθώσεις"
+
+#: rulesmodel.cpp:605
+#, kde-format
+msgid "Titlebar color scheme"
+msgstr "Χρωματικό θέμα γραμμής τίτλου"
+
+#: rulesmodel.cpp:611
+#, kde-format
+msgid "Active opacity"
+msgstr "Αδιαφάνεια ενεργού"
+
+#: rulesmodel.cpp:616
+#, kde-format
+msgid "Inactive opacity"
+msgstr "Αδιαφάνεια ανενεργού"
+
+#: rulesmodel.cpp:622
+#, kde-format
+msgid "Focus stealing prevention"
+msgstr "Αποτροπή κλεψίματος εστίασης"
+
+#: rulesmodel.cpp:624
+#, kde-kuit-format
+msgctxt "@info:tooltip"
+msgid ""
+"KWin tries to prevent windows that were opened without direct user action "
+"from raising themselves and taking focus while you're currently interacting "
+"with another window. This property can be used to change the level of focus "
+"stealing prevention applied to individual windows and apps.<nl/><nl/>Here's "
+"what will happen to a window opened without your direct action at each level "
+"of focus stealing prevention:<nl/><list><item><emphasis strong='true'>None:</"
+"emphasis> The window will be raised and focused.</item><item><emphasis "
+"strong='true'>Low:</emphasis> Focus stealing prevention will be applied, but "
+"in the case of a situation KWin considers ambiguous, the window will be "
+"raised and focused.</item><item><emphasis strong='true'>Normal:</emphasis> "
+"Focus stealing prevention will be applied, but  in the case of a situation "
+"KWin considers ambiguous, the window will <emphasis>not</emphasis> be raised "
+"and focused.</item><item><emphasis strong='true'>High:</emphasis> The window "
+"will only be raised and focused if it belongs to the same app as the "
+"currently-focused window.</item><item><emphasis strong='true'>Extreme:</"
+"emphasis> The window will never be raised and focused.</item></list>"
+msgstr ""
+
+#: rulesmodel.cpp:649
+#, kde-format
+msgid "Focus protection"
+msgstr "Προστασία εστίασης"
+
+#: rulesmodel.cpp:651
+#, kde-kuit-format
+msgctxt "@info:tooltip"
+msgid ""
+"This property controls the focus protection level of the currently active "
+"window. It is used to override the focus stealing prevention applied to new "
+"windows that are opened without your direct action.<nl/><nl/>Here's what "
+"happens to new windows that are opened without your direct action at each "
+"level of focus protection while the window with this property applied to it "
+"has focus:<nl/><list><item><emphasis strong='true'>None</emphasis>: Newly-"
+"opened windows always raise themselves and take focus.</item><item><emphasis "
+"strong='true'>Low:</emphasis> Focus stealing prevention will be applied to "
+"the newly-opened window, but in the case of a situation KWin considers "
+"ambiguous, the window will be raised and focused.</item><item><emphasis "
+"strong='true'>Normal:</emphasis> Focus stealing prevention will be applied "
+"to the newly-opened window, but in the case of a situation KWin considers "
+"ambiguous, the window will <emphasis>not</emphasis> be raised and focused.</"
+"item><item><emphasis strong='true'>High:</emphasis> Newly-opened windows "
+"will only raise themselves and take focus if they belongs to the same app as "
+"the currently-focused window.</item><item><emphasis strong='true'>Extreme:</"
+"emphasis> Newly-opened windows never raise themselves and take focus.</"
+"item></list>"
+msgstr ""
+
+#: rulesmodel.cpp:677
+#, kde-format
+msgid "Accept focus"
+msgstr "Αποδοχή εστίασης"
+
+#: rulesmodel.cpp:679
+#, kde-format
+msgid "Controls whether or not the window becomes focused when clicked."
+msgstr ""
+
+#: rulesmodel.cpp:683
+#, kde-format
+msgid "Ignore global shortcuts"
+msgstr "Παράβλεψη καθολικών συντομεύσεων"
+
+#: rulesmodel.cpp:685
+#, kde-kuit-format
+msgctxt "@info:tooltip"
+msgid ""
+"Use this property to prevent global keyboard shortcuts from working while "
+"the window is focused. This can be useful for apps like emulators or virtual "
+"machines that handle some of the same shortcuts themselves.<nl/><nl/>Note "
+"that you won't be able to <shortcut>Alt+Tab</shortcut> out of the window or "
+"use any other global shortcuts such as <shortcut>Alt+Space</shortcut> to "
+"activate KRunner."
+msgstr ""
+
+#: rulesmodel.cpp:695
+#, kde-format
+msgid "Closeable"
+msgstr "Ικανό να κλείσει"
+
+#: rulesmodel.cpp:700
+#, kde-format
+msgid "Desktop file name"
+msgstr ""
+
+#: rulesmodel.cpp:705
+#, kde-format
+msgid "Layer"
+msgstr ""
+
+#: rulesmodel.cpp:711
+#, kde-format
+msgid "Adaptive sync"
+msgstr ""
+
+#: rulesmodel.cpp:716
+#, kde-format
+msgid "Allow tearing"
+msgstr ""
+
+#: rulesmodel.cpp:721
+#, kde-format
+msgid "Hide from screenshots and screen recordings"
+msgstr ""
+
+#: rulesmodel.cpp:774
+#, kde-format
+msgid "Window class not available"
+msgstr "Μη διαθέσιμη κλάση παραθύρου"
+
+#: rulesmodel.cpp:775
+#, kde-kuit-format
+msgctxt "@info"
+msgid ""
+"This application is not providing a class for the window, so KWin cannot use "
+"it to match and apply any rules. If you still want to apply some rules to "
+"it, try to match other properties like the window title instead.<nl/><nl/"
+">Please consider reporting this bug to the application's developers."
+msgstr ""
+
+#: rulesmodel.cpp:809
+#, kde-format
+msgid "All window types"
+msgstr "Όλοι οι τύποι παραθύρων"
+
+#: rulesmodel.cpp:810
+#, kde-format
+msgid "Normal window"
+msgstr "Κανονικό παράθυρο"
+
+#: rulesmodel.cpp:811
+#, kde-format
+msgid "Dialog window"
+msgstr "Παράθυρο διαλόγου"
+
+#: rulesmodel.cpp:812
+#, kde-format
+msgid "Utility window"
+msgstr "Παράθυρο εργαλείων"
+
+#: rulesmodel.cpp:813
+#, kde-format
+msgid "Dock (panel)"
+msgstr "Προσάρτηση (πίνακας)"
+
+#: rulesmodel.cpp:814
+#, kde-format
+msgid "Toolbar"
+msgstr "Γραμμή εργαλείων"
+
+#: rulesmodel.cpp:815
+#, kde-format
+msgid "Torn-off menu"
+msgstr "Χωρισμός μενού"
+
+#: rulesmodel.cpp:816
+#, kde-format
+msgid "Splash screen"
+msgstr "Αρχική οθόνη"
+
+#: rulesmodel.cpp:817 rulesmodel.cpp:918
+#, kde-format
+msgid "Desktop"
+msgstr "Επιφάνεια εργασίας"
+
+#. i18n("Unmanaged Window")},  deprecated
+#: rulesmodel.cpp:819
+#, kde-format
+msgid "Standalone menubar"
+msgstr "Αυτόνομη γραμμή μενού"
+
+#: rulesmodel.cpp:820 rulesmodel.cpp:926
+#, kde-format
+msgid "On-screen display"
+msgstr "Επιφάνεις προβολής οθόνης"
+
+#: rulesmodel.cpp:830
+#, kde-format
+msgid "All desktops"
+msgstr "Όλες οι επιφάνειες εργασίας"
+
+#: rulesmodel.cpp:832
+#, kde-format
+msgctxt "@info:tooltip in the virtual desktop list"
+msgid "Make the window available on all desktops"
+msgstr ""
+
+#: rulesmodel.cpp:851
+#, kde-format
+msgid "All activities"
+msgstr "Όλες οι δραστηριότητες"
+
+#: rulesmodel.cpp:853
+#, kde-format
+msgctxt "@info:tooltip in the activity list"
+msgid "Make the window available on all activities"
+msgstr ""
+
+#: rulesmodel.cpp:874
+#, kde-format
+msgid "Default"
+msgstr "Προκαθορισμένο"
+
+#: rulesmodel.cpp:875
+#, kde-format
+msgid "No placement"
+msgstr "Χωρίς τοποθέτηση"
+
+#: rulesmodel.cpp:876
+#, kde-format
+msgid "Minimal overlapping"
+msgstr "Ελάχιστη επικάλυψη"
+
+#: rulesmodel.cpp:877
+#, kde-format
+msgid "Maximized"
+msgstr "Μεγιστοποιημένη"
+
+#: rulesmodel.cpp:878
+#, kde-format
+msgid "Centered"
+msgstr "Κεντραρισμένη"
+
+#: rulesmodel.cpp:879
+#, kde-format
+msgid "Random"
+msgstr "Τυχαία"
+
+#: rulesmodel.cpp:880
+#, kde-format
+msgid "In top-left corner"
+msgstr "Στην πάνω αριστερή γωνία"
+
+#: rulesmodel.cpp:881
+#, kde-format
+msgid "Under mouse"
+msgstr "Κάτω από το ποντίκι"
+
+#: rulesmodel.cpp:882
+#, kde-format
+msgid "On main window"
+msgstr "Στο κύριο παράθυρο"
+
+#: rulesmodel.cpp:889
+#, kde-format
+msgid "None"
+msgstr "Κανένα"
+
+#: rulesmodel.cpp:890
+#, kde-format
+msgid "Low"
+msgstr "Χαμηλό"
+
+#: rulesmodel.cpp:891 rulesmodel.cpp:920
+#, kde-format
+msgid "Normal"
+msgstr "Κανονικό"
+
+#: rulesmodel.cpp:892
+#, kde-format
+msgid "High"
+msgstr "Υψηλό"
+
+#: rulesmodel.cpp:893
+#, kde-format
+msgid "Extreme"
+msgstr "Ακραίο"
+
+#: rulesmodel.cpp:919
+#, kde-format
+msgid "Below"
+msgstr ""
+
+#: rulesmodel.cpp:921
+#, kde-format
+msgid "Above"
+msgstr ""
+
+#: rulesmodel.cpp:922
+#, kde-format
+msgid "Notification"
+msgstr "Ειδοποίηση"
+
+#: rulesmodel.cpp:924
+#, kde-format
+msgid "Popup"
+msgstr "Αναδυόμενο"
+
+#: rulesmodel.cpp:925
+#, kde-format
+msgid "Critical notification"
+msgstr "Κρίσιμη ειδοποίηση"
+
+#: rulesmodel.cpp:927
+#, kde-format
+msgid "Overlay"
+msgstr "Επικάλυψη"
+
+#: rulesmodel.cpp:952
+#, kde-format
+msgid "Unmanaged window"
+msgstr "Παράθυρο χωρίς διαχείριση"
+
+#: rulesmodel.cpp:953
+#, kde-format
+msgid "Could not detect window properties. The window is not managed by KWin."
+msgstr ""
+
+#: ui/FileDialogLoader.qml:15
+#, kde-format
+msgid "Select File"
+msgstr "Επιλογή αρχείου"
+
+#: ui/FileDialogLoader.qml:27
+#, kde-format
+msgid "KWin Rules (*.kwinrule)"
+msgstr "Κανόνες KWin (*.kwinrule)"
+
+#: ui/main.qml:28
+#, kde-format
+msgid "Add New…"
+msgstr "Προσθήκη νέου…"
+
+#: ui/main.qml:35
+#, kde-format
+msgid "Import…"
+msgstr "Εισαγωγή…"
+
+#: ui/main.qml:40
+#, kde-format
+msgid "Cancel Export"
+msgstr "Ακύρωση εξαγωγής"
+
+#: ui/main.qml:40
+#, kde-format
+msgid "Export…"
+msgstr "Εξαγωγή…"
+
+#: ui/main.qml:88
+#, kde-format
+msgid "No rules for specific windows are currently set"
+msgstr ""
+
+#: ui/main.qml:89
+#, kde-kuit-format
+msgctxt "@info"
+msgid "Click <interface>Add New…</interface> to add some"
+msgstr ""
+
+#: ui/main.qml:97
+#, kde-format
+msgid "Select the rules to export"
+msgstr ""
+
+#: ui/main.qml:101
+#, kde-format
+msgid "Unselect All"
+msgstr ""
+
+#: ui/main.qml:101
+#, kde-format
+msgid "Select All"
+msgstr ""
+
+#: ui/main.qml:115
+#, kde-format
+msgid "Save Rules"
+msgstr ""
+
+#: ui/main.qml:202
+#, kde-format
+msgid "Edit"
+msgstr "Επεξεργασία"
+
+#: ui/main.qml:208
+#, kde-format
+msgid "Duplicate"
+msgstr ""
+
+#: ui/main.qml:214
+#, kde-format
+msgid "Delete"
+msgstr "Διαγραφή"
+
+#: ui/main.qml:246
+#, kde-format
+msgid "Import Rules"
+msgstr "Εισαγωγή κανόνων"
+
+#: ui/main.qml:258
+#, kde-format
+msgid "Export Rules"
+msgstr "Εξαγωγή κανόνων"
+
+#: ui/OptionsComboBox.qml:35
+#, kde-format
+msgid "None selected"
+msgstr "Δεν Επιλέχτηκε κανένα"
+
+#: ui/OptionsComboBox.qml:41
+#, kde-format
+msgid "All selected"
+msgstr "Επιλέχτηκαν όλα"
+
+#: ui/OptionsComboBox.qml:43
+#, kde-format
+msgid "%1 selected"
+msgid_plural "%1 selected"
+msgstr[0] "%1 επιλεγμένο"
+msgstr[1] "%1 επιλεγμένα"
+
+#: ui/RulesEditor.qml:66
+#, kde-format
+msgid "No window properties changed"
+msgstr "Δεν άλλαξαν οι ιδιότητες παραθύρου"
+
+#: ui/RulesEditor.qml:67
+#, kde-kuit-format
+msgctxt "@info"
+msgid ""
+"Click the <interface>Add Property...</interface> button below to add some "
+"window properties that will be affected by the rule"
+msgstr ""
+
+#: ui/RulesEditor.qml:88
+#, kde-format
+msgid "Add Property..."
+msgstr "Προσθήκη νέας ιδιότητας..."
+
+#: ui/RulesEditor.qml:99
+#, kde-format
+msgid "Detect Window Properties"
+msgstr "Ανίχνευση ιδιοτήτων παραθύρου"
+
+#: ui/RulesEditor.qml:115 ui/RulesEditor.qml:126
+#, kde-format
+msgid "Instantly"
+msgstr "Στιγμιαία"
+
+#: ui/RulesEditor.qml:116 ui/RulesEditor.qml:131
+#, kde-format
+msgid "After %1 second"
+msgid_plural "After %1 seconds"
+msgstr[0] "Μετά από %1 second"
+msgstr[1] "Μετά από %1 seconds"
+
+#: ui/RulesEditor.qml:178
+#, kde-format
+msgid "Add property to the rule"
+msgstr "Προσθήκη ιδιότητας στον κανόνα"
+
+#: ui/RulesEditor.qml:269
+#, fuzzy, kde-format
+#| msgid "&Detect Window Properties"
+msgctxt "@info:placeholder"
+msgid "No properties left to add"
+msgstr "Καμία ιδιότητα δεν έμεινε"
+
+#: ui/RulesEditor.qml:271
+#, fuzzy, kde-format
+#| msgid "&Detect Window Properties"
+msgctxt "@info:placeholder %1 is a filter text introduced by the user"
+msgid "No properties match \"%1\""
+msgstr "Καμία ιδιότητα δεν ταιρίαζει με «%1»"
+
+#: ui/RulesEditor.qml:292 ui/ValueEditor.qml:54
+#, kde-format
+msgid "Yes"
+msgstr "Ναι"
+
+#: ui/RulesEditor.qml:292 ui/ValueEditor.qml:60
+#, kde-format
+msgid "No"
+msgstr "Όχι"
+
+#: ui/RulesEditor.qml:294 ui/ValueEditor.qml:168 ui/ValueEditor.qml:175
+#, kde-format
+msgid "%1 %"
+msgstr "%1 %"
+
+#: ui/RulesEditor.qml:296
+#, kde-format
+msgctxt "Coordinates (x, y)"
+msgid "(%1, %2)"
+msgstr "(%1, %2)"
+
+#: ui/RulesEditor.qml:298
+#, kde-format
+msgctxt "Size (width, height)"
+msgid "(%1, %2)"
+msgstr "(%1, %2)"
+
+#: ui/ValueEditor.qml:203
+#, kde-format
+msgctxt "(x, y) coordinates separator in size/position"
+msgid "x"
+msgstr "x"
+
+#~ msgid "Obey geometry restrictions"
+#~ msgstr "Να τηρούνται οι περιορισμοί γεωμετρίας"
+
+#, fuzzy
+#~| msgid ""
+#~| "Eg. terminals or video players can ask to keep a certain aspect ratio\n"
+#~| "or only grow by values larger than one\n"
+#~| "(eg. by the dimensions of one character).\n"
+#~| "This may be pointless and the restriction prevents arbitrary dimensions\n"
+#~| "like your complete screen area."
+#~ msgctxt "@info:tooltip"
+#~ msgid ""
+#~ "Some apps like video players or terminals can ask KWin to constrain them "
+#~ "to certain aspect ratios or only grow by values larger than the "
+#~ "dimensions of one character. Use this property to ignore such "
+#~ "restrictions and allow those windows to be resized to arbitrary sizes.<nl/"
+#~ "><nl/>This can be helpful for windows that can't quite fit the full "
+#~ "screen area when maximized."
+#~ msgstr ""
+#~ "Ορισμένες εφαρμογές όπως τερματικά ή προγράμματα αναπαραγωγής βίντεο "
+#~ "μπορεί να ζητήσουν να διατηρηθεί μια ορισμένη αναλογία διαστάσεων\n"
+#~ "ή να αυξάνονται μόνο με τιμές μεγαλύτερες των διαστάσεων ενός χαρακτήρα.\n"
+#~ "Αυτό ίσως να μην έχει νόημα και ο περιορισμός εμποδίζει τις αυθαίρετες "
+#~ "διαστάσεις όπως την πλήρη επιφάνεια της οθόνης σας."
+
+#~ msgid "Block compositing"
+#~ msgstr "Μπλοκάρισμα σύνθεσης"
+
+#~ msgid "Shaded"
+#~ msgstr "Σκιασμένο"
+
+#, fuzzy
+#~| msgid "&Closeable"
+#~ msgid "Close"
+#~ msgstr "&Ικανό να κλείσει"
+
+#, fuzzy
+#~| msgid "Window &type"
+#~ msgid "Set window type"
+#~ msgstr "&Τύπος παραθύρου"
+
+#~ msgid "Window shall (not) appear in the taskbar."
+#~ msgstr "Το παράθυρο (δεν) πρέπει να εμφανίζεται στη γραμμή εργασιών."
+
+#~ msgid "Window shall (not) appear in the manager for virtual desktops"
+#~ msgstr ""
+#~ "Το παράθυρο (δεν) πρέπει να εμφανίζεται στο διαχειριστή εικονικών "
+#~ "επιφανειών εργασίας"
+
+#~ msgid "Window shall (not) appear in the Alt+Tab list"
+#~ msgstr "Το παράθυρο (δεν) πρέπει να εμφανίζεται στη λίστα Alt+Tab"
+
+#, fuzzy
+#~| msgid ""
+#~| "KWin tries to prevent windows from taking the focus\n"
+#~| "(\"activate\") while you're working in another window,\n"
+#~| "but this may sometimes fail or superact.\n"
+#~| "\"None\" will unconditionally allow this window to get the focus while\n"
+#~| "\"Extreme\" will completely prevent it from taking the focus."
+#~ msgid ""
+#~ "KWin tries to prevent windows from taking the focus (\"activate\") while "
+#~ "you're working in another window, but this may sometimes fail or "
+#~ "superact. \"None\" will unconditionally allow this window to get the "
+#~ "focus while \"Extreme\" will completely prevent it from taking the focus."
+#~ msgstr ""
+#~ "Το KWin προσπαθεί να αποτρέψει τα παράθυρα από το να εστιαστούν\n"
+#~ "(\"ενεργοποίηση\") ενώ εργάζεστε σε άλλο παράθυρο,\n"
+#~ "αλλά αυτό ίσως μερικές φορές να αποτύχει ή να είναι υπερδραστήριο.\n"
+#~ "\"Καμία\" θα επιτρέψει αυθαίρετα στο παράθυρο αυτό να εστιαστεί ενώ\n"
+#~ "\"Ακραία\" θα το αποτρέψει πλήρως από την ανάκτηση της εστίασης."
+
+#, fuzzy
+#~| msgid ""
+#~| "This controls the focus protection of the currently active window.\n"
+#~| "None will always give the focus away,\n"
+#~| "Extreme will keep it.\n"
+#~| "Otherwise it's interleaved with the stealing prevention\n"
+#~| "assigned to the window that wants the focus."
+#~ msgid ""
+#~ "This controls the focus protection of the currently active window. None "
+#~ "will always give the focus away, Extreme will keep it. Otherwise it's "
+#~ "interleaved with the stealing prevention assigned to the window that "
+#~ "wants the focus."
+#~ msgstr ""
+#~ "Ελέγχει την προστασία εστίασης του τρέχοντος ενεργού παραθύρου.\n"
+#~ "Η επιλογή 'Κανένα' θα αφήσει την εστίαση να χαθεί,\n"
+#~ "η επιλογή 'Ακραίο' θα τη διατηρήσει.\n"
+#~ "Διαφορετικά, εμπλέκεται με την επιλογή 'Αποτροπή κλεψίματος εστίασης'\n"
+#~ "που έχει ανατεθεί στο παράθυρο που θέλει να εστιάσει."
+
+#, fuzzy
+#~| msgid ""
+#~| "Windows may prevent to get the focus (activate) when being clicked.\n"
+#~| "On the other hand you might wish to prevent a window\n"
+#~| "from getting focused on a mouse click."
+#~ msgid ""
+#~ "Windows may prevent to get the focus (activate) when being clicked. On "
+#~ "the other hand you might wish to prevent a window from getting focused on "
+#~ "a mouse click."
+#~ msgstr ""
+#~ "Τα παράθυρα μπορεί να εμποδίσουν την ανάκτηση (ενεργοποίησης) της "
+#~ "εστίασης\n"
+#~ "όταν κλικάρονται. Από την άλλη πλευρά ίσως επιθυμείτε να εμποδίσετε\n"
+#~ "ένα παράθυρο να εστιαστεί με ένα κλικ του ποντικιού."
+
+#, fuzzy
+#~| msgid ""
+#~| "When used, a window will receive\n"
+#~| "all keyboard inputs while it is active, including Alt+Tab etc.\n"
+#~| "This is especially interesting for emulators or virtual machines.\n"
+#~| "\n"
+#~| "Be warned:\n"
+#~| "you won't be able to Alt+Tab out of the window\n"
+#~| "nor use any other global shortcut (such as Alt+F2 to show KRunner)\n"
+#~| "while it's active!"
+#~ msgid ""
+#~ "When used, a window will receive all keyboard inputs while it is active, "
+#~ "including Alt+Tab etc. This is especially interesting for emulators or "
+#~ "virtual machines. \n"
+#~ "Be warned: you won't be able to Alt+Tab out of the window nor use any "
+#~ "other global shortcut (such as Alt+F2 to show KRunner) while it's active!"
+#~ msgstr ""
+#~ "Όταν χρησιμοποιηθεί, ένα παράθυρο θα λάβει όλα\n"
+#~ "τα δεδομένα του πληκτρολογίου όταν είναι ενεργό, μαζί και του Alt+Tab "
+#~ "κτλ.\n"
+#~ "Αυτό είναι ιδιαίτερα ενδιαφέρον για εξομοιωτές ή εικονικές μηχανές.\n"
+#~ "\n"
+#~ "Προειδοποίηση:\n"
+#~ "δεν θα μπορείτε να βγείτε από το παράθυρο με Alt+Tab\n"
+#~ "ούτε να χρησιμοποιήσετε όποια άλλη καθολική συντόμευση (όπως Alt+F2\n"
+#~ "για να εμφανίσετε το KRunner)\n"
+#~ "ενώ είναι ενεργό!"
+
+#~ msgid ""
+#~ "Windows can ask to appear in a certain position.\n"
+#~ "By default this overrides the placement strategy\n"
+#~ "what might be nasty if the client abuses the feature\n"
+#~ "to unconditionally popup in the middle of your screen."
+#~ msgstr ""
+#~ "Τα παράθυρα ίσως ζητήσουν να εμφανίζονται σε ορισμένη θέση\n"
+#~ "Εξ ορισμού αυτό αντικαθιστά τη στρατηγική τοποθέτησης\n"
+#~ "που μπορεί να γίνει άσχημο αν η εφαρμογή κάνει κατάχρηση\n"
+#~ "της λειτουργίας να αναδύεται αυθαίρετα στη μέση της οθόνης σας."
+
+#, fuzzy
+#~| msgid "WId of the window for special window settings."
+#~ msgid "KWin id of the window for special window settings."
+#~ msgstr "Το WId του παραθύρου για τις ειδικές ρυθμίσεις παραθύρων."
+
+#~ msgid "Whether the settings should affect all windows of the application."
+#~ msgstr ""
+#~ "Αν θα πρέπει οι ρυθμίσεις να επηρεάσουν όλα τα παράθυρα της εφαρμογής."
+
+#~ msgid "This helper utility is not supposed to be called directly."
+#~ msgstr "Αυτή η βοηθητική εφαρμογή δεν μπορεί να εκτελεστεί απευθείας."
+
+#~ msgctxt "Window caption for the application wide rules dialog"
+#~ msgid "Edit Application-Specific Settings"
+#~ msgstr "Επεξεργασία ρυθμίσεων συγκεκριμένης εφαρμογής"
+
+#~ msgid "Edit Window-Specific Settings"
+#~ msgstr "Επεξεργασία ρυθμίσεων συγκεκριμένου παραθύρου"
+
+#~ msgid ""
+#~ "<p><h1>Window-specific Settings</h1> Here you can customize window "
+#~ "settings specifically only for some windows.</p> <p>Please note that this "
+#~ "configuration will not take effect if you do not use KWin as your window "
+#~ "manager. If you do use a different window manager, please refer to its "
+#~ "documentation for how to customize window behavior.</p>"
+#~ msgstr ""
+#~ "<p><h1>Ειδικές επιλογές για το παράθυρο</h1> Εδώ μπορείτε να "
+#~ "παραμετροποιήσετε τις ρυθμίσεις παραθύρου ειδικά για ορισμένα παράθυρα. </"
+#~ "p><p> Παρακαλώ σημειώστε ότι αυτή η διαμόρφωση δε θα ενεργοποιηθεί αν δε "
+#~ "χρησιμοποιείτε το KWin σαν Διαχειριστή Παραθύρων. Αν χρησιμοποιείτε "
+#~ "διαφορετικό διαχειριστή παραθύρων παρακαλώ συμβουλευτείτε το εγχειρίδιό "
+#~ "του για την παραμετροποίησή του.</p>"
+
+#~ msgctxt "NAME OF TRANSLATORS"
+#~ msgid "Your names"
+#~ msgstr "Σπύρος Γεωργαράς,Τούσης Μανώλης"
+
+#~ msgctxt "EMAIL OF TRANSLATORS"
+#~ msgid "Your emails"
+#~ msgstr "sngeorgaras@otenet.gr,manolis@koppermind.homelinux.org"
+
+#, fuzzy
+#~| msgid "Window ro&le:"
+#~ msgid "Window Rules"
+#~ msgstr "Ρό&λος παραθύρου:"
+
+#, fuzzy
+#~| msgid "Cascade"
+#~ msgid "Cascaded"
+#~ msgstr "Διαδοχική"
+
+#, fuzzy
+#~| msgid "Keep &above"
+#~ msgid "Keep above"
+#~ msgstr "Διατήρηση &πάνω"
+
+#, fuzzy
+#~| msgid "Keep &below"
+#~ msgid "Keep below"
+#~ msgstr "Διατήρηση &κάτω"
+
+#~ msgid "KWin"
+#~ msgstr "KWin"
+
+#~ msgid "KWin helper utility"
+#~ msgstr "Εργαλείο βοήθειας του KWin"
+
+#, fuzzy
+#~| msgid "Activit&y"
+#~ msgid "Activity"
+#~ msgstr "&Δραστηριότητα"
+
+#, fuzzy
+#~| msgid "&Detect Window Properties"
+#~ msgid "Select properties"
+#~ msgstr "Ανίχνευση ι&διοτήτων παραθύρου"
+
+#~ msgid "Override Type"
+#~ msgstr "Αντικατάσταση τύπου"
+
+#~ msgid "Unknown - will be treated as Normal Window"
+#~ msgstr "Άγνωστο - θα λογαριαστεί για Κανονικό παράθυρο"
+
+#~ msgid "Information About Selected Window"
+#~ msgstr "Πληροφορίες για το επιλεγμένο παράθυρο"
+
+#~ msgid "Class:"
+#~ msgstr "Κλάση:"
+
+#~ msgid "Role:"
+#~ msgstr "Ρόλος:"
+
+#~ msgid "Type:"
+#~ msgstr "Τύπος:"
+
+#~ msgid "Title:"
+#~ msgstr "Τίτλος:"
+
+#~ msgid "Machine:"
+#~ msgstr "Μηχάνημα:"
+
+#~ msgid "Match by primary class name and"
+#~ msgstr "Ταίριασμα με κύρια κατηγορία και"
+
+#~ msgid "Secondary class name  (resulting in term in brackets)"
+#~ msgstr "Όνομα δευτερεύουσας κατηγορίας (που οδηγεί σε όρο σε παρενθέσεις)"
+
+#~ msgid "Window role (can be used to select windows by function)"
+#~ msgstr ""
+#~ "Ρόλος παραθύρου (μπορεί να χρησιμοποιηθεί για να επιλεγούν παράθυρα ανά "
+#~ "λειτουργία)"
+
+#~ msgid "Window type (eg. all dialogs, but not the main windows)"
+#~ msgstr "Τύπος παραθύρου (π.χ. όλα διάλογοι, αλλά όχι τα βασικά παράθυρα)"
+
+#~ msgid ""
+#~ "Window title (very specific, can fail due to content changes or "
+#~ "translation)"
+#~ msgstr ""
+#~ "Τίτλος παραθύρου (πολύ ιδιαίτερο, ίσως αποτύχει εξαιτίας της μετάφρασης ή "
+#~ "αλλαγών στο περιεχόμενο)"
+
+#~ msgid ""
+#~ "A single shortcut can be easily assigned or cleared using the two "
+#~ "buttons. Only shortcuts with modifiers can be used.<p>\n"
+#~ "It is possible to have several possible shortcuts, and the first "
+#~ "available shortcut will be used. The shortcuts are specified using "
+#~ "shortcut sets separated by \" - \". One set is specified as <i>base</i>"
+#~ "+(<i>list</i>), where base are modifiers and list is a list of keys.<br>\n"
+#~ "For example \"<b>Shift+Alt+(123) Shift+Ctrl+(ABC)</b>\" will first try "
+#~ "<b>Shift+Alt+1</b>, then others with <b>Shift+Ctrl+C</b> as the last one."
+#~ msgstr ""
+#~ "Μια συντόμευση μπορεί εύκολα να ορισθεί ή αφαιρεθεί με τη χρήση δύο "
+#~ "πλήκτρων. Μπορούν να χρησιμοποιηθούν μόνο συντομεύσεις με πλήκτρα αλλαγής."
+#~ "<p>\n"
+#~ "Είναι δυνατή η χρήση πολλών συντομεύσεων, όπου θα χρησιμοποιηθεί η πρώτη "
+#~ "διαθέσιμη συντόμευση. Οι συντομεύσεις αυτές ορίζονται χρησιμοποιώντας "
+#~ "ομάδες συντομεύσεων διαχωρισμένες με \" - \". Η ομάδα ορίζεται σαν "
+#~ "<i>base</i>+(<i>list</i>), όπου base είναι πλήκτρα αλλαγής και list είναι "
+#~ "μια λίστα πλήκτρων.<br>\n"
+#~ "Για παράδειγμα \"<b>Shift+Alt+(123) Shift+Ctrl+(ABC)</b>\" θα αναζητήσει "
+#~ "πρώτα το <b>Shift+Alt+1</b>, έπειτα τα υπόλοιπα με το <b>Shift+Ctrl+C</b> "
+#~ "να αναζητηθεί τελευταίο."
+
+#~ msgid "&Single Shortcut"
+#~ msgstr "&Απλή συντόμευση"
+
+#~ msgid "C&lear"
+#~ msgstr "&Καθάρισμα"
+
+#~ msgid "Window-Specific Settings Configuration Module"
+#~ msgstr "Άρθρωμα διαμόρφωσης Ειδικών Επιλογών για το παράθυρο"
+
+#~ msgid "(c) 2004 KWin and KControl Authors"
+#~ msgstr "(c) 2004 Οι συγγραφείς των KWin και KControl"
+
+#~ msgid "Lubos Lunak"
+#~ msgstr "Lubos Lunak"
+
+#~ msgid "Remember settings separately for every window"
+#~ msgstr "Απομνημόνευση ρυθμίσεων χωριστά για κάθε παράθυρο"
+
+#~ msgid "Show internal settings for remembering"
+#~ msgstr "Εμφάνιση εσωτερικών ρυθμίσεων για απομνημόνευση"
+
+#~ msgid "Internal setting for remembering"
+#~ msgstr "Εσωτερική ρύθμιση για απομνημόνευση"
+
+#~ msgid "&Modify..."
+#~ msgstr "&Τροποποίηση..."
+
+#~ msgid "Move &Up"
+#~ msgstr "Μετακίνηση &πάνω"
+
+#~ msgid "Move &Down"
+#~ msgstr "Μετακίνηση &κάτω"
+
+#~ msgid ""
+#~ "Enable this checkbox to alter this window property for the specified "
+#~ "window(s)."
+#~ msgstr ""
+#~ "Ενεργοποιήστε αυτό το κουμπί επιλογής για την αλλαγή αυτής της ιδιότητας "
+#~ "παραθύρου για τα καθορισμένα παράθυρα."
+
+#~ msgid ""
+#~ "Specify how the window property should be affected:<ul><li><em>Do Not "
+#~ "Affect:</em> The window property will not be affected and therefore the "
+#~ "default handling for it will be used. Specifying this will block more "
+#~ "generic window settings from taking effect.</li><li><em>Apply Initially:</"
+#~ "em> The window property will be only set to the given value after the "
+#~ "window is created. No further changes will be affected.</"
+#~ "li><li><em>Remember:</em> The value of the window property will be "
+#~ "remembered and every time the window is created, the last remembered "
+#~ "value will be applied.</li><li><em>Force:</em> The window property will "
+#~ "be always forced to the given value.</li><li><em>Apply Now:</em> The "
+#~ "window property will be set to the given value immediately and will not "
+#~ "be affected later (this action will be deleted afterwards).</"
+#~ "li><li><em>Force temporarily:</em> The window property will be forced to "
+#~ "the given value until it is hidden (this action will be deleted after the "
+#~ "window is hidden).</li></ul>"
+#~ msgstr ""
+#~ "Καθορίστε πώς θα επηρεαστεί η ιδιότητα του παραθύρου: <ul> <li><em>Να μην "
+#~ "επηρεαστεί:</em> Η ιδιότητα παραθύρου δε θα επηρεαστεί οπότε και θα "
+#~ "χρησιμοποιούνται οι προεπιλεγμένες ρυθμίσεις. Ο καθορισμός αυτής της "
+#~ "επιλογής θα αποτρέψει την εφαρμογή των γενικότερων ρυθμίσεων παραθύρου.</"
+#~ "li> <li><em>Αρχική εφαρμογή:</em> Η ιδιότητα παραθύρου θα ορίζεται στη "
+#~ "δοσμένη τιμή κατά το άνοιγμα. Οι περαιτέρω αλλαγές δεν θα αποθηκεύονται.</"
+#~ "li><li><em>Απομνημόνευση:</em> Η τιμή της ιδιότητας του παραθύρου θα "
+#~ "αποθηκεύεται και κάθε φορά που ανοίγει το παράθυρο, θα εφαρμόζεται η "
+#~ "τελευταία αποθηκευμένη τιμή.</li><li><em>Εξαναγκασμός:</em> Η ιδιότητα "
+#~ "παραθύρου θα εξαναγκάζεται πάντα στη δοσμένη τιμή.</li><li><em>Εφαρμογή "
+#~ "τώρα:</em> Η ιδιότητα του παραθύρου θα οριστεί στη δοσμένη τιμή άμεσα και "
+#~ "δεν θα επηρεαστεί αργότερα (αυτή η ενέργεια θα διαγραφεί μετά).</"
+#~ "li><li><em>Προσωρινός εξαναγκασμός:</em> Η ιδιότητα παραθύρου θα "
+#~ "εξαναγκαστεί στη δοσμένη τιμή μέχρι να κλειστεί (αυτή η ενέργεια θα "
+#~ "διαγραφεί όταν το παράθυρο κλειστεί).</li></ul>"
+
+#~ msgid ""
+#~ "Specify how the window property should be affected:<ul><li><em>Do Not "
+#~ "Affect:</em> The window property will not be affected and therefore the "
+#~ "default handling for it will be used. Specifying this will block more "
+#~ "generic window settings from taking effect.</li><li><em>Force:</em> The "
+#~ "window property will be always forced to the given value.</"
+#~ "li><li><em>Force temporarily:</em> The window property will be forced to "
+#~ "the given value until it is hidden (this action will be deleted after the "
+#~ "window is hidden).</li></ul>"
+#~ msgstr ""
+#~ "Καθορίστε πως  θα επηρεαστεί η ιδιότητα παραθύρου: <ul> <li><em>Να μην "
+#~ "επηρεαστεί:</em> Η ιδιότητα παραθύρου δε θα επηρεαστεί οπότε και θα "
+#~ "χρησιμοποιηθεί η προεπιλεγμένη ιδιότητα. Καθορίζοντας αυτή την επιλογή θα "
+#~ "αποτραπεί η ενεργοποίηση περισσοτέρων γενικών ιδιοτήτων του παραθύρου.</"
+#~ "li> <li><em>Εξαναγκασμός:</em> Η ιδιότητα παραθύρου θα τίθεται πάντα στη "
+#~ "δοσμένη τιμή.</li><li><em>Εφαρμογή προσωρινά:</em> Η ιδιότητα παραθύρου "
+#~ "θα οριστεί στη δοσμένη τιμή όσο αυτό είναι ορατό (αυτή η ενέργεια θα "
+#~ "διαγραφεί όταν το παράθυρο πάψει να είναι ορατό).</li></ul>"
+
+#~ msgid "Unnamed entry"
+#~ msgstr "Ανώνυμη καταχώρηση"
+
+#~ msgid ""
+#~ "This configuration dialog allows altering settings only for the selected "
+#~ "window or application. Find the setting you want to affect, enable the "
+#~ "setting using the checkbox, select in what way the setting should be "
+#~ "affected and to which value."
+#~ msgstr ""
+#~ "Αυτός ο διάλογος διαμόρφωσης επιτρέπει την αλλαγή των ρυθμίσεων μόνο για "
+#~ "το επιλεγμένο παράθυρο ή εφαρμογή. Βρείτε τη ρύθμιση που θέλετε να "
+#~ "αλλάξετε, ενεργοποιήστε την, επιλέξτε τον τρόπο με τον οποίο θα αλλαχθεί "
+#~ "και σε ποιο ποσοστό."
+
+#~ msgid "Consult the documentation for more details."
+#~ msgstr "Συμβουλευτείτε την τεκμηρίωση για περισσότερες λεπτομέρειες."
+
+#~ msgid "Edit Shortcut"
+#~ msgstr "Επεξεργασία συντόμευσης"
+
+#~ msgid "s delay"
+#~ msgstr "s καθυστέρηση"
+
+#~ msgid "x,y"
+#~ msgstr "x,y"
+
+#~ msgid "0123456789-+,xX:"
+#~ msgstr "0123456789-+,xX:"
+
+#~ msgid "width,height"
+#~ msgstr "πλάτος,ύψος"
+
+#~ msgid "&Desktop"
+#~ msgstr "&Επιφάνεια εργασίας"
+
+#~ msgid "Edit..."
+#~ msgstr "Επεξεργασία..."
+
+#~ msgid "Autog&roup in foreground"
+#~ msgstr "Αυτόματη ομαδοποίηση στο προσκήνιο"
+
+#~ msgid "Autogroup by I&D"
+#~ msgstr "Αυτόματη ομαδοποίηση με I&D"
+
+#~ msgid "Autogroup with &identical"
+#~ msgstr "Αυτόματη ομαδοποίηση με &πανομοιότυπα"
+
+#~ msgid "%"
+#~ msgstr "%"
+
+#~ msgid "Smart"
+#~ msgstr "Έξυπνη"
+
+#~ msgid "kcmkwinrules"
+#~ msgstr "kcmkwinrules"
+
+#~ msgid "Opaque"
+#~ msgstr "Αδιαφανές"
+
+#~ msgid "Transparent"
+#~ msgstr "Διαφανές"
+
+#~ msgid "&Moving/resizing"
+#~ msgstr "&Μετακίνηση/Αλλαγή μεγέθους"
+
+#~ msgid "T&iling"
+#~ msgstr "Παρά&θεση"
+
+#~ msgid "Tiled"
+#~ msgstr "Σε παράθεση"
+
+#~ msgid "Floating"
+#~ msgstr "Πλωτό"
+
+#~ msgid ""
+#~ "For selecting all windows belonging to a specific application, selecting "
+#~ "only window class should usually work."
+#~ msgstr ""
+#~ "Για επιλογή όλων των παραθύρων που ανήκουν σε μια συγκεκριμένη εφαρμογή, "
+#~ "συνήθως αρκεί η επιλογή της κλάσης παραθύρου."
+
+#~ msgid "Use window &class (whole application)"
+#~ msgstr "Χρήση της &κλάσης παραθύρου (ολόκληρη την εφαρμογή)"
+
+#~ msgid ""
+#~ "For selecting a specific window in an application, both window class and "
+#~ "window role should be selected. Window class will determine the "
+#~ "application, and window role the specific window in the application; many "
+#~ "applications do not provide useful window roles though."
+#~ msgstr ""
+#~ "Για επιλογή ενός συγκεκριμένου παραθύρου μιας εφαρμογής, τόσο η κλάση όσο "
+#~ "και ο ρόλος παραθύρου πρέπει να επιλεγεί. Η κλάση παραθύρου θα ορίσει την "
+#~ "εφαρμογή, και ο ρόλος παραθύρου το συγκεκριμένο παράθυρο μέσα στην "
+#~ "εφαρμογή: ωστόσο πολλές εφαρμογές δεν προσφέρουν χρήσιμους ρόλους "
+#~ "παραθύρου."
+
+#~ msgid "Use window class and window &role (specific window)"
+#~ msgstr ""
+#~ "Χρήση της κλάσης παραθύρου και του &ρόλου παραθύρου (συγκεκριμένο "
+#~ "παράθυρο)"
+
+#~ msgid ""
+#~ "With some (non-KDE) applications whole window class can be sufficient for "
+#~ "selecting a specific window in an application, as they set whole window "
+#~ "class to contain both application and window role."
+#~ msgstr ""
+#~ "Με μερικές (όχι του KDE) εφαρμογές η κλάση ολόκληρου του παραθύρου είναι "
+#~ "αρκετή για επιλογή ενός συγκεκριμένου παραθύρου μέσα στην εφαρμογή, "
+#~ "εφόσον αυτές ορίζουν την κλάση παραθύρου να περιέχει τόσο το ρόλο "
+#~ "εφαρμογής όσο και του παραθύρου."
+
+#~ msgid "Use &whole window class (specific window)"
+#~ msgstr "Χρήση κλάσης &ολόκληρου παραθύρου (συγκεκριμένο παράθυρο)"
+
+#~ msgid "Match also window &title"
+#~ msgstr "Αντιστοίχηση επίσης του &τίτλου παραθύρου"
+
+#~ msgid "Extra role:"
+#~ msgstr "Επιπλέον ρόλος:"
+
+#~ msgid "&Geometry"
+#~ msgstr "&Γεωμετρία"
+
+#~ msgid "&Preferences"
+#~ msgstr "Πρ&οτιμήσεις"
+
+#~ msgid "&No border"
+#~ msgstr "&Χωρίς περίγραμμα"
+
+#~ msgid "0123456789"
+#~ msgstr "0123456789"
+
+#~ msgid "W&orkarounds"
+#~ msgstr "Επι&λύσεις"
+
+#~ msgid "Strictly obey geometry"
+#~ msgstr "Αυστηρή υπακοή στη γεωμετρία"

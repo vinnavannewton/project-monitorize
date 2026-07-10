@@ -1,0 +1,91 @@
+/*
+    KWin - the KDE window manager
+    This file is part of the KDE project.
+
+    SPDX-FileCopyrightText: 2015 Martin Gräßlin <mgraesslin@kde.org>
+
+    SPDX-License-Identifier: GPL-2.0-or-later
+*/
+#include "kwin_wayland_test.h"
+
+#include "wayland_server.h"
+#include "window.h"
+#include "workspace.h"
+#include "x11window.h"
+
+#include <KDecoration3/Decoration>
+
+#include <QSignalSpy>
+
+namespace KWin
+{
+
+class DontCrashGlxgearsTest : public QObject
+{
+    Q_OBJECT
+private Q_SLOTS:
+    void initTestCase();
+    void testGlxgears();
+};
+
+void DontCrashGlxgearsTest::initTestCase()
+{
+    qRegisterMetaType<KWin::Window *>();
+    QVERIFY(waylandServer()->init(qAppName()));
+    kwinApp()->start();
+    Test::setOutputConfig({
+        Rect(0, 0, 1280, 1024),
+        Rect(1280, 0, 1280, 1024),
+    });
+}
+
+void DontCrashGlxgearsTest::testGlxgears()
+{
+    // closing a glxgears window through Aurorae themes used to crash KWin
+    // Let's make sure that doesn't happen anymore
+
+    QSignalSpy windowAddedSpy(workspace(), &Workspace::windowAdded);
+
+    QProcess glxgears;
+    glxgears.setProgram(QStringLiteral("glxgears"));
+    glxgears.start();
+    QVERIFY(glxgears.waitForStarted());
+
+    QVERIFY(windowAddedSpy.wait());
+    QCOMPARE(windowAddedSpy.count(), 1);
+    QCOMPARE(workspace()->windows().count(), 1);
+    Window *glxgearsWindow = workspace()->windows().first();
+    QVERIFY(glxgearsWindow->isDecorated());
+    QSignalSpy closedSpy(glxgearsWindow, &X11Window::closed);
+    KDecoration3::Decoration *decoration = glxgearsWindow->decoration();
+    QVERIFY(decoration);
+
+    // send a mouse event to the position of the close button
+    // TODO: position is dependent on the decoration in use. We should use a static target instead, a fake deco for autotests.
+    QPointF pos = decoration->rect().topRight() + QPointF(-decoration->borderTop() / 2, decoration->borderTop() / 2);
+    QHoverEvent event(QEvent::HoverMove, pos, pos);
+    QCoreApplication::instance()->sendEvent(decoration, &event);
+    // mouse press
+    QMouseEvent mousePressevent(QEvent::MouseButtonPress, pos, pos, Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+    mousePressevent.setAccepted(false);
+    QCoreApplication::sendEvent(decoration, &mousePressevent);
+    QVERIFY(mousePressevent.isAccepted());
+    // mouse Release
+    QMouseEvent mouseReleaseEvent(QEvent::MouseButtonRelease, pos, pos, Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+    mouseReleaseEvent.setAccepted(false);
+    QCoreApplication::sendEvent(decoration, &mouseReleaseEvent);
+    QVERIFY(mouseReleaseEvent.isAccepted());
+
+    QVERIFY(closedSpy.wait());
+    QCOMPARE(closedSpy.count(), 1);
+    xcb_flush(connection());
+
+    if (glxgears.state() == QProcess::Running) {
+        QVERIFY(glxgears.waitForFinished());
+    }
+}
+
+}
+
+WAYLANDTEST_MAIN(KWin::DontCrashGlxgearsTest)
+#include "dont_crash_glxgears.moc"

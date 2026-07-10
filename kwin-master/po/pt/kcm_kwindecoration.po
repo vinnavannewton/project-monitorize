@@ -1,0 +1,362 @@
+# SPDX-FileCopyrightText: 2026 César A. P. Cláudio <cesarapclaudio@gmail.com>
+msgid ""
+msgstr ""
+"Project-Id-Version: kcmkwindecoration\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-05-14 00:45+0000\n"
+"PO-Revision-Date: 2026-01-31 11:41+0000\n"
+"Last-Translator: César A. P. Cláudio <cesarapclaudio@gmail.com>\n"
+"Language-Team: pt\n"
+"Language: pt\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-POFile-SpellExtra: kcmkwindecoration Szwed Karol Oxygen main kwin qml\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-POFile-IgnoreConsistency: Oxygen\n"
+"X-POFile-SpellExtra: Form Valerio KWin\n"
+"X-Generator: Lokalize 25.12.1\n"
+
+#: declarative-plugin/buttonsmodel.cpp:56
+#, kde-format
+msgid "Window menu"
+msgstr "Menu de janela"
+
+#: declarative-plugin/buttonsmodel.cpp:58
+#, kde-format
+msgid "Application menu"
+msgstr "Menu de aplicação"
+
+#: declarative-plugin/buttonsmodel.cpp:60
+#, kde-format
+msgid "On all desktops"
+msgstr "Em todos os ambientes de trabalho"
+
+#: declarative-plugin/buttonsmodel.cpp:62
+#, kde-format
+msgid "Minimize"
+msgstr "Minimizar"
+
+#: declarative-plugin/buttonsmodel.cpp:64
+#, kde-format
+msgid "Maximize"
+msgstr "Maximizar"
+
+#: declarative-plugin/buttonsmodel.cpp:66
+#, kde-format
+msgid "Close"
+msgstr "Fechar"
+
+#: declarative-plugin/buttonsmodel.cpp:68
+#, kde-format
+msgid "Context help"
+msgstr "Ajuda contextual"
+
+#: declarative-plugin/buttonsmodel.cpp:70
+#, kde-format
+msgid "Keep below other windows"
+msgstr "Manter por baixo de outras janelas"
+
+#: declarative-plugin/buttonsmodel.cpp:72
+#, kde-format
+msgid "Keep above other windows"
+msgstr "Manter por cima de outras janelas"
+
+#: declarative-plugin/buttonsmodel.cpp:74
+#, kde-format
+msgid "Hide from screenshots and screen recordings"
+msgstr ""
+
+#: declarative-plugin/buttonsmodel.cpp:76
+#, kde-format
+msgid "Spacer"
+msgstr "Separador"
+
+#: kcm.cpp:188
+#, kde-format
+msgctxt "%1 is the name of a border size"
+msgid "Theme default (%1)"
+msgstr "Predefinição do tema (%1)"
+
+#: kwin-applywindowdecoration.cpp:34
+#, kde-format
+msgid ""
+"This tool allows you to set the window decoration theme for the currently "
+"active session, without accidentally setting it to one that is either not "
+"available, or which is already set."
+msgstr ""
+"Esta ferramenta permite definir o tema da decoração de janelas para a sessão "
+"ativa, sem o definir acidentalmente para um tema que não esteja disponível "
+"ou que já esteja definido."
+
+#: kwin-applywindowdecoration.cpp:35
+#, kde-format
+msgid ""
+"The name of the window decoration theme you wish to set for KWin. Passing a "
+"full path will attempt to find a theme in that directory, and then apply "
+"that if one can be deduced."
+msgstr ""
+"O nome do tema da decoração de janelas que pretende definir para o KWin. Se "
+"for passado um caminho completo, será tentada a localização de um tema nessa "
+"pasta, que será aplicado se puder ser deduzido."
+
+#: kwin-applywindowdecoration.cpp:36
+#, kde-format
+msgid ""
+"Show all the themes available on the system (and which is the current theme)"
+msgstr "Mostrar todos os temas disponíveis no sistema (e qual é o tema atual)"
+
+#: kwin-applywindowdecoration.cpp:67
+#, kde-format
+msgid ""
+"Resolved %1 to the KWin Aurorae theme \"%2\", and will attempt to set that "
+"as your current theme."
+msgstr ""
+"Foi resolvido %1 para o tema KWin Aurorae \"%2\", e será tentada a sua "
+"definição como tema atual."
+
+#: kwin-applywindowdecoration.cpp:73
+#, kde-format
+msgid ""
+"You attempted to pass a file path, but this could not be resolved to a "
+"theme, and we will have to abort, due to having no theme to set"
+msgstr ""
+"Foi tentado passar um caminho de ficheiro, mas este não pôde ser resolvido "
+"para um tema, e teremos de abortar, por não haver tema a definir."
+
+#: kwin-applywindowdecoration.cpp:79
+#, kde-format
+msgid ""
+"The requested theme \"%1\" is already set as the window decoration theme."
+msgstr ""
+"O tema solicitado \"%1\" já está definido como tema da decoração de janelas."
+
+#: kwin-applywindowdecoration.cpp:101
+#, fuzzy, kde-format
+#| msgid ""
+#| "Successfully applied the cursor theme %1 to your current Plasma session"
+msgid ""
+"Successfully applied the pointer theme %1 to your current Plasma session"
+msgstr ""
+"O tema de cursor %1 foi aplicado com sucesso à sua sessão Plasma atual."
+
+#: kwin-applywindowdecoration.cpp:105
+#, kde-format
+msgid ""
+"Failed to save your theme settings - the reason is unknown, but this is an "
+"unrecoverable error. You may find that simply trying again will work."
+msgstr ""
+"Falha ao guardar as definições do tema – a razão é desconhecida, mas este é "
+"um erro irrecuperável. Poderá ser que tentar novamente simplesmente funcione."
+
+#: kwin-applywindowdecoration.cpp:109
+#, kde-format
+msgid ""
+"Could not find theme \"%1\". The theme should be one of the following "
+"options: %2"
+msgstr ""
+"Não foi possível encontrar o tema \"%1\". O tema deverá ser uma das "
+"seguintes opções: %2"
+
+#: kwin-applywindowdecoration.cpp:114
+#, kde-format
+msgid "You have the following KWin window decoration themes on your system:"
+msgstr ""
+"Dispõe dos seguintes temas de decoração de janelas do KWin no seu sistema:"
+
+#: ui/Buttons.qml:85
+#, kde-format
+msgid "Titlebar"
+msgstr "Barra de título"
+
+#: ui/Buttons.qml:245
+#, kde-format
+msgid "Drop button here to remove it"
+msgstr "Largue o botão aqui para o remover"
+
+#: ui/Buttons.qml:261
+#, kde-format
+msgid "Drag buttons between here and the titlebar"
+msgstr "Arraste os botões entre a barra de título e aqui"
+
+#: ui/ConfigureTitlebar.qml:16
+#, kde-format
+msgid "Titlebar Buttons"
+msgstr "Botões da barra de título"
+
+#: ui/ConfigureTitlebar.qml:35
+#, kde-format
+msgctxt "checkbox label"
+msgid "Close windows by double clicking the window menu button"
+msgstr "Fechar janelas ao clicar duas vezes no botão do menu da janela"
+
+#: ui/ConfigureTitlebar.qml:52
+#, kde-format
+msgctxt "popup tip"
+msgid "Click and hold on the window menu button to show the menu."
+msgstr ""
+"Clique e mantenha premido no botão do menu da janela para mostrar o menu."
+
+#: ui/ConfigureTitlebar.qml:59
+#, kde-format
+msgctxt "checkbox label"
+msgid "Show titlebar button tooltips"
+msgstr "Mostrar dicas dos botões da barra de título"
+
+#: ui/ConfigureTitlebar.qml:73
+#, fuzzy, kde-format
+#| msgctxt "@option:check"
+#| msgid "Always show \"Hide from Screencast\" button"
+msgctxt "@option:check"
+msgid "Always show \"Hide from Screenshots and Screen Recordings\" button"
+msgstr "Mostrar sempre o botão \"Ocultar da gravação de ecrã\""
+
+#: ui/ConfigureTitlebar.qml:85
+#, fuzzy, kde-format
+#| msgctxt "@info:tooltip"
+#| msgid ""
+#| "When unchecked the button only appears if the window is hidden from "
+#| "screencast"
+msgctxt "@info:tooltip"
+msgid ""
+"When unchecked the button only appears if the window is hidden from "
+"screenshots and screen recordings"
+msgstr ""
+"Quando desmarcada, o botão só aparece se a janela estiver oculta da gravação "
+"de ecrã"
+
+#: ui/ConfigureTitlebar.qml:86
+#, fuzzy, kde-format
+#| msgctxt "@info:tooltip"
+#| msgid ""
+#| "To enable this option, add the \"Hide from screencast\" button to the "
+#| "titlebar first"
+msgctxt "@info:tooltip"
+msgid ""
+"To enable this option, add the \"Hide from Screenshots and Screen Recordings"
+"\" button to the titlebar first"
+msgstr ""
+"Para ativar esta opção, adicione primeiro o botão \"Ocultar da gravação de "
+"ecrã\" à barra de título"
+
+#: ui/main.qml:29
+#, kde-format
+msgctxt "Selector label"
+msgid "Window border size:"
+msgstr "Tamanho da borda da janela:"
+
+#: ui/main.qml:48
+#, kde-format
+msgctxt "button text"
+msgid "Configure Titlebar Buttons…"
+msgstr "Configurar botões da barra de título…"
+
+#: ui/main.qml:54
+#, kde-format
+msgctxt "@action:button as in, \"Get New Window Decorations\""
+msgid "Get New…"
+msgstr "Obter novos…"
+
+#: ui/Themes.qml:93
+#, kde-format
+msgid "Edit %1 Theme…"
+msgstr "Editar tema %1…"
+
+#: utils.cpp:26
+#, kde-format
+msgid "No window borders"
+msgstr "Sem bordas de janela"
+
+#: utils.cpp:27
+#, kde-format
+msgid "No side window borders"
+msgstr "Sem bordas laterais da janela"
+
+#: utils.cpp:28
+#, kde-format
+msgid "Tiny window borders"
+msgstr "Bordas de janela minúsculas"
+
+#: utils.cpp:29
+#, kde-format
+msgid "Normal window borders"
+msgstr "Bordas de janela normais"
+
+#: utils.cpp:30
+#, kde-format
+msgid "Large window borders"
+msgstr "Bordas de janela grandes"
+
+#: utils.cpp:31
+#, kde-format
+msgid "Very large window borders"
+msgstr "Bordas de janela muito grandes"
+
+#: utils.cpp:32
+#, kde-format
+msgid "Huge window borders"
+msgstr "Bordas de janela enormes"
+
+#: utils.cpp:33
+#, kde-format
+msgid "Very huge window borders"
+msgstr "Bordas de janela gigantescas"
+
+#: utils.cpp:34
+#, kde-format
+msgid "Oversized window borders"
+msgstr "Bordas de janela de tamanho exagerado"
+
+#~ msgid "Hide from screencast"
+#~ msgstr "Ocultar da gravação de ecrã"
+
+#~ msgid "More actions for this window"
+#~ msgstr "Mais acções para esta janela"
+
+#~ msgid "Shade"
+#~ msgstr "Enrolar"
+
+#~ msgctxt "button text"
+#~ msgid "Get New Window Decorations…"
+#~ msgstr "Obter Novas Decorações de Janelas…"
+
+#~ msgid "No Borders"
+#~ msgstr "Sem Contornos"
+
+#~ msgid "Tiny"
+#~ msgstr "Minúsculo"
+
+#~ msgid "Normal"
+#~ msgstr "Normal"
+
+#~ msgid "Large"
+#~ msgstr "Grande"
+
+#~ msgid "Very Large"
+#~ msgstr "Muito Grande"
+
+#~ msgid "Huge"
+#~ msgstr "Enorme"
+
+#~ msgid "Very Huge"
+#~ msgstr "Mais do que Enorme"
+
+#~ msgid "Oversized"
+#~ msgstr "Ainda Maior"
+
+#~ msgid "This module lets you configure the window decorations."
+#~ msgstr "Este módulo permite-lhe configurar as decorações das janelas."
+
+#~ msgctxt "NAME OF TRANSLATORS"
+#~ msgid "Your names"
+#~ msgstr "José Nuno Pires"
+
+#~ msgctxt "EMAIL OF TRANSLATORS"
+#~ msgid "Your emails"
+#~ msgstr "zepires@gmail.com"
+
+#~ msgid "Valerio Pilo"
+#~ msgstr "Valerio Pilo"
+
+#~ msgid "Author"
+#~ msgstr "Autoria"

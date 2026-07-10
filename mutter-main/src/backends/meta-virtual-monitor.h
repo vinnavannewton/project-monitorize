@@ -1,0 +1,112 @@
+/*
+ * Copyright (C) 2021 Red Hat Inc.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
+ *
+ */
+
+#pragma once
+
+#include <glib-object.h>
+
+#include "backends/meta-backend-types.h"
+#include "core/util-private.h"
+
+struct _MetaVirtualModeInfo
+{
+  int width;
+  int height;
+  float refresh_rate;
+  gboolean has_preferred_scale;
+  float preferred_scale;
+};
+
+struct _MetaVirtualMonitorInfo
+{
+  GList *mode_infos;
+
+  char *vendor;
+  char *product;
+  char *serial;
+};
+
+#define META_TYPE_VIRTUAL_MONITOR (meta_virtual_monitor_get_type ())
+G_DECLARE_DERIVABLE_TYPE (MetaVirtualMonitor, meta_virtual_monitor,
+                          META, VIRTUAL_MONITOR,
+                          GObject)
+
+struct _MetaVirtualMonitorClass
+{
+  GObjectClass parent_class;
+
+  void (* set_modes) (MetaVirtualMonitor *virtual_monitor,
+                      GList              *mode_infos);
+};
+
+META_EXPORT_TEST
+MetaVirtualModeInfo * meta_virtual_mode_info_new (int   width,
+                                                  int   height,
+                                                  float refresh_rate);
+
+MetaVirtualModeInfo * meta_virtual_mode_info_dup (const MetaVirtualModeInfo *mode_info);
+
+META_EXPORT_TEST
+void meta_virtual_mode_info_free (MetaVirtualModeInfo *mode_info);
+
+void meta_virtual_mode_info_set_preferred_scale (MetaVirtualModeInfo *mode_info,
+                                                 float                scale);
+
+MetaVirtualMonitorInfo * meta_virtual_monitor_info_new (const char *vendor,
+                                                        const char *product,
+                                                        const char *serial,
+                                                        GList      *mode_infos);
+
+META_EXPORT_TEST
+MetaVirtualMonitorInfo * meta_virtual_monitor_info_new_simple (int         width,
+                                                               int         height,
+                                                               float       refresh_rate,
+                                                               const char *vendor,
+                                                               const char *product,
+                                                               const char *serial);
+
+META_EXPORT_TEST
+MetaVirtualMonitorInfo * meta_virtual_monitor_info_new_inactive (const char *vendor,
+                                                                 const char *product,
+                                                                 const char *serial);
+
+static inline gboolean
+meta_virtual_mode_info_is_valid (const MetaVirtualModeInfo *mode_info)
+{
+  return mode_info->width > 0 && mode_info->height > 0;
+}
+
+META_EXPORT_TEST
+void meta_virtual_monitor_info_free (MetaVirtualMonitorInfo *info);
+
+MetaCrtc * meta_virtual_monitor_get_crtc (MetaVirtualMonitor *virtual_monitor);
+
+META_EXPORT_TEST
+MetaCrtcMode * meta_virtual_monitor_get_crtc_mode (MetaVirtualMonitor *virtual_monitor);
+
+META_EXPORT_TEST
+MetaOutput * meta_virtual_monitor_get_output (MetaVirtualMonitor *virtual_monitor);
+
+META_EXPORT_TEST
+void meta_virtual_monitor_set_modes (MetaVirtualMonitor *virtual_monitor,
+                                     GList              *mode_infos);
+
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (MetaVirtualModeInfo, meta_virtual_mode_info_free)
+
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (MetaVirtualMonitorInfo,
+                               meta_virtual_monitor_info_free)

@@ -1,0 +1,98 @@
+# Copyright (C) YEAR This_file_is_part_of_KDE
+# This file is distributed under the same license as the PACKAGE package.
+#
+# Serdar Soytetir <tulliana@gmail.com>, 2012.
+# Volkan Gezer <volkangezer@gmail.com>, 2013.
+# SPDX-FileCopyrightText: 2022, 2023, 2024 Emir SARI <emir_sari@icloud.com>
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2025-11-17 11:53+0000\n"
+"PO-Revision-Date: 2024-09-26 18:05+0300\n"
+"Last-Translator: Emir SARI <emir_sari@icloud.com>\n"
+"Language-Team: Turkish <kde-l10n-tr@kde.org>\n"
+"Language: tr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"X-Generator: Lokalize 24.11.70\n"
+
+#: module.cpp:52
+#, kde-format
+msgid "Import KWin Script"
+msgstr "KWin Betiği İçe Aktar"
+
+#: module.cpp:53
+#, kde-format
+msgid "KWin Script (*.kwinscript)"
+msgstr "KWin betiği (*.kwinscript)"
+
+#: module.cpp:65
+#, kde-format
+msgctxt "Placeholder is error message returned from the install service"
+msgid ""
+"Cannot import selected script.\n"
+"%1"
+msgstr ""
+"Seçilen betik içe aktarılamıyor.\n"
+"%1"
+
+#: module.cpp:69
+#, kde-format
+msgctxt "Placeholder is name of the script that was imported"
+msgid "The script \"%1\" was successfully imported."
+msgstr "“%1” betiği başarıyla içe aktarıldı."
+
+#: module.cpp:131
+#, kde-format
+msgid "Error when uninstalling KWin Script: %1"
+msgstr "KWin Betiği kaldırılırken hata: %1"
+
+#: ui/main.qml:23
+#, kde-format
+msgid "Install from File…"
+msgstr "Dosyadan Kur…"
+
+#: ui/main.qml:27
+#, kde-format
+msgctxt "@action:button get new KWin scripts"
+msgid "Get New…"
+msgstr "Yeni Al…"
+
+#: ui/main.qml:65
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Delete…"
+msgstr "Sil…"
+
+#~ msgctxt "NAME OF TRANSLATORS"
+#~ msgid "Your names"
+#~ msgstr "Serdar Soytetir"
+
+#~ msgctxt "EMAIL OF TRANSLATORS"
+#~ msgid "Your emails"
+#~ msgstr "tulliana@gmail.com"
+
+#~ msgid "KWin Scripts"
+#~ msgstr "KWin Betikleri"
+
+#~ msgid "Configure KWin scripts"
+#~ msgstr "KWin betiklerini yapılandır"
+
+#~ msgid "Tamás Krutki"
+#~ msgstr "Tamás Krutki"
+
+#~ msgid "KWin script configuration"
+#~ msgstr "KWin betik yapılandırması"
+
+#~ msgid "Import KWin script..."
+#~ msgstr "İçeriye KWin betiği aktar..."
+
+#~ msgid ""
+#~ "Cannot import selected script: maybe a script already exists with the "
+#~ "same name or there is a permission problem."
+#~ msgstr ""
+#~ "Seçilen betik içeriye aktarılamadı: Aynı ismi taşıyan bir betik zaten "
+#~ "vardır ya da bir izin sorunu oluşmuştur."

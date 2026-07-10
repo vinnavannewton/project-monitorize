@@ -1,0 +1,995 @@
+# Swedish messages for mutter.
+# Copyright © 2001-2026 Free Software Foundation, Inc.
+# Christian Rose <menthos@menthos.com>, 2001, 2002, 2003, 2004, 2005.
+# Daniel Nylander <po@danielnylander.se>, 2006, 2007, 2008, 2009, 2010, 2011, 2012.
+# Mattias Eriksson <snaggen@gmail.com>, 2014.
+# Anders Jonsson <anders.jonsson@norsjovallen.se>, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026.
+# Sebastian Rasmussen <sebras@gmail.com>, 2016.
+# Luna Jernberg <droidbittin@gmail.com>, 2021, 2022, 2024.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: mutter\n"
+"Report-Msgid-Bugs-To: https://gitlab.gnome.org/GNOME/mutter/issues/\n"
+"POT-Creation-Date: 2026-02-27 08:40+0000\n"
+"PO-Revision-Date: 2026-02-27 10:37+0100\n"
+"Last-Translator: Anders Jonsson <anders.jonsson@norsjovallen.se>\n"
+"Language-Team: Swedish <tp-sv@listor.tp-sv.se>\n"
+"Language: sv\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 3.8\n"
+
+#: data/50-mutter-navigation.xml:6
+msgid "Navigation"
+msgstr "Navigation"
+
+#: data/50-mutter-navigation.xml:9
+msgid "Move window to workspace 1"
+msgstr "Flytta fönster till arbetsyta 1"
+
+#: data/50-mutter-navigation.xml:12
+msgid "Move window to workspace 2"
+msgstr "Flytta fönster till arbetsyta 2"
+
+#: data/50-mutter-navigation.xml:15
+msgid "Move window to workspace 3"
+msgstr "Flytta fönster till arbetsyta 3"
+
+#: data/50-mutter-navigation.xml:18
+msgid "Move window to workspace 4"
+msgstr "Flytta fönster till arbetsyta 4"
+
+#: data/50-mutter-navigation.xml:21
+msgid "Move window to last workspace"
+msgstr "Flytta fönster till sista arbetsyta"
+
+#: data/50-mutter-navigation.xml:24
+msgid "Move window one workspace to the left"
+msgstr "Flytta fönster en arbetsyta åt vänster"
+
+#: data/50-mutter-navigation.xml:27
+msgid "Move window one workspace to the right"
+msgstr "Flytta fönster en arbetsyta åt höger"
+
+#: data/50-mutter-navigation.xml:31
+msgid "Move window one workspace up"
+msgstr "Flytta fönster en arbetsyta upp"
+
+#: data/50-mutter-navigation.xml:35
+msgid "Move window one workspace down"
+msgstr "Flytta fönster en arbetsyta ned"
+
+#: data/50-mutter-navigation.xml:38
+msgid "Move window one monitor to the left"
+msgstr "Flytta fönster en skärm åt vänster"
+
+#: data/50-mutter-navigation.xml:41
+msgid "Move window one monitor to the right"
+msgstr "Flytta fönster en skärm åt höger"
+
+#: data/50-mutter-navigation.xml:44
+msgid "Move window one monitor up"
+msgstr "Flytta fönster en skärm uppåt"
+
+#: data/50-mutter-navigation.xml:47
+msgid "Move window one monitor down"
+msgstr "Flytta fönster en skärm nedåt"
+
+#: data/50-mutter-navigation.xml:51
+msgid "Switch applications"
+msgstr "Växla program"
+
+#: data/50-mutter-navigation.xml:56
+msgid "Switch to previous application"
+msgstr "Växla till föregående program"
+
+#: data/50-mutter-navigation.xml:60
+msgid "Switch windows"
+msgstr "Växla fönster"
+
+#: data/50-mutter-navigation.xml:65
+msgid "Switch to previous window"
+msgstr "Växla till föregående fönster"
+
+#: data/50-mutter-navigation.xml:69
+msgid "Switch windows of an application"
+msgstr "Växla fönster för ett program"
+
+#: data/50-mutter-navigation.xml:74
+msgid "Switch to previous window of an application"
+msgstr "Växla till föregående fönster för ett program"
+
+#: data/50-mutter-navigation.xml:78
+msgid "Switch system controls"
+msgstr "Växla systemkontroller"
+
+#: data/50-mutter-navigation.xml:83
+msgid "Switch to previous system control"
+msgstr "Växla till föregående systemkontroll"
+
+#: data/50-mutter-navigation.xml:87
+msgid "Switch windows directly"
+msgstr "Växla fönster direkt"
+
+#: data/50-mutter-navigation.xml:92
+msgid "Switch directly to previous window"
+msgstr "Växla direkt till föregående fönster"
+
+#: data/50-mutter-navigation.xml:96
+msgid "Switch windows of an app directly"
+msgstr "Växla fönster för ett program direkt"
+
+#: data/50-mutter-navigation.xml:101
+msgid "Switch directly to previous window of an app"
+msgstr "Växla direkt till föregående fönster för ett program"
+
+#: data/50-mutter-navigation.xml:105
+msgid "Switch system controls directly"
+msgstr "Växla systemkontroller direkt"
+
+#: data/50-mutter-navigation.xml:110
+msgid "Switch directly to previous system control"
+msgstr "Växla direkt till föregående systemkontroll"
+
+#: data/50-mutter-navigation.xml:113
+msgid "Hide all normal windows"
+msgstr "Dölj alla normala fönster"
+
+#: data/50-mutter-navigation.xml:116
+msgid "Switch to workspace 1"
+msgstr "Växla till arbetsyta 1"
+
+#: data/50-mutter-navigation.xml:119
+msgid "Switch to workspace 2"
+msgstr "Växla till arbetsyta 2"
+
+#: data/50-mutter-navigation.xml:122
+msgid "Switch to workspace 3"
+msgstr "Växla till arbetsyta 3"
+
+#: data/50-mutter-navigation.xml:125
+msgid "Switch to workspace 4"
+msgstr "Växla till arbetsyta 4"
+
+#: data/50-mutter-navigation.xml:128
+msgid "Switch to last workspace"
+msgstr "Växla till sista arbetsyta"
+
+#: data/50-mutter-navigation.xml:131
+msgid "Switch to workspace on the left"
+msgstr "Växla till arbetsytan till vänster"
+
+#: data/50-mutter-navigation.xml:134
+msgid "Switch to workspace on the right"
+msgstr "Växla till arbetsytan till höger"
+
+#: data/50-mutter-navigation.xml:138
+msgid "Switch to workspace above"
+msgstr "Växla till arbetsytan ovanför"
+
+#: data/50-mutter-navigation.xml:142
+msgid "Switch to workspace below"
+msgstr "Växla till arbetsytan under"
+
+#: data/50-mutter-system.xml:6 data/50-mutter-wayland.xml:6
+msgid "System"
+msgstr "System"
+
+#: data/50-mutter-system.xml:8
+msgid "Show the run command prompt"
+msgstr "Visa Kör kommando-dialogen"
+
+#: data/50-mutter-wayland.xml:8
+msgid "Restore the keyboard shortcuts"
+msgstr "Återställ tangentbordsgenvägarna"
+
+#: data/50-mutter-windows.xml:6
+msgid "Windows"
+msgstr "Fönster"
+
+#: data/50-mutter-windows.xml:8
+msgid "Activate the window menu"
+msgstr "Aktivera fönstermenyn"
+
+#: data/50-mutter-windows.xml:10
+msgid "Toggle fullscreen mode"
+msgstr "Växla helskärmsläge"
+
+#: data/50-mutter-windows.xml:12
+msgid "Toggle maximization state"
+msgstr "Växla maximeringstillstånd"
+
+#: data/50-mutter-windows.xml:14
+msgid "Maximize window"
+msgstr "Maximera fönster"
+
+#: data/50-mutter-windows.xml:16
+msgid "Restore window"
+msgstr "Återställ fönster"
+
+#: data/50-mutter-windows.xml:18
+msgid "Close window"
+msgstr "Stäng fönster"
+
+#: data/50-mutter-windows.xml:20
+msgid "Hide window"
+msgstr "Dölj fönster"
+
+#: data/50-mutter-windows.xml:22
+msgid "Move window"
+msgstr "Flytta fönster"
+
+#: data/50-mutter-windows.xml:24
+msgid "Resize window"
+msgstr "Ändra storlek på fönster"
+
+#: data/50-mutter-windows.xml:27
+msgid "Toggle window on all workspaces or one"
+msgstr "Växla fönster på alla arbetsytor eller bara en"
+
+#: data/50-mutter-windows.xml:29
+msgid "Raise window if covered, otherwise lower it"
+msgstr "Höj fönstret om det skyms av ett annat fönster, sänk det annars"
+
+#: data/50-mutter-windows.xml:31
+msgid "Raise window above other windows"
+msgstr "Höj fönstret över andra fönster"
+
+#: data/50-mutter-windows.xml:33
+msgid "Lower window below other windows"
+msgstr "Sänk fönster under andra fönster"
+
+#: data/50-mutter-windows.xml:35
+msgid "Maximize window vertically"
+msgstr "Maximera fönster vertikalt"
+
+#: data/50-mutter-windows.xml:37
+msgid "Maximize window horizontally"
+msgstr "Maximera fönster horisontellt"
+
+#: data/50-mutter-windows.xml:41 data/org.gnome.mutter.gschema.xml.in:166
+msgid "View split on left"
+msgstr "Vy delad till vänster"
+
+#: data/50-mutter-windows.xml:45 data/org.gnome.mutter.gschema.xml.in:171
+msgid "View split on right"
+msgstr "Vy delad till höger"
+
+#: data/org.gnome.mutter.gschema.xml.in:15
+msgid "Modifier to use for extended window management operations"
+msgstr "Modifierare att använda för utökade fönsterhanteringsåtgärder"
+
+#: data/org.gnome.mutter.gschema.xml.in:16
+msgid ""
+"This key will initiate the “overlay”, which is a combination window overview "
+"and application launching system. The default is intended to be the “Windows "
+"key” on PC hardware. It’s expected that this binding either the default or "
+"set to the empty string."
+msgstr ""
+"Denna nyckel kommer att initiera ”overlay”, som är en kombinerad "
+"fönsteröversikt och programstartare. Standard är tänkt att vara ”Windows-"
+"tangenten” på PC-maskinvara. Det är förväntat att denna bindning antingen är "
+"standard eller inställd till en tom sträng."
+
+#: data/org.gnome.mutter.gschema.xml.in:28
+msgid "Attach modal dialogs"
+msgstr "Bifoga modala dialogfönster"
+
+#: data/org.gnome.mutter.gschema.xml.in:29
+msgid ""
+"When true, instead of having independent titlebars, modal dialogs appear "
+"attached to the titlebar of the parent window and are moved together with "
+"the parent window."
+msgstr ""
+"När satt till true (sant) kommer, i stället för att ha oberoende namnlister, "
+"modala dialogfönster att visas anslutna till namnlisten i föräldrafönstret "
+"och flyttas tillsammans med föräldrafönstret."
+
+#: data/org.gnome.mutter.gschema.xml.in:38
+msgid "Enable edge tiling when dropping windows on screen edges"
+msgstr "Aktivera kantframhävning när fönster släpps på skärmkanter"
+
+#: data/org.gnome.mutter.gschema.xml.in:39
+msgid ""
+"If enabled, dropping windows on vertical screen edges maximizes them "
+"vertically and resizes them horizontally to cover half of the available "
+"area. Dropping windows on the top screen edge maximizes them completely."
+msgstr ""
+"Om aktiverad, släppa fönster på vertikala skärmkanter kommer att maximera "
+"dem vertikalt och storleksändra dem horisontellt till att täcka hälften av "
+"den tillgängliga ytan. Släppa fönster på övre skärmkanten maximerar dem helt."
+
+#: data/org.gnome.mutter.gschema.xml.in:48
+msgid "Workspaces are managed dynamically"
+msgstr "Arbetsytor hanteras dynamiskt"
+
+#: data/org.gnome.mutter.gschema.xml.in:49
+msgid ""
+"Determines whether workspaces are managed dynamically or whether there’s a "
+"static number of workspaces (determined by the num-workspaces key in "
+"org.gnome.desktop.wm.preferences)."
+msgstr ""
+"Bestämmer huruvida arbetsytor hanteras dynamiskt eller huruvida det finns "
+"ett fast antal arbetsytor (bestäms av nyckeln num-workspaces i "
+"org.gnome.desktop.wm.preferences)."
+
+#: data/org.gnome.mutter.gschema.xml.in:58
+msgid "Workspaces only on primary"
+msgstr "Arbetsytor endast på primär"
+
+#: data/org.gnome.mutter.gschema.xml.in:59
+msgid ""
+"Determines whether workspace switching should happen for windows on all "
+"monitors or only for windows on the primary monitor."
+msgstr ""
+"Bestämmer huruvida arbetsyteväxling ska hända för alla fönster på alla "
+"skärmar eller endast för fönster på den primära skärmen."
+
+#: data/org.gnome.mutter.gschema.xml.in:67
+msgid "Delay focus changes until the pointer stops moving"
+msgstr "Fördröj fokusändringar till muspekaren hålls still"
+
+#: data/org.gnome.mutter.gschema.xml.in:68
+msgid ""
+"If set to true, and the focus mode is either “sloppy” or “mouse” then the "
+"focus will not be changed immediately when entering a window, but only after "
+"the pointer stops moving."
+msgstr ""
+"Om satt till true (sant), och fokusläget är antingen ”sloppy” eller ”mouse” "
+"kommer fokus inte att ändras omedelbart när muspekaren går in över ett "
+"fönster, utan först efter att muspekaren slutar röra sig."
+
+#: data/org.gnome.mutter.gschema.xml.in:78
+msgid "Draggable border width"
+msgstr "Dragbar rambredd"
+
+#: data/org.gnome.mutter.gschema.xml.in:79
+msgid ""
+"The amount of total draggable borders. If the theme’s visible borders are "
+"not enough, invisible borders will be added to meet this value."
+msgstr ""
+"Mängd av totalt dragbara ramar. Om temats synliga ramar inte är tillräckliga "
+"kommer osynliga ramar att läggas till för att möta detta värde."
+
+#: data/org.gnome.mutter.gschema.xml.in:88
+msgid "Auto maximize nearly monitor sized windows"
+msgstr "Automatiskt maximera fönster vars storlek ligger nära skärmens storlek"
+
+#: data/org.gnome.mutter.gschema.xml.in:89
+msgid ""
+"If enabled, new windows that are initially the size of the monitor "
+"automatically get maximized."
+msgstr ""
+"Om aktiverad kommer nya fönster med nästan samma storlek som skärmen att bli "
+"automatiskt maximerade."
+
+#: data/org.gnome.mutter.gschema.xml.in:97
+msgid "Place new windows in the center"
+msgstr "Placera nya fönster centrerat"
+
+#: data/org.gnome.mutter.gschema.xml.in:98
+msgid ""
+"When true, the new windows will always be put in the center of the active "
+"screen of the monitor."
+msgstr ""
+"När satt till true (sant), kommer nya fönster alltid att placeras centrerat "
+"på den aktiva skärmen."
+
+#: data/org.gnome.mutter.gschema.xml.in:107
+msgid "Enable experimental features"
+msgstr "Aktivera experimentella funktioner"
+
+#: data/org.gnome.mutter.gschema.xml.in:108
+msgid ""
+"To enable experimental features, add the feature keyword to the list. "
+"Whether the feature requires restarting the compositor depends on the given "
+"feature. Any experimental feature is not required to still be available, or "
+"configurable. Don’t expect adding anything in this setting to be future "
+"proof. Currently possible keywords: • “kms-modifiers” — makes mutter always "
+"allocate scanout buffers with explicit modifiers, if supported by the "
+"driver. Requires a restart. • “autoclose-xwayland” — automatically "
+"terminates Xwayland if all relevant X11 clients are gone. Requires a restart."
+msgstr ""
+"För att aktivera experimentella funktioner, lägg till funktionens nyckelord "
+"till listan. Huruvida funktionen kräver att kompositionshanteraren startas "
+"om beror på den angivna funktionen. En experimentell funktion har inget krav "
+"på sig att fortfarande vara tillgänglig eller konfigurerbar. Förvänta dig "
+"inte att något som läggs till i denna inställning garanterat kommer att "
+"fungera i framtiden. För närvarande möjliga nyckelord: • ”kms-modifiers” — "
+"gör så att mutter alltid allokerar scanout-buffertar med explicita "
+"modifierare om det stöds av drivrutinen. Kräver en omstart. • ”autoclose-"
+"xwayland” — avslutar automatiskt Xwayland om alla relevanta X11-klienter är "
+"borta. Kräver en omstart."
+
+#: data/org.gnome.mutter.gschema.xml.in:130
+msgid "Modifier to use to locate the pointer"
+msgstr "Modifierare att använda för att hitta muspekaren"
+
+#: data/org.gnome.mutter.gschema.xml.in:131
+msgid "This key will initiate the “locate pointer” action."
+msgstr "Denna tangent kommer att initiera åtgärden ”hitta muspekare”."
+
+#: data/org.gnome.mutter.gschema.xml.in:138
+msgid "Timeout for check-alive ping"
+msgstr "Tidsgräns för åtkomlighetstest med ping"
+
+#: data/org.gnome.mutter.gschema.xml.in:139
+msgid ""
+"Number of milliseconds a client has to respond to a ping request in order to "
+"not be detected as frozen. Using 0 will disable the alive check completely."
+msgstr ""
+"Antal millisekunder som en klient har på sig att svara på en pingförfrågan "
+"för att inte anses vara frusen. Att använda 0 kommer inaktivera kontrollen "
+"helt."
+
+#. TRANSLATORS: Luminance is different from brightness.
+#. See https://en.wikipedia.org/wiki/Luminance
+#: data/org.gnome.mutter.gschema.xml.in:150
+msgid "Per output luminance settings"
+msgstr "Utgångsspecifika luminansinställningar"
+
+#: data/org.gnome.mutter.gschema.xml.in:151
+msgid ""
+"Per output and color mode luminance setting. Each entry consists of a tuple "
+"with connector, vendor, product, serial, and a color mode, as well as an "
+"associated floating point value representing the output luminance in percent "
+"(%). The default when not specified is 100%."
+msgstr ""
+"Utgångs- och färglägesspecifika luminansinställningar. Varje post består av "
+"en tupel med kontakt, leverantör, produkt, serienummer och ett färgläge, "
+"såväl som ett associerat flyttalsvärde som representerar utgångens luminans "
+"i procent (%). Standardvärde när ej angivet är 100%."
+
+#: data/org.gnome.mutter.gschema.xml.in:176
+msgid "Switch monitor configurations"
+msgstr "Växla skärmkonfiguration"
+
+#: data/org.gnome.mutter.gschema.xml.in:181
+msgid "Rotates the built-in monitor configuration"
+msgstr "Roterar den inbyggda skärmkonfigurationen"
+
+#: data/org.gnome.mutter.gschema.xml.in:186
+msgid "Cancel any active input capture session"
+msgstr "Avbryt alla aktiva inmatningsfångstsessioner"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:12
+msgid "Switch to VT 1"
+msgstr "Växla till VT 1"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:16
+msgid "Switch to VT 2"
+msgstr "Växla till VT 2"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:20
+msgid "Switch to VT 3"
+msgstr "Växla till VT 3"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:24
+msgid "Switch to VT 4"
+msgstr "Växla till VT 4"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:28
+msgid "Switch to VT 5"
+msgstr "Växla till VT 5"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:32
+msgid "Switch to VT 6"
+msgstr "Växla till VT 6"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:36
+msgid "Switch to VT 7"
+msgstr "Växla till VT 7"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:40
+msgid "Switch to VT 8"
+msgstr "Växla till VT 8"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:44
+msgid "Switch to VT 9"
+msgstr "Växla till VT 9"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:48
+msgid "Switch to VT 10"
+msgstr "Växla till VT 10"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:52
+msgid "Switch to VT 11"
+msgstr "Växla till VT 11"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:56
+msgid "Switch to VT 12"
+msgstr "Växla till VT 12"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:60
+msgid "Re-enable shortcuts"
+msgstr "Återaktivera genvägar"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:70
+msgid "Allow X11 grabs to lock keyboard focus with Xwayland"
+msgstr "Tillåt X11-fångster att låsa tangentbordsfokus med Xwayland"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:71
+msgid ""
+"Allow all keyboard events to be routed to X11 “override redirect” windows "
+"with a grab when running in Xwayland. This option is to support X11 clients "
+"which map an “override redirect” window (which do not receive keyboard "
+"focus) and issue a keyboard grab to force all keyboard events to that "
+"window. This option is seldom used and has no effect on regular X11 windows "
+"which can receive keyboard focus under normal circumstances. For a X11 grab "
+"to be taken into account under Wayland, the client must also either send a "
+"specific X11 ClientMessage to the root window or be among the applications "
+"allowed in key “xwayland-grab-access-rules”."
+msgstr ""
+"Tillåt alla tangentbordshändelser att ledas till ”override redirect”-fönster "
+"i X11 med en fångst vid körning i Xwayland. Detta alternativ är för att "
+"stödja X11-klienter som mappar ett ”override redirect”-fönster (som inte "
+"erhåller tangentbordsfokus) och utfärda en tangentbordsfångst för att tvinga "
+"alla tangentbordshändelser till det fönstret. Detta alternativ används "
+"sällan och har ingen effekt på vanliga X11-fönster som kan erhålla "
+"tangentbordsfokus under normala förhållanden. För att en X11-fångst ska tas "
+"i beräkning under Wayland måste klienten också antingen sända ett specifikt "
+"X11-ClientMessage till root-fönstret eller finnas bland programmen som "
+"tillåtits i nyckeln ”xwayland-grab-access-rules”."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:90
+msgid "Xwayland applications allowed to issue keyboard grabs"
+msgstr "Xwayland-program tillåts utfärda tangentbordsfångster"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:91
+msgid ""
+"List the resource names or resource class of X11 windows either allowed or "
+"not allowed to issue X11 keyboard grabs under Xwayland. The resource name or "
+"resource class of a given X11 window can be obtained using the command "
+"“xprop WM_CLASS”. Wildcards “*” and jokers “?” in the values are supported. "
+"Values starting with “!” are denied, which has precedence over the list of "
+"values allowed, to revoke applications from the default system list. The "
+"default system list includes the following applications: "
+"“@XWAYLAND_GRAB_DEFAULT_ACCESS_RULES@” Users can break an existing grab by "
+"using the specific keyboard shortcut defined by the keybinding key “restore-"
+"shortcuts”."
+msgstr ""
+"Lista resursnamnen eller resursklassen för X11-fönster som antingen tillåts "
+"eller inte tillåts att utfärda X11-tangentbordsfångster under Xwayland. "
+"Resursnamnet eller resursklassen för ett givet X11-fönster kan erhållas "
+"genom att använda kommandot ”xprop WM_CLASS”. Stöd finns för att använda "
+"jokertecknen ”*” och ”?” i värdena. Värden som startar med ”!” nekas, vilket "
+"har företräde över listan över tillåtna värden, för att upphäva program i "
+"standardsystemlistan. Standardsystemlistan innehåller följande program: "
+"”@XWAYLAND_GRAB_DEFAULT_ACCESS_RULES@” Användare kan bryta en befintlig "
+"fångst genom att använda den specifika tangentbordsgenvägen som definieras "
+"av tangentbindningsnyckeln ”restore-shortcuts”."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:116
+msgid "Disable selected X extensions in Xwayland"
+msgstr "Inaktivera valda X-tillägg i Xwayland"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:117
+msgid ""
+"This option disables the selected X extensions in Xwayland if Xwayland was "
+"built with support for those X extensions. This option has no effect if "
+"Xwayland was built without support for the selected extensions. Xwayland "
+"needs to be restarted for this setting to take effect."
+msgstr ""
+"Detta alternativ inaktiverar de valda X-tilläggen i Xwayland om Xwayland "
+"byggdes med stöd för dessa X-tillägg. Detta alternativ har ingen effekt om "
+"Xwayland byggdes utan stöd för de valda tilläggen. Xwayland behöver startas "
+"om för att denna inställning ska börja gälla."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:130
+msgid "Allow X11 clients with a different endianness to connect to Xwayland"
+msgstr "Tillåt X11-klienter med en annan byteordning att ansluta till Xwayland"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:131
+msgid ""
+"Allow connections from clients with an endianness different to that of "
+"Xwayland. The X server byte-swapping code is a huge attack surface, much of "
+"that code in Xwayland is prone to security issues. The use-case of byte-"
+"swapped clients is very niche, and disabled by default in Xwayland. Enable "
+"this option to instruct Xwayland to accept connections from X11 clients with "
+"a different endianness. This option has no effect if Xwayland does not "
+"support the command line option +byteswappedclients/-byteswappedclients to "
+"control that setting. Xwayland needs to be restarted for this setting to "
+"take effect."
+msgstr ""
+"Tillåt anslutningar från klienter med en annan byteordning än Xwayland. X-"
+"serverns byteväxlingskod är en enorm attackyta, mycket av den koden i "
+"Xwayland har en tendens till säkerhetsproblem. Användningsfallet med "
+"byteväxlade klienter är väldigt specialiserat, och inaktiverat som standard "
+"i Xwayland. Aktivera detta alternativ för att instruera Xwayland att "
+"acceptera anslutningar från X11-klienter med annan byteordning. Detta "
+"alternativ har ingen effekt om Xwayland inte stöder kommandoradsflaggan "
+"+byteswappedclients/-byteswappedclients för att styra den inställningen. "
+"Xwayland behöver startas om för att denna inställning ska börja gälla."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:154
+msgid "Configure the Xwayland scaling factor"
+msgstr "Konfigurera Xwayland-skalningsfaktorn"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:155
+msgid ""
+"Scale the Xwayland coordinate space according to this factor. This will "
+"affect what scale HiDPI capable X11 clients will present themselves as, and "
+"how the compositor scales X11 client windows. Setting the scale to 0 means "
+"the scale will be automatically calculated. The scale will as of now be "
+"rounded to the closest integer."
+msgstr ""
+"Skala Xwayland-koordinatrymden enligt denna faktor. Detta kommer påverka "
+"vilken skala HiDPI-kapabla X11-klienter kommer presentera sig som, och hur "
+"kompositionshanteraren skalar X11-klientfönster. Att ställa in skalan till 0 "
+"betyder att skalan kommer beräknas automatiskt. Skalan kommer i nuläget "
+"avrundas till närmaste heltal."
+
+#: mdk/mdk-launcher-adder.c:451 mdk/mdk-launcher-adder.ui:22
+msgid "Application"
+msgstr "Program"
+
+#: mdk/mdk-launcher-adder.c:456 mdk/mdk-launcher-adder.ui:23
+msgid "Executable"
+msgstr "Körbar fil"
+
+#: mdk/mdk-launcher-adder.ui:3
+msgid "Add Launcher"
+msgstr "Lägg till programstartare"
+
+#: mdk/mdk-launcher-adder.ui:15
+msgid "Launcher"
+msgstr "Programstartare"
+
+#: mdk/mdk-launcher-adder.ui:18
+msgid "Type"
+msgstr "Typ"
+
+#: mdk/mdk-launcher-adder.ui:38 mdk/mdk-launchers-editor.ui:22
+msgid "Add"
+msgstr "Lägg till"
+
+#: mdk/mdk-launcher-entry.c:198
+msgid "Run"
+msgstr "Kör"
+
+#: mdk/mdk-launcher-entry.ui:12
+msgid "Delete"
+msgstr "Ta bort"
+
+#: mdk/mdk-launcher-entry.ui:20
+msgid "Action"
+msgstr "Åtgärd"
+
+#: mdk/mdk-launchers-editor.ui:3
+msgid "Edit Launchers"
+msgstr "Redigera programstartare"
+
+#: mdk/mdk-launchers-editor.ui:16
+msgid "Launchers"
+msgstr "Programstartare"
+
+#: mdk/mdk-main-window.ui:7
+msgid "_Input"
+msgstr "_Inmatning"
+
+#: mdk/mdk-main-window.ui:9
+msgid "_Emulate touch"
+msgstr "_Emulera pekskärm"
+
+#: mdk/mdk-main-window.ui:13
+msgid "_Inhibit system shortcuts"
+msgstr "_Hindra systemkortkommandon"
+
+#: mdk/mdk-main-window.ui:17
+msgid "Use host _keymap"
+msgstr "Använd värdens _tangentbordslayout"
+
+#: mdk/mdk-main-window.ui:24
+msgid "_Monitors"
+msgstr "_Skärmar"
+
+#: mdk/mdk-main-window.ui:26
+msgid "_Add monitor"
+msgstr "_Lägg till skärm"
+
+#: mdk/mdk-main-window.ui:30
+msgid "_Emulate monitor modes"
+msgstr "_Emulera skärmlägen"
+
+#: mdk/mdk-main-window.ui:37
+msgid "_Launchers"
+msgstr "_Programstartare"
+
+#: mdk/mdk-main-window.ui:41
+msgid "_Edit launchers"
+msgstr "_Redigera programstartare"
+
+#: mdk/mdk-main-window.ui:48
+msgid "_About Mutter Development Kit"
+msgstr "_Om Mutter Development Kit"
+
+#: mdk/mdk-main-window.ui:54 mdk/mdk-main.c:56
+msgid "Mutter Development Kit"
+msgstr "Mutter Development Kit"
+
+#: mdk/mdk-main-window.ui:64
+msgid "Main Menu"
+msgstr "Huvudmeny"
+
+#: mdk/mdk-main.c:49
+msgid "The Mutter Team"
+msgstr "Mutter-gruppen"
+
+#: mdk/mdk-main.c:62
+msgid "Mutter software development kit"
+msgstr "Mutters utvecklingskit för programvara"
+
+#: mdk/mdk-main.c:65
+msgid "About Mutter Development Kit"
+msgstr "Om Mutter Development Kit"
+
+#: mdk/mdk-monitor.c:556
+msgid "Failed to create monitor"
+msgstr "Misslyckades med att skapa skärm"
+
+#: src/backends/meta-monitor.c:285
+msgid "Built-in display"
+msgstr "Inbyggd display"
+
+#: src/backends/meta-monitor.c:312
+msgid "Unknown"
+msgstr "Okänd"
+
+#: src/backends/meta-monitor.c:314
+msgid "Unknown Display"
+msgstr "Okänd display"
+
+#: src/backends/meta-monitor.c:322
+#, c-format
+msgctxt ""
+"This is a monitor vendor name, followed by a size in inches, like 'Dell 15\"'"
+msgid "%s %s"
+msgstr "%s %s"
+
+#: src/backends/meta-monitor.c:330
+#, c-format
+msgctxt ""
+"This is a monitor vendor name followed by product/model name where size in "
+"inches could not be calculated, e.g. Dell U2414H"
+msgid "%s %s"
+msgstr "%s %s"
+
+#: src/core/bell.c:237
+msgid "Bell event"
+msgstr "Ljudsignalhändelse"
+
+#: src/core/display.c:608
+msgid "Privacy Screen Enabled"
+msgstr "Sekretesskärm aktiverad"
+
+#: src/core/display.c:609
+msgid "Privacy Screen Disabled"
+msgstr "Sekretesskärm inaktiverad"
+
+#: src/core/meta-context-main.c:356
+msgid "Run as a wayland compositor"
+msgstr "Kör som en wayland-kompositionshanterare"
+
+#: src/core/meta-context-main.c:363
+msgid "Run wayland compositor without starting Xwayland"
+msgstr "Kör wayland-kompositionshanteraren utan att starta Xwayland"
+
+#: src/core/meta-context-main.c:370
+msgid "Specify Wayland display name to use"
+msgstr "Ange Wayland-displaynamn att använda"
+
+#: src/core/meta-context-main.c:377
+msgid "Run as a full display server, rather than nested"
+msgstr "Kör som en full display-tjänst, i stället för nästlad"
+
+#: src/core/meta-context-main.c:382
+msgid "Run as a headless display server"
+msgstr "Kör som en huvudlös display-tjänst"
+
+#: src/core/meta-context-main.c:387
+msgid "Add persistent virtual monitor (WxH or WxH@R)"
+msgstr "Lägg till beständig virtuell skärm (BxH eller BxH@Frekvens)"
+
+#: src/core/meta-context-main.c:394
+msgid "Run development kit"
+msgstr "Kör utvecklingskit"
+
+#: src/core/meta-context-main.c:405
+msgid "Profile performance using trace instrumentation"
+msgstr "Profilera prestanda genom spårinstrument"
+
+#: src/core/meta-context-main.c:411
+msgid "Enable debug control D-Bus interface"
+msgstr "Aktivera felsökningsstyrande D-Bus-gränssnitt"
+
+#. TRANSLATORS: This string refers to a button that switches between
+#. * different modes in that button group.
+#.
+#: src/core/meta-pad-action-mapper.c:617
+#, c-format
+msgid "Mode Switch (Group %d)"
+msgstr "Lägesväxel (grupp %d)"
+
+#. TRANSLATORS: This string refers to a button that switches between
+#. * different modes.
+#.
+#: src/core/meta-pad-action-mapper.c:624
+#, c-format
+msgid "Mode Switch"
+msgstr "Lägesväxel"
+
+#. TRANSLATORS: This string refers to an action, cycles drawing tablets'
+#. * mapping through the available outputs.
+#.
+#: src/core/meta-pad-action-mapper.c:647
+msgid "Switch monitor"
+msgstr "Växla skärm"
+
+#: src/core/meta-pad-action-mapper.c:649
+msgid "Show on-screen help"
+msgstr "Visa hjälp på skärmen"
+
+#. Translators: this string will appear in Sysprof
+#: src/core/meta-profiler.c:109 src/core/meta-profiler.c:299
+msgid "Compositor"
+msgstr "Kompositionshanterare"
+
+#: src/core/mutter.c:75
+msgid "Print version"
+msgstr "Skriv ut version"
+
+#: src/core/mutter.c:81
+msgid "Mutter plugin to use"
+msgstr "Mutter-insticksmodul att använda"
+
+#: src/core/prefs.c:1874
+#, c-format
+msgid "Workspace %d"
+msgstr "Arbetsyta %d"
+
+#: src/core/util.c:149
+msgid "Mutter was compiled without support for verbose mode"
+msgstr "Mutter kompilerades utan stöd för utförligt läge"
+
+#: src/core/workspace.c:510
+msgid "Workspace switched"
+msgstr "Växlade arbetsyta"
+
+#: src/wayland/meta-wayland-tablet-pad.c:558
+#, c-format
+msgid "Mode Switch: Mode %d"
+msgstr "Lägesväxel: Läge %d"
+
+#: src/x11/meta-x11-display.c:776
+#, c-format
+msgid "Display “%s” already has a window manager"
+msgstr "Display ”%s” har redan en fönsterhanterare"
+
+#: src/x11/meta-x11-display.c:1139
+#, c-format
+msgid "Failed to open X Window System display “%s”"
+msgstr "Misslyckades med att öppna X Window System-displayen ”%s”"
+
+#: src/x11/meta-x11-display.c:1284
+#, c-format
+msgid "Screen %d on display “%s” is invalid"
+msgstr "Skärm %d på display ”%s” är ogiltig"
+
+#. This probably means that a non-WM compositor like xcompmgr is running;
+#. * we have no way to get it to exit
+#: src/x11/meta-x11-display.c:2469
+#, c-format
+msgid ""
+"Another compositing manager is already running on screen %i on display “%s”."
+msgstr "En annan kompositionshanterare körs redan på skärm %i på display ”%s”."
+
+#: src/x11/meta-x11-selection-input-stream.c:475
+#, c-format
+msgid "Format %s not supported"
+msgstr "Formatet %s stöds ej"
+
+#: src/x11/window-props.c:562
+#, c-format
+msgid "%s (on %s)"
+msgstr "%s (på %s)"
+
+#~ msgid "_Resizable"
+#~ msgstr "_Kan storleksändras"
+
+#~ msgid "Replace the running window manager"
+#~ msgstr "Ersätt körande fönsterhanteraren"
+
+#~ msgid "X Display to use"
+#~ msgstr "X-display att använda"
+
+#~ msgid "Make X calls synchronous"
+#~ msgstr "Gör X-anrop synkrona"
+
+#~ msgid "Run as a nested compositor"
+#~ msgstr "Kör som en nästlad kompositionshanterare"
+
+#~ msgid "Run with X11 backend"
+#~ msgstr "Kör med X11-gränssnitt"
+
+#, c-format
+#~ msgid ""
+#~ "Display “%s” already has a window manager; try using the --replace option "
+#~ "to replace the current window manager."
+#~ msgstr ""
+#~ "Display ”%s” har redan en fönsterhanterare; försök med flaggan --replace "
+#~ "för att ersätta den aktuella fönsterhanteraren."
+
+#~ msgid "Disable connection to session manager"
+#~ msgstr "Inaktivera anslutning till sessionshanteraren"
+
+#~ msgid "Specify session management ID"
+#~ msgstr "Ange sessionshanteringsid"
+
+#~ msgid "Initialize session from savefile"
+#~ msgstr "Initiera session från sparandefil"
+
+#~ msgid "Move to workspace above"
+#~ msgstr "Flytta till arbetsyta ovanför"
+
+#~ msgid "Move to workspace below"
+#~ msgstr "Flytta till arbetsyta nedanför"
+
+#~ msgid "Failed to initialize GDK"
+#~ msgstr "Misslyckades med att initiera GDK"
+
+#~ msgid "Mutter"
+#~ msgstr "Mutter"
+
+#~ msgid "No tab popup"
+#~ msgstr "Ingen flik-popup"
+
+#~ msgid ""
+#~ "Determines whether the use of popup and highlight frame should be "
+#~ "disabled for window cycling."
+#~ msgstr ""
+#~ "Bestämmer huruvida användning av popup och framhävning av kontur ska "
+#~ "inaktiveras vid fönsterväxling."
+
+#~ msgid "Select window from tab popup"
+#~ msgstr "Välj fönster från flik-popup"
+
+#~ msgid "Cancel tab popup"
+#~ msgstr "Avbryt flik-popup"
+
+#, c-format
+#~ msgid "“%s” is not responding."
+#~ msgstr "”%s” svarar inte."
+
+#~ msgid "Application is not responding."
+#~ msgstr "Programmet svarar inte."
+
+#~ msgid ""
+#~ "You may choose to wait a short while for it to continue or force the "
+#~ "application to quit entirely."
+#~ msgstr ""
+#~ "Du kan välja att vänta en kort stund på det för att fortsätta eller "
+#~ "tvinga programmet att helt avslutas."
+
+#~ msgid "_Force Quit"
+#~ msgstr "_Tvinga avslut"
+
+#~ msgid "_Wait"
+#~ msgstr "_Vänta"
+
+#~ msgid ""
+#~ "These windows do not support “save current setup” and will have to be "
+#~ "restarted manually next time you log in."
+#~ msgstr ""
+#~ "Dessa fönster saknar stöd för ”spara nuvarande inställningar” och kommer "
+#~ "att behöva startas om manuellt nästa gång du loggar in."
+
+#~ msgid "X display to use"
+#~ msgstr "X-display att använda"
+
+#~ msgid "X screen to use"
+#~ msgstr "X-skärm att använda"
+
+#~ msgid "Disable XInput support"
+#~ msgstr "Inaktivera XInput-stöd"

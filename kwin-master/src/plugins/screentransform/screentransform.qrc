@@ -1,0 +1,7 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <qresource prefix="/effects/screentransform/">
+        <file>shaders/crossfade.frag</file>
+        <file>shaders/crossfade.vert</file>
+    </qresource>
+</RCC>

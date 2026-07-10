@@ -1,0 +1,94 @@
+# Lithuanian translations for kwin package.
+# Copyright (C) 2019 This file is copyright:
+# This file is distributed under the same license as the kwin package.
+# Automatically generated, 2019.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: kwin\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2025-11-17 11:53+0000\n"
+"PO-Revision-Date: 2024-01-18 00:50+0200\n"
+"Last-Translator: Moo\n"
+"Language-Team: lt\n"
+"Language: lt\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=4; plural=(n==1 ? 0 : n%10>=2 && (n%100<10 || n"
+"%100>=20) ? 1 : n%10==0 || (n%100>10 && n%100<20) ? 2 : 3);\n"
+"X-Generator: Poedit 3.0.1\n"
+
+#: ui/Effect.qml:98
+#, kde-format
+msgid ""
+"Author: %1\n"
+"License: %2"
+msgstr ""
+"Autorius: %1\n"
+"Licencija: %2"
+
+#: ui/Effect.qml:110
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Configure…"
+msgstr "Konfigūruoti…"
+
+#: ui/main.qml:25
+#, kde-format
+msgctxt "@action:button get new KWin effects"
+msgid "Get New…"
+msgstr "Gauti naują…"
+
+#: ui/main.qml:54
+#, kde-format
+msgid "Configure Filter"
+msgstr "Konfigūruoti filtrą"
+
+#: ui/main.qml:66
+#, kde-format
+msgid "Exclude unsupported effects"
+msgstr "Išbraukti nepalaikomus efektus"
+
+#~ msgctxt "@info:tooltip"
+#~ msgid "Show/Hide Video"
+#~ msgstr "Rodyti/Slėpti vaizdo įrašą"
+
+#~ msgid ""
+#~ "Hint: To find out or configure how to activate an effect, look at the "
+#~ "effect's settings."
+#~ msgstr ""
+#~ "Patarimas: Norėdami konfigūruoti kaip aktyvuosite efektą, pereikite į jo "
+#~ "nuostatas."
+
+#~ msgid "Exclude internal effects"
+#~ msgstr "Išbraukti vidinius efektus"
+
+#~ msgid "Get New Desktop Effects..."
+#~ msgstr "Gauti naujus darbalaukio efektus..."
+
+#~ msgid "This module lets you configure desktop effects."
+#~ msgstr "Šis modulis jums leidžia konfigūruoti darbalaukio efektus."
+
+#~ msgctxt "NAME OF TRANSLATORS"
+#~ msgid "Your names"
+#~ msgstr "Moo"
+
+#~ msgctxt "EMAIL OF TRANSLATORS"
+#~ msgid "Your emails"
+#~ msgstr "<>"
+
+#~ msgid "Desktop Effects"
+#~ msgstr "Darbalaukio efektai"
+
+#~ msgid "Vlad Zahorodnii"
+#~ msgstr "Vlad Zahorodnii"
+
+#~ msgid "Download New Desktop Effects"
+#~ msgstr "Atsisiųsti naujus darbalaukio efektus"
+
+#~ msgid "Exclude Desktop Effects not supported by the Compositor"
+#~ msgstr "Išbraukti kompozitoriaus nepalaikomus darbalaukio efektus"
+
+#~ msgid "Search..."
+#~ msgstr "Ieškoti..."

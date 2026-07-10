@@ -1,0 +1,86 @@
+/*
+ * Copyright (C) 2019 Red Hat Inc.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
+ *
+ */
+
+#pragma once
+
+#include "core/meta-private-enums.h"
+#include "core/meta-service-channel.h"
+#include "core/meta-session-manager.h"
+#include "core/util-private.h"
+#include "meta/meta-backend.h"
+#include "meta/meta-context.h"
+#include "meta/meta-debug-control.h"
+#include "wayland/meta-wayland-types.h"
+
+#ifdef HAVE_PROFILER
+#include "core/meta-profiler.h"
+#endif
+
+struct _MetaContextClass
+{
+  GObjectClass parent_class;
+
+  gboolean (* configure) (MetaContext   *context,
+                          int           *argc,
+                          char        ***argv,
+                          GError       **error);
+
+  MetaX11DisplayPolicy (* get_x11_display_policy) (MetaContext *context);
+
+  gboolean (* setup) (MetaContext  *context,
+                      GError      **error);
+
+  MetaBackend * (* create_backend) (MetaContext  *context,
+                                    GError      **error);
+
+  void (* notify_ready) (MetaContext *context);
+
+
+  MetaSessionManager * (* get_session_manager) (MetaContext *context);
+};
+
+const char * meta_context_get_name (MetaContext *context);
+
+const char * meta_context_get_nick (MetaContext *context);
+
+const char * meta_context_get_gnome_wm_keybindings (MetaContext *context);
+
+void meta_context_set_unsafe_mode (MetaContext *context,
+                                   gboolean     enable);
+
+gboolean meta_context_get_unsafe_mode (MetaContext *context);
+
+META_EXPORT_TEST
+MetaServiceChannel * meta_context_get_service_channel (MetaContext *context);
+
+MetaX11DisplayPolicy meta_context_get_x11_display_policy (MetaContext *context);
+
+#ifdef HAVE_PROFILER
+MetaProfiler *
+meta_context_get_profiler (MetaContext *context);
+
+void meta_context_set_trace_file (MetaContext *context,
+                                  const char  *trace_file);
+#endif
+
+META_EXPORT_TEST
+MetaSessionManager * meta_context_get_session_manager (MetaContext *context);
+
+META_EXPORT_TEST
+void meta_context_set_plugin_options (MetaContext *context,
+                                      GVariant    *plugin_options);

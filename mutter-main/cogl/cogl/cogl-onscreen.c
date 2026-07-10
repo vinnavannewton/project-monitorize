@@ -1,0 +1,345 @@
+/*
+ * Cogl
+ *
+ * A Low Level GPU Graphics and Utilities API
+ *
+ * Copyright (C) 2011, 2013 Intel Corporation.
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use, copy,
+ * modify, merge, publish, distribute, sublicense, and/or sell copies
+ * of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ *
+ *
+ */
+
+#include "config.h"
+
+#include <gio/gio.h>
+
+#include "cogl/cogl-util.h"
+#include "cogl/cogl-onscreen-private.h"
+#include "cogl/cogl-frame-info-private.h"
+#include "cogl/cogl-framebuffer-private.h"
+#include "cogl/cogl-context-private.h"
+#include "cogl/cogl-closure-list-private.h"
+#include "cogl/cogl-renderer-private.h"
+
+typedef struct _CoglOnscreenPrivate
+{
+  CoglList frame_closures;
+
+  int64_t frame_counter;
+
+  GQueue pending_frame_infos;
+} CoglOnscreenPrivate;
+
+G_DEFINE_TYPE_WITH_PRIVATE (CoglOnscreen, cogl_onscreen, COGL_TYPE_FRAMEBUFFER)
+
+static gpointer
+cogl_dummy_copy (gpointer data)
+{
+  return data;
+}
+
+static void
+cogl_dummy_free (gpointer data)
+{
+}
+
+G_DEFINE_BOXED_TYPE (CoglFrameClosure,
+                     cogl_frame_closure,
+                     cogl_dummy_copy,
+                     cogl_dummy_free)
+
+G_DEFINE_QUARK (cogl-scanout-error-quark, cogl_scanout_error)
+
+static gboolean
+cogl_onscreen_allocate (CoglFramebuffer  *framebuffer,
+                        GError          **error)
+{
+  return TRUE;
+}
+
+static gboolean
+cogl_onscreen_is_y_flipped (CoglFramebuffer *framebuffer)
+{
+  return FALSE;
+}
+
+static void
+cogl_onscreen_dispose (GObject *object)
+{
+  CoglOnscreen *onscreen = COGL_ONSCREEN (object);
+  CoglOnscreenPrivate *priv = cogl_onscreen_get_instance_private (onscreen);
+  CoglFrameInfo *frame_info;
+
+  _cogl_closure_list_disconnect_all (&priv->frame_closures);
+
+  while ((frame_info = g_queue_pop_tail (&priv->pending_frame_infos)))
+    g_object_unref (frame_info);
+  g_queue_clear (&priv->pending_frame_infos);
+
+  G_OBJECT_CLASS (cogl_onscreen_parent_class)->dispose (object);
+}
+
+static void
+cogl_onscreen_init (CoglOnscreen *onscreen)
+{
+  CoglOnscreenPrivate *priv = cogl_onscreen_get_instance_private (onscreen);
+
+  _cogl_list_init (&priv->frame_closures);
+}
+
+static void
+cogl_onscreen_class_init (CoglOnscreenClass *klass)
+{
+  GObjectClass *object_class = G_OBJECT_CLASS (klass);
+  CoglFramebufferClass *framebuffer_class = COGL_FRAMEBUFFER_CLASS (klass);
+
+  object_class->dispose = cogl_onscreen_dispose;
+
+  framebuffer_class->allocate = cogl_onscreen_allocate;
+  framebuffer_class->is_y_flipped = cogl_onscreen_is_y_flipped;
+}
+
+static void
+notify_event (CoglOnscreen *onscreen,
+              CoglFrameEvent event,
+              CoglFrameInfo *info)
+{
+  CoglOnscreenPrivate *priv = cogl_onscreen_get_instance_private (onscreen);
+
+  _cogl_closure_list_invoke (&priv->frame_closures,
+                             CoglFrameCallback,
+                             onscreen, event, info);
+}
+
+void
+cogl_onscreen_bind (CoglOnscreen *onscreen)
+{
+  COGL_ONSCREEN_GET_CLASS (onscreen)->bind (onscreen);
+}
+
+void
+cogl_onscreen_queue_damage_region (CoglOnscreen    *onscreen,
+                                   const MtkRegion *region)
+{
+  CoglOnscreenClass *klass = COGL_ONSCREEN_GET_CLASS (onscreen);
+
+  if (!klass->queue_damage_region)
+    return;
+
+  klass->queue_damage_region (onscreen, region);
+}
+
+void
+cogl_onscreen_swap_buffers_with_damage (CoglOnscreen    *onscreen,
+                                        const MtkRegion *region,
+                                        CoglFrameInfo   *info,
+                                        gpointer         user_data)
+{
+  CoglOnscreenPrivate *priv = cogl_onscreen_get_instance_private (onscreen);
+  CoglFramebuffer *framebuffer = COGL_FRAMEBUFFER (onscreen);
+  CoglOnscreenClass *klass = COGL_ONSCREEN_GET_CLASS (onscreen);
+
+  g_return_if_fail  (COGL_IS_ONSCREEN (framebuffer));
+
+  info->frame_counter = priv->frame_counter;
+  g_queue_push_tail (&priv->pending_frame_infos, info);
+
+  _cogl_framebuffer_flush_journal (framebuffer);
+
+  cogl_framebuffer_discard_buffers (framebuffer,
+                                    COGL_BUFFER_BIT_DEPTH |
+                                    COGL_BUFFER_BIT_STENCIL);
+
+  klass->swap_buffers_with_damage (onscreen, region, info, user_data);
+
+  if (G_UNLIKELY (COGL_DEBUG_ENABLED (COGL_DEBUG_SYNC_FRAME)))
+    cogl_framebuffer_finish (framebuffer);
+
+  priv->frame_counter++;
+}
+
+void
+cogl_onscreen_swap_region (CoglOnscreen    *onscreen,
+                           const MtkRegion *region,
+                           CoglFrameInfo   *info,
+                           gpointer         user_data)
+{
+  CoglOnscreenPrivate *priv = cogl_onscreen_get_instance_private (onscreen);
+  CoglFramebuffer *framebuffer = COGL_FRAMEBUFFER (onscreen);
+  CoglOnscreenClass *klass = COGL_ONSCREEN_GET_CLASS (onscreen);
+
+  g_return_if_fail  (COGL_IS_ONSCREEN (framebuffer));
+
+  info->frame_counter = priv->frame_counter;
+  g_queue_push_tail (&priv->pending_frame_infos, info);
+
+  _cogl_framebuffer_flush_journal (framebuffer);
+
+  /* This should only be called if the winsys advertises
+     COGL_WINSYS_FEATURE_SWAP_REGION */
+  g_return_if_fail (klass->swap_region);
+
+  cogl_framebuffer_discard_buffers (framebuffer,
+                                    COGL_BUFFER_BIT_DEPTH |
+                                    COGL_BUFFER_BIT_STENCIL);
+
+  klass->swap_region (onscreen, region, info, user_data);
+
+  if (G_UNLIKELY (COGL_DEBUG_ENABLED (COGL_DEBUG_SYNC_FRAME)))
+    cogl_framebuffer_finish (framebuffer);
+
+  priv->frame_counter++;
+}
+
+int
+cogl_onscreen_get_buffer_age (CoglOnscreen *onscreen)
+{
+  CoglFramebuffer *framebuffer = COGL_FRAMEBUFFER (onscreen);
+  CoglOnscreenClass *klass = COGL_ONSCREEN_GET_CLASS (onscreen);
+
+  g_return_val_if_fail (COGL_IS_ONSCREEN (framebuffer), 0);
+
+  if (!klass->get_buffer_age)
+    return 0;
+
+  return klass->get_buffer_age (onscreen);
+}
+
+gboolean
+cogl_onscreen_direct_scanout (CoglOnscreen   *onscreen,
+                              CoglScanout    *scanout,
+                              CoglFrameInfo  *info,
+                              gpointer        user_data,
+                              GError        **error)
+{
+  CoglOnscreenPrivate *priv = cogl_onscreen_get_instance_private (onscreen);
+  CoglFramebuffer *framebuffer = COGL_FRAMEBUFFER (onscreen);
+  CoglOnscreenClass *klass = COGL_ONSCREEN_GET_CLASS (onscreen);
+
+  g_warn_if_fail (COGL_IS_ONSCREEN (framebuffer));
+
+  if (!klass->direct_scanout)
+    {
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                   "Direct scanout not supported");
+      return FALSE;
+    }
+
+  info->frame_counter = priv->frame_counter;
+  g_queue_push_tail (&priv->pending_frame_infos, info);
+
+  if (!klass->direct_scanout (onscreen,
+                              scanout,
+                              info,
+                              user_data,
+                              error))
+    {
+      g_queue_pop_tail (&priv->pending_frame_infos);
+      return FALSE;
+    }
+
+  info->flags |= COGL_FRAME_INFO_FLAG_ZERO_COPY;
+  priv->frame_counter++;
+  return TRUE;
+}
+
+void
+cogl_onscreen_add_frame_info (CoglOnscreen  *onscreen,
+                              CoglFrameInfo *info)
+{
+  CoglOnscreenPrivate *priv = cogl_onscreen_get_instance_private (onscreen);
+
+  info->frame_counter = priv->frame_counter;
+  g_queue_push_tail (&priv->pending_frame_infos, info);
+}
+
+CoglFrameInfo *
+cogl_onscreen_peek_head_frame_info (CoglOnscreen *onscreen)
+{
+  CoglOnscreenPrivate *priv = cogl_onscreen_get_instance_private (onscreen);
+
+  return g_queue_peek_head (&priv->pending_frame_infos);
+}
+
+CoglFrameInfo *
+cogl_onscreen_pop_head_frame_info (CoglOnscreen *onscreen)
+{
+  CoglOnscreenPrivate *priv = cogl_onscreen_get_instance_private (onscreen);
+
+  return g_queue_pop_head (&priv->pending_frame_infos);
+}
+
+CoglFrameClosure *
+cogl_onscreen_add_frame_callback (CoglOnscreen *onscreen,
+                                  CoglFrameCallback callback,
+                                  void *user_data,
+                                  GDestroyNotify destroy)
+{
+  CoglOnscreenPrivate *priv = cogl_onscreen_get_instance_private (onscreen);
+
+  return _cogl_closure_list_add (&priv->frame_closures,
+                                 callback,
+                                 user_data,
+                                 destroy);
+}
+
+void
+cogl_onscreen_remove_frame_callback (CoglOnscreen *onscreen,
+                                     CoglFrameClosure *closure)
+{
+  g_return_if_fail (closure);
+
+  _cogl_closure_disconnect (closure);
+}
+
+void
+_cogl_onscreen_notify_frame_sync (CoglOnscreen *onscreen, CoglFrameInfo *info)
+{
+  notify_event (onscreen, COGL_FRAME_EVENT_SYNC, info);
+}
+
+void
+_cogl_onscreen_notify_complete (CoglOnscreen *onscreen, CoglFrameInfo *info)
+{
+  notify_event (onscreen, COGL_FRAME_EVENT_COMPLETE, info);
+}
+
+int64_t
+cogl_onscreen_get_frame_counter (CoglOnscreen *onscreen)
+{
+  CoglOnscreenPrivate *priv = cogl_onscreen_get_instance_private (onscreen);
+
+  return priv->frame_counter;
+}
+
+gboolean
+cogl_onscreen_get_window_handles (CoglOnscreen *onscreen,
+                                  gpointer     *device_out,
+                                  gpointer     *window_out)
+{
+  CoglOnscreenClass *klass = COGL_ONSCREEN_GET_CLASS (onscreen);
+
+  if (!klass->get_window_handles)
+      return FALSE;
+
+  return klass->get_window_handles (onscreen, device_out, window_out);
+}

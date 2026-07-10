@@ -1,0 +1,241 @@
+# translation of kcm_kwindesktop.po to Macedonian
+#
+# Copyright (C) 2002,2003,2004, 2005, 2006, 2007, 2010 Free Software Foundation, Inc.
+#
+# Danko Ilik <danko@on.net.mk>, 2003.
+# Bozidar Proevski <bobibobi@freemail.com.mk>, 2004, 2005, 2006, 2007, 2010.
+msgid ""
+msgstr ""
+"Project-Id-Version: kcm_kwindesktop\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-04-14 00:45+0000\n"
+"PO-Revision-Date: 2010-01-29 22:40+0100\n"
+"Last-Translator: Bozidar Proevski <bobibobi@freemail.com.mk>\n"
+"Language-Team: Macedonian <mkde-l10n@lists.sourceforge.net>\n"
+"Language: mk\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: KBabel 1.11.4\n"
+"Plural-Forms: Plural-Forms: nplurals=3; plural=n%10==1 ? 0 : n%10==2 ? 1 : "
+"2;\n"
+"\n"
+
+#, kde-format
+msgctxt "NAME OF TRANSLATORS"
+msgid "Your names"
+msgstr "Божидар Проевски"
+
+#, kde-format
+msgctxt "EMAIL OF TRANSLATORS"
+msgid "Your emails"
+msgstr "bobibobi@freemail.com.mk"
+
+#: desktopsmodel.cpp:188
+#, fuzzy, kde-format
+#| msgid "Desktop %1"
+msgctxt "A numbered name for virtual desktops"
+msgid "Desktop %1"
+msgid_plural "Desktop %1"
+msgstr[0] "Работна површина %1"
+msgstr[1] "Работна површина %1"
+msgstr[2] "Работна површина %1"
+
+#: desktopsmodel.cpp:476
+#, kde-format
+msgid "There was an error connecting to the compositor."
+msgstr ""
+
+#: desktopsmodel.cpp:672
+#, kde-format
+msgid "There was an error saving the settings to the compositor."
+msgstr ""
+
+#: desktopsmodel.cpp:675
+#, kde-format
+msgid "There was an error requesting information from the compositor."
+msgstr ""
+
+#: ui/main.qml:26
+#, kde-format
+msgctxt "@text:label Number of rows, label associated to a number input field"
+msgid "Rows:"
+msgstr ""
+
+#: ui/main.qml:54
+#, fuzzy, kde-format
+#| msgid "Desktops"
+msgctxt "@action:button"
+msgid "Add Desktop"
+msgstr "Работни површини"
+
+#: ui/main.qml:90
+#, kde-format
+msgctxt "@action:button"
+msgid "Rename"
+msgstr ""
+
+#: ui/main.qml:100
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Remove"
+msgstr ""
+
+#: ui/main.qml:119
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Apply new name"
+msgstr ""
+
+#: ui/main.qml:132
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Cancel rename"
+msgstr ""
+
+#: ui/main.qml:179
+#, kde-format
+msgid ""
+"Virtual desktops have been changed outside this settings application. Saving "
+"now will overwrite the changes."
+msgstr ""
+
+#: ui/main.qml:195
+#, kde-format
+msgid "Row %1"
+msgstr ""
+
+#: ui/main.qml:209
+#, kde-format
+msgid "Options:"
+msgstr ""
+
+#: ui/main.qml:211
+#, kde-format
+msgid "Navigation wraps around"
+msgstr ""
+
+#: ui/main.qml:225
+#, kde-format
+msgid "Switch desktops independently for each screen"
+msgstr ""
+
+#: ui/main.qml:243
+#, kde-format
+msgid "Show animation when switching:"
+msgstr ""
+
+#: ui/main.qml:294
+#, kde-format
+msgid "Show on-screen display when switching:"
+msgstr ""
+
+#: ui/main.qml:313
+#, kde-format
+msgid "%1 ms"
+msgstr ""
+
+#: ui/main.qml:337
+#, kde-format
+msgid "Show desktop layout indicators"
+msgstr "Прикажи индикатори за распоред на површините"
+
+#, fuzzy
+#~| msgid "Desktops"
+#~ msgid "Virtual Desktops"
+#~ msgstr "Работни површини"
+
+#~ msgid "Desktop %1:"
+#~ msgstr "Површина %1:"
+
+#~ msgid "Here you can enter the name for desktop %1"
+#~ msgstr "Тука може да го внесете името за површината %1"
+
+#~ msgid ""
+#~ "<h1>Multiple Desktops</h1>In this module, you can configure how many "
+#~ "virtual desktops you want and how these should be labeled."
+#~ msgstr ""
+#~ "<h1>Повеќекратни површини</h1>Во овој модул може да конфигурирате колку "
+#~ "виртуелни работни површини сакате да имате и како тие ќе се викаат."
+
+#~ msgid "Switch to Next Desktop"
+#~ msgstr "Префрли се на наредната површина"
+
+#~ msgid "Switch to Previous Desktop"
+#~ msgstr "Префрли се на претходната површина"
+
+#~ msgid "Switch One Desktop to the Right"
+#~ msgstr "Префрли се една површина надесно"
+
+#~ msgid "Switch One Desktop to the Left"
+#~ msgstr "Префрли се една површина налево"
+
+#~ msgid "Switch One Desktop Up"
+#~ msgstr "Префрли се една површина нагоре"
+
+#~ msgid "Switch One Desktop Down"
+#~ msgstr "Префрли се една површина надолу"
+
+#~ msgid "Desktop Switching"
+#~ msgstr "Менување раб. површини"
+
+#~ msgid "Switch to Desktop %1"
+#~ msgstr "Префрли се на површина %1"
+
+#~ msgid "No Animation"
+#~ msgstr "Без анимации"
+
+#~ msgid "No suitable Shortcut for Desktop %1 found"
+#~ msgstr "Не е пронајдена соодветна кратенка за површината %1"
+
+#~ msgid "Assigned global Shortcut \"%1\" to Desktop %2"
+#~ msgstr "Глобалната кратенка „%1“ е доделена на површината %2"
+
+#~ msgid "Shortcut conflict: Could not set Shortcut %1 for Desktop %2"
+#~ msgstr ""
+#~ "Конфликт на кратенки: Не можев да ја доделам кратенката %1 за површината "
+#~ "%2"
+
+#~ msgid "Layout"
+#~ msgstr "Распоред"
+
+#~ msgid ""
+#~ "Here you can set how many virtual desktops you want on your KDE desktop."
+#~ msgstr ""
+#~ "Тука може да поставите колку виртуелни работни површини сакате да имате."
+
+#, fuzzy
+#~| msgid "Number of desktops:"
+#~ msgid "&Number of desktops:"
+#~ msgstr "Број на површини:"
+
+#, fuzzy
+#~| msgid "Number of rows:"
+#~ msgid "N&umber of rows:"
+#~ msgstr "Број на редици:"
+
+#~ msgid "Desktop Names"
+#~ msgstr "Имиња на површини"
+
+#~ msgid "Switching"
+#~ msgstr "Префрлање"
+
+#~ msgid "Animation:"
+#~ msgstr "Анимација:"
+
+#~ msgid "Duration:"
+#~ msgstr "Траење:"
+
+#~ msgid " msec"
+#~ msgstr " msec"
+
+#~ msgid "Shortcuts"
+#~ msgstr "Кратенки"
+
+#~ msgid "Show shortcuts for all possible desktops"
+#~ msgstr "Прикажи кратенки за сите можни површини"
+
+#, fuzzy
+#~| msgid "Different activity for each desktop"
+#~ msgid "Different widgets for each desktop"
+#~ msgstr "Различни активности за секоја површина"

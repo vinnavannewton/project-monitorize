@@ -1,0 +1,15 @@
+<!DOCTYPE node PUBLIC
+'-//freedesktop//DTD D-BUS Object Introspection 1.0//EN'
+'http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd'>
+<node>
+
+  <interface name="org.gnome.Mutter.DebugControl">
+
+    <property name="ForceHDR" type="b" access="readwrite" />
+    <property name="ForceLinearBlending" type="b" access="readwrite" />
+    <property name="SessionManagementProtocol" type="b" access="readwrite" />
+    <property name="InhibitHwCursor" type="b" access="readwrite" />
+    <property name="A11yManagerWithoutAccessControl" type="b" access="readwrite" />
+  </interface>
+
+</node>

@@ -1,0 +1,64 @@
+# translation of kcm_kwin_effects.pot to esperanto
+# Copyright (C) 2003 Free Software Foundation, Inc.
+# This file is distributed under the same license as the kwin package.
+# Oliver Kellogg <olivermkellogg@gmail.com>, 2023.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: kcm_kwin_effects\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2025-11-17 11:53+0000\n"
+"PO-Revision-Date: 2023-06-06 06:48+0100\n"
+"Last-Translator: Oliver Kellogg <olivermkellogg@gmail.com>\n"
+"Language-Team: esperanto <kde-i18n-eo@kde.org>\n"
+"Language: eo\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: translate-po (https://github.com/zcribe/translate-po)\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+
+#: ui/Effect.qml:98
+#, kde-format
+msgid ""
+"Author: %1\n"
+"License: %2"
+msgstr ""
+"Aŭtoro: %1\n"
+"Licenco: %2"
+
+#: ui/Effect.qml:110
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Configure…"
+msgstr "Agordi…"
+
+#: ui/main.qml:25
+#, kde-format
+msgctxt "@action:button get new KWin effects"
+msgid "Get New…"
+msgstr "Ekpreni Novajn…"
+
+#: ui/main.qml:54
+#, kde-format
+msgid "Configure Filter"
+msgstr "Agordi Filtrilon"
+
+#: ui/main.qml:66
+#, kde-format
+msgid "Exclude unsupported effects"
+msgstr "Ekskludi nesubtenatajn efikojn"
+
+#~ msgctxt "@info:tooltip"
+#~ msgid "Show/Hide Video"
+#~ msgstr "Montri/Kaŝi Videon"
+
+#~ msgid ""
+#~ "Hint: To find out or configure how to activate an effect, look at the "
+#~ "effect's settings."
+#~ msgstr ""
+#~ "Konsilo: Por ekscii aŭ agordi kiel aktivigi efikon, rigardu la agordojn "
+#~ "de la efiko."
+
+#~ msgid "Exclude internal effects"
+#~ msgstr "Ekskludi internajn efikojn"

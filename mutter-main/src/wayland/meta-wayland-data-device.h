@@ -1,0 +1,102 @@
+/*
+ * Copyright © 2008 Kristian Høgsberg
+ *
+ * Permission to use, copy, modify, distribute, and sell this software and its
+ * documentation for any purpose is hereby granted without fee, provided that
+ * the above copyright notice appear in all copies and that both that copyright
+ * notice and this permission notice appear in supporting documentation, and
+ * that the name of the copyright holders not be used in advertising or
+ * publicity pertaining to distribution of the software without specific,
+ * written prior permission.  The copyright holders make no representations
+ * about the suitability of this software for any purpose.  It is provided "as
+ * is" without express or implied warranty.
+ *
+ * THE COPYRIGHT HOLDERS DISCLAIM ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
+ * INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+ * EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+ * CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE,
+ * DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+ * TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
+ * OF THIS SOFTWARE.
+ */
+
+#pragma once
+
+#include <glib-object.h>
+#include <wayland-server.h>
+
+#include "clutter/clutter.h"
+#include "meta/meta-selection-source.h"
+#include "wayland/meta-wayland-data-offer.h"
+#include "wayland/meta-wayland-data-source.h"
+#include "wayland/meta-wayland-input.h"
+#include "wayland/meta-wayland-types.h"
+
+typedef struct _MetaWaylandDragGrab MetaWaylandDragGrab;
+
+struct _MetaWaylandDataDevice
+{
+  MetaWaylandSeat *seat;
+
+  uint32_t selection_serial;
+  MetaWaylandDataSource *selection_data_source;
+  MetaWaylandDataSource *dnd_data_source;
+  struct wl_list resource_list;
+  struct wl_list focus_resource_list;
+  MetaWaylandDragGrab *current_grab;
+  struct wl_client *focus_client;
+
+  guint selection_owner_signal_id;
+
+  MetaSelectionSource *owners[META_N_SELECTION_TYPES];
+};
+
+void meta_wayland_data_device_manager_init (MetaWaylandCompositor *compositor);
+
+void meta_wayland_data_device_init (MetaWaylandDataDevice *data_device,
+                                    MetaWaylandSeat       *seat);
+
+MetaWaylandSeat * meta_wayland_data_device_get_seat (MetaWaylandDataDevice *data_device);
+
+void meta_wayland_data_device_set_focus (MetaWaylandDataDevice *data_device,
+                                         MetaWaylandSurface    *surface);
+
+MetaWaylandDragGrab *
+     meta_wayland_data_device_get_current_grab   (MetaWaylandDataDevice *data_device);
+
+void meta_wayland_data_device_set_dnd_source     (MetaWaylandDataDevice *data_device,
+                                                  MetaWaylandDataSource *source);
+void meta_wayland_data_device_set_selection      (MetaWaylandDataDevice *data_device,
+                                                  MetaWaylandDataSource *source,
+                                                  uint32_t serial);
+
+const MetaWaylandDragDestFuncs *
+         meta_wayland_data_device_get_drag_dest_funcs (void);
+
+void meta_wayland_data_device_start_drag (MetaWaylandDataDevice           *data_device,
+                                          struct wl_client                *client,
+                                          const MetaWaylandEventInterface *event_iface,
+                                          MetaWaylandSurface              *surface,
+                                          MetaWaylandDataSource           *source,
+                                          MetaWaylandSurface              *icon_surface,
+                                          ClutterSprite                   *sprite,
+                                          graphene_point_t                 drag_start);
+
+void     meta_wayland_data_device_end_drag       (MetaWaylandDataDevice                 *data_device);
+
+MetaWaylandToplevelDrag *
+meta_wayland_data_device_get_toplevel_drag (MetaWaylandDataDevice *data_device);
+
+void     meta_wayland_drag_grab_set_focus        (MetaWaylandDragGrab             *drag_grab,
+                                                  MetaWaylandSurface              *surface);
+MetaWaylandSurface *
+         meta_wayland_drag_grab_get_focus        (MetaWaylandDragGrab             *drag_grab);
+
+MetaWaylandSeat * meta_wayland_drag_grab_get_seat (MetaWaylandDragGrab *drag_grab);
+
+ClutterSprite * meta_wayland_drag_grab_get_sprite (MetaWaylandDragGrab *drag_grab);
+
+MetaWaylandSurface * meta_wayland_drag_grab_get_origin (MetaWaylandDragGrab *drag_grab);
+
+MetaWaylandDataSource *
+meta_wayland_drag_grab_get_data_source (MetaWaylandDragGrab *drag_grab);

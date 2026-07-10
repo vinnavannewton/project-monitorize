@@ -48,12 +48,18 @@ def _physical_contains_virtual_marker(entry):
     )
 
 
-def gnome_virtual_monitor_edid_from_state(state):
+def gnome_virtual_monitor_edid_from_state(state, output_name=None):
     try:
         _serial, physical, _logical, _props = state
     except (TypeError, ValueError):
         return None
     for monitor in physical:
+        try:
+            connector = str(monitor[0][0])
+        except (TypeError, ValueError, IndexError):
+            continue
+        if output_name and connector != str(output_name):
+            continue
         if not _physical_contains_virtual_marker(monitor):
             continue
         try:
@@ -63,6 +69,25 @@ def gnome_virtual_monitor_edid_from_state(state):
         edid = tuple(str(value) for value in (vendor, product, serial))
         if all(edid):
             return edid
+    return None
+
+
+def gnome_monitor_edid_from_state(state, output_name):
+    """Find one physical or virtual GNOME output by its exact connector."""
+    if not output_name:
+        return None
+    try:
+        _serial, physical, _logical, _props = state
+    except (TypeError, ValueError):
+        return None
+    for monitor in physical:
+        try:
+            connector, vendor, product, serial = monitor[0]
+        except (TypeError, ValueError, IndexError):
+            continue
+        if str(connector) == str(output_name):
+            edid = tuple(str(value) for value in (vendor, product, serial))
+            return edid if all(edid) else None
     return None
 
 
@@ -168,13 +193,29 @@ def headless_output(outputs):
     ), None)
 
 
-def kde_virtual_output(outputs):
+def kde_virtual_output(outputs, output_name=None):
+    expected = output_name or os.environ.get("MONITORIZE_OUTPUT", "")
     exact = next(
-        (item for item in outputs if item.get("name") == "Virtual-TabletDisplay"),
+        (
+            item for item in outputs
+            if item.get("name") == expected and item.get("enabled", True)
+        ),
         None,
-    )
+    ) if expected else None
     if exact:
         return exact
+    for legacy_name in (
+        "Virtual-Monitorize-1", "Virtual-monitorize-primary", "Virtual-TabletDisplay",
+    ):
+        exact = next(
+            (
+                item for item in outputs
+                if item.get("name") == legacy_name and item.get("enabled", True)
+            ),
+            None,
+        )
+        if exact:
+            return exact
     return next(
         (
             item for item in outputs
@@ -208,17 +249,7 @@ class Geometry:
 
     def rotation(self):
         if self.de == "kde":
-            outputs = json_command(["kscreen-doctor", "-j"]).get("outputs", [])
-            output = kde_virtual_output(outputs)
-            value = output.get("rotation", 1) if output else 1
-            key = str(value).strip().lower()
-            rotations = {
-                "1": 0, "2": 270, "4": 180, "8": 90,
-                "none": 0, "left": 270, "inverted": 180, "right": 90,
-            }
-            if key not in rotations:
-                log.warning("Unknown KDE output rotation %r; using 0 degrees", value)
-            return rotations.get(key, 0)
+            return 0
         return 0
 
     def _fallback_rect(self):
@@ -231,10 +262,12 @@ class Geometry:
     def _rect_kde(self):
         try:
             outputs = json_command(["kscreen-doctor", "-j"]).get("outputs", [])
-            target = kde_virtual_output(outputs)
+            target = kde_virtual_output(
+                outputs, os.environ.get("MONITORIZE_OUTPUT", "")
+            )
             if (
                 target is None
-                and os.environ.get("MONITORIZE_PORTAL_SOURCE_TYPE") != "4"
+                and not os.environ.get("MONITORIZE_KDE_VIRTUAL_SLOT")
             ):
                 target = next(
                     (item for item in outputs if item.get("primary") or item.get("enabled")),
@@ -283,9 +316,12 @@ class Geometry:
     def _rect_gnome(self):
         try:
             _serial, physical, logical, _props = self._mutter_state()
+            expected = os.environ.get("MONITORIZE_OUTPUT", "")
             for monitor in physical:
                 connector = str(monitor[0][0])
-                if not any(name in connector.lower() for name in ("virtual", "meta")):
+                if expected and connector != expected:
+                    continue
+                if not expected and not any(name in connector.lower() for name in ("virtual", "meta")):
                     continue
                 mode = next((mode for mode in monitor[1] if mode[6].get("is-current")), monitor[1][0])
                 for layout in logical:
@@ -310,9 +346,13 @@ class Geometry:
         self._gnome_devices_mapped = False
         deadline = time.monotonic() + timeout
         last_error = None
+        expected = os.environ.get("MONITORIZE_OUTPUT", "")
         edid_from_state = (
-            gnome_primary_monitor_edid_from_state
-            if self.gnome_primary else gnome_virtual_monitor_edid_from_state
+            (lambda state: gnome_monitor_edid_from_state(state, expected))
+            if expected else (
+                gnome_primary_monitor_edid_from_state
+                if self.gnome_primary else gnome_virtual_monitor_edid_from_state
+            )
         )
         while time.monotonic() < deadline:
             try:
@@ -360,7 +400,7 @@ class Geometry:
 
     def uinput_bounds(self):
         rx, ry, rw, rh = self.virtual_rect()
-        if self.de == "gnome" and self._gnome_devices_mapped:
+        if self.de == "kde" or (self.de == "gnome" and self._gnome_devices_mapped):
             return int(round(rw)), int(round(rh)), 0.0, 0.0, rw, rh
         bounds = self.desktop_bounds()
         if bounds:
@@ -412,7 +452,7 @@ class Geometry:
         target_output = (
             os.environ.get("MONITORIZE_OUTPUT")
             or (kde_virtual_output(json_command(["kscreen-doctor", "-j"]).get("outputs", [])) or {}).get("name")
-            or "Virtual-TabletDisplay"
+            or "Virtual-Monitorize-1"
         )
         try:
             import dbus

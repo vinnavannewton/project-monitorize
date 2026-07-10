@@ -1,0 +1,1301 @@
+/*
+    KWin - the KDE window manager
+    This file is part of the KDE project.
+
+    SPDX-FileCopyrightText: 2019 Vlad Zahorodnii <vlad.zahorodnii@kde.org>
+
+    SPDX-License-Identifier: GPL-2.0-or-later
+*/
+#include "kwin_wayland_test.h"
+
+#include "core/output.h"
+#include "effect/effecthandler.h"
+#include "input_event.h"
+#include "input_event_spy.h"
+#include "pointer_input.h"
+#include "wayland_server.h"
+#include "window.h"
+#include "workspace.h"
+#include "xdgactivationv1.h"
+
+#include <KWayland/Client/seat.h>
+#include <KWayland/Client/surface.h>
+#include <linux/input.h>
+
+#if KWIN_BUILD_X11
+#include "x11window.h"
+
+#include <netwm.h>
+#include <xcb/xcb_icccm.h>
+#endif
+
+namespace KWin
+{
+
+class ActivationTest : public QObject
+{
+    Q_OBJECT
+
+private Q_SLOTS:
+    void initTestCase();
+    void init();
+    void cleanup();
+
+    void testSwitchToWindowToLeft();
+    void testSwitchToWindowToRight();
+    void testSwitchToWindowAbove();
+    void testSwitchToWindowBelow();
+    void testSwitchToWindowMaximized();
+    void testSwitchToWindowFullScreen();
+    void testActiveFullscreen();
+    void testXdgActivation();
+    void testNoDemandAttentionWithoutActivationRequest();
+    void testXdgActivationBeforeInitialCommit();
+    void testXdgActivationBeforeMap();
+    void testTrueStartupNotify();
+    void testFalseStartupNotify();
+    void testStartupNotifyDifferentActivatedAppId();
+    void testGlobalShortcutActivation();
+    void testFocusMovesFromClosedDialogToParentWindow();
+    void testFullAreaLayerSurfaceUnderlay_data();
+    void testFullAreaLayerSurfaceUnderlay();
+    void testFullAreaLayerSurfaceOverlay_data();
+    void testFullAreaLayerSurfaceOverlay();
+    void testPartialAreaLayerSurfaceOverlay_data();
+    void testPartialAreaLayerSurfaceOverlay();
+
+private:
+    void stackScreensHorizontally();
+    void stackScreensVertically();
+};
+
+void ActivationTest::initTestCase()
+{
+    qRegisterMetaType<Window *>();
+
+    QVERIFY(waylandServer()->init(qAppName()));
+    kwinApp()->start();
+    Test::setOutputConfig({
+        Rect(0, 0, 1280, 1024),
+        Rect(1280, 0, 1280, 1024),
+    });
+    const auto outputs = workspace()->outputs();
+    QCOMPARE(outputs.count(), 2);
+    QCOMPARE(outputs[0]->geometry(), Rect(0, 0, 1280, 1024));
+    QCOMPARE(outputs[1]->geometry(), Rect(1280, 0, 1280, 1024));
+}
+
+void ActivationTest::init()
+{
+    options->setFocusStealingPreventionLevel(FocusStealingPreventionLevel::Low);
+
+    QVERIFY(Test::setupWaylandConnection(Test::AdditionalWaylandInterface::XdgActivation | Test::AdditionalWaylandInterface::Seat | Test::AdditionalWaylandInterface::LayerShellV1));
+
+    workspace()->setActiveOutput(QPoint(640, 512));
+    input()->pointer()->warp(QPoint(640, 512));
+}
+
+void ActivationTest::cleanup()
+{
+    Test::destroyWaylandConnection();
+
+    stackScreensHorizontally();
+}
+
+void ActivationTest::testSwitchToWindowToLeft()
+{
+    // This test verifies that "Switch to Window to the Left" shortcut works.
+
+    // Prepare the test environment.
+    stackScreensHorizontally();
+
+    // Create several windows on the left screen.
+    Test::XdgToplevelWindow window1;
+    QVERIFY(window1.show());
+    QVERIFY(window1.m_window->isActive());
+
+    Test::XdgToplevelWindow window2;
+    QVERIFY(window2.show());
+    QVERIFY(window2.m_window->isActive());
+
+    window1.m_window->move(QPoint(300, 200));
+    window2.m_window->move(QPoint(500, 200));
+
+    // Create several windows on the right screen.
+    Test::XdgToplevelWindow window3;
+    QVERIFY(window3.show());
+    QVERIFY(window3.m_window->isActive());
+
+    Test::XdgToplevelWindow window4;
+    QVERIFY(window4.show());
+    QVERIFY(window4.m_window->isActive());
+
+    window3.m_window->move(QPoint(1380, 200));
+    window4.m_window->move(QPoint(1580, 200));
+
+    // Switch to window to the left.
+    workspace()->switchWindow(Workspace::DirectionWest);
+    QVERIFY(window3.m_window->isActive());
+
+    // Switch to window to the left.
+    workspace()->switchWindow(Workspace::DirectionWest);
+    QVERIFY(window2.m_window->isActive());
+
+    // Switch to window to the left.
+    workspace()->switchWindow(Workspace::DirectionWest);
+    QVERIFY(window1.m_window->isActive());
+
+    // Switch to window to the left.
+    workspace()->switchWindow(Workspace::DirectionWest);
+    QVERIFY(window4.m_window->isActive());
+}
+
+void ActivationTest::testSwitchToWindowToRight()
+{
+    // This test verifies that "Switch to Window to the Right" shortcut works.
+
+    // Prepare the test environment.
+    stackScreensHorizontally();
+
+    // Create several windows on the left screen.
+    Test::XdgToplevelWindow window1;
+    QVERIFY(window1.show());
+    QVERIFY(window1.m_window->isActive());
+
+    Test::XdgToplevelWindow window2;
+    QVERIFY(window2.show());
+    QVERIFY(window2.m_window->isActive());
+
+    window1.m_window->move(QPoint(300, 200));
+    window2.m_window->move(QPoint(500, 200));
+
+    // Create several windows on the right screen.
+    Test::XdgToplevelWindow window3;
+    QVERIFY(window3.show());
+    QVERIFY(window3.m_window->isActive());
+
+    Test::XdgToplevelWindow window4;
+    QVERIFY(window4.show());
+    QVERIFY(window4.m_window->isActive());
+
+    window3.m_window->move(QPoint(1380, 200));
+    window4.m_window->move(QPoint(1580, 200));
+
+    // Switch to window to the right.
+    workspace()->switchWindow(Workspace::DirectionEast);
+    QVERIFY(window1.m_window->isActive());
+
+    // Switch to window to the right.
+    workspace()->switchWindow(Workspace::DirectionEast);
+    QVERIFY(window2.m_window->isActive());
+
+    // Switch to window to the right.
+    workspace()->switchWindow(Workspace::DirectionEast);
+    QVERIFY(window3.m_window->isActive());
+
+    // Switch to window to the right.
+    workspace()->switchWindow(Workspace::DirectionEast);
+    QVERIFY(window4.m_window->isActive());
+}
+
+void ActivationTest::testSwitchToWindowAbove()
+{
+    // This test verifies that "Switch to Window Above" shortcut works.
+
+    // Prepare the test environment.
+    stackScreensVertically();
+
+    // Create several windows on the top screen.
+    Test::XdgToplevelWindow window1;
+    QVERIFY(window1.show());
+    QVERIFY(window1.m_window->isActive());
+
+    Test::XdgToplevelWindow window2;
+    QVERIFY(window2.show());
+    QVERIFY(window2.m_window->isActive());
+
+    window1.m_window->move(QPoint(200, 300));
+    window2.m_window->move(QPoint(200, 500));
+
+    // Create several windows on the bottom screen.
+    Test::XdgToplevelWindow window3;
+    QVERIFY(window3.show());
+    QVERIFY(window3.m_window->isActive());
+
+    Test::XdgToplevelWindow window4;
+    QVERIFY(window4.show());
+    QVERIFY(window4.m_window->isActive());
+
+    window3.m_window->move(QPoint(200, 1224));
+    window4.m_window->move(QPoint(200, 1424));
+
+    // Switch to window above.
+    workspace()->switchWindow(Workspace::DirectionNorth);
+    QVERIFY(window3.m_window->isActive());
+
+    // Switch to window above.
+    workspace()->switchWindow(Workspace::DirectionNorth);
+    QVERIFY(window2.m_window->isActive());
+
+    // Switch to window above.
+    workspace()->switchWindow(Workspace::DirectionNorth);
+    QVERIFY(window1.m_window->isActive());
+
+    // Switch to window above.
+    workspace()->switchWindow(Workspace::DirectionNorth);
+    QVERIFY(window4.m_window->isActive());
+}
+
+void ActivationTest::testSwitchToWindowBelow()
+{
+    // This test verifies that "Switch to Window Bottom" shortcut works.
+
+    // Prepare the test environment.
+    stackScreensVertically();
+
+    // Create several windows on the top screen.
+    Test::XdgToplevelWindow window1;
+    QVERIFY(window1.show());
+    QVERIFY(window1.m_window->isActive());
+
+    Test::XdgToplevelWindow window2;
+    QVERIFY(window2.show());
+    QVERIFY(window2.m_window->isActive());
+
+    window1.m_window->move(QPoint(200, 300));
+    window2.m_window->move(QPoint(200, 500));
+
+    // Create several windows on the bottom screen.
+    Test::XdgToplevelWindow window3;
+    QVERIFY(window3.show());
+    QVERIFY(window3.m_window->isActive());
+
+    Test::XdgToplevelWindow window4;
+    QVERIFY(window4.show());
+    QVERIFY(window4.m_window->isActive());
+
+    window3.m_window->move(QPoint(200, 1224));
+    window4.m_window->move(QPoint(200, 1424));
+
+    // Switch to window below.
+    workspace()->switchWindow(Workspace::DirectionSouth);
+    QVERIFY(window1.m_window->isActive());
+
+    // Switch to window below.
+    workspace()->switchWindow(Workspace::DirectionSouth);
+    QVERIFY(window2.m_window->isActive());
+
+    // Switch to window below.
+    workspace()->switchWindow(Workspace::DirectionSouth);
+    QVERIFY(window3.m_window->isActive());
+
+    // Switch to window below.
+    workspace()->switchWindow(Workspace::DirectionSouth);
+    QVERIFY(window4.m_window->isActive());
+}
+
+void ActivationTest::testSwitchToWindowMaximized()
+{
+    // This test verifies that we switch to the top-most maximized window, i.e.
+    // the one that user sees at the moment. See bug 411356.
+
+    // Prepare the test environment.
+    stackScreensHorizontally();
+
+    // Create several maximized windows on the left screen.
+    Test::XdgToplevelWindow window1;
+    QVERIFY(window1.show());
+    QVERIFY(window1.m_window->isActive());
+    QVERIFY(window1.waitSurfaceConfigure());
+    workspace()->slotWindowMaximize();
+    QVERIFY(window1.handleConfigure(Qt::red));
+
+    Test::XdgToplevelWindow window2;
+    QVERIFY(window2.show());
+    QVERIFY(window2.m_window->isActive());
+    QVERIFY(window2.waitSurfaceConfigure());
+    workspace()->slotWindowMaximize();
+    QVERIFY(window2.handleConfigure(Qt::red));
+
+    const QList<Window *> stackingOrder = workspace()->stackingOrder();
+    QVERIFY(stackingOrder.indexOf(window1.m_window) < stackingOrder.indexOf(window2.m_window));
+    QCOMPARE(window1.m_window->maximizeMode(), MaximizeFull);
+    QCOMPARE(window2.m_window->maximizeMode(), MaximizeFull);
+
+    // Create several windows on the right screen.
+    Test::XdgToplevelWindow window3;
+    QVERIFY(window3.show());
+    QVERIFY(window3.m_window->isActive());
+
+    Test::XdgToplevelWindow window4;
+    QVERIFY(window4.show());
+    QVERIFY(window4.m_window->isActive());
+
+    window3.m_window->move(QPoint(1380, 200));
+    window4.m_window->move(QPoint(1580, 200));
+
+    // Switch to window to the left.
+    workspace()->switchWindow(Workspace::DirectionWest);
+    QVERIFY(window3.m_window->isActive());
+
+    // Switch to window to the left.
+    workspace()->switchWindow(Workspace::DirectionWest);
+    QVERIFY(window2.m_window->isActive());
+
+    // Switch to window to the left.
+    workspace()->switchWindow(Workspace::DirectionWest);
+    QVERIFY(window4.m_window->isActive());
+}
+
+void ActivationTest::testSwitchToWindowFullScreen()
+{
+    // This test verifies that we switch to the top-most fullscreen window, i.e.
+    // the one that user sees at the moment. See bug 411356.
+
+    // Prepare the test environment.
+    stackScreensVertically();
+
+    // Create several maximized windows on the top screen.
+    Test::XdgToplevelWindow window1;
+    QVERIFY(window1.show());
+    QVERIFY(window1.m_window->isActive());
+    QVERIFY(window1.waitSurfaceConfigure());
+    workspace()->slotWindowFullScreen();
+    QVERIFY(window1.handleConfigure(Qt::red));
+
+    Test::XdgToplevelWindow window2;
+    QVERIFY(window2.show());
+    QVERIFY(window2.m_window->isActive());
+    QVERIFY(window2.waitSurfaceConfigure());
+    workspace()->slotWindowFullScreen();
+    QVERIFY(window2.handleConfigure());
+
+    const QList<Window *> stackingOrder = workspace()->stackingOrder();
+    QVERIFY(stackingOrder.indexOf(window1.m_window) < stackingOrder.indexOf(window2.m_window));
+    QVERIFY(window1.m_window->isFullScreen());
+    QVERIFY(window2.m_window->isFullScreen());
+
+    // Create several windows on the bottom screen.
+    Test::XdgToplevelWindow window3;
+    QVERIFY(window3.show());
+    QVERIFY(window3.m_window->isActive());
+
+    Test::XdgToplevelWindow window4;
+    QVERIFY(window4.show());
+    QVERIFY(window4.m_window->isActive());
+
+    window3.m_window->move(QPoint(200, 1224));
+    window4.m_window->move(QPoint(200, 1424));
+
+    // Switch to window above.
+    workspace()->switchWindow(Workspace::DirectionNorth);
+    QVERIFY(window3.m_window->isActive());
+
+    // Switch to window above.
+    workspace()->switchWindow(Workspace::DirectionNorth);
+    QVERIFY(window2.m_window->isActive());
+
+    // Switch to window above.
+    workspace()->switchWindow(Workspace::DirectionNorth);
+    QVERIFY(window4.m_window->isActive());
+}
+
+void ActivationTest::stackScreensHorizontally()
+{
+    // Process pending wl_output bind requests before destroying all outputs.
+    QTest::qWait(1);
+
+    const QList<Rect> screenGeometries{
+        Rect(0, 0, 1280, 1024),
+        Rect(1280, 0, 1280, 1024),
+    };
+    Test::setOutputConfig(screenGeometries);
+}
+
+void ActivationTest::stackScreensVertically()
+{
+    // Process pending wl_output bind requests before destroying all outputs.
+    QTest::qWait(1);
+
+    const QList<Rect> screenGeometries{
+        Rect(0, 0, 1280, 1024),
+        Rect(0, 1024, 1280, 1024),
+    };
+    Test::setOutputConfig(screenGeometries);
+}
+
+#if KWIN_BUILD_X11
+static X11Window *createX11Window(xcb_connection_t *connection, const Rect &geometry, std::function<void(xcb_window_t)> setup = {})
+{
+    xcb_window_t windowId = xcb_generate_id(connection);
+    xcb_create_window(connection, XCB_COPY_FROM_PARENT, windowId, rootWindow(),
+                      geometry.x(),
+                      geometry.y(),
+                      geometry.width(),
+                      geometry.height(),
+                      0, XCB_WINDOW_CLASS_INPUT_OUTPUT, XCB_COPY_FROM_PARENT, 0, nullptr);
+
+    xcb_size_hints_t hints{};
+    xcb_icccm_size_hints_set_position(&hints, 1, geometry.x(), geometry.y());
+    xcb_icccm_size_hints_set_size(&hints, 1, geometry.width(), geometry.height());
+    xcb_icccm_set_wm_normal_hints(connection, windowId, &hints);
+
+    if (setup) {
+        setup(windowId);
+    }
+
+    xcb_map_window(connection, windowId);
+    xcb_flush(connection);
+
+    QSignalSpy windowCreatedSpy(workspace(), &Workspace::windowAdded);
+    if (!windowCreatedSpy.wait()) {
+        return nullptr;
+    }
+    return windowCreatedSpy.last().first().value<X11Window *>();
+}
+#endif
+
+void ActivationTest::testActiveFullscreen()
+{
+#if KWIN_BUILD_X11
+    // Tests that an active X11 fullscreen window gets removed from the active layer
+    // when activating a Wayland window, even if there's a pending activation request
+    // for the X11 window
+    Test::setOutputConfig({Rect(0, 0, 1280, 1024)});
+
+    Test::XcbConnectionPtr c = Test::createX11Connection();
+    QVERIFY(!xcb_connection_has_error(c.get()));
+    X11Window *x11Window = createX11Window(c.get(), Rect(0, 0, 100, 200));
+
+    // make it fullscreen
+    x11Window->setFullScreen(true);
+    QVERIFY(x11Window->isFullScreen());
+    QCOMPARE(x11Window->layer(), Layer::ActiveLayer);
+
+    // now, activate it again
+    workspace()->activateWindow(x11Window);
+
+    // now, create and activate a Wayland window
+    Test::XdgToplevelWindow waylandWindow;
+    QVERIFY(waylandWindow.show());
+
+    // the Wayland window should become active
+    // and the X11 window should not be in the active layer anymore
+    QSignalSpy stackingOrder(workspace(), &Workspace::stackingOrderChanged);
+    workspace()->activateWindow(waylandWindow.m_window);
+    QCOMPARE(workspace()->activeWindow(), waylandWindow.m_window);
+    QCOMPARE(x11Window->layer(), Layer::NormalLayer);
+#endif
+}
+
+static std::vector<std::unique_ptr<Test::XdgToplevelWindow>> setupWindows(uint32_t &time)
+{
+    // re-create the same setup every time for reduced confusion
+    std::vector<std::unique_ptr<Test::XdgToplevelWindow>> ret;
+    for (int i = 0; i < 3; i++) {
+        auto window = std::make_unique<Test::XdgToplevelWindow>();
+        window->show();
+        window->m_window->move(QPoint(150 * i, 0));
+        workspace()->activateWindow(window->m_window);
+
+        Test::pointerMotion(window->m_window->frameGeometry().center(), time++);
+        Test::pointerButtonPressed(1, time++);
+        Test::pointerButtonReleased(1, time++);
+        ret.push_back(std::move(window));
+    }
+    return ret;
+}
+
+void ActivationTest::testXdgActivation()
+{
+    Test::setOutputConfig({Rect(0, 0, 1280, 1024)});
+
+    uint32_t time = 0;
+
+    auto windows = setupWindows(time);
+
+    QSignalSpy activationSpy(workspace(), &Workspace::windowActivated);
+
+    // activating a window without a valid token should fail
+    Test::xdgActivation()->activate(QString(), *windows[1]->m_surface);
+    QVERIFY(!activationSpy.wait(10));
+
+    // using the surface and a correct serial should make it work
+    auto token = Test::xdgActivation()->createToken();
+    token->set_surface(*windows.back()->m_surface);
+    token->set_serial(windows.back()->m_window->lastUsageSerial(), Test::kwinSeat()->object());
+    Test::xdgActivation()->activate(token->commitAndWait(), *windows[1]->m_surface);
+    QVERIFY(activationSpy.wait());
+    QCOMPARE(workspace()->activeWindow(), windows[1]->m_window);
+
+    // it should even work without the surface, if the serial is correct
+    windows = setupWindows(time);
+    token = Test::xdgActivation()->createToken();
+    token->set_serial(windows.back()->m_window->lastUsageSerial(), Test::kwinSeat()->object());
+    Test::xdgActivation()->activate(token->commitAndWait(), *windows[1]->m_surface);
+    QVERIFY(activationSpy.wait(10));
+    QCOMPARE(workspace()->activeWindow(), windows[1]->m_window);
+
+    // activation should still work if the window is closed after creating the token
+    windows = setupWindows(time);
+    token = Test::xdgActivation()->createToken();
+    token->set_surface(*windows[2]->m_surface);
+    token->set_serial(windows[2]->m_window->lastUsageSerial(), Test::kwinSeat()->object());
+    QString result = token->commitAndWait();
+
+    windows[2]->unmap();
+    QVERIFY(activationSpy.wait(10));
+    QCOMPARE(workspace()->activeWindow(), windows[1]->m_window);
+
+    Test::xdgActivation()->activate(result, *windows[0]->m_surface);
+    QVERIFY(activationSpy.wait(10));
+    QCOMPARE(workspace()->activeWindow(), windows[0]->m_window);
+
+    // ...unless the user interacted with another window in between
+    windows = setupWindows(time);
+    token = Test::xdgActivation()->createToken();
+    token->set_surface(*windows[2]->m_surface);
+    token->set_serial(windows[2]->m_window->lastUsageSerial(), Test::kwinSeat()->object());
+    result = token->commitAndWait();
+
+    windows[2]->unmap();
+    QVERIFY(activationSpy.wait(10));
+    QCOMPARE(workspace()->activeWindow(), windows[1]->m_window);
+
+    Test::pointerMotion(windows[1]->m_window->frameGeometry().center(), time++);
+    Test::pointerButtonPressed(1, time++);
+    Test::pointerButtonReleased(1, time++);
+
+    Test::xdgActivation()->activate(result, *windows[0]->m_surface);
+    QVERIFY(!activationSpy.wait(10));
+    QCOMPARE(workspace()->activeWindow(), windows[1]->m_window);
+
+    // ensure that windows are only activated on show with a valid activation token
+    options->setFocusStealingPreventionLevel(FocusStealingPreventionLevel::Extreme);
+
+    // creating a new window and immediately activating it should work
+    windows.clear();
+    windows = setupWindows(time);
+    token = Test::xdgActivation()->createToken();
+    token->set_surface(*windows[2]->m_surface);
+    token->set_serial(windows[2]->m_window->lastUsageSerial(), Test::kwinSeat()->object());
+    result = token->commitAndWait();
+    {
+        Test::XdgToplevelWindow window{[&result](KWayland::Client::Surface *surface, Test::XdgToplevel *toplevel) {
+            Test::xdgActivation()->activate(result, *surface);
+        }};
+        QVERIFY(window.show());
+        QCOMPARE(workspace()->activeWindow(), window.m_window);
+    }
+
+    // activation should fail if the user clicks on another window in between
+    // creating the activation token and using it
+    windows = setupWindows(time);
+    token = Test::xdgActivation()->createToken();
+    token->set_surface(*windows[2]->m_surface);
+    token->set_serial(windows[2]->m_window->lastUsageSerial(), Test::kwinSeat()->object());
+    result = token->commitAndWait();
+
+    Test::pointerMotion(windows[1]->m_window->frameGeometry().center(), time++);
+    Test::pointerButtonPressed(1, time++);
+    Test::pointerButtonReleased(1, time++);
+
+    {
+        Test::XdgToplevelWindow window{[&result](KWayland::Client::Surface *surface, Test::XdgToplevel *toplevel) {
+            Test::xdgActivation()->activate(result, *surface);
+        }};
+        QVERIFY(window.show());
+        QCOMPARE(workspace()->activeWindow(), windows[1]->m_window);
+        // if activation of a new window is not granted, it should be stacked behind the active window
+        QCOMPARE_LT(window.m_window->stackingOrder(), workspace()->activeWindow()->stackingOrder());
+    }
+
+    // same for pointer input on the currently focused window
+    windows = setupWindows(time);
+    token = Test::xdgActivation()->createToken();
+    token->set_surface(*windows[2]->m_surface);
+    token->set_serial(windows[2]->m_window->lastUsageSerial(), Test::kwinSeat()->object());
+    result = token->commitAndWait();
+
+    Test::pointerMotion(windows[2]->m_window->frameGeometry().center(), time++);
+    Test::pointerButtonPressed(1, time++);
+    Test::pointerButtonReleased(1, time++);
+
+    {
+        Test::XdgToplevelWindow window{[&result](KWayland::Client::Surface *surface, Test::XdgToplevel *toplevel) {
+            Test::xdgActivation()->activate(result, *surface);
+        }};
+        QVERIFY(window.show());
+        QCOMPARE(workspace()->activeWindow(), windows[2]->m_window);
+        QCOMPARE_LT(window.m_window->stackingOrder(), workspace()->activeWindow()->stackingOrder());
+    }
+
+    // same for keyboard input on the currently focused window
+    windows = setupWindows(time);
+    token = Test::xdgActivation()->createToken();
+    token->set_surface(*windows[2]->m_surface);
+    token->set_serial(windows[2]->m_window->lastUsageSerial(), Test::kwinSeat()->object());
+    result = token->commitAndWait();
+
+    Test::keyboardKeyPressed(KEY_A, time++);
+    Test::keyboardKeyReleased(KEY_A, time++);
+
+    {
+        Test::XdgToplevelWindow window{[&result](KWayland::Client::Surface *surface, Test::XdgToplevel *toplevel) {
+            Test::xdgActivation()->activate(result, *surface);
+        }};
+        QVERIFY(window.show());
+        QCOMPARE(workspace()->activeWindow(), windows[2]->m_window);
+        // if activation of a new window is not granted, it should be stacked behind the active window
+        QCOMPARE_LT(window.m_window->stackingOrder(), workspace()->activeWindow()->stackingOrder());
+    }
+
+    // but modifier keys must not interfere in activation
+    windows = setupWindows(time);
+    token = Test::xdgActivation()->createToken();
+    token->set_surface(*windows[2]->m_surface);
+    token->set_serial(windows[2]->m_window->lastUsageSerial(), Test::kwinSeat()->object());
+    result = token->commitAndWait();
+
+    Test::keyboardKeyPressed(KEY_LEFTSHIFT, time++);
+    Test::keyboardKeyReleased(KEY_LEFTSHIFT, time++);
+
+    {
+        Test::XdgToplevelWindow window{[&result](KWayland::Client::Surface *surface, Test::XdgToplevel *toplevel) {
+            Test::xdgActivation()->activate(result, *surface);
+        }};
+        QVERIFY(window.show());
+        QCOMPARE(workspace()->activeWindow(), window.m_window);
+    }
+
+    // a child window of the active one should always be automatically activated,
+    // even without an activation token
+    windows = setupWindows(time);
+    {
+        Test::XdgToplevelWindow window{[&windows](KWayland::Client::Surface *surface, Test::XdgToplevel *toplevel) {
+            toplevel->set_parent(windows[2]->m_toplevel->object());
+        }};
+        QVERIFY(window.show());
+        QCOMPARE(workspace()->activeWindow(), window.m_window);
+    }
+
+    // but a child window of a non-active one should not be automatically activated
+    windows = setupWindows(time);
+    {
+        Test::XdgToplevelWindow window{[&windows](KWayland::Client::Surface *surface, Test::XdgToplevel *toplevel) {
+            toplevel->set_parent(windows[1]->m_toplevel->object());
+        }};
+        QVERIFY(window.show());
+        QCOMPARE_NE(workspace()->activeWindow(), window.m_window);
+    }
+
+    // unless it has a valid activation token
+    windows = setupWindows(time);
+    token = Test::xdgActivation()->createToken();
+    token->set_surface(*windows[2]->m_surface);
+    token->set_serial(windows[2]->m_window->lastUsageSerial(), Test::kwinSeat()->object());
+    result = token->commitAndWait();
+    {
+        Test::XdgToplevelWindow window{[&windows, &result](KWayland::Client::Surface *surface, Test::XdgToplevel *toplevel) {
+            toplevel->set_parent(windows[1]->m_toplevel->object());
+            Test::xdgActivation()->activate(result, *surface);
+        }};
+        QVERIFY(window.show());
+        QCOMPARE(workspace()->activeWindow(), window.m_window);
+    }
+
+    // focus stealing prevention level High is more lax and should activate windows
+    // even with an invalid token if the app id matches the last granted activation token
+    options->setFocusStealingPreventionLevel(FocusStealingPreventionLevel::High);
+    windows = setupWindows(time);
+    windows[1]->m_toplevel->set_app_id("test_app_id");
+    token = Test::xdgActivation()->createToken();
+    token->set_surface(*windows[2]->m_surface);
+    token->set_serial(windows[2]->m_window->lastUsageSerial(), Test::kwinSeat()->object());
+    token->set_app_id("test_app_id");
+    result = token->commitAndWait();
+    Test::xdgActivation()->activate(QString(), *windows[1]->m_surface);
+    QVERIFY(activationSpy.wait());
+    QCOMPARE(workspace()->activeWindow(), windows[1]->m_window);
+
+    // new windows should also be activated if the app id matches,
+    // even if they don't actually request activation
+    windows = setupWindows(time);
+    token = Test::xdgActivation()->createToken();
+    token->set_surface(*windows[2]->m_surface);
+    token->set_serial(windows[2]->m_window->lastUsageSerial(), Test::kwinSeat()->object());
+    token->set_app_id("test_app_id_2");
+    result = token->commitAndWait();
+    {
+        Test::XdgToplevelWindow window{[&result](Test::XdgToplevel *toplevel) {
+            toplevel->set_app_id("test_app_id_2");
+        }};
+        QVERIFY(window.show());
+        QCOMPARE(workspace()->activeWindow(), window.m_window);
+    }
+
+    // with focus stealing prevention level Low, every new window should unconditionally be activated,
+    // even if it doesn't request an activation token at all
+    options->setFocusStealingPreventionLevel(FocusStealingPreventionLevel::Low);
+    windows = setupWindows(time);
+    {
+        Test::XdgToplevelWindow window;
+        QVERIFY(window.show());
+        QCOMPARE(workspace()->activeWindow(), window.m_window);
+    }
+
+    // with focus stealing prevention disabled, every activation token is considered "valid"
+    options->setFocusStealingPreventionLevel(FocusStealingPreventionLevel::None);
+    windows = setupWindows(time);
+    Test::xdgActivation()->activate(QString(), *windows[1]->m_surface);
+    QVERIFY(activationSpy.wait());
+    QCOMPARE(workspace()->activeWindow(), windows[1]->m_window);
+}
+
+void ActivationTest::testNoDemandAttentionWithoutActivationRequest()
+{
+    // This test verifies that the demand attention state will not be set if kwin doesn't want a
+    // window to be activated and the client hasn't made an explicit activation request.
+
+    options->setFocusStealingPreventionLevel(FocusStealingPreventionLevel::High);
+
+    // Show a window
+    auto gooseWindow = std::make_unique<Test::XdgToplevelWindow>([](Test::XdgToplevel *toplevel) {
+        toplevel->set_app_id("org.kde.goose");
+    });
+    gooseWindow->show();
+    QVERIFY(gooseWindow->m_window->isActive());
+    QVERIFY(!gooseWindow->m_window->isDemandingAttention());
+
+    // Show another window.
+    auto wolfWindow = std::make_unique<Test::XdgToplevelWindow>([](Test::XdgToplevel *toplevel) {
+        toplevel->set_app_id("org.kde.wolf");
+    });
+    wolfWindow->show();
+    QVERIFY(!wolfWindow->m_window->isActive());
+    QVERIFY(!wolfWindow->m_window->isDemandingAttention());
+}
+
+static QString generateActivationToken(const Test::XdgToplevelWindow &window, const QString &appId)
+{
+    std::unique_ptr<Test::XdgActivationToken> token = Test::xdgActivation()->createToken();
+    token->set_surface(*window.m_surface);
+    token->set_serial(window.m_window->lastUsageSerial(), Test::kwinSeat()->object());
+    token->set_app_id(appId);
+    return token->commitAndWait();
+}
+
+void ActivationTest::testXdgActivationBeforeInitialCommit()
+{
+    // This test verifies that activation requests that are made before the initial xdg-toplevel
+    // commit are handled as expected, i.e. that the window will be eventually marked as active and
+    // that the Workspace state is not touched yet.
+
+    options->setFocusStealingPreventionLevel(FocusStealingPreventionLevel::High);
+
+    // Show a window
+    auto gooseWindow = std::make_unique<Test::XdgToplevelWindow>([](Test::XdgToplevel *toplevel) {
+        toplevel->set_app_id("org.kde.goose");
+    });
+    gooseWindow->show();
+    QVERIFY(gooseWindow->m_window->isActive());
+
+    // Click in the middle of the window so there is a proper usage serial.
+    uint32_t time = 0;
+    Test::pointerMotion(gooseWindow->m_window->frameGeometry().center(), time++);
+    Test::pointerButtonPressed(BTN_LEFT, time++);
+    Test::pointerButtonReleased(BTN_LEFT, time++);
+
+    const QString invalidActivationToken = QStringLiteral("duckity duck");
+    const QString activationToken = generateActivationToken(*gooseWindow, QStringLiteral("org.kde.wolf"));
+
+    {
+        std::unique_ptr<KWayland::Client::Surface> duckSurface(Test::createSurface());
+        std::unique_ptr<Test::XdgToplevel> duckShellSurface(Test::createXdgToplevelSurface(duckSurface.get(), Test::CreationSetup::CreateOnly));
+        QSignalSpy toplevelConfigureRequestedSpy(duckShellSurface.get(), &Test::XdgToplevel::configureRequested);
+        QSignalSpy surfaceConfigureRequestedSpy(duckShellSurface->xdgSurface(), &Test::XdgSurface::configureRequested);
+
+        // Wait for the compositor side window to be created.
+        QSignalSpy windowCreatedSpy(waylandServer(), &WaylandServer::windowCreated);
+        QVERIFY(windowCreatedSpy.wait());
+        Window *duckWindow = windowCreatedSpy.last().at(0).value<Window *>();
+
+        // Attempt to activate the window, waylandSync() is needed to make sure that the compositor
+        // side has processed the activation request before we check the compositor state.
+        //
+        // The activation token should only be cached, no other activation related state should be set.
+        Test::xdgActivation()->activate(invalidActivationToken, *duckSurface);
+        QVERIFY(Test::waylandSync());
+        QCOMPARE(duckWindow->activationToken(), invalidActivationToken);
+        QVERIFY(!duckWindow->isActive());
+        QVERIFY(!duckWindow->isDemandingAttention());
+        QVERIFY(!workspace()->stackingOrder().contains(duckWindow));
+
+        // Commit the initial state.
+        duckShellSurface->set_app_id(QStringLiteral("org.kde.duck"));
+        duckSurface->commit(KWayland::Client::Surface::CommitFlag::None);
+        QVERIFY(surfaceConfigureRequestedSpy.wait());
+
+        // Map the window.
+        QCOMPARE(toplevelConfigureRequestedSpy.last().at(0).value<QSize>(), QSize(0, 0));
+        duckShellSurface->xdgSurface()->ack_configure(surfaceConfigureRequestedSpy.last().at(0).value<quint32>());
+        Test::renderAndWaitForShown(duckSurface.get(), QSize(800, 600), Qt::blue);
+
+        // The window should not be activate because of the invalid activation token.
+        QVERIFY(!duckWindow->isActive());
+        QVERIFY(duckWindow->isDemandingAttention());
+    }
+
+    {
+        std::unique_ptr<KWayland::Client::Surface> wolfSurface(Test::createSurface());
+        std::unique_ptr<Test::XdgToplevel> wolfShellSurface(Test::createXdgToplevelSurface(wolfSurface.get(), Test::CreationSetup::CreateOnly));
+        QSignalSpy toplevelConfigureRequestedSpy(wolfShellSurface.get(), &Test::XdgToplevel::configureRequested);
+        QSignalSpy surfaceConfigureRequestedSpy(wolfShellSurface->xdgSurface(), &Test::XdgSurface::configureRequested);
+
+        // Wait for the compositor side window to be created.
+        QSignalSpy windowCreatedSpy(waylandServer(), &WaylandServer::windowCreated);
+        QVERIFY(windowCreatedSpy.wait());
+        Window *wolfWindow = windowCreatedSpy.last().at(0).value<Window *>();
+
+        // Attempt to activate the window, waylandSync() is needed to make sure that the compositor
+        // side has processed the activation request before we check the compositor state.
+        //
+        // The activation token should only be cached, no other activation related state should be set.
+        Test::xdgActivation()->activate(activationToken, *wolfSurface);
+        QVERIFY(Test::waylandSync());
+        QCOMPARE(wolfWindow->activationToken(), activationToken);
+        QVERIFY(!wolfWindow->isActive());
+        QVERIFY(!wolfWindow->isDemandingAttention());
+        QVERIFY(!workspace()->stackingOrder().contains(wolfWindow));
+
+        // Commit the initial state.
+        wolfShellSurface->set_app_id(QStringLiteral("org.kde.wolf"));
+        wolfSurface->commit(KWayland::Client::Surface::CommitFlag::None);
+        QVERIFY(surfaceConfigureRequestedSpy.wait());
+
+        // Map the window.
+        QCOMPARE(toplevelConfigureRequestedSpy.last().at(0).value<QSize>(), QSize(0, 0));
+        wolfShellSurface->xdgSurface()->ack_configure(surfaceConfigureRequestedSpy.last().at(0).value<quint32>());
+        Test::renderAndWaitForShown(wolfSurface.get(), QSize(800, 600), Qt::blue);
+
+        // The window should be activated as expected.
+        QVERIFY(wolfWindow->isActive());
+        QVERIFY(!wolfWindow->isDemandingAttention());
+    }
+}
+
+void ActivationTest::testXdgActivationBeforeMap()
+{
+    // This test verifies that activation requests that are made before the xdg-toplevel surface
+    // is mapped are handled as expected, i.e. that the window will be eventually marked as active
+    // and that the Workspace state is not touched yet.
+
+    options->setFocusStealingPreventionLevel(FocusStealingPreventionLevel::High);
+
+    // Show a window
+    auto gooseWindow = std::make_unique<Test::XdgToplevelWindow>([](Test::XdgToplevel *toplevel) {
+        toplevel->set_app_id("org.kde.goose");
+    });
+    gooseWindow->show();
+    QVERIFY(gooseWindow->m_window->isActive());
+
+    // Click in the middle of the window so there is a proper usage serial.
+    uint32_t time = 0;
+    Test::pointerMotion(gooseWindow->m_window->frameGeometry().center(), time++);
+    Test::pointerButtonPressed(BTN_LEFT, time++);
+    Test::pointerButtonReleased(BTN_LEFT, time++);
+
+    const QString invalidActivationToken = QStringLiteral("duckity duck");
+    const QString activationToken = generateActivationToken(*gooseWindow, QStringLiteral("org.kde.wolf"));
+
+    {
+        std::unique_ptr<KWayland::Client::Surface> duckSurface(Test::createSurface());
+        std::unique_ptr<Test::XdgToplevel> duckShellSurface(Test::createXdgToplevelSurface(duckSurface.get(), Test::CreationSetup::CreateOnly));
+        QSignalSpy toplevelConfigureRequestedSpy(duckShellSurface.get(), &Test::XdgToplevel::configureRequested);
+        QSignalSpy surfaceConfigureRequestedSpy(duckShellSurface->xdgSurface(), &Test::XdgSurface::configureRequested);
+
+        // Wait for the compositor side window to be created.
+        QSignalSpy windowCreatedSpy(waylandServer(), &WaylandServer::windowCreated);
+        QVERIFY(windowCreatedSpy.wait());
+        Window *duckWindow = windowCreatedSpy.last().at(0).value<Window *>();
+
+        // Commit the initial state.
+        duckShellSurface->set_app_id(QStringLiteral("org.kde.duck"));
+        duckSurface->commit(KWayland::Client::Surface::CommitFlag::None);
+        QVERIFY(surfaceConfigureRequestedSpy.wait());
+
+        // Attempt to activate the window, waylandSync() is needed to make sure that the compositor
+        // side has processed the activation request before we check the compositor state.
+        //
+        // The activation token should only be cached, no other activation related state should be set.
+        Test::xdgActivation()->activate(invalidActivationToken, *duckSurface);
+        QVERIFY(Test::waylandSync());
+        QCOMPARE(duckWindow->activationToken(), invalidActivationToken);
+        QVERIFY(!duckWindow->isActive());
+        QVERIFY(!duckWindow->isDemandingAttention());
+        QVERIFY(!workspace()->stackingOrder().contains(duckWindow));
+
+        // Map the window.
+        QCOMPARE(toplevelConfigureRequestedSpy.last().at(0).value<QSize>(), QSize(0, 0));
+        duckShellSurface->xdgSurface()->ack_configure(surfaceConfigureRequestedSpy.last().at(0).value<quint32>());
+        Test::renderAndWaitForShown(duckSurface.get(), QSize(800, 600), Qt::blue);
+
+        // The window should not be activate because of the invalid activation token.
+        QVERIFY(!duckWindow->isActive());
+        QVERIFY(duckWindow->isDemandingAttention());
+    }
+
+    {
+        std::unique_ptr<KWayland::Client::Surface> wolfSurface(Test::createSurface());
+        std::unique_ptr<Test::XdgToplevel> wolfShellSurface(Test::createXdgToplevelSurface(wolfSurface.get(), Test::CreationSetup::CreateOnly));
+        QSignalSpy toplevelConfigureRequestedSpy(wolfShellSurface.get(), &Test::XdgToplevel::configureRequested);
+        QSignalSpy surfaceConfigureRequestedSpy(wolfShellSurface->xdgSurface(), &Test::XdgSurface::configureRequested);
+
+        // Wait for the compositor side window to be created.
+        QSignalSpy windowCreatedSpy(waylandServer(), &WaylandServer::windowCreated);
+        QVERIFY(windowCreatedSpy.wait());
+        Window *wolfWindow = windowCreatedSpy.last().at(0).value<Window *>();
+
+        // Commit the initial state.
+        wolfShellSurface->set_app_id(QStringLiteral("org.kde.wolf"));
+        wolfSurface->commit(KWayland::Client::Surface::CommitFlag::None);
+        QVERIFY(surfaceConfigureRequestedSpy.wait());
+
+        // Attempt to activate the window, waylandSync() is needed to make sure that the compositor
+        // side has processed the activation request before we check the compositor state.
+        //
+        // The activation token should only be cached, no other activation related state should be set.
+        Test::xdgActivation()->activate(activationToken, *wolfSurface);
+        QVERIFY(Test::waylandSync());
+        QCOMPARE(wolfWindow->activationToken(), activationToken);
+        QVERIFY(!wolfWindow->isActive());
+        QVERIFY(!wolfWindow->isDemandingAttention());
+        QVERIFY(!workspace()->stackingOrder().contains(wolfWindow));
+
+        // Map the window.
+        QCOMPARE(toplevelConfigureRequestedSpy.last().at(0).value<QSize>(), QSize(0, 0));
+        wolfShellSurface->xdgSurface()->ack_configure(surfaceConfigureRequestedSpy.last().at(0).value<quint32>());
+        Test::renderAndWaitForShown(wolfSurface.get(), QSize(800, 600), Qt::blue);
+
+        // The window should be activated as expected.
+        QVERIFY(wolfWindow->isActive());
+        QVERIFY(!wolfWindow->isDemandingAttention());
+    }
+}
+
+void ActivationTest::testTrueStartupNotify()
+{
+    // This test verifies that startup notifications are broadcast if the desktop file of a launched
+    // app has explicit StartupNotify=true.
+    //
+    // A startup notification will be announced when the activation token is generated and withdrawn
+    // when that activation token gets consumed.
+
+    QSignalSpy startupAddedSpy(effects, &EffectsHandler::startupAdded);
+    QSignalSpy startupRemovedSpy(effects, &EffectsHandler::startupRemoved);
+
+    // Create the launcher window.
+    auto launcherWindow = std::make_unique<Test::XdgToplevelWindow>([](Test::XdgToplevel *toplevel) {
+        toplevel->set_app_id(QStringLiteral("org.kde.launcher"));
+    });
+    launcherWindow->show();
+    QVERIFY(launcherWindow->m_window->isActive());
+
+    // Generate a token.
+    const QString activationToken = generateActivationToken(*launcherWindow, QFINDTESTDATA("org.kde.foo-with-startup-notify-true.desktop"));
+    QCOMPARE(startupAddedSpy.count(), 1);
+    QCOMPARE(startupAddedSpy.last().at(0).toString(), activationToken);
+    QCOMPARE(startupRemovedSpy.count(), 0);
+
+    // Consume the token.
+    auto launchedWindow = std::make_unique<Test::XdgToplevelWindow>([activationToken](Test::XdgToplevel *toplevel) {
+        toplevel->set_app_id(QFINDTESTDATA("org.kde.foo-with-startup-notify-true.desktop"));
+        Test::xdgActivation()->activate(activationToken, *toplevel->xdgSurface()->surface());
+    });
+    launchedWindow->show();
+    QVERIFY(launchedWindow->m_window->isActive());
+    QCOMPARE(startupAddedSpy.count(), 1);
+    QCOMPARE(startupRemovedSpy.count(), 1);
+    QCOMPARE(startupRemovedSpy.last().at(0).toString(), activationToken);
+}
+
+void ActivationTest::testFalseStartupNotify()
+{
+    // This test verifies that no startup notifications are broadcast if the desktop file of the
+    // launched app has explicit StartupNotify=false.
+    //
+    // Note that if the desktop file has no StartupNotify= at all, then it will be assumed that its
+    // value is true.
+
+    QSignalSpy startupAddedSpy(effects, &EffectsHandler::startupAdded);
+    QSignalSpy startupRemovedSpy(effects, &EffectsHandler::startupRemoved);
+
+    // Create the launcher window.
+    auto launcherWindow = std::make_unique<Test::XdgToplevelWindow>([](Test::XdgToplevel *toplevel) {
+        toplevel->set_app_id(QStringLiteral("org.kde.launcher"));
+    });
+    launcherWindow->show();
+    QVERIFY(launcherWindow->m_window->isActive());
+
+    // Generate a token.
+    const QString activationToken = generateActivationToken(*launcherWindow, QFINDTESTDATA("org.kde.foo-with-startup-notify-false.desktop"));
+    QCOMPARE(startupAddedSpy.count(), 0);
+    QCOMPARE(startupRemovedSpy.count(), 0);
+
+    // Consume the token.
+    auto launchedWindow = std::make_unique<Test::XdgToplevelWindow>([activationToken](Test::XdgToplevel *toplevel) {
+        toplevel->set_app_id(QFINDTESTDATA("org.kde.foo-with-startup-notify-false.desktop"));
+        Test::xdgActivation()->activate(activationToken, *toplevel->xdgSurface()->surface());
+    });
+    launchedWindow->show();
+    QVERIFY(launchedWindow->m_window->isActive());
+    QCOMPARE(startupAddedSpy.count(), 0);
+    QCOMPARE(startupRemovedSpy.count(), 0);
+}
+
+void ActivationTest::testStartupNotifyDifferentActivatedAppId()
+{
+    // This test verifies that the startup feedback notification will be canceled if the final
+    // activated surface has a different app id from the one specified in the activation token.
+    // For example, this case can arise with apps that have Terminal=true in the desktop file. When
+    // such an app is launched, an activation token with its app id will be created and a terminal
+    // will be launched, e.g. Konsole. Konsole will consume the activation token, but its app id
+    // is obviously going to be different than the one of the launched app.
+    //
+    // This case is interesting because app ids may be used to determine whether an activation token
+    // has been consumed and the startup feedback can be withdrawn. If that logic is botched, the
+    // startup feedback notification will get stuck.
+
+    QSignalSpy startupAddedSpy(effects, &EffectsHandler::startupAdded);
+    QSignalSpy startupRemovedSpy(effects, &EffectsHandler::startupRemoved);
+
+    // Little Red Riding Hood window.
+    auto littleGirlWindow = std::make_unique<Test::XdgToplevelWindow>([](Test::XdgToplevel *toplevel) {
+        toplevel->set_app_id(QFINDTESTDATA("org.kde.little-red-riding-hood.desktop"));
+    });
+    littleGirlWindow->show();
+    QVERIFY(littleGirlWindow->m_window->isActive());
+
+    // Assume that Little Red Riding Hood wants to pass an activation token to the grandma.
+    const QString activationToken = generateActivationToken(*littleGirlWindow, QFINDTESTDATA("org.kde.grandma.desktop"));
+    QCOMPARE(startupAddedSpy.count(), 1);
+    QCOMPARE(startupAddedSpy.last().at(0).toString(), activationToken);
+    QCOMPARE(startupRemovedSpy.count(), 0);
+
+    // ... but Big Bad Wolf ate the grandma and pretends to be her. The startup notification should
+    // be removed even though app ids don't match.
+    auto bigBadWolfWindow = std::make_unique<Test::XdgToplevelWindow>([activationToken](Test::XdgToplevel *toplevel) {
+        toplevel->set_app_id(QFINDTESTDATA("org.kde.big-bad-wolf.desktop"));
+        Test::xdgActivation()->activate(activationToken, *toplevel->xdgSurface()->surface());
+    });
+    bigBadWolfWindow->show();
+    QVERIFY(bigBadWolfWindow->m_window->isActive());
+    QCOMPARE(startupAddedSpy.count(), 1);
+    QCOMPARE(startupRemovedSpy.count(), 1);
+    QCOMPARE(startupRemovedSpy.last().at(0).toString(), activationToken);
+}
+
+class TokenSpy : public InputEventSpy
+{
+public:
+    void keyboardKey(KeyboardKeyEvent *event) override
+    {
+        if (event->state == KeyboardKeyState::Pressed && event->key == Qt::Key::Key_A) {
+            latestToken = waylandServer()->xdgActivationIntegration()->requestPrivilegedToken(
+                nullptr, input()->lastInteractionSerial(), waylandServer()->seat(), "test");
+        }
+    }
+
+    QString latestToken;
+};
+
+void ActivationTest::testGlobalShortcutActivation()
+{
+    Test::setOutputConfig({Rect(0, 0, 1280, 1024)});
+    options->setFocusStealingPreventionLevel(FocusStealingPreventionLevel::Extreme);
+
+    // This spy needs to be used because normal keyboard shortcuts are signaled asynchronously,
+    // while the shortcut for launching an application creates the token immediately.
+    // The spy emulates the latter behavior.
+    TokenSpy tokenSpy;
+    input()->installInputEventSpy(&tokenSpy);
+    QSignalSpy activationSpy(workspace(), &Workspace::windowActivated);
+
+    uint32_t time = 0;
+
+    // just triggering the shortcut normally should have working activation
+    auto windows = setupWindows(time);
+
+    Test::keyboardKeyPressed(KEY_LEFTSHIFT, time++);
+    Test::keyboardKeyPressed(KEY_A, time++);
+    Test::keyboardKeyReleased(KEY_A, time++);
+    Test::keyboardKeyReleased(KEY_LEFTSHIFT, time++);
+
+    Test::xdgActivation()->activate(tokenSpy.latestToken, *windows[1]->m_surface);
+    QVERIFY(activationSpy.wait());
+    QCOMPARE(workspace()->activeWindow(), windows[1]->m_window);
+
+    // if we press a non-shift key after triggering the shortcut,
+    // activation should fail
+    windows = setupWindows(time);
+
+    Test::keyboardKeyPressed(KEY_LEFTSHIFT, time++);
+    Test::keyboardKeyPressed(KEY_A, time++);
+    Test::keyboardKeyReleased(KEY_A, time++);
+    Test::keyboardKeyReleased(KEY_LEFTSHIFT, time++);
+
+    Test::keyboardKeyPressed(KEY_B, time++);
+    Test::keyboardKeyReleased(KEY_B, time++);
+
+    Test::xdgActivation()->activate(tokenSpy.latestToken, *windows[1]->m_surface);
+    QVERIFY(!activationSpy.wait(10));
+    QCOMPARE(workspace()->activeWindow(), windows[2]->m_window);
+}
+
+void ActivationTest::testFocusMovesFromClosedDialogToParentWindow()
+{
+    // This test verifies that input focus moves from a closed dialog to the parent window as expected.
+
+    QSignalSpy windowActivatedSpy(workspace(), &Workspace::windowActivated);
+
+    std::unique_ptr<KWayland::Client::Surface> surface{Test::createSurface()};
+    std::unique_ptr<Test::XdgToplevel> shellSurface(Test::createXdgToplevelSurface(surface.get()));
+    auto window = Test::renderAndWaitForShown(surface.get(), QSize(100, 50), Qt::blue);
+    QVERIFY(window);
+    QCOMPARE(windowActivatedSpy.count(), 1);
+    QCOMPARE(windowActivatedSpy.last().at(0).value<Window *>(), window);
+    QCOMPARE(workspace()->activeWindow(), window);
+
+    std::unique_ptr<KWayland::Client::Surface> transientSurface{Test::createSurface()};
+    std::unique_ptr<Test::XdgToplevel> transientShellSurface(Test::createXdgToplevelSurface(transientSurface.get()));
+    transientShellSurface->set_parent(shellSurface->object());
+    auto transient = Test::renderAndWaitForShown(transientSurface.get(), QSize(100, 50), Qt::blue);
+    QVERIFY(transient);
+    QCOMPARE(windowActivatedSpy.count(), 2);
+    QCOMPARE(windowActivatedSpy.last().at(0).value<Window *>(), transient);
+    QCOMPARE(workspace()->activeWindow(), transient);
+
+    transientShellSurface.reset();
+    transientSurface.reset();
+    QVERIFY(windowActivatedSpy.wait());
+    QCOMPARE(windowActivatedSpy.count(), 3);
+    QCOMPARE(windowActivatedSpy.last().at(0).value<Window *>(), window);
+}
+
+void ActivationTest::testFullAreaLayerSurfaceUnderlay_data()
+{
+    QTest::addColumn<Test::LayerShellV1::layer>("layer");
+
+    QTest::addRow("background") << Test::LayerShellV1::layer_background;
+    QTest::addRow("bottom") << Test::LayerShellV1::layer_bottom;
+}
+
+void ActivationTest::testFullAreaLayerSurfaceUnderlay()
+{
+    // This test verifies that an underlay layer shell surface that covers the whole screen will not
+    // be activated without a valid activation token by accident.
+
+    options->setFocusStealingPreventionLevel(FocusStealingPreventionLevel::High);
+
+    // Show a regular window.
+    Test::XdgToplevelWindow window;
+    QVERIFY(window.show());
+    QCOMPARE(workspace()->activeWindow(), window.m_window);
+
+    // Show a fullscreen layer shell surface.
+    QFETCH(Test::LayerShellV1::layer, layer);
+    std::unique_ptr<KWayland::Client::Surface> surface(Test::createSurface());
+    std::unique_ptr<Test::LayerSurfaceV1> shellSurface(Test::createLayerSurfaceV1(surface.get(), QStringLiteral("test")));
+    shellSurface->set_layer(layer);
+    shellSurface->set_anchor(Test::LayerSurfaceV1::anchor_top | Test::LayerSurfaceV1::anchor_right | Test::LayerSurfaceV1::anchor_bottom | Test::LayerSurfaceV1::anchor_left);
+    shellSurface->set_size(0, 0);
+    shellSurface->set_keyboard_interactivity(1);
+    surface->commit(KWayland::Client::Surface::CommitFlag::None);
+
+    QSignalSpy configureRequestedSpy(shellSurface.get(), &Test::LayerSurfaceV1::configureRequested);
+    QVERIFY(configureRequestedSpy.wait());
+    const QSize requestedSize = configureRequestedSpy.last().at(1).toSize();
+    shellSurface->ack_configure(configureRequestedSpy.last().at(0).toUInt());
+    Test::renderAndWaitForShown(surface.get(), requestedSize, Qt::red);
+    QCOMPARE(workspace()->activeWindow(), window.m_window);
+}
+
+void ActivationTest::testFullAreaLayerSurfaceOverlay_data()
+{
+    QTest::addColumn<Test::LayerShellV1::layer>("layer");
+
+    QTest::addRow("top") << Test::LayerShellV1::layer_top;
+    QTest::addRow("overlay") << Test::LayerShellV1::layer_overlay;
+}
+
+void ActivationTest::testFullAreaLayerSurfaceOverlay()
+{
+    // This test verifies that an overlay layer shell surface that covers the whole screen will be
+    // activated even without a valid activation token (because it will cover the active window).
+
+    options->setFocusStealingPreventionLevel(FocusStealingPreventionLevel::High);
+
+    // Show a regular window.
+    Test::XdgToplevelWindow window;
+    QVERIFY(window.show());
+    QCOMPARE(workspace()->activeWindow(), window.m_window);
+
+    // Show a fullscreen layer shell surface.
+    QFETCH(Test::LayerShellV1::layer, layer);
+    std::unique_ptr<KWayland::Client::Surface> surface(Test::createSurface());
+    std::unique_ptr<Test::LayerSurfaceV1> shellSurface(Test::createLayerSurfaceV1(surface.get(), QStringLiteral("test")));
+    shellSurface->set_layer(layer);
+    shellSurface->set_anchor(Test::LayerSurfaceV1::anchor_top | Test::LayerSurfaceV1::anchor_right | Test::LayerSurfaceV1::anchor_bottom | Test::LayerSurfaceV1::anchor_left);
+    shellSurface->set_size(0, 0);
+    shellSurface->set_keyboard_interactivity(1);
+    surface->commit(KWayland::Client::Surface::CommitFlag::None);
+
+    QSignalSpy configureRequestedSpy(shellSurface.get(), &Test::LayerSurfaceV1::configureRequested);
+    QVERIFY(configureRequestedSpy.wait());
+    const QSize requestedSize = configureRequestedSpy.last().at(1).toSize();
+    shellSurface->ack_configure(configureRequestedSpy.last().at(0).toUInt());
+    Window *overlayWindow = Test::renderAndWaitForShown(surface.get(), requestedSize, Qt::red);
+    QCOMPARE(workspace()->activeWindow(), overlayWindow);
+}
+
+void ActivationTest::testPartialAreaLayerSurfaceOverlay_data()
+{
+    QTest::addColumn<Test::LayerShellV1::layer>("layer");
+
+    QTest::addRow("top") << Test::LayerShellV1::layer_top;
+    QTest::addRow("overlay") << Test::LayerShellV1::layer_overlay;
+}
+
+void ActivationTest::testPartialAreaLayerSurfaceOverlay()
+{
+    // This test verifies that an overlay layer shell surface that partially covers the screen will
+    // not be activated without an activation token by accident.
+
+    options->setFocusStealingPreventionLevel(FocusStealingPreventionLevel::High);
+
+    // Show a regular window.
+    Test::XdgToplevelWindow window;
+    QVERIFY(window.show());
+    QCOMPARE(workspace()->activeWindow(), window.m_window);
+
+    // Show a fullscreen layer shell surface.
+    QFETCH(Test::LayerShellV1::layer, layer);
+    std::unique_ptr<KWayland::Client::Surface> surface(Test::createSurface());
+    std::unique_ptr<Test::LayerSurfaceV1> shellSurface(Test::createLayerSurfaceV1(surface.get(), QStringLiteral("test")));
+    shellSurface->set_layer(layer);
+    shellSurface->set_size(1000, 1000);
+    shellSurface->set_keyboard_interactivity(1);
+    surface->commit(KWayland::Client::Surface::CommitFlag::None);
+
+    QSignalSpy configureRequestedSpy(shellSurface.get(), &Test::LayerSurfaceV1::configureRequested);
+    QVERIFY(configureRequestedSpy.wait());
+    const QSize requestedSize = configureRequestedSpy.last().at(1).toSize();
+    shellSurface->ack_configure(configureRequestedSpy.last().at(0).toUInt());
+    Test::renderAndWaitForShown(surface.get(), requestedSize, Qt::red);
+    QCOMPARE(workspace()->activeWindow(), window.m_window);
+}
+
+}
+
+WAYLANDTEST_MAIN(KWin::ActivationTest)
+#include "activation_test.moc"

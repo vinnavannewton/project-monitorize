@@ -1,0 +1,4548 @@
+# translation of mutter.master.po to Español
+# Spanish trasnlation for Metacity
+# Copyright © 2001,2002,2003, 2006, 2007, 2008 Free Software Foundation, Inc.
+# This file is distributed under the same license as the metacity package.
+#
+# Héctor García Álvarez <hector@scouts-es.org>, 2001.
+# Pablo Gonzalo del Campo <pablodc@bigfoot.com>,2002,2003.
+# Francisco Javier F. Serrador <serrador@cvs.gnome.org>, 2004, 2005, 2006.
+# Jorge González <jorgegonz@svn.gnome.org>, 2007, 2008, 2009, 2010, 2011.
+# Daniel Mustieles <daniel.mustieles@gmail.com>, 2022-2024.
+# Daniel Mustieles García <daniel.mustieles@gmail.com>, 2024-2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: mutter.master\n"
+"Report-Msgid-Bugs-To: https://gitlab.gnome.org/GNOME/mutter/issues/\n"
+"POT-Creation-Date: 2026-02-17 17:44+0000\n"
+"PO-Revision-Date: 2026-02-25 11:28+0100\n"
+"Last-Translator: Daniel Mustieles García <daniel.mustieles@gmail.com>\n"
+"Language-Team: Spanish - Spain <gnome-es-list@gnome.org>\n"
+"Language: es_ES\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1)\n"
+"X-Generator: Gtranslator 49.0\n"
+
+#: data/50-mutter-navigation.xml:6
+msgid "Navigation"
+msgstr "Navegación"
+
+#: data/50-mutter-navigation.xml:9
+msgid "Move window to workspace 1"
+msgstr "Mover la ventana al área de trabajo 1"
+
+#: data/50-mutter-navigation.xml:12
+msgid "Move window to workspace 2"
+msgstr "Mover la ventana al área de trabajo 2"
+
+#: data/50-mutter-navigation.xml:15
+msgid "Move window to workspace 3"
+msgstr "Mover la ventana al área de trabajo 3"
+
+#: data/50-mutter-navigation.xml:18
+msgid "Move window to workspace 4"
+msgstr "Mover la ventana al área de trabajo 4"
+
+#: data/50-mutter-navigation.xml:21
+msgid "Move window to last workspace"
+msgstr "Mover la ventana a la última área de trabajo"
+
+#: data/50-mutter-navigation.xml:24
+msgid "Move window one workspace to the left"
+msgstr "Mover la ventana un área de trabajo a la izquierda"
+
+#: data/50-mutter-navigation.xml:27
+msgid "Move window one workspace to the right"
+msgstr "Mover la ventana un área de trabajo a la derecha"
+
+#: data/50-mutter-navigation.xml:31
+msgid "Move window one workspace up"
+msgstr "Subir la ventana un área de trabajo"
+
+#: data/50-mutter-navigation.xml:35
+msgid "Move window one workspace down"
+msgstr "Bajar la ventana un área de trabajo"
+
+#: data/50-mutter-navigation.xml:38
+msgid "Move window one monitor to the left"
+msgstr "Mover la ventana una pantalla a la izquierda"
+
+#: data/50-mutter-navigation.xml:41
+msgid "Move window one monitor to the right"
+msgstr "Mover la ventana una pantalla a la derecha"
+
+#: data/50-mutter-navigation.xml:44
+msgid "Move window one monitor up"
+msgstr "Subir la ventana una pantalla"
+
+#: data/50-mutter-navigation.xml:47
+msgid "Move window one monitor down"
+msgstr "Bajar la ventana una pantalla"
+
+#: data/50-mutter-navigation.xml:51
+msgid "Switch applications"
+msgstr "Cambiar entre aplicaciones"
+
+#: data/50-mutter-navigation.xml:56
+msgid "Switch to previous application"
+msgstr "Cambiar a la aplicación anterior"
+
+#: data/50-mutter-navigation.xml:60
+msgid "Switch windows"
+msgstr "Cambiar entre ventanas"
+
+#: data/50-mutter-navigation.xml:65
+msgid "Switch to previous window"
+msgstr "Cambiar a la ventana anterior"
+
+#: data/50-mutter-navigation.xml:69
+msgid "Switch windows of an application"
+msgstr "Cambiar entre ventanas de una aplicación"
+
+#: data/50-mutter-navigation.xml:74
+msgid "Switch to previous window of an application"
+msgstr "Cambiar a la ventana anterior de una aplicación"
+
+#: data/50-mutter-navigation.xml:78
+msgid "Switch system controls"
+msgstr "Cambiar entre controles del sistema"
+
+#: data/50-mutter-navigation.xml:83
+msgid "Switch to previous system control"
+msgstr "Cambiar al control del sistema anterior"
+
+#: data/50-mutter-navigation.xml:87
+msgid "Switch windows directly"
+msgstr "Cambiar entre ventanas directamente"
+
+#: data/50-mutter-navigation.xml:92
+msgid "Switch directly to previous window"
+msgstr "Cambiar directamente a la ventana anterior"
+
+#: data/50-mutter-navigation.xml:96
+msgid "Switch windows of an app directly"
+msgstr "Cambiar entre ventanas de una aplicación directamente"
+
+#: data/50-mutter-navigation.xml:101
+msgid "Switch directly to previous window of an app"
+msgstr "Cambiar directamente a la ventana anterior de una aplicación"
+
+#: data/50-mutter-navigation.xml:105
+msgid "Switch system controls directly"
+msgstr "Cambiar entre controles del sistema directamente"
+
+#: data/50-mutter-navigation.xml:110
+msgid "Switch directly to previous system control"
+msgstr "Cambiar directamente al control del sistema anterior"
+
+#: data/50-mutter-navigation.xml:113
+msgid "Hide all normal windows"
+msgstr "Ocultar todas las ventanas normales"
+
+#: data/50-mutter-navigation.xml:116
+msgid "Switch to workspace 1"
+msgstr "Cambiar al área de trabajo 1"
+
+#: data/50-mutter-navigation.xml:119
+msgid "Switch to workspace 2"
+msgstr "Cambiar al área de trabajo 2"
+
+#: data/50-mutter-navigation.xml:122
+msgid "Switch to workspace 3"
+msgstr "Cambiar al área de trabajo 3"
+
+#: data/50-mutter-navigation.xml:125
+msgid "Switch to workspace 4"
+msgstr "Cambiar al área de trabajo 4"
+
+#: data/50-mutter-navigation.xml:128
+msgid "Switch to last workspace"
+msgstr "Cambiar a la última área de trabajo"
+
+#: data/50-mutter-navigation.xml:131
+msgid "Switch to workspace on the left"
+msgstr "Cambiar al área de trabajo de la izquierda"
+
+#: data/50-mutter-navigation.xml:134
+msgid "Switch to workspace on the right"
+msgstr "Cambiar al área de trabajo de la derecha"
+
+#: data/50-mutter-navigation.xml:138
+msgid "Switch to workspace above"
+msgstr "Cambiar al área de trabajo de arriba"
+
+#: data/50-mutter-navigation.xml:142
+msgid "Switch to workspace below"
+msgstr "Cambiar al área de trabajo de abajo"
+
+#: data/50-mutter-system.xml:6 data/50-mutter-wayland.xml:6
+msgid "System"
+msgstr "Sistema"
+
+#: data/50-mutter-system.xml:8
+msgid "Show the run command prompt"
+msgstr "Mostrar el elemento «ejecutar comando»"
+
+#: data/50-mutter-wayland.xml:8
+msgid "Restore the keyboard shortcuts"
+msgstr "Restaurar los atajos de teclado"
+
+#: data/50-mutter-windows.xml:6
+msgid "Windows"
+msgstr "Ventanas"
+
+#: data/50-mutter-windows.xml:8
+msgid "Activate the window menu"
+msgstr "Activar el menú de la ventana"
+
+#: data/50-mutter-windows.xml:10
+msgid "Toggle fullscreen mode"
+msgstr "Cambiar el modo a pantalla completa"
+
+#: data/50-mutter-windows.xml:12
+msgid "Toggle maximization state"
+msgstr "Cambiar el estado de maximización"
+
+#: data/50-mutter-windows.xml:14
+msgid "Maximize window"
+msgstr "Maximizar la ventana"
+
+#: data/50-mutter-windows.xml:16
+msgid "Restore window"
+msgstr "Restaurar la ventana"
+
+#: data/50-mutter-windows.xml:18
+msgid "Close window"
+msgstr "Cerrar la ventana"
+
+#: data/50-mutter-windows.xml:20
+msgid "Hide window"
+msgstr "Ocultar la ventana"
+
+#: data/50-mutter-windows.xml:22
+msgid "Move window"
+msgstr "Mover la ventana"
+
+#: data/50-mutter-windows.xml:24
+msgid "Resize window"
+msgstr "Redimensionar la ventana"
+
+#: data/50-mutter-windows.xml:27
+msgid "Toggle window on all workspaces or one"
+msgstr "Conmutar la ventana en todas las áreas de trabajo o sólo en una"
+
+#: data/50-mutter-windows.xml:29
+msgid "Raise window if covered, otherwise lower it"
+msgstr "Elevar la ventana si está cubierta, de lo contrario, bajarla"
+
+#: data/50-mutter-windows.xml:31
+msgid "Raise window above other windows"
+msgstr "Elevar la ventana sobre las otras ventanas"
+
+#: data/50-mutter-windows.xml:33
+msgid "Lower window below other windows"
+msgstr "Bajar la ventana por debajo de otras ventanas"
+
+#: data/50-mutter-windows.xml:35
+msgid "Maximize window vertically"
+msgstr "Maximizar la ventana verticalmente"
+
+#: data/50-mutter-windows.xml:37
+msgid "Maximize window horizontally"
+msgstr "Maximizar la ventana horizontalmente"
+
+#: data/50-mutter-windows.xml:41 data/org.gnome.mutter.gschema.xml.in:166
+msgid "View split on left"
+msgstr "Ver división a la izquierda"
+
+#: data/50-mutter-windows.xml:45 data/org.gnome.mutter.gschema.xml.in:171
+msgid "View split on right"
+msgstr "Ver división a la derecha"
+
+#: data/org.gnome.mutter.gschema.xml.in:15
+msgid "Modifier to use for extended window management operations"
+msgstr ""
+"Modificador que usar para extender las operaciones de gestión sobre ventanas"
+
+#: data/org.gnome.mutter.gschema.xml.in:16
+msgid ""
+"This key will initiate the “overlay”, which is a combination window overview "
+"and application launching system. The default is intended to be the “Windows "
+"key” on PC hardware. It’s expected that this binding either the default or "
+"set to the empty string."
+msgstr ""
+"Esta clave iniciará el «revestimiento» («overlay»), que es una combinación "
+"de vista general de la ventana y el sistema de lanzamiento de aplicaciones. "
+"Lo predeterminado está pensado para la «tecla de Windows». Se espera que "
+"este atajo del teclado sea el predeterminado o se establezca a una cadena "
+"vacía."
+
+#: data/org.gnome.mutter.gschema.xml.in:28
+msgid "Attach modal dialogs"
+msgstr "Adjuntar diálogos modales"
+
+#: data/org.gnome.mutter.gschema.xml.in:29
+msgid ""
+"When true, instead of having independent titlebars, modal dialogs appear "
+"attached to the titlebar of the parent window and are moved together with "
+"the parent window."
+msgstr ""
+"Cuando es cierto, en lugar de tener barras de título independientes, "
+"aparecen diálogos modales adjuntos a la barra de título de la ventana padre "
+"y se mueven junto con la ventana padre."
+
+#: data/org.gnome.mutter.gschema.xml.in:38
+msgid "Enable edge tiling when dropping windows on screen edges"
+msgstr ""
+"Activar el mosaico en los bordes al arrastrar ventanas a los bordes de la "
+"ventana"
+
+#: data/org.gnome.mutter.gschema.xml.in:39
+msgid ""
+"If enabled, dropping windows on vertical screen edges maximizes them "
+"vertically and resizes them horizontally to cover half of the available "
+"area. Dropping windows on the top screen edge maximizes them completely."
+msgstr ""
+"Si está activada, arrastrar ventanas a los bordes verticales de la pantalla "
+"las maximiza verticalmente y las redimensiona horizontalmente para cubrir la "
+"mitad del área disponible. Arrastrar ventanas al borde superior de la "
+"pantalla las maximiza por completo."
+
+#: data/org.gnome.mutter.gschema.xml.in:48
+msgid "Workspaces are managed dynamically"
+msgstr "Las áreas de trabajo se gestionan dinámicamente"
+
+#: data/org.gnome.mutter.gschema.xml.in:49
+msgid ""
+"Determines whether workspaces are managed dynamically or whether there’s a "
+"static number of workspaces (determined by the num-workspaces key in "
+"org.gnome.desktop.wm.preferences)."
+msgstr ""
+"Determina si las áreas de trabajo se gestionan dinámicamente o si ha un "
+"número estático de áreas de trabajo (determinado por la clave «num-"
+"workspaces» en «org.gnome.desktop.wm.preferences»)."
+
+#: data/org.gnome.mutter.gschema.xml.in:58
+msgid "Workspaces only on primary"
+msgstr "Áreas de trabajo sólo en el primario"
+
+#: data/org.gnome.mutter.gschema.xml.in:59
+msgid ""
+"Determines whether workspace switching should happen for windows on all "
+"monitors or only for windows on the primary monitor."
+msgstr ""
+"Determina si el cambio entre áreas de trabajo debería suceder para las "
+"ventanas en todos los monitores o sólo para ventanas en el monitor primario."
+
+#: data/org.gnome.mutter.gschema.xml.in:67
+msgid "Delay focus changes until the pointer stops moving"
+msgstr "Retrasar el cambio de foco hasta detener el puntero"
+
+#: data/org.gnome.mutter.gschema.xml.in:68
+msgid ""
+"If set to true, and the focus mode is either “sloppy” or “mouse” then the "
+"focus will not be changed immediately when entering a window, but only after "
+"the pointer stops moving."
+msgstr ""
+"Si está establecido a «true» y el modo del foco es «sloppy» o «mouse» "
+"entonces el foco no se cambiará inmediatamente al entrar en una ventana, "
+"pero sí después de dejar quieto el puntero."
+
+#: data/org.gnome.mutter.gschema.xml.in:78
+msgid "Draggable border width"
+msgstr "Anchura arrastrable del borde"
+
+#: data/org.gnome.mutter.gschema.xml.in:79
+msgid ""
+"The amount of total draggable borders. If the theme’s visible borders are "
+"not enough, invisible borders will be added to meet this value."
+msgstr ""
+"La cantidad total de borde que se puede arrastrar. Si los bordes visibles "
+"del tema no son suficientes, se añadirán bordes invisibles para satisfacer "
+"este valor."
+
+#: data/org.gnome.mutter.gschema.xml.in:88
+msgid "Auto maximize nearly monitor sized windows"
+msgstr ""
+"Maximizar automáticamente las ventanas que casi tengan el tamaño de la "
+"pantalla"
+
+#: data/org.gnome.mutter.gschema.xml.in:89
+msgid ""
+"If enabled, new windows that are initially the size of the monitor "
+"automatically get maximized."
+msgstr ""
+"Si está activada, las ventanas nuevas que inicialmente tienen el tamaño de "
+"la pantalla, se maximizan."
+
+#: data/org.gnome.mutter.gschema.xml.in:97
+msgid "Place new windows in the center"
+msgstr "Colocar las ventanas nuevas en el centro"
+
+#: data/org.gnome.mutter.gschema.xml.in:98
+msgid ""
+"When true, the new windows will always be put in the center of the active "
+"screen of the monitor."
+msgstr ""
+"Cuando es cierto, las ventanas nuevas se colocarán siempre en el centro de "
+"la pantalla activa del monitor."
+
+#: data/org.gnome.mutter.gschema.xml.in:107
+msgid "Enable experimental features"
+msgstr "Activar las características experimentales"
+
+#: data/org.gnome.mutter.gschema.xml.in:108
+msgid ""
+"To enable experimental features, add the feature keyword to the list. "
+"Whether the feature requires restarting the compositor depends on the given "
+"feature. Any experimental feature is not required to still be available, or "
+"configurable. Don’t expect adding anything in this setting to be future "
+"proof. Currently possible keywords: • “kms-modifiers” — makes mutter always "
+"allocate scanout buffers with explicit modifiers, if supported by the "
+"driver. Requires a restart. • “autoclose-xwayland” — automatically "
+"terminates Xwayland if all relevant X11 clients are gone. Requires a restart."
+msgstr ""
+"Para activar funciones experimentales, añada la palabra clave de función a "
+"la lista. Si la función requiere reiniciar el compositor depende de la "
+"función dada. No es necesario que ninguna función experimental siga "
+"disponible o sea configurable. No espere que agregar nada en esta "
+"configuración esté preparado para el futuro. Palabras clave actualmente "
+"posibles: • “modificadores de kms”: hace que Mutter siempre asigne buffers "
+"de exploración con modificadores explícitos, si el controlador lo admite. "
+"Requiere un reinicio. • “autoclose-xwayland”: finaliza automáticamente "
+"Xwayland si todos los clientes X11 relevantes desaparecen. Requiere un "
+"reinicio."
+
+#: data/org.gnome.mutter.gschema.xml.in:130
+msgid "Modifier to use to locate the pointer"
+msgstr "Modificador que usar para encontrar el puntero"
+
+#: data/org.gnome.mutter.gschema.xml.in:131
+msgid "This key will initiate the “locate pointer” action."
+msgstr "Esta tecla iniciará la acción de encontrar el puntero."
+
+#: data/org.gnome.mutter.gschema.xml.in:138
+msgid "Timeout for check-alive ping"
+msgstr "Tiempo de espera para la comprobación de ping"
+
+#: data/org.gnome.mutter.gschema.xml.in:139
+msgid ""
+"Number of milliseconds a client has to respond to a ping request in order to "
+"not be detected as frozen. Using 0 will disable the alive check completely."
+msgstr ""
+"Número de milisegundos que tiene un cliente para responder a ping y que no "
+"se le detecte como caído. Usar 0 desactivará esta comprobación."
+
+#. TRANSLATORS: Luminance is different from brightness.
+#. See https://en.wikipedia.org/wiki/Luminance
+#: data/org.gnome.mutter.gschema.xml.in:150
+msgid "Per output luminance settings"
+msgstr "Por configuración de iluminación de salida"
+
+#: data/org.gnome.mutter.gschema.xml.in:151
+msgid ""
+"Per output and color mode luminance setting. Each entry consists of a tuple "
+"with connector, vendor, product, serial, and a color mode, as well as an "
+"associated floating point value representing the output luminance in percent "
+"(%). The default when not specified is 100%."
+msgstr ""
+"Por configuración de iluminación de salida. Cada entrada consiste en una "
+"tupla con conector, fabricante, producto, serie y modo de color, así como un "
+"valor de coma flotante asociado que representa la iluminación de salida en "
+"porcentaje (%). Si no se especifica, el valor predeterminado es 100%."
+
+#: data/org.gnome.mutter.gschema.xml.in:176
+msgid "Switch monitor configurations"
+msgstr "Cambiar la configuración del monitor"
+
+#: data/org.gnome.mutter.gschema.xml.in:181
+msgid "Rotates the built-in monitor configuration"
+msgstr "Rota la configuración del monitor empotrado"
+
+#: data/org.gnome.mutter.gschema.xml.in:186
+msgid "Cancel any active input capture session"
+msgstr "Cancelar cualquier sesión de captura de entrada activa"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:12
+msgid "Switch to VT 1"
+msgstr "Cambiar al VT 1"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:16
+msgid "Switch to VT 2"
+msgstr "Cambiar al VT 2"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:20
+msgid "Switch to VT 3"
+msgstr "Cambiar al VT 3"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:24
+msgid "Switch to VT 4"
+msgstr "Cambiar al VT 4"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:28
+msgid "Switch to VT 5"
+msgstr "Cambiar al VT 5"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:32
+msgid "Switch to VT 6"
+msgstr "Cambiar al VT 6"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:36
+msgid "Switch to VT 7"
+msgstr "Cambiar al VT 7"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:40
+msgid "Switch to VT 8"
+msgstr "Cambiar al VT 8"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:44
+msgid "Switch to VT 9"
+msgstr "Cambiar al VT 9"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:48
+msgid "Switch to VT 10"
+msgstr "Cambiar al VT 10"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:52
+msgid "Switch to VT 11"
+msgstr "Cambiar al VT 11"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:56
+msgid "Switch to VT 12"
+msgstr "Cambiar al VT 12"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:60
+msgid "Re-enable shortcuts"
+msgstr "Volver a activar los atajos"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:70
+msgid "Allow X11 grabs to lock keyboard focus with Xwayland"
+msgstr ""
+"Permitir capturas con X11 para bloquear el foco del teclado con Xwayland"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:71
+msgid ""
+"Allow all keyboard events to be routed to X11 “override redirect” windows "
+"with a grab when running in Xwayland. This option is to support X11 clients "
+"which map an “override redirect” window (which do not receive keyboard "
+"focus) and issue a keyboard grab to force all keyboard events to that "
+"window. This option is seldom used and has no effect on regular X11 windows "
+"which can receive keyboard focus under normal circumstances. For a X11 grab "
+"to be taken into account under Wayland, the client must also either send a "
+"specific X11 ClientMessage to the root window or be among the applications "
+"allowed in key “xwayland-grab-access-rules”."
+msgstr ""
+"Permitir que los eventos del teclado se dirijan a ventanas X11 “override "
+"redirect” con una pulsación cuando se ejecutan en Xwayland. Esta opción es "
+"para soportar clientes X11 que mapean una ventana “override redirect” (que "
+"no recibe el foco del teclado) y recoge una pulsación del teclado para "
+"forzar todos los eventos del teclado en esa ventana. Esta opción se usa "
+"raramente y no tiene efecto en ventanas X11 normales que pueden recibir el "
+"foco del teclado en circunstancias normales. Para que una pulsación X11 se "
+"tenga en cuenta en Wayland el cliente debe o bien enviar un ClientMessage "
+"específico de X11 a la ventana raíz o estar en la lista blanca de "
+"aplicaciones en la clave “xwayland-grab-access-rules”."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:90
+msgid "Xwayland applications allowed to issue keyboard grabs"
+msgstr "Aplicaciones de Xwayland que pueden capturar el teclado"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:91
+msgid ""
+"List the resource names or resource class of X11 windows either allowed or "
+"not allowed to issue X11 keyboard grabs under Xwayland. The resource name or "
+"resource class of a given X11 window can be obtained using the command "
+"“xprop WM_CLASS”. Wildcards “*” and jokers “?” in the values are supported. "
+"Values starting with “!” are denied, which has precedence over the list of "
+"values allowed, to revoke applications from the default system list. The "
+"default system list includes the following applications: "
+"“@XWAYLAND_GRAB_DEFAULT_ACCESS_RULES@” Users can break an existing grab by "
+"using the specific keyboard shortcut defined by the keybinding key “restore-"
+"shortcuts”."
+msgstr ""
+"Lista los nombres o las clases de recursos de ventanas X11 permitidas o no "
+"para emitir pulsaciones de teclado X11 en XWayland. El nombre o la clase del "
+"recurso de una ventana X11 dada se puede obtener usando el comando “xprop "
+"WM_CLASS”. Se soportan los comodines «*» y «?». Los valores que empiecen por "
+"«!» están en lista negra, que tiene prioridad sobre la lista blanca, para "
+"revocar aplicaciones de la lista predeterminada del sistema. Esta lista "
+"incluye las siguientes aplicaciones: “@XWAYLAND_GRAB_DEFAULT_ACCESS_RULES@”. "
+"Los usuarios pueden romper una pulsación existente usando el atajo "
+"específico del teclado definido por la clave “restore-shortcuts”."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:116
+msgid "Disable selected X extensions in Xwayland"
+msgstr "Desactivar las extensiones X seleccionadas en XWayland"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:117
+msgid ""
+"This option disables the selected X extensions in Xwayland if Xwayland was "
+"built with support for those X extensions. This option has no effect if "
+"Xwayland was built without support for the selected extensions. Xwayland "
+"needs to be restarted for this setting to take effect."
+msgstr ""
+"Esta opción desactiva las extensiones X seleccionadas en XWayland si "
+"XWayland se ha construido con soporte para esas extensiones. Esta opción no "
+"tiene efecto si XWayland ha construido sin soporte para esas extensiones. "
+"XWayland necesita reiniciarse para que este cambio surta efecto."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:130
+msgid "Allow X11 clients with a different endianness to connect to Xwayland"
+msgstr "Permitir que clientes X11 endianidad diferente se conecten a Xwayland"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:131
+msgid ""
+"Allow connections from clients with an endianness different to that of "
+"Xwayland. The X server byte-swapping code is a huge attack surface, much of "
+"that code in Xwayland is prone to security issues. The use-case of byte-"
+"swapped clients is very niche, and disabled by default in Xwayland. Enable "
+"this option to instruct Xwayland to accept connections from X11 clients with "
+"a different endianness. This option has no effect if Xwayland does not "
+"support the command line option +byteswappedclients/-byteswappedclients to "
+"control that setting. Xwayland needs to be restarted for this setting to "
+"take effect."
+msgstr ""
+"Permitir conexiones de clientes con una endianidad diferente a la de "
+"Xwayland. El código de intercambio de bytes del servidor X es muy "
+"vulnerable, gran parte de ese código en Xwayland es susceptible de problemas "
+"de seguridad. El caso de uso de clientes con bytes intercambiados es un "
+"nicho y está desactivado de manera predeterminada en Xwayland. Activar esta "
+"opción para permitir que Xwayland acepte conexiones de clientes X11 con una "
+"endianidad diferente. Esta opción no tiene efecto si Xwayland no soporta la "
+"opción de línea de comandos +byteswappedclients/-byteswappedclients para "
+"controlar esta opción. Debe reiniciar Xwayland para que este cambio surta "
+"efecto."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:154
+msgid "Configure the Xwayland scaling factor"
+msgstr "Configurar el factor de escala de Xwayland"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:155
+msgid ""
+"Scale the Xwayland coordinate space according to this factor. This will "
+"affect what scale HiDPI capable X11 clients will present themselves as, and "
+"how the compositor scales X11 client windows. Setting the scale to 0 means "
+"the scale will be automatically calculated. The scale will as of now be "
+"rounded to the closest integer."
+msgstr ""
+"Escale el espacio de coordenadas de Xwayland según este factor. Esto "
+"afectará la escala en la que se presentarán los clientes X11 con capacidad "
+"HiDPI y cómo el compositor escala las ventanas del cliente X11. Establecer "
+"la escala en 0 significa que la escala se calculará automáticamente. A "
+"partir de ahora la escala se redondeará al número entero más cercano."
+
+#: mdk/mdk-launcher-adder.c:451 mdk/mdk-launcher-adder.ui:22
+msgid "Application"
+msgstr "Aplicación"
+
+#: mdk/mdk-launcher-adder.c:456 mdk/mdk-launcher-adder.ui:23
+msgid "Executable"
+msgstr "Ejecutable"
+
+#: mdk/mdk-launcher-adder.ui:3
+msgid "Add Launcher"
+msgstr "Añadir lanzador"
+
+#: mdk/mdk-launcher-adder.ui:15
+msgid "Launcher"
+msgstr "Lanzador"
+
+#: mdk/mdk-launcher-adder.ui:18
+msgid "Type"
+msgstr "Tipo"
+
+#: mdk/mdk-launcher-adder.ui:38 mdk/mdk-launchers-editor.ui:22
+msgid "Add"
+msgstr "Añadir"
+
+#: mdk/mdk-launcher-entry.c:198
+msgid "Run"
+msgstr "Ejecutar"
+
+#: mdk/mdk-launcher-entry.ui:12
+msgid "Delete"
+msgstr "Eliminar"
+
+#: mdk/mdk-launcher-entry.ui:20
+msgid "Action"
+msgstr "Acción"
+
+#: mdk/mdk-launchers-editor.ui:3
+msgid "Edit Launchers"
+msgstr "Editar lanzadores"
+
+#: mdk/mdk-launchers-editor.ui:16
+msgid "Launchers"
+msgstr "Lanzadores"
+
+#: mdk/mdk-main-window.ui:7
+msgid "_Input"
+msgstr "_Entrada"
+
+#: mdk/mdk-main-window.ui:9
+msgid "_Emulate touch"
+msgstr "_Emular toque"
+
+#: mdk/mdk-main-window.ui:13
+msgid "_Inhibit system shortcuts"
+msgstr "_Inhibir atajos del sistema"
+
+#: mdk/mdk-main-window.ui:17
+msgid "Use host _keymap"
+msgstr "Usar host _keymap"
+
+#: mdk/mdk-main-window.ui:24
+msgid "_Monitors"
+msgstr "_Monitores"
+
+#: mdk/mdk-main-window.ui:26
+msgid "_Emulate monitor modes"
+msgstr "_Emular modos de monitor"
+
+#: mdk/mdk-main-window.ui:33
+msgid "_Launchers"
+msgstr "_Lanzadores"
+
+#: mdk/mdk-main-window.ui:37
+msgid "_Edit launchers"
+msgstr "_Editar lanzadores"
+
+#: mdk/mdk-main-window.ui:44
+msgid "_About Mutter Development Kit"
+msgstr "_Acerca del Kit de desarrollo Mutter"
+
+#: mdk/mdk-main-window.ui:50 mdk/mdk-main.c:56
+msgid "Mutter Development Kit"
+msgstr "Kit de desarrollo Mutter"
+
+#: mdk/mdk-main-window.ui:60
+msgid "Main Menu"
+msgstr "Menú principal"
+
+#: mdk/mdk-main.c:49
+msgid "The Mutter Team"
+msgstr "El equipo de Mutter"
+
+#: mdk/mdk-main.c:62
+msgid "Mutter software development kit"
+msgstr "Kit de desarrollo de software Mutter"
+
+#: mdk/mdk-main.c:65
+msgid "About Mutter Development Kit"
+msgstr "Acerca del Kit de desarrollo Mutter"
+
+#: mdk/mdk-monitor.c:556
+msgid "Failed to create monitor"
+msgstr "Falló al crear el monitor"
+
+#: src/backends/meta-monitor.c:285
+msgid "Built-in display"
+msgstr "Pantalla integrada"
+
+#: src/backends/meta-monitor.c:312
+msgid "Unknown"
+msgstr "Desconocida"
+
+#: src/backends/meta-monitor.c:314
+msgid "Unknown Display"
+msgstr "Pantalla desconocida"
+
+#: src/backends/meta-monitor.c:322
+#, c-format
+msgctxt ""
+"This is a monitor vendor name, followed by a size in inches, like 'Dell 15\"'"
+msgid "%s %s"
+msgstr "%s %s"
+
+#: src/backends/meta-monitor.c:330
+#, c-format
+msgctxt ""
+"This is a monitor vendor name followed by product/model name where size in "
+"inches could not be calculated, e.g. Dell U2414H"
+msgid "%s %s"
+msgstr "%s %s"
+
+#: src/core/bell.c:237
+msgid "Bell event"
+msgstr "Evento de campana"
+
+#: src/core/display.c:608
+msgid "Privacy Screen Enabled"
+msgstr "Privacidad de pantalla activada"
+
+#: src/core/display.c:609
+msgid "Privacy Screen Disabled"
+msgstr "Privacidad de pantalla desactivada"
+
+#: src/core/meta-context-main.c:356
+msgid "Run as a wayland compositor"
+msgstr "Ejecutar como compositor Wayland"
+
+#: src/core/meta-context-main.c:363
+msgid "Run wayland compositor without starting Xwayland"
+msgstr "Ejecutar el compositor wayland sin iniciar Xwayland"
+
+#: src/core/meta-context-main.c:370
+msgid "Specify Wayland display name to use"
+msgstr "Especifique el nombre de pantalla Wayland que usar"
+
+#: src/core/meta-context-main.c:377
+msgid "Run as a full display server, rather than nested"
+msgstr "Ejecutar como servidor completo, en lugar de anidado"
+
+#: src/core/meta-context-main.c:382
+msgid "Run as a headless display server"
+msgstr "Ejecutar como servidor sin periféricos"
+
+#: src/core/meta-context-main.c:387
+msgid "Add persistent virtual monitor (WxH or WxH@R)"
+msgstr "Añadir monitor virtual persistente WxH o WxH@R)"
+
+#: src/core/meta-context-main.c:394
+msgid "Run development kit"
+msgstr "Ejecutar kit de desarrollo"
+
+#: src/core/meta-context-main.c:405
+msgid "Profile performance using trace instrumentation"
+msgstr "Perfilar el rendimiento usando instrumentación de trazas"
+
+#: src/core/meta-context-main.c:411
+msgid "Enable debug control D-Bus interface"
+msgstr "Activar el control de depuración de la interfaz de D-Bus"
+
+#. TRANSLATORS: This string refers to a button that switches between
+#. * different modes in that button group.
+#: src/core/meta-pad-action-mapper.c:617
+#, c-format
+msgid "Mode Switch (Group %d)"
+msgstr "Cambiar modo (grupo %d)"
+
+#. TRANSLATORS: This string refers to a button that switches between
+#. * different modes.
+#: src/core/meta-pad-action-mapper.c:624
+#, c-format
+msgid "Mode Switch"
+msgstr "Cambiar modo"
+
+#. TRANSLATORS: This string refers to an action, cycles drawing tablets'
+#. * mapping through the available outputs.
+#: src/core/meta-pad-action-mapper.c:647
+msgid "Switch monitor"
+msgstr "Cambiar monitor"
+
+#: src/core/meta-pad-action-mapper.c:649
+msgid "Show on-screen help"
+msgstr "Mostrar la ayuda en pantalla"
+
+#. Translators: this string will appear in Sysprof
+#: src/core/meta-profiler.c:109 src/core/meta-profiler.c:299
+msgid "Compositor"
+msgstr "Compositor"
+
+#: src/core/mutter.c:75
+msgid "Print version"
+msgstr "Imprimir versión"
+
+#: src/core/mutter.c:81
+msgid "Mutter plugin to use"
+msgstr "Complemento de mutter que usar"
+
+#: src/core/prefs.c:1874
+#, c-format
+msgid "Workspace %d"
+msgstr "Área de trabajo %d"
+
+#: src/core/util.c:149
+msgid "Mutter was compiled without support for verbose mode"
+msgstr "Mutter se compiló sin soporte para modo detallado"
+
+#: src/core/workspace.c:510
+msgid "Workspace switched"
+msgstr "Área de trabajo cambiada"
+
+#: src/wayland/meta-wayland-tablet-pad.c:558
+#, c-format
+msgid "Mode Switch: Mode %d"
+msgstr "Cambiar modo: modo %d"
+
+#: src/x11/meta-x11-display.c:776
+#, c-format
+msgid "Display “%s” already has a window manager"
+msgstr "La pantalla «%s”»ya tiene un administrador de ventanas"
+
+#: src/x11/meta-x11-display.c:1139
+#, c-format
+msgid "Failed to open X Window System display “%s”"
+msgstr "Falló al abrir la pantalla del sistema X-Window «%s»"
+
+#: src/x11/meta-x11-display.c:1284
+#, c-format
+msgid "Screen %d on display “%s” is invalid"
+msgstr "La ventana %d en la pantalla «%s» no es válida"
+
+#. This probably means that a non-WM compositor like xcompmgr is running;
+#. * we have no way to get it to exit
+#: src/x11/meta-x11-display.c:2469
+#, c-format
+msgid ""
+"Another compositing manager is already running on screen %i on display “%s”."
+msgstr ""
+"Ya existe un gestor de composición ejecutándose en la monitor %i, pantalla "
+"«%s»."
+
+#: src/x11/meta-x11-selection-input-stream.c:475
+#, c-format
+msgid "Format %s not supported"
+msgstr "Formato %s no soportado"
+
+#: src/x11/window-props.c:562
+#, c-format
+msgid "%s (on %s)"
+msgstr "%s (en %s)"
+
+#, fuzzy
+#~ msgid "Replace the running window manager"
+#~ msgstr "Reemplace el administrador de ventanas en ejecución"
+
+#, fuzzy
+#~ msgid "X Display to use"
+#~ msgstr "X Pantalla a utilizar"
+
+#, fuzzy
+#~ msgid "Make X calls synchronous"
+#~ msgstr "Hacer llamadas X sincrónicas"
+
+#, fuzzy
+#~ msgid "Run as a nested compositor"
+#~ msgstr "Ejecutar como un compositor anidado"
+
+#, fuzzy
+#~ msgid "Run with X11 backend"
+#~ msgstr "Ejecutar con el backend X11"
+
+#, fuzzy, c-format
+#~ msgid ""
+#~ "Display “%s” already has a window manager; try using the --replace option "
+#~ "to replace the current window manager."
+#~ msgstr ""
+#~ "La pantalla “%s” ya tiene un administrador de ventanas; Intente usar la "
+#~ "opción --replace para reemplazar el administrador de ventanas actual."
+
+#, fuzzy
+#~ msgid "Disable connection to session manager"
+#~ msgstr "Deshabilitar la conexión al administrador de sesión"
+
+#, fuzzy
+#~ msgid "Specify session management ID"
+#~ msgstr "Especificar ID de gestión de sesión"
+
+#, fuzzy
+#~ msgid "Initialize session from savefile"
+#~ msgstr "Inicializar sesión desde el archivo guardado"
+
+#, fuzzy
+#~ msgid "Move to workspace above"
+#~ msgstr "Mover al espacio de trabajo de arriba"
+
+#, fuzzy
+#~ msgid "Move to workspace below"
+#~ msgstr "Mover al espacio de trabajo a continuación"
+
+#, fuzzy
+#~ msgid "Failed to initialize GDK"
+#~ msgstr "No se pudo inicializar GDK"
+
+#, fuzzy
+#~ msgid "Mutter"
+#~ msgstr "Murmurar"
+
+#, fuzzy
+#~ msgid "No tab popup"
+#~ msgstr "Sin ventana emergente de pestaña"
+
+#, fuzzy
+#~ msgid ""
+#~ "Determines whether the use of popup and highlight frame should be "
+#~ "disabled for window cycling."
+#~ msgstr ""
+#~ "Determina si el uso de ventanas emergentes y marcos resaltados debe "
+#~ "desactivarse para el ciclo de ventanas."
+
+#, fuzzy
+#~ msgid "Select window from tab popup"
+#~ msgstr "Seleccionar ventana desde la pestaña emergente"
+
+#, fuzzy
+#~ msgid "Cancel tab popup"
+#~ msgstr "Cancelar ventana emergente de pestaña"
+
+#, fuzzy, c-format
+#~ msgid "“%s” is not responding."
+#~ msgstr "“%s” no responde."
+
+#, fuzzy
+#~ msgid "Application is not responding."
+#~ msgstr "La aplicación no responde."
+
+#, fuzzy
+#~ msgid ""
+#~ "You may choose to wait a short while for it to continue or force the "
+#~ "application to quit entirely."
+#~ msgstr ""
+#~ "Puede optar por esperar un momento hasta que continúe o forzar el cierre "
+#~ "completo de la aplicación."
+
+#, fuzzy
+#~ msgid "_Force Quit"
+#~ msgstr "_Forzar salida"
+
+#, fuzzy
+#~ msgid "_Wait"
+#~ msgstr "_Esperar"
+
+#, fuzzy
+#~ msgid ""
+#~ "These windows do not support “save current setup” and will have to be "
+#~ "restarted manually next time you log in."
+#~ msgstr ""
+#~ "Estas ventanas no admiten \"guardar la configuración actual\" y deberán "
+#~ "reiniciarse manualmente la próxima vez que inicie sesión."
+
+#, fuzzy
+#~ msgid "Show the activities overview"
+#~ msgstr "Mostrar el resumen de actividades"
+
+#, fuzzy
+#~ msgid "X display to use"
+#~ msgstr "X pantalla para usar"
+
+#, fuzzy
+#~ msgid "X screen to use"
+#~ msgstr "X pantalla para usar"
+
+#, fuzzy
+#~ msgid "Disable XInput support"
+#~ msgstr "Deshabilitar el soporte XInput"
+
+#, fuzzy
+#~ msgid ""
+#~ "mutter %s\n"
+#~ "Copyright © 2001-%d Havoc Pennington, Red Hat, Inc., and others\n"
+#~ "This is free software; see the source for copying conditions.\n"
+#~ "There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A "
+#~ "PARTICULAR PURPOSE.\n"
+#~ msgstr ""
+#~ "murmurar %s\n"
+#~ "Copyright © 2001-%d Havoc Pennington, Red Hat, Inc. y otros\n"
+#~ "Este es un software gratuito; consulte la fuente para conocer las "
+#~ "condiciones de copia.\n"
+#~ "NO hay garantía; ni siquiera por COMERCIABILIDAD o IDONEIDAD PARA UN FIN "
+#~ "DETERMINADO."
+
+#, fuzzy
+#~ msgid "Toggle shaded state"
+#~ msgstr "Alternar estado sombreado"
+
+#, fuzzy
+#~ msgid "background texture could not be created from file"
+#~ msgstr "No se pudo crear la textura de fondo a partir del archivo."
+
+#, fuzzy
+#~ msgid "Failed to scan themes directory: %s\n"
+#~ msgstr "No se pudo escanear el directorio de temas: %s"
+
+#, fuzzy
+#~ msgid ""
+#~ "Could not find a theme! Be sure %s exists and contains the usual themes.\n"
+#~ msgstr ""
+#~ "¡No se pudo encontrar un tema! Asegúrese de que %s exista y contenga los "
+#~ "temas habituales."
+
+#, fuzzy
+#~ msgid "%d x %d"
+#~ msgstr "%d x %d"
+
+#, fuzzy
+#~ msgid "top"
+#~ msgstr "arriba"
+
+#, fuzzy
+#~ msgid "bottom"
+#~ msgstr "abajo"
+
+#, fuzzy
+#~ msgid "left"
+#~ msgstr "izquierda"
+
+#, fuzzy
+#~ msgid "right"
+#~ msgstr "bien"
+
+#, fuzzy
+#~ msgid "frame geometry does not specify \"%s\" dimension"
+#~ msgstr "la geometría del marco no especifica la dimensión \"%s\""
+
+#, fuzzy
+#~ msgid "frame geometry does not specify dimension \"%s\" for border \"%s\""
+#~ msgstr ""
+#~ "la geometría del marco no especifica la dimensión \"%s\" para el borde "
+#~ "\"%s\""
+
+#, fuzzy
+#~ msgid "Button aspect ratio %g is not reasonable"
+#~ msgstr "La relación de aspecto del botón %g no es razonable"
+
+#, fuzzy
+#~ msgid "Frame geometry does not specify size of buttons"
+#~ msgstr "La geometría del marco no especifica el tamaño de los botones."
+
+#, fuzzy
+#~ msgid "Gradients should have at least two colors"
+#~ msgstr "Los degradados deben tener al menos dos colores."
+
+#, fuzzy
+#~ msgid ""
+#~ "GTK custom color specification must have color name and fallback in "
+#~ "parentheses, e.g. gtk:custom(foo,bar); could not parse \"%s\""
+#~ msgstr ""
+#~ "La especificación de color personalizado GTK debe tener el nombre del "
+#~ "color y el respaldo entre paréntesis, p. gtk:personalizado(foo,barra); no "
+#~ "se pudo analizar \"%s\""
+
+#, fuzzy
+#~ msgid ""
+#~ "Invalid character '%c' in color_name parameter of gtk:custom, only A-Za-"
+#~ "z0-9-_ are valid"
+#~ msgstr ""
+#~ "Carácter no válido '%c' en el parámetro color_name de gtk:custom, solo A-"
+#~ "Za-z0-9-_ son válidos"
+
+#, fuzzy
+#~ msgid ""
+#~ "Gtk:custom format is \"gtk:custom(color_name,fallback)\", \"%s\" does not "
+#~ "fit the format"
+#~ msgstr ""
+#~ "Gtk:el formato personalizado es \"gtk:custom(color_name,fallback)\", "
+#~ "\"%s\" no se ajusta al formato"
+
+#, fuzzy
+#~ msgid ""
+#~ "GTK color specification must have the state in brackets, e.g. "
+#~ "gtk:fg[NORMAL] where NORMAL is the state; could not parse \"%s\""
+#~ msgstr ""
+#~ "La especificación de color GTK debe tener el estado entre paréntesis, p. "
+#~ "gtk:fg[NORMAL] donde NORMAL es el estado; no se pudo analizar \"%s\""
+
+#, fuzzy
+#~ msgid ""
+#~ "GTK color specification must have a close bracket after the state, e.g. "
+#~ "gtk:fg[NORMAL] where NORMAL is the state; could not parse \"%s\""
+#~ msgstr ""
+#~ "La especificación de color GTK debe tener un paréntesis cercano después "
+#~ "del estado, p.e. gtk:fg[NORMAL] donde NORMAL es el estado; no se pudo "
+#~ "analizar \"%s\""
+
+#, fuzzy
+#~ msgid "Did not understand state \"%s\" in color specification"
+#~ msgstr "No entendí el estado \"%s\" en la especificación de color"
+
+#, fuzzy
+#~ msgid "Did not understand color component \"%s\" in color specification"
+#~ msgstr ""
+#~ "No entendí el componente de color \"%s\" en la especificación de color"
+
+#, fuzzy
+#~ msgid ""
+#~ "Blend format is \"blend/bg_color/fg_color/alpha\", \"%s\" does not fit "
+#~ "the format"
+#~ msgstr ""
+#~ "El formato de fusión es \"blend/bg_color/fg_color/alpha\", \"%s\" no se "
+#~ "ajusta al formato"
+
+#, fuzzy
+#~ msgid "Could not parse alpha value \"%s\" in blended color"
+#~ msgstr "No se pudo analizar el valor alfa \"%s\" en color combinado"
+
+#, fuzzy
+#~ msgid "Alpha value \"%s\" in blended color is not between 0.0 and 1.0"
+#~ msgstr "El valor alfa \"%s\" en el color combinado no está entre 0,0 y 1,0"
+
+#, fuzzy
+#~ msgid ""
+#~ "Shade format is \"shade/base_color/factor\", \"%s\" does not fit the "
+#~ "format"
+#~ msgstr ""
+#~ "El formato de sombra es \"sombra/color_base/factor\", \"%s\" no se ajusta "
+#~ "al formato"
+
+#, fuzzy
+#~ msgid "Could not parse shade factor \"%s\" in shaded color"
+#~ msgstr ""
+#~ "No se pudo analizar el factor de sombra \"%s\" en el color sombreado"
+
+#, fuzzy
+#~ msgid "Shade factor \"%s\" in shaded color is negative"
+#~ msgstr "El factor de sombra \"%s\" en el color sombreado es negativo"
+
+#, fuzzy
+#~ msgid "Could not parse color \"%s\""
+#~ msgstr "No se pudo analizar el color \"%s\""
+
+#, fuzzy
+#~ msgid "Coordinate expression contains character '%s' which is not allowed"
+#~ msgstr ""
+#~ "La expresión de coordenadas contiene el carácter '%s' que no está "
+#~ "permitido"
+
+#, fuzzy
+#~ msgid ""
+#~ "Coordinate expression contains floating point number '%s' which could not "
+#~ "be parsed"
+#~ msgstr ""
+#~ "La expresión de coordenadas contiene el número de coma flotante '%s' que "
+#~ "no se pudo analizar"
+
+#, fuzzy
+#~ msgid ""
+#~ "Coordinate expression contains integer '%s' which could not be parsed"
+#~ msgstr ""
+#~ "La expresión de coordenadas contiene el número entero '%s' que no se pudo "
+#~ "analizar"
+
+#, fuzzy
+#~ msgid ""
+#~ "Coordinate expression contained unknown operator at the start of this "
+#~ "text: \"%s\""
+#~ msgstr ""
+#~ "La expresión de coordenadas contenía un operador desconocido al comienzo "
+#~ "de este texto: \"%s\""
+
+#, fuzzy
+#~ msgid "Coordinate expression was empty or not understood"
+#~ msgstr "La expresión de coordenadas estaba vacía o no se entendía"
+
+#, fuzzy
+#~ msgid "Coordinate expression results in division by zero"
+#~ msgstr "La expresión de coordenadas da como resultado la división por cero"
+
+#, fuzzy
+#~ msgid ""
+#~ "Coordinate expression tries to use mod operator on a floating-point number"
+#~ msgstr ""
+#~ "La expresión de coordenadas intenta utilizar el operador mod en un número "
+#~ "de punto flotante"
+
+#, fuzzy
+#~ msgid ""
+#~ "Coordinate expression has an operator \"%s\" where an operand was expected"
+#~ msgstr ""
+#~ "La expresión de coordenadas tiene un operador \"%s\" donde se esperaba un "
+#~ "operando"
+
+#, fuzzy
+#~ msgid "Coordinate expression had an operand where an operator was expected"
+#~ msgstr ""
+#~ "La expresión de coordenadas tenía un operando donde se esperaba un "
+#~ "operador"
+
+#, fuzzy
+#~ msgid "Coordinate expression ended with an operator instead of an operand"
+#~ msgstr ""
+#~ "La expresión de coordenadas terminó con un operador en lugar de un "
+#~ "operando"
+
+#, fuzzy
+#~ msgid ""
+#~ "Coordinate expression has operator \"%c\" following operator \"%c\" with "
+#~ "no operand in between"
+#~ msgstr ""
+#~ "La expresión de coordenadas tiene el operador \"%c\" después del operador "
+#~ "\"%c\" sin ningún operando intermedio"
+
+#, fuzzy
+#~ msgid "Coordinate expression had unknown variable or constant \"%s\""
+#~ msgstr ""
+#~ "La expresión de coordenadas tenía una variable desconocida o una "
+#~ "constante \"%s\""
+
+#, fuzzy
+#~ msgid "Coordinate expression parser overflowed its buffer."
+#~ msgstr "El analizador de expresiones de coordenadas desbordó su búfer."
+
+#, fuzzy
+#~ msgid ""
+#~ "Coordinate expression had a close parenthesis with no open parenthesis"
+#~ msgstr ""
+#~ "La expresión de coordenadas tenía un paréntesis cerrado sin paréntesis "
+#~ "abierto"
+
+#, fuzzy
+#~ msgid ""
+#~ "Coordinate expression had an open parenthesis with no close parenthesis"
+#~ msgstr ""
+#~ "La expresión de coordenadas tenía un paréntesis abierto sin paréntesis "
+#~ "cerrado"
+
+#, fuzzy
+#~ msgid "Coordinate expression doesn't seem to have any operators or operands"
+#~ msgstr "La expresión de coordenadas no parece tener operadores ni operandos"
+
+#, fuzzy
+#~ msgid "Theme contained an expression that resulted in an error: %s\n"
+#~ msgstr "El tema contenía una expresión que resultó en un error: %s"
+
+#, fuzzy
+#~ msgid ""
+#~ "<button function=\"%s\" state=\"%s\" draw_ops=\"whatever\"/> must be "
+#~ "specified for this frame style"
+#~ msgstr ""
+#~ "<button function=\"%s\" state=\"%s\" draw_ops=\"whatever\"/> debe "
+#~ "especificarse para este estilo de marco"
+
+#, fuzzy
+#~ msgid ""
+#~ "Missing <frame state=\"%s\" resize=\"%s\" focus=\"%s\" style=\"whatever\"/"
+#~ ">"
+#~ msgstr ""
+#~ "Falta <frame state=\"%s\" resize=\"%s\" focus=\"%s\" style=\"whatever\"/>"
+
+#, fuzzy
+#~ msgid "Failed to load theme \"%s\": %s\n"
+#~ msgstr "No se pudo cargar el tema \"%s\": %s"
+
+#, fuzzy
+#~ msgid "No <%s> set for theme \"%s\""
+#~ msgstr "No hay <%s> establecido para el tema \"%s\""
+
+#, fuzzy
+#~ msgid ""
+#~ "No frame style set for window type \"%s\" in theme \"%s\", add a <window "
+#~ "type=\"%s\" style_set=\"whatever\"/> element"
+#~ msgstr ""
+#~ "No se ha establecido ningún estilo de marco para el tipo de ventana "
+#~ "\"%s\" en el tema \"%s\", agregue un elemento <window type=\"%s\" "
+#~ "style_set=\"whatever\"/>"
+
+#, fuzzy
+#~ msgid ""
+#~ "User-defined constants must begin with a capital letter; \"%s\" does not"
+#~ msgstr ""
+#~ "Las constantes definidas por el usuario deben comenzar con letra "
+#~ "mayúscula; \"%s\" no"
+
+#, fuzzy
+#~ msgid "Constant \"%s\" has already been defined"
+#~ msgstr "La constante \"%s\" ya ha sido definida"
+
+#, fuzzy
+#~ msgid "No \"%s\" attribute on element <%s>"
+#~ msgstr "No hay atributo \"%s\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "Line %d character %d: %s"
+#~ msgstr "Línea %d carácter %d: %s"
+
+#, fuzzy
+#~ msgid "Attribute \"%s\" repeated twice on the same <%s> element"
+#~ msgstr "Atributo \"%s\" repetido dos veces en el mismo elemento <%s>"
+
+#, fuzzy
+#~ msgid "Attribute \"%s\" is invalid on <%s> element in this context"
+#~ msgstr ""
+#~ "El atributo \"%s\" no es válido en el elemento <%s> en este contexto"
+
+#, fuzzy
+#~ msgid "Could not parse \"%s\" as an integer"
+#~ msgstr "No se pudo analizar \"%s\" como un número entero"
+
+#, fuzzy
+#~ msgid "Did not understand trailing characters \"%s\" in string \"%s\""
+#~ msgstr "No entendí los caracteres finales \"%s\" en la cadena \"%s\""
+
+#, fuzzy
+#~ msgid "Integer %ld must be positive"
+#~ msgstr "El entero %ld debe ser positivo"
+
+#, fuzzy
+#~ msgid "Integer %ld is too large, current max is %d"
+#~ msgstr "El entero %ld es demasiado grande, el máximo actual es %d"
+
+#, fuzzy
+#~ msgid "Could not parse \"%s\" as a floating point number"
+#~ msgstr "No se pudo analizar \"%s\" como un número de punto flotante"
+
+#, fuzzy
+#~ msgid "Boolean values must be \"true\" or \"false\" not \"%s\""
+#~ msgstr ""
+#~ "Los valores booleanos deben ser \"verdaderos\" o \"falso\", no \"%s\"."
+
+#, fuzzy
+#~ msgid "Angle must be between 0.0 and 360.0, was %g\n"
+#~ msgstr "El ángulo debe estar entre 0,0 y 360,0, era %g"
+
+#, fuzzy
+#~ msgid ""
+#~ "Alpha must be between 0.0 (invisible) and 1.0 (fully opaque), was %g\n"
+#~ msgstr ""
+#~ "Alfa debe estar entre 0,0 (invisible) y 1,0 (totalmente opaco), era %g"
+
+#, fuzzy
+#~ msgid ""
+#~ "Invalid title scale \"%s\" (must be one of xx-small,x-"
+#~ "small,small,medium,large,x-large,xx-large)\n"
+#~ msgstr ""
+#~ "Escala de título \"%s\" no válida (debe ser una de xx-pequeña,x-"
+#~ "pequeña,pequeña,mediana,grande,x-grande,xx-grande)"
+
+#, fuzzy
+#~ msgid "<%s> name \"%s\" used a second time"
+#~ msgstr "<%s> nombre \"%s\" usado por segunda vez"
+
+#, fuzzy
+#~ msgid "<%s> parent \"%s\" has not been defined"
+#~ msgstr "<%s> el padre \"%s\" no ha sido definido"
+
+#, fuzzy
+#~ msgid "<%s> geometry \"%s\" has not been defined"
+#~ msgstr "<%s> la geometría \"%s\" no ha sido definida"
+
+#, fuzzy
+#~ msgid "<%s> must specify either a geometry or a parent that has a geometry"
+#~ msgstr ""
+#~ "<%s> debe especificar una geometría o un padre que tenga una geometría"
+
+#, fuzzy
+#~ msgid "You must specify a background for an alpha value to be meaningful"
+#~ msgstr "Debes especificar un fondo para que un valor alfa sea significativo"
+
+#, fuzzy
+#~ msgid "Unknown type \"%s\" on <%s> element"
+#~ msgstr "Tipo desconocido \"%s\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "Unknown style_set \"%s\" on <%s> element"
+#~ msgstr "Style_set desconocido \"%s\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "Window type \"%s\" has already been assigned a style set"
+#~ msgstr ""
+#~ "Al tipo de ventana \"%s\" ya se le ha asignado un conjunto de estilos"
+
+#, fuzzy
+#~ msgid "Element <%s> is not allowed below <%s>"
+#~ msgstr "El elemento <%s> no está permitido debajo de <%s>"
+
+#, fuzzy
+#~ msgid ""
+#~ "Cannot specify both \"button_width\"/\"button_height\" and "
+#~ "\"aspect_ratio\" for buttons"
+#~ msgstr ""
+#~ "No se pueden especificar \"button_width\"/\"button_height\" y "
+#~ "\"aspect_ratio\" para los botones"
+
+#, fuzzy
+#~ msgid "Distance \"%s\" is unknown"
+#~ msgstr "La distancia \"%s\" es desconocida"
+
+#, fuzzy
+#~ msgid "Aspect ratio \"%s\" is unknown"
+#~ msgstr "Se desconoce la relación de aspecto \"%s\""
+
+#, fuzzy
+#~ msgid "Border \"%s\" is unknown"
+#~ msgstr "El borde \"%s\" es desconocido"
+
+#, fuzzy
+#~ msgid "No \"start_angle\" or \"from\" attribute on element <%s>"
+#~ msgstr "No hay atributo \"start_angle\" o \"from\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "No \"extent_angle\" or \"to\" attribute on element <%s>"
+#~ msgstr "No hay atributo \"extent_angle\" o \"to\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "Did not understand value \"%s\" for type of gradient"
+#~ msgstr "No entendí el valor \"%s\" para el tipo de gradiente"
+
+#, fuzzy
+#~ msgid "Did not understand fill type \"%s\" for <%s> element"
+#~ msgstr "No entendí el tipo de relleno \"%s\" para el elemento <%s>"
+
+#, fuzzy
+#~ msgid "Did not understand state \"%s\" for <%s> element"
+#~ msgstr "No entendí el estado \"%s\" para el elemento <%s>"
+
+#, fuzzy
+#~ msgid "Did not understand shadow \"%s\" for <%s> element"
+#~ msgstr "No entendí la sombra \"%s\" para el elemento <%s>"
+
+#, fuzzy
+#~ msgid "Did not understand arrow \"%s\" for <%s> element"
+#~ msgstr "No entendí la flecha \"%s\" para el elemento <%s>"
+
+#, fuzzy
+#~ msgid "No <draw_ops> called \"%s\" has been defined"
+#~ msgstr "No se ha definido ningún <draw_ops> llamado \"%s\""
+
+#, fuzzy
+#~ msgid "Including draw_ops \"%s\" here would create a circular reference"
+#~ msgstr "Incluir draw_ops \"%s\" aquí crearía una referencia circular"
+
+#, fuzzy
+#~ msgid "Unknown position \"%s\" for frame piece"
+#~ msgstr "Posición desconocida \"%s\" para pieza de marco"
+
+#, fuzzy
+#~ msgid "Frame style already has a piece at position %s"
+#~ msgstr "El estilo de marco ya tiene una pieza en la posición %s"
+
+#, fuzzy
+#~ msgid "No <draw_ops> with the name \"%s\" has been defined"
+#~ msgstr "No se ha definido ningún <draw_ops> con el nombre \"%s\""
+
+#, fuzzy
+#~ msgid "Unknown function \"%s\" for button"
+#~ msgstr "Función desconocida \"%s\" para el botón"
+
+#, fuzzy
+#~ msgid "Button function \"%s\" does not exist in this version (%d, need %d)"
+#~ msgstr ""
+#~ "La función del botón \"%s\" no existe en esta versión (%d, necesita %d)"
+
+#, fuzzy
+#~ msgid "Unknown state \"%s\" for button"
+#~ msgstr "Estado desconocido \"%s\" para el botón"
+
+#, fuzzy
+#~ msgid "Frame style already has a button for function %s state %s"
+#~ msgstr "El estilo de marco ya tiene un botón para la función %s estado %s"
+
+#, fuzzy
+#~ msgid "\"%s\" is not a valid value for focus attribute"
+#~ msgstr "\"%s\" no es un valor válido para el atributo de enfoque"
+
+#, fuzzy
+#~ msgid "\"%s\" is not a valid value for state attribute"
+#~ msgstr "\"%s\" no es un valor válido para el atributo de estado"
+
+#, fuzzy
+#~ msgid "A style called \"%s\" has not been defined"
+#~ msgstr "No se ha definido un estilo llamado \"%s\""
+
+#, fuzzy
+#~ msgid "\"%s\" is not a valid value for resize attribute"
+#~ msgstr "\"%s\" no es un valor válido para el atributo de cambio de tamaño"
+
+#, fuzzy
+#~ msgid ""
+#~ "Should not have \"resize\" attribute on <%s> element for maximized/shaded "
+#~ "states"
+#~ msgstr ""
+#~ "No debería tener el atributo \"cambiar tamaño\" en el elemento <%s> para "
+#~ "estados maximizados/sombreados"
+
+#, fuzzy
+#~ msgid ""
+#~ "Should not have \"resize\" attribute on <%s> element for maximized states"
+#~ msgstr ""
+#~ "No debería tener el atributo \"cambiar tamaño\" en el elemento <%s> para "
+#~ "estados maximizados"
+
+#, fuzzy
+#~ msgid "Style has already been specified for state %s resize %s focus %s"
+#~ msgstr ""
+#~ "El estilo ya ha sido especificado para el estado %s redimensionar %s foco "
+#~ "%s"
+
+#, fuzzy
+#~ msgid "Style has already been specified for state %s focus %s"
+#~ msgstr "El estilo ya se ha especificado para el estado %s foco %s"
+
+#, fuzzy
+#~ msgid ""
+#~ "Can't have a two draw_ops for a <piece> element (theme specified a "
+#~ "draw_ops attribute and also a <draw_ops> element, or specified two "
+#~ "elements)"
+#~ msgstr ""
+#~ "No se pueden tener dos draw_ops para un elemento <piece> (el tema "
+#~ "especificó un atributo draw_ops y también un elemento <draw_ops>, o "
+#~ "especificó dos elementos)"
+
+#, fuzzy
+#~ msgid ""
+#~ "Can't have a two draw_ops for a <button> element (theme specified a "
+#~ "draw_ops attribute and also a <draw_ops> element, or specified two "
+#~ "elements)"
+#~ msgstr ""
+#~ "No se pueden tener dos draw_ops para un elemento <button> (el tema "
+#~ "especificó un atributo draw_ops y también un elemento <draw_ops>, o "
+#~ "especificó dos elementos)"
+
+#, fuzzy
+#~ msgid ""
+#~ "Can't have a two draw_ops for a <menu_icon> element (theme specified a "
+#~ "draw_ops attribute and also a <draw_ops> element, or specified two "
+#~ "elements)"
+#~ msgstr ""
+#~ "No se pueden tener dos draw_ops para un elemento <menu_icon> (el tema "
+#~ "especificó un atributo draw_ops y también un elemento <draw_ops>, o "
+#~ "especificó dos elementos)"
+
+#, fuzzy
+#~ msgid "Bad version specification '%s'"
+#~ msgstr "Especificación de versión incorrecta '%s'"
+
+#, fuzzy
+#~ msgid ""
+#~ "\"version\" attribute cannot be used in metacity-theme-1.xml or metacity-"
+#~ "theme-2.xml"
+#~ msgstr ""
+#~ "El atributo \"versión\" no se puede utilizar en metacity-theme-1.xml o "
+#~ "metacity-theme-2.xml"
+
+#, fuzzy
+#~ msgid ""
+#~ "Theme requires version %s but latest supported theme version is %d.%d"
+#~ msgstr ""
+#~ "El tema requiere la versión %s pero la última versión admitida del tema "
+#~ "es %d.%d"
+
+#, fuzzy
+#~ msgid "Outermost element in theme must be <metacity_theme> not <%s>"
+#~ msgstr ""
+#~ "El elemento más externo del tema debe ser <metacity_theme> y no <%s>"
+
+#, fuzzy
+#~ msgid ""
+#~ "Element <%s> is not allowed inside a name/author/date/description element"
+#~ msgstr ""
+#~ "El elemento <%s> no está permitido dentro de un elemento de nombre/autor/"
+#~ "fecha/descripción"
+
+#, fuzzy
+#~ msgid "Element <%s> is not allowed inside a <constant> element"
+#~ msgstr ""
+#~ "El elemento <%s> no está permitido dentro de un elemento <constante>"
+
+#, fuzzy
+#~ msgid ""
+#~ "Element <%s> is not allowed inside a distance/border/aspect_ratio element"
+#~ msgstr ""
+#~ "El elemento <%s> no está permitido dentro de un elemento de distancia/"
+#~ "borde/aspect_ratio"
+
+#, fuzzy
+#~ msgid "Element <%s> is not allowed inside a draw operation element"
+#~ msgstr ""
+#~ "El elemento <%s> no está permitido dentro de un elemento de operación de "
+#~ "dibujo"
+
+#, fuzzy
+#~ msgid "Element <%s> is not allowed inside a <%s> element"
+#~ msgstr "El elemento <%s> no está permitido dentro de un elemento <%s>"
+
+#, fuzzy
+#~ msgid "No draw_ops provided for frame piece"
+#~ msgstr "No se proporcionan draw_ops para la pieza del marco"
+
+#, fuzzy
+#~ msgid "No draw_ops provided for button"
+#~ msgstr "No se proporcionan draw_ops para el botón"
+
+#, fuzzy
+#~ msgid "No text is allowed inside element <%s>"
+#~ msgstr "No se permite texto dentro del elemento <%s>"
+
+#, fuzzy
+#~ msgid "<%s> specified twice for this theme"
+#~ msgstr "<%s> especificado dos veces para este tema"
+
+#, fuzzy
+#~ msgid "Failed to find a valid file for theme %s\n"
+#~ msgstr "No se pudo encontrar un archivo válido para el tema %s"
+
+#, fuzzy
+#~ msgid "Mi_nimize"
+#~ msgstr "Minimizar"
+
+#, fuzzy
+#~ msgid "Ma_ximize"
+#~ msgstr "Maximizar"
+
+#, fuzzy
+#~ msgid "Unma_ximize"
+#~ msgstr "Unma_ximizar"
+
+#, fuzzy
+#~ msgid "Roll _Up"
+#~ msgstr "Arremangar"
+
+#, fuzzy
+#~ msgid "_Unroll"
+#~ msgstr "_Desenrollar"
+
+#, fuzzy
+#~ msgid "_Move"
+#~ msgstr "_Mover"
+
+#, fuzzy
+#~ msgid "_Resize"
+#~ msgstr "_Cambiar tamaño"
+
+#, fuzzy
+#~ msgid "Move Titlebar On_screen"
+#~ msgstr "Mover barra de título en pantalla"
+
+#, fuzzy
+#~ msgid "Always on _Top"
+#~ msgstr "Siempre en _Top"
+
+#, fuzzy
+#~ msgid "_Always on Visible Workspace"
+#~ msgstr "_Siempre en el espacio de trabajo visible"
+
+#, fuzzy
+#~ msgid "_Only on This Workspace"
+#~ msgstr "_Solo en este espacio de trabajo"
+
+#, fuzzy
+#~ msgid "Move to Workspace _Left"
+#~ msgstr "Mover al espacio de trabajo _Izquierda"
+
+#, fuzzy
+#~ msgid "Move to Workspace R_ight"
+#~ msgstr "Mover al espacio de trabajo derecho"
+
+#, fuzzy
+#~ msgid "Move to Workspace _Up"
+#~ msgstr "Mover al espacio de trabajo _Arriba"
+
+#, fuzzy
+#~ msgid "Move to Workspace _Down"
+#~ msgstr "Mover al espacio de trabajo _Abajo"
+
+#, fuzzy
+#~ msgid "_Close"
+#~ msgstr "_Cerca"
+
+#, fuzzy
+#~ msgid "Workspace %d%n"
+#~ msgstr "Espacio de trabajo %d%n"
+
+#, fuzzy
+#~ msgid "Workspace 1_0"
+#~ msgstr "Espacio de trabajo 1_0"
+
+#, fuzzy
+#~ msgid "Move to Another _Workspace"
+#~ msgstr "Mover a otro _espacio de trabajo"
+
+#, fuzzy
+#~ msgid "Shift"
+#~ msgstr "Cambio"
+
+#, fuzzy
+#~ msgid "Ctrl"
+#~ msgstr "Control"
+
+#, fuzzy
+#~ msgid "Alt"
+#~ msgstr "Alt."
+
+#, fuzzy
+#~ msgid "Meta"
+#~ msgstr "Meta"
+
+#, fuzzy
+#~ msgid "Super"
+#~ msgstr "Súper"
+
+#, fuzzy
+#~ msgid "Hyper"
+#~ msgstr "Hiper"
+
+#, fuzzy
+#~ msgid "Mod2"
+#~ msgstr "Mod2"
+
+#, fuzzy
+#~ msgid "Mod3"
+#~ msgstr "Mod3"
+
+#, fuzzy
+#~ msgid "Mod4"
+#~ msgstr "Mod4"
+
+#, fuzzy
+#~ msgid "Mod5"
+#~ msgstr "Mod5"
+
+#, fuzzy
+#~ msgid "Mutter (wayland compositor)"
+#~ msgstr "Mutter (compositor de wayland)"
+
+#, fuzzy
+#~ msgid "Unknown window information request: %d"
+#~ msgstr "Solicitud de información de ventana desconocida: %d"
+
+#, fuzzy
+#~ msgid "Missing %s extension required for compositing"
+#~ msgstr "Falta %s extensión necesaria para la composición"
+
+#, fuzzy
+#~ msgid ""
+#~ "Some other program is already using the key %s with modifiers %x as a "
+#~ "binding\n"
+#~ msgstr ""
+#~ "Algún otro programa ya está usando la clave %s con modificadores %x como "
+#~ "enlace"
+
+#, fuzzy
+#~ msgid "\"%s\" is not a valid accelerator\n"
+#~ msgstr "\"%s\" no es un acelerador válido"
+
+#, fuzzy
+#~ msgid ""
+#~ "Workarounds for broken applications disabled. Some applications may not "
+#~ "behave properly.\n"
+#~ msgstr ""
+#~ "Soluciones alternativas para aplicaciones rotas deshabilitadas. Es "
+#~ "posible que algunas aplicaciones no se comporten correctamente."
+
+#, fuzzy
+#~ msgid "Could not parse font description \"%s\" from GSettings key %s\n"
+#~ msgstr ""
+#~ "No se pudo analizar la descripción de fuente \"%s\" de la clave de "
+#~ "GSettings %s"
+
+#, fuzzy
+#~ msgid ""
+#~ "\"%s\" found in configuration database is not a valid value for mouse "
+#~ "button modifier\n"
+#~ msgstr ""
+#~ "\"%s\" encontrado en la base de datos de configuración no es un valor "
+#~ "válido para el modificador del botón del mouse"
+
+#, fuzzy
+#~ msgid ""
+#~ "\"%s\" found in configuration database is not a valid value for "
+#~ "keybinding \"%s\"\n"
+#~ msgstr ""
+#~ "\"%s\" encontrado en la base de datos de configuración no es un valor "
+#~ "válido para la combinación de teclas \"%s\""
+
+#, fuzzy
+#~ msgid ""
+#~ "Could not acquire window manager selection on screen %d display \"%s\"\n"
+#~ msgstr ""
+#~ "No se pudo adquirir la selección del administrador de ventanas en la "
+#~ "pantalla %d mostrar \"%s\""
+
+#, fuzzy
+#~ msgid "Could not release screen %d on display \"%s\"\n"
+#~ msgstr "No se pudo liberar la pantalla %d en la pantalla \"%s\""
+
+#, fuzzy
+#~ msgid "Could not create directory '%s': %s\n"
+#~ msgstr "No se pudo crear el directorio '%s': %s"
+
+#, fuzzy
+#~ msgid "Could not open session file '%s' for writing: %s\n"
+#~ msgstr "No se pudo abrir el archivo de sesión '%s' para escribir: %s"
+
+#, fuzzy
+#~ msgid "Error writing session file '%s': %s\n"
+#~ msgstr "Error al escribir el archivo de sesión '%s': %s"
+
+#, fuzzy
+#~ msgid "Error closing session file '%s': %s\n"
+#~ msgstr "Error al cerrar el archivo de sesión '%s': %s"
+
+#, fuzzy
+#~ msgid "Failed to parse saved session file: %s\n"
+#~ msgstr "No se pudo analizar el archivo de sesión guardado: %s"
+
+#, fuzzy
+#~ msgid "<mutter_session> attribute seen but we already have the session ID"
+#~ msgstr ""
+#~ "Se ha visto el atributo <mutter_session> pero ya tenemos el ID de la "
+#~ "sesión."
+
+#, fuzzy
+#~ msgid "Unknown attribute %s on <%s> element"
+#~ msgstr "Atributo desconocido %s en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "nested <window> tag"
+#~ msgstr "etiqueta <ventana> anidada"
+
+#, fuzzy
+#~ msgid "Unknown element %s"
+#~ msgstr "Elemento desconocido %s"
+
+#, fuzzy
+#~ msgid "Failed to open debug log: %s\n"
+#~ msgstr "No se pudo abrir el registro de depuración: %s"
+
+#, fuzzy
+#~ msgid "Failed to fdopen() log file %s: %s\n"
+#~ msgstr "No se pudo abrir el archivo de registro fdopen() %s: %s"
+
+#, fuzzy
+#~ msgid "Opened log file %s\n"
+#~ msgstr "Archivo de registro abierto %s"
+
+#, fuzzy
+#~ msgid "Window manager: "
+#~ msgstr "Administrador de ventanas:"
+
+# Diferenciar de eRRor en el gestor de ventanas, más abajo
+#, fuzzy
+#~ msgid "Bug in window manager: "
+#~ msgstr "Error en el administrador de ventanas:"
+
+#, fuzzy
+#~ msgid "Window manager warning: "
+#~ msgstr "Advertencia del administrador de ventanas:"
+
+#, fuzzy
+#~ msgid "Window manager error: "
+#~ msgstr "Error del administrador de ventanas:"
+
+#, fuzzy
+#~ msgid ""
+#~ "Window %s sets SM_CLIENT_ID on itself, instead of on the WM_CLIENT_LEADER "
+#~ "window as specified in the ICCCM.\n"
+#~ msgstr ""
+#~ "La ventana %s establece SM_CLIENT_ID en sí misma, en lugar de en la "
+#~ "ventana WM_CLIENT_LEADER como se especifica en ICCCM."
+
+#, fuzzy
+#~ msgid ""
+#~ "Window %s sets an MWM hint indicating it isn't resizable, but sets min "
+#~ "size %d x %d and max size %d x %d; this doesn't make much sense.\n"
+#~ msgstr ""
+#~ "La ventana %s establece una sugerencia de MWM que indica que no se puede "
+#~ "cambiar su tamaño, pero establece el tamaño mínimo %d x %d y el tamaño "
+#~ "máximo %d x %d; esto no tiene mucho sentido."
+
+#, fuzzy
+#~ msgid "Application set a bogus _NET_WM_PID %lu\n"
+#~ msgstr "La aplicación estableció un _NET_WM_PID %lu falso"
+
+#, fuzzy
+#~ msgid "Invalid WM_TRANSIENT_FOR window 0x%lx specified for %s.\n"
+#~ msgstr "Ventana WM_TRANSIENT_FOR no válida 0x%lx especificada para %s."
+
+#, fuzzy
+#~ msgid "WM_TRANSIENT_FOR window 0x%lx for %s would create loop.\n"
+#~ msgstr "La ventana WM_TRANSIENT_FOR 0x%lx para %s crearía un bucle."
+
+#, fuzzy
+#~ msgid ""
+#~ "Window 0x%lx has property %s\n"
+#~ "that was expected to have type %s format %d\n"
+#~ "and actually has type %s format %d n_items %d.\n"
+#~ "This is most likely an application bug, not a window manager bug.\n"
+#~ "The window has title=\"%s\" class=\"%s\" name=\"%s\"\n"
+#~ msgstr ""
+#~ "La ventana 0x%lx tiene la propiedad %s\n"
+#~ "que se esperaba que tuviera tipo %s formato %d\n"
+#~ "y en realidad tiene tipo %s formato %d n_items %d.\n"
+#~ "Lo más probable es que se trate de un error de la aplicación, no de un "
+#~ "error del administrador de ventanas.\n"
+#~ "La ventana tiene título=\"%s\" class=\"%s\" name=\"%s\""
+
+#, fuzzy
+#~ msgid "Property %s on window 0x%lx contained invalid UTF-8\n"
+#~ msgstr "La propiedad %s en la ventana 0x%lx contenía UTF-8 no válido"
+
+#, fuzzy
+#~ msgid ""
+#~ "Property %s on window 0x%lx contained invalid UTF-8 for item %d in the "
+#~ "list\n"
+#~ msgstr ""
+#~ "La propiedad %s en la ventana 0x%lx contenía UTF-8 no válido para el "
+#~ "elemento %d en la lista"
+
+#, fuzzy
+#~ msgid "Usage: %s\n"
+#~ msgstr "Uso: %s"
+
+#, fuzzy
+#~ msgid "_Windows"
+#~ msgstr "_Windows"
+
+#, fuzzy
+#~ msgid "_Dialog"
+#~ msgstr "_Diálogo"
+
+#, fuzzy
+#~ msgid "_Modal dialog"
+#~ msgstr "_Diálogo modal"
+
+#, fuzzy
+#~ msgid "_Utility"
+#~ msgstr "_Utilidad"
+
+#, fuzzy
+#~ msgid "_Splashscreen"
+#~ msgstr "_Pantalla de bienvenida"
+
+#, fuzzy
+#~ msgid "_Top dock"
+#~ msgstr "_Muelle superior"
+
+#, fuzzy
+#~ msgid "_Bottom dock"
+#~ msgstr "_Muelle inferior"
+
+#, fuzzy
+#~ msgid "_Left dock"
+#~ msgstr "_Muelle izquierdo"
+
+#, fuzzy
+#~ msgid "_Right dock"
+#~ msgstr "_Muelle derecho"
+
+#, fuzzy
+#~ msgid "_All docks"
+#~ msgstr "_Todos los muelles"
+
+#, fuzzy
+#~ msgid "Des_ktop"
+#~ msgstr "De oficina"
+
+#, fuzzy
+#~ msgid "Open another one of these windows"
+#~ msgstr "Abre otra de estas ventanas."
+
+#, fuzzy
+#~ msgid "This is a demo button with an 'open' icon"
+#~ msgstr "Este es un botón de demostración con un ícono de \"abrir\""
+
+#, fuzzy
+#~ msgid "This is a demo button with a 'quit' icon"
+#~ msgstr "Este es un botón de demostración con un ícono de \"salir\""
+
+#, fuzzy
+#~ msgid "This is a sample message in a sample dialog"
+#~ msgstr "Este es un mensaje de muestra en un cuadro de diálogo de muestra."
+
+#, fuzzy
+#~ msgid "Fake menu item %d\n"
+#~ msgstr "Elemento de menú falso %d"
+
+#, fuzzy
+#~ msgid "Border-only window"
+#~ msgstr "Ventana solo de borde"
+
+#, fuzzy
+#~ msgid "Bar"
+#~ msgstr "Bar"
+
+#, fuzzy
+#~ msgid "Normal Application Window"
+#~ msgstr "Ventana de aplicación normal"
+
+#, fuzzy
+#~ msgid "Dialog Box"
+#~ msgstr "Caja de diálogo"
+
+#, fuzzy
+#~ msgid "Modal Dialog Box"
+#~ msgstr "Cuadro de diálogo modal"
+
+#, fuzzy
+#~ msgid "Utility Palette"
+#~ msgstr "Paleta de utilidades"
+
+#, fuzzy
+#~ msgid "Torn-off Menu"
+#~ msgstr "Menú arrancado"
+
+#, fuzzy
+#~ msgid "Border"
+#~ msgstr "Borde"
+
+#, fuzzy
+#~ msgid "Attached Modal Dialog"
+#~ msgstr "Diálogo modal adjunto"
+
+#, fuzzy
+#~ msgid "Button layout test %d"
+#~ msgstr "Prueba de diseño de botones %d"
+
+#, fuzzy
+#~ msgid "%g milliseconds to draw one window frame"
+#~ msgstr "%g milisegundos para dibujar un marco de ventana"
+
+#, fuzzy
+#~ msgid "Usage: metacity-theme-viewer [THEMENAME]\n"
+#~ msgstr "Uso: visor-tema-metacity [NOMBRE DEL TEMARIO]"
+
+#, fuzzy
+#~ msgid "Error loading theme: %s\n"
+#~ msgstr "Error al cargar el tema: %s"
+
+#, fuzzy
+#~ msgid "Loaded theme \"%s\" in %g seconds\n"
+#~ msgstr "Tema cargado \"%s\" en %g segundos"
+
+#, fuzzy
+#~ msgid "Normal Title Font"
+#~ msgstr "Fuente de título normal"
+
+#, fuzzy
+#~ msgid "Small Title Font"
+#~ msgstr "Fuente de título pequeña"
+
+#, fuzzy
+#~ msgid "Large Title Font"
+#~ msgstr "Fuente de título grande"
+
+#, fuzzy
+#~ msgid "Button Layouts"
+#~ msgstr "Diseños de botones"
+
+#, fuzzy
+#~ msgid "Benchmark"
+#~ msgstr "Punto de referencia"
+
+#, fuzzy
+#~ msgid "Window Title Goes Here"
+#~ msgstr "El título de la ventana va aquí"
+
+#, fuzzy
+#~ msgid ""
+#~ "Drew %d frames in %g client-side seconds (%g milliseconds per frame) and "
+#~ "%g seconds wall clock time including X server resources (%g milliseconds "
+#~ "per frame)\n"
+#~ msgstr ""
+#~ "Dibujó %d fotogramas en %g segundos del lado del cliente (%g milisegundos "
+#~ "por fotograma) y %g segundos de tiempo de reloj de pared, incluidos X "
+#~ "recursos del servidor (%g milisegundos por fotograma)"
+
+#, fuzzy
+#~ msgid "position expression test returned TRUE but set error"
+#~ msgstr ""
+#~ "La prueba de expresión de posición devolvió VERDADERO pero estableció el "
+#~ "error"
+
+#, fuzzy
+#~ msgid "position expression test returned FALSE but didn't set error"
+#~ msgstr ""
+#~ "La prueba de expresión de posición devolvió FALSO pero no estableció el "
+#~ "error"
+
+#, fuzzy
+#~ msgid "Error was expected but none given"
+#~ msgstr "Se esperaba un error pero no se proporcionó ninguno."
+
+#, fuzzy
+#~ msgid "Error %d was expected but %d given"
+#~ msgstr "Se esperaba el error %d pero se proporcionó %d"
+
+#, fuzzy
+#~ msgid "Error not expected but one was returned: %s"
+#~ msgstr "Error no esperado pero se devolvió uno: %s"
+
+#, fuzzy
+#~ msgid "x value was %d, %d was expected"
+#~ msgstr "El valor de x era %d, se esperaba %d"
+
+#, fuzzy
+#~ msgid "y value was %d, %d was expected"
+#~ msgstr "El valor de y era %d, se esperaba %d."
+
+#, fuzzy
+#~ msgid ""
+#~ "%d coordinate expressions parsed in %g seconds (%g seconds average)\n"
+#~ msgstr ""
+#~ "%d expresiones de coordenadas analizadas en %g segundos (promedio de %g "
+#~ "segundos)"
+
+#, fuzzy
+#~ msgid "Minimize window"
+#~ msgstr "Minimizar ventana"
+
+#, fuzzy
+#~ msgid "Comma-separated list of compositor plugins"
+#~ msgstr "Lista separada por comas de complementos de compositor"
+
+#, fuzzy
+#~ msgid "Live Hidden Windows"
+#~ msgstr "Ventanas ocultas en vivo"
+
+#, fuzzy
+#~ msgid ""
+#~ "Determines whether hidden windows (i.e., minimized windows and windows on "
+#~ "other workspaces than the current one) should be kept alive."
+#~ msgstr ""
+#~ "Determina si las ventanas ocultas (es decir, ventanas minimizadas y "
+#~ "ventanas en otros espacios de trabajo distintos del actual) deben "
+#~ "mantenerse activas."
+
+#, fuzzy
+#~ msgid "Close Window"
+#~ msgstr "Cerrar ventana"
+
+#, fuzzy
+#~ msgid "Minimize Window"
+#~ msgstr "Minimizar ventana"
+
+#, fuzzy
+#~ msgid "Maximize Window"
+#~ msgstr "Maximizar ventana"
+
+#, fuzzy
+#~ msgid "Restore Window"
+#~ msgstr "Restaurar ventana"
+
+#, fuzzy
+#~ msgid "Roll Up Window"
+#~ msgstr "Ventana enrollable"
+
+#, fuzzy
+#~ msgid "Unroll Window"
+#~ msgstr "Desenrollar ventana"
+
+#, fuzzy
+#~ msgid "Keep Window On Top"
+#~ msgstr "Mantenga la ventana en la parte superior"
+
+#, fuzzy
+#~ msgid "Remove Window From Top"
+#~ msgstr "Quitar ventana desde arriba"
+
+#, fuzzy
+#~ msgid "Always On Visible Workspace"
+#~ msgstr "Espacio de trabajo siempre visible"
+
+#, fuzzy
+#~ msgid "Put Window On Only One Workspace"
+#~ msgstr "Poner ventana en un solo espacio de trabajo"
+
+#, fuzzy
+#~ msgid "Switch to workspace 8"
+#~ msgstr "Cambiar al espacio de trabajo 8"
+
+#, fuzzy
+#~ msgid "Switch to workspace 9"
+#~ msgstr "Cambiar al espacio de trabajo 9"
+
+#, fuzzy
+#~ msgid "Switch to workspace 10"
+#~ msgstr "Cambiar al espacio de trabajo 10"
+
+#, fuzzy
+#~ msgid "Switch to workspace 11"
+#~ msgstr "Cambiar al espacio de trabajo 11"
+
+#, fuzzy
+#~ msgid "Switch to workspace 12"
+#~ msgstr "Cambiar al espacio de trabajo 12"
+
+#, fuzzy
+#~ msgid "Switch to workspace on the left of the current workspace"
+#~ msgstr ""
+#~ "Cambiar al espacio de trabajo a la izquierda del espacio de trabajo actual"
+
+#, fuzzy
+#~ msgid "Switch to workspace on the right of the current workspace"
+#~ msgstr ""
+#~ "Cambiar al espacio de trabajo a la derecha del espacio de trabajo actual"
+
+#, fuzzy
+#~ msgid "Switch to workspace above the current workspace"
+#~ msgstr "Cambiar al espacio de trabajo encima del espacio de trabajo actual"
+
+#, fuzzy
+#~ msgid "Switch to workspace below the current workspace"
+#~ msgstr "Cambiar al espacio de trabajo debajo del espacio de trabajo actual"
+
+#, fuzzy
+#~ msgid "Move between windows of an application, using a popup window"
+#~ msgstr ""
+#~ "Moverse entre ventanas de una aplicación, usando una ventana emergente"
+
+#, fuzzy
+#~ msgid ""
+#~ "Move backward between windows of an application, using a popup window"
+#~ msgstr ""
+#~ "Retroceder entre ventanas de una aplicación mediante una ventana emergente"
+
+#, fuzzy
+#~ msgid "Move between windows, using a popup window"
+#~ msgstr "Moverse entre ventanas, usando una ventana emergente"
+
+#, fuzzy
+#~ msgid "Move backward between windows, using a popup window"
+#~ msgstr "Retroceder entre ventanas mediante una ventana emergente"
+
+#, fuzzy
+#~ msgid "Move between panels and the desktop, using a popup window"
+#~ msgstr "Moverse entre paneles y el escritorio, usando una ventana emergente"
+
+#, fuzzy
+#~ msgid "Move backward between panels and the desktop, using a popup window"
+#~ msgstr ""
+#~ "Retroceder entre los paneles y el escritorio mediante una ventana "
+#~ "emergente"
+
+#, fuzzy
+#~ msgid "Move between windows of an application immediately"
+#~ msgstr "Moverse entre ventanas de una aplicación inmediatamente"
+
+#, fuzzy
+#~ msgid "Move backward between windows of an application immediately"
+#~ msgstr "Retroceder entre ventanas de una aplicación inmediatamente"
+
+#, fuzzy
+#~ msgid "Move between windows immediately"
+#~ msgstr "Moverse entre ventanas inmediatamente"
+
+#, fuzzy
+#~ msgid "Move backward between windows immediately"
+#~ msgstr "Retroceder entre ventanas inmediatamente"
+
+#, fuzzy
+#~ msgid "Move between panels and the desktop immediately"
+#~ msgstr "Muévase entre los paneles y el escritorio inmediatamente"
+
+#, fuzzy
+#~ msgid "Move backward between panels and the desktop immediately"
+#~ msgstr "Retroceder entre los paneles y el escritorio inmediatamente"
+
+#, fuzzy
+#~ msgid "Hide all normal windows and set focus to the desktop"
+#~ msgstr ""
+#~ "Oculte todas las ventanas normales y establezca el foco en el escritorio"
+
+#, fuzzy
+#~ msgid "Show the panel's main menu"
+#~ msgstr "Mostrar el menú principal del panel"
+
+#, fuzzy
+#~ msgid "Show the panel's \"Run Application\" dialog box"
+#~ msgstr "Mostrar el cuadro de diálogo \"Ejecutar aplicación\" del panel"
+
+#, fuzzy
+#~ msgid "Start or stop recording the session"
+#~ msgstr "Iniciar o detener la grabación de la sesión"
+
+#, fuzzy
+#~ msgid "Take a screenshot"
+#~ msgstr "Tomar una captura de pantalla"
+
+#, fuzzy
+#~ msgid "Take a screenshot of a window"
+#~ msgstr "Tomar una captura de pantalla de una ventana"
+
+#, fuzzy
+#~ msgid "Run a terminal"
+#~ msgstr "ejecutar una terminal"
+
+#, fuzzy
+#~ msgid "Toggle whether a window will always be visible over other windows"
+#~ msgstr "Alternar si una ventana siempre será visible sobre otras ventanas"
+
+#, fuzzy
+#~ msgid "Toggle whether window is on all workspaces or just one"
+#~ msgstr ""
+#~ "Alternar si la ventana está en todos los espacios de trabajo o solo en uno"
+
+#, fuzzy
+#~ msgid "Move window to workspace 5"
+#~ msgstr "Mover ventana al espacio de trabajo 5"
+
+#, fuzzy
+#~ msgid "Move window to workspace 6"
+#~ msgstr "Mover ventana al espacio de trabajo 6"
+
+#, fuzzy
+#~ msgid "Move window to workspace 7"
+#~ msgstr "Mover ventana al espacio de trabajo 7"
+
+#, fuzzy
+#~ msgid "Move window to workspace 8"
+#~ msgstr "Mover ventana al espacio de trabajo 8"
+
+#, fuzzy
+#~ msgid "Move window to workspace 9"
+#~ msgstr "Mover ventana al espacio de trabajo 9"
+
+#, fuzzy
+#~ msgid "Move window to workspace 10"
+#~ msgstr "Mover ventana al espacio de trabajo 10"
+
+#, fuzzy
+#~ msgid "Move window to workspace 11"
+#~ msgstr "Mover ventana al espacio de trabajo 11"
+
+#, fuzzy
+#~ msgid "Move window to workspace 12"
+#~ msgstr "Mover ventana al espacio de trabajo 12"
+
+#, fuzzy
+#~ msgid "Raise window if it's covered by another window, otherwise lower it"
+#~ msgstr ""
+#~ "Levante la ventana si está cubierta por otra ventana; en caso contrario, "
+#~ "bájela"
+
+#, fuzzy
+#~ msgid "Move window to north-west (top left) corner"
+#~ msgstr "Mover la ventana a la esquina noroeste (arriba a la izquierda)"
+
+#, fuzzy
+#~ msgid "Move window to north-east (top right) corner"
+#~ msgstr "Mover ventana a la esquina noreste (arriba a la derecha)"
+
+#, fuzzy
+#~ msgid "Move window to south-west (bottom left) corner"
+#~ msgstr "Mover la ventana a la esquina suroeste (abajo a la izquierda)"
+
+#, fuzzy
+#~ msgid "Move window to south-east (bottom right) corner"
+#~ msgstr "Mover la ventana a la esquina sureste (abajo a la derecha)"
+
+#, fuzzy
+#~ msgid "Move window to north (top) side of screen"
+#~ msgstr "Mover la ventana al lado norte (superior) de la pantalla"
+
+#, fuzzy
+#~ msgid "Move window to south (bottom) side of screen"
+#~ msgstr "Mover la ventana al lado sur (inferior) de la pantalla"
+
+#, fuzzy
+#~ msgid "Move window to east (right) side of screen"
+#~ msgstr "Mover la ventana al lado este (derecho) de la pantalla"
+
+#, fuzzy
+#~ msgid "Move window to west (left) side of screen"
+#~ msgstr "Mover la ventana al lado oeste (izquierdo) de la pantalla"
+
+#, fuzzy
+#~ msgid "Move window to center of screen"
+#~ msgstr "Mover ventana al centro de la pantalla"
+
+#, fuzzy
+#~ msgid ""
+#~ "There was an error running <tt>%s</tt>:\n"
+#~ "\n"
+#~ "%s"
+#~ msgstr ""
+#~ "Hubo un error al ejecutar <tt>%s</tt>:\n"
+#~ "\n"
+#~ "%s"
+
+#, fuzzy
+#~ msgid "No command %d has been defined.\n"
+#~ msgstr "No se ha definido ningún comando %d."
+
+#, fuzzy
+#~ msgid "No terminal command has been defined.\n"
+#~ msgstr "No se ha definido ningún comando de terminal."
+
+#, fuzzy
+#~ msgid "GConf key '%s' is set to an invalid value\n"
+#~ msgstr "La clave de GConf '%s' está configurada con un valor no válido"
+
+#, fuzzy
+#~ msgid "%d stored in GConf key %s is out of range %d to %d\n"
+#~ msgstr "%d almacenado en la clave GConf %s está fuera del rango de %d a %d"
+
+#, fuzzy
+#~ msgid "GConf key \"%s\" is set to an invalid type\n"
+#~ msgstr "La clave de GConf \"%s\" está configurada en un tipo no válido"
+
+#, fuzzy
+#~ msgid "GConf key %s is already in use and can't be used to override %s\n"
+#~ msgstr "La clave GConf %s ya está en uso y no se puede usar para anular %s"
+
+#, fuzzy
+#~ msgid "Can't override GConf key, %s not found\n"
+#~ msgstr "No se puede anular la clave GConf, %s no encontrada"
+
+#, fuzzy
+#~ msgid "Error setting number of workspaces to %d: %s\n"
+#~ msgstr "Error al configurar el número de espacios de trabajo en %d: %s"
+
+#, fuzzy
+#~ msgid "Error setting name for workspace %d to \"%s\": %s\n"
+#~ msgstr ""
+#~ "Error al configurar el nombre del espacio de trabajo %d en \"%s\": %s"
+
+#, fuzzy
+#~ msgid "Error setting live hidden windows status status: %s\n"
+#~ msgstr "Error al configurar el estado de Windows oculto en vivo: %s"
+
+#, fuzzy
+#~ msgid "Error setting no tab popup status: %s\n"
+#~ msgstr "Error al establecer el estado de ventana emergente sin pestaña: %s"
+
+#, fuzzy
+#~ msgid "Failed to retrieve color %s[%s] from GTK+ theme.\n"
+#~ msgstr "No se pudo recuperar el color %s[%s] del tema GTK+."
+
+#, fuzzy
+#~ msgid ""
+#~ "Don't make fullscreen windows that are maximized and have no decorations"
+#~ msgstr ""
+#~ "No crees ventanas a pantalla completa que estén maximizadas y sin "
+#~ "decoraciones."
+
+#, fuzzy
+#~ msgid "Whether window popup/frame should be shown when cycling windows."
+#~ msgstr ""
+#~ "Si la ventana emergente/marco debe mostrarse al realizar ciclos de "
+#~ "ventanas."
+
+#, fuzzy
+#~ msgid "Internal argument for GObject introspection"
+#~ msgstr "Argumento interno para la introspección de GObject"
+
+#, fuzzy
+#~ msgid "Error setting clutter plugin list: %s\n"
+#~ msgstr "Error al configurar la lista de complementos desordenados: %s"
+
+#, fuzzy
+#~ msgid "Plugins to load for the Clutter-based compositing manager."
+#~ msgstr ""
+#~ "Complementos para cargar para el administrador de composición basado en "
+#~ "Clutter."
+
+#, fuzzy
+#~ msgid "Turn compositing on"
+#~ msgstr "Activar la composición"
+
+#, fuzzy
+#~ msgid "Turn compositing off"
+#~ msgstr "Desactivar la composición"
+
+#, fuzzy
+#~ msgid "Error setting compositor status: %s\n"
+#~ msgstr "Error al configurar el estado del compositor: %s"
+
+#, fuzzy
+#~ msgid ""
+#~ "Lost connection to the display '%s';\n"
+#~ "most likely the X server was shut down or you killed/destroyed\n"
+#~ "the window manager.\n"
+#~ msgstr ""
+#~ "Se perdió la conexión con la pantalla '%s';\n"
+#~ "lo más probable es que el servidor X se haya cerrado o que lo hayas "
+#~ "matado/destruido\n"
+#~ "el administrador de ventanas."
+
+#, fuzzy
+#~ msgid "Fatal IO error %d (%s) on display '%s'.\n"
+#~ msgstr "Error fatal de E/S %d (%s) en la pantalla '%s'."
+
+#, fuzzy
+#~ msgid "Failed to get hostname: %s\n"
+#~ msgstr "No se pudo obtener el nombre de host: %s"
+
+#, fuzzy
+#~ msgid "/Windows/tearoff"
+#~ msgstr "/Windows/desgarro"
+
+#, fuzzy
+#~ msgid "/Windows/_Dialog"
+#~ msgstr "/Windows/_Diálogo"
+
+#, fuzzy
+#~ msgid "/Windows/_Modal dialog"
+#~ msgstr "/Windows/_Diálogo modal"
+
+#, fuzzy
+#~ msgid "/Windows/Des_ktop"
+#~ msgstr "/Windows/Des_ktop"
+
+#, fuzzy
+#~ msgid "Theme file %s did not contain a root <metacity_theme> element"
+#~ msgstr "El archivo de tema %s no contenía un elemento raíz <metacity_theme>"
+
+#, fuzzy
+#~ msgid "Failed to read saved session file %s: %s\n"
+#~ msgstr "No se pudo leer el archivo de sesión guardado %s: %s"
+
+#, fuzzy
+#~ msgid "<author> specified twice for this theme"
+#~ msgstr "<autor> especificado dos veces para este tema"
+
+#, fuzzy
+#~ msgid "<copyright> specified twice for this theme"
+#~ msgstr "<copyright> especificado dos veces para este tema"
+
+#, fuzzy
+#~ msgid "<date> specified twice for this theme"
+#~ msgstr "<fecha> especificada dos veces para este tema"
+
+#, fuzzy
+#~ msgid "<description> specified twice for this theme"
+#~ msgstr "<descripción> especificado dos veces para este tema"
+
+#, fuzzy
+#~ msgid "Window Management"
+#~ msgstr "Gestión de ventanas"
+
+#, fuzzy
+#~ msgid "Failed to parse message \"%s\" from dialog process\n"
+#~ msgstr "No se pudo analizar el mensaje \"%s\" del proceso de diálogo"
+
+#, fuzzy
+#~ msgid "Error reading from dialog display process: %s\n"
+#~ msgstr ""
+#~ "Error al leer del proceso de visualización del cuadro de diálogo: %s"
+
+#, fuzzy
+#~ msgid ""
+#~ "Error launching metacity-dialog to ask about killing an application: %s\n"
+#~ msgstr ""
+#~ "Error al iniciar el diálogo de metacity para preguntar sobre cómo cerrar "
+#~ "una aplicación: %s"
+
+#, fuzzy
+#~ msgid ""
+#~ "The format looks like \"<Control>a\" or <Shift><Alt>F1\".\n"
+#~ "\n"
+#~ "The parser is fairly liberal and allows lower or upper case, and also "
+#~ "abbreviations such as \"<Ctl>\" and \"<Ctrl>\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "El formato se parece a \"<Control>a\" o <Shift><Alt>F1\".\n"
+#~ "\n"
+#~ "El analizador es bastante liberal y permite mayúsculas y minúsculas, y "
+#~ "también abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción "
+#~ "con la cadena especial \"deshabilitada\", no habrá combinación de teclas "
+#~ "para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The format looks like \"<Control>a\" or <Shift><Alt>F1\".\n"
+#~ "\n"
+#~ "The parser is fairly liberal and allows lower or upper case, and also "
+#~ "abbreviations such as \"<Ctl>\" and \"<Ctrl>\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action.\n"
+#~ "\n"
+#~ "This keybinding may be reversed by holding down the \"shift\" key; "
+#~ "therefore, \"shift\" cannot be one of the keys it uses."
+#~ msgstr ""
+#~ "El formato se parece a \"<Control>a\" o <Shift><Alt>F1\".\n"
+#~ "\n"
+#~ "El analizador es bastante liberal y permite mayúsculas y minúsculas, y "
+#~ "también abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción "
+#~ "con la cadena especial \"deshabilitada\", no habrá combinación de teclas "
+#~ "para esta acción.\n"
+#~ "\n"
+#~ "Esta combinación de teclas se puede revertir manteniendo presionada la "
+#~ "tecla \"shift\"; por lo tanto, \"shift\" no puede ser una de las teclas "
+#~ "que utiliza."
+
+#, fuzzy
+#~ msgid ""
+#~ "Error launching metacity-dialog to warn about apps that don't support "
+#~ "session management: %s\n"
+#~ msgstr ""
+#~ "Error al iniciar metacity-dialog para advertir sobre aplicaciones que no "
+#~ "admiten la administración de sesiones: %s"
+
+#, fuzzy
+#~ msgid "Metacity"
+#~ msgstr "Metaciudad"
+
+#, fuzzy
+#~ msgid ""
+#~ "(Not implemented) Navigation works in terms of applications not windows"
+#~ msgstr ""
+#~ "(No implementado) La navegación funciona en términos de aplicaciones, no "
+#~ "de Windows."
+
+#, fuzzy
+#~ msgid ""
+#~ "A font description string describing a font for window titlebars. The "
+#~ "size from the description will only be used if the titlebar_font_size "
+#~ "option is set to 0. Also, this option is disabled if the "
+#~ "titlebar_uses_desktop_font option is set to true."
+#~ msgstr ""
+#~ "Una cadena de descripción de fuente que describe una fuente para las "
+#~ "barras de título de las ventanas. El tamaño de la descripción solo se "
+#~ "usará si la opción titlebar_font_size está configurada en 0. Además, esta "
+#~ "opción está deshabilitada si la opción titlebar_uses_desktop_font está "
+#~ "configurada en verdadero."
+
+#, fuzzy
+#~ msgid "Action on title bar double-click"
+#~ msgstr "Acción en la barra de título, doble clic."
+
+#, fuzzy
+#~ msgid "Action on title bar middle-click"
+#~ msgstr "Acción al hacer clic con el botón central en la barra de título"
+
+#, fuzzy
+#~ msgid "Action on title bar right-click"
+#~ msgstr "Acción en la barra de título, clic derecho"
+
+#, fuzzy
+#~ msgid "Arrangement of buttons on the titlebar"
+#~ msgstr "Disposición de los botones en la barra de título."
+
+#, fuzzy
+#~ msgid ""
+#~ "Arrangement of buttons on the titlebar. The value should be a string, "
+#~ "such as \"menu:minimize,maximize,spacer,close\"; the colon separates the "
+#~ "left corner of the window from the right corner, and the button names are "
+#~ "comma-separated. Duplicate buttons are not allowed. Unknown button names "
+#~ "are silently ignored so that buttons can be added in future metacity "
+#~ "versions without breaking older versions. A special spacer tag can be "
+#~ "used to insert some space between two adjacent buttons."
+#~ msgstr ""
+#~ "Disposición de los botones en la barra de título. El valor debe ser una "
+#~ "cadena, como \"menú:minimizar,maximizar,espaciador,cerrar\"; los dos "
+#~ "puntos separan la esquina izquierda de la ventana de la esquina derecha y "
+#~ "los nombres de los botones están separados por comas. No se permiten "
+#~ "botones duplicados. Los nombres de botones desconocidos se ignoran "
+#~ "silenciosamente para que se puedan agregar botones en futuras versiones "
+#~ "de Metacity sin alterar las versiones anteriores. Se puede utilizar una "
+#~ "etiqueta espaciadora especial para insertar algo de espacio entre dos "
+#~ "botones adyacentes."
+
+#, fuzzy
+#~ msgid "Automatically raises the focused window"
+#~ msgstr "Levanta automáticamente la ventana enfocada"
+
+#, fuzzy
+#~ msgid ""
+#~ "Clicking a window while holding down this modifier key will move the "
+#~ "window (left click), resize the window (middle click), or show the window "
+#~ "menu (right click). The left and right operations may be swapped using "
+#~ "the \"mouse_button_resize\" key. Modifier is expressed as \"&lt;Alt&gt;\" "
+#~ "or \"&lt;Super&gt;\" for example."
+#~ msgstr ""
+#~ "Al hacer clic en una ventana mientras se mantiene presionada esta tecla "
+#~ "modificadora, se moverá la ventana (clic izquierdo), se cambiará el "
+#~ "tamaño de la ventana (clic central) o se mostrará el menú de la ventana "
+#~ "(clic derecho). Las operaciones izquierda y derecha se pueden "
+#~ "intercambiar usando la tecla \"mouse_button_resize\". El modificador se "
+#~ "expresa como \"<Alt>\" o \"<Super>\", por ejemplo."
+
+#, fuzzy
+#~ msgid "Commands to run in response to keybindings"
+#~ msgstr "Comandos para ejecutar en respuesta a combinaciones de teclas"
+
+#, fuzzy
+#~ msgid "Control how new windows get focus"
+#~ msgstr "Controla cómo se enfocan las nuevas ventanas"
+
+#, fuzzy
+#~ msgid "Current theme"
+#~ msgstr "Tema actual"
+
+#, fuzzy
+#~ msgid "Delay in milliseconds for the auto raise option"
+#~ msgstr "Retraso en milisegundos para la opción de aumento automático"
+
+#, fuzzy
+#~ msgid "Determines whether Metacity is a compositing manager."
+#~ msgstr "Determina si Metacity es un administrador de composición."
+
+#, fuzzy
+#~ msgid ""
+#~ "Determines whether applications or the system can generate audible "
+#~ "'beeps'; may be used in conjunction with 'visual bell' to allow silent "
+#~ "'beeps'."
+#~ msgstr ""
+#~ "Determina si las aplicaciones o el sistema pueden generar 'bips' "
+#~ "audibles; se puede utilizar junto con una \"campana visual\" para "
+#~ "permitir \"bips\" silenciosos."
+
+#, fuzzy
+#~ msgid "Disable misfeatures that are required by old or broken applications"
+#~ msgstr ""
+#~ "Deshabilite las funciones erróneas que requieren las aplicaciones "
+#~ "antiguas o rotas"
+
+#, fuzzy
+#~ msgid "Enable Visual Bell"
+#~ msgstr "Habilitar campana visual"
+
+#, fuzzy
+#~ msgid ""
+#~ "If true, ignore the titlebar_font option, and use the standard "
+#~ "application font for window titles."
+#~ msgstr ""
+#~ "Si es verdadero, ignore la opción titlebar_font y use la fuente estándar "
+#~ "de la aplicación para los títulos de las ventanas."
+
+#, fuzzy
+#~ msgid ""
+#~ "If true, metacity will give the user less feedback by using wireframes, "
+#~ "avoiding animations, or other means. This is a significant reduction in "
+#~ "usability for many users, but may allow legacy applications to continue "
+#~ "working, and may also be a useful tradeoff for terminal servers. However, "
+#~ "the wireframe feature is disabled when accessibility is on."
+#~ msgstr ""
+#~ "Si es cierto, metacity le dará al usuario menos retroalimentación al usar "
+#~ "wireframes, evitar animaciones u otros medios. Esta es una reducción "
+#~ "significativa en la usabilidad para muchos usuarios, pero puede permitir "
+#~ "que las aplicaciones heredadas continúen funcionando y también puede ser "
+#~ "una compensación útil para los servidores de terminales. Sin embargo, la "
+#~ "función de estructura alámbrica está desactivada cuando la accesibilidad "
+#~ "está activada."
+
+#, fuzzy
+#~ msgid ""
+#~ "If true, then Metacity works in terms of applications rather than "
+#~ "windows. The concept is a bit abstract, but in general an application-"
+#~ "based setup is more like the Mac and less like Windows. When you focus a "
+#~ "window in application-based mode, all the windows in the application will "
+#~ "be raised. Also, in application-based mode, focus clicks are not passed "
+#~ "through to windows in other applications. Application-based mode is, "
+#~ "however, largely unimplemented at the moment."
+#~ msgstr ""
+#~ "Si es cierto, entonces Metacity funciona en términos de aplicaciones y no "
+#~ "de ventanas. El concepto es un poco abstracto, pero en general una "
+#~ "configuración basada en aplicaciones se parece más a Mac y menos a "
+#~ "Windows. Cuando enfoca una ventana en el modo basado en aplicación, se "
+#~ "abrirán todas las ventanas de la aplicación. Además, en el modo basado en "
+#~ "aplicaciones, los clics de enfoque no se transfieren a ventanas de otras "
+#~ "aplicaciones. Sin embargo, el modo basado en aplicaciones prácticamente "
+#~ "no está implementado por el momento."
+
+#, fuzzy
+#~ msgid "If true, trade off usability for less resource usage"
+#~ msgstr "Si es cierto, intercambie usabilidad por un menor uso de recursos"
+
+#, fuzzy
+#~ msgid "Name of workspace"
+#~ msgstr "Nombre del espacio de trabajo"
+
+#, fuzzy
+#~ msgid "Number of workspaces"
+#~ msgstr "Número de espacios de trabajo"
+
+#, fuzzy
+#~ msgid ""
+#~ "Number of workspaces. Must be more than zero, and has a fixed maximum to "
+#~ "prevent making the desktop unusable by accidentally asking for too many "
+#~ "workspaces."
+#~ msgstr ""
+#~ "Número de espacios de trabajo. Debe ser mayor que cero y tiene un máximo "
+#~ "fijo para evitar que el escritorio quede inutilizable al solicitar "
+#~ "accidentalmente demasiados espacios de trabajo."
+
+#, fuzzy
+#~ msgid "Run a defined command"
+#~ msgstr "Ejecutar un comando definido"
+
+#, fuzzy
+#~ msgid ""
+#~ "Set this to true to resize with the right button and show a menu with the "
+#~ "middle button while holding down the key given in "
+#~ "\"mouse_button_modifier\"; set it to false to make it work the opposite "
+#~ "way around."
+#~ msgstr ""
+#~ "Establezca esto en verdadero para cambiar el tamaño con el botón derecho "
+#~ "y mostrar un menú con el botón central mientras mantiene presionada la "
+#~ "tecla proporcionada en \"mouse_button_modifier\"; configúrelo en falso "
+#~ "para que funcione al revés."
+
+#, fuzzy
+#~ msgid ""
+#~ "Setting this option to false can lead to buggy behavior, so users are "
+#~ "strongly discouraged from changing it from the default of true. Many "
+#~ "actions (e.g. clicking in the client area, moving or resizing the window) "
+#~ "normally raise the window as a side-effect. Setting this option to false, "
+#~ "which is strongly discouraged, will decouple raising from other user "
+#~ "actions, and ignore raise requests generated by applications. See http://"
+#~ "bugzilla.gnome.org/show_bug.cgi?id=445447#c6. Even when this option is "
+#~ "false, windows can still be raised by an alt-left-click anywhere on the "
+#~ "window, a normal click on the window decorations, or by special messages "
+#~ "from pagers, such as activation requests from tasklist applets. This "
+#~ "option is currently disabled in click-to-focus mode. Note that the list "
+#~ "of ways to raise windows when raise_on_click is false does not include "
+#~ "programmatic requests from applications to raise windows; such requests "
+#~ "will be ignored regardless of the reason for the request. If you are an "
+#~ "application developer and have a user complaining that your application "
+#~ "does not work with this setting disabled, tell them it is _their_ fault "
+#~ "for breaking their window manager and that they need to change this "
+#~ "option back to true or live with the \"bug\" they requested."
+#~ msgstr ""
+#~ "Establecer esta opción en falso puede generar errores, por lo que se "
+#~ "desaconseja encarecidamente a los usuarios que la cambien desde el valor "
+#~ "predeterminado verdadero. Muchas acciones (por ejemplo, hacer clic en el "
+#~ "área del cliente, mover o cambiar el tamaño de la ventana) normalmente "
+#~ "generan la ventana como efecto secundario. Establecer esta opción en "
+#~ "falso, algo que se desaconseja encarecidamente, desacoplará la subida de "
+#~ "otras acciones del usuario e ignorará las solicitudes de subida generadas "
+#~ "por las aplicaciones. Consulte http://bugzilla.gnome.org/show_bug.cgi?"
+#~ "id=445447#c6. Incluso cuando esta opción es falsa, las ventanas aún se "
+#~ "pueden abrir con un clic izquierdo y alt en cualquier parte de la "
+#~ "ventana, un clic normal en las decoraciones de la ventana o mediante "
+#~ "mensajes especiales de buscapersonas, como solicitudes de activación de "
+#~ "subprogramas de lista de tareas. Esta opción está actualmente "
+#~ "deshabilitada en el modo hacer clic para enfocar. Tenga en cuenta que la "
+#~ "lista de formas de abrir ventanas cuando rise_on_click es falso no "
+#~ "incluye solicitudes programáticas de aplicaciones para abrir ventanas; "
+#~ "dichas solicitudes serán ignoradas independientemente del motivo de la "
+#~ "solicitud. Si es desarrollador de aplicaciones y tiene un usuario "
+#~ "quejándose de que su aplicación no funciona con esta configuración "
+#~ "deshabilitada, dígale que es _su_ culpa por romper su administrador de "
+#~ "ventanas y que necesita cambiar esta opción nuevamente a verdadera o "
+#~ "vivir con el \"error\" que solicitó."
+
+#, fuzzy
+#~ msgid ""
+#~ "Some applications disregard specifications in ways that result in window "
+#~ "manager misfeatures. This option puts Metacity in a rigorously correct "
+#~ "mode, which gives a more consistent user interface, provided one does not "
+#~ "need to run any misbehaving applications."
+#~ msgstr ""
+#~ "Algunas aplicaciones ignoran las especificaciones de manera que provocan "
+#~ "errores en el administrador de ventanas. Esta opción coloca a Metacity en "
+#~ "un modo rigurosamente correcto, lo que proporciona una interfaz de "
+#~ "usuario más consistente, siempre que no sea necesario ejecutar ninguna "
+#~ "aplicación que se comporte mal."
+
+#, fuzzy
+#~ msgid "System Bell is Audible"
+#~ msgstr "La campana del sistema es audible"
+
+#, fuzzy
+#~ msgid ""
+#~ "Tells Metacity how to implement the visual indication that the system "
+#~ "bell or another application 'bell' indicator has been rung. Currently "
+#~ "there are two valid values, \"fullscreen\", which causes a fullscreen "
+#~ "white-black flash, and \"frame_flash\" which causes the titlebar of the "
+#~ "application which sent the bell signal to flash. If the application which "
+#~ "sent the bell is unknown (as is usually the case for the default \"system "
+#~ "beep\"), the currently focused window's titlebar is flashed."
+#~ msgstr ""
+#~ "Le dice a Metacity cómo implementar la indicación visual de que se ha "
+#~ "sonado la campana del sistema u otro indicador de 'campana' de la "
+#~ "aplicación. Actualmente hay dos valores válidos, \"fullscreen\", que "
+#~ "provoca un parpadeo blanco-negro en pantalla completa, y \"frame_flash\", "
+#~ "que hace que la barra de título de la aplicación que envió la señal de "
+#~ "campana parpadee. Si se desconoce la aplicación que envió la campana "
+#~ "(como suele ser el caso del \"bip del sistema\" predeterminado), la barra "
+#~ "de título de la ventana actualmente enfocada parpadea."
+
+#, fuzzy
+#~ msgid ""
+#~ "The /apps/metacity/global_keybindings/run_command_N keys define "
+#~ "keybindings that correspond to these commands. Pressing the keybinding "
+#~ "for run_command_N will execute command_N."
+#~ msgstr ""
+#~ "Las claves /apps/metacity/global_keybindings/run_command_N definen "
+#~ "combinaciones de teclas que corresponden a estos comandos. Al presionar "
+#~ "la combinación de teclas para run_command_N se ejecutará command_N."
+
+#, fuzzy
+#~ msgid ""
+#~ "The /apps/metacity/global_keybindings/run_command_screenshot key defines "
+#~ "a keybinding which causes the command specified by this setting to be "
+#~ "invoked."
+#~ msgstr ""
+#~ "La clave /apps/metacity/global_keybindings/run_command_screenshot define "
+#~ "una combinación de teclas que hace que se invoque el comando especificado "
+#~ "por esta configuración."
+
+#, fuzzy
+#~ msgid ""
+#~ "The /apps/metacity/global_keybindings/run_command_window_screenshot key "
+#~ "defines a keybinding which causes the command specified by this setting "
+#~ "to be invoked."
+#~ msgstr ""
+#~ "La clave /apps/metacity/global_keybindings/run_command_window_screenshot "
+#~ "define una combinación de teclas que hace que se invoque el comando "
+#~ "especificado por esta configuración."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding that runs the correspondingly-numbered command in /apps/"
+#~ "metacity/keybinding_commands The format looks like \"&lt;Control&gt;a\" "
+#~ "or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is fairly liberal and "
+#~ "allows lower or upper case, and also abbreviations such as \"&lt;Ctl&gt;"
+#~ "\" and \"&lt;Ctrl&gt;\". If you set the option to the special string "
+#~ "\"disabled\", then there will be no keybinding for this action."
+#~ msgstr ""
+#~ "La combinación de teclas que ejecuta el comando numerado "
+#~ "correspondientemente en /apps/metacity/keybinding_commands. El formato se "
+#~ "parece a \"<Control>a\" o \"<Shift><Alt>F1\". El analizador es bastante "
+#~ "liberal y permite mayúsculas y minúsculas, y también abreviaturas como "
+#~ "\"<Ctl>\" y \"<Ctrl>\". Si configura la opción con la cadena especial "
+#~ "\"deshabilitada\", no habrá combinación de teclas para esta acción."
+
+#, fuzzy
+#~ msgid "The name of a workspace."
+#~ msgstr "El nombre de un espacio de trabajo."
+
+#, fuzzy
+#~ msgid "The screenshot command"
+#~ msgstr "El comando de captura de pantalla"
+
+#, fuzzy
+#~ msgid ""
+#~ "The theme determines the appearance of window borders, titlebar, and so "
+#~ "forth."
+#~ msgstr ""
+#~ "El tema determina la apariencia de los bordes de las ventanas, la barra "
+#~ "de título, etc."
+
+#, fuzzy
+#~ msgid ""
+#~ "The time delay before raising a window if auto_raise is set to true. The "
+#~ "delay is given in thousandths of a second."
+#~ msgstr ""
+#~ "El retraso de tiempo antes de abrir una ventana si auto_raise está "
+#~ "establecido en verdadero. El retraso se da en milésimas de segundo."
+
+#, fuzzy
+#~ msgid ""
+#~ "The window focus mode indicates how windows are activated. It has three "
+#~ "possible values; \"click\" means windows must be clicked in order to "
+#~ "focus them, \"sloppy\" means windows are focused when the mouse enters "
+#~ "the window, and \"mouse\" means windows are focused when the mouse enters "
+#~ "the window and unfocused when the mouse leaves the window."
+#~ msgstr ""
+#~ "El modo de enfoque de ventana indica cómo se activan las ventanas. Tiene "
+#~ "tres valores posibles; \"hacer clic\" significa que se debe hacer clic en "
+#~ "las ventanas para enfocarlas, \"descuidado\" significa que las ventanas "
+#~ "están enfocadas cuando el mouse ingresa a la ventana y \"mouse\" "
+#~ "significa que las ventanas están enfocadas cuando el mouse ingresa a la "
+#~ "ventana y desenfocadas cuando el mouse sale de la ventana."
+
+#, fuzzy
+#~ msgid "The window screenshot command"
+#~ msgstr "El comando de captura de pantalla de la ventana"
+
+#, fuzzy
+#~ msgid ""
+#~ "This option determines the effects of double-clicking on the title bar. "
+#~ "Current valid options are 'toggle_shade', which will shade/unshade the "
+#~ "window, 'toggle_maximize' which will maximize/unmaximize the window, "
+#~ "'toggle_maximize_horizontally' and 'toggle_maximize_vertically' which "
+#~ "will maximize/unmaximize the window in that direction only, 'minimize' "
+#~ "which will minimize the window, 'shade' which will roll the window up, "
+#~ "'menu' which will display the window menu, 'lower' which will put the "
+#~ "window behind all the others, and 'none' which will not do anything."
+#~ msgstr ""
+#~ "Esta opción determina los efectos de hacer doble clic en la barra de "
+#~ "título. Las opciones válidas actuales son 'toggle_shade', que sombreará/"
+#~ "dessombreará la ventana, 'toggle_maximize' que maximizará/desmaximizará "
+#~ "la ventana, 'toggle_maximize_horizontally' y 'toggle_maximize_vertical' "
+#~ "que maximizará/desmaximizará la ventana solo en esa dirección, "
+#~ "'minimizar' que minimizará la ventana, 'sombra' que enrollará la ventana "
+#~ "hacia arriba, 'menú' que mostrará el menú de la ventana, 'inferior' que "
+#~ "colocará la ventana detrás de todas las demás, y 'ninguna' que no hará "
+#~ "nada."
+
+#, fuzzy
+#~ msgid ""
+#~ "This option determines the effects of middle-clicking on the title bar. "
+#~ "Current valid options are 'toggle_shade', which will shade/unshade the "
+#~ "window, 'toggle_maximize' which will maximize/unmaximize the window, "
+#~ "'toggle_maximize_horizontally' and 'toggle_maximize_vertically' which "
+#~ "will maximize/unmaximize the window in that direction only, 'minimize' "
+#~ "which will minimize the window, 'shade' which will roll the window up, "
+#~ "'menu' which will display the window menu, 'lower' which will put the "
+#~ "window behind all the others, and 'none' which will not do anything."
+#~ msgstr ""
+#~ "Esta opción determina los efectos de hacer clic con el botón central en "
+#~ "la barra de título. Las opciones válidas actuales son 'toggle_shade', que "
+#~ "sombreará/dessombreará la ventana, 'toggle_maximize' que maximizará/"
+#~ "desmaximizará la ventana, 'toggle_maximize_horizontally' y "
+#~ "'toggle_maximize_vertical' que maximizará/desmaximizará la ventana solo "
+#~ "en esa dirección, 'minimizar' que minimizará la ventana, 'sombra' que "
+#~ "enrollará la ventana hacia arriba, 'menú' que mostrará el menú de la "
+#~ "ventana, 'inferior' que colocará la ventana detrás de todas las demás, y "
+#~ "'ninguna' que no hará nada."
+
+#, fuzzy
+#~ msgid ""
+#~ "This option determines the effects of right-clicking on the title bar. "
+#~ "Current valid options are 'toggle_shade', which will shade/unshade the "
+#~ "window, 'toggle_maximize' which will maximize/unmaximize the window, "
+#~ "'toggle_maximize_horizontally' and 'toggle_maximize_vertically' which "
+#~ "will maximize/unmaximize the window in that direction only, 'minimize' "
+#~ "which will minimize the window, 'shade' which will roll the window up, "
+#~ "'menu' which will display the window menu, 'lower' which will put the "
+#~ "window behind all the others, and 'none' which will not do anything."
+#~ msgstr ""
+#~ "Esta opción determina los efectos de hacer clic derecho en la barra de "
+#~ "título. Las opciones válidas actuales son 'toggle_shade', que sombreará/"
+#~ "dessombreará la ventana, 'toggle_maximize' que maximizará/desmaximizará "
+#~ "la ventana, 'toggle_maximize_horizontally' y 'toggle_maximize_vertical' "
+#~ "que maximizará/desmaximizará la ventana solo en esa dirección, "
+#~ "'minimizar' que minimizará la ventana, 'sombra' que enrollará la ventana "
+#~ "hacia arriba, 'menú' que mostrará el menú de la ventana, 'inferior' que "
+#~ "colocará la ventana detrás de todas las demás, y 'ninguna' que no hará "
+#~ "nada."
+
+#, fuzzy
+#~ msgid ""
+#~ "This option provides additional control over how newly created windows "
+#~ "get focus. It has two possible values; \"smart\" applies the user's "
+#~ "normal focus mode, and \"strict\" results in windows started from a "
+#~ "terminal not being given focus."
+#~ msgstr ""
+#~ "Esta opción proporciona control adicional sobre cómo se enfocan las "
+#~ "ventanas recién creadas. Tiene dos valores posibles; \"inteligente\" "
+#~ "aplica el modo de enfoque normal del usuario, y \"estricto\" da como "
+#~ "resultado que las ventanas iniciadas desde un terminal no reciban el "
+#~ "enfoque."
+
+#, fuzzy
+#~ msgid ""
+#~ "Turns on a visual indication when an application or the system issues a "
+#~ "'bell' or 'beep'; useful for the hard-of-hearing and for use in noisy "
+#~ "environments."
+#~ msgstr ""
+#~ "Activa una indicación visual cuando una aplicación o el sistema emite una "
+#~ "\"campana\" o un \"bip\"; Útil para personas con problemas de audición y "
+#~ "para uso en entornos ruidosos."
+
+#, fuzzy
+#~ msgid "Use standard system font in window titles"
+#~ msgstr ""
+#~ "Utilice la fuente estándar del sistema en los títulos de las ventanas"
+
+#, fuzzy
+#~ msgid "Visual Bell Type"
+#~ msgstr "Tipo de campana visual"
+
+#, fuzzy
+#~ msgid "Whether raising should be a side-effect of other user interactions"
+#~ msgstr ""
+#~ "Si el aumento debería ser un efecto secundario de otras interacciones de "
+#~ "los usuarios"
+
+#, fuzzy
+#~ msgid "Whether to resize with the right button"
+#~ msgstr "Ya sea para cambiar el tamaño con el botón derecho"
+
+#, fuzzy
+#~ msgid "Window focus mode"
+#~ msgstr "Modo de enfoque de ventana"
+
+#, fuzzy
+#~ msgid "Window title font"
+#~ msgstr "Fuente del título de la ventana"
+
+#, fuzzy
+#~ msgid "Title"
+#~ msgstr "Título"
+
+#, fuzzy
+#~ msgid "Class"
+#~ msgstr "Clase"
+
+#, fuzzy
+#~ msgid ""
+#~ "There was an error running \"%s\":\n"
+#~ "%s."
+#~ msgstr ""
+#~ "Hubo un error al ejecutar \"%s\":\n"
+#~ "%s."
+
+#, fuzzy
+#~ msgid "Unmaximize window"
+#~ msgstr "Ventana no maximizada"
+
+#, fuzzy
+#~ msgid "Unmaximize Window"
+#~ msgstr "Ventana no maximizada"
+
+#, fuzzy
+#~ msgid ""
+#~ "Many actions (e.g. clicking in the client area, moving or resizing the "
+#~ "window) normally raise the window as a side-effect. Setting this option "
+#~ "to false, which is strongly discouraged, will decouple raising from other "
+#~ "user actions, and ignore raise requests generated by applications. See "
+#~ "http://bugzilla.gnome.org/show_bug.cgi?id=445447#c6."
+#~ msgstr ""
+#~ "Muchas acciones (por ejemplo, hacer clic en el área del cliente, mover o "
+#~ "cambiar el tamaño de la ventana) normalmente generan la ventana como "
+#~ "efecto secundario. Establecer esta opción en falso, algo que se "
+#~ "desaconseja encarecidamente, desacoplará la subida de otras acciones del "
+#~ "usuario e ignorará las solicitudes de subida generadas por las "
+#~ "aplicaciones. Consulte http://bugzilla.gnome.org/show_bug.cgi?"
+#~ "id=445447#c6."
+
+#, fuzzy
+#~ msgid ""
+#~ "Error launching metacity-dialog to print an error about a command: %s\n"
+#~ msgstr ""
+#~ "Error al iniciar metacity-dialog para imprimir un error sobre un comando: "
+#~ "%s"
+
+#, fuzzy
+#~ msgid "Unknown attribute %s on <metacity_session> element"
+#~ msgstr "Atributo desconocido %s en el elemento <metacity_session>"
+
+#, fuzzy
+#~ msgid "Unknown attribute %s on <maximized> element"
+#~ msgstr "Atributo desconocido %s en el elemento <maximizado>"
+
+#, fuzzy
+#~ msgid "Unknown attribute %s on <geometry> element"
+#~ msgstr "Atributo desconocido %s en el elemento <geometría>"
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding that switches to the workspace above the current "
+#~ "workspace. The format looks like \"&lt;Control&gt;a\" or "
+#~ "\"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is fairly liberal and allows "
+#~ "lower or upper case, and also abbreviations such as \"&lt;Ctl&gt;\" and "
+#~ "\"&lt;Ctrl&gt;\". If you set the option to the special string "
+#~ "\"disabled\", then there will be no keybinding for this action."
+#~ msgstr ""
+#~ "La combinación de teclas que cambia al espacio de trabajo encima del "
+#~ "espacio de trabajo actual. El formato se parece a \"<Control>a\" o "
+#~ "\"<Shift><Alt>F1\". El analizador es bastante liberal y permite "
+#~ "mayúsculas y minúsculas, y también abreviaturas como \"<Ctl>\" y "
+#~ "\"<Ctrl>\". Si configura la opción con la cadena especial "
+#~ "\"deshabilitada\", no habrá combinación de teclas para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding that switches to the workspace below the current "
+#~ "workspace. The format looks like \"&lt;Control&gt;a\" or "
+#~ "\"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is fairly liberal and allows "
+#~ "lower or upper case, and also abbreviations such as \"&lt;Ctl&gt;\" and "
+#~ "\"&lt;Ctrl&gt;\". If you set the option to the special string "
+#~ "\"disabled\", then there will be no keybinding for this action."
+#~ msgstr ""
+#~ "La combinación de teclas que cambia al espacio de trabajo debajo del "
+#~ "espacio de trabajo actual. El formato se parece a \"<Control>a\" o "
+#~ "\"<Shift><Alt>F1\". El analizador es bastante liberal y permite "
+#~ "mayúsculas y minúsculas, y también abreviaturas como \"<Ctl>\" y "
+#~ "\"<Ctrl>\". Si configura la opción con la cadena especial "
+#~ "\"deshabilitada\", no habrá combinación de teclas para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding that switches to the workspace on the left of the current "
+#~ "workspace. The format looks like \"&lt;Control&gt;a\" or "
+#~ "\"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is fairly liberal and allows "
+#~ "lower or upper case, and also abbreviations such as \"&lt;Ctl&gt;\" and "
+#~ "\"&lt;Ctrl&gt;\". If you set the option to the special string "
+#~ "\"disabled\", then there will be no keybinding for this action."
+#~ msgstr ""
+#~ "La combinación de teclas que cambia al espacio de trabajo a la izquierda "
+#~ "del espacio de trabajo actual. El formato se parece a \"<Control>a\" o "
+#~ "\"<Shift><Alt>F1\". El analizador es bastante liberal y permite "
+#~ "mayúsculas y minúsculas, y también abreviaturas como \"<Ctl>\" y "
+#~ "\"<Ctrl>\". Si configura la opción con la cadena especial "
+#~ "\"deshabilitada\", no habrá combinación de teclas para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding that switches to the workspace on the right of the current "
+#~ "workspace. The format looks like \"&lt;Control&gt;a\" or "
+#~ "\"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is fairly liberal and allows "
+#~ "lower or upper case, and also abbreviations such as \"&lt;Ctl&gt;\" and "
+#~ "\"&lt;Ctrl&gt;\". If you set the option to the special string "
+#~ "\"disabled\", then there will be no keybinding for this action."
+#~ msgstr ""
+#~ "La combinación de teclas que cambia al espacio de trabajo a la derecha "
+#~ "del espacio de trabajo actual. El formato se parece a \"<Control>a\" o "
+#~ "\"<Shift><Alt>F1\". El analizador es bastante liberal y permite "
+#~ "mayúsculas y minúsculas, y también abreviaturas como \"<Ctl>\" y "
+#~ "\"<Ctrl>\". Si configura la opción con la cadena especial "
+#~ "\"deshabilitada\", no habrá combinación de teclas para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding that switches to workspace 1. The format looks like "
+#~ "\"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is "
+#~ "fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas que cambia al espacio de trabajo 1. El formato "
+#~ "se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El analizador es "
+#~ "bastante liberal y permite mayúsculas y minúsculas, y también "
+#~ "abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción con la "
+#~ "cadena especial \"deshabilitada\", no habrá combinación de teclas para "
+#~ "esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding that switches to workspace 10. The format looks like "
+#~ "\"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is "
+#~ "fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas que cambia al espacio de trabajo 10. El formato "
+#~ "se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El analizador es "
+#~ "bastante liberal y permite mayúsculas y minúsculas, y también "
+#~ "abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción con la "
+#~ "cadena especial \"deshabilitada\", no habrá combinación de teclas para "
+#~ "esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding that switches to workspace 11. The format looks like "
+#~ "\"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is "
+#~ "fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas que cambia al espacio de trabajo 11. El formato "
+#~ "se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El analizador es "
+#~ "bastante liberal y permite mayúsculas y minúsculas, y también "
+#~ "abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción con la "
+#~ "cadena especial \"deshabilitada\", no habrá combinación de teclas para "
+#~ "esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding that switches to workspace 12. The format looks like "
+#~ "\"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is "
+#~ "fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas que cambia al espacio de trabajo 12. El formato "
+#~ "se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El analizador es "
+#~ "bastante liberal y permite mayúsculas y minúsculas, y también "
+#~ "abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción con la "
+#~ "cadena especial \"deshabilitada\", no habrá combinación de teclas para "
+#~ "esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding that switches to workspace 2. The format looks like "
+#~ "\"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is "
+#~ "fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas que cambia al espacio de trabajo 2. El formato "
+#~ "se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El analizador es "
+#~ "bastante liberal y permite mayúsculas y minúsculas, y también "
+#~ "abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción con la "
+#~ "cadena especial \"deshabilitada\", no habrá combinación de teclas para "
+#~ "esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding that switches to workspace 3. The format looks like "
+#~ "\"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is "
+#~ "fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas que cambia al espacio de trabajo 3. El formato "
+#~ "se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El analizador es "
+#~ "bastante liberal y permite mayúsculas y minúsculas, y también "
+#~ "abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción con la "
+#~ "cadena especial \"deshabilitada\", no habrá combinación de teclas para "
+#~ "esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding that switches to workspace 4. The format looks like "
+#~ "\"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is "
+#~ "fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas que cambia al espacio de trabajo 4. El formato "
+#~ "se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El analizador es "
+#~ "bastante liberal y permite mayúsculas y minúsculas, y también "
+#~ "abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción con la "
+#~ "cadena especial \"deshabilitada\", no habrá combinación de teclas para "
+#~ "esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding that switches to workspace 5. The format looks like "
+#~ "\"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is "
+#~ "fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas que cambia al espacio de trabajo 5. El formato "
+#~ "se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El analizador es "
+#~ "bastante liberal y permite mayúsculas y minúsculas, y también "
+#~ "abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción con la "
+#~ "cadena especial \"deshabilitada\", no habrá combinación de teclas para "
+#~ "esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding that switches to workspace 6. The format looks like "
+#~ "\"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is "
+#~ "fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas que cambia al espacio de trabajo 6. El formato "
+#~ "se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El analizador es "
+#~ "bastante liberal y permite mayúsculas y minúsculas, y también "
+#~ "abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción con la "
+#~ "cadena especial \"deshabilitada\", no habrá combinación de teclas para "
+#~ "esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding that switches to workspace 7. The format looks like "
+#~ "\"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is "
+#~ "fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas que cambia al espacio de trabajo 7. El formato "
+#~ "se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El analizador es "
+#~ "bastante liberal y permite mayúsculas y minúsculas, y también "
+#~ "abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción con la "
+#~ "cadena especial \"deshabilitada\", no habrá combinación de teclas para "
+#~ "esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding that switches to workspace 8. The format looks like "
+#~ "\"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is "
+#~ "fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas que cambia al espacio de trabajo 8. El formato "
+#~ "se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El analizador es "
+#~ "bastante liberal y permite mayúsculas y minúsculas, y también "
+#~ "abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción con la "
+#~ "cadena especial \"deshabilitada\", no habrá combinación de teclas para "
+#~ "esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding that switches to workspace 9. The format looks like "
+#~ "\"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is "
+#~ "fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas que cambia al espacio de trabajo 9. El formato "
+#~ "se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El analizador es "
+#~ "bastante liberal y permite mayúsculas y minúsculas, y también "
+#~ "abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción con la "
+#~ "cadena especial \"deshabilitada\", no habrá combinación de teclas para "
+#~ "esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to activate the window menu. The format looks like "
+#~ "\"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is "
+#~ "fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas utilizada para activar el menú de la ventana. El "
+#~ "formato se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El analizador es "
+#~ "bastante liberal y permite mayúsculas y minúsculas, y también "
+#~ "abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción con la "
+#~ "cadena especial \"deshabilitada\", no habrá combinación de teclas para "
+#~ "esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to enter \"move mode\" and begin moving a window "
+#~ "using the keyboard. The format looks like \"&lt;Control&gt;a\" or "
+#~ "\"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is fairly liberal and allows "
+#~ "lower or upper case, and also abbreviations such as \"&lt;Ctl&gt;\" and "
+#~ "\"&lt;Ctrl&gt;\". If you set the option to the special string "
+#~ "\"disabled\", then there will be no keybinding for this action."
+#~ msgstr ""
+#~ "La combinación de teclas se utiliza para ingresar al \"modo de "
+#~ "movimiento\" y comenzar a mover una ventana usando el teclado. El formato "
+#~ "se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El analizador es "
+#~ "bastante liberal y permite mayúsculas y minúsculas, y también "
+#~ "abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción con la "
+#~ "cadena especial \"deshabilitada\", no habrá combinación de teclas para "
+#~ "esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to enter \"resize mode\" and begin resizing a window "
+#~ "using the keyboard. The format looks like \"&lt;Control&gt;a\" or "
+#~ "\"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is fairly liberal and allows "
+#~ "lower or upper case, and also abbreviations such as \"&lt;Ctl&gt;\" and "
+#~ "\"&lt;Ctrl&gt;\". If you set the option to the special string "
+#~ "\"disabled\", then there will be no keybinding for this action."
+#~ msgstr ""
+#~ "La combinación de teclas se utiliza para ingresar al \"modo de cambio de "
+#~ "tamaño\" y comenzar a cambiar el tamaño de una ventana usando el teclado. "
+#~ "El formato se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El analizador "
+#~ "es bastante liberal y permite mayúsculas y minúsculas, y también "
+#~ "abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción con la "
+#~ "cadena especial \"deshabilitada\", no habrá combinación de teclas para "
+#~ "esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to hide all normal windows and set the focus to the "
+#~ "desktop background. The format looks like \"&lt;Control&gt;a\" or "
+#~ "\"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is fairly liberal and allows "
+#~ "lower or upper case, and also abbreviations such as \"&lt;Ctl&gt;\" and "
+#~ "\"&lt;Ctrl&gt;\". If you set the option to the special string "
+#~ "\"disabled\", then there will be no keybinding for this action."
+#~ msgstr ""
+#~ "La combinación de teclas se utiliza para ocultar todas las ventanas "
+#~ "normales y establecer el foco en el fondo del escritorio. El formato se "
+#~ "parece a \"<Control>a\" o \"<Shift><Alt>F1\". El analizador es bastante "
+#~ "liberal y permite mayúsculas y minúsculas, y también abreviaturas como "
+#~ "\"<Ctl>\" y \"<Ctrl>\". Si configura la opción con la cadena especial "
+#~ "\"deshabilitada\", no habrá combinación de teclas para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to maximize a window. The format looks like "
+#~ "\"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is "
+#~ "fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas utilizada para maximizar una ventana. El formato "
+#~ "se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El analizador es "
+#~ "bastante liberal y permite mayúsculas y minúsculas, y también "
+#~ "abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción con la "
+#~ "cadena especial \"deshabilitada\", no habrá combinación de teclas para "
+#~ "esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to minimize a window. The format looks like "
+#~ "\"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is "
+#~ "fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas utilizada para minimizar una ventana. El formato "
+#~ "se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El analizador es "
+#~ "bastante liberal y permite mayúsculas y minúsculas, y también "
+#~ "abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción con la "
+#~ "cadena especial \"deshabilitada\", no habrá combinación de teclas para "
+#~ "esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to move a window one workspace down. The format looks "
+#~ "like \"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser "
+#~ "is fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas se utiliza para mover una ventana un espacio de "
+#~ "trabajo hacia abajo. El formato se parece a \"<Control>a\" o "
+#~ "\"<Shift><Alt>F1\". El analizador es bastante liberal y permite "
+#~ "mayúsculas y minúsculas, y también abreviaturas como \"<Ctl>\" y "
+#~ "\"<Ctrl>\". Si configura la opción con la cadena especial "
+#~ "\"deshabilitada\", no habrá combinación de teclas para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to move a window one workspace to the left. The "
+#~ "format looks like \"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". "
+#~ "The parser is fairly liberal and allows lower or upper case, and also "
+#~ "abbreviations such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set "
+#~ "the option to the special string \"disabled\", then there will be no "
+#~ "keybinding for this action."
+#~ msgstr ""
+#~ "La combinación de teclas se utiliza para mover una ventana un espacio de "
+#~ "trabajo hacia la izquierda. El formato se parece a \"<Control>a\" o "
+#~ "\"<Shift><Alt>F1\". El analizador es bastante liberal y permite "
+#~ "mayúsculas y minúsculas, y también abreviaturas como \"<Ctl>\" y "
+#~ "\"<Ctrl>\". Si configura la opción con la cadena especial "
+#~ "\"deshabilitada\", no habrá combinación de teclas para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to move a window one workspace to the right. The "
+#~ "format looks like \"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". "
+#~ "The parser is fairly liberal and allows lower or upper case, and also "
+#~ "abbreviations such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set "
+#~ "the option to the special string \"disabled\", then there will be no "
+#~ "keybinding for this action."
+#~ msgstr ""
+#~ "La combinación de teclas se utiliza para mover una ventana un espacio de "
+#~ "trabajo hacia la derecha. El formato se parece a \"<Control>a\" o "
+#~ "\"<Shift><Alt>F1\". El analizador es bastante liberal y permite "
+#~ "mayúsculas y minúsculas, y también abreviaturas como \"<Ctl>\" y "
+#~ "\"<Ctrl>\". Si configura la opción con la cadena especial "
+#~ "\"deshabilitada\", no habrá combinación de teclas para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to move a window one workspace up. The format looks "
+#~ "like \"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser "
+#~ "is fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas se utiliza para mover una ventana un espacio de "
+#~ "trabajo hacia arriba. El formato se parece a \"<Control>a\" o "
+#~ "\"<Shift><Alt>F1\". El analizador es bastante liberal y permite "
+#~ "mayúsculas y minúsculas, y también abreviaturas como \"<Ctl>\" y "
+#~ "\"<Ctrl>\". Si configura la opción con la cadena especial "
+#~ "\"deshabilitada\", no habrá combinación de teclas para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to move a window to workspace 1. The format looks "
+#~ "like \"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser "
+#~ "is fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas utilizada para mover una ventana al espacio de "
+#~ "trabajo 1. El formato se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El "
+#~ "analizador es bastante liberal y permite mayúsculas y minúsculas, y "
+#~ "también abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción "
+#~ "con la cadena especial \"deshabilitada\", no habrá combinación de teclas "
+#~ "para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to move a window to workspace 10. The format looks "
+#~ "like \"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser "
+#~ "is fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas utilizada para mover una ventana al espacio de "
+#~ "trabajo 10. El formato se parece a \"<Control>a\" o \"<Shift><Alt>F1\". "
+#~ "El analizador es bastante liberal y permite mayúsculas y minúsculas, y "
+#~ "también abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción "
+#~ "con la cadena especial \"deshabilitada\", no habrá combinación de teclas "
+#~ "para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to move a window to workspace 11. The format looks "
+#~ "like \"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser "
+#~ "is fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas utilizada para mover una ventana al espacio de "
+#~ "trabajo 11. El formato se parece a \"<Control>a\" o \"<Shift><Alt>F1\". "
+#~ "El analizador es bastante liberal y permite mayúsculas y minúsculas, y "
+#~ "también abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción "
+#~ "con la cadena especial \"deshabilitada\", no habrá combinación de teclas "
+#~ "para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to move a window to workspace 12. The format looks "
+#~ "like \"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser "
+#~ "is fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas utilizada para mover una ventana al espacio de "
+#~ "trabajo 12. El formato se parece a \"<Control>a\" o \"<Shift><Alt>F1\". "
+#~ "El analizador es bastante liberal y permite mayúsculas y minúsculas, y "
+#~ "también abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción "
+#~ "con la cadena especial \"deshabilitada\", no habrá combinación de teclas "
+#~ "para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to move a window to workspace 2. The format looks "
+#~ "like \"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser "
+#~ "is fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas utilizada para mover una ventana al espacio de "
+#~ "trabajo 2. El formato se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El "
+#~ "analizador es bastante liberal y permite mayúsculas y minúsculas, y "
+#~ "también abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción "
+#~ "con la cadena especial \"deshabilitada\", no habrá combinación de teclas "
+#~ "para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to move a window to workspace 3. The format looks "
+#~ "like \"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser "
+#~ "is fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas utilizada para mover una ventana al espacio de "
+#~ "trabajo 3. El formato se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El "
+#~ "analizador es bastante liberal y permite mayúsculas y minúsculas, y "
+#~ "también abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción "
+#~ "con la cadena especial \"deshabilitada\", no habrá combinación de teclas "
+#~ "para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to move a window to workspace 4. The format looks "
+#~ "like \"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser "
+#~ "is fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas utilizada para mover una ventana al espacio de "
+#~ "trabajo 4. El formato se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El "
+#~ "analizador es bastante liberal y permite mayúsculas y minúsculas, y "
+#~ "también abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción "
+#~ "con la cadena especial \"deshabilitada\", no habrá combinación de teclas "
+#~ "para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to move a window to workspace 5. The format looks "
+#~ "like \"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser "
+#~ "is fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas utilizada para mover una ventana al espacio de "
+#~ "trabajo 5. El formato se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El "
+#~ "analizador es bastante liberal y permite mayúsculas y minúsculas, y "
+#~ "también abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción "
+#~ "con la cadena especial \"deshabilitada\", no habrá combinación de teclas "
+#~ "para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to move a window to workspace 6. The format looks "
+#~ "like \"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser "
+#~ "is fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas utilizada para mover una ventana al espacio de "
+#~ "trabajo 6. El formato se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El "
+#~ "analizador es bastante liberal y permite mayúsculas y minúsculas, y "
+#~ "también abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción "
+#~ "con la cadena especial \"deshabilitada\", no habrá combinación de teclas "
+#~ "para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to move a window to workspace 7. The format looks "
+#~ "like \"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser "
+#~ "is fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas utilizada para mover una ventana al espacio de "
+#~ "trabajo 7. El formato se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El "
+#~ "analizador es bastante liberal y permite mayúsculas y minúsculas, y "
+#~ "también abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción "
+#~ "con la cadena especial \"deshabilitada\", no habrá combinación de teclas "
+#~ "para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to move a window to workspace 8. The format looks "
+#~ "like \"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser "
+#~ "is fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas utilizada para mover una ventana al espacio de "
+#~ "trabajo 8. El formato se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El "
+#~ "analizador es bastante liberal y permite mayúsculas y minúsculas, y "
+#~ "también abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción "
+#~ "con la cadena especial \"deshabilitada\", no habrá combinación de teclas "
+#~ "para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to move a window to workspace 9. The format looks "
+#~ "like \"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser "
+#~ "is fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas utilizada para mover una ventana al espacio de "
+#~ "trabajo 9. El formato se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El "
+#~ "analizador es bastante liberal y permite mayúsculas y minúsculas, y "
+#~ "también abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción "
+#~ "con la cadena especial \"deshabilitada\", no habrá combinación de teclas "
+#~ "para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to move focus backwards between panels and the "
+#~ "desktop, using a popup window. The format looks like \"&lt;Control&gt;a\" "
+#~ "or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is fairly liberal and "
+#~ "allows lower or upper case, and also abbreviations such as \"&lt;Ctl&gt;"
+#~ "\" and \"&lt;Ctrl&gt;\". If you set the option to the special string "
+#~ "\"disabled\", then there will be no keybinding for this action."
+#~ msgstr ""
+#~ "La combinación de teclas se utiliza para mover el foco hacia atrás entre "
+#~ "los paneles y el escritorio, mediante una ventana emergente. El formato "
+#~ "se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El analizador es "
+#~ "bastante liberal y permite mayúsculas y minúsculas, y también "
+#~ "abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción con la "
+#~ "cadena especial \"deshabilitada\", no habrá combinación de teclas para "
+#~ "esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to move focus backwards between panels and the "
+#~ "desktop, without a popup window. The format looks like "
+#~ "\"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is "
+#~ "fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas se utiliza para mover el foco hacia atrás entre "
+#~ "los paneles y el escritorio, sin una ventana emergente. El formato se "
+#~ "parece a \"<Control>a\" o \"<Shift><Alt>F1\". El analizador es bastante "
+#~ "liberal y permite mayúsculas y minúsculas, y también abreviaturas como "
+#~ "\"<Ctl>\" y \"<Ctrl>\". Si configura la opción con la cadena especial "
+#~ "\"deshabilitada\", no habrá combinación de teclas para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to move focus backwards between windows of an "
+#~ "application without a popup window. Holding \"shift\" together with this "
+#~ "binding makes the direction go forward again. The format looks like "
+#~ "\"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is "
+#~ "fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas se utiliza para mover el foco hacia atrás entre "
+#~ "ventanas de una aplicación sin una ventana emergente. Mantener \"shift\" "
+#~ "junto con este enlace hace que la dirección avance nuevamente. El formato "
+#~ "se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El analizador es "
+#~ "bastante liberal y permite mayúsculas y minúsculas, y también "
+#~ "abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción con la "
+#~ "cadena especial \"deshabilitada\", no habrá combinación de teclas para "
+#~ "esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to move focus backwards between windows of an "
+#~ "application, using a popup window. Holding \"shift\" together with this "
+#~ "binding makes the direction go forward again. The format looks like "
+#~ "\"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is "
+#~ "fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas se utiliza para mover el foco hacia atrás entre "
+#~ "ventanas de una aplicación, utilizando una ventana emergente. Mantener "
+#~ "\"shift\" junto con este enlace hace que la dirección avance nuevamente. "
+#~ "El formato se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El analizador "
+#~ "es bastante liberal y permite mayúsculas y minúsculas, y también "
+#~ "abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción con la "
+#~ "cadena especial \"deshabilitada\", no habrá combinación de teclas para "
+#~ "esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to move focus backwards between windows without a "
+#~ "popup window. Holding \"shift\" together with this binding makes the "
+#~ "direction go forward again. The format looks like \"&lt;Control&gt;a\" or "
+#~ "\"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is fairly liberal and allows "
+#~ "lower or upper case, and also abbreviations such as \"&lt;Ctl&gt;\" and "
+#~ "\"&lt;Ctrl&gt;\". If you set the option to the special string "
+#~ "\"disabled\", then there will be no keybinding for this action."
+#~ msgstr ""
+#~ "La combinación de teclas se utiliza para mover el foco hacia atrás entre "
+#~ "ventanas sin una ventana emergente. Mantener \"shift\" junto con este "
+#~ "enlace hace que la dirección avance nuevamente. El formato se parece a "
+#~ "\"<Control>a\" o \"<Shift><Alt>F1\". El analizador es bastante liberal y "
+#~ "permite mayúsculas y minúsculas, y también abreviaturas como \"<Ctl>\" y "
+#~ "\"<Ctrl>\". Si configura la opción con la cadena especial "
+#~ "\"deshabilitada\", no habrá combinación de teclas para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to move focus backwards between windows, using a "
+#~ "popup window. Holding \"shift\" together with this binding makes the "
+#~ "direction go forward again. The format looks like \"&lt;Control&gt;a\" or "
+#~ "\"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is fairly liberal and allows "
+#~ "lower or upper case, and also abbreviations such as \"&lt;Ctl&gt;\" and "
+#~ "\"&lt;Ctrl&gt;\". If you set the option to the special string "
+#~ "\"disabled\", then there will be no keybinding for this action."
+#~ msgstr ""
+#~ "La combinación de teclas se utiliza para mover el foco hacia atrás entre "
+#~ "ventanas, utilizando una ventana emergente. Mantener \"shift\" junto con "
+#~ "este enlace hace que la dirección avance nuevamente. El formato se parece "
+#~ "a \"<Control>a\" o \"<Shift><Alt>F1\". El analizador es bastante liberal "
+#~ "y permite mayúsculas y minúsculas, y también abreviaturas como \"<Ctl>\" "
+#~ "y \"<Ctrl>\". Si configura la opción con la cadena especial "
+#~ "\"deshabilitada\", no habrá combinación de teclas para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to move focus between panels and the desktop, using a "
+#~ "popup window. The format looks like \"&lt;Control&gt;a\" or "
+#~ "\"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is fairly liberal and allows "
+#~ "lower or upper case, and also abbreviations such as \"&lt;Ctl&gt;\" and "
+#~ "\"&lt;Ctrl&gt;\". If you set the option to the special string "
+#~ "\"disabled\", then there will be no keybinding for this action."
+#~ msgstr ""
+#~ "La combinación de teclas se utiliza para mover el foco entre los paneles "
+#~ "y el escritorio, mediante una ventana emergente. El formato se parece a "
+#~ "\"<Control>a\" o \"<Shift><Alt>F1\". El analizador es bastante liberal y "
+#~ "permite mayúsculas y minúsculas, y también abreviaturas como \"<Ctl>\" y "
+#~ "\"<Ctrl>\". Si configura la opción con la cadena especial "
+#~ "\"deshabilitada\", no habrá combinación de teclas para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to move focus between panels and the desktop, without "
+#~ "a popup window. The format looks like \"&lt;Control&gt;a\" or "
+#~ "\"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is fairly liberal and allows "
+#~ "lower or upper case, and also abbreviations such as \"&lt;Ctl&gt;\" and "
+#~ "\"&lt;Ctrl&gt;\". If you set the option to the special string "
+#~ "\"disabled\", then there will be no keybinding for this action."
+#~ msgstr ""
+#~ "La combinación de teclas se utiliza para mover el foco entre los paneles "
+#~ "y el escritorio, sin una ventana emergente. El formato se parece a "
+#~ "\"<Control>a\" o \"<Shift><Alt>F1\". El analizador es bastante liberal y "
+#~ "permite mayúsculas y minúsculas, y también abreviaturas como \"<Ctl>\" y "
+#~ "\"<Ctrl>\". Si configura la opción con la cadena especial "
+#~ "\"deshabilitada\", no habrá combinación de teclas para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to move focus between windows of an application "
+#~ "without a popup window. Holding the \"shift\" key while using this "
+#~ "binding reverses the direction of movement. The format looks like "
+#~ "\"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is "
+#~ "fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas se utiliza para mover el foco entre ventanas de "
+#~ "una aplicación sin una ventana emergente. Mantener presionada la tecla "
+#~ "\"shift\" mientras se usa este enlace invierte la dirección del "
+#~ "movimiento. El formato se parece a \"<Control>a\" o \"<Shift><Alt>F1\". "
+#~ "El analizador es bastante liberal y permite mayúsculas y minúsculas, y "
+#~ "también abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción "
+#~ "con la cadena especial \"deshabilitada\", no habrá combinación de teclas "
+#~ "para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to move focus between windows of an application, "
+#~ "using a popup window. (Traditionally &lt;Alt&gt;F6) Holding the \"shift\" "
+#~ "key while using this binding reverses the direction of movement. The "
+#~ "format looks like \"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". "
+#~ "The parser is fairly liberal and allows lower or upper case, and also "
+#~ "abbreviations such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set "
+#~ "the option to the special string \"disabled\", then there will be no "
+#~ "keybinding for this action."
+#~ msgstr ""
+#~ "La combinación de teclas se utiliza para mover el foco entre ventanas de "
+#~ "una aplicación, utilizando una ventana emergente. (Tradicionalmente "
+#~ "<Alt>F6) Mantener presionada la tecla \"shift\" mientras se usa este "
+#~ "enlace invierte la dirección del movimiento. El formato se parece a "
+#~ "\"<Control>a\" o \"<Shift><Alt>F1\". El analizador es bastante liberal y "
+#~ "permite mayúsculas y minúsculas, y también abreviaturas como \"<Ctl>\" y "
+#~ "\"<Ctrl>\". Si configura la opción con la cadena especial "
+#~ "\"deshabilitada\", no habrá combinación de teclas para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to move focus between windows without a popup window. "
+#~ "(Traditionally &lt;Alt&gt;Escape) Holding the \"shift\" key while using "
+#~ "this binding reverses the direction of movement. The format looks like "
+#~ "\"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is "
+#~ "fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas se utiliza para mover el foco entre ventanas sin "
+#~ "una ventana emergente. (Tradicionalmente <Alt>Escape) Mantener presionada "
+#~ "la tecla \"shift\" mientras se usa este enlace invierte la dirección del "
+#~ "movimiento. El formato se parece a \"<Control>a\" o \"<Shift><Alt>F1\". "
+#~ "El analizador es bastante liberal y permite mayúsculas y minúsculas, y "
+#~ "también abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción "
+#~ "con la cadena especial \"deshabilitada\", no habrá combinación de teclas "
+#~ "para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to move focus between windows, using a popup window. "
+#~ "(Traditionally &lt;Alt&gt;Tab) Holding the \"shift\" key while using this "
+#~ "binding reverses the direction of movement. The format looks like "
+#~ "\"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is "
+#~ "fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas se utiliza para mover el foco entre ventanas, "
+#~ "utilizando una ventana emergente. (Tradicionalmente <Alt>Tab) Mantener "
+#~ "presionada la tecla \"shift\" mientras se usa este enlace invierte la "
+#~ "dirección del movimiento. El formato se parece a \"<Control>a\" o "
+#~ "\"<Shift><Alt>F1\". El analizador es bastante liberal y permite "
+#~ "mayúsculas y minúsculas, y también abreviaturas como \"<Ctl>\" y "
+#~ "\"<Ctrl>\". Si configura la opción con la cadena especial "
+#~ "\"deshabilitada\", no habrá combinación de teclas para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to toggle always on top. A window that is always on "
+#~ "top will always be visible over other overlapping windows. The format "
+#~ "looks like \"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The "
+#~ "parser is fairly liberal and allows lower or upper case, and also "
+#~ "abbreviations such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set "
+#~ "the option to the special string \"disabled\", then there will be no "
+#~ "keybinding for this action."
+#~ msgstr ""
+#~ "La combinación de teclas solía alternar siempre en la parte superior. Una "
+#~ "ventana que siempre está arriba siempre será visible sobre otras ventanas "
+#~ "superpuestas. El formato se parece a \"<Control>a\" o \"<Shift><Alt>F1\". "
+#~ "El analizador es bastante liberal y permite mayúsculas y minúsculas, y "
+#~ "también abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción "
+#~ "con la cadena especial \"deshabilitada\", no habrá combinación de teclas "
+#~ "para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to toggle fullscreen mode. The format looks like "
+#~ "\"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is "
+#~ "fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas utilizada para alternar el modo de pantalla "
+#~ "completa. El formato se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El "
+#~ "analizador es bastante liberal y permite mayúsculas y minúsculas, y "
+#~ "también abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción "
+#~ "con la cadena especial \"deshabilitada\", no habrá combinación de teclas "
+#~ "para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to toggle maximization. The format looks like "
+#~ "\"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is "
+#~ "fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas utilizada para alternar la maximización. El "
+#~ "formato se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El analizador es "
+#~ "bastante liberal y permite mayúsculas y minúsculas, y también "
+#~ "abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción con la "
+#~ "cadena especial \"deshabilitada\", no habrá combinación de teclas para "
+#~ "esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to toggle shaded/unshaded state. The format looks "
+#~ "like \"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser "
+#~ "is fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas utilizada para alternar el estado sombreado/no "
+#~ "sombreado. El formato se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El "
+#~ "analizador es bastante liberal y permite mayúsculas y minúsculas, y "
+#~ "también abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción "
+#~ "con la cadena especial \"deshabilitada\", no habrá combinación de teclas "
+#~ "para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to toggle whether the window is on all workspaces or "
+#~ "just one. The format looks like \"&lt;Control&gt;a\" or "
+#~ "\"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is fairly liberal and allows "
+#~ "lower or upper case, and also abbreviations such as \"&lt;Ctl&gt;\" and "
+#~ "\"&lt;Ctrl&gt;\". If you set the option to the special string "
+#~ "\"disabled\", then there will be no keybinding for this action."
+#~ msgstr ""
+#~ "La combinación de teclas se utiliza para alternar si la ventana está en "
+#~ "todos los espacios de trabajo o solo en uno. El formato se parece a "
+#~ "\"<Control>a\" o \"<Shift><Alt>F1\". El analizador es bastante liberal y "
+#~ "permite mayúsculas y minúsculas, y también abreviaturas como \"<Ctl>\" y "
+#~ "\"<Ctrl>\". Si configura la opción con la cadena especial "
+#~ "\"deshabilitada\", no habrá combinación de teclas para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding used to unmaximize a window. The format looks like "
+#~ "\"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is "
+#~ "fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas utilizada para maximizar una ventana. El formato "
+#~ "se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El analizador es "
+#~ "bastante liberal y permite mayúsculas y minúsculas, y también "
+#~ "abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción con la "
+#~ "cadena especial \"deshabilitada\", no habrá combinación de teclas para "
+#~ "esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding which display's the panel's \"Run Application\" dialog "
+#~ "box. The format looks like \"&lt;Control&gt;a\" or "
+#~ "\"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is fairly liberal and allows "
+#~ "lower or upper case, and also abbreviations such as \"&lt;Ctl&gt;\" and "
+#~ "\"&lt;Ctrl&gt;\". If you set the option to the special string "
+#~ "\"disabled\", then there will be no keybinding for this action."
+#~ msgstr ""
+#~ "La combinación de teclas que muestra el cuadro de diálogo \"Ejecutar "
+#~ "aplicación\" del panel. El formato se parece a \"<Control>a\" o "
+#~ "\"<Shift><Alt>F1\". El analizador es bastante liberal y permite "
+#~ "mayúsculas y minúsculas, y también abreviaturas como \"<Ctl>\" y "
+#~ "\"<Ctrl>\". Si configura la opción con la cadena especial "
+#~ "\"deshabilitada\", no habrá combinación de teclas para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding which invokes a terminal. The format looks like "
+#~ "\"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is "
+#~ "fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas que invoca un terminal. El formato se parece a "
+#~ "\"<Control>a\" o \"<Shift><Alt>F1\". El analizador es bastante liberal y "
+#~ "permite mayúsculas y minúsculas, y también abreviaturas como \"<Ctl>\" y "
+#~ "\"<Ctrl>\". Si configura la opción con la cadena especial "
+#~ "\"deshabilitada\", no habrá combinación de teclas para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding which invokes the panel's screenshot utility to take a "
+#~ "screenshot of a window. The format looks like \"&lt;Control&gt;a\" or "
+#~ "\"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is fairly liberal and allows "
+#~ "lower or upper case, and also abbreviations such as \"&lt;Ctl&gt;\" and "
+#~ "\"&lt;Ctrl&gt;\". If you set the option to the special string "
+#~ "\"disabled\", then there will be no keybinding for this action."
+#~ msgstr ""
+#~ "La combinación de teclas que invoca la utilidad de captura de pantalla "
+#~ "del panel para tomar una captura de pantalla de una ventana. El formato "
+#~ "se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El analizador es "
+#~ "bastante liberal y permite mayúsculas y minúsculas, y también "
+#~ "abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción con la "
+#~ "cadena especial \"deshabilitada\", no habrá combinación de teclas para "
+#~ "esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding which invokes the panel's screenshot utility. The format "
+#~ "looks like \"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The "
+#~ "parser is fairly liberal and allows lower or upper case, and also "
+#~ "abbreviations such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set "
+#~ "the option to the special string \"disabled\", then there will be no "
+#~ "keybinding for this action."
+#~ msgstr ""
+#~ "La combinación de teclas que invoca la utilidad de captura de pantalla "
+#~ "del panel. El formato se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El "
+#~ "analizador es bastante liberal y permite mayúsculas y minúsculas, y "
+#~ "también abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción "
+#~ "con la cadena especial \"deshabilitada\", no habrá combinación de teclas "
+#~ "para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "The keybinding which shows the panel's main menu. The format looks like "
+#~ "\"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is "
+#~ "fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "La combinación de teclas que muestra el menú principal del panel. El "
+#~ "formato se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El analizador es "
+#~ "bastante liberal y permite mayúsculas y minúsculas, y también "
+#~ "abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción con la "
+#~ "cadena especial \"deshabilitada\", no habrá combinación de teclas para "
+#~ "esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "This keybinding changes whether a window is above or below other windows. "
+#~ "If the window is covered by another one, it raises the window above all "
+#~ "others, and if the window is already fully visible, it lowers it below "
+#~ "all others. The format looks like \"&lt;Control&gt;a\" or "
+#~ "\"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is fairly liberal and allows "
+#~ "lower or upper case, and also abbreviations such as \"&lt;Ctl&gt;\" and "
+#~ "\"&lt;Ctrl&gt;\". If you set the option to the special string "
+#~ "\"disabled\", then there will be no keybinding for this action."
+#~ msgstr ""
+#~ "Esta combinación de teclas cambia si una ventana está encima o debajo de "
+#~ "otras ventanas. Si la ventana está cubierta por otra, la eleva por encima "
+#~ "de todas las demás, y si la ventana ya es completamente visible, la baja "
+#~ "por debajo de todas las demás. El formato se parece a \"<Control>a\" o "
+#~ "\"<Shift><Alt>F1\". El analizador es bastante liberal y permite "
+#~ "mayúsculas y minúsculas, y también abreviaturas como \"<Ctl>\" y "
+#~ "\"<Ctrl>\". Si configura la opción con la cadena especial "
+#~ "\"deshabilitada\", no habrá combinación de teclas para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "This keybinding lowers a window below other windows. The format looks "
+#~ "like \"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser "
+#~ "is fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "Esta combinación de teclas baja una ventana debajo de otras ventanas. El "
+#~ "formato se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El analizador es "
+#~ "bastante liberal y permite mayúsculas y minúsculas, y también "
+#~ "abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción con la "
+#~ "cadena especial \"deshabilitada\", no habrá combinación de teclas para "
+#~ "esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "This keybinding moves a window against the north (top) side of the "
+#~ "screen. The format looks like \"&lt;Control&gt;a\" or "
+#~ "\"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is fairly liberal and allows "
+#~ "lower or upper case, and also abbreviations such as \"&lt;Ctl&gt;\" and "
+#~ "\"&lt;Ctrl&gt;\". If you set the option to the special string "
+#~ "\"disabled\", then there will be no keybinding for this action."
+#~ msgstr ""
+#~ "Esta combinación de teclas mueve una ventana hacia el lado norte "
+#~ "(superior) de la pantalla. El formato se parece a \"<Control>a\" o "
+#~ "\"<Shift><Alt>F1\". El analizador es bastante liberal y permite "
+#~ "mayúsculas y minúsculas, y también abreviaturas como \"<Ctl>\" y "
+#~ "\"<Ctrl>\". Si configura la opción con la cadena especial "
+#~ "\"deshabilitada\", no habrá combinación de teclas para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "This keybinding moves a window into the east (right) side of the screen. "
+#~ "The format looks like \"&lt;Control&gt;a\" or "
+#~ "\"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is fairly liberal and allows "
+#~ "lower or upper case, and also abbreviations such as \"&lt;Ctl&gt;\" and "
+#~ "\"&lt;Ctrl&gt;\". If you set the option to the special string "
+#~ "\"disabled\", then there will be no keybinding for this action."
+#~ msgstr ""
+#~ "Esta combinación de teclas mueve una ventana al lado este (derecho) de la "
+#~ "pantalla. El formato se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El "
+#~ "analizador es bastante liberal y permite mayúsculas y minúsculas, y "
+#~ "también abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción "
+#~ "con la cadena especial \"deshabilitada\", no habrá combinación de teclas "
+#~ "para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "This keybinding moves a window into the north-east (top right) corner of "
+#~ "the screen. The format looks like \"&lt;Control&gt;a\" or "
+#~ "\"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is fairly liberal and allows "
+#~ "lower or upper case, and also abbreviations such as \"&lt;Ctl&gt;\" and "
+#~ "\"&lt;Ctrl&gt;\". If you set the option to the special string "
+#~ "\"disabled\", then there will be no keybinding for this action."
+#~ msgstr ""
+#~ "Esta combinación de teclas mueve una ventana a la esquina noreste (arriba "
+#~ "a la derecha) de la pantalla. El formato se parece a \"<Control>a\" o "
+#~ "\"<Shift><Alt>F1\". El analizador es bastante liberal y permite "
+#~ "mayúsculas y minúsculas, y también abreviaturas como \"<Ctl>\" y "
+#~ "\"<Ctrl>\". Si configura la opción con la cadena especial "
+#~ "\"deshabilitada\", no habrá combinación de teclas para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "This keybinding moves a window into the north-west (top left) corner of "
+#~ "the screen. The format looks like \"&lt;Control&gt;a\" or "
+#~ "\"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is fairly liberal and allows "
+#~ "lower or upper case, and also abbreviations such as \"&lt;Ctl&gt;\" and "
+#~ "\"&lt;Ctrl&gt;\". If you set the option to the special string "
+#~ "\"disabled\", then there will be no keybinding for this action."
+#~ msgstr ""
+#~ "Esta combinación de teclas mueve una ventana a la esquina noroeste "
+#~ "(superior izquierda) de la pantalla. El formato se parece a "
+#~ "\"<Control>a\" o \"<Shift><Alt>F1\". El analizador es bastante liberal y "
+#~ "permite mayúsculas y minúsculas, y también abreviaturas como \"<Ctl>\" y "
+#~ "\"<Ctrl>\". Si configura la opción con la cadena especial "
+#~ "\"deshabilitada\", no habrá combinación de teclas para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "This keybinding moves a window into the south (bottom) side of the "
+#~ "screen. The format looks like \"&lt;Control&gt;a\" or "
+#~ "\"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is fairly liberal and allows "
+#~ "lower or upper case, and also abbreviations such as \"&lt;Ctl&gt;\" and "
+#~ "\"&lt;Ctrl&gt;\". If you set the option to the special string "
+#~ "\"disabled\", then there will be no keybinding for this action."
+#~ msgstr ""
+#~ "Esta combinación de teclas mueve una ventana hacia el lado sur (inferior) "
+#~ "de la pantalla. El formato se parece a \"<Control>a\" o "
+#~ "\"<Shift><Alt>F1\". El analizador es bastante liberal y permite "
+#~ "mayúsculas y minúsculas, y también abreviaturas como \"<Ctl>\" y "
+#~ "\"<Ctrl>\". Si configura la opción con la cadena especial "
+#~ "\"deshabilitada\", no habrá combinación de teclas para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "This keybinding moves a window into the south-east (bottom right) corner "
+#~ "of the screen. The format looks like \"&lt;Control&gt;a\" or "
+#~ "\"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is fairly liberal and allows "
+#~ "lower or upper case, and also abbreviations such as \"&lt;Ctl&gt;\" and "
+#~ "\"&lt;Ctrl&gt;\". If you set the option to the special string "
+#~ "\"disabled\", then there will be no keybinding for this action."
+#~ msgstr ""
+#~ "Esta combinación de teclas mueve una ventana a la esquina sureste "
+#~ "(inferior derecha) de la pantalla. El formato se parece a \"<Control>a\" "
+#~ "o \"<Shift><Alt>F1\". El analizador es bastante liberal y permite "
+#~ "mayúsculas y minúsculas, y también abreviaturas como \"<Ctl>\" y "
+#~ "\"<Ctrl>\". Si configura la opción con la cadena especial "
+#~ "\"deshabilitada\", no habrá combinación de teclas para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "This keybinding moves a window into the south-west (bottom left) corner "
+#~ "of the screen. The format looks like \"&lt;Control&gt;a\" or "
+#~ "\"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is fairly liberal and allows "
+#~ "lower or upper case, and also abbreviations such as \"&lt;Ctl&gt;\" and "
+#~ "\"&lt;Ctrl&gt;\". If you set the option to the special string "
+#~ "\"disabled\", then there will be no keybinding for this action."
+#~ msgstr ""
+#~ "Esta combinación de teclas mueve una ventana a la esquina suroeste "
+#~ "(inferior izquierda) de la pantalla. El formato se parece a "
+#~ "\"<Control>a\" o \"<Shift><Alt>F1\". El analizador es bastante liberal y "
+#~ "permite mayúsculas y minúsculas, y también abreviaturas como \"<Ctl>\" y "
+#~ "\"<Ctrl>\". Si configura la opción con la cadena especial "
+#~ "\"deshabilitada\", no habrá combinación de teclas para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "This keybinding moves a window into the west (left) side of the screen. "
+#~ "The format looks like \"&lt;Control&gt;a\" or "
+#~ "\"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser is fairly liberal and allows "
+#~ "lower or upper case, and also abbreviations such as \"&lt;Ctl&gt;\" and "
+#~ "\"&lt;Ctrl&gt;\". If you set the option to the special string "
+#~ "\"disabled\", then there will be no keybinding for this action."
+#~ msgstr ""
+#~ "Esta combinación de teclas mueve una ventana hacia el lado oeste "
+#~ "(izquierdo) de la pantalla. El formato se parece a \"<Control>a\" o "
+#~ "\"<Shift><Alt>F1\". El analizador es bastante liberal y permite "
+#~ "mayúsculas y minúsculas, y también abreviaturas como \"<Ctl>\" y "
+#~ "\"<Ctrl>\". Si configura la opción con la cadena especial "
+#~ "\"deshabilitada\", no habrá combinación de teclas para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "This keybinding raises the window above other windows. The format looks "
+#~ "like \"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". The parser "
+#~ "is fairly liberal and allows lower or upper case, and also abbreviations "
+#~ "such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set the option to "
+#~ "the special string \"disabled\", then there will be no keybinding for "
+#~ "this action."
+#~ msgstr ""
+#~ "Esta combinación de teclas eleva la ventana por encima de otras ventanas. "
+#~ "El formato se parece a \"<Control>a\" o \"<Shift><Alt>F1\". El analizador "
+#~ "es bastante liberal y permite mayúsculas y minúsculas, y también "
+#~ "abreviaturas como \"<Ctl>\" y \"<Ctrl>\". Si configura la opción con la "
+#~ "cadena especial \"deshabilitada\", no habrá combinación de teclas para "
+#~ "esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "This keybinding resizes a window to fill available horizontal space. The "
+#~ "format looks like \"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". "
+#~ "The parser is fairly liberal and allows lower or upper case, and also "
+#~ "abbreviations such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set "
+#~ "the option to the special string \"disabled\", then there will be no "
+#~ "keybinding for this action."
+#~ msgstr ""
+#~ "Esta combinación de teclas cambia el tamaño de una ventana para llenar el "
+#~ "espacio horizontal disponible. El formato se parece a \"<Control>a\" o "
+#~ "\"<Shift><Alt>F1\". El analizador es bastante liberal y permite "
+#~ "mayúsculas y minúsculas, y también abreviaturas como \"<Ctl>\" y "
+#~ "\"<Ctrl>\". Si configura la opción con la cadena especial "
+#~ "\"deshabilitada\", no habrá combinación de teclas para esta acción."
+
+#, fuzzy
+#~ msgid ""
+#~ "This keybinding resizes a window to fill available vertical space. The "
+#~ "format looks like \"&lt;Control&gt;a\" or \"&lt;Shift&gt;&lt;Alt&gt;F1\". "
+#~ "The parser is fairly liberal and allows lower or upper case, and also "
+#~ "abbreviations such as \"&lt;Ctl&gt;\" and \"&lt;Ctrl&gt;\". If you set "
+#~ "the option to the special string \"disabled\", then there will be no "
+#~ "keybinding for this action."
+#~ msgstr ""
+#~ "Esta combinación de teclas cambia el tamaño de una ventana para llenar el "
+#~ "espacio vertical disponible. El formato se parece a \"<Control>a\" o "
+#~ "\"<Shift><Alt>F1\". El analizador es bastante liberal y permite "
+#~ "mayúsculas y minúsculas, y también abreviaturas como \"<Ctl>\" y "
+#~ "\"<Ctrl>\". Si configura la opción con la cadena especial "
+#~ "\"deshabilitada\", no habrá combinación de teclas para esta acción."
+
+#, fuzzy
+#~ msgid "Toggle always on top state"
+#~ msgstr "Alternar siempre en el estado superior"
+
+#, fuzzy
+#~ msgid "No \"%s\" attribute on <%s> element"
+#~ msgstr "No hay atributo \"%s\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "Theme already has a fallback icon"
+#~ msgstr "El tema ya tiene un ícono alternativo"
+
+#, fuzzy
+#~ msgid "Theme already has a fallback mini_icon"
+#~ msgstr "El tema ya tiene un mini_icon alternativo"
+
+#, fuzzy
+#~ msgid "No \"name\" attribute on element <%s>"
+#~ msgstr "No hay atributo \"nombre\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "No \"value\" attribute on element <%s>"
+#~ msgstr "Ningún atributo de \"valor\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "No \"top\" attribute on element <%s>"
+#~ msgstr "No hay atributo \"superior\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "No \"bottom\" attribute on element <%s>"
+#~ msgstr "No hay atributo \"inferior\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "No \"left\" attribute on element <%s>"
+#~ msgstr "No hay atributo \"izquierdo\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "No \"right\" attribute on element <%s>"
+#~ msgstr "No hay atributo \"correcto\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "No \"color\" attribute on element <%s>"
+#~ msgstr "No hay atributo \"color\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "No \"x1\" attribute on element <%s>"
+#~ msgstr "No hay atributo \"x1\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "No \"y1\" attribute on element <%s>"
+#~ msgstr "No hay atributo \"y1\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "No \"x2\" attribute on element <%s>"
+#~ msgstr "No hay atributo \"x2\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "No \"y2\" attribute on element <%s>"
+#~ msgstr "No hay atributo \"y2\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "No \"y\" attribute on element <%s>"
+#~ msgstr "Ningún atributo \"y\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "No \"width\" attribute on element <%s>"
+#~ msgstr "No hay atributo de \"ancho\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "No \"height\" attribute on element <%s>"
+#~ msgstr "No hay atributo de \"altura\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "No \"start_angle\" attribute on element <%s>"
+#~ msgstr "No hay atributo \"start_angle\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "No \"extent_angle\" attribute on element <%s>"
+#~ msgstr "No hay atributo \"extent_angle\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "No \"alpha\" attribute on element <%s>"
+#~ msgstr "Ningún atributo \"alfa\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "No \"type\" attribute on element <%s>"
+#~ msgstr "Ningún atributo \"tipo\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "No \"filename\" attribute on element <%s>"
+#~ msgstr "No hay atributo \"nombre de archivo\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "No \"state\" attribute on element <%s>"
+#~ msgstr "Ningún atributo de \"estado\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "No \"shadow\" attribute on element <%s>"
+#~ msgstr "No hay atributo \"sombra\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "No \"arrow\" attribute on element <%s>"
+#~ msgstr "No hay atributo de \"flecha\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "No \"value\" attribute on <%s> element"
+#~ msgstr "Ningún atributo de \"valor\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "No \"position\" attribute on <%s> element"
+#~ msgstr "No hay atributo de \"posición\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "No \"function\" attribute on <%s> element"
+#~ msgstr "No hay atributo de \"función\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "No \"state\" attribute on <%s> element"
+#~ msgstr "No hay atributo de \"estado\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "No \"focus\" attribute on <%s> element"
+#~ msgstr "No hay atributo de \"enfoque\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "No \"style\" attribute on <%s> element"
+#~ msgstr "No hay atributo de \"estilo\" en el elemento <%s>"
+
+#, fuzzy
+#~ msgid "No \"resize\" attribute on <%s> element"
+#~ msgstr "No hay atributo de \"cambiar tamaño\" en el elemento <%s>"

@@ -1,0 +1,1525 @@
+# translation of kcmkwinrules.po to Khmer
+# Khoem Sokhem <khoemsokhem@khmeros.info>, 2006, 2007, 2008, 2010, 2012.
+# Auk Piseth <piseth_dv@khmeros.info>, 2007, 2008.
+# Poch Sokun<sokun_poch@khmeros.info>,2007-08-06 15:56+0700.
+# Eng Vannak <evannak@khmeros.info>, 2007.
+msgid ""
+msgstr ""
+"Project-Id-Version: kcmkwinrules\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-07-10 00:46+0000\n"
+"PO-Revision-Date: 2012-06-13 15:34+0700\n"
+"Last-Translator: Khoem Sokhem <khoemsokhem@khmeros.info>\n"
+"Language-Team: Khmer\n"
+"Language: km\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Generator: KBabel 1.11.4\n"
+"X-Language: km-KH\n"
+
+#: kcmrules.cpp:228
+#, kde-format
+msgid "Copy of %1"
+msgstr ""
+
+#: kcmrules.cpp:426
+#, kde-format
+msgid "Application settings for %1"
+msgstr "ការ​កំណត់​កម្មវិធី​សម្រាប់ %1"
+
+#: kcmrules.cpp:448 rulesmodel.cpp:222 rulesmodel.cpp:225
+#, kde-format
+msgid "Window settings for %1"
+msgstr "ការ​កំណត់​បង្អួច​សម្រាប់ %1"
+
+#  i18n: file ruleswidgetbase.ui line 100
+#: optionsmodel.cpp:199 optionsmodel.cpp:204
+#, fuzzy, kde-format
+#| msgid "Unimportant"
+msgctxt "@item:inlistbox"
+msgid "Unimportant"
+msgstr "មិន​សំខាន់"
+
+#  i18n: file ruleswidgetbase.ui line 105
+#: optionsmodel.cpp:200
+#, fuzzy, kde-format
+#| msgid "Exact Match"
+msgctxt "@item:inlistbox"
+msgid "Exact match"
+msgstr "ផ្គូផ្គង​ត្រឹមត្រូវ"
+
+#  i18n: file ruleswidgetbase.ui line 110
+#: optionsmodel.cpp:201
+#, fuzzy, kde-format
+#| msgid "Substring Match"
+msgctxt "@item:inlistbox"
+msgid "Substring match"
+msgstr "ការ​ផ្គូផ្គង​ខ្សែ​អក្សរ​រង"
+
+#  i18n: file ruleswidgetbase.ui line 115
+#: optionsmodel.cpp:202
+#, fuzzy, kde-format
+#| msgid "Regular Expression"
+msgctxt "@item:inlistbox"
+msgid "Regular expression"
+msgstr "កន្សោម​ធម្មតា"
+
+#: optionsmodel.cpp:205
+#, kde-format
+msgctxt "@item:inlistbox This is a noun"
+msgid "Match"
+msgstr ""
+
+#  i18n: file ruleswidgetbase.ui line 678
+#: optionsmodel.cpp:210
+#, fuzzy, kde-format
+#| msgid "Apply Initially"
+msgid "Apply initially"
+msgstr "អនុវត្ត​ពី​ដំបូង"
+
+#: optionsmodel.cpp:211
+#, kde-format
+msgid ""
+"The window property will be only set to the given value after the window is "
+"created.\n"
+"No further changes will be affected."
+msgstr ""
+
+#  i18n: file ruleswidgetbase.ui line 693
+#: optionsmodel.cpp:214
+#, fuzzy, kde-format
+#| msgid "Apply Now"
+msgid "Apply now"
+msgstr "អនុវត្ត​ឥឡូវ"
+
+#: optionsmodel.cpp:215
+#, kde-format
+msgid ""
+"The window property will be set to the given value immediately and will not "
+"be affected later\n"
+"(this action will be deleted afterwards)."
+msgstr ""
+
+#  i18n: file ruleswidgetbase.ui line 683
+#: optionsmodel.cpp:218
+#, kde-format
+msgid "Remember"
+msgstr "ចងចាំ"
+
+#: optionsmodel.cpp:219
+#, kde-format
+msgid ""
+"The value of the window property will be remembered and, every time the "
+"window is created, the last remembered value will be applied."
+msgstr ""
+
+#  i18n: file ruleswidgetbase.ui line 673
+#: optionsmodel.cpp:222
+#, fuzzy, kde-format
+#| msgid "Do Not Affect"
+msgid "Do not affect"
+msgstr "មិន​មាន​ឥទ្ធិពល"
+
+#: optionsmodel.cpp:223
+#, kde-format
+msgid ""
+"The window property will not be affected and therefore the default handling "
+"for it will be used.\n"
+"Specifying this will block more generic window settings from taking effect."
+msgstr ""
+
+#  i18n: file ruleswidgetbase.ui line 688
+#: optionsmodel.cpp:226
+#, kde-format
+msgid "Force"
+msgstr "បង្ខំ"
+
+#: optionsmodel.cpp:227
+#, kde-format
+msgid "The window property will be always forced to the given value."
+msgstr ""
+
+#  i18n: file ruleswidgetbase.ui line 698
+#: optionsmodel.cpp:229
+#, fuzzy, kde-format
+#| msgid "Force Temporarily"
+msgid "Force temporarily"
+msgstr "បង្ខំ​បណ្ដោះ​អាសន្ន"
+
+#: optionsmodel.cpp:230
+#, kde-format
+msgid ""
+"The window property will be forced to the given value until it is hidden\n"
+"(this action will be deleted after the window is hidden)."
+msgstr ""
+
+#: rulesmodel.cpp:228
+#, kde-format
+msgid "Settings for %1"
+msgstr "ការ​កំណត់​សម្រាប់ %1"
+
+#: rulesmodel.cpp:231
+#, fuzzy, kde-format
+#| msgid "Window settings for %1"
+msgid "New window settings"
+msgstr "ការ​កំណត់​បង្អួច​សម្រាប់ %1"
+
+#: rulesmodel.cpp:247
+#, kde-format
+msgid ""
+"You have specified the window class as unimportant.\n"
+"This means the settings will possibly apply to windows from all "
+"applications. If you really want to create a generic setting, it is "
+"recommended you at least limit the window types to avoid special window "
+"types."
+msgstr ""
+"អ្នក​បាន​បញ្ជាក់​ថ្នាក់​​បង្អួច​​ថា​​មិន​​សំខាន់ ។\n"
+"នេះ​​មាន​ន័យ​ថា​ ការ​​កំណត់​​អាច​នឹង​​អនុវត្ត​ទៅ​បង្អួច​ដែល​បាន​មក​ពី​កម្មវិធី​ទាំង​អស់ ។ បើ​អ្នក​ចង់​បង្កើត​ការ​កំណត់​តាម​"
+"ប្រភេទ​​មួយ យើង​សូម​ផ្តល់​អនុសាសន៍​ដល់​អ្នក​ថា យ៉ាង​ហោច​ណាស់ អ្នក​ត្រូវ​កំណត់​ព្រំដែន​របស់​ប្រភេទ​បង្អួច ដើម្បី​ជៀសវាង​"
+"ប្រភេទ​បង្អួច​ពិសេស​ដែរ​ ។"
+
+#: rulesmodel.cpp:254
+#, kde-format
+msgid ""
+"Some applications set their own geometry after starting, overriding your "
+"initial settings for size and position. To enforce these settings, also "
+"force the property \"%1\" to \"Yes\"."
+msgstr ""
+
+#: rulesmodel.cpp:261
+#, kde-format
+msgid ""
+"Readability may be impaired with extremely low opacity values. At 0%, the "
+"window becomes invisible."
+msgstr ""
+
+#  i18n: file ruleswidgetbase.ui line 42
+#: rulesmodel.cpp:388
+#, fuzzy, kde-format
+#| msgid "De&scription:"
+msgid "Description"
+msgstr "ការ​ពិពណ៌នា ៖"
+
+#  i18n: file ruleswidgetbase.ui line 31
+#: rulesmodel.cpp:388 rulesmodel.cpp:396 rulesmodel.cpp:404 rulesmodel.cpp:411
+#: rulesmodel.cpp:417 rulesmodel.cpp:425 rulesmodel.cpp:430 rulesmodel.cpp:436
+#: rulesmodel.cpp:441 rulesmodel.cpp:447
+#, fuzzy, kde-format
+#| msgid "&Window matching"
+msgid "Window matching"
+msgstr "ការ​ផ្គូផ្គង​បង្អួច"
+
+#  i18n: file ruleswidgetbase.ui line 58
+#: rulesmodel.cpp:396
+#, fuzzy, kde-format
+#| msgid "Window &class (application):"
+msgid "Window class (application)"
+msgstr "ថ្នាក់​បង្អួច (ប្រភេទ​កម្មវិធី) ៖"
+
+#  i18n: file ruleswidgetbase.ui line 250
+#: rulesmodel.cpp:404
+#, fuzzy, kde-format
+#| msgid "Match w&hole window class"
+msgid "Match whole window class"
+msgstr "ផ្គូផ្គង​ថ្នាក់​បង្អួច​ទាំងមូល"
+
+#  i18n: file ruleswidgetbase.ui line 250
+#: rulesmodel.cpp:411
+#, fuzzy, kde-format
+#| msgid "Match w&hole window class"
+msgid "Whole window class"
+msgstr "ផ្គូផ្គង​ថ្នាក់​បង្អួច​ទាំងមូល"
+
+#  i18n: file ruleswidgetbase.ui line 326
+#: rulesmodel.cpp:417
+#, fuzzy, kde-format
+#| msgid "Window &types:"
+msgid "Window types"
+msgstr "ប្រភេទ​បង្អួច ៖"
+
+#  i18n: file ruleswidgetbase.ui line 69
+#: rulesmodel.cpp:425
+#, fuzzy, kde-format
+#| msgid "Window &role:"
+msgid "Window role"
+msgstr "តួនាទី​បង្អួច ៖"
+
+#  i18n: file ruleswidgetbase.ui line 395
+#: rulesmodel.cpp:430
+#, fuzzy, kde-format
+#| msgid "Window t&itle:"
+msgid "Window title"
+msgstr "ចំណង​ជើង​បង្អួច ៖"
+
+#  i18n: file ruleswidgetbase.ui line 427
+#: rulesmodel.cpp:436
+#, fuzzy, kde-format
+#| msgid "&Machine (hostname):"
+msgid "Machine (hostname)"
+msgstr "ម៉ាស៊ីន (ឈ្មោះ​ម៉ាស៊ីន) ៖"
+
+#  i18n: file ruleswidgetbase.ui line 326
+#: rulesmodel.cpp:441
+#, fuzzy, kde-format
+#| msgid "Window &types:"
+msgid "Window tag"
+msgstr "ប្រភេទ​បង្អួច ៖"
+
+#  i18n: file ruleswidgetbase.ui line 1156
+#: rulesmodel.cpp:447
+#, fuzzy, kde-format
+#| msgid "On Main Window"
+msgid "Has parent window"
+msgstr "លើ​បង្អួច​មេ"
+
+#  i18n: file ruleswidgetbase.ui line 732
+#: rulesmodel.cpp:453
+#, fuzzy, kde-format
+#| msgid "&Position"
+msgid "Position"
+msgstr "ទីតាំង"
+
+#  i18n: file ruleswidgetbase.ui line 732
+#: rulesmodel.cpp:453 rulesmodel.cpp:459 rulesmodel.cpp:465 rulesmodel.cpp:470
+#: rulesmodel.cpp:478 rulesmodel.cpp:484 rulesmodel.cpp:503 rulesmodel.cpp:519
+#: rulesmodel.cpp:524 rulesmodel.cpp:529 rulesmodel.cpp:534 rulesmodel.cpp:541
+#: rulesmodel.cpp:555 rulesmodel.cpp:560
+#, fuzzy, kde-format
+#| msgid "&Size && Position"
+msgid "Size & Position"
+msgstr "ទំហំ និង​ទីតាំង"
+
+#  i18n: file ruleswidgetbase.ui line 724
+#: rulesmodel.cpp:459
+#, fuzzy, kde-format
+#| msgid "&Size"
+msgid "Size"
+msgstr "ទំហំ"
+
+#  i18n: file ruleswidgetbase.ui line 849
+#: rulesmodel.cpp:465
+#, fuzzy, kde-format
+#| msgid "Maximized &horizontally"
+msgid "Maximized horizontally"
+msgstr "ពង្រីក​ផ្ដេក​អតិបរមា​"
+
+#  i18n: file ruleswidgetbase.ui line 952
+#: rulesmodel.cpp:470
+#, fuzzy, kde-format
+#| msgid "Maximized &vertically"
+msgid "Maximized vertically"
+msgstr "ពង្រីក​បញ្ឈរ​អតិបរមា"
+
+#: rulesmodel.cpp:478
+#, fuzzy, kde-format
+#| msgid "All Desktops"
+msgid "Virtual desktop"
+msgstr "ផ្ទៃតុ​ទាំងអស់"
+
+#: rulesmodel.cpp:484
+#, fuzzy, kde-format
+#| msgid "All Desktops"
+msgid "Virtual desktops"
+msgstr "ផ្ទៃតុ​ទាំងអស់"
+
+#: rulesmodel.cpp:503
+#, fuzzy, kde-format
+#| msgid "All Activities"
+msgid "Activities"
+msgstr "សកម្មភាព​ទាំងអស់"
+
+#  i18n: file ruleswidgetbase.ui line 365
+#: rulesmodel.cpp:519
+#, fuzzy, kde-format
+#| msgid "Splash Screen"
+msgid "Screen"
+msgstr "អេក្រង់​ស្វាគមន៍"
+
+#  i18n: file ruleswidgetbase.ui line 906
+#: rulesmodel.cpp:524 rulesmodel.cpp:923
+#, fuzzy, kde-format
+#| msgid "&Fullscreen"
+msgid "Fullscreen"
+msgstr "ពេញ​អេក្រង់"
+
+#  i18n: file ruleswidgetbase.ui line 1082
+#: rulesmodel.cpp:529
+#, fuzzy, kde-format
+#| msgid "M&inimized"
+msgid "Minimized"
+msgstr "បង្រួម​អប្បបរមា"
+
+#  i18n: file ruleswidgetbase.ui line 1171
+#: rulesmodel.cpp:534
+#, fuzzy, kde-format
+#| msgid "Initial p&lacement"
+msgid "Initial placement"
+msgstr "ការ​ជំនួស​ដំបូង"
+
+#  i18n: file ruleswidgetbase.ui line 2234
+#: rulesmodel.cpp:541
+#, fuzzy, kde-format
+#| msgid "Ignore requested &geometry"
+msgid "Ignore requested geometry"
+msgstr "មិន​អើពើ​ធរណីមាត្រ​ដែល​បាន​ស្នើ"
+
+#: rulesmodel.cpp:544
+#, kde-kuit-format
+msgctxt "@info:tooltip"
+msgid ""
+"Some applications can set their own geometry, overriding the window manager "
+"preferences. Setting this property overrides their placement requests.<nl/"
+"><nl/>This affects <interface>Size</interface> and <interface>Position</"
+"interface> but not <interface>Maximized</interface> or "
+"<interface>Fullscreen</interface> states.<nl/><nl/>Note that the position "
+"can also be used to map to a different <interface>Screen</interface>"
+msgstr ""
+
+#  i18n: file ruleswidgetbase.ui line 2161
+#: rulesmodel.cpp:555
+#, fuzzy, kde-format
+#| msgid "M&inimum size"
+msgid "Minimum Size"
+msgstr "ទំហំ​អប្បបរមា"
+
+#  i18n: file ruleswidgetbase.ui line 2192
+#: rulesmodel.cpp:560
+#, fuzzy, kde-format
+#| msgid "M&aximum size"
+msgid "Maximum Size"
+msgstr "ទំហំ​អតិបរមា"
+
+#: rulesmodel.cpp:566
+#, kde-format
+msgid "Keep above other windows"
+msgstr ""
+
+#: rulesmodel.cpp:566 rulesmodel.cpp:571 rulesmodel.cpp:576 rulesmodel.cpp:582
+#: rulesmodel.cpp:588 rulesmodel.cpp:594
+#, fuzzy, kde-format
+#| msgid "&Arrangement && Access"
+msgid "Arrangement & Access"
+msgstr "ការ​រៀបចំ និង​ចូល​ដំណើរការ"
+
+#: rulesmodel.cpp:571
+#, kde-format
+msgid "Keep below other windows"
+msgstr ""
+
+#  i18n: file ruleswidgetbase.ui line 1271
+#: rulesmodel.cpp:576
+#, fuzzy, kde-format
+#| msgid "Skip &taskbar"
+msgid "Skip taskbar"
+msgstr "រំលង​របារ​ភារកិច្ច"
+
+#: rulesmodel.cpp:578
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Controls whether or not the window appears in the Task Manager."
+msgstr ""
+
+#  i18n: file ruleswidgetbase.ui line 1263
+#: rulesmodel.cpp:582
+#, fuzzy, kde-format
+#| msgid "Skip pa&ger"
+msgid "Skip pager"
+msgstr "រំលង​ភេកយ័រ"
+
+#: rulesmodel.cpp:584
+#, kde-format
+msgctxt "@info:tooltip"
+msgid ""
+"Controls whether or not the window appears in the Virtual Desktop manager."
+msgstr ""
+
+#  i18n: file ruleswidgetbase.ui line 1263
+#: rulesmodel.cpp:588
+#, fuzzy, kde-format
+#| msgid "Skip &switcher"
+msgid "Skip switcher"
+msgstr "រំលង​​កម្មវិធី​ប្ដូរ"
+
+#: rulesmodel.cpp:590
+#, kde-kuit-format
+msgctxt "@info:tooltip"
+msgid ""
+"Controls whether or not the window appears in the <shortcut>Alt+Tab</"
+"shortcut> window list."
+msgstr ""
+
+#  i18n: file ruleswidgetbase.ui line 1870
+#: rulesmodel.cpp:594
+#, kde-format
+msgid "Shortcut"
+msgstr "ផ្លូវកាត់"
+
+#: rulesmodel.cpp:600
+#, fuzzy, kde-format
+#| msgid "&No titlebar and frame"
+msgid "No titlebar and frame"
+msgstr "គ្មាន​​របារ​ចំណងជើង និង​ស៊ុម"
+
+#: rulesmodel.cpp:600 rulesmodel.cpp:605 rulesmodel.cpp:611 rulesmodel.cpp:616
+#: rulesmodel.cpp:622 rulesmodel.cpp:649 rulesmodel.cpp:677 rulesmodel.cpp:683
+#: rulesmodel.cpp:695 rulesmodel.cpp:700 rulesmodel.cpp:705 rulesmodel.cpp:711
+#: rulesmodel.cpp:716 rulesmodel.cpp:721
+#, fuzzy, kde-format
+#| msgid "Appearance && &Fixes"
+msgid "Appearance & Fixes"
+msgstr "រូបរាង​និង​ការ​ជួសជុល"
+
+#: rulesmodel.cpp:605
+#, kde-format
+msgid "Titlebar color scheme"
+msgstr ""
+
+#  i18n: file ruleswidgetbase.ui line 1303
+#: rulesmodel.cpp:611
+#, fuzzy, kde-format
+#| msgid "A&ctive opacity"
+msgid "Active opacity"
+msgstr "ភាព​ស្រអាប់​សកម្ម​"
+
+#  i18n: file ruleswidgetbase.ui line 1862
+#: rulesmodel.cpp:616
+#, fuzzy, kde-format
+#| msgid "I&nactive opacity"
+msgid "Inactive opacity"
+msgstr "ភាព​ស្រអាប់​អសកម្ម​"
+
+#  i18n: file ruleswidgetbase.ui line 1948
+#: rulesmodel.cpp:622
+#, fuzzy, kde-format
+#| msgid "&Focus stealing prevention"
+msgid "Focus stealing prevention"
+msgstr "ផ្តោត​លើ​ការ​ការពារ​ការ​លួច"
+
+#: rulesmodel.cpp:624
+#, kde-kuit-format
+msgctxt "@info:tooltip"
+msgid ""
+"KWin tries to prevent windows that were opened without direct user action "
+"from raising themselves and taking focus while you're currently interacting "
+"with another window. This property can be used to change the level of focus "
+"stealing prevention applied to individual windows and apps.<nl/><nl/>Here's "
+"what will happen to a window opened without your direct action at each level "
+"of focus stealing prevention:<nl/><list><item><emphasis strong='true'>None:</"
+"emphasis> The window will be raised and focused.</item><item><emphasis "
+"strong='true'>Low:</emphasis> Focus stealing prevention will be applied, but "
+"in the case of a situation KWin considers ambiguous, the window will be "
+"raised and focused.</item><item><emphasis strong='true'>Normal:</emphasis> "
+"Focus stealing prevention will be applied, but  in the case of a situation "
+"KWin considers ambiguous, the window will <emphasis>not</emphasis> be raised "
+"and focused.</item><item><emphasis strong='true'>High:</emphasis> The window "
+"will only be raised and focused if it belongs to the same app as the "
+"currently-focused window.</item><item><emphasis strong='true'>Extreme:</"
+"emphasis> The window will never be raised and focused.</item></list>"
+msgstr ""
+
+#  i18n: file ruleswidgetbase.ui line 1948
+#: rulesmodel.cpp:649
+#, fuzzy, kde-format
+#| msgid "&Focus stealing prevention"
+msgid "Focus protection"
+msgstr "ផ្តោត​លើ​ការ​ការពារ​ការ​លួច"
+
+#: rulesmodel.cpp:651
+#, kde-kuit-format
+msgctxt "@info:tooltip"
+msgid ""
+"This property controls the focus protection level of the currently active "
+"window. It is used to override the focus stealing prevention applied to new "
+"windows that are opened without your direct action.<nl/><nl/>Here's what "
+"happens to new windows that are opened without your direct action at each "
+"level of focus protection while the window with this property applied to it "
+"has focus:<nl/><list><item><emphasis strong='true'>None</emphasis>: Newly-"
+"opened windows always raise themselves and take focus.</item><item><emphasis "
+"strong='true'>Low:</emphasis> Focus stealing prevention will be applied to "
+"the newly-opened window, but in the case of a situation KWin considers "
+"ambiguous, the window will be raised and focused.</item><item><emphasis "
+"strong='true'>Normal:</emphasis> Focus stealing prevention will be applied "
+"to the newly-opened window, but in the case of a situation KWin considers "
+"ambiguous, the window will <emphasis>not</emphasis> be raised and focused.</"
+"item><item><emphasis strong='true'>High:</emphasis> Newly-opened windows "
+"will only raise themselves and take focus if they belongs to the same app as "
+"the currently-focused window.</item><item><emphasis strong='true'>Extreme:</"
+"emphasis> Newly-opened windows never raise themselves and take focus.</"
+"item></list>"
+msgstr ""
+
+#  i18n: file ruleswidgetbase.ui line 1287
+#: rulesmodel.cpp:677
+#, fuzzy, kde-format
+#| msgid "Accept &focus"
+msgid "Accept focus"
+msgstr "ព្រម​ទទួល​ការ​ផ្តោត"
+
+#: rulesmodel.cpp:679
+#, kde-format
+msgid "Controls whether or not the window becomes focused when clicked."
+msgstr ""
+
+#  i18n: file ruleswidgetbase.ui line 2349
+#: rulesmodel.cpp:683
+#, kde-format
+msgid "Ignore global shortcuts"
+msgstr "មិនអើពើ​​ផ្លូវកាត់​សកល"
+
+#: rulesmodel.cpp:685
+#, kde-kuit-format
+msgctxt "@info:tooltip"
+msgid ""
+"Use this property to prevent global keyboard shortcuts from working while "
+"the window is focused. This can be useful for apps like emulators or virtual "
+"machines that handle some of the same shortcuts themselves.<nl/><nl/>Note "
+"that you won't be able to <shortcut>Alt+Tab</shortcut> out of the window or "
+"use any other global shortcuts such as <shortcut>Alt+Space</shortcut> to "
+"activate KRunner."
+msgstr ""
+
+#  i18n: file ruleswidgetbase.ui line 1295
+#: rulesmodel.cpp:695
+#, fuzzy, kde-format
+#| msgid "&Closeable"
+msgid "Closeable"
+msgstr "អាច​បិទ"
+
+#: rulesmodel.cpp:700
+#, kde-format
+msgid "Desktop file name"
+msgstr ""
+
+#: rulesmodel.cpp:705
+#, kde-format
+msgid "Layer"
+msgstr ""
+
+#: rulesmodel.cpp:711
+#, kde-format
+msgid "Adaptive sync"
+msgstr ""
+
+#: rulesmodel.cpp:716
+#, kde-format
+msgid "Allow tearing"
+msgstr ""
+
+#: rulesmodel.cpp:721
+#, kde-format
+msgid "Hide from screenshots and screen recordings"
+msgstr ""
+
+#  i18n: file ruleswidgetbase.ui line 58
+#: rulesmodel.cpp:774
+#, fuzzy, kde-format
+#| msgid "Window &class (application):"
+msgid "Window class not available"
+msgstr "ថ្នាក់​បង្អួច (ប្រភេទ​កម្មវិធី) ៖"
+
+#: rulesmodel.cpp:775
+#, kde-kuit-format
+msgctxt "@info"
+msgid ""
+"This application is not providing a class for the window, so KWin cannot use "
+"it to match and apply any rules. If you still want to apply some rules to "
+"it, try to match other properties like the window title instead.<nl/><nl/"
+">Please consider reporting this bug to the application's developers."
+msgstr ""
+
+#  i18n: file ruleswidgetbase.ui line 326
+#: rulesmodel.cpp:809
+#, fuzzy, kde-format
+#| msgid "Window &types:"
+msgid "All window types"
+msgstr "ប្រភេទ​បង្អួច ៖"
+
+#  i18n: file ruleswidgetbase.ui line 335
+#: rulesmodel.cpp:810
+#, fuzzy, kde-format
+#| msgid "Normal Window"
+msgid "Normal window"
+msgstr "បង្អួច​ធម្មតា"
+
+#  i18n: file ruleswidgetbase.ui line 340
+#: rulesmodel.cpp:811
+#, fuzzy, kde-format
+#| msgid "Dialog Window"
+msgid "Dialog window"
+msgstr "ប្រអប់​បង្អួច"
+
+#  i18n: file ruleswidgetbase.ui line 345
+#: rulesmodel.cpp:812
+#, fuzzy, kde-format
+#| msgid "Utility Window"
+msgid "Utility window"
+msgstr "បង្អួច​ឧបករណ៍​ប្រើប្រាស់"
+
+#  i18n: file ruleswidgetbase.ui line 350
+#: rulesmodel.cpp:813
+#, kde-format
+msgid "Dock (panel)"
+msgstr "ចត (បន្ទះ)"
+
+#  i18n: file ruleswidgetbase.ui line 355
+#: rulesmodel.cpp:814
+#, kde-format
+msgid "Toolbar"
+msgstr "របារ​ឧបករណ៍"
+
+#  i18n: file ruleswidgetbase.ui line 360
+#: rulesmodel.cpp:815
+#, fuzzy, kde-format
+#| msgid "Torn-Off Menu"
+msgid "Torn-off menu"
+msgstr "បិទ​ម៉ឺនុយ"
+
+#  i18n: file ruleswidgetbase.ui line 365
+#: rulesmodel.cpp:816
+#, fuzzy, kde-format
+#| msgid "Splash Screen"
+msgid "Splash screen"
+msgstr "អេក្រង់​ស្វាគមន៍"
+
+#  i18n: file ruleswidgetbase.ui line 370
+#: rulesmodel.cpp:817 rulesmodel.cpp:918
+#, kde-format
+msgid "Desktop"
+msgstr "ផ្ទៃ​តុ"
+
+#  i18n: file ruleswidgetbase.ui line 380
+#. i18n("Unmanaged Window")},  deprecated
+#: rulesmodel.cpp:819
+#, fuzzy, kde-format
+#| msgid "Standalone Menubar"
+msgid "Standalone menubar"
+msgstr "របារ​ម៉ឺនុយ​ឈរ​តែ​ឯង"
+
+#: rulesmodel.cpp:820 rulesmodel.cpp:926
+#, kde-format
+msgid "On-screen display"
+msgstr ""
+
+#: rulesmodel.cpp:830
+#, fuzzy, kde-format
+#| msgid "All Desktops"
+msgid "All desktops"
+msgstr "ផ្ទៃតុ​ទាំងអស់"
+
+#: rulesmodel.cpp:832
+#, kde-format
+msgctxt "@info:tooltip in the virtual desktop list"
+msgid "Make the window available on all desktops"
+msgstr ""
+
+#: rulesmodel.cpp:851
+#, fuzzy, kde-format
+#| msgid "All Activities"
+msgid "All activities"
+msgstr "សកម្មភាព​ទាំងអស់"
+
+#: rulesmodel.cpp:853
+#, kde-format
+msgctxt "@info:tooltip in the activity list"
+msgid "Make the window available on all activities"
+msgstr ""
+
+#: rulesmodel.cpp:874
+#, kde-format
+msgid "Default"
+msgstr "លំនាំ​ដើម​"
+
+#  i18n: file ruleswidgetbase.ui line 1116
+#: rulesmodel.cpp:875
+#, fuzzy, kde-format
+#| msgid "No Placement"
+msgid "No placement"
+msgstr "គ្មាន​ការ​ជំនួស"
+
+#: rulesmodel.cpp:876
+#, kde-format
+msgid "Minimal overlapping"
+msgstr ""
+
+#  i18n: file ruleswidgetbase.ui line 1126
+#: rulesmodel.cpp:877
+#, fuzzy, kde-format
+#| msgid "Maximizing"
+msgid "Maximized"
+msgstr "ការ​ពង្រីក​អតិបរមា"
+
+#  i18n: file ruleswidgetbase.ui line 1136
+#: rulesmodel.cpp:878
+#, kde-format
+msgid "Centered"
+msgstr "ដាល់​កណ្ដាល"
+
+#  i18n: file ruleswidgetbase.ui line 1141
+#: rulesmodel.cpp:879
+#, kde-format
+msgid "Random"
+msgstr "ចៃដន្យ"
+
+#  i18n: file ruleswidgetbase.ui line 1146
+#: rulesmodel.cpp:880
+#, fuzzy, kde-format
+#| msgid "Top-Left Corner"
+msgid "In top-left corner"
+msgstr "ជ្រុង​ឆ្វេង​កំពូល"
+
+#  i18n: file ruleswidgetbase.ui line 1151
+#: rulesmodel.cpp:881
+#, fuzzy, kde-format
+#| msgid "Under Mouse"
+msgid "Under mouse"
+msgstr "ក្រោម​កណ្ដុរ"
+
+#  i18n: file ruleswidgetbase.ui line 1156
+#: rulesmodel.cpp:882
+#, fuzzy, kde-format
+#| msgid "On Main Window"
+msgid "On main window"
+msgstr "លើ​បង្អួច​មេ"
+
+#  i18n: file ruleswidgetbase.ui line 2115
+#: rulesmodel.cpp:889
+#, fuzzy, kde-format
+#| msgctxt "no focus stealing prevention"
+#| msgid "None"
+msgid "None"
+msgstr "គ្មាន"
+
+#  i18n: file ruleswidgetbase.ui line 2120
+#: rulesmodel.cpp:890
+#, kde-format
+msgid "Low"
+msgstr "ទាប"
+
+#  i18n: file ruleswidgetbase.ui line 2125
+#: rulesmodel.cpp:891 rulesmodel.cpp:920
+#, kde-format
+msgid "Normal"
+msgstr "ធម្មតា"
+
+#  i18n: file ruleswidgetbase.ui line 2130
+#: rulesmodel.cpp:892
+#, kde-format
+msgid "High"
+msgstr "ខ្ពស់"
+
+#  i18n: file ruleswidgetbase.ui line 2135
+#: rulesmodel.cpp:893
+#, kde-format
+msgid "Extreme"
+msgstr "យ៉ាង​ខ្លាំង"
+
+#: rulesmodel.cpp:919
+#, kde-format
+msgid "Below"
+msgstr ""
+
+#: rulesmodel.cpp:921
+#, kde-format
+msgid "Above"
+msgstr ""
+
+#  i18n: file ruleswidgetbase.ui line 732
+#: rulesmodel.cpp:922
+#, fuzzy, kde-format
+#| msgid "&Position"
+msgid "Notification"
+msgstr "ទីតាំង"
+
+#: rulesmodel.cpp:924
+#, kde-format
+msgid "Popup"
+msgstr ""
+
+#  i18n: file ruleswidgetbase.ui line 732
+#: rulesmodel.cpp:925
+#, fuzzy, kde-format
+#| msgid "&Position"
+msgid "Critical notification"
+msgstr "ទីតាំង"
+
+#: rulesmodel.cpp:927
+#, kde-format
+msgid "Overlay"
+msgstr ""
+
+#  i18n: file ruleswidgetbase.ui line 1156
+#: rulesmodel.cpp:952
+#, fuzzy, kde-format
+#| msgid "Unmanaged Window"
+msgid "Unmanaged window"
+msgstr "បង្អួច​ដែល​មិនអាច​គ្រប់គ្រ​ងបាន"
+
+#: rulesmodel.cpp:953
+#, kde-format
+msgid "Could not detect window properties. The window is not managed by KWin."
+msgstr ""
+
+#: ui/FileDialogLoader.qml:15
+#, kde-format
+msgid "Select File"
+msgstr ""
+
+#: ui/FileDialogLoader.qml:27
+#, kde-format
+msgid "KWin Rules (*.kwinrule)"
+msgstr ""
+
+#  i18n: file ruleslistbase.ui line 32
+#: ui/main.qml:28
+#, fuzzy, kde-format
+#| msgid "&New..."
+msgid "Add New…"
+msgstr "ថ្មី..."
+
+#: ui/main.qml:35
+#, fuzzy, kde-format
+#| msgid "&Import"
+msgid "Import…"
+msgstr "នាំចូល"
+
+#: ui/main.qml:40
+#, fuzzy, kde-format
+#| msgid "&Export"
+msgid "Cancel Export"
+msgstr "នាំចេញ"
+
+#: ui/main.qml:40
+#, fuzzy, kde-format
+#| msgid "&Export"
+msgid "Export…"
+msgstr "នាំចេញ"
+
+#: ui/main.qml:88
+#, kde-format
+msgid "No rules for specific windows are currently set"
+msgstr ""
+
+#: ui/main.qml:89
+#, kde-kuit-format
+msgctxt "@info"
+msgid "Click <interface>Add New…</interface> to add some"
+msgstr ""
+
+#: ui/main.qml:97
+#, kde-format
+msgid "Select the rules to export"
+msgstr ""
+
+#: ui/main.qml:101
+#, kde-format
+msgid "Unselect All"
+msgstr ""
+
+#: ui/main.qml:101
+#, kde-format
+msgid "Select All"
+msgstr ""
+
+#: ui/main.qml:115
+#, kde-format
+msgid "Save Rules"
+msgstr ""
+
+#  i18n: file ruleswidgetbase.ui line 1919
+#: ui/main.qml:202
+#, kde-format
+msgid "Edit"
+msgstr "កែ​សម្រួល​"
+
+#: ui/main.qml:208
+#, kde-format
+msgid "Duplicate"
+msgstr ""
+
+#  i18n: file ruleswidgetbase.ui line 286
+#: ui/main.qml:214
+#, kde-format
+msgid "Delete"
+msgstr "លុប​"
+
+#: ui/main.qml:246
+#, kde-format
+msgid "Import Rules"
+msgstr "នាំចូល​បន្ទាត់"
+
+#: ui/main.qml:258
+#, fuzzy, kde-format
+#| msgid "Export Rule"
+msgid "Export Rules"
+msgstr "នាំចេញ​បន្ទាត់"
+
+#: ui/OptionsComboBox.qml:35
+#, kde-format
+msgid "None selected"
+msgstr ""
+
+#: ui/OptionsComboBox.qml:41
+#, kde-format
+msgid "All selected"
+msgstr ""
+
+#: ui/OptionsComboBox.qml:43
+#, kde-format
+msgid "%1 selected"
+msgid_plural "%1 selected"
+msgstr[0] ""
+
+#  i18n: file ruleswidgetbase.ui line 258
+#: ui/RulesEditor.qml:66
+#, fuzzy, kde-format
+#| msgid "&Detect Window Properties"
+msgid "No window properties changed"
+msgstr "រក​ឃើញ​លក្ខណៈ​សម្បត្តិ​របស់​បង្អួច"
+
+#: ui/RulesEditor.qml:67
+#, kde-kuit-format
+msgctxt "@info"
+msgid ""
+"Click the <interface>Add Property...</interface> button below to add some "
+"window properties that will be affected by the rule"
+msgstr ""
+
+#  i18n: file ruleslistbase.ui line 32
+#: ui/RulesEditor.qml:88
+#, fuzzy, kde-format
+#| msgid "&New..."
+msgid "Add Property..."
+msgstr "ថ្មី..."
+
+#  i18n: file ruleswidgetbase.ui line 258
+#: ui/RulesEditor.qml:99
+#, fuzzy, kde-format
+#| msgid "&Detect Window Properties"
+msgid "Detect Window Properties"
+msgstr "រក​ឃើញ​លក្ខណៈ​សម្បត្តិ​របស់​បង្អួច"
+
+#: ui/RulesEditor.qml:115 ui/RulesEditor.qml:126
+#, kde-format
+msgid "Instantly"
+msgstr ""
+
+#: ui/RulesEditor.qml:116 ui/RulesEditor.qml:131
+#, kde-format
+msgid "After %1 second"
+msgid_plural "After %1 seconds"
+msgstr[0] ""
+
+#: ui/RulesEditor.qml:178
+#, kde-format
+msgid "Add property to the rule"
+msgstr ""
+
+#  i18n: file ruleswidgetbase.ui line 258
+#: ui/RulesEditor.qml:269
+#, fuzzy, kde-format
+#| msgid "&Detect Window Properties"
+msgctxt "@info:placeholder"
+msgid "No properties left to add"
+msgstr "រក​ឃើញ​លក្ខណៈ​សម្បត្តិ​របស់​បង្អួច"
+
+#  i18n: file ruleswidgetbase.ui line 258
+#: ui/RulesEditor.qml:271
+#, fuzzy, kde-format
+#| msgid "&Detect Window Properties"
+msgctxt "@info:placeholder %1 is a filter text introduced by the user"
+msgid "No properties match \"%1\""
+msgstr "រក​ឃើញ​លក្ខណៈ​សម្បត្តិ​របស់​បង្អួច"
+
+#: ui/RulesEditor.qml:292 ui/ValueEditor.qml:54
+#, kde-format
+msgid "Yes"
+msgstr ""
+
+#  i18n: file ruleswidgetbase.ui line 2115
+#: ui/RulesEditor.qml:292 ui/ValueEditor.qml:60
+#, fuzzy, kde-format
+#| msgctxt "no focus stealing prevention"
+#| msgid "None"
+msgid "No"
+msgstr "គ្មាន"
+
+#: ui/RulesEditor.qml:294 ui/ValueEditor.qml:168 ui/ValueEditor.qml:175
+#, kde-format
+msgid "%1 %"
+msgstr ""
+
+#: ui/RulesEditor.qml:296
+#, kde-format
+msgctxt "Coordinates (x, y)"
+msgid "(%1, %2)"
+msgstr ""
+
+#: ui/RulesEditor.qml:298
+#, kde-format
+msgctxt "Size (width, height)"
+msgid "(%1, %2)"
+msgstr ""
+
+#: ui/ValueEditor.qml:203
+#, kde-format
+msgctxt "(x, y) coordinates separator in size/position"
+msgid "x"
+msgstr ""
+
+#~ msgid "Obey geometry restrictions"
+#~ msgstr "គោរព​ការ​ដាក់កម្រិត​ធរណីមាត្រ"
+
+#, fuzzy
+#~| msgid ""
+#~| "Eg. terminals or video players can ask to keep a certain aspect ratio\n"
+#~| "or only grow by values larger than one\n"
+#~| "(eg. by the dimensions of one character).\n"
+#~| "This may be pointless and the restriction prevents arbitrary dimensions\n"
+#~| "like your complete screen area."
+#~ msgctxt "@info:tooltip"
+#~ msgid ""
+#~ "Some apps like video players or terminals can ask KWin to constrain them "
+#~ "to certain aspect ratios or only grow by values larger than the "
+#~ "dimensions of one character. Use this property to ignore such "
+#~ "restrictions and allow those windows to be resized to arbitrary sizes.<nl/"
+#~ "><nl/>This can be helpful for windows that can't quite fit the full "
+#~ "screen area when maximized."
+#~ msgstr ""
+#~ "ឧ. ស្ថានីយ ឬ​កម្មវិធី​ចាក់​វីដេអូ​អាច​​ស្នើ​ឲ្យ​រក្សា​សមាមាត្រ​ជាក់លាក់ \n"
+#~ "ឬ​ដំឡើង​តម្លៃ​​ធំជាង​មួយ\n"
+#~ "(ឧ. ​តាម​វិមាត្រ​របស់​តួអក្សរ) ។\n"
+#~ "វា​អាច​គ្មាន​ចំណុច និង​​ការ​ដាក់​កម្រិត​ ការ​ពារ​ការ​ឈ្លានពាន​វិមាត្រ\n"
+#~ "ដូច​ផ្ទៃ​អេក្រង់​របស់​អ្នក​ពេញលេញ ។"
+
+#~ msgid "Block compositing"
+#~ msgstr "ប្លុក compositing"
+
+#  i18n: file ruleswidgetbase.ui line 1014
+#, fuzzy
+#~| msgid "Sh&aded"
+#~ msgid "Shaded"
+#~ msgstr "ស្រមោល"
+
+#  i18n: file ruleswidgetbase.ui line 1295
+#, fuzzy
+#~| msgid "&Closeable"
+#~ msgid "Close"
+#~ msgstr "អាច​បិទ"
+
+#  i18n: file ruleswidgetbase.ui line 2055
+#, fuzzy
+#~| msgid "Window &type"
+#~ msgid "Set window type"
+#~ msgstr "ប្រភេទ​បង្អួច"
+
+#~ msgid "Window shall (not) appear in the taskbar."
+#~ msgstr "បង្អួច​នឹង (មិន) បង្ហាញ​ក្នុង​របារ​ភារកិច្ច​ទេ ។"
+
+#~ msgid "Window shall (not) appear in the manager for virtual desktops"
+#~ msgstr "បង្អួច​នឹង (មិន) បង្ហាញ​នៅ​ក្នុង​កម្មវិធី​គ្រប់គ្រង​សម្រាប់​ផ្ទៃតុ​និម្មិត​ទេ"
+
+#~ msgid "Window shall (not) appear in the Alt+Tab list"
+#~ msgstr "បង្អួច​នឹង​ (មិន) បង្ហាញ​នៅ​ក្នុង​បញ្ជី Alt+Tab ទេ"
+
+#, fuzzy
+#~| msgid ""
+#~| "KWin tries to prevent windows from taking the focus\n"
+#~| "(\"activate\") while you're working in another window,\n"
+#~| "but this may sometimes fail or superact.\n"
+#~| "\"None\" will unconditionally allow this window to get the focus while\n"
+#~| "\"Extreme\" will completely prevent it from taking the focus."
+#~ msgid ""
+#~ "KWin tries to prevent windows from taking the focus (\"activate\") while "
+#~ "you're working in another window, but this may sometimes fail or "
+#~ "superact. \"None\" will unconditionally allow this window to get the "
+#~ "focus while \"Extreme\" will completely prevent it from taking the focus."
+#~ msgstr ""
+#~ "KWin ព្យាយាម​ការពារ​បង្អួច​ពី​ការ​ផ្ដោត\n"
+#~ "(\"សកម្ម\") ខណៈ​ពេល​អ្នក​កំពុង​ធ្វើ​ការ​ក្នុង​បង្អួច​ផ្សេង\n"
+#~ "ប៉ុន្តែ​ពេល​ខ្លះ​វា​អាច​បរាជ័យ  ។\n"
+#~ "\"គ្មាន\" នឹង​អនុញ្ញាត​​បង្អួច​នេះ​ដោយ​គ្មាន​លក្ខខណ្ឌ​ ដើម្បី​ទទួល​ការ​ផ្ដោត​ខណៈ​ពេល​ដែល\n"
+#~ "\"ខ្លាំង​បំផុត\" នឹង​ការពារ​វា​ទាំង​ស្រុង​ពី​ការ​ផ្ដោត ។"
+
+#, fuzzy
+#~| msgid ""
+#~| "Windows may prevent to get the focus (activate) when being clicked.\n"
+#~| "On the other hand you might wish to prevent a window\n"
+#~| "from getting focused on a mouse click."
+#~ msgid ""
+#~ "Windows may prevent to get the focus (activate) when being clicked. On "
+#~ "the other hand you might wish to prevent a window from getting focused on "
+#~ "a mouse click."
+#~ msgstr ""
+#~ "បង្អួច​អាច​ការពារ​មិន​ឲ្យ​ផ្ដោត (ធ្វើ​ឲ្យ​សកម្ម) នៅ​ពេល​ចុច ។\n"
+#~ "ម្យ៉ាង​វិញ​ទៀត អ្នក​អាច​ចង់​ការពារ​បង្អួច​\n"
+#~ "ពី​ការ​ផ្ដោត​នៅពេល​ចុច​កណ្ដុរ ។"
+
+#, fuzzy
+#~| msgid ""
+#~| "When used, a window will receive\n"
+#~| "all keyboard inputs while it is active, including Alt+Tab etc.\n"
+#~| "This is especially interesting for emulators or virtual machines.\n"
+#~| "\n"
+#~| "Be warned:\n"
+#~| "you won't be able to Alt+Tab out of the window\n"
+#~| "nor use any other global shortcut (such as Alt+F2 to show KRunner)\n"
+#~| "while it's active!"
+#~ msgid ""
+#~ "When used, a window will receive all keyboard inputs while it is active, "
+#~ "including Alt+Tab etc. This is especially interesting for emulators or "
+#~ "virtual machines. \n"
+#~ "Be warned: you won't be able to Alt+Tab out of the window nor use any "
+#~ "other global shortcut (such as Alt+F2 to show KRunner) while it's active!"
+#~ msgstr ""
+#~ "នៅ​ពេល​បាន​ប្រើ បង្អួច​នឹង​ទទួល\n"
+#~ "ការ​បញ្ចូល​តាម​ក្ដារចុច​ទាំងអស់ ខណៈ​ពេល​ដែល​វា​សកម្ម​ រួម​មាន​ទាំង Alt+Tab  ។\n"
+#~ "ជា​ពិសេស​វា​ចាប់អារម្មណ៍​សម្រាប់​កម្មវិធី​ត្រាប់​តាម ឬ​ម៉ាស៊ីន​និម្មិត ។\n"
+#~ "\n"
+#~ "ព្រមាន ៖\n"
+#~ "អ្នក​នឹង​មិន​អាច​​ Alt+Tab ចេញ​ពី​បង្អួច​បាន​ទេ\n"
+#~ "ឬ​ប្រើ​ផ្លូវកាត់​សកល​ផ្សេង​ទៀត (ដូច​ជា Alt+F2 ដើម្បី​បង្ហាញ KRunner)\n"
+#~ "នៅ​ពេល​ដែល​វា​សកម្ម !"
+
+#~ msgid ""
+#~ "Windows can ask to appear in a certain position.\n"
+#~ "By default this overrides the placement strategy\n"
+#~ "what might be nasty if the client abuses the feature\n"
+#~ "to unconditionally popup in the middle of your screen."
+#~ msgstr ""
+#~ "បង្អួច​​អាច​ស្នើ​ឲ្យ​បង្ហាញ​នៅ​ទីតាំង​ជាក់លាក់ ។\n"
+#~ "តាម​លំនាំដើម វា​បដិសេធ​យុទ្ធសាស្ត្រ​ជំនួស\n"
+#~ "អ្វី​ដែល​អាច​ពិបាក​នោះ​ ប្រសិនបើ​អតិថិជន​រំលោភ​លក្ខណៈ​ពិសេស​\n"
+#~ "ដែល​លេច​ឡើង​មិន​តាមលក្ខខណ្ឌ​នៅ​​កណ្ដាល​អេក្រង់​របស់​អ្នក ។"
+
+#, fuzzy
+#~| msgid "WId of the window for special window settings."
+#~ msgid "KWin id of the window for special window settings."
+#~ msgstr "WId នៃ​បង្អួច​សម្រាប់​ការ​កំណត់​បង្អួច​សំខាន់ៗ ។"
+
+#~ msgid "Whether the settings should affect all windows of the application."
+#~ msgstr "ថា​តើ​ការ​កំណត់​គួរ​តែ​ប៉ះពាល់​បង្អួច​ទាំងអស់​នៃ​កម្មវិធី ។"
+
+#~ msgid "This helper utility is not supposed to be called directly."
+#~ msgstr "ឧបករណ៍​ប្រើប្រាស់​កម្មវិធី​ជំនួយ​នេះ​ទំនង​ជា​មិន​បាន​ហៅ​ដោយ​ផ្ទាល់ទេ ។"
+
+#~ msgctxt "Window caption for the application wide rules dialog"
+#~ msgid "Edit Application-Specific Settings"
+#~ msgstr "កែ​សម្រួល​ការ​កំណត់កម្មវិធី​​ជាក់លាក់"
+
+#~ msgid "Edit Window-Specific Settings"
+#~ msgstr "កែ​សម្រួល​ការ​កំណត់​បង្អួច​ជាក់លាក់"
+
+#~ msgid ""
+#~ "<p><h1>Window-specific Settings</h1> Here you can customize window "
+#~ "settings specifically only for some windows.</p> <p>Please note that this "
+#~ "configuration will not take effect if you do not use KWin as your window "
+#~ "manager. If you do use a different window manager, please refer to its "
+#~ "documentation for how to customize window behavior.</p>"
+#~ msgstr ""
+#~ "<p><h1>ការ​កំណត់​បង្អួច​ជាក់លាក់</h1> នៅ​ទីនេះ អ្នក​អាច​ប្តូរ​ការ​កំណត់​បង្អួច​\n"
+#~ "ដែល​ជា​ពិសេស​សម្រាប់​តែ​បង្អួច​មួយ​ចំនួន​តែ​ប៉ុណ្ណោះ ។</p> <p>សូម​ចំណាំ​ថា ការ​កំណត់​រចនា​សម្ព័ន្ធ​នេះ​នឹង​មិន​"
+#~ "មាន​ប្រសិទ្ធិភាព​ទេ បើ​អ្នក​មិន​បាន​ប្រើ KWin ជា​កម្មវិធី​គ្រប់គ្រង​បង្អួច​របស់​អ្នក ។ បើ​អ្នក​ប្រើ​កម្មវិធី​"
+#~ "គ្រប់គ្រង​បង្អួច​មួយ​ផ្សេង​ទៀត សូម​យោង​ទៅ ឯកសារ​របស់​វា ចំពោះ​របៀប​ប្ដូរ​ឥរិយាបទ បង្អួច​តាម​បំណង ។</p>"
+
+#~ msgctxt "NAME OF TRANSLATORS"
+#~ msgid "Your names"
+#~ msgstr "ខឹម សុខែម, អេង វណ្ណៈ, អោក ពិសិដ្ឋ​​"
+
+#~ msgctxt "EMAIL OF TRANSLATORS"
+#~ msgid "Your emails"
+#~ msgstr ""
+#~ "khoemsokhem@khmeros.info,​​evannak@khmeros.info,piseth_dv@khmeros.info"
+
+#  i18n: file ruleswidgetbase.ui line 69
+#, fuzzy
+#~| msgid "Window &role:"
+#~ msgid "Window Rules"
+#~ msgstr "តួនាទី​បង្អួច ៖"
+
+#  i18n: file ruleswidgetbase.ui line 1131
+#, fuzzy
+#~| msgid "Cascade"
+#~ msgid "Cascaded"
+#~ msgstr "ល្បាក់"
+
+#  i18n: file ruleswidgetbase.ui line 1247
+#, fuzzy
+#~| msgid "Keep &above"
+#~ msgid "Keep above"
+#~ msgstr "លើ​គេ"
+
+#  i18n: file ruleswidgetbase.ui line 1255
+#, fuzzy
+#~| msgid "Keep &below"
+#~ msgid "Keep below"
+#~ msgstr "ក្រោម​គេ"
+
+#~ msgid "KWin"
+#~ msgstr "KWin"
+
+#~ msgid "KWin helper utility"
+#~ msgstr "ឧបករណ៍​ប្រើប្រាស់​កម្មវិធី​ជំនួយ KWin"
+
+#  i18n: file ruleswidgetbase.ui line 1303
+#, fuzzy
+#~| msgid "Activit&y"
+#~ msgid "Activity"
+#~ msgstr "សកម្មភាព​"
+
+#  i18n: file ruleswidgetbase.ui line 258
+#, fuzzy
+#~| msgid "&Detect Window Properties"
+#~ msgid "Select properties"
+#~ msgstr "រក​ឃើញ​លក្ខណៈ​សម្បត្តិ​របស់​បង្អួច"
+
+#  i18n: file ruleswidgetbase.ui line 375
+#~ msgid "Override Type"
+#~ msgstr "បដិសេធ​ប្រភេទ"
+
+#~ msgid "Unknown - will be treated as Normal Window"
+#~ msgstr "មិន​ស្គាល់ - នឹង​ត្រូវ​បាន​ចាត់​ទុក​ជា​បង្អួច​ធម្មតា"
+
+#  i18n: file detectwidgetbase.ui line 154
+#~ msgid "Information About Selected Window"
+#~ msgstr "ព័ត៌មាន​អំពី​បង្អួច​ដែល​បាន​ជ្រើស"
+
+#  i18n: file detectwidgetbase.ui line 52
+#~ msgid "Class:"
+#~ msgstr "ថ្នាក់ ៖"
+
+#  i18n: file detectwidgetbase.ui line 60
+#~ msgid "Role:"
+#~ msgstr "តួនាទី ៖"
+
+#  i18n: file detectwidgetbase.ui line 116
+#~ msgid "Type:"
+#~ msgstr "ប្រភេទ ៖"
+
+#  i18n: file detectwidgetbase.ui line 76
+#~ msgid "Title:"
+#~ msgstr "ចំណង​ជើង ៖"
+
+#  i18n: file detectwidgetbase.ui line 132
+#~ msgid "Machine:"
+#~ msgstr "ម៉ាស៊ីន ៖"
+
+#~ msgid "Match by primary class name and"
+#~ msgstr "ផ្គូផ្គង​តាម​ឈ្មោះ​ថ្នាក់​មេ និង"
+
+#~ msgid "Secondary class name  (resulting in term in brackets)"
+#~ msgstr "ឈ្មោះ​ថ្នាក់​រង (ដាក់​លទ្ធផល​ជា​ពាក្យ​ក្នុង​វង់ក្រចក)"
+
+#~ msgid "Window role (can be used to select windows by function)"
+#~ msgstr "តួនាទី​បង្អួច (អាច​ត្រូវ​បាន​ប្រើ ដើម្បី​ជ្រើសរើស​បង្អួច​តាម​មុខងារ)"
+
+#~ msgid "Window type (eg. all dialogs, but not the main windows)"
+#~ msgstr "ប្រភេទ​បង្អួច (ឧ. ប្រអប់​ទាំងអស់ ប៉ុន្តែ​មិនមែន​បង្អួច​មេ​ទេ)"
+
+#~ msgid ""
+#~ "Window title (very specific, can fail due to content changes or "
+#~ "translation)"
+#~ msgstr "ចំណង​ជើងបង្អួច (ជាក់លាក់ អាច​បរាជ័យ​ដោយ​សារ​ការ​ផ្លាស់ប្ដូរ ឬ​បកប្រែ​​ខ្លឹមសារ)"
+
+#  i18n: file editshortcutbase.ui line 26
+#, fuzzy
+#~| msgid ""
+#~| "A single shortcut can be easily assigned or cleared using the two "
+#~| "buttons. Only shortcuts with modifiers can be used.<p>\n"
+#~| "It is possible to have several possible shortcuts, and the first "
+#~| "available shortcut will be used. The shortcuts are specified using space-"
+#~| "separated shortcut sets. One set is specified as <i>base</i>+(<i>list</"
+#~| "i>), where base are modifiers and list is a list of keys.<br>\n"
+#~| "For example \"<b>Shift+Alt+(123) Shift+Ctrl+(ABC)</b>\" will first try "
+#~| "<b>Shift+Alt+1</b>, then others with <b>Shift+Ctrl+C</b> as the last one."
+#~ msgid ""
+#~ "A single shortcut can be easily assigned or cleared using the two "
+#~ "buttons. Only shortcuts with modifiers can be used.<p>\n"
+#~ "It is possible to have several possible shortcuts, and the first "
+#~ "available shortcut will be used. The shortcuts are specified using "
+#~ "shortcut sets separated by \" - \". One set is specified as <i>base</i>"
+#~ "+(<i>list</i>), where base are modifiers and list is a list of keys.<br>\n"
+#~ "For example \"<b>Shift+Alt+(123) Shift+Ctrl+(ABC)</b>\" will first try "
+#~ "<b>Shift+Alt+1</b>, then others with <b>Shift+Ctrl+C</b> as the last one."
+#~ msgstr ""
+#~ "ផ្លូវកាត់​តែ​មួយងាយ​ស្រួល​ផ្តល់​តម្លៃ​ ឬ​ជម្រះ​ដោយ​ប្រើ​ប៊ូតុង​ពីរ ។ បាន​តែ​កម្មវិធី​កែប្រែ​ផ្លូវកាត់​ទេ ដែល​អាច​"
+#~ "ប្រើ​បាន ។​<p>\n"
+#~ "បើ​អាច​ធ្វើបាន ផ្លូវកាត់​ជាច្រើន​គួរ​តែ​អាច​បង្កើត​បាន​ ហើយ​ផ្លូវកាត់​ដំបូង​គេ​ត្រូវ​បាន​យក​មក​ប្រើ ។ ផ្លូវ​"
+#~ "កាត់​ត្រូវ​បញ្ជាក់ ដោយ​ប្រើ​សំណុំ​ផ្លូវ​កាត់​ដែល​បំបែក​ដោយ​ការ​ដក​ឃ្លា ។ សំណុំ​មួយ​ត្រូវ​បាន​បញ្ជាក់​ជា "
+#~ "<i>មូលដ្ឋាន</i>+(<i>បញ្ជី</i>) ដែល​មូលដ្ឋាន​ជា​អ្នក​កែប្រែ ហើយ​បញ្ជី​ជា​បញ្ជី​សម្រាប់​​គ្រាប់ចុច​"
+#~ "ជាច្រើន ។<br>\n"
+#~ "ឧទាហរណ៍ \"<b>ប្តូរ (Shift) + ជំនួស (Alt) + (123) ប្តូរ (Shift) + បញ្ជា (Ctrl) + "
+#~ "(ABC)</b>\" នឹង​សាកល្បង​មុន​គេ<b>ប្តូរ (Shift) + ជំនួស (Alt) + 1</b> និង​ផ្សេង​ទៀត​ប្រើ​"
+#~ "<b>ប្តូរ (Shift) + បញ្ជា (Ctrl) + C</b> ជា​ផ្លូវកាត់​ចុង​ក្រោយ​គេ ។"
+
+#  i18n: file editshortcutbase.ui line 81
+#~ msgid "&Single Shortcut"
+#~ msgstr "ផ្លូវកាត់​តែ​មួយ"
+
+#  i18n: file editshortcutbase.ui line 106
+#~ msgid "C&lear"
+#~ msgstr "ជម្រះ"
+
+#~ msgid "Window-Specific Settings Configuration Module"
+#~ msgstr "បង្អួច - ម៉ូឌុល​កំណត់​រចនាសម្ព័ន្ធ​ការ​កំណត់​ជាក់លាក់"
+
+#~ msgid "(c) 2004 KWin and KControl Authors"
+#~ msgstr "រក្សា​សិទ្ធិ​ឆ្នាំ​ ២០០៤ ដោយ​អ្នក​និពន្ធ​របស់​  KWin និង KControl"
+
+#~ msgid "Lubos Lunak"
+#~ msgstr "Lubos Lunak"
+
+#~ msgid "Remember settings separately for every window"
+#~ msgstr "សូម​ចងចាំ​ការ​កំណត់​ដោយ​ឡែកៗ សម្រាប់​បង្អួច​នីមួយៗ"
+
+#~ msgid "Show internal settings for remembering"
+#~ msgstr "បង្ហាញ​ការ​កំណត់​ខាង​ក្នុង​សម្រាប់​ការ​​ចងចាំ"
+
+#~ msgid "Internal setting for remembering"
+#~ msgstr "ការ​កំណត់​ខាង​ក្នុង​សម្រាប់​ការ​​ចងចាំ"
+
+#  i18n: file ruleslistbase.ui line 40
+#~ msgid "&Modify..."
+#~ msgstr "កែប្រែ..."
+
+#  i18n: file ruleslistbase.ui line 59
+#~ msgid "Move &Up"
+#~ msgstr "ឡើង​លើ"
+
+#  i18n: file ruleslistbase.ui line 67
+#~ msgid "Move &Down"
+#~ msgstr "ចុះ​ក្រោម"
+
+#~ msgid ""
+#~ "Enable this checkbox to alter this window property for the specified "
+#~ "window(s)."
+#~ msgstr ""
+#~ "អនុញ្ញាត​ប្រអប់​ធីក​នេះ ដើម្បី​ផ្លាស់ប្ដូរ​​លក្ខណៈ​សម្បត្តិ​របស់​បង្អួច​នេះ សម្រាប់​បង្អួច​ដែល​បាន​បញ្ជាក់ ។"
+
+#~ msgid ""
+#~ "Specify how the window property should be affected:<ul><li><em>Do Not "
+#~ "Affect:</em> The window property will not be affected and therefore the "
+#~ "default handling for it will be used. Specifying this will block more "
+#~ "generic window settings from taking effect.</li><li><em>Apply Initially:</"
+#~ "em> The window property will be only set to the given value after the "
+#~ "window is created. No further changes will be affected.</"
+#~ "li><li><em>Remember:</em> The value of the window property will be "
+#~ "remembered and every time the window is created, the last remembered "
+#~ "value will be applied.</li><li><em>Force:</em> The window property will "
+#~ "be always forced to the given value.</li><li><em>Apply Now:</em> The "
+#~ "window property will be set to the given value immediately and will not "
+#~ "be affected later (this action will be deleted afterwards).</"
+#~ "li><li><em>Force temporarily:</em> The window property will be forced to "
+#~ "the given value until it is hidden (this action will be deleted after the "
+#~ "window is hidden).</li></ul>"
+#~ msgstr ""
+#~ "បញ្ជាក់​របៀប​ដែល​លក្ខណៈ​សម្បត្តិ​បង្អួច​គួរ​ត្រូវ​បាន​ប៉ះពាល់ ៖<ul><li><em>មិន​ប៉ះពាល់ ៖</em> លក្ខណៈ​"
+#~ "សម្បត្តិ​បង្អួច​នឹង​មិន​ទទួល​ឥទ្ធិពល ​ដូច្នេះ​វា​ប្រើ​លំនាំ​ដើម ។ ការ​បញ្ជាក់​នេះ​នឹង​ទប់ស្កាត់​ការ​កំណត់​បង្អួច​ច្រើន​"
+#~ "ប្រភេទ​ពី​ការ​ទទួល​ឥទ្ធិពល ។</li><li><em>អនុវត្ត​ពី​ដំបូង ៖</em> លក្ខណៈ​សម្បត្តិ​បង្អួច​នឹង​ត្រូវ​បាន​កំណត់​"
+#~ "តែ​តម្លៃ​ដែល​បាន​ផ្តល់​ឲ្យ​តែ​ប៉ុណ្ណោះ​បន្ទាប់​ពី​បង្អួច​ត្រូវ​បាន​បង្កើត ។ គ្មាន​ភាព​ផ្លាស់ប្តូរ​បន្ថែម​ទៀត​ត្រូវ​"
+#~ "ទទួល​ឥទ្ធិពល</li><li><em> ចង​ចាំ ៖</em> តម្លៃ​លក្ខណៈ​សម្បត្តិ​បង្អួច​នឹង​ត្រូវ​បាន​ចង​ចាំ​គ្រប់​ពេល​ដែល​"
+#~ "បង្អួច​ត្រូវ​បាន​បង្កើត តម្លៃ​ចងចាំ​ចុង​ក្រោយ​នឹង​ត្រូវ​បាន​អនុវត្ត ។​</li><li><em>បង្ខំ ៖</em> លក្ខណៈ​"
+#~ "សម្បត្តិ​បង្អួច​នឹង​តែង​តែ​ត្រូវ​បាន​បង្ខំ​ទៅ​តម្លៃ​ដែល​បាន​ផ្ដល់ ។​</li><li><em>អនុវត្ត​ឥឡូវ ៖</em> "
+#~ "លក្ខណៈ​សម្បត្តិ​បង្អួច​នឹង​ត្រូវ​បាន​កំណត់​តម្លៃ ហើយ​ឥទ្ធិពល​ក៏​មិន​ត្រូវ​បាន​ផ្តល់​ឲ្យ​នៅ​ពេល​ក្រោយ​ដែរ (សកម្មភាព​"
+#~ "នេះ​នឹង​ត្រូវ​បាន​លុប​ពេល​ក្រោយ) ។​</li><li><em>បង្ខំ​បណ្ដោះ​អាសន្ន ៖</em> លក្ខណៈ​សម្បត្តិ​បង្អួច​នឹង​"
+#~ "ត្រូវ​បាន​បង្ខំ​ទៅ​តម្លៃ​​ដែល​បាន​បាន​ផ្ដល់ រហូត​ដល់​វា​ត្រូវ​បាន​លាក់ (​សកម្មភាព​នេះ​នឹង​ត្រូវ​បាន​លុប​ក្រោយ​ពី​"
+#~ "បង្អួច​ត្រូវ​បាន​លាក់)</li></ul>"
+
+#~ msgid ""
+#~ "Specify how the window property should be affected:<ul><li><em>Do Not "
+#~ "Affect:</em> The window property will not be affected and therefore the "
+#~ "default handling for it will be used. Specifying this will block more "
+#~ "generic window settings from taking effect.</li><li><em>Force:</em> The "
+#~ "window property will be always forced to the given value.</"
+#~ "li><li><em>Force temporarily:</em> The window property will be forced to "
+#~ "the given value until it is hidden (this action will be deleted after the "
+#~ "window is hidden).</li></ul>"
+#~ msgstr ""
+#~ "បញ្ជាក់​ពី​របៀប​ដែល​លក្ខណៈ​សម្បត្តិ​បង្អួច​គួរ​ត្រូវ​ទទួលឥទ្ធិពល ៖<ul><li><em>មិន​ទទួលឥទ្ធិពល ៖</em> "
+#~ "លក្ខណៈ​សម្បត្តិ​បង្អួចនឹង​មិន​ទទួល​ឥទ្ធិពល ដូច្នេះ​វា​ប្រើ​ការដោះស្រាយ​​លំនាំ​ដើម ។ ការ​បញ្ជាក់​នេះ​នឹង​"
+#~ "ទប់ស្កាត់​ការ​កំណត់​បង្អួចច្រើន​ប្រភេទ​ពី​ការ​ទទួល​ឥទ្ធិពល ។</li><li> <em>បង្ខំ ៖</em> លក្ខណៈសម្បត្តិ​"
+#~ "បង្អួចនឹង​​បង្ខំ​ដើម្បី​ទទួល​តម្លៃ​ដែល​បាន​ផ្ដល់ជានិច្ច ។</li><li><em>បង្ខំ​បណ្ដោះ​អាសន្ន ៖</em> "
+#~ "លក្ខណៈ​សម្បត្តិ​បង្អួច​នឹង​ត្រូវ​បាន​បង្ខំ​ទៅ​តម្លៃ​ដែល​បាន​ផ្ដល់ រហូត​ដល់​វា​ត្រូវ​បាន​លាក់ (​អំពើ​នេះ​នឹង​ត្រូវ​បាន​"
+#~ "លុប​ក្រោយ​ពី​បង្អួច​ត្រូវ​បាន​លាក់)</li></ul>"
+
+#~ msgid "Unnamed entry"
+#~ msgstr "ធាតុ​គ្មាន​ឈ្មោះ"
+
+#~ msgid ""
+#~ "This configuration dialog allows altering settings only for the selected "
+#~ "window or application. Find the setting you want to affect, enable the "
+#~ "setting using the checkbox, select in what way the setting should be "
+#~ "affected and to which value."
+#~ msgstr ""
+#~ "ប្រអប់​កំណត់​ការ​កំណត់​រចនា​សម្ព័ន្ធ​នេះ អនុញ្ញាត​ឲ្យ​ផ្លាស់ប្តូរ​ការ​កំណត់​បាន​តែ​បង្អួច ឬ​កម្មវិធី​ដែល​បាន​"
+#~ "ជ្រើស ។ រក​ការ​កំណត់​ដែល​អ្នក​ចង់​ដាក់​ឲ្យ​មាន​ឥទ្ធិពល អនុញ្ញាត​ការ​កំណត់​ដោយ​ប្រើ​ប្រអប់​ធីក ជ្រើស​​ថា​តើ​ការ​"
+#~ "កំណត់​តាម​វិធី​ណា​ដែល​គួរ​តែ​​មាន​ឥទ្ធិពល ហើយ​ប្រើ​តម្លៃ​មួយ​ណា ។"
+
+#~ msgid "Consult the documentation for more details."
+#~ msgstr "ពិគ្រោះ​យោបល់​អំពី​ឯកសារ​សម្រាប់​សេចក្តី​លម្អិត​បន្ថែម ។"
+
+#~ msgid "Edit Shortcut"
+#~ msgstr "កែ​សម្រួល​ផ្លូវកាត់"
+
+#~ msgid "s delay"
+#~ msgstr "ការ​ពន្យា​ពេល s"
+
+#~ msgid "x,y"
+#~ msgstr "x,y"
+
+#  i18n: file ruleswidgetbase.ui line 716
+#~ msgid "0123456789-+,xX:"
+#~ msgstr "0123456789-+,xX ៖"
+
+#~ msgid "width,height"
+#~ msgstr "ទទឹង កម្ពស់"
+
+#  i18n: file ruleswidgetbase.ui line 1006
+#~ msgid "&Desktop"
+#~ msgstr "ផ្ទៃតុ​"
+
+#  i18n: file ruleswidgetbase.ui line 1919
+#~ msgid "Edit..."
+#~ msgstr "កែ​សម្រួល..."
+
+#~ msgid "Autog&roup in foreground"
+#~ msgstr "ដាក់​ជា​ក្រុម​ដោយ​ស្វ័យ​ប្រវត្តិ​ក្នុង​ផ្ទៃ​ខាង​មុខ​"
+
+#~ msgid "Autogroup by I&D"
+#~ msgstr "ដាក់​ជា​ក្រុម​ដោយ​ស្វ័យ​ប្រវត្តិ​តាម​លេខ​សម្គាល់"
+
+#~ msgid "Autogroup with &identical"
+#~ msgstr "ដាក់​ជា​ក្រុម​ដោយ​ស្វ័យ​ប្រវត្តិ​នូវ​អ្វី​ដែល​ដូច​គ្នា​"
+
+#~ msgid "%"
+#~ msgstr "%"
+
+#  i18n: file ruleswidgetbase.ui line 1121
+#~ msgid "Smart"
+#~ msgstr "ឆ្លាត"
+
+#~ msgid "kcmkwinrules"
+#~ msgstr "kcmkwinrules"
+
+#  i18n: file ruleswidgetbase.ui line 2035
+#~ msgid "Opaque"
+#~ msgstr "ស្រអាប់"
+
+#  i18n: file ruleswidgetbase.ui line 2040
+#~ msgid "Transparent"
+#~ msgstr "ថ្លា"
+
+#  i18n: file ruleswidgetbase.ui line 2063
+#~ msgid "&Moving/resizing"
+#~ msgstr "ផ្លាស់ទី/ប្តូរ​ទំហំ"
+
+#~ msgid "T&iling"
+#~ msgstr "ក្រឡាក្បឿង"
+
+#  i18n: file detectwidgetbase.ui line 76
+#~ msgid "Tiled"
+#~ msgstr "ក្រឡាក្បឿង"
+
+#~ msgid "Floating"
+#~ msgstr "អណ្ដែត"

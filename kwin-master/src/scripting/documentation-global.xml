@@ -1,0 +1,144 @@
+<?xml version='1.0' encoding='UTF-8' standalone='no'?>
+<doxygen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="compound.xsd" version="1.7.6.1">
+    <!--  Documentation for global KWin scripting methods. In doxygen XML format as this can be converted to MediaWiki    -->
+    <!--  Use script and XSLT from https://invent.kde.org/graesslin/kwin-scripting-api-generator to generate the documentation    -->
+    <!--  This xml is not meant to be doxygen compliant    -->
+    <compounddef>
+        <compoundname>Global</compoundname>
+        <briefdescription>Methods and properties added to the global JavaScript object.</briefdescription>
+        <sectiondef kind="property">
+            <memberdef kind="property" writable="no">
+                <type>KWin::Options</type>
+                <definition></definition>
+                <argsstring></argsstring>
+                <name>options</name>
+                <read></read>
+                <detaileddescription>Global property to all configuration values of KWin core.</detaileddescription>
+            </memberdef>
+            <memberdef kind="property" writable="no">
+                <type>KWin::Workspace</type>
+                <definition></definition>
+                <argsstring></argsstring>
+                <name>workspace</name>
+                <read></read>
+                <detaileddescription>Global property to the core wrapper of KWin.</detaileddescription>
+            </memberdef>
+            <memberdef kind="property" writable="no">
+                <type>object</type>
+                <definition></definition>
+                <argsstring></argsstring>
+                <name>KWin</name>
+                <read></read>
+                <detaileddescription>Provides access to enums defined in KWin::WorkspaceWrapper</detaileddescription>
+            </memberdef>
+        </sectiondef>
+        <sectiondef kind="public-func">
+            <memberdef kind="function">
+                <type>Q_SCRIPTABLE void</type>
+                <definition>void KWin::Scripting::print</definition>
+                <argsstring>(QVariant ... values)</argsstring>
+                <name>print</name>
+                <read></read>
+                <detaileddescription>Prints all provided values to kDebug and as a D-Bus signal</detaileddescription>
+            </memberdef>
+            <memberdef kind="function">
+                <type>Q_SCRIPTABLE QVariant</type>
+                <definition>QVariant KWin::Scripting::readConfig</definition>
+                <argsstring>(QString key, QVariant defaultValue = QVariant())</argsstring>
+                <name>readConfig</name>
+                <read></read>
+                <detaileddescription>Reads the config value for key in the Script's configuration with the optional default value. If not providing a default value and no value stored in the configuration an undefined value is returned.</detaileddescription>
+            </memberdef>
+            <memberdef kind="function">
+                <type>Q_SCRIPTABLE bool</type>
+                <definition>bool KWin::Scripting::registerScreenEdge</definition>
+                <argsstring>(ElectricBorder border, QScriptValue callback)</argsstring>
+                <name>registerScreenEdge</name>
+                <read></read>
+                <detaileddescription>Registers the callback for the screen edge. When the mouse gets pushed against the given edge the callback will be invoked.
+                    Scripts can also add "X-KWin-Border-Activate" to their metadata file to have the effect listed in the screen edges KCM. This will write an entry BorderConfig= in the script configuration object with a list of ScreenEdges the user has selected.
+                    </detaileddescription>
+            </memberdef>
+            <memberdef kind="function">
+                <type>Q_SCRIPTABLE bool</type>
+                <definition>bool KWin::Scripting::unregisterScreenEdge</definition>
+                <argsstring>(ElectricBorder border)</argsstring>
+                <name>unregisterScreenEdge</name>
+                <read></read>
+                <detaileddescription>Unregisters the callback for the screen edge. This will disconnect all callbacks from this script to that edge.</detaileddescription>
+            </memberdef>
+            <memberdef kind="function">
+                <type>Q_SCRIPTABLE bool</type>
+                <definition>bool KWin::Scripting::registerShortcut</definition>
+                <argsstring>(QString title, QString text, QString keySequence, QScriptValue callback)</argsstring>
+                <name>registerShortcut</name>
+                <read></read>
+                <detaileddescription>Registers keySequence as a global shortcut. When the shortcut is invoked the callback will be called. Title and text are used to name the shortcut and make it available to the global shortcut configuration module.</detaileddescription>
+            </memberdef>
+            <memberdef kind="function">
+                <type>Q_SCRIPTABLE bool</type>
+                <definition>bool KWin::Scripting::assert</definition>
+                <argsstring>(bool value, QString message = QString())</argsstring>
+                <name>assert</name>
+                <read></read>
+                <detaileddescription>Aborts the execution of the script if value does not evaluate to true. If message is provided an error is thrown with the given message, if not provided an error with default message is thrown.</detaileddescription>
+            </memberdef>
+            <memberdef kind="function">
+                <type>Q_SCRIPTABLE bool</type>
+                <definition>bool KWin::Scripting::assertTrue</definition>
+                <argsstring>(bool value, QString message = QString())</argsstring>
+                <name>assertTrue</name>
+                <read></read>
+                <detaileddescription>Aborts the execution of the script if value does not evaluate to true. If message is provided an error is thrown with the given message, if not provided an error with default message is thrown.</detaileddescription>
+            </memberdef>
+            <memberdef kind="function">
+                <type>Q_SCRIPTABLE bool</type>
+                <definition>bool KWin::Scripting::assertFalse</definition>
+                <argsstring>(bool value, QString message = QString())</argsstring>
+                <name>assertFalse</name>
+                <read></read>
+                <detaileddescription>Aborts the execution of the script if value does not evaluate to false. If message is provided an error is thrown with the given message, if not provided an error with default message is thrown.</detaileddescription>
+            </memberdef>
+            <memberdef kind="function">
+                <type>Q_SCRIPTABLE bool</type>
+                <definition>bool KWin::Scripting::assertEquals</definition>
+                <argsstring>(QVariant expected, QVariant actual, QString message = QString())</argsstring>
+                <name>assertEquals</name>
+                <read></read>
+                <detaileddescription>Aborts the execution of the script if the actual value is not equal to the expected value. If message is provided an error is thrown with the given message, if not provided an error with default message is thrown.</detaileddescription>
+            </memberdef>
+            <memberdef kind="function">
+                <type>Q_SCRIPTABLE bool</type>
+                <definition>bool KWin::Scripting::assertNull</definition>
+                <argsstring>(QVariant value, QString message = QString())</argsstring>
+                <name>assertNull</name>
+                <read></read>
+                <detaileddescription>Aborts the execution of the script if value is not null. If message is provided an error is thrown with the given message, if not provided an error with default message is thrown.</detaileddescription>
+            </memberdef>
+            <memberdef kind="function">
+                <type>Q_SCRIPTABLE bool</type>
+                <definition>bool KWin::Scripting::assertNotNull</definition>
+                <argsstring>(QVariant value, QString message = QString())</argsstring>
+                <name>assertNotNull</name>
+                <read></read>
+                <detaileddescription>Aborts the execution of the script if value is null. If message is provided an error is thrown with the given message, if not provided an error with default message is thrown.</detaileddescription>
+            </memberdef>
+            <memberdef kind="function">
+                <type>Q_SCRIPTABLE void</type>
+                <definition>void KWin::Scripting::callDBus</definition>
+                <argsstring>(QString service, QString path, QString interface, QString method, QVariant arg..., QScriptValue callback = QScriptValue())</argsstring>
+                <name>callDBus</name>
+                <read></read>
+                <detaileddescription>Call a D-Bus method at (service, path, interface and method). A variable number of arguments can be added to the method call. The D-Bus call is always performed in an async way invoking the callback provided as the last (optional) argument. The reply values of the D-Bus method call are passed to the callback.</detaileddescription>
+            </memberdef>
+            <memberdef kind="function">
+                <type>Q_SCRIPTABLE void</type>
+                <definition>void KWin::Scripting::registerUserActionsMenu</definition>
+                <argsstring>(QScriptValue callback)</argsstring>
+                <name>registerUserActionsMenu</name>
+                <read></read>
+                <detaileddescription>Registers the passed in callback to be invoked whenever the User actions menu (Alt+F3 or right click on window decoration) is about to be shown. The callback is invoked with a reference to the Client for which the menu is shown. The callback can return either a single menu entry to be added to the menu or its own sub menu with multiple entries. The object for a menu entry should be {title: "My Menu entry", checkable: true, checked: false, triggered: function (action) { // callback with triggered QAction}}, for a menu it should be {title: "My menu", items: [{...}, {...}, ...] /*list with entries as described*/}</detaileddescription>
+            </memberdef>
+        </sectiondef>
+    </compounddef>
+</doxygen>

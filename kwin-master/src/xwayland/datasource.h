@@ -1,0 +1,80 @@
+/*
+    SPDX-FileCopyrightText: 2021 David Redondo <kde@david-redondo.de>
+    SPDX-FileCopyrightText: 2025 Vlad Zahorodnii <vlad.zahorodnii@kde.org>
+
+    SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted-GPL
+*/
+
+#pragma once
+
+#include "wayland/abstract_data_source.h"
+
+namespace KWin
+{
+namespace Xwl
+{
+
+class Selection;
+
+/**
+ * The XwlDataSource class represents a data source owned by the Xwayland data bridge. It's
+ * used as a source in data transfers from X11 clients to Wayland clients.
+ *
+ * The XwlDataSource class is sealed as its destructor emits the aboutToBeDestroyed() signal.
+ * If you decide to unseal it, ensure that the about to be destroyed signal is emitted properly!
+ */
+class XwlDataSource final : public AbstractDataSource
+{
+    Q_OBJECT
+
+public:
+    explicit XwlDataSource(Selection *selection);
+    ~XwlDataSource() override;
+
+    void requestData(const QString &mimeType, FileDescriptor fd) override;
+    void cancel() override;
+    QStringList mimeTypes() const override;
+    void setMimeTypes(const QStringList &mimeTypes);
+
+    void accept(const QString &mimeType) override;
+    DnDActions supportedDragAndDropActions() const override;
+    void setSupportedDndActions(DnDActions dndActions);
+
+    DnDAction selectedDndAction() const override;
+    void dndAction(DnDAction action) override;
+
+    void dropPerformed() override
+    {
+        AbstractDataSource::dropPerformed();
+        Q_EMIT dropped();
+    }
+    void dndFinished() override
+    {
+        m_dndFinished = true;
+        Q_EMIT finished();
+    }
+    void dndCancelled() override
+    {
+        AbstractDataSource::dndCancelled();
+        Q_EMIT cancelled();
+    }
+
+    bool isAccepted() const override;
+    bool isDndFinished() const;
+
+Q_SIGNALS:
+    void dropped();
+    void finished();
+    void cancelled();
+
+private:
+    Selection *m_selection;
+    QStringList m_mimeTypes;
+    DnDActions m_supportedDndActions;
+    DnDAction m_dndAction = DnDAction::None;
+    bool m_accepted = false;
+    bool m_dndFinished = false;
+};
+
+}
+}

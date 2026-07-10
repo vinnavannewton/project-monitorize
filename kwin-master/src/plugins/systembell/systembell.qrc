@@ -1,0 +1,6 @@
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource prefix="/effects/systembell/">
+  <file>shaders/color.frag</file>
+  <file>shaders/invert.frag</file>
+</qresource>
+</RCC>

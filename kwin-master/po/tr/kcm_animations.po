@@ -1,0 +1,116 @@
+# Copyright (C) 2025 This file is copyright:
+# This file is distributed under the same license as the kwin package.
+#
+# SPDX-FileCopyrightText: 2025 Emir SARI <emir_sari@îcloud.com>
+msgid ""
+msgstr ""
+"Project-Id-Version: kwin\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-04-23 00:45+0000\n"
+"PO-Revision-Date: 2025-04-25 09:49+0300\n"
+"Last-Translator: Emir SARI <emir_sari@îcloud.com>\n"
+"Language-Team: Turkish <kde-l10n-tr@kde.org>\n"
+"Language: tr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"X-Generator: Lokalize 25.04.0\n"
+
+#: ui/AnimationComboBox.qml:49
+#, kde-format
+msgctxt "@item:inlistbox"
+msgid "None"
+msgstr "Yok"
+
+#: ui/main.qml:37
+#, kde-format
+msgid "Global animation speed:"
+msgstr "Global canlandırma hızı:"
+
+#: ui/main.qml:83
+#, kde-kuit-format
+msgctxt "@info:tooltip"
+msgid ""
+"Some applications do not support this setting: In particular, GTK "
+"applications cannot change animation duration, but will still disable "
+"animations when <interface>animation speed</interface> is "
+"<interface>Instant</interface>."
+msgstr ""
+"Bazı uygulamalar bu ayarı desteklemez. Özellikle GTK uygulamaları "
+"canlandırma süresini değiştiremezler; ancak <interface>canlandırma hızı</"
+"interface> <interface>anında</interface> ise canlandırmaları devre dışı "
+"bırakacaklardır."
+
+#: ui/main.qml:90
+#, kde-format
+msgctxt "Animation speed"
+msgid "Slow"
+msgstr "Yavaş"
+
+#: ui/main.qml:99
+#, kde-format
+msgctxt "Animation speed"
+msgid "Instant"
+msgstr "Anında"
+
+#: ui/main.qml:107
+#, kde-format
+msgctxt "@title:group"
+msgid "Desktop animations"
+msgstr "Masaüstü Canlandırmaları"
+
+#: ui/main.qml:111
+#, kde-format
+msgctxt "@label:listbox"
+msgid "Window open/close:"
+msgstr "Pencereyi aç/kapat:"
+
+#: ui/main.qml:112
+#, kde-format
+msgctxt "@label:listbox"
+msgid "Window maximize:"
+msgstr "Pencereyi ekranda kapla:"
+
+#: ui/main.qml:113
+#, kde-format
+msgctxt "@label:listbox"
+msgid "Window minimize:"
+msgstr "Pencereyi simge durumuna küçült:"
+
+#: ui/main.qml:114
+#, kde-format
+msgctxt "@label:listbox"
+msgid "Window full screen:"
+msgstr "Pencereyi tam ekran yap:"
+
+#: ui/main.qml:115
+#, kde-format
+msgctxt "@label:listbox"
+msgid "Peek at desktop:"
+msgstr "Masaüstüne bak:"
+
+#: ui/main.qml:116
+#, kde-format
+msgctxt "@label:listbox"
+msgid "Virtual desktop switching:"
+msgstr "Sanal masaüstü geçişi:"
+
+#: ui/main.qml:144 ui/main.qml:211
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Configure…"
+msgstr "Yapılandır…"
+
+#: ui/main.qml:171
+#, kde-format
+msgctxt ""
+"@option:check %1 is the name of an animation, e.g. 'Login' or 'Logout'"
+msgid "%1:"
+msgstr "%1:"
+
+#: ui/main.qml:239
+#, kde-format
+msgctxt "@title:group translate as short as possible"
+msgid "More effects settings:"
+msgstr "Diğer efekt ayarları:"

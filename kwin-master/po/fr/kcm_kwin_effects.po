@@ -1,0 +1,95 @@
+# Simon Depiets <sdepiets@gmail.com>, 2019.
+# Xavier Besnard <xavier.besnard@kde.org>, 2021, 2023.
+msgid ""
+msgstr ""
+"Project-Id-Version: kwin\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2025-11-17 11:53+0000\n"
+"PO-Revision-Date: 2023-06-27 08:56+0200\n"
+"Last-Translator: Xavier BESNARD <xavier.besnard@neuf.fr>\n"
+"Language-Team: French <kde-francophone@kde.org>\n"
+"Language: fr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"X-Generator: Lokalize 23.04.2\n"
+"X-Environment: kde\n"
+"X-Accelerator-Marker: &\n"
+"X-Text-Markup: kde4\n"
+
+#: ui/Effect.qml:98
+#, kde-format
+msgid ""
+"Author: %1\n"
+"License: %2"
+msgstr ""
+"Auteur : %1\n"
+"Licence : %2"
+
+#: ui/Effect.qml:110
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Configure…"
+msgstr "Configurer..."
+
+#: ui/main.qml:25
+#, kde-format
+msgctxt "@action:button get new KWin effects"
+msgid "Get New…"
+msgstr "Obtenir des nouveautés…"
+
+#: ui/main.qml:54
+#, kde-format
+msgid "Configure Filter"
+msgstr "Configurer le filtre"
+
+#: ui/main.qml:66
+#, kde-format
+msgid "Exclude unsupported effects"
+msgstr "Exclure les effets non pris en charge"
+
+#~ msgctxt "@info:tooltip"
+#~ msgid "Show/Hide Video"
+#~ msgstr "Afficher / Masquer la vidéo"
+
+#~ msgid ""
+#~ "Hint: To find out or configure how to activate an effect, look at the "
+#~ "effect's settings."
+#~ msgstr ""
+#~ "Remarque : pour trouver ou pour savoir comment configurer un effet, "
+#~ "veuillez regarder dans les paramètres de l'effet."
+
+#~ msgid "Exclude internal effects"
+#~ msgstr "Exclure les effets internes"
+
+#~ msgid "Get New Desktop Effects..."
+#~ msgstr "Obtenir de nouveaux effets de bureau..."
+
+#~ msgid "This module lets you configure desktop effects."
+#~ msgstr "Ce module vous permet de configurer les effets de bureau."
+
+#~ msgctxt "NAME OF TRANSLATORS"
+#~ msgid "Your names"
+#~ msgstr "Simon Depiets"
+
+#~ msgctxt "EMAIL OF TRANSLATORS"
+#~ msgid "Your emails"
+#~ msgstr "sdepiets@gmail.com"
+
+#~ msgid "Desktop Effects"
+#~ msgstr "Effets de bureau"
+
+#~ msgid "Vlad Zahorodnii"
+#~ msgstr "Vlad Zahorodnii"
+
+#~ msgid "Download New Desktop Effects"
+#~ msgstr "Télécharger de nouveaux effets de bureau"
+
+#~ msgid "Exclude Desktop Effects not supported by the Compositor"
+#~ msgstr ""
+#~ "Exclure les effets de bureau qui ne sont pas pris en charge par le "
+#~ "compositeur"
+
+#~ msgid "Search..."
+#~ msgstr "Chercher…"

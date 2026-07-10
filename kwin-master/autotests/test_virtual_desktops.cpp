@@ -1,0 +1,343 @@
+/*
+    KWin - the KDE window manager
+    This file is part of the KDE project.
+
+    SPDX-FileCopyrightText: 2012 Martin Gräßlin <mgraesslin@kde.org>
+
+    SPDX-License-Identifier: GPL-2.0-or-later
+*/
+#include "input.h"
+#include "virtualdesktops.h"
+// KDE
+#include <KConfigGroup>
+
+#include <QAction>
+#include <QSignalSpy>
+#include <QTest>
+
+namespace KWin
+{
+
+void InputRedirection::registerAxisShortcut(Qt::KeyboardModifiers modifiers, PointerAxisDirection axis, QAction *action)
+{
+}
+
+void InputRedirection::registerTouchpadSwipeShortcut(SwipeDirection direction, uint32_t fingerCount, QAction *onUp, std::function<void(qreal)> progressCallback)
+{
+}
+
+void InputRedirection::registerTouchpadPinchShortcut(PinchDirection direction, uint32_t fingerCount, QAction *onUp, std::function<void(qreal)> progressCallback)
+{
+}
+
+void InputRedirection::registerTouchscreenSwipeShortcut(SwipeDirection direction, uint32_t fingerCount, QAction *action, std::function<void(qreal)> progressCallback)
+{
+}
+
+}
+
+Q_DECLARE_METATYPE(Qt::Orientation)
+
+using namespace KWin;
+
+class TestVirtualDesktops : public QObject
+{
+    Q_OBJECT
+private Q_SLOTS:
+    void init();
+    void cleanup();
+    void count_data();
+    void count();
+    void navigationWrapsAround_data();
+    void navigationWrapsAround();
+    void updateGrid_data();
+    void updateGrid();
+    void updateLayout_data();
+    void updateLayout();
+    void name_data();
+    void name();
+    void changeRows();
+    void load();
+    void save();
+};
+
+void TestVirtualDesktops::init()
+{
+    VirtualDesktopManager::create();
+}
+
+void TestVirtualDesktops::cleanup()
+{
+    delete VirtualDesktopManager::self();
+}
+
+static const uint s_countInitValue = 2;
+
+void TestVirtualDesktops::count_data()
+{
+    QTest::addColumn<uint>("request");
+    QTest::addColumn<uint>("result");
+    QTest::addColumn<bool>("signal");
+    QTest::addColumn<bool>("removedSignal");
+
+    QTest::newRow("Minimum") << (uint)1 << (uint)1 << true << true;
+    QTest::newRow("Below Minimum") << (uint)0 << (uint)1 << true << true;
+    QTest::newRow("Normal Value") << (uint)10 << (uint)10 << true << false;
+    QTest::newRow("Maximum") << VirtualDesktopManager::maximum() << VirtualDesktopManager::maximum() << true << false;
+    QTest::newRow("Above Maximum") << VirtualDesktopManager::maximum() + 1 << VirtualDesktopManager::maximum() << true << false;
+    QTest::newRow("Unchanged") << s_countInitValue << s_countInitValue << false << false;
+}
+
+void TestVirtualDesktops::count()
+{
+    VirtualDesktopManager *vds = VirtualDesktopManager::self();
+    QCOMPARE(vds->count(), (uint)0);
+    // start with a useful desktop count
+    vds->setCount(s_countInitValue);
+
+    QSignalSpy spy(vds, &VirtualDesktopManager::countChanged);
+    QSignalSpy desktopsRemoved(vds, &VirtualDesktopManager::desktopRemoved);
+
+    auto vdToRemove = vds->desktops().last();
+
+    QFETCH(uint, request);
+    QFETCH(uint, result);
+    QFETCH(bool, signal);
+    QFETCH(bool, removedSignal);
+    vds->setCount(request);
+    QCOMPARE(vds->count(), result);
+    QCOMPARE(spy.isEmpty(), !signal);
+    if (!spy.isEmpty()) {
+        QList<QVariant> arguments = spy.takeFirst();
+        QCOMPARE(arguments.count(), 2);
+        QCOMPARE(arguments.at(0).typeId(), QMetaType::UInt);
+        QCOMPARE(arguments.at(1).typeId(), QMetaType::UInt);
+        QCOMPARE(arguments.at(0).toUInt(), s_countInitValue);
+        QCOMPARE(arguments.at(1).toUInt(), result);
+    }
+    QCOMPARE(desktopsRemoved.isEmpty(), !removedSignal);
+    if (!desktopsRemoved.isEmpty()) {
+        QList<QVariant> arguments = desktopsRemoved.takeFirst();
+        QCOMPARE(arguments.count(), 1);
+        QCOMPARE(arguments.at(0).value<KWin::VirtualDesktop *>(), vdToRemove);
+    }
+}
+
+void TestVirtualDesktops::navigationWrapsAround_data()
+{
+    QTest::addColumn<bool>("init");
+    QTest::addColumn<bool>("request");
+    QTest::addColumn<bool>("result");
+    QTest::addColumn<bool>("signal");
+
+    QTest::newRow("enable") << false << true << true << true;
+    QTest::newRow("disable") << true << false << false << true;
+    QTest::newRow("keep enabled") << true << true << true << false;
+    QTest::newRow("keep disabled") << false << false << false << false;
+}
+
+void TestVirtualDesktops::navigationWrapsAround()
+{
+    VirtualDesktopManager *vds = VirtualDesktopManager::self();
+    QCOMPARE(vds->isNavigationWrappingAround(), false);
+    QFETCH(bool, init);
+    QFETCH(bool, request);
+    QFETCH(bool, result);
+    QFETCH(bool, signal);
+
+    // set to init value
+    vds->setNavigationWrappingAround(init);
+    QCOMPARE(vds->isNavigationWrappingAround(), init);
+
+    QSignalSpy spy(vds, &VirtualDesktopManager::navigationWrappingAroundChanged);
+    vds->setNavigationWrappingAround(request);
+    QCOMPARE(vds->isNavigationWrappingAround(), result);
+    QCOMPARE(spy.isEmpty(), !signal);
+}
+
+void TestVirtualDesktops::updateGrid_data()
+{
+    QTest::addColumn<uint>("initCount");
+    QTest::addColumn<QSize>("size");
+    QTest::addColumn<QPoint>("coords");
+    QTest::addColumn<uint>("desktop");
+
+    QTest::newRow("one desktop, h") << (uint)1 << QSize(1, 1) << QPoint(0, 0) << (uint)1;
+    QTest::newRow("one desktop, h, 0") << (uint)1 << QSize(1, 1) << QPoint(1, 0) << (uint)0;
+
+    QTest::newRow("two desktops, h, 1") << (uint)2 << QSize(2, 1) << QPoint(0, 0) << (uint)1;
+    QTest::newRow("two desktops, h, 2") << (uint)2 << QSize(2, 1) << QPoint(1, 0) << (uint)2;
+    QTest::newRow("two desktops, h, 3") << (uint)2 << QSize(2, 1) << QPoint(0, 1) << (uint)0;
+    QTest::newRow("two desktops, h, 4") << (uint)2 << QSize(2, 1) << QPoint(2, 0) << (uint)0;
+
+    QTest::newRow("four desktops, h, one row, 1") << (uint)4 << QSize(4, 1) << QPoint(0, 0) << (uint)1;
+    QTest::newRow("four desktops, h, one row, 2") << (uint)4 << QSize(4, 1) << QPoint(1, 0) << (uint)2;
+    QTest::newRow("four desktops, h, one row, 3") << (uint)4 << QSize(4, 1) << QPoint(2, 0) << (uint)3;
+    QTest::newRow("four desktops, h, one row, 4") << (uint)4 << QSize(4, 1) << QPoint(3, 0) << (uint)4;
+
+    QTest::newRow("four desktops, h, grid, 1") << (uint)4 << QSize(2, 2) << QPoint(0, 0) << (uint)1;
+    QTest::newRow("four desktops, h, grid, 2") << (uint)4 << QSize(2, 2) << QPoint(1, 0) << (uint)2;
+    QTest::newRow("four desktops, h, grid, 3") << (uint)4 << QSize(2, 2) << QPoint(0, 1) << (uint)3;
+    QTest::newRow("four desktops, h, grid, 4") << (uint)4 << QSize(2, 2) << QPoint(1, 1) << (uint)4;
+    QTest::newRow("four desktops, h, grid, 0/3") << (uint)4 << QSize(2, 2) << QPoint(0, 3) << (uint)0;
+
+    QTest::newRow("three desktops, h, grid, 1") << (uint)3 << QSize(2, 2) << QPoint(0, 0) << (uint)1;
+    QTest::newRow("three desktops, h, grid, 2") << (uint)3 << QSize(2, 2) << QPoint(1, 0) << (uint)2;
+    QTest::newRow("three desktops, h, grid, 3") << (uint)3 << QSize(2, 2) << QPoint(0, 1) << (uint)3;
+    QTest::newRow("three desktops, h, grid, 4") << (uint)3 << QSize(2, 2) << QPoint(1, 1) << (uint)0;
+}
+
+void TestVirtualDesktops::updateGrid()
+{
+    VirtualDesktopManager *vds = VirtualDesktopManager::self();
+    QFETCH(uint, initCount);
+    vds->setCount(initCount);
+    VirtualDesktopGrid grid;
+
+    QFETCH(QSize, size);
+    QCOMPARE(vds->desktops().count(), int(initCount));
+    grid.update(size, vds->desktops());
+    QCOMPARE(grid.size(), size);
+    QCOMPARE(grid.width(), size.width());
+    QCOMPARE(grid.height(), size.height());
+    QFETCH(QPoint, coords);
+    QFETCH(uint, desktop);
+    QCOMPARE(grid.at(coords), vds->desktopForX11Id(desktop));
+    if (desktop != 0) {
+        QCOMPARE(grid.gridCoords(desktop), coords);
+    }
+}
+
+void TestVirtualDesktops::updateLayout_data()
+{
+    QTest::addColumn<uint>("desktop");
+    QTest::addColumn<QSize>("result");
+
+    QTest::newRow("01") << (uint)1 << QSize(1, 1);
+    QTest::newRow("02") << (uint)2 << QSize(1, 2);
+    QTest::newRow("03") << (uint)3 << QSize(2, 2);
+    QTest::newRow("04") << (uint)4 << QSize(2, 2);
+    QTest::newRow("05") << (uint)5 << QSize(3, 2);
+    QTest::newRow("06") << (uint)6 << QSize(3, 2);
+    QTest::newRow("07") << (uint)7 << QSize(4, 2);
+    QTest::newRow("08") << (uint)8 << QSize(4, 2);
+    QTest::newRow("09") << (uint)9 << QSize(5, 2);
+    QTest::newRow("10") << (uint)10 << QSize(5, 2);
+    QTest::newRow("11") << (uint)11 << QSize(6, 2);
+    QTest::newRow("12") << (uint)12 << QSize(6, 2);
+    QTest::newRow("13") << (uint)13 << QSize(7, 2);
+    QTest::newRow("14") << (uint)14 << QSize(7, 2);
+    QTest::newRow("15") << (uint)15 << QSize(8, 2);
+    QTest::newRow("16") << (uint)16 << QSize(8, 2);
+    QTest::newRow("17") << (uint)17 << QSize(9, 2);
+    QTest::newRow("18") << (uint)18 << QSize(9, 2);
+    QTest::newRow("19") << (uint)19 << QSize(10, 2);
+    QTest::newRow("20") << (uint)20 << QSize(10, 2);
+}
+
+void TestVirtualDesktops::updateLayout()
+{
+    VirtualDesktopManager *vds = VirtualDesktopManager::self();
+    QSignalSpy spy(vds, &VirtualDesktopManager::layoutChanged);
+    // call update layout - implicitly through setCount
+    QFETCH(uint, desktop);
+    QFETCH(QSize, result);
+    vds->setCount(desktop);
+    QCOMPARE(vds->grid().size(), result);
+    QCOMPARE(spy.count(), 1);
+    const QVariantList &arguments = spy.at(0);
+    QCOMPARE(arguments.at(0).toInt(), result.width());
+    QCOMPARE(arguments.at(1).toInt(), result.height());
+    // calling update layout again should not change anything
+    vds->updateLayout();
+    QCOMPARE(vds->grid().size(), result);
+    QCOMPARE(spy.count(), 2);
+    const QVariantList &arguments2 = spy.at(1);
+    QCOMPARE(arguments2.at(0).toInt(), result.width());
+    QCOMPARE(arguments2.at(1).toInt(), result.height());
+}
+
+void TestVirtualDesktops::name_data()
+{
+    QTest::addColumn<uint>("initCount");
+    QTest::addColumn<uint>("desktop");
+    QTest::addColumn<QString>("desktopName");
+
+    QTest::newRow("desktop 1") << (uint)5 << (uint)1 << "Desktop 1";
+    QTest::newRow("desktop 2") << (uint)5 << (uint)2 << "Desktop 2";
+    QTest::newRow("desktop 3") << (uint)5 << (uint)3 << "Desktop 3";
+    QTest::newRow("desktop 4") << (uint)5 << (uint)4 << "Desktop 4";
+    QTest::newRow("desktop 5") << (uint)5 << (uint)5 << "Desktop 5";
+}
+
+void TestVirtualDesktops::name()
+{
+    VirtualDesktopManager *vds = VirtualDesktopManager::self();
+    QFETCH(uint, initCount);
+    vds->setCount(initCount);
+    QFETCH(uint, desktop);
+
+    const VirtualDesktop *vd = vds->desktopForX11Id(desktop);
+    QTEST(vd->name(), "desktopName");
+}
+
+void TestVirtualDesktops::changeRows()
+{
+    VirtualDesktopManager *vds = VirtualDesktopManager::self();
+
+    vds->setCount(4);
+    vds->setRows(4);
+    QCOMPARE(vds->rows(), 4);
+
+    vds->setRows(5);
+    QCOMPARE(vds->rows(), 4);
+
+    vds->setCount(2);
+    QCOMPARE(vds->rows(), 2);
+}
+
+void TestVirtualDesktops::load()
+{
+    VirtualDesktopManager *vds = VirtualDesktopManager::self();
+    // no config yet, load should not change anything
+    vds->load();
+    QCOMPARE(vds->count(), (uint)0);
+    // empty config should create one desktop
+    KSharedConfig::Ptr config = KSharedConfig::openConfig(QString(), KConfig::SimpleConfig);
+    vds->setConfig(config);
+    vds->load();
+    QCOMPARE(vds->count(), (uint)1);
+    // setting a sensible number
+    config->group(QStringLiteral("Desktops")).writeEntry("Number", 4);
+    vds->load();
+    QCOMPARE(vds->count(), (uint)4);
+
+    // setting the config value and reloading should update
+    config->group(QStringLiteral("Desktops")).writeEntry("Number", 5);
+    vds->load();
+    QCOMPARE(vds->count(), (uint)5);
+}
+
+void TestVirtualDesktops::save()
+{
+    VirtualDesktopManager *vds = VirtualDesktopManager::self();
+    vds->setCount(4);
+    // no config yet, just to ensure it actually works
+    vds->save();
+    KSharedConfig::Ptr config = KSharedConfig::openConfig(QString(), KConfig::SimpleConfig);
+    vds->setConfig(config);
+
+    // now save should create the group "Desktops"
+    QCOMPARE(config->hasGroup(QStringLiteral("Desktops")), false);
+    vds->save();
+    QCOMPARE(config->hasGroup(QStringLiteral("Desktops")), true);
+    KConfigGroup desktops = config->group(QStringLiteral("Desktops"));
+    QCOMPARE(desktops.readEntry<int>("Number", 1), 4);
+    QCOMPARE(desktops.hasKey("Name_1"), false);
+    QCOMPARE(desktops.hasKey("Name_2"), false);
+    QCOMPARE(desktops.hasKey("Name_3"), false);
+    QCOMPARE(desktops.hasKey("Name_4"), false);
+}
+
+QTEST_MAIN(TestVirtualDesktops)
+#include "test_virtual_desktops.moc"

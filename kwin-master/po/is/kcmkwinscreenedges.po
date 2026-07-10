@@ -1,0 +1,363 @@
+# translation of kcmkwinscreenedges.po to Icelandic
+# Copyright (C) 2009 This_file_is_part_of_KDE
+# This file is distributed under the same license as the PACKAGE package.
+#
+# SPDX-FileCopyrightText: 2009, 2010, 2026 Sveinn í Felli <sveinki@nett.is>
+# SPDX-FileCopyrightText: 2022, 2023, 2024, 2025 Guðmundur Erlingsson <gudmundure@gmail.com>
+msgid ""
+msgstr ""
+"Project-Id-Version: kcmkwinscreenedges\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-03-20 00:45+0000\n"
+"PO-Revision-Date: 2026-03-23 17:22+0000\n"
+"Last-Translator: Sveinn í Felli <sv1@fellsnet.is>\n"
+"Language-Team: Icelandic\n"
+"Language: is\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Lokalize 23.08.5\n"
+"Plural-Forms: Plural-Forms: nplurals=2; plural=n != 1;\n"
+"\n"
+"\n"
+"\n"
+
+#: main.cpp:152 touch.cpp:119
+#, kde-format
+msgid "No Action"
+msgstr "Engin aðgerð"
+
+#: main.cpp:153 touch.cpp:120
+#, kde-format
+msgid "Peek at Desktop"
+msgstr "Kíkja á skjáborðið"
+
+#: main.cpp:154 touch.cpp:121
+#, kde-format
+msgid "Lock Screen"
+msgstr "Læsa skjánum"
+
+#: main.cpp:155 touch.cpp:122
+#, kde-format
+msgid "Show KRunner"
+msgstr "Opna KRunner"
+
+#: main.cpp:156 touch.cpp:123
+#, kde-format
+msgid "Activity Manager"
+msgstr "Athafnastjóri"
+
+#: main.cpp:157 touch.cpp:124
+#, kde-format
+msgid "Application Launcher"
+msgstr "Forritaræsir"
+
+#: main.cpp:161 touch.cpp:128
+#, kde-format
+msgid "Present Windows"
+msgstr "Opnir gluggar"
+
+#: main.cpp:162 touch.cpp:129
+#, kde-format
+msgid "%1 - All Desktops"
+msgstr "%1 - öll skjáborð"
+
+#: main.cpp:163 touch.cpp:130
+#, kde-format
+msgid "%1 - Current Desktop"
+msgstr "%1 - núverandi skjáborð"
+
+#: main.cpp:164 touch.cpp:131
+#, kde-format
+msgid "%1 - Current Application"
+msgstr "%1 - núverandi forrit"
+
+#: main.cpp:166 touch.cpp:133
+#, kde-format
+msgid "Overview"
+msgstr "Yfirlitsskjár"
+
+#: main.cpp:167 touch.cpp:134
+#, kde-format
+msgid "Grid"
+msgstr "Grind"
+
+#: main.cpp:169 touch.cpp:136
+#, kde-format
+msgid "Toggle window switching"
+msgstr "Opna/loka gluggaskipti"
+
+#: main.cpp:170 touch.cpp:137
+#, kde-format
+msgid "Toggle alternative window switching"
+msgstr "Opna/loka varagluggaskipti"
+
+#. i18n: ectx: property (text), widget (QLabel, infoLabel)
+#: main.ui:23
+#, kde-format
+msgid ""
+"You can trigger an action by pushing the mouse pointer against the "
+"corresponding screen edge or corner."
+msgstr ""
+"Þú getur keyrt aðgerð með því að ýta músarbendlinum að brún eða horni á "
+"skjánum."
+
+#. i18n: ectx: property (text), widget (QLabel, quickMaximizeLabel)
+#: main.ui:67
+#, kde-format
+msgid "&Maximize:"
+msgstr "Fullst&ækka:"
+
+#. i18n: ectx: property (text), widget (QCheckBox, kcfg_ElectricBorderMaximize)
+#: main.ui:77
+#, kde-format
+msgid "Windows dragged to top edge"
+msgstr "Gluggar dregnir að efstu brún"
+
+#. i18n: ectx: property (text), widget (QLabel, quickTileLabel)
+#: main.ui:84
+#, kde-format
+msgid "&Tile:"
+msgstr "&Reitaraða:"
+
+#. i18n: ectx: property (text), widget (QCheckBox, kcfg_ElectricBorderTiling)
+#: main.ui:94
+#, kde-format
+msgid "Windows dragged to left or right edge"
+msgstr "Gluggar dregnir að vinstri eða hægri brún"
+
+#. i18n: ectx: property (text), widget (QLabel, label)
+#: main.ui:101
+#, kde-format
+msgid "Behavior:"
+msgstr "Hegðun:"
+
+#. i18n: ectx: property (text), widget (QCheckBox, remainActiveOnFullscreen)
+#: main.ui:108
+#, kde-format
+msgid "Remain active when windows are fullscreen"
+msgstr "Haldast virkt þegar gluggar fylla skjáinn"
+
+#. i18n: ectx: property (text), widget (QLabel, electricBorderCornerRatioLabel)
+#: main.ui:115
+#, kde-format
+msgid "Trigger &quarter tiling in:"
+msgstr "Virkja &fjórðungsglugga á:"
+
+#. i18n: ectx: property (suffix), widget (QSpinBox, electricBorderCornerRatioSpin)
+#: main.ui:130
+#, no-c-format, kde-format
+msgid "%"
+msgstr "%"
+
+#. i18n: ectx: property (prefix), widget (QSpinBox, electricBorderCornerRatioSpin)
+#: main.ui:133
+#, kde-format
+msgid "Outer "
+msgstr "ystu "
+
+#. i18n: ectx: property (text), widget (QLabel, label_1)
+#: main.ui:149
+#, kde-format
+msgid "of the screen"
+msgstr "af skjánum"
+
+#. i18n: ectx: property (toolTip), widget (QLabel, desktopSwitchLabel)
+#: main.ui:174
+#, kde-format
+msgid ""
+"Change desktop when the mouse pointer is pushed against the edge of the "
+"screen"
+msgstr "Skipta á milli skjáborða þegar músarbendli er ýtt að skjábrún"
+
+#. i18n: ectx: property (text), widget (QLabel, desktopSwitchLabel)
+#: main.ui:177
+#, kde-format
+msgid "&Switch desktop on edge:"
+msgstr "&Skipta á milli skjáborða á brún:"
+
+#. i18n: ectx: property (text), item, widget (QComboBox, kcfg_ElectricBorders)
+#: main.ui:188
+#, kde-format
+msgctxt "Switch desktop on edge"
+msgid "Disabled"
+msgstr "Óvirkt"
+
+#. i18n: ectx: property (text), item, widget (QComboBox, kcfg_ElectricBorders)
+#: main.ui:193
+#, kde-format
+msgid "Only when moving windows"
+msgstr "Bara þegar gluggar eru færðir"
+
+#. i18n: ectx: property (text), item, widget (QComboBox, kcfg_ElectricBorders)
+#: main.ui:198
+#, kde-format
+msgid "Always enabled"
+msgstr "Alltaf virkt"
+
+#. i18n: ectx: property (toolTip), widget (QLabel, activationDelayLabel)
+#: main.ui:206
+#, kde-format
+msgid ""
+"Amount of time required for the mouse pointer to be pushed against the edge "
+"of the screen before the action is triggered"
+msgstr ""
+"Hversu lengi þarf að ýta músarbendlinum að skjábrúninni þar til aðgerðin "
+"virkjast."
+
+#. i18n: ectx: property (text), widget (QLabel, activationDelayLabel)
+#: main.ui:209
+#, kde-format
+msgid "Activation &delay:"
+msgstr "&Töf á virkni:"
+
+#. i18n: ectx: property (suffix), widget (QSpinBox, kcfg_ElectricBorderDelay)
+#. i18n: ectx: property (suffix), widget (QSpinBox, kcfg_ElectricBorderCooldown)
+#: main.ui:219 main.ui:254
+#, kde-format
+msgid " ms"
+msgstr " msek."
+
+#. i18n: ectx: property (toolTip), widget (QLabel, triggerCooldownLabel)
+#: main.ui:238
+#, kde-format
+msgid ""
+"Amount of time required after triggering an action until the next trigger "
+"can occur"
+msgstr ""
+"Hversu langur tími þarf að líða frá því ein aðgerð er virkjuð og þar til "
+"hægt er að virkja aðra"
+
+#. i18n: ectx: property (text), widget (QLabel, triggerCooldownLabel)
+#: main.ui:241
+#, kde-format
+msgid "&Reactivation delay:"
+msgstr "Töf á endu&rvirkjun:"
+
+#. i18n: ectx: property (text), widget (QLabel, CornerBarrierLabel)
+#: main.ui:270
+#, kde-format
+msgid "&Corner barrier:"
+msgstr "&Hornaþröskuldur:"
+
+#. i18n: ectx: property (whatsThis), widget (QCheckBox, kcfg_CornerBarrier)
+#: main.ui:280
+#, kde-format
+msgid ""
+"Here you can enable or disable the virtual corner barrier between screens. "
+"The barrier prevents the pointer from moving to another screen when it is "
+"already touching a screen corner. This makes it easier to trigger user "
+"interface elements like maximized windows' close buttons when using multiple "
+"screens."
+msgstr ""
+"Hér getur þú virkjað eða slökkt á þröskuldi í hornum á milli skjáa. "
+"Þröskuldurinn kemur í veg fyrir að bendillinn fari yfir á annan skjá þegar "
+"hann snertir hornið á skjánum. Þannig er auðveldara að nota eiginleika í "
+"notandaumhverfinu eins og lokunarhnappa á fullstækkuðum gluggum þegar margir "
+"skjáir eru notaðir."
+
+#. i18n: ectx: property (toolTip), widget (QCheckBox, kcfg_CornerBarrier)
+#: main.ui:283
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Prevents the pointer from crossing at screen corners."
+msgstr "Kemur í veg fyrir að bendillinn fari á milli skjáa á hornum."
+
+#. i18n: ectx: property (text), widget (QLabel, EdgeBarrierLabel)
+#: main.ui:290
+#, kde-format
+msgid "&Edge barrier:"
+msgstr "&Brúnaþröskuldur:"
+
+#. i18n: ectx: property (whatsThis), widget (QSpinBox, kcfg_EdgeBarrier)
+#: main.ui:300
+#, kde-format
+msgid ""
+"Here you can set size of the edge barrier between different screens. The "
+"barrier adds additional distance you have to move your pointer before it "
+"crosses the edge onto the other screen. This makes it easier to access user "
+"interface elements like Plasma Panels that are located on an edge between "
+"screens."
+msgstr ""
+"Hér geturðu stillt stærð þröskuldarins á milli skjáa. Þröskuldurinn bætir "
+"við viðbótarbili sem músarbendilinn þarf að fara yfir áður en hann færist á "
+"næsta skjá. Þannig er auðveldara að nota eiginleika í notandaumhverfinu eins "
+"og Plasma skjáborðsstikur sem eru staðsettar á skjábrún á milli skjáa."
+
+#. i18n: ectx: property (toolTip), widget (QSpinBox, kcfg_EdgeBarrier)
+#: main.ui:303
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Additional distance the pointer needs to travel to cross screen edges."
+msgstr ""
+"Viðbótarbil sem bendillinn þarf að fara yfir til að færast á næsta skjá."
+
+#. i18n: ectx: property (specialValueText), widget (QSpinBox, kcfg_EdgeBarrier)
+#: main.ui:306
+#, kde-format
+msgid "None"
+msgstr "Ekkert"
+
+#. i18n: ectx: property (suffix), widget (QSpinBox, kcfg_EdgeBarrier)
+#: main.ui:309
+#, kde-format
+msgid " px"
+msgstr " px"
+
+#. i18n: ectx: property (text), widget (QLabel, label_1)
+#: touch.ui:17
+#, kde-format
+msgid ""
+"You can trigger an action by swiping from the screen edge towards the center "
+"of the screen."
+msgstr ""
+"Þú getur keyrt aðgerð með því að strjúka frá skjábrúninni í átt að miðju "
+"skjásins."
+
+#~ msgctxt "NAME OF TRANSLATORS"
+#~ msgid "Your names"
+#~ msgstr "Guðmundur Erlingsson"
+
+#~ msgctxt "EMAIL OF TRANSLATORS"
+#~ msgid "Your emails"
+#~ msgstr "gudmundure@gmail.com"
+
+#~ msgid "Show Desktop"
+#~ msgstr "Sýna skjáborðið"
+
+#, fuzzy
+#~| msgid "Cube"
+#~ msgid "%1 - Cube"
+#~ msgstr "Teningur"
+
+#, fuzzy
+#~| msgid "Cylinder"
+#~ msgid "%1 - Cylinder"
+#~ msgstr "Hólkur"
+
+#, fuzzy
+#~| msgid "Sphere"
+#~ msgid "%1 - Sphere"
+#~ msgstr "Hvolf"
+
+#, fuzzy
+#~| msgid "Active Screen Edge Actions"
+#~ msgid "Active Screen Corners and Edges"
+#~ msgstr "Virkar aðgerðir á skjábrúnum"
+
+#~ msgid "Window Management"
+#~ msgstr "Gluggastjórnun"
+
+#, fuzzy
+#~| msgid "Maximize windows by dragging them to the top of the screen"
+#~ msgid "Maximize windows by dragging them to the top edge of the screen"
+#~ msgstr "Stækka glugga með því að draga þá efst á skjáinn"
+
+#~ msgid "Other Settings"
+#~ msgstr "Aðrar stillingar"
+
+#~ msgid "Show Dashboard"
+#~ msgstr "Sýna Mælaborð"
+
+#~ msgid "Prevent Screen Locking"
+#~ msgstr "Koma í veg fyrir læsingu á skjá"

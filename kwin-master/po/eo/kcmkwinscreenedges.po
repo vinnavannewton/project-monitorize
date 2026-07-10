@@ -1,0 +1,332 @@
+# translation of kcmkwinscreenedges.pot to Esperanto
+# Copyright (C) 2003 Free Software Foundation, Inc.
+# This file is distributed under the same license as the kwin package.
+# Axel Rousseau <axel@esperanto-jeunes.org>, 2009.
+# Oliver Kellogg <olivermkellogg@gmail.com>, 2023.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: kcmkwinscreenedges\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-03-20 00:45+0000\n"
+"PO-Revision-Date: 2024-09-15 04:00+0200\n"
+"Last-Translator: Oliver Kellogg <olivermkellogg@gmail.com>\n"
+"Language-Team: Esperanto <kde-i18n-eo@kde.org>\n"
+"Language: eo\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Poedit-Language: Esperanto\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+
+#: main.cpp:152 touch.cpp:119
+#, kde-format
+msgid "No Action"
+msgstr "Neniu Agado"
+
+#: main.cpp:153 touch.cpp:120
+#, kde-format
+msgid "Peek at Desktop"
+msgstr "Antaŭrigardi al Labortablo"
+
+#: main.cpp:154 touch.cpp:121
+#, kde-format
+msgid "Lock Screen"
+msgstr "Ŝlosi ekranon"
+
+#: main.cpp:155 touch.cpp:122
+#, kde-format
+msgid "Show KRunner"
+msgstr "Montri KRunner"
+
+#: main.cpp:156 touch.cpp:123
+#, kde-format
+msgid "Activity Manager"
+msgstr "Agadmanaĝero"
+
+#: main.cpp:157 touch.cpp:124
+#, kde-format
+msgid "Application Launcher"
+msgstr "Aplika Lanĉilo"
+
+#: main.cpp:161 touch.cpp:128
+#, kde-format
+msgid "Present Windows"
+msgstr "Prezenti Vindozon"
+
+#: main.cpp:162 touch.cpp:129
+#, kde-format
+msgid "%1 - All Desktops"
+msgstr "%1 - Ĉiuj labortabloj"
+
+#: main.cpp:163 touch.cpp:130
+#, kde-format
+msgid "%1 - Current Desktop"
+msgstr "%1 - Nuna labortablo"
+
+#: main.cpp:164 touch.cpp:131
+#, kde-format
+msgid "%1 - Current Application"
+msgstr "%1 - Aktuala Apliko"
+
+#: main.cpp:166 touch.cpp:133
+#, kde-format
+msgid "Overview"
+msgstr "Superrigardo"
+
+#: main.cpp:167 touch.cpp:134
+#, kde-format
+msgid "Grid"
+msgstr "Krado"
+
+#: main.cpp:169 touch.cpp:136
+#, kde-format
+msgid "Toggle window switching"
+msgstr "Baskuligi fenestroŝanĝon"
+
+#: main.cpp:170 touch.cpp:137
+#, kde-format
+msgid "Toggle alternative window switching"
+msgstr "Baskuli alternativan fenestroŝalton"
+
+#. i18n: ectx: property (text), widget (QLabel, infoLabel)
+#: main.ui:23
+#, fuzzy, kde-format
+#| msgid ""
+#| "You can trigger an action by pushing the mouse cursor against the "
+#| "corresponding screen edge or corner."
+msgid ""
+"You can trigger an action by pushing the mouse pointer against the "
+"corresponding screen edge or corner."
+msgstr ""
+"Vi povas ekigi agon puŝante la muskursoron kontraŭ la responda ekranrando aŭ "
+"angulo."
+
+#. i18n: ectx: property (text), widget (QLabel, quickMaximizeLabel)
+#: main.ui:67
+#, kde-format
+msgid "&Maximize:"
+msgstr "&Maksimumigi:"
+
+#. i18n: ectx: property (text), widget (QCheckBox, kcfg_ElectricBorderMaximize)
+#: main.ui:77
+#, kde-format
+msgid "Windows dragged to top edge"
+msgstr "Fenestroj trenitaj al supra rando"
+
+#. i18n: ectx: property (text), widget (QLabel, quickTileLabel)
+#: main.ui:84
+#, kde-format
+msgid "&Tile:"
+msgstr "&Kahelo:"
+
+#. i18n: ectx: property (text), widget (QCheckBox, kcfg_ElectricBorderTiling)
+#: main.ui:94
+#, kde-format
+msgid "Windows dragged to left or right edge"
+msgstr "Fenestroj trenitaj al maldekstra aŭ dekstra rando"
+
+#. i18n: ectx: property (text), widget (QLabel, label)
+#: main.ui:101
+#, kde-format
+msgid "Behavior:"
+msgstr "Konduto:"
+
+#. i18n: ectx: property (text), widget (QCheckBox, remainActiveOnFullscreen)
+#: main.ui:108
+#, kde-format
+msgid "Remain active when windows are fullscreen"
+msgstr "Resti aktiva kiam fenestroj estas plenekranaj"
+
+#. i18n: ectx: property (text), widget (QLabel, electricBorderCornerRatioLabel)
+#: main.ui:115
+#, kde-format
+msgid "Trigger &quarter tiling in:"
+msgstr "Ekigi &kvaronkaheladon en:"
+
+#. i18n: ectx: property (suffix), widget (QSpinBox, electricBorderCornerRatioSpin)
+#: main.ui:130
+#, no-c-format, kde-format
+msgid "%"
+msgstr "%"
+
+#. i18n: ectx: property (prefix), widget (QSpinBox, electricBorderCornerRatioSpin)
+#: main.ui:133
+#, kde-format
+msgid "Outer "
+msgstr "Ekstera"
+
+#. i18n: ectx: property (text), widget (QLabel, label_1)
+#: main.ui:149
+#, kde-format
+msgid "of the screen"
+msgstr "de la ekrano"
+
+#. i18n: ectx: property (toolTip), widget (QLabel, desktopSwitchLabel)
+#: main.ui:174
+#, fuzzy, kde-format
+#| msgid ""
+#| "Change desktop when the mouse cursor is pushed against the edge of the "
+#| "screen"
+msgid ""
+"Change desktop when the mouse pointer is pushed against the edge of the "
+"screen"
+msgstr ""
+"Ŝanĝi labortablon kiam la musmontrilo estas premi kontraŭ la rando  de la "
+"ekrano"
+
+#. i18n: ectx: property (text), widget (QLabel, desktopSwitchLabel)
+#: main.ui:177
+#, kde-format
+msgid "&Switch desktop on edge:"
+msgstr "Ŝ&anĝi labortablon ĉe rando:"
+
+#. i18n: ectx: property (text), item, widget (QComboBox, kcfg_ElectricBorders)
+#: main.ui:188
+#, kde-format
+msgctxt "Switch desktop on edge"
+msgid "Disabled"
+msgstr "Malebligita"
+
+#. i18n: ectx: property (text), item, widget (QComboBox, kcfg_ElectricBorders)
+#: main.ui:193
+#, kde-format
+msgid "Only when moving windows"
+msgstr "Nur kiam moviĝante fenestrojn"
+
+#. i18n: ectx: property (text), item, widget (QComboBox, kcfg_ElectricBorders)
+#: main.ui:198
+#, kde-format
+msgid "Always enabled"
+msgstr "Ĉiam ebligita"
+
+#. i18n: ectx: property (toolTip), widget (QLabel, activationDelayLabel)
+#: main.ui:206
+#, fuzzy, kde-format
+#| msgid ""
+#| "Amount of time required for the mouse cursor to be pushed against the "
+#| "edge of the screen before the action is triggered"
+msgid ""
+"Amount of time required for the mouse pointer to be pushed against the edge "
+"of the screen before the action is triggered"
+msgstr ""
+"Kvanto da tempo necesa por la muskursoro por esti puŝita kontraŭ la rando de "
+"la ekrano antaŭ ol la ago estas ekigita"
+
+#. i18n: ectx: property (text), widget (QLabel, activationDelayLabel)
+#: main.ui:209
+#, kde-format
+msgid "Activation &delay:"
+msgstr "Prokrasto &de Aktivigo:"
+
+#. i18n: ectx: property (suffix), widget (QSpinBox, kcfg_ElectricBorderDelay)
+#. i18n: ectx: property (suffix), widget (QSpinBox, kcfg_ElectricBorderCooldown)
+#: main.ui:219 main.ui:254
+#, kde-format
+msgid " ms"
+msgstr " ms"
+
+#. i18n: ectx: property (toolTip), widget (QLabel, triggerCooldownLabel)
+#: main.ui:238
+#, kde-format
+msgid ""
+"Amount of time required after triggering an action until the next trigger "
+"can occur"
+msgstr ""
+"Kvanto da tempo bezonata post ekigado de ago ĝis la sekva ellasilo povas "
+"okazi"
+
+#. i18n: ectx: property (text), widget (QLabel, triggerCooldownLabel)
+#: main.ui:241
+#, kde-format
+msgid "&Reactivation delay:"
+msgstr "Prokrasto de &Reaktivigo:"
+
+#. i18n: ectx: property (text), widget (QLabel, CornerBarrierLabel)
+#: main.ui:270
+#, kde-format
+msgid "&Corner barrier:"
+msgstr "&Angula barilo:"
+
+#. i18n: ectx: property (whatsThis), widget (QCheckBox, kcfg_CornerBarrier)
+#: main.ui:280
+#, fuzzy, kde-format
+#| msgid ""
+#| "Here you can enable or disable the virtual corner barrier between "
+#| "screens. The barrier prevents the cursor from moving to another screen "
+#| "when it is already touching a screen corner. This makes it easier to "
+#| "trigger user interface elements like maximized windows' close buttons "
+#| "when using multiple screens."
+msgid ""
+"Here you can enable or disable the virtual corner barrier between screens. "
+"The barrier prevents the pointer from moving to another screen when it is "
+"already touching a screen corner. This makes it easier to trigger user "
+"interface elements like maximized windows' close buttons when using multiple "
+"screens."
+msgstr ""
+"Ĉi tie vi povas ebligi aŭ malŝalti la virtualan angulan baron inter ekranoj. "
+"La baro malhelpas la kursoron moviĝi al alia ekrano kiam ĝi estas jam "
+"tuŝante ekranan angulon. Ĉi tio faciligas ekigi uzant-interfacajn elementojn "
+"kiel la fermbutonoj de maksimumigitaj fenestroj kiam vi uzas plurajn "
+"ekranojn."
+
+#. i18n: ectx: property (toolTip), widget (QCheckBox, kcfg_CornerBarrier)
+#: main.ui:283
+#, fuzzy, kde-format
+#| msgctxt "@info:tooltip"
+#| msgid "Prevents cursors from crossing at screen corners."
+msgctxt "@info:tooltip"
+msgid "Prevents the pointer from crossing at screen corners."
+msgstr "Malhelpas kursoron transiri je ekranaj anguloj."
+
+#. i18n: ectx: property (text), widget (QLabel, EdgeBarrierLabel)
+#: main.ui:290
+#, kde-format
+msgid "&Edge barrier:"
+msgstr "&Eĝa baro:"
+
+#. i18n: ectx: property (whatsThis), widget (QSpinBox, kcfg_EdgeBarrier)
+#: main.ui:300
+#, kde-format
+msgid ""
+"Here you can set size of the edge barrier between different screens. The "
+"barrier adds additional distance you have to move your pointer before it "
+"crosses the edge onto the other screen. This makes it easier to access user "
+"interface elements like Plasma Panels that are located on an edge between "
+"screens."
+msgstr ""
+"Ĉi tie vi povas agordi grandecon de la randa baro inter malsamaj ekranoj. La "
+"baro aldonas plian distancon, kiun vi devas movi vian montrilon antaŭ ol ĝi "
+"transiras la randon al la alia ekrano. Ĉi tio faciligas aliri uzant-"
+"interfacajn elementojn kiel Plasmaj Paneloj, kiuj situas sur rando inter "
+"ekranoj."
+
+#. i18n: ectx: property (toolTip), widget (QSpinBox, kcfg_EdgeBarrier)
+#: main.ui:303
+#, fuzzy, kde-format
+#| msgctxt "@info:tooltip"
+#| msgid "Additional distance cursor needs to travel to cross screen edges."
+msgctxt "@info:tooltip"
+msgid "Additional distance the pointer needs to travel to cross screen edges."
+msgstr "Aldona distanco kiun kursoro devas vojaĝi por transiri ekranrandojn."
+
+#. i18n: ectx: property (specialValueText), widget (QSpinBox, kcfg_EdgeBarrier)
+#: main.ui:306
+#, kde-format
+msgid "None"
+msgstr "Neniu"
+
+#. i18n: ectx: property (suffix), widget (QSpinBox, kcfg_EdgeBarrier)
+#: main.ui:309
+#, kde-format
+msgid " px"
+msgstr " px"
+
+#. i18n: ectx: property (text), widget (QLabel, label_1)
+#: touch.ui:17
+#, kde-format
+msgid ""
+"You can trigger an action by swiping from the screen edge towards the center "
+"of the screen."
+msgstr ""
+"Vi povas ekigi agon svingante de la ekranrando al la centro de la ekrano."

@@ -1,0 +1,1220 @@
+# translation of kcmkwinrules.po to Hebrew
+# translation of kcmkwinrules.po to
+# Diego Iastrubni <elcuco@kde.org>, 2004.
+# Diego Iastrubni <elcuco@kde.org>, 2005, 2006, 2008, 2012.
+# elkana bardugo <ttv200@gmail.com>, 2016.
+# Elkana Bardugo <ttv200@gmail.com>, 2017. #zanata
+# SPDX-FileCopyrightText: 2023-2026 Yaron Shahrabani <sh.yaron@gmail.com>
+msgid ""
+msgstr ""
+"Project-Id-Version: kcmkwinrules\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-07-10 00:46+0000\n"
+"PO-Revision-Date: 2026-05-14 08:58+0300\n"
+"Last-Translator: Yaron Shahrabani <sh.yaron@gmail.com>\n"
+"Language-Team: צוות התרגום של KDE ישראל\n"
+"Language: he\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=4; plural=(n == 1) ? 0 : ((n == 2) ? 1 : ((n > 10 && "
+"n % 10 == 0) ? 2 : 3));\n"
+"X-Generator: Lokalize 26.04.0\n"
+
+#: kcmrules.cpp:228
+#, kde-format
+msgid "Copy of %1"
+msgstr "עותק של %1"
+
+#: kcmrules.cpp:426
+#, kde-format
+msgid "Application settings for %1"
+msgstr "הגדרות יישום עבור %1"
+
+#: kcmrules.cpp:448 rulesmodel.cpp:222 rulesmodel.cpp:225
+#, kde-format
+msgid "Window settings for %1"
+msgstr "הגדרות חלון עבור %1"
+
+#: optionsmodel.cpp:199 optionsmodel.cpp:204
+#, kde-format
+msgctxt "@item:inlistbox"
+msgid "Unimportant"
+msgstr "לא חשוב"
+
+#: optionsmodel.cpp:200
+#, kde-format
+msgctxt "@item:inlistbox"
+msgid "Exact match"
+msgstr "התאמה מדויקת"
+
+#: optionsmodel.cpp:201
+#, kde-format
+msgctxt "@item:inlistbox"
+msgid "Substring match"
+msgstr "התאמת תת־מחרוזת"
+
+#: optionsmodel.cpp:202
+#, kde-format
+msgctxt "@item:inlistbox"
+msgid "Regular expression"
+msgstr "ביטוי רגולרי"
+
+#: optionsmodel.cpp:205
+#, kde-format
+msgctxt "@item:inlistbox This is a noun"
+msgid "Match"
+msgstr "התאמה"
+
+#: optionsmodel.cpp:210
+#, kde-format
+msgid "Apply initially"
+msgstr "החלה בהתחלה"
+
+#: optionsmodel.cpp:211
+#, kde-format
+msgid ""
+"The window property will be only set to the given value after the window is "
+"created.\n"
+"No further changes will be affected."
+msgstr ""
+"מאפיין החלון יוגדר לערך הנתון בלבד לאחר יצירת החלון.\n"
+"שינויים נוספים לא יושפעו."
+
+#: optionsmodel.cpp:214
+#, kde-format
+msgid "Apply now"
+msgstr "החלה כעת"
+
+#: optionsmodel.cpp:215
+#, kde-format
+msgid ""
+"The window property will be set to the given value immediately and will not "
+"be affected later\n"
+"(this action will be deleted afterwards)."
+msgstr ""
+"מאפיין החלון יוגדר לערך הנתון בלבד מייד ולא יושפע מאוחר יותר.\n"
+"(הפעולה הזאת תימחק לאחר מכן)."
+
+#: optionsmodel.cpp:218
+#, kde-format
+msgid "Remember"
+msgstr "לזכור"
+
+#: optionsmodel.cpp:219
+#, kde-format
+msgid ""
+"The value of the window property will be remembered and, every time the "
+"window is created, the last remembered value will be applied."
+msgstr "ערך מאפיין החלון לא ייזכר ועם כל יצירת חלון יחול הערך האחרון שזכור."
+
+#: optionsmodel.cpp:222
+#, kde-format
+msgid "Do not affect"
+msgstr "לא משפיע"
+
+#: optionsmodel.cpp:223
+#, kde-format
+msgid ""
+"The window property will not be affected and therefore the default handling "
+"for it will be used.\n"
+"Specifying this will block more generic window settings from taking effect."
+msgstr ""
+"מאפיין החלון לא יושפע ולכן ייעשה שימוש במטפל ברירת המחדל.\n"
+"ציון הערך הזה יחסום החלה של הגדרות חלון כלליות יותר."
+
+#: optionsmodel.cpp:226
+#, kde-format
+msgid "Force"
+msgstr "אכיפה"
+
+#: optionsmodel.cpp:227
+#, kde-format
+msgid "The window property will be always forced to the given value."
+msgstr "מאפיין החלון תמיד יינעל לערך הנתון."
+
+#: optionsmodel.cpp:229
+#, kde-format
+msgid "Force temporarily"
+msgstr "אכיפה זמנית"
+
+#: optionsmodel.cpp:230
+#, kde-format
+msgid ""
+"The window property will be forced to the given value until it is hidden\n"
+"(this action will be deleted after the window is hidden)."
+msgstr ""
+"מאפיין החלון יינעל לערך הנתון עד שיוסתר\n"
+"(פעולה זו תימחק לאחר הסתרת החלון)."
+
+#: rulesmodel.cpp:228
+#, kde-format
+msgid "Settings for %1"
+msgstr "הגדרות עבור %1"
+
+#: rulesmodel.cpp:231
+#, kde-format
+msgid "New window settings"
+msgstr "הגדרות חלון חדש"
+
+#: rulesmodel.cpp:247
+#, kde-format
+msgid ""
+"You have specified the window class as unimportant.\n"
+"This means the settings will possibly apply to windows from all "
+"applications. If you really want to create a generic setting, it is "
+"recommended you at least limit the window types to avoid special window "
+"types."
+msgstr ""
+"ציינת שמחלקת החלון אינה חשובה.\n"
+"משמעות הדבר היא שההגדרות יחולו על חלונות מכל היישומים. כדי ליצור הגדרה כללית "
+"באמת, מומלץ לפחות להגביל את סוגי החלונות כדי להימנע מסוגי חלונות מיוחדים."
+
+#: rulesmodel.cpp:254
+#, kde-format
+msgid ""
+"Some applications set their own geometry after starting, overriding your "
+"initial settings for size and position. To enforce these settings, also "
+"force the property \"%1\" to \"Yes\"."
+msgstr ""
+"חלק מהיישומים מגדירים לעצמם גודל לאחר ההפעלה תוך דריסת הגדרות הגודל והמיקום "
+"ההתחלתיים שלך. כדי לקבע את הערכים האלו, יש לנעול את המאפיין „%1” לערך "
+"„Yes” (כן)."
+
+#: rulesmodel.cpp:261
+#, kde-format
+msgid ""
+"Readability may be impaired with extremely low opacity values. At 0%, the "
+"window becomes invisible."
+msgstr ""
+"היכולת לקרוא עלולה להיפגע כשערכי האטימות נמוכים במיוחד. ב־0% החלון יהפוך "
+"בלתי נראה."
+
+#: rulesmodel.cpp:388
+#, kde-format
+msgid "Description"
+msgstr "תיאור"
+
+#: rulesmodel.cpp:388 rulesmodel.cpp:396 rulesmodel.cpp:404 rulesmodel.cpp:411
+#: rulesmodel.cpp:417 rulesmodel.cpp:425 rulesmodel.cpp:430 rulesmodel.cpp:436
+#: rulesmodel.cpp:441 rulesmodel.cpp:447
+#, kde-format
+msgid "Window matching"
+msgstr "התאמת חלונות"
+
+#: rulesmodel.cpp:396
+#, kde-format
+msgid "Window class (application)"
+msgstr "מחלקת החלון (יישום)"
+
+#: rulesmodel.cpp:404
+#, kde-format
+msgid "Match whole window class"
+msgstr "התאמת מחלקת חלון במלואה"
+
+#: rulesmodel.cpp:411
+#, kde-format
+msgid "Whole window class"
+msgstr "מחלקת חלון במלואה"
+
+#: rulesmodel.cpp:417
+#, kde-format
+msgid "Window types"
+msgstr "סוגי חלונות"
+
+#: rulesmodel.cpp:425
+#, kde-format
+msgid "Window role"
+msgstr "תפקיד החלון"
+
+#: rulesmodel.cpp:430
+#, kde-format
+msgid "Window title"
+msgstr "כותרת החלון"
+
+#: rulesmodel.cpp:436
+#, kde-format
+msgid "Machine (hostname)"
+msgstr "מכונה (שם מארח)"
+
+#: rulesmodel.cpp:441
+#, kde-format
+msgid "Window tag"
+msgstr "תגית חלון"
+
+#: rulesmodel.cpp:447
+#, kde-format
+msgid "Has parent window"
+msgstr "יש חלון הורה"
+
+#: rulesmodel.cpp:453
+#, kde-format
+msgid "Position"
+msgstr "מקום"
+
+#: rulesmodel.cpp:453 rulesmodel.cpp:459 rulesmodel.cpp:465 rulesmodel.cpp:470
+#: rulesmodel.cpp:478 rulesmodel.cpp:484 rulesmodel.cpp:503 rulesmodel.cpp:519
+#: rulesmodel.cpp:524 rulesmodel.cpp:529 rulesmodel.cpp:534 rulesmodel.cpp:541
+#: rulesmodel.cpp:555 rulesmodel.cpp:560
+#, kde-format
+msgid "Size & Position"
+msgstr "גודל ומקום"
+
+#: rulesmodel.cpp:459
+#, kde-format
+msgid "Size"
+msgstr "גודל"
+
+#: rulesmodel.cpp:465
+#, kde-format
+msgid "Maximized horizontally"
+msgstr "מוגדל אופקית"
+
+#: rulesmodel.cpp:470
+#, kde-format
+msgid "Maximized vertically"
+msgstr "מוגדל אנכית"
+
+#: rulesmodel.cpp:478
+#, kde-format
+msgid "Virtual desktop"
+msgstr "שולחן עבודה וירטואלי"
+
+#: rulesmodel.cpp:484
+#, kde-format
+msgid "Virtual desktops"
+msgstr "שולחנות עבודה וירטואליים"
+
+#: rulesmodel.cpp:503
+#, kde-format
+msgid "Activities"
+msgstr "פעילויות"
+
+#: rulesmodel.cpp:519
+#, kde-format
+msgid "Screen"
+msgstr "מסך"
+
+#: rulesmodel.cpp:524 rulesmodel.cpp:923
+#, kde-format
+msgid "Fullscreen"
+msgstr "מסך מלא"
+
+#: rulesmodel.cpp:529
+#, kde-format
+msgid "Minimized"
+msgstr "ממוזער"
+
+#: rulesmodel.cpp:534
+#, kde-format
+msgid "Initial placement"
+msgstr "הצבה ראשונית"
+
+#: rulesmodel.cpp:541
+#, kde-format
+msgid "Ignore requested geometry"
+msgstr "התעלמות מהגודל המבוקש"
+
+#: rulesmodel.cpp:544
+#, kde-kuit-format
+msgctxt "@info:tooltip"
+msgid ""
+"Some applications can set their own geometry, overriding the window manager "
+"preferences. Setting this property overrides their placement requests.<nl/"
+"><nl/>This affects <interface>Size</interface> and <interface>Position</"
+"interface> but not <interface>Maximized</interface> or "
+"<interface>Fullscreen</interface> states.<nl/><nl/>Note that the position "
+"can also be used to map to a different <interface>Screen</interface>"
+msgstr ""
+"חלק מהחלונות יכולים להגדיר לעצמם את הגודל והמקום, תוך דריסת העדפות מנהל "
+"החלונות.<nl/><nl/>מצב זה משפיע על ה<interface>גודל</interface> ועל "
+"ה<interface>מיקום</interface> אך לא על המצבים <interface>מוגדל</interface> "
+"או <interface>מסך מלא</interface>.<nl/><nl/>נא לשים לב שאפשר להשתמש במיקום "
+"כדי למפות ל<interface>מסך</interface> אחר"
+
+#: rulesmodel.cpp:555
+#, kde-format
+msgid "Minimum Size"
+msgstr "גודל מזערי"
+
+#: rulesmodel.cpp:560
+#, kde-format
+msgid "Maximum Size"
+msgstr "גודל מרבי"
+
+#: rulesmodel.cpp:566
+#, kde-format
+msgid "Keep above other windows"
+msgstr "מוגבה מעל לחלונות אחרים"
+
+#: rulesmodel.cpp:566 rulesmodel.cpp:571 rulesmodel.cpp:576 rulesmodel.cpp:582
+#: rulesmodel.cpp:588 rulesmodel.cpp:594
+#, kde-format
+msgid "Arrangement & Access"
+msgstr "סידור וגישה"
+
+#: rulesmodel.cpp:571
+#, kde-format
+msgid "Keep below other windows"
+msgstr "מונמך מתחת לחלונות אחרים"
+
+#: rulesmodel.cpp:576
+#, kde-format
+msgid "Skip taskbar"
+msgstr "לא יופיע בשורת המשימות"
+
+#: rulesmodel.cpp:578
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Controls whether or not the window appears in the Task Manager."
+msgstr "שליטה האם החלון מופיע במנהל המשימות."
+
+#: rulesmodel.cpp:582
+#, kde-format
+msgid "Skip pager"
+msgstr "לא יופיע בדפדפן המשימות"
+
+#: rulesmodel.cpp:584
+#, kde-format
+msgctxt "@info:tooltip"
+msgid ""
+"Controls whether or not the window appears in the Virtual Desktop manager."
+msgstr "שליטה האם החלון מופיע במנהל שולחנות העבודה הווירטואליים."
+
+#: rulesmodel.cpp:588
+#, kde-format
+msgid "Skip switcher"
+msgstr "לא יופיע במחליף החלונות"
+
+#: rulesmodel.cpp:590
+#, kde-kuit-format
+msgctxt "@info:tooltip"
+msgid ""
+"Controls whether or not the window appears in the <shortcut>Alt+Tab</"
+"shortcut> window list."
+msgstr "שליטה האם החלון מופיע ברשימת החלונות ב־<shortcut>Alt+Tab</shortcut>."
+
+#: rulesmodel.cpp:594
+#, kde-format
+msgid "Shortcut"
+msgstr "קיצור דרך"
+
+#: rulesmodel.cpp:600
+#, kde-format
+msgid "No titlebar and frame"
+msgstr "ללא מסגרת ושורת כותרת"
+
+#: rulesmodel.cpp:600 rulesmodel.cpp:605 rulesmodel.cpp:611 rulesmodel.cpp:616
+#: rulesmodel.cpp:622 rulesmodel.cpp:649 rulesmodel.cpp:677 rulesmodel.cpp:683
+#: rulesmodel.cpp:695 rulesmodel.cpp:700 rulesmodel.cpp:705 rulesmodel.cpp:711
+#: rulesmodel.cpp:716 rulesmodel.cpp:721
+#, kde-format
+msgid "Appearance & Fixes"
+msgstr "מראה ותיקונים"
+
+#: rulesmodel.cpp:605
+#, kde-format
+msgid "Titlebar color scheme"
+msgstr "סכמת צבעי שורת הכותרת"
+
+#: rulesmodel.cpp:611
+#, kde-format
+msgid "Active opacity"
+msgstr "שקיפות בפעילות"
+
+#: rulesmodel.cpp:616
+#, kde-format
+msgid "Inactive opacity"
+msgstr "שקיפות בהעדר פעילות"
+
+#: rulesmodel.cpp:622
+#, kde-format
+msgid "Focus stealing prevention"
+msgstr "מניעת גנבת מיקוד"
+
+#: rulesmodel.cpp:624
+#, kde-kuit-format
+msgctxt "@info:tooltip"
+msgid ""
+"KWin tries to prevent windows that were opened without direct user action "
+"from raising themselves and taking focus while you're currently interacting "
+"with another window. This property can be used to change the level of focus "
+"stealing prevention applied to individual windows and apps.<nl/><nl/>Here's "
+"what will happen to a window opened without your direct action at each level "
+"of focus stealing prevention:<nl/><list><item><emphasis strong='true'>None:</"
+"emphasis> The window will be raised and focused.</item><item><emphasis "
+"strong='true'>Low:</emphasis> Focus stealing prevention will be applied, but "
+"in the case of a situation KWin considers ambiguous, the window will be "
+"raised and focused.</item><item><emphasis strong='true'>Normal:</emphasis> "
+"Focus stealing prevention will be applied, but  in the case of a situation "
+"KWin considers ambiguous, the window will <emphasis>not</emphasis> be raised "
+"and focused.</item><item><emphasis strong='true'>High:</emphasis> The window "
+"will only be raised and focused if it belongs to the same app as the "
+"currently-focused window.</item><item><emphasis strong='true'>Extreme:</"
+"emphasis> The window will never be raised and focused.</item></list>"
+msgstr ""
+"KWin מנסה למנוע מחלונות שנפתחו ללא פעולה ישירה של המשתמש מלהגביה את עצמם "
+"ולגנוב את המיקוד בזמן שהמשתמש מתפעל חלון אחר.<nl/><nl/>הנה מה שיקרה לחלון "
+"שנפתח ללא פעולה ישירה בכל רמה של מניעת גנבת מיקוד:<nl/><list><item><emphasis "
+"strong='true'>ללא:</emphasis> החלון יוגבה ויקבל מיקוד.</item><item><emphasis "
+"strong='true'>נמוכה:</emphasis> מניעת גנבה תחול, אך במקרים ש־KWin מחשיב כלתי "
+"חד משמעיים, החלון יוגבה ויקבל מיקוד.</item><item><emphasis "
+"strong='true'>רגילה:</emphasis> מניעת גנבת מיקוד תחול, אך במקרים ש־KWin "
+"מחשיב כבלתי חד משמעיים, החלון <emphasis>לא</emphasis> יוגבה ויקבל מיקוד.</"
+"item><item><emphasis strong='true'>גבוהה:</emphasis> החלון יוגבה ויקבל מיקוד "
+"אם הוא שייך לאותו היישום כמו החלונות המיקוד עליהם כרגע.</"
+"item><item><emphasis strong='true'>קיצונית:</emphasis> החלון לעולם לא יוגבה "
+"או יקבל מיקוד.</item></list>"
+
+#: rulesmodel.cpp:649
+#, kde-format
+msgid "Focus protection"
+msgstr "הגנת מיקוד"
+
+#: rulesmodel.cpp:651
+#, kde-kuit-format
+msgctxt "@info:tooltip"
+msgid ""
+"This property controls the focus protection level of the currently active "
+"window. It is used to override the focus stealing prevention applied to new "
+"windows that are opened without your direct action.<nl/><nl/>Here's what "
+"happens to new windows that are opened without your direct action at each "
+"level of focus protection while the window with this property applied to it "
+"has focus:<nl/><list><item><emphasis strong='true'>None</emphasis>: Newly-"
+"opened windows always raise themselves and take focus.</item><item><emphasis "
+"strong='true'>Low:</emphasis> Focus stealing prevention will be applied to "
+"the newly-opened window, but in the case of a situation KWin considers "
+"ambiguous, the window will be raised and focused.</item><item><emphasis "
+"strong='true'>Normal:</emphasis> Focus stealing prevention will be applied "
+"to the newly-opened window, but in the case of a situation KWin considers "
+"ambiguous, the window will <emphasis>not</emphasis> be raised and focused.</"
+"item><item><emphasis strong='true'>High:</emphasis> Newly-opened windows "
+"will only raise themselves and take focus if they belongs to the same app as "
+"the currently-focused window.</item><item><emphasis strong='true'>Extreme:</"
+"emphasis> Newly-opened windows never raise themselves and take focus.</"
+"item></list>"
+msgstr ""
+"מאפיין זה שולט בהגנת המיקוד של החלון שפעיל כרגע. הוא משמש לדריסת מניעת גנבת "
+"המיקוד שחלה על חלונות חדשים שנפתחים ללא פעולה ישירה מצדך.<nl/><nl/>הנה מה "
+"שקורה לחלונות חדשים שנפתחים ללא פעולה ישירה מצדך בכל רמה של הגנת מיקוד בזמן "
+"שלחלון שחל עליו המאפיין הזה נמצא במיקוד:<nl/><list><item><emphasis "
+"strong='true'>ללא</emphasis>: חלונות חדשים שנתפתחים תמיד מעבירים אליהם את "
+"המיקוד.</item><item><emphasis strong='true'>נמוכה:</emphasis> מניעת גנבת "
+"מיקוד תחול על החלון החדש שנפתח אך במקרים ש־KWin מחשיב כבלתי חד משמעיים, "
+"החלון יוגבה ויקבל מיקוד.</item><item><emphasis strong='true'>רגילה:</"
+"emphasis> מניעת גנבת מיקוד תחול על החלון החדש שנפתח אך במקרים ש־KWin מחשיב "
+"כבלתי חד משמעיים, החלון <emphasis>לא</emphasis> יוגבה ויקבל מיקוד.</"
+"item><item><emphasis strong='true'>גבוהה:</emphasis> חלונות חדשים שנפתחים "
+"יגביהו את עצמם ויקבלו מיקוד רק אם הם שייכים לאותו היישום כמו החלון שהמיקוד "
+"עליו כרגע.</item><item><emphasis strong='true'>קיצונית:</emphasis> חלונות "
+"חדשים שנפתחים לעולם לא יגביהו את עצמם ולא יקבלו מיקוד.</item></list>"
+
+#: rulesmodel.cpp:677
+#, kde-format
+msgid "Accept focus"
+msgstr "קבלת מיקוד"
+
+#: rulesmodel.cpp:679
+#, kde-format
+msgid "Controls whether or not the window becomes focused when clicked."
+msgstr "שולט האם החלון ימוקד בלחיצה."
+
+#: rulesmodel.cpp:683
+#, kde-format
+msgid "Ignore global shortcuts"
+msgstr "התעלמות מקיצורים מקיפים"
+
+#: rulesmodel.cpp:685
+#, kde-kuit-format
+msgctxt "@info:tooltip"
+msgid ""
+"Use this property to prevent global keyboard shortcuts from working while "
+"the window is focused. This can be useful for apps like emulators or virtual "
+"machines that handle some of the same shortcuts themselves.<nl/><nl/>Note "
+"that you won't be able to <shortcut>Alt+Tab</shortcut> out of the window or "
+"use any other global shortcuts such as <shortcut>Alt+Space</shortcut> to "
+"activate KRunner."
+msgstr ""
+"יש להשתמש במאפיין זה כדי למנוע מקיצורי מקשים כלליים לעבוד תוך כדי שיש מיקוד "
+"על החלון. יכול להועיל ליישומים כמו הדמיות או מכונות וירטואליות שמטפלים באותם "
+"מקשי הקיצור בעצמם.<nl/><nl/>נא לשים לב שלא תהיה לך אפשרות לעבור לחלונות "
+"אחרים עם <shortcut>Alt+Tab</shortcut> או להשתמש בקיצורי מקשים כלליים כמו "
+"<shortcut>Alt+רווח</shortcut> כדי להפעיל את KRunner."
+
+#: rulesmodel.cpp:695
+#, kde-format
+msgid "Closeable"
+msgstr "ניתן לסגירה"
+
+#: rulesmodel.cpp:700
+#, kde-format
+msgid "Desktop file name"
+msgstr "שם קובץ Desktop"
+
+#: rulesmodel.cpp:705
+#, kde-format
+msgid "Layer"
+msgstr "שכבה"
+
+#: rulesmodel.cpp:711
+#, kde-format
+msgid "Adaptive sync"
+msgstr "סנכרון מסתגל"
+
+#: rulesmodel.cpp:716
+#, kde-format
+msgid "Allow tearing"
+msgstr "לאפשר חיתוך"
+
+#: rulesmodel.cpp:721
+#, kde-format
+msgid "Hide from screenshots and screen recordings"
+msgstr "הסתרה מצילומי והסרטות מסך"
+
+#: rulesmodel.cpp:774
+#, kde-format
+msgid "Window class not available"
+msgstr "מחלקת החלון לא זמינה"
+
+#: rulesmodel.cpp:775
+#, kde-kuit-format
+msgctxt "@info"
+msgid ""
+"This application is not providing a class for the window, so KWin cannot use "
+"it to match and apply any rules. If you still want to apply some rules to "
+"it, try to match other properties like the window title instead.<nl/><nl/"
+">Please consider reporting this bug to the application's developers."
+msgstr ""
+"יישום זה לא מספק מחלקה לחלון, לכן KWin לא יכול להשתמש בה לביצוע התאמה והחלת "
+"כללים כלשהם. כדי להחיל כל מיני כללים עליו, כדאי לנסות לתפוס מאפיינים אחרים "
+"כמו כותרת החלון במקום.<nl/><nl/>נא לשקול לדווח על זה כתקלה למפתחי היישום."
+
+#: rulesmodel.cpp:809
+#, kde-format
+msgid "All window types"
+msgstr "כל סוגי החלונות"
+
+#: rulesmodel.cpp:810
+#, kde-format
+msgid "Normal window"
+msgstr "חלון רגיל"
+
+#: rulesmodel.cpp:811
+#, kde-format
+msgid "Dialog window"
+msgstr "חלונית"
+
+#: rulesmodel.cpp:812
+#, kde-format
+msgid "Utility window"
+msgstr "חלון עזר"
+
+#: rulesmodel.cpp:813
+#, kde-format
+msgid "Dock (panel)"
+msgstr "לוח עגינה (פאנל)"
+
+#: rulesmodel.cpp:814
+#, kde-format
+msgid "Toolbar"
+msgstr "סרגל כלים"
+
+#: rulesmodel.cpp:815
+#, kde-format
+msgid "Torn-off menu"
+msgstr "תפריט צף"
+
+#: rulesmodel.cpp:816
+#, kde-format
+msgid "Splash screen"
+msgstr "מסך פתיח"
+
+#: rulesmodel.cpp:817 rulesmodel.cpp:918
+#, kde-format
+msgid "Desktop"
+msgstr "שולחן עבודה"
+
+#. i18n("Unmanaged Window")},  deprecated
+#: rulesmodel.cpp:819
+#, kde-format
+msgid "Standalone menubar"
+msgstr "תפריט עצמאי"
+
+#: rulesmodel.cpp:820 rulesmodel.cpp:926
+#, kde-format
+msgid "On-screen display"
+msgstr "תצוגה על המסך"
+
+#: rulesmodel.cpp:830
+#, kde-format
+msgid "All desktops"
+msgstr "בכל שולחנות העבודה"
+
+#: rulesmodel.cpp:832
+#, kde-format
+msgctxt "@info:tooltip in the virtual desktop list"
+msgid "Make the window available on all desktops"
+msgstr "להנגיש את החלון בכל שולחנות העבודה"
+
+#: rulesmodel.cpp:851
+#, kde-format
+msgid "All activities"
+msgstr "כל הפעילויות"
+
+#: rulesmodel.cpp:853
+#, kde-format
+msgctxt "@info:tooltip in the activity list"
+msgid "Make the window available on all activities"
+msgstr "להנגיש את החלון בכל הפעילויות"
+
+#: rulesmodel.cpp:874
+#, kde-format
+msgid "Default"
+msgstr "ברירת מחדל"
+
+#: rulesmodel.cpp:875
+#, kde-format
+msgid "No placement"
+msgstr "ללא הצבה"
+
+#: rulesmodel.cpp:876
+#, kde-format
+msgid "Minimal overlapping"
+msgstr "חפיפה מזערית"
+
+#: rulesmodel.cpp:877
+#, kde-format
+msgid "Maximized"
+msgstr "מוגדל"
+
+#: rulesmodel.cpp:878
+#, kde-format
+msgid "Centered"
+msgstr "ממורכז"
+
+#: rulesmodel.cpp:879
+#, kde-format
+msgid "Random"
+msgstr "אקראי"
+
+#: rulesmodel.cpp:880
+#, kde-format
+msgid "In top-left corner"
+msgstr "בפינה השמאלית העליונה"
+
+#: rulesmodel.cpp:881
+#, kde-format
+msgid "Under mouse"
+msgstr "מתחת לעכבר"
+
+#: rulesmodel.cpp:882
+#, kde-format
+msgid "On main window"
+msgstr "בחלון הראש"
+
+#: rulesmodel.cpp:889
+#, kde-format
+msgid "None"
+msgstr "ללא"
+
+#: rulesmodel.cpp:890
+#, kde-format
+msgid "Low"
+msgstr "נמוכה"
+
+#: rulesmodel.cpp:891 rulesmodel.cpp:920
+#, kde-format
+msgid "Normal"
+msgstr "רגילה"
+
+#: rulesmodel.cpp:892
+#, kde-format
+msgid "High"
+msgstr "גבוהה"
+
+#: rulesmodel.cpp:893
+#, kde-format
+msgid "Extreme"
+msgstr "הכי גבוהה"
+
+#: rulesmodel.cpp:919
+#, kde-format
+msgid "Below"
+msgstr "מתחת"
+
+#: rulesmodel.cpp:921
+#, kde-format
+msgid "Above"
+msgstr "מעל"
+
+#: rulesmodel.cpp:922
+#, kde-format
+msgid "Notification"
+msgstr "התראה"
+
+#: rulesmodel.cpp:924
+#, kde-format
+msgid "Popup"
+msgstr "חלונית צפה"
+
+#: rulesmodel.cpp:925
+#, kde-format
+msgid "Critical notification"
+msgstr "התראה מכרעת"
+
+#: rulesmodel.cpp:927
+#, kde-format
+msgid "Overlay"
+msgstr "שכבת על"
+
+#: rulesmodel.cpp:952
+#, kde-format
+msgid "Unmanaged window"
+msgstr "חלון לא מנוהל"
+
+#: rulesmodel.cpp:953
+#, kde-format
+msgid "Could not detect window properties. The window is not managed by KWin."
+msgstr "לא ניתן לזהות את מאפייני החלון. החלון הזה לא מנוהל על ידי KWin."
+
+#: ui/FileDialogLoader.qml:15
+#, kde-format
+msgid "Select File"
+msgstr "בחירת קובץ"
+
+#: ui/FileDialogLoader.qml:27
+#, kde-format
+msgid "KWin Rules (*.kwinrule)"
+msgstr "כללי KWin‏ (‎*.kwinrule)"
+
+#: ui/main.qml:28
+#, kde-format
+msgid "Add New…"
+msgstr "הוספת חדש…"
+
+#: ui/main.qml:35
+#, kde-format
+msgid "Import…"
+msgstr "ייבוא…"
+
+#: ui/main.qml:40
+#, kde-format
+msgid "Cancel Export"
+msgstr "ביטול ייצוא"
+
+#: ui/main.qml:40
+#, kde-format
+msgid "Export…"
+msgstr "ייצוא…"
+
+#: ui/main.qml:88
+#, kde-format
+msgid "No rules for specific windows are currently set"
+msgstr "אין כללים שחלים על חלונות מסוימים כרגע"
+
+#: ui/main.qml:89
+#, kde-kuit-format
+msgctxt "@info"
+msgid "Click <interface>Add New…</interface> to add some"
+msgstr "יש ללחוץ על <interface>הוספת חדש…</interface> כדי להוסיף כאלה"
+
+#: ui/main.qml:97
+#, kde-format
+msgid "Select the rules to export"
+msgstr "נא לבחור כללים לייצוא"
+
+#: ui/main.qml:101
+#, kde-format
+msgid "Unselect All"
+msgstr "ביטול בחירה"
+
+#: ui/main.qml:101
+#, kde-format
+msgid "Select All"
+msgstr "בחירה בהכול"
+
+#: ui/main.qml:115
+#, kde-format
+msgid "Save Rules"
+msgstr "שמירת כללים"
+
+#: ui/main.qml:202
+#, kde-format
+msgid "Edit"
+msgstr "עריכה"
+
+#: ui/main.qml:208
+#, kde-format
+msgid "Duplicate"
+msgstr "שכפול"
+
+#: ui/main.qml:214
+#, kde-format
+msgid "Delete"
+msgstr "מחיקה"
+
+#: ui/main.qml:246
+#, kde-format
+msgid "Import Rules"
+msgstr "ייבוא כללים"
+
+#: ui/main.qml:258
+#, kde-format
+msgid "Export Rules"
+msgstr "ייצוא כללים"
+
+#: ui/OptionsComboBox.qml:35
+#, kde-format
+msgid "None selected"
+msgstr "לא נבחר כלום"
+
+#: ui/OptionsComboBox.qml:41
+#, kde-format
+msgid "All selected"
+msgstr "כולם נבחרים"
+
+#: ui/OptionsComboBox.qml:43
+#, kde-format
+msgid "%1 selected"
+msgid_plural "%1 selected"
+msgstr[0] "נבחר %1"
+msgstr[1] "נבחרו שניים"
+msgstr[2] "נבחרו %1"
+msgstr[3] "נבחרו %1"
+
+#: ui/RulesEditor.qml:66
+#, kde-format
+msgid "No window properties changed"
+msgstr "אין מאפייני חלון שנערכו"
+
+#: ui/RulesEditor.qml:67
+#, kde-kuit-format
+msgctxt "@info"
+msgid ""
+"Click the <interface>Add Property...</interface> button below to add some "
+"window properties that will be affected by the rule"
+msgstr ""
+"יש ללחוץ על הכפתור <interface>הוספת מאפיין…</interface> להלן כדי להוסיף "
+"מאפייני חלון שיושפעו מהכלל"
+
+#: ui/RulesEditor.qml:88
+#, kde-format
+msgid "Add Property..."
+msgstr "הוספת מאפיין…"
+
+#: ui/RulesEditor.qml:99
+#, kde-format
+msgid "Detect Window Properties"
+msgstr "זיהוי מאפייני חלון"
+
+#: ui/RulesEditor.qml:115 ui/RulesEditor.qml:126
+#, kde-format
+msgid "Instantly"
+msgstr "מיידית"
+
+#: ui/RulesEditor.qml:116 ui/RulesEditor.qml:131
+#, kde-format
+msgid "After %1 second"
+msgid_plural "After %1 seconds"
+msgstr[0] "לאחר שנייה"
+msgstr[1] "לאחר שתי שניות"
+msgstr[2] "לאחר %1 שניות"
+msgstr[3] "לאחר %1 שניות"
+
+#: ui/RulesEditor.qml:178
+#, kde-format
+msgid "Add property to the rule"
+msgstr "הוספת מאפיין לכלל"
+
+#: ui/RulesEditor.qml:269
+#, kde-format
+msgctxt "@info:placeholder"
+msgid "No properties left to add"
+msgstr "לא נותרו מאפיינים להוספה"
+
+#: ui/RulesEditor.qml:271
+#, kde-format
+msgctxt "@info:placeholder %1 is a filter text introduced by the user"
+msgid "No properties match \"%1\""
+msgstr "אין מאפיינים שעונים על „%1”"
+
+#: ui/RulesEditor.qml:292 ui/ValueEditor.qml:54
+#, kde-format
+msgid "Yes"
+msgstr "כן"
+
+#: ui/RulesEditor.qml:292 ui/ValueEditor.qml:60
+#, kde-format
+msgid "No"
+msgstr "לא"
+
+#: ui/RulesEditor.qml:294 ui/ValueEditor.qml:168 ui/ValueEditor.qml:175
+#, kde-format
+msgid "%1 %"
+msgstr "%1 %"
+
+#: ui/RulesEditor.qml:296
+#, kde-format
+msgctxt "Coordinates (x, y)"
+msgid "(%1, %2)"
+msgstr "(%1, %2)"
+
+#: ui/RulesEditor.qml:298
+#, kde-format
+msgctxt "Size (width, height)"
+msgid "(%1, %2)"
+msgstr "(%1, %2)"
+
+#: ui/ValueEditor.qml:203
+#, kde-format
+msgctxt "(x, y) coordinates separator in size/position"
+msgid "x"
+msgstr "×"
+
+#~ msgid "Obey geometry restrictions"
+#~ msgstr "נאכף הגבלות גודל ומקום"
+
+#~ msgctxt "@info:tooltip"
+#~ msgid ""
+#~ "Some apps like video players or terminals can ask KWin to constrain them "
+#~ "to certain aspect ratios or only grow by values larger than the "
+#~ "dimensions of one character. Use this property to ignore such "
+#~ "restrictions and allow those windows to be resized to arbitrary sizes.<nl/"
+#~ "><nl/>This can be helpful for windows that can't quite fit the full "
+#~ "screen area when maximized."
+#~ msgstr ""
+#~ "חלק מהיישומים כגון נגני וידאו או מסופים יכולים לבקש מ־KWin להגביל אותם "
+#~ "ליחס אורך רוחב מסוים או לגדול רק בערכים שגדולים מממדים של תו אחד. יש "
+#~ "להשתמש במאפיין הזה כדי להתעלם ממגבלות כאלה ולאפשר לשנות את גודל החלונות "
+#~ "האלו לגדלים שרירותיים.<nl/><nl/>יכול להועיל לחלונות שלא ממש מכסים את המסך "
+#~ "כשהם מוגדלים."
+
+#~ msgid "Block compositing"
+#~ msgstr "חסימת ניהול חלונאי"
+
+#~ msgid "Hide from Screencast"
+#~ msgstr "הסתרה מהסרטת מסך"
+
+#~ msgid "Shaded"
+#~ msgstr "מואפל"
+
+#~ msgid "OSD"
+#~ msgstr "חיווי על המסך"
+
+#~ msgid "Close"
+#~ msgstr "סגירה"
+
+#~ msgid "Set window type"
+#~ msgstr "הגדרת סוג חלון"
+
+#~ msgid "Window shall (not) appear in the taskbar."
+#~ msgstr "חלון (לא) יופיע במנהל המשימות"
+
+#~ msgid "Window shall (not) appear in the manager for virtual desktops"
+#~ msgstr "חלון (לא) יופיע בחלונות מנהל של שולחנות עבודה וירטואלים"
+
+#~ msgid "Window shall (not) appear in the Alt+Tab list"
+#~ msgstr "חלון לא יופיע ברשימת החלונות (Alt+Tab)"
+
+#~ msgid ""
+#~ "Windows can ask to appear in a certain position.\n"
+#~ "By default this overrides the placement strategy\n"
+#~ "what might be nasty if the client abuses the feature\n"
+#~ "to unconditionally popup in the middle of your screen."
+#~ msgstr ""
+#~ "חלונות יכולים לבקש להופיע במקום מסוים.\n"
+#~ "זה עוקף בקשה זו שיכולה להיות לא אסתטית אם הלקוח משתמש בתכונה הזאת לרעה \n"
+#~ "בכדי לפתוח חלון באופן לא מבוקש באמצע המסך."
+
+#, fuzzy
+#~| msgid "WId of the window for special window settings."
+#~ msgid "KWin id of the window for special window settings."
+#~ msgstr "זהוי החלון (WId) של החלון עבור הגדרות מיוחדות."
+
+#~ msgid "Whether the settings should affect all windows of the application."
+#~ msgstr "האם ההגדרות צריכות להשפיע על כל החלונות של היישום."
+
+#~ msgid "This helper utility is not supposed to be called directly."
+#~ msgstr "This helper utility is not supposed to be called directly."
+
+#~ msgctxt "Window caption for the application wide rules dialog"
+#~ msgid "Edit Application-Specific Settings"
+#~ msgstr "ערוך הגדרות ליישומים ספציפיים"
+
+#~ msgid "Edit Window-Specific Settings"
+#~ msgstr "ערוך הגדרות לחלונות ספציפיים"
+
+#~ msgid ""
+#~ "<p><h1>Window-specific Settings</h1> Here you can customize window "
+#~ "settings specifically only for some windows.</p> <p>Please note that this "
+#~ "configuration will not take effect if you do not use KWin as your window "
+#~ "manager. If you do use a different window manager, please refer to its "
+#~ "documentation for how to customize window behavior.</p>"
+#~ msgstr ""
+#~ "<h1>חלונות ספציפיים הגדרות</h1> <p>כאן ניתן להתאים את ההתנהגות של חלונות "
+#~ "מסוימים. </p> <p> אנא שים לב שהגדרות אלו לא תיכנסנה לתוקף אם אתה לא משתמש "
+#~ "ב־kwin בתור מנהל החלונות שלך. אם הנך משתמש במנהל חלונות אחר, אנא פנה אל "
+#~ "התיעוד שלו לתצורה מתקדמת של התנהגות חלונות. </p>"
+
+#~ msgctxt "NAME OF TRANSLATORS"
+#~ msgid "Your names"
+#~ msgstr "צוות התרגום של KDE ישראל"
+
+#~ msgctxt "EMAIL OF TRANSLATORS"
+#~ msgid "Your emails"
+#~ msgstr "kde-l10n-he@kde.org"
+
+#, fuzzy
+#~ msgid "Window Rules"
+#~ msgstr "&תפקיד החלון:"
+
+#, fuzzy
+#~| msgid "Cascade"
+#~ msgid "Cascaded"
+#~ msgstr "מדורג"
+
+#, fuzzy
+#~| msgid "Keep &above"
+#~ msgid "Keep above"
+#~ msgstr "השאר &מעל"
+
+#, fuzzy
+#~| msgid "Keep &below"
+#~ msgid "Keep below"
+#~ msgstr "השאר מ&תחת"
+
+#~ msgid "KWin"
+#~ msgstr "KWin"
+
+#~ msgid "KWin helper utility"
+#~ msgstr "שירותית עזר של KWin"
+
+#, fuzzy
+#~| msgid "Activit&y"
+#~ msgid "Activity"
+#~ msgstr "&פעילות"
+
+#, fuzzy
+#~| msgid "&Detect Window Properties"
+#~ msgid "Select properties"
+#~ msgstr "&זהה מאפייני החלון"
+
+#~ msgid "Override Type"
+#~ msgstr "סוג שכתוב"
+
+#~ msgid "Unknown - will be treated as Normal Window"
+#~ msgstr "לא מוכר - יטופל כחלון רגיל"
+
+#~ msgid "Information About Selected Window"
+#~ msgstr "מידע על החלון הנבחר"
+
+#~ msgid "Class:"
+#~ msgstr "מחלקה:"
+
+#~ msgid "Role:"
+#~ msgstr "תפקיד:"
+
+#~ msgid "Type:"
+#~ msgstr "סוג:"
+
+#~ msgid "Title:"
+#~ msgstr "כותרת:"
+
+#~ msgid "Machine:"
+#~ msgstr "מכונה:"
+
+#~ msgid "Match by primary class name and"
+#~ msgstr "התאם לפי שם מחלקה ראשי וגם"
+
+#~ msgid "Window role (can be used to select windows by function)"
+#~ msgstr "כלל חלון (יכול לשמש לבחירת חלונות על ידי פונקציה)"
+
+#~ msgid "Window type (eg. all dialogs, but not the main windows)"
+#~ msgstr "סוג חלון (לדוג: כל הדו־שיח חוץ מהחלון הראשי)"
+
+#~ msgid ""
+#~ "Window title (very specific, can fail due to content changes or "
+#~ "translation)"
+#~ msgstr "כותרת החלון (מאוד ספציפי יכול להכשל בגלל תרגומים)"
+
+#~ msgid "&Single Shortcut"
+#~ msgstr "מקש קיצור &בודד"
+
+#~ msgid "C&lear"
+#~ msgstr "&נקה"
+
+#~ msgid "Window-Specific Settings Configuration Module"
+#~ msgstr "הגדרות חלונות ספציפיים"
+
+#~ msgid "(c) 2004 KWin and KControl Authors"
+#~ msgstr "כל הזכויות שמורות 2004 הכותבים של KWin ו־KControl"
+
+#~ msgid "Lubos Lunak"
+#~ msgstr "Lubos Lunak"
+
+#~ msgid "Remember settings separately for every window"
+#~ msgstr "זכור הגדרות לכל חלון"
+
+#~ msgid "Show internal settings for remembering"
+#~ msgstr "הצג הגדרות פנימיות לשמירה"
+
+#~ msgid "Internal setting for remembering"
+#~ msgstr "אפשרות פנימית לשמירה"
+
+#~ msgid "&Modify..."
+#~ msgstr "&שנה..."
+
+#~ msgid "Move &Up"
+#~ msgstr "הזז מ&עלה"
+
+#~ msgid "Move &Down"
+#~ msgstr "הזז מ&טה"
+
+#~ msgid ""
+#~ "Enable this checkbox to alter this window property for the specified "
+#~ "window(s)."
+#~ msgstr ""
+#~ "סמן תיבת סימן זו, כדי לשנות את מאפיין המסויים הזה עבור חלון מסויים (או "
+#~ "חלונות מסויימים)."
+
+#~ msgid "Unnamed entry"
+#~ msgstr "כניסה ללא שם"
+
+#~ msgid "Consult the documentation for more details."
+#~ msgstr "פנה אל התיעוד לפרטים נוספים."
+
+#~ msgid "Edit Shortcut"
+#~ msgstr "ערוך קיצור דרך"
+
+#~ msgid "s delay"
+#~ msgstr "שניות השהייה"
+
+#~ msgid "x,y"
+#~ msgstr "x,y"
+
+#~ msgid "0123456789-+,xX:"
+#~ msgstr "0123456789-+,xX:"
+
+#~ msgid "width,height"
+#~ msgstr "רוחב,גובה"
+
+#~ msgid "&Desktop"
+#~ msgstr "&שולחן עבודה"
+
+#~ msgid "Edit..."
+#~ msgstr "ערוך..."
+
+#~ msgid "Autog&roup in foreground"
+#~ msgstr "קבץ באופן אוטומטי בחזית"
+
+#~ msgid "Autogroup by I&D"
+#~ msgstr "קבץ באופן אוטומטי &לפי ID"
+
+#~ msgid "Autogroup with &identical"
+#~ msgstr "קבץ עם &זהים"
+
+#~ msgid "%"
+#~ msgstr "%"
+
+#~ msgid "Smart"
+#~ msgstr "חכם"

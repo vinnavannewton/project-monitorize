@@ -1,0 +1,1047 @@
+# Kazakh translation for mutter.
+# Copyright (C) 2013 mutter's COPYRIGHT HOLDER
+# This file is distributed under the same license as the mutter package.
+# Baurzhan Muftakhidinov <baurthefirst@gmail.com>, 2013-2020.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: mutter master\n"
+"Report-Msgid-Bugs-To: https://gitlab.gnome.org/GNOME/mutter/issues/\n"
+"POT-Creation-Date: 2026-02-28 15:06+0000\n"
+"PO-Revision-Date: 2026-03-04 06:44+0500\n"
+"Last-Translator: Baurzhan Muftakhidinov <baurthefirst@gmail.com>\n"
+"Language-Team: Kazakh <kk@li.org>\n"
+"Language: kk\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 3.8\n"
+
+#: data/50-mutter-navigation.xml:6
+msgid "Navigation"
+msgstr "Навигация"
+
+#: data/50-mutter-navigation.xml:9
+msgid "Move window to workspace 1"
+msgstr "Терезені 1-ші жұмыс орнына жылжыту"
+
+#: data/50-mutter-navigation.xml:12
+msgid "Move window to workspace 2"
+msgstr "Терезені 2-ші жұмыс орнына жылжыту"
+
+#: data/50-mutter-navigation.xml:15
+msgid "Move window to workspace 3"
+msgstr "Терезені 3-ші жұмыс орнына жылжыту"
+
+#: data/50-mutter-navigation.xml:18
+msgid "Move window to workspace 4"
+msgstr "Терезені 4-ші жұмыс орнына жылжыту"
+
+#: data/50-mutter-navigation.xml:21
+msgid "Move window to last workspace"
+msgstr "Терезені соңғы жұмыс орнына жылжыту"
+
+#: data/50-mutter-navigation.xml:24
+msgid "Move window one workspace to the left"
+msgstr "Терезені бір жұмыс орнына солға жылжыту"
+
+#: data/50-mutter-navigation.xml:27
+msgid "Move window one workspace to the right"
+msgstr "Терезені бір жұмыс орнына оңға жылжыту"
+
+#: data/50-mutter-navigation.xml:31
+msgid "Move window one workspace up"
+msgstr "Терезені бір жұмыс орнына жоғары жылжыту"
+
+#: data/50-mutter-navigation.xml:35
+msgid "Move window one workspace down"
+msgstr "Терезені бір жұмыс орнына төмен жылжыту"
+
+#: data/50-mutter-navigation.xml:38
+msgid "Move window one monitor to the left"
+msgstr "Терезені бір мониторға солға жылжыту"
+
+#: data/50-mutter-navigation.xml:41
+msgid "Move window one monitor to the right"
+msgstr "Терезені бір мониторға оңға жылжыту"
+
+#: data/50-mutter-navigation.xml:44
+msgid "Move window one monitor up"
+msgstr "Терезені бір мониторға жоғары жылжыту"
+
+#: data/50-mutter-navigation.xml:47
+msgid "Move window one monitor down"
+msgstr "Терезені бір мониторға төмен жылжыту"
+
+#: data/50-mutter-navigation.xml:51
+msgid "Switch applications"
+msgstr "Қолданбаларды ауыстыру"
+
+#: data/50-mutter-navigation.xml:56
+msgid "Switch to previous application"
+msgstr "Алдыңғы қолданбаға ауысу"
+
+#: data/50-mutter-navigation.xml:60
+msgid "Switch windows"
+msgstr "Терезелерді ауыстыру"
+
+#: data/50-mutter-navigation.xml:65
+msgid "Switch to previous window"
+msgstr "Алдыңғы терезеге ауысу"
+
+#: data/50-mutter-navigation.xml:69
+msgid "Switch windows of an application"
+msgstr "Қолданба терезелерін ауыстыру"
+
+#: data/50-mutter-navigation.xml:74
+msgid "Switch to previous window of an application"
+msgstr "Қолданбаның алдыңғы терезесіне ауысу"
+
+#: data/50-mutter-navigation.xml:78
+msgid "Switch system controls"
+msgstr "Жүйелік басқару элементтерін ауыстыру"
+
+#: data/50-mutter-navigation.xml:83
+msgid "Switch to previous system control"
+msgstr "Алдыңғы жүйелік басқару элементіне ауысу"
+
+#: data/50-mutter-navigation.xml:87
+msgid "Switch windows directly"
+msgstr "Терезелерді тікелей ауыстыру"
+
+#: data/50-mutter-navigation.xml:92
+msgid "Switch directly to previous window"
+msgstr "Тікелей алдыңғы терезеге ауысу"
+
+#: data/50-mutter-navigation.xml:96
+msgid "Switch windows of an app directly"
+msgstr "Қолданба терезелерін тікелей ауыстыру"
+
+#: data/50-mutter-navigation.xml:101
+msgid "Switch directly to previous window of an app"
+msgstr "Тікелей қолданбаның алдыңғы терезесіне ауысу"
+
+#: data/50-mutter-navigation.xml:105
+msgid "Switch system controls directly"
+msgstr "Жүйелік басқару элементтерін тікелей ауыстыру"
+
+#: data/50-mutter-navigation.xml:110
+msgid "Switch directly to previous system control"
+msgstr "Тікелей алдыңғы жүйелік басқару элементіне ауысу"
+
+#: data/50-mutter-navigation.xml:113
+msgid "Hide all normal windows"
+msgstr "Барлық қалыпты терезелерді жасыру"
+
+#: data/50-mutter-navigation.xml:116
+msgid "Switch to workspace 1"
+msgstr "1-ші жұмыс орнына ауысу"
+
+#: data/50-mutter-navigation.xml:119
+msgid "Switch to workspace 2"
+msgstr "2-ші жұмыс орнына ауысу"
+
+#: data/50-mutter-navigation.xml:122
+msgid "Switch to workspace 3"
+msgstr "3-ші жұмыс орнына ауысу"
+
+#: data/50-mutter-navigation.xml:125
+msgid "Switch to workspace 4"
+msgstr "4-ші жұмыс орнына ауысу"
+
+#: data/50-mutter-navigation.xml:128
+msgid "Switch to last workspace"
+msgstr "Соңғы жұмыс орнына ауысу"
+
+#: data/50-mutter-navigation.xml:131
+msgid "Switch to workspace on the left"
+msgstr "Сол жақтағы жұмыс орнына ауысу"
+
+#: data/50-mutter-navigation.xml:134
+msgid "Switch to workspace on the right"
+msgstr "Оң жақтағы жұмыс орнына ауысу"
+
+#: data/50-mutter-navigation.xml:138
+msgid "Switch to workspace above"
+msgstr "Жоғарыдағы жұмыс орнына ауысу"
+
+#: data/50-mutter-navigation.xml:142
+msgid "Switch to workspace below"
+msgstr "Төмендегі жұмыс орнына ауысу"
+
+#: data/50-mutter-system.xml:6 data/50-mutter-wayland.xml:6
+msgid "System"
+msgstr "Жүйе"
+
+#: data/50-mutter-system.xml:8
+msgid "Show the run command prompt"
+msgstr "Команданы жөнелту сұхбатын көрсету"
+
+#: data/50-mutter-wayland.xml:8
+msgid "Restore the keyboard shortcuts"
+msgstr "Пернетақта жарлықтарын қалпына келтіру"
+
+#: data/50-mutter-windows.xml:6
+msgid "Windows"
+msgstr "Терезелер"
+
+#: data/50-mutter-windows.xml:8
+msgid "Activate the window menu"
+msgstr "Терезе мәзірін белсендіру"
+
+#: data/50-mutter-windows.xml:10
+msgid "Toggle fullscreen mode"
+msgstr "Толық экран режимін ауыстыру"
+
+#: data/50-mutter-windows.xml:12
+msgid "Toggle maximization state"
+msgstr "Жазық күйін ауыстыру"
+
+#: data/50-mutter-windows.xml:14
+msgid "Maximize window"
+msgstr "Терезені жазық қылу"
+
+#: data/50-mutter-windows.xml:16
+msgid "Restore window"
+msgstr "Терезені қалпына келтіру"
+
+#: data/50-mutter-windows.xml:18
+msgid "Close window"
+msgstr "Терезені жабу"
+
+#: data/50-mutter-windows.xml:20
+msgid "Hide window"
+msgstr "Терезені жасыру"
+
+#: data/50-mutter-windows.xml:22
+msgid "Move window"
+msgstr "Терезені жылжыту"
+
+#: data/50-mutter-windows.xml:24
+msgid "Resize window"
+msgstr "Терезе өлшемдерін өзгерту"
+
+#: data/50-mutter-windows.xml:27
+msgid "Toggle window on all workspaces or one"
+msgstr "Терезені барлық жұмыс орындарында көрсетуді іске қосу/сөндіру"
+
+#: data/50-mutter-windows.xml:29
+msgid "Raise window if covered, otherwise lower it"
+msgstr ""
+"Терезе басқалармен үстінен жабылған болса, алдына көтеру, болмаса, "
+"басқалардың артына апару"
+
+#: data/50-mutter-windows.xml:31
+msgid "Raise window above other windows"
+msgstr "Терезені басқа терезелердің алдына көтеру"
+
+#: data/50-mutter-windows.xml:33
+msgid "Lower window below other windows"
+msgstr "Терезені басқа терезелердің артына апару"
+
+#: data/50-mutter-windows.xml:35
+msgid "Maximize window vertically"
+msgstr "Терезені вертикалды жазық қылу"
+
+#: data/50-mutter-windows.xml:37
+msgid "Maximize window horizontally"
+msgstr "Терезені горизонталды жазық қылу"
+
+#: data/50-mutter-windows.xml:41 data/org.gnome.mutter.gschema.xml.in:166
+msgid "View split on left"
+msgstr "Көріністі сол жаққа бөлу"
+
+#: data/50-mutter-windows.xml:45 data/org.gnome.mutter.gschema.xml.in:171
+msgid "View split on right"
+msgstr "Көріністі оң жаққа бөлу"
+
+#: data/org.gnome.mutter.gschema.xml.in:15
+msgid "Modifier to use for extended window management operations"
+msgstr ""
+"Терезені басқарудың кеңейтілген операциялары үшін қолданылатын модификатор"
+
+#: data/org.gnome.mutter.gschema.xml.in:16
+msgid ""
+"This key will initiate the “overlay”, which is a combination window overview "
+"and application launching system. The default is intended to be the “Windows "
+"key” on PC hardware. It’s expected that this binding either the default or "
+"set to the empty string."
+msgstr ""
+"Бұл перне терезелерге шолу және қолданбаларды іске қосу жүйесінің "
+"комбинациясы болып табылатын «overlay» режимін іске қосады. Әдетте ол ДК "
+"жабдығындағы «Windows пернесі» болып табылады. Бұл байланыстыру әдепкі "
+"бойынша қалады немесе бос жол ретінде орнатылады деп күтіледі."
+
+#: data/org.gnome.mutter.gschema.xml.in:28
+msgid "Attach modal dialogs"
+msgstr "Модальды диалогтарды жалғау"
+
+#: data/org.gnome.mutter.gschema.xml.in:29
+msgid ""
+"When true, instead of having independent titlebars, modal dialogs appear "
+"attached to the titlebar of the parent window and are moved together with "
+"the parent window."
+msgstr ""
+"Егер ақиқат болса, тәуелсіз тақырыптамалардың орнына модальді сұхбат "
+"терезелері аталық терезенің тақырыптамасына бекітілген түрде пайда болады "
+"және аталық тереземен бірге жылжытылады."
+
+#: data/org.gnome.mutter.gschema.xml.in:38
+msgid "Enable edge tiling when dropping windows on screen edges"
+msgstr ""
+"Терезелерді экран шеттеріне апарған кезде олардың өлшемдерін өзгертуді іске "
+"қосу"
+
+#: data/org.gnome.mutter.gschema.xml.in:39
+msgid ""
+"If enabled, dropping windows on vertical screen edges maximizes them "
+"vertically and resizes them horizontally to cover half of the available "
+"area. Dropping windows on the top screen edge maximizes them completely."
+msgstr ""
+"Іске қосылған болса, терезелерді экранның вертикалды жиектеріне тастаған "
+"кезде олар вертикалды түрде жайылады және қолжетімді аймақтың жартысын жабу "
+"үшін горизонталды түрде өлшемі өзгереді. Терезелерді экранның жоғарғы "
+"жиегіне тастаған кезде олар толығымен жайылады."
+
+#: data/org.gnome.mutter.gschema.xml.in:48
+msgid "Workspaces are managed dynamically"
+msgstr "Жұмыс орындары динамикалы түрде басқарылады"
+
+#: data/org.gnome.mutter.gschema.xml.in:49
+msgid ""
+"Determines whether workspaces are managed dynamically or whether there’s a "
+"static number of workspaces (determined by the num-workspaces key in "
+"org.gnome.desktop.wm.preferences)."
+msgstr ""
+"Жұмыс орындарының динамикалық түрде басқарылатынын немесе жұмыс орындарының "
+"саны статикалық болатынын анықтайды (org.gnome.desktop.wm.preferences "
+"ішіндегі num-workspaces кілті арқылы анықталады)."
+
+#: data/org.gnome.mutter.gschema.xml.in:58
+msgid "Workspaces only on primary"
+msgstr "Жұмыс орындары тек негізгі мониторда"
+
+#: data/org.gnome.mutter.gschema.xml.in:59
+msgid ""
+"Determines whether workspace switching should happen for windows on all "
+"monitors or only for windows on the primary monitor."
+msgstr ""
+"Жұмыс орындарын ауыстыру барлық мониторлардағы терезелер үшін немесе тек "
+"негізгі монитордағы терезелер үшін орындалуын анықтайды."
+
+#: data/org.gnome.mutter.gschema.xml.in:67
+msgid "Delay focus changes until the pointer stops moving"
+msgstr "Курсор қозғалысы тоқтағанға дейін фокус өзгеруін кешіктіру"
+
+#: data/org.gnome.mutter.gschema.xml.in:68
+msgid ""
+"If set to true, and the focus mode is either “sloppy” or “mouse” then the "
+"focus will not be changed immediately when entering a window, but only after "
+"the pointer stops moving."
+msgstr ""
+"Егер ақиқат болса және фокус режимі «sloppy» немесе «mouse» (тышқан) болса, "
+"терезеге кіргенде фокус бірден өзгермейді, тек курсор қозғалысы тоқтағаннан "
+"кейін ғана өзгереді."
+
+#: data/org.gnome.mutter.gschema.xml.in:78
+msgid "Draggable border width"
+msgstr "Сүйрелетін жиектің ені"
+
+#: data/org.gnome.mutter.gschema.xml.in:79
+msgid ""
+"The amount of total draggable borders. If the theme’s visible borders are "
+"not enough, invisible borders will be added to meet this value."
+msgstr ""
+"Жалпы сүйрелетін жиектердің мөлшері. Егер тақырыптың көрінетін жиектері "
+"жеткіліксіз болса, осы мәнге жету үшін көрінбейтін жиектер қосылады."
+
+#: data/org.gnome.mutter.gschema.xml.in:88
+msgid "Auto maximize nearly monitor sized windows"
+msgstr "Өлшемі мониторға жуық терезелерді автоматты түрде жаю"
+
+#: data/org.gnome.mutter.gschema.xml.in:89
+msgid ""
+"If enabled, new windows that are initially the size of the monitor "
+"automatically get maximized."
+msgstr ""
+"Іске қосылған болса, бастапқы өлшемі монитор өлшеміндей болатын жаңа "
+"терезелер автоматты түрде жайылады."
+
+#: data/org.gnome.mutter.gschema.xml.in:97
+msgid "Place new windows in the center"
+msgstr "Жаңа терезелерді ортаға орналастыру"
+
+#: data/org.gnome.mutter.gschema.xml.in:98
+msgid ""
+"When true, the new windows will always be put in the center of the active "
+"screen of the monitor."
+msgstr ""
+"Егер ақиқат болса, жаңа терезелер әрқашан монитордың белсенді экранының "
+"ортасына қойылады."
+
+#: data/org.gnome.mutter.gschema.xml.in:107
+msgid "Enable experimental features"
+msgstr "Эксперименталды мүмкіндіктерді іске қосу"
+
+#: data/org.gnome.mutter.gschema.xml.in:108
+msgid ""
+"To enable experimental features, add the feature keyword to the list. "
+"Whether the feature requires restarting the compositor depends on the given "
+"feature. Any experimental feature is not required to still be available, or "
+"configurable. Don’t expect adding anything in this setting to be future "
+"proof. Currently possible keywords: • “kms-modifiers” — makes mutter always "
+"allocate scanout buffers with explicit modifiers, if supported by the "
+"driver. Requires a restart. • “autoclose-xwayland” — automatically "
+"terminates Xwayland if all relevant X11 clients are gone. Requires a restart."
+msgstr ""
+"Сынақ сатысындағы мүмкіндіктерді қосу үшін мүмкіндіктің кілт сөзін тізімге "
+"қосыңыз. Мүмкіндікті іске қосу үшін композиторды қайта жүктеу қажеттілігі "
+"таңдалған мүмкіндікке байланысты. Кез келген эксперименталды мүмкіндіктің "
+"болашақта қолжетімді болуы немесе баптауға келуі міндетті емес. Бұл "
+"параметрге кез келген нәрсені қосудың болашақта өзгеріссіз қалатынына "
+"сенбеңіз. Қазіргі уақытта қолжетімді кілт сөздер: • “kms-modifiers” — егер "
+"драйвер қолдайтын болса, mutter терезе менеджеріне сканерлеу буферлерін "
+"(scanout buffers) әрқашан нақты модификаторлармен бөлуге мәжбүрлейді. Жүйені "
+"қайта жүктеуді қажет етеді. • “autoclose-xwayland” — егер барлық тиісті X11 "
+"клиенттері жабылса, Xwayland жұмысын автоматты түрде тоқтатады. Жүйені қайта "
+"жүктеуді қажет етеді."
+
+#: data/org.gnome.mutter.gschema.xml.in:130
+msgid "Modifier to use to locate the pointer"
+msgstr "Курсорды табу үшін қолданылатын модификатор"
+
+#: data/org.gnome.mutter.gschema.xml.in:131
+msgid "This key will initiate the “locate pointer” action."
+msgstr "Бұл перне «курсорды табу» әрекетін іске қосады."
+
+#: data/org.gnome.mutter.gschema.xml.in:138
+msgid "Timeout for check-alive ping"
+msgstr "Тірі екенін тексеру (ping) үшін күту уақыты"
+
+#: data/org.gnome.mutter.gschema.xml.in:139
+msgid ""
+"Number of milliseconds a client has to respond to a ping request in order to "
+"not be detected as frozen. Using 0 will disable the alive check completely."
+msgstr ""
+"Клиенттің қатып қалғанын анықтамау үшін ping сұранысына жауап беруі тиіс "
+"миллисекундтар саны. 0 мәнін пайдалану тірі екенін тексеруді толығымен "
+"сөндіреді."
+
+#. TRANSLATORS: Luminance is different from brightness.
+#. See https://en.wikipedia.org/wiki/Luminance
+#: data/org.gnome.mutter.gschema.xml.in:150
+msgid "Per output luminance settings"
+msgstr "Әр шығыс үшін жарықтық параметрлері"
+
+#: data/org.gnome.mutter.gschema.xml.in:151
+msgid ""
+"Per output and color mode luminance setting. Each entry consists of a tuple "
+"with connector, vendor, product, serial, and a color mode, as well as an "
+"associated floating point value representing the output luminance in percent "
+"(%). The default when not specified is 100%."
+msgstr ""
+"Әр шығыс және түс режимі үшін жарықтық параметрі. Әрбір жазба коннектор, "
+"өндіруші, өнім, сериялық нөмір және түс режимі бар кортежден, сондай-ақ "
+"пайызбен (%) берілген шығыс жарықтығын білдіретін жылжымалы нүктелі мәннен "
+"тұрады. Көрсетілмеген жағдайда әдепкі мән - 100%."
+
+#: data/org.gnome.mutter.gschema.xml.in:176
+msgid "Switch monitor configurations"
+msgstr "Монитор баптауларын ауыстыру"
+
+#: data/org.gnome.mutter.gschema.xml.in:181
+msgid "Rotates the built-in monitor configuration"
+msgstr "Кірістірілген монитор конфигурациясын бұрады"
+
+#: data/org.gnome.mutter.gschema.xml.in:186
+msgid "Cancel any active input capture session"
+msgstr "Кез келген белсенді енгізуді қармау сессиясынан бас тарту"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:12
+msgid "Switch to VT 1"
+msgstr "Бірінші виртуалды терминалына ауысу"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:16
+msgid "Switch to VT 2"
+msgstr "Екінші виртуалды терминалына ауысу"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:20
+msgid "Switch to VT 3"
+msgstr "Үшінші виртуалды терминалына ауысу"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:24
+msgid "Switch to VT 4"
+msgstr "Төртінші виртуалды терминалына ауысу"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:28
+msgid "Switch to VT 5"
+msgstr "Бесінші виртуалды терминалына ауысу"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:32
+msgid "Switch to VT 6"
+msgstr "Алтыншы виртуалды терминалына ауысу"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:36
+msgid "Switch to VT 7"
+msgstr "Жетінші виртуалды терминалына ауысу"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:40
+msgid "Switch to VT 8"
+msgstr "Сегізінші виртуалды терминалына ауысу"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:44
+msgid "Switch to VT 9"
+msgstr "Тоғызыншы виртуалды терминалына ауысу"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:48
+msgid "Switch to VT 10"
+msgstr "Оныншы виртуалды терминалына ауысу"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:52
+msgid "Switch to VT 11"
+msgstr "Он бірінші виртуалды терминалына ауысу"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:56
+msgid "Switch to VT 12"
+msgstr "Он екінші виртуалды терминалына ауысу"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:60
+msgid "Re-enable shortcuts"
+msgstr "Жарлықтарды қайта іске қосу"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:70
+msgid "Allow X11 grabs to lock keyboard focus with Xwayland"
+msgstr ""
+"X11 қармауларына Xwayland арқылы пернетақта фокусын бұғаттауға рұқсат беру"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:71
+msgid ""
+"Allow all keyboard events to be routed to X11 “override redirect” windows "
+"with a grab when running in Xwayland. This option is to support X11 clients "
+"which map an “override redirect” window (which do not receive keyboard "
+"focus) and issue a keyboard grab to force all keyboard events to that "
+"window. This option is seldom used and has no effect on regular X11 windows "
+"which can receive keyboard focus under normal circumstances. For a X11 grab "
+"to be taken into account under Wayland, the client must also either send a "
+"specific X11 ClientMessage to the root window or be among the applications "
+"allowed in key “xwayland-grab-access-rules”."
+msgstr ""
+"Xwayland ішінде орындалған кезде барлық пернетақта оқиғаларын қармауы бар "
+"X11 “override redirect” терезелеріне бағыттауға рұқсат беру. Бұл опция "
+"“override redirect” терезесін (пернетақта фокусын алмайтын) бейнелейтін және "
+"барлық пернетақта оқиғаларын сол терезеге мәжбүрлеу үшін пернетақтаны "
+"қармауды шығаратын X11 клиенттерін қолдауға арналған. Бұл опция сирек "
+"қолданылады және қалыпты жағдайда пернетақта фокусын ала алатын кәдімгі X11 "
+"терезелеріне әсер етпейді. X11 қармауы Wayland астында ескерілуі үшін, "
+"клиент түбірлік терезеге арнайы X11 ClientMessage жіберуі керек немесе "
+"“xwayland-grab-access-rules” кілтінде рұқсат етілген қолданбалар арасында "
+"болуы керек."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:90
+msgid "Xwayland applications allowed to issue keyboard grabs"
+msgstr "Пернетақтаны қармауға рұқсаты бар Xwayland қолданбалары"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:91
+msgid ""
+"List the resource names or resource class of X11 windows either allowed or "
+"not allowed to issue X11 keyboard grabs under Xwayland. The resource name or "
+"resource class of a given X11 window can be obtained using the command "
+"“xprop WM_CLASS”. Wildcards “*” and jokers “?” in the values are supported. "
+"Values starting with “!” are denied, which has precedence over the list of "
+"values allowed, to revoke applications from the default system list. The "
+"default system list includes the following applications: "
+"“@XWAYLAND_GRAB_DEFAULT_ACCESS_RULES@” Users can break an existing grab by "
+"using the specific keyboard shortcut defined by the keybinding key “restore-"
+"shortcuts”."
+msgstr ""
+"Xwayland астында X11 пернетақтасын қармауға рұқсат етілген немесе рұқсат "
+"етілмеген X11 терезелерінің ресурс атауларының немесе ресурс кластарының "
+"тізімі. Берілген X11 терезесінің ресурс атауын немесе ресурс класын “xprop "
+"WM_CLASS” командасы арқылы алуға болады. Мәндердегі “*” және “?” маскаларына "
+"қолдау көрсетіледі. “!” таңбасынан басталатын мәндерге тыйым салынады, бұл "
+"қолданбаларды әдепкі жүйелік тізімнен алып тастау үшін рұқсат етілген мәндер "
+"тізімінен басым болады. Әдепкі жүйелік тізімге келесі қолданбалар кіреді: "
+"“@XWAYLAND_GRAB_DEFAULT_ACCESS_RULES@” Пайдаланушылар “restore-shortcuts” "
+"пернелер тіркесімі кілтімен анықталған арнайы пернетақта жарлығын "
+"пайдаланып, бар қармауды бұза алады."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:116
+msgid "Disable selected X extensions in Xwayland"
+msgstr "Xwayland ішінде таңдалған X кеңейтулерін сөндіру"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:117
+msgid ""
+"This option disables the selected X extensions in Xwayland if Xwayland was "
+"built with support for those X extensions. This option has no effect if "
+"Xwayland was built without support for the selected extensions. Xwayland "
+"needs to be restarted for this setting to take effect."
+msgstr ""
+"Егер Xwayland сол X кеңейтулеріне қолдаумен жиналған болса, бұл опция "
+"Xwayland ішіндегі таңдалған X кеңейтулерін сөндіреді. Егер Xwayland "
+"таңдалған кеңейтулерге қолдаусыз жиналған болса, бұл опцияның әсері "
+"болмайды. Бұл параметр күшіне енуі үшін Xwayland бағдарламасын қайта іске "
+"қосу керек."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:130
+msgid "Allow X11 clients with a different endianness to connect to Xwayland"
+msgstr "Xwayland-қа байттар реті басқа X11 клиенттерінің қосылуына рұқсат беру"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:131
+msgid ""
+"Allow connections from clients with an endianness different to that of "
+"Xwayland. The X server byte-swapping code is a huge attack surface, much of "
+"that code in Xwayland is prone to security issues. The use-case of byte-"
+"swapped clients is very niche, and disabled by default in Xwayland. Enable "
+"this option to instruct Xwayland to accept connections from X11 clients with "
+"a different endianness. This option has no effect if Xwayland does not "
+"support the command line option +byteswappedclients/-byteswappedclients to "
+"control that setting. Xwayland needs to be restarted for this setting to "
+"take effect."
+msgstr ""
+"Байттар реті (endianness) Xwayland-тан өзгеше клиенттердің қосылуына рұқсат "
+"беру. X-сервердің байттарды алмастыру коды үлкен шабуыл аймағы болып "
+"табылады, Xwayland-тағы сол кодтың көп бөлігі қауіпсіздік мәселелеріне "
+"бейім. Байттары алмастырылған клиенттерді пайдалану жағдайы өте сирек "
+"кездеседі және Xwayland-та әдепкі бойынша сөндірілген. Xwayland-қа байттар "
+"реті басқа X11 клиенттерінен қосылымдарды қабылдауды тапсыру үшін бұл "
+"опцияны іске қосыңыз. Егер Xwayland сол параметрді басқару үшін "
+"+byteswappedclients/-byteswappedclients командалық жол опциясына қолдау "
+"көрсетпесе, бұл опцияның әсері болмайды. Бұл параметр күшіне енуі үшін "
+"Xwayland бағдарламасын қайта іске қосу керек."
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:154
+msgid "Configure the Xwayland scaling factor"
+msgstr "Xwayland масштабтау коэффициентін баптау"
+
+#: data/org.gnome.mutter.wayland.gschema.xml.in:155
+msgid ""
+"Scale the Xwayland coordinate space according to this factor. This will "
+"affect what scale HiDPI capable X11 clients will present themselves as, and "
+"how the compositor scales X11 client windows. Setting the scale to 0 means "
+"the scale will be automatically calculated. The scale will as of now be "
+"rounded to the closest integer."
+msgstr ""
+"Xwayland координаталық кеңістігін осы коэффициентке сәйкес масштабтаңыз. Бұл "
+"HiDPI қолдайтын X11 клиенттерінің қалай көрінетініне және композитордың X11 "
+"терезелерін қалай масштабтайтынына әсер етеді. Масштабты 0 деп орнату оның "
+"автоматты түрде есептелетінін білдіреді. Қазіргі уақытта масштаб мәні ең "
+"жақын бүтін санға дейін дөңгелектенеді."
+
+#: mdk/mdk-launcher-adder.c:451 mdk/mdk-launcher-adder.ui:22
+msgid "Application"
+msgstr "Қолданба"
+
+#: mdk/mdk-launcher-adder.c:456 mdk/mdk-launcher-adder.ui:23
+msgid "Executable"
+msgstr "Орындалатын файл"
+
+#: mdk/mdk-launcher-adder.ui:3
+msgid "Add Launcher"
+msgstr "Жібергішті қосу"
+
+#: mdk/mdk-launcher-adder.ui:15
+msgid "Launcher"
+msgstr "Жібергіш"
+
+#: mdk/mdk-launcher-adder.ui:18
+msgid "Type"
+msgstr "Түрі"
+
+#: mdk/mdk-launcher-adder.ui:38 mdk/mdk-launchers-editor.ui:22
+msgid "Add"
+msgstr "Қосу"
+
+#: mdk/mdk-launcher-entry.c:198
+msgid "Run"
+msgstr "Орындау"
+
+#: mdk/mdk-launcher-entry.ui:12
+msgid "Delete"
+msgstr "Өшіру"
+
+#: mdk/mdk-launcher-entry.ui:20
+msgid "Action"
+msgstr "Әрекет"
+
+#: mdk/mdk-launchers-editor.ui:3
+msgid "Edit Launchers"
+msgstr "Жібергіштерді түзету"
+
+#: mdk/mdk-launchers-editor.ui:16
+msgid "Launchers"
+msgstr "Жібергіштер"
+
+#: mdk/mdk-main-window.ui:7
+msgid "_Input"
+msgstr "_Енгізу"
+
+#: mdk/mdk-main-window.ui:9
+msgid "_Emulate touch"
+msgstr "Түртуді _эмуляциялау"
+
+#: mdk/mdk-main-window.ui:13
+msgid "_Inhibit system shortcuts"
+msgstr "Жүйелік жарлықтарды _бөгеу"
+
+#: mdk/mdk-main-window.ui:17
+msgid "Use host _keymap"
+msgstr "Хост _пернелер картасын қолдану"
+
+#: mdk/mdk-main-window.ui:24
+msgid "_Monitors"
+msgstr "_Мониторлар"
+
+#: mdk/mdk-main-window.ui:26
+msgid "_Add monitor"
+msgstr "Мониторды қ_осу"
+
+#: mdk/mdk-main-window.ui:30
+msgid "_Emulate monitor modes"
+msgstr "Монитор режимдерін _эмуляциялау"
+
+#: mdk/mdk-main-window.ui:37
+msgid "_Launchers"
+msgstr "_Жібергіштер"
+
+#: mdk/mdk-main-window.ui:41
+msgid "_Edit launchers"
+msgstr "Жібергіштерді _түзету"
+
+#: mdk/mdk-main-window.ui:48
+msgid "_About Mutter Development Kit"
+msgstr "Mutter әзірлеу жиынтығы _туралы"
+
+#: mdk/mdk-main-window.ui:54 mdk/mdk-main.c:56
+msgid "Mutter Development Kit"
+msgstr "Mutter әзірлеу жиынтығы"
+
+#: mdk/mdk-main-window.ui:64
+msgid "Main Menu"
+msgstr "Бас мәзір"
+
+#: mdk/mdk-main.c:49
+msgid "The Mutter Team"
+msgstr "Mutter командасы"
+
+#: mdk/mdk-main.c:62
+msgid "Mutter software development kit"
+msgstr "Mutter бағдарламалық қамтаманы әзірлеу жиынтығы"
+
+#: mdk/mdk-main.c:65
+msgid "About Mutter Development Kit"
+msgstr "Mutter әзірлеу жиынтығы туралы"
+
+#: mdk/mdk-monitor.c:557
+msgid "Failed to create monitor"
+msgstr "Мониторды жасау сәтсіз аяқталды"
+
+#: src/backends/meta-monitor.c:285
+msgid "Built-in display"
+msgstr "Құрамындағы экран"
+
+#: src/backends/meta-monitor.c:312
+msgid "Unknown"
+msgstr "Белгісіз"
+
+#: src/backends/meta-monitor.c:314
+msgid "Unknown Display"
+msgstr "Белгісіз дисплей"
+
+#: src/backends/meta-monitor.c:322
+#, c-format
+msgctxt ""
+"This is a monitor vendor name, followed by a size in inches, like 'Dell 15\"'"
+msgid "%s %s"
+msgstr "%s %s"
+
+#: src/backends/meta-monitor.c:330
+#, c-format
+msgctxt ""
+"This is a monitor vendor name followed by product/model name where size in "
+"inches could not be calculated, e.g. Dell U2414H"
+msgid "%s %s"
+msgstr "%s %s"
+
+#: src/core/bell.c:237
+msgid "Bell event"
+msgstr "Қоңырау оқиғасы"
+
+#: src/core/display.c:608
+msgid "Privacy Screen Enabled"
+msgstr "Жекелік экраны іске қосылған"
+
+#: src/core/display.c:609
+msgid "Privacy Screen Disabled"
+msgstr "Жекелік экраны сөндірілген"
+
+#: src/core/meta-context-main.c:356
+msgid "Run as a wayland compositor"
+msgstr "Wayland композиторы ретінде орындау"
+
+#: src/core/meta-context-main.c:363
+msgid "Run wayland compositor without starting Xwayland"
+msgstr "Wayland композиторын Xwayland-ты іске қоспай орындау"
+
+#: src/core/meta-context-main.c:370
+msgid "Specify Wayland display name to use"
+msgstr "Қолданылатын Wayland дисплейінің атын көрсету"
+
+#: src/core/meta-context-main.c:377
+msgid "Run as a full display server, rather than nested"
+msgstr "Кірістірілген емес, толық дисплей сервері ретінде орындау"
+
+#: src/core/meta-context-main.c:382
+msgid "Run as a headless display server"
+msgstr "Дисплейсіз көрсету сервері ретінде орындау"
+
+#: src/core/meta-context-main.c:387
+msgid "Add persistent virtual monitor (WxH or WxH@R)"
+msgstr "Тұрақты виртуалды мониторды қосу (WxH немесе WxH@R)"
+
+#: src/core/meta-context-main.c:394
+msgid "Run development kit"
+msgstr "Әзірлеу жиынтығын орындау"
+
+#: src/core/meta-context-main.c:405
+msgid "Profile performance using trace instrumentation"
+msgstr "Трассировка құралдарының көмегімен өнімділікті профильдеу"
+
+#: src/core/meta-context-main.c:411
+msgid "Enable debug control D-Bus interface"
+msgstr "D-Bus жөндеуді басқару интерфейсін іске қосу"
+
+#. TRANSLATORS: This string refers to a button that switches between
+#. * different modes in that button group.
+#.
+#: src/core/meta-pad-action-mapper.c:617
+#, c-format
+msgid "Mode Switch (Group %d)"
+msgstr "Режимді ауыстыру (%d тобы)"
+
+#. TRANSLATORS: This string refers to a button that switches between
+#. * different modes.
+#.
+#: src/core/meta-pad-action-mapper.c:624
+#, c-format
+msgid "Mode Switch"
+msgstr "Режимді ауыстыру"
+
+#. TRANSLATORS: This string refers to an action, cycles drawing tablets'
+#. * mapping through the available outputs.
+#.
+#: src/core/meta-pad-action-mapper.c:647
+msgid "Switch monitor"
+msgstr "Мониторды ауыстыру"
+
+#: src/core/meta-pad-action-mapper.c:649
+msgid "Show on-screen help"
+msgstr "Экрандағы көмекті көрсету"
+
+#. Translators: this string will appear in Sysprof
+#: src/core/meta-profiler.c:109 src/core/meta-profiler.c:299
+msgid "Compositor"
+msgstr "Композитор"
+
+#: src/core/mutter.c:75
+msgid "Print version"
+msgstr "Нұсқа ақпаратын шығару"
+
+#: src/core/mutter.c:81
+msgid "Mutter plugin to use"
+msgstr "Қолданылатын Mutter плагині"
+
+#: src/core/prefs.c:1874
+#, c-format
+msgid "Workspace %d"
+msgstr "Жұмыс орны %d"
+
+#: src/core/util.c:149
+msgid "Mutter was compiled without support for verbose mode"
+msgstr "Mutter егжей-тегжейлі режимді қолдаусыз жинақталған"
+
+#: src/core/workspace.c:510
+msgid "Workspace switched"
+msgstr "Жұмыс орны ауыстырылды"
+
+#: src/wayland/meta-wayland-tablet-pad.c:558
+#, c-format
+msgid "Mode Switch: Mode %d"
+msgstr "Режимді ауыстыру: %d режимі"
+
+#: src/x11/meta-x11-display.c:776
+#, c-format
+msgid "Display “%s” already has a window manager"
+msgstr "\"%s\" дисплейінде терезе менеджері бар"
+
+#: src/x11/meta-x11-display.c:1139
+#, c-format
+msgid "Failed to open X Window System display “%s”"
+msgstr "“%s” X Window System дисплейін ашу мүмкін емес"
+
+#: src/x11/meta-x11-display.c:1284
+#, c-format
+msgid "Screen %d on display “%s” is invalid"
+msgstr "%d экраны “%s” дисплейінде жарамсыз"
+
+#. This probably means that a non-WM compositor like xcompmgr is running;
+#. * we have no way to get it to exit
+#: src/x11/meta-x11-display.c:2469
+#, c-format
+msgid ""
+"Another compositing manager is already running on screen %i on display “%s”."
+msgstr "Басқа композиттік менеджер %i экранында (“%s” дисплейі) орындалып тұр."
+
+#: src/x11/meta-x11-selection-input-stream.c:475
+#, c-format
+msgid "Format %s not supported"
+msgstr "%s пішіміне қолдау жоқ"
+
+#: src/x11/window-props.c:562
+#, c-format
+msgid "%s (on %s)"
+msgstr "%s (%s жерінде)"
+
+#~ msgid "_Resizable"
+#~ msgstr "Ө_лшемі өзгерілетін"
+
+#~ msgid "Replace the running window manager"
+#~ msgstr "Орындалып тұрған терезелер менеджерін алмастыру"
+
+#~ msgid "X Display to use"
+#~ msgstr "Қолданылатын X дисплейі"
+
+#~ msgid "Make X calls synchronous"
+#~ msgstr "X сервер шақыруларын синхронды қылу"
+
+#~ msgid "Run as a nested compositor"
+#~ msgstr "Кірістірілген композитор ретінде орындау"
+
+#~ msgid "Run with X11 backend"
+#~ msgstr "X11 бэкендімен орындау"
+
+#, c-format
+#~ msgid ""
+#~ "Display “%s” already has a window manager; try using the --replace option "
+#~ "to replace the current window manager."
+#~ msgstr ""
+#~ "“%s” дисплейінде терезелер менеджері бар; ағымдағы терезелер менеджерін "
+#~ "алмастыру үшін --replace опциясын қолданып көріңіз."
+
+#~ msgid "Disable connection to session manager"
+#~ msgstr "Сессиялар менеджеріне байланыстарды сөндіру"
+
+#~ msgid "Specify session management ID"
+#~ msgstr "Сессия менеджментінің ID-ін көрсету"
+
+#~ msgid "Move to workspace above"
+#~ msgstr "Жоғарыдағы жұмыс орнына ауысу"
+
+#~ msgid "Move to workspace below"
+#~ msgstr "Төмендегі жұмыс орнына ауысу"
+
+#~ msgid "Mutter"
+#~ msgstr "Mutter"
+
+#~ msgid "Show the activities overview"
+#~ msgstr "Шолуды көрсету"
+
+#~ msgid "X display to use"
+#~ msgstr "Қолданылатын X дисплейі"
+
+#~ msgid "X screen to use"
+#~ msgstr "Қолданылатын X экраны"
+
+#~ msgid "Disable XInput support"
+#~ msgstr "XInput қолдауын сөндіру"
+
+#, c-format
+#~ msgid "“%s” is not responding."
+#~ msgstr "“%s” жауап бермейді."
+
+#~ msgid "Application is not responding."
+#~ msgstr "Қолданба жауап бермейді."
+
+#~ msgid ""
+#~ "You may choose to wait a short while for it to continue or force the "
+#~ "application to quit entirely."
+#~ msgstr ""
+#~ "Сіз қолданба өз жұмысын жалғастырғанды күтіп, немесе оны мәжбүрлетіп жаба "
+#~ "аласыз."
+
+#~ msgid "_Force Quit"
+#~ msgstr "_Мәжбүрлі шығу"
+
+#~ msgid "_Wait"
+#~ msgstr "_Күту"
+
+#~ msgid "Toggle shaded state"
+#~ msgstr "Көлеңкелі күйін ауыстыру"
+
+#~ msgid "Window manager: "
+#~ msgstr "Терезелер басқарушысы:"
+
+#~ msgid "Mi_nimize"
+#~ msgstr "Қа_йыру"
+
+#~ msgid "Ma_ximize"
+#~ msgstr "Ж_азық қылу"
+
+#~ msgid "Unma_ximize"
+#~ msgstr "Жа_зық емес қылу"
+
+#~ msgid "Roll _Up"
+#~ msgstr "Атауға ж_инау"
+
+#~ msgid "_Unroll"
+#~ msgstr "Жи_наудан қайтару"
+
+#~ msgid "_Move"
+#~ msgstr "Жы_лжыту"
+
+#~ msgid "Always on _Top"
+#~ msgstr "Әрқа_шан үстінде"
+
+#~ msgid "_Always on Visible Workspace"
+#~ msgstr "Әрқашан кө_рініп тұрған жұмыс орнында"
+
+#~ msgid "_Only on This Workspace"
+#~ msgstr "Тек ос_ы жұмыс орнында"
+
+#~ msgid "Move to Workspace _Left"
+#~ msgstr "_Сол жақтағы жұмыс орнына ауыстыру"
+
+#~ msgid "Move to Workspace R_ight"
+#~ msgstr "Оң _жақтағы жұмыс орнына ауыстыру"
+
+#~ msgid "Move to Workspace _Up"
+#~ msgstr "Жоға_рыдағы жұмыс орнына ауыстыру"
+
+#~ msgid "Move to Workspace _Down"
+#~ msgstr "Тө_мендегі жұмыс орнына ауыстыру"
+
+#~ msgid "_Close"
+#~ msgstr "Жа_бу"
+
+#~ msgid "Workspace %d%n"
+#~ msgstr "Жұмыс орны %d%n"
+
+#~ msgid "Workspace 1_0"
+#~ msgstr "Жұмыс орны 1_0"
+
+#~ msgid "Move to Another _Workspace"
+#~ msgstr "Басқа жұмыс орнына ж_ылжыту"
+
+#~ msgid "Shift"
+#~ msgstr "Shift"
+
+#~ msgid "Ctrl"
+#~ msgstr "Ctrl"
+
+#~ msgid "Alt"
+#~ msgstr "Alt"
+
+#~ msgid "Meta"
+#~ msgstr "Meta"
+
+#~ msgid "%d x %d"
+#~ msgstr "%d x %d"

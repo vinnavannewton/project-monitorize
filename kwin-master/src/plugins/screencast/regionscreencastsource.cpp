@@ -1,0 +1,190 @@
+/*
+    SPDX-FileCopyrightText: 2022 Aleix Pol Gonzalez <aleixpol@kde.org>
+
+    SPDX-License-Identifier: GPL-2.0-or-later
+*/
+
+#include "regionscreencastsource.h"
+#include "filteredsceneview.h"
+#include "screencastlayer.h"
+#include "screencastutils.h"
+
+#include "compositor.h"
+#include "core/output.h"
+#include "cursor.h"
+#include "opengl/eglbackend.h"
+#include "opengl/glframebuffer.h"
+#include "opengl/gltexture.h"
+#include "scene/workspacescene.h"
+#include "workspace.h"
+
+#include <drm_fourcc.h>
+
+namespace KWin
+{
+
+RegionScreenCastSource::RegionScreenCastSource(const Rect &region, qreal scale, std::optional<pid_t> pidToHide)
+    : ScreenCastSource()
+    , m_region(region)
+    , m_scale(scale)
+    , m_pidToHide(pidToHide)
+{
+    Q_ASSERT(m_region.isValid());
+    Q_ASSERT(m_scale > 0);
+
+    connect(workspace(), &Workspace::outputRemoved, this, [this](LogicalOutput *output) {
+        if (output->geometryF().intersects(m_region)) {
+            close();
+        } else if (m_sceneView && m_sceneView->logicalOutput() == output) {
+            // TODO once the layer doesn't depend on the output anymore, remove this
+            pause();
+            resume();
+        }
+    });
+}
+
+RegionScreenCastSource::~RegionScreenCastSource()
+{
+    pause();
+}
+
+QSize RegionScreenCastSource::textureSize() const
+{
+    return m_region.size() * m_scale;
+}
+
+qreal RegionScreenCastSource::devicePixelRatio() const
+{
+    return m_scale;
+}
+
+quint32 RegionScreenCastSource::drmFormat() const
+{
+    return DRM_FORMAT_ARGB8888;
+}
+
+std::chrono::nanoseconds RegionScreenCastSource::clock() const
+{
+    return m_last;
+}
+
+void RegionScreenCastSource::setRenderCursor(bool enable)
+{
+    m_renderCursor = enable;
+    if (m_cursorView) {
+        m_cursorView->setExclusive(!enable);
+    }
+}
+
+Region RegionScreenCastSource::render(GLFramebuffer *target, const Region &bufferRepair)
+{
+    m_last = std::chrono::steady_clock::now().time_since_epoch();
+    m_layer->setFramebuffer(target, bufferRepair & Rect(QPoint(), target->size()));
+    if (!m_layer->preparePresentationTest()) {
+        return Region{};
+    }
+    const auto beginInfo = m_layer->beginFrame();
+    if (!beginInfo) {
+        return Region{};
+    }
+    m_sceneView->prePaint();
+    const auto bufferDamage = (m_layer->deviceRepaints() | m_sceneView->collectDamage()) & Rect(QPoint(), target->size());
+    const auto repaints = beginInfo->repaint | bufferDamage;
+    m_layer->resetRepaints();
+    m_sceneView->paint(beginInfo->renderTarget, QPoint(), repaints);
+    m_sceneView->postPaint();
+    if (!m_layer->endFrame(repaints, bufferDamage, nullptr)) {
+        return Region{};
+    }
+    return bufferDamage;
+}
+
+Region RegionScreenCastSource::render(QImage *target, const Region &bufferRepair)
+{
+    auto texture = GLTexture::allocate(GL_RGBA8, target->size());
+    if (!texture) {
+        return Region{};
+    }
+    GLFramebuffer buffer(texture.get());
+    const Region ret = render(&buffer, Region::infinite());
+    grabTexture(texture.get(), target);
+    return ret;
+}
+
+uint RegionScreenCastSource::refreshRate() const
+{
+    uint ret = 0;
+    const auto allOutputs = workspace()->outputs();
+    for (auto output : allOutputs) {
+        if (output->geometry().intersects(m_region)) {
+            ret = std::max<uint>(ret, output->refreshRate());
+        }
+    }
+    return ret;
+}
+
+void RegionScreenCastSource::close()
+{
+    if (!m_closed) {
+        m_closed = true;
+        Q_EMIT closed();
+    }
+}
+
+void RegionScreenCastSource::pause()
+{
+    if (!m_active) {
+        return;
+    }
+
+    m_active = false;
+    disconnect(m_layer.get(), &OutputLayer::repaintScheduled, this, &RegionScreenCastSource::frame);
+
+    m_cursorView.reset();
+    m_sceneView.reset();
+    m_layer.reset();
+}
+
+void RegionScreenCastSource::resume()
+{
+    if (m_active) {
+        return;
+    }
+
+    m_layer = std::make_unique<ScreencastLayer>(workspace()->outputs().front(), static_cast<EglBackend *>(Compositor::self()->backend())->openglContext()->displayObject()->nonExternalOnlySupportedDrmFormats());
+
+    m_sceneView = std::make_unique<FilteredSceneView>(kwinApp()->scene(), workspace()->outputs().front(), m_layer.get(), m_pidToHide);
+    m_sceneView->setViewport(m_region);
+    m_sceneView->setScale(m_scale);
+    m_sceneView->setRefreshRate(refreshRate());
+
+    m_cursorView = std::make_unique<ItemTreeView>(m_sceneView.get(), kwinApp()->scene()->cursorItem(), workspace()->outputs().front(), nullptr, nullptr);
+    m_cursorView->setExclusive(!m_renderCursor);
+
+    m_active = true;
+    connect(m_layer.get(), &OutputLayer::repaintScheduled, this, &RegionScreenCastSource::frame);
+    Q_EMIT frame();
+}
+
+bool RegionScreenCastSource::includesCursor(Cursor *cursor) const
+{
+    if (Cursors::self()->isCursorHidden()) {
+        return false;
+    }
+
+    return cursor->geometry().intersects(m_region);
+}
+
+QPointF RegionScreenCastSource::mapFromGlobal(const QPointF &point) const
+{
+    return point - m_region.topLeft();
+}
+
+RectF RegionScreenCastSource::mapFromGlobal(const RectF &rect) const
+{
+    return rect.translated(-m_region.topLeft());
+}
+
+} // namespace KWin
+
+#include "moc_regionscreencastsource.cpp"

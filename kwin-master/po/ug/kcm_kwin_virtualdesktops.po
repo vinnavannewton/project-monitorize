@@ -1,0 +1,211 @@
+# Uyghur translation for kcm_kwindesktop.
+# Copyright (C) YEAR This_file_is_part_of_KDE
+# This file is distributed under the same license as the PACKAGE package.
+# Sahran <sahran.ug@gmail.com>, 2011.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: kcm_kwindesktop\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-04-14 00:45+0000\n"
+"PO-Revision-Date: 2026-05-31 20:01-0400\n"
+"Last-Translator: Abduqadir Abliz <sahranbay@gmail.com>\n"
+"Language-Team: Uyghur Computer Science Association <UKIJ@yahoogroups.com>\n"
+"Language: ug\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Generator: Poedit 3.9\n"
+
+#, kde-format
+msgctxt "NAME OF TRANSLATORS"
+msgid "Your names"
+msgstr "ئابدۇقادىر ئابلىز، غەيرەت كەنجى"
+
+#, kde-format
+msgctxt "EMAIL OF TRANSLATORS"
+msgid "Your emails"
+msgstr "sahranbay@gmail.com, gheyret@gmail.com"
+
+#: desktopsmodel.cpp:188
+#, kde-format
+msgctxt "A numbered name for virtual desktops"
+msgid "Desktop %1"
+msgid_plural "Desktop %1"
+msgstr[0] "%1-ئۈستەلئۈستى‎‏"
+
+#: desktopsmodel.cpp:476
+#, kde-format
+msgid "There was an error connecting to the compositor."
+msgstr "بىرىكتۈرگۈچكە باغلىنىۋاتقاندا خاتالىق كۆرۈلگەن ئىدى."
+
+#: desktopsmodel.cpp:672
+#, kde-format
+msgid "There was an error saving the settings to the compositor."
+msgstr "تەڭشەكنى بىرىكتۈرگۈچكە ساقلاۋاتقاندا خاتالىق كۆرۈلگەن ئىدى."
+
+#: desktopsmodel.cpp:675
+#, kde-format
+msgid "There was an error requesting information from the compositor."
+msgstr "بىرىكتۈرگۈچتىن ئۇچۇر سوراۋاتقاندا خاتالىق كۆرۈلگەن ئىدى."
+
+#: ui/main.qml:26
+#, kde-format
+msgctxt "@text:label Number of rows, label associated to a number input field"
+msgid "Rows:"
+msgstr "قۇر:"
+
+#: ui/main.qml:54
+#, kde-format
+msgctxt "@action:button"
+msgid "Add Desktop"
+msgstr "ئۈستەلئۈستىگە قوش"
+
+#: ui/main.qml:90
+#, kde-format
+msgctxt "@action:button"
+msgid "Rename"
+msgstr "ئات ئۆزگەرت"
+
+#: ui/main.qml:100
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Remove"
+msgstr "چىقىرىۋەت"
+
+#: ui/main.qml:119
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Apply new name"
+msgstr "يېڭى ئات قوللىنىدۇ"
+
+#: ui/main.qml:132
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Cancel rename"
+msgstr "ئات ئۆزگەرتىشتىن ۋاز كېتىچى"
+
+#: ui/main.qml:179
+#, kde-format
+msgid ""
+"Virtual desktops have been changed outside this settings application. Saving "
+"now will overwrite the changes."
+msgstr ""
+"مەۋھۇم ئۈستەلئۈستى بۇ تەڭشەك پىروگراممىسىنىڭ سىرتىدا  ئۆزگەرتىلدى. ھازىر "
+"ساقلانسا ئۆزگىرىشنى قاپلىۋېتىدۇ."
+
+#: ui/main.qml:195
+#, kde-format
+msgid "Row %1"
+msgstr "%1-قۇر"
+
+#: ui/main.qml:209
+#, kde-format
+msgid "Options:"
+msgstr "تاللانما:"
+
+#: ui/main.qml:211
+#, kde-format
+msgid "Navigation wraps around"
+msgstr "دەۋرىي يول باشلايدۇ"
+
+#: ui/main.qml:225
+#, kde-format
+msgid "Switch desktops independently for each screen"
+msgstr ""
+
+#: ui/main.qml:243
+#, kde-format
+msgid "Show animation when switching:"
+msgstr "ئالماشتۇرغاندا جانلاندۇرۇمنى كۆرسىتىدۇ:"
+
+#: ui/main.qml:294
+#, kde-format
+msgid "Show on-screen display when switching:"
+msgstr "ئالماشتۇرغاندا ئېكراندا كۆرسىتىدۇ:"
+
+#: ui/main.qml:313
+#, kde-format
+msgid "%1 ms"
+msgstr "%1 ms"
+
+#: ui/main.qml:337
+#, kde-format
+msgid "Show desktop layout indicators"
+msgstr "ئۈستەلئۈستى جايلاشتۇرۇش كۆرسەتكۈچىنى كۆرسىتىدۇ"
+
+#~| msgid "Desktops"
+#~ msgid "Virtual Desktops"
+#~ msgstr "ئۈستەلئۈستىلىرى"
+
+#~ msgid "Desktop %1:"
+#~ msgstr "ئۈستەلئۈستى %1:"
+
+#~ msgid "Switch to Next Desktop"
+#~ msgstr "كېيىنكى ئۈستەلئۈستىگە ئالماشتۇر"
+
+#~ msgid "Switch to Previous Desktop"
+#~ msgstr "ئالدىنقى ئۈستەلئۈستىگە ئالماشتۇر"
+
+#~ msgid "Switch One Desktop to the Right"
+#~ msgstr "ئوڭ تەرەپتىكى ئۈستەلئۈستىگە ئالماشتۇر"
+
+#~ msgid "Switch One Desktop to the Left"
+#~ msgstr "سول تەرەپتىكى ئۈستەلئۈستىگە ئالماشتۇر"
+
+#~ msgid "Switch One Desktop Up"
+#~ msgstr "ئۈستىدىكى ئۈستەلئۈستىگە ئالماشتۇر"
+
+#~ msgid "Switch One Desktop Down"
+#~ msgstr "ئاستىدىكى ئۈستەلئۈستىگە ئالماشتۇر"
+
+#~ msgid "Walk Through Desktops"
+#~ msgstr "ئۈستەلئۈستىدىن ئۈستەلئۈستىگە ئۆتۈش"
+
+#~ msgid "Walk Through Desktops (Reverse)"
+#~ msgstr "ئۈستەلئۈستىدىن ئۈستەلئۈستىگە ئۆتۈش(تەتۈرى)"
+
+#~ msgid "Walk Through Desktop List"
+#~ msgstr "ئۈستەلئۈستى تىزىمىدىن ئۈستەلئۈستى تىزىمىغا ئۆتۈش"
+
+#~ msgid "Walk Through Desktop List (Reverse)"
+#~ msgstr "ئۈستەلئۈستى تىزىمىدىن ئۈستەلئۈستى تىزىمىغا ئۆتۈش(تەتۈرى)"
+
+#~ msgid "Desktop Switching"
+#~ msgstr "ئۈستەلئۈستىنى ئالماشتۇرۇش"
+
+#~ msgid "Switch to Desktop %1"
+#~ msgstr "ئۈستەلئۈستى %1 غا ئالماشتۇر"
+
+#~ msgid "No Animation"
+#~ msgstr "جانلاندۇرۇم يوق"
+
+#~ msgid "Layout"
+#~ msgstr "جايلاشتۇرۇش"
+
+#~| msgid "Number of desktops:"
+#~ msgid "&Number of desktops:"
+#~ msgstr "ئۈستەلئۈستى سانى:"
+
+#~| msgid "Number of rows:"
+#~ msgid "N&umber of rows:"
+#~ msgstr "قۇر سانى:"
+
+#~ msgid "Desktop Names"
+#~ msgstr "ئۈستەلئۈستى ئاتى"
+
+#~ msgid "Switching"
+#~ msgstr "ئالماشتۇرۇش"
+
+#~ msgid "Animation:"
+#~ msgstr "جانلاندۇرۇم:"
+
+#~ msgid "Duration:"
+#~ msgstr "ۋاقتى:"
+
+#~ msgid " msec"
+#~ msgstr " مىللىسېكۇنت"
+
+#~ msgid "Shortcuts"
+#~ msgstr "تېزلەتمىلەر"

@@ -1,0 +1,385 @@
+/*
+    KWin - the KDE window manager
+    This file is part of the KDE project.
+
+    SPDX-FileCopyrightText: 1999, 2000 Matthias Ettrich <ettrich@kde.org>
+    SPDX-FileCopyrightText: 2003 Lubos Lunak <l.lunak@kde.org>
+
+    SPDX-License-Identifier: GPL-2.0-or-later
+*/
+
+#pragma once
+
+#include "config-kwin.h"
+
+#include "effect/globals.h"
+
+#include <KSharedConfig>
+#include <memory>
+// Qt
+#include <QApplication>
+#include <QProcessEnvironment>
+
+#if KWIN_BUILD_X11
+#include <xcb/xcb.h>
+#endif
+
+class KPluginMetaData;
+class QCommandLineParser;
+
+namespace KWin
+{
+
+class OutputBackend;
+class Session;
+class X11EventFilter;
+class PluginManager;
+class InputMethod;
+class TabletModeManager;
+class XwaylandInterface;
+class Edge;
+class ScreenEdges;
+class Outline;
+class OutlineVisual;
+class Compositor;
+class Window;
+class WorkspaceScene;
+class GpuManager;
+
+class X11EventFilterContainer : public QObject
+{
+    Q_OBJECT
+
+public:
+    explicit X11EventFilterContainer(X11EventFilter *filter);
+
+    X11EventFilter *filter() const;
+
+private:
+    X11EventFilter *m_filter;
+};
+
+class KWIN_EXPORT Application : public QApplication
+{
+    Q_OBJECT
+#if KWIN_BUILD_X11
+    Q_PROPERTY(quint32 x11RootWindow READ x11RootWindow CONSTANT)
+    Q_PROPERTY(void *x11Connection READ x11Connection NOTIFY x11ConnectionChanged)
+#endif
+    Q_PROPERTY(KSharedConfigPtr config READ config WRITE setConfig)
+    Q_PROPERTY(KSharedConfigPtr kxkbConfig READ kxkbConfig WRITE setKxkbConfig)
+
+public:
+    ~Application() override;
+
+    void setConfigLock(bool lock);
+
+    KSharedConfigPtr config() const
+    {
+        return m_config;
+    }
+    void setConfig(KSharedConfigPtr config)
+    {
+        m_config = std::move(config);
+    }
+
+    KSharedConfigPtr kxkbConfig() const
+    {
+        return m_kxkbConfig;
+    }
+    void setKxkbConfig(KSharedConfigPtr config)
+    {
+        m_kxkbConfig = std::move(config);
+    }
+
+    KSharedConfigPtr inputConfig() const
+    {
+        return m_inputConfig;
+    }
+    void setInputConfig(KSharedConfigPtr config)
+    {
+        m_inputConfig = std::move(config);
+    }
+
+    KSharedConfigPtr kdeglobals() const
+    {
+        return m_kdeglobals;
+    }
+
+    void start();
+
+    void setupCommandLine(QCommandLineParser *parser);
+    void processCommandLine(QCommandLineParser *parser);
+
+    /**
+     * Creates the KAboutData object for the KWin instance and registers it as
+     * KAboutData::setApplicationData.
+     */
+    static void createAboutData();
+
+#if KWIN_BUILD_X11
+    /**
+     * @returns the X11 root window.
+     */
+    xcb_window_t x11RootWindow() const
+    {
+        return m_rootWindow;
+    }
+
+    /**
+     * @returns the X11 xcb connection
+     */
+    xcb_connection_t *x11Connection() const
+    {
+        return m_connection;
+    }
+    /**
+     * Inheriting classes should use this method to set the X11 root window
+     * before accessing any X11 specific code paths.
+     */
+    void setX11RootWindow(xcb_window_t root)
+    {
+        m_rootWindow = root;
+    }
+    /**
+     * Inheriting classes should use this method to set the xcb connection
+     * before accessing any X11 specific code paths.
+     */
+    void setX11Connection(xcb_connection_t *c)
+    {
+        m_connection = c;
+    }
+
+    /**
+     * Returns the current X11 server time.
+     */
+    xcb_timestamp_t x11Time() const;
+
+    void registerEventFilter(X11EventFilter *filter);
+    void unregisterEventFilter(X11EventFilter *filter);
+    void dispatchEvent(xcb_generic_event_t *event);
+
+    virtual pid_t xwaylandPid() const
+    {
+        return -1;
+    }
+
+#endif
+
+    qreal xwaylandScale() const
+    {
+        return m_xwaylandScale.value_or(1.0);
+    }
+
+    void setXwaylandScale(qreal scale);
+
+#if KWIN_BUILD_ACTIVITIES
+    bool usesKActivities() const
+    {
+        return m_useKActivities;
+    }
+    void setUseKActivities(bool use)
+    {
+        m_useKActivities = use;
+    }
+#endif
+
+    QProcessEnvironment processStartupEnvironment() const;
+    void setProcessStartupEnvironment(const QProcessEnvironment &environment);
+
+    OutputBackend *outputBackend() const
+    {
+        return m_outputBackend.get();
+    }
+    void setOutputBackend(std::unique_ptr<OutputBackend> &&backend);
+
+    Session *session() const
+    {
+        return m_session.get();
+    }
+    void setSession(std::unique_ptr<Session> &&session);
+    void setFollowLocale1(bool follow)
+    {
+        m_followLocale1 = follow;
+    }
+    bool followLocale1() const
+    {
+        return m_followLocale1;
+    }
+
+    bool isTerminating() const
+    {
+        return m_terminating;
+    }
+
+    bool initiallyLocked() const;
+    void setInitiallyLocked(bool locked);
+
+    bool supportsLockScreen() const;
+    void setSupportsLockScreen(bool set);
+
+    bool supportsGlobalShortcuts() const;
+    void setSupportsGlobalShortcuts(bool set);
+
+    void createAtoms();
+    void destroyAtoms();
+
+    void createGpuManager();
+
+    static void setupMalloc();
+    static void setupLocalizedString();
+
+    PluginManager *pluginManager() const;
+    InputMethod *inputMethod() const;
+    virtual XwaylandInterface *xwayland() const;
+    TabletModeManager *tabletModeManager() const;
+    WorkspaceScene *scene() const;
+
+    /**
+     * Starts an interactive window selection process.
+     *
+     * Once the user selected a window the @p callback is invoked with the selected Window as
+     * argument. In case the user cancels the interactive window selection or selecting a window is currently
+     * not possible (e.g. screen locked) the @p callback is invoked with a @c nullptr argument.
+     *
+     * During the interactive window selection the cursor is turned into a crosshair cursor unless
+     * @p cursorName is provided. The argument @p cursorName is a QByteArray instead of Qt::CursorShape
+     * to support the "pirate" cursor for kill window which is not wrapped by Qt::CursorShape.
+     *
+     * The default implementation forwards to InputRedirection.
+     *
+     * @param callback The function to invoke once the interactive window selection ends
+     * @param cursorName The optional name of the cursor shape to use, default is crosshair
+     */
+    virtual void startInteractiveWindowSelection(std::function<void(KWin::Window *)> callback, const QByteArray &cursorName = QByteArray());
+
+    /**
+     * Starts an interactive position selection process.
+     *
+     * Once the user selected a position on the screen the @p callback is invoked with
+     * the selected point as argument. In case the user cancels the interactive position selection
+     * or selecting a position is currently not possible (e.g. screen locked) the @p callback
+     * is invoked with a point at @c -1 as x and y argument.
+     *
+     * During the interactive window selection the cursor is turned into a crosshair cursor.
+     *
+     * The default implementation forwards to InputRedirection.
+     *
+     * @param callback The function to invoke once the interactive position selection ends
+     */
+    virtual void startInteractivePositionSelection(std::function<void(const QPointF &)> callback);
+
+    /**
+     * Returns a PlatformCursorImage. By default this is created by softwareCursor and
+     * softwareCursorHotspot. An implementing subclass can use this to provide a better
+     * suited PlatformCursorImage.
+     *
+     * @see softwareCursor
+     * @see softwareCursorHotspot
+     * @since 5.9
+     */
+    virtual PlatformCursorImage cursorImage() const;
+
+Q_SIGNALS:
+    void x11ConnectionChanged();
+    void x11ConnectionAboutToBeDestroyed();
+    void xwaylandScaleChanged();
+    void workspaceCreated();
+    void virtualTerminalCreated();
+
+protected:
+    Application(int &argc, char **argv);
+    virtual void performStartup() = 0;
+
+    void createInput();
+    void createWorkspace();
+    void createOptions();
+    void createPlugins();
+    void createInputMethod();
+    void createTabletModeManager();
+    void createScene();
+    void destroyInput();
+    void destroyWorkspace();
+    void destroyCompositor();
+    void destroyPlugins();
+    void destroyInputMethod();
+    void destroyPlatform();
+    void destroyScene();
+    void applyXwaylandScale();
+
+    void setTerminating()
+    {
+        m_terminating = true;
+    }
+
+private:
+#if KWIN_BUILD_X11
+    QList<QPointer<X11EventFilterContainer>> m_eventFilters;
+    QList<QPointer<X11EventFilterContainer>> m_genericEventFilters;
+#endif
+    std::unique_ptr<WorkspaceScene> m_scene;
+    bool m_followLocale1 = false;
+    bool m_configLock;
+    bool m_initiallyLocked = false;
+    bool m_supportsLockScreen = true;
+    bool m_supportsGlobalShortcuts = true;
+    KSharedConfigPtr m_config;
+    KSharedConfigPtr m_kxkbConfig;
+    KSharedConfigPtr m_inputConfig;
+    KSharedConfigPtr m_kdeglobals;
+#if KWIN_BUILD_X11
+    xcb_window_t m_rootWindow = XCB_WINDOW_NONE;
+    xcb_connection_t *m_connection = nullptr;
+#endif
+#if KWIN_BUILD_ACTIVITIES
+    bool m_useKActivities = true;
+#endif
+    std::unique_ptr<Session> m_session;
+    std::unique_ptr<OutputBackend> m_outputBackend;
+    bool m_terminating = false;
+    std::optional<qreal> m_xwaylandScale;
+    QProcessEnvironment m_processEnvironment;
+    std::unique_ptr<PluginManager> m_pluginManager;
+    std::unique_ptr<InputMethod> m_inputMethod;
+    std::unique_ptr<TabletModeManager> m_tabletModeManager;
+    std::unique_ptr<GpuManager> m_gpuManager;
+};
+
+inline bool Application::initiallyLocked() const
+{
+    return m_initiallyLocked;
+}
+
+inline void Application::setInitiallyLocked(bool locked)
+{
+    m_initiallyLocked = locked;
+}
+
+inline bool Application::supportsLockScreen() const
+{
+    return m_supportsLockScreen;
+}
+
+inline void Application::setSupportsLockScreen(bool set)
+{
+    m_supportsLockScreen = set;
+}
+
+inline bool Application::supportsGlobalShortcuts() const
+{
+    return m_supportsGlobalShortcuts;
+}
+
+inline void Application::setSupportsGlobalShortcuts(bool set)
+{
+    m_supportsGlobalShortcuts = set;
+}
+
+inline static Application *kwinApp()
+{
+    Q_ASSERT(qobject_cast<Application *>(QCoreApplication::instance()));
+
+    return static_cast<Application *>(QCoreApplication::instance());
+}
+
+} // namespace

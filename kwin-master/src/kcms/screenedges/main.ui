@@ -1,0 +1,401 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>KWinScreenEdgesConfigUI</class>
+ <widget class="QWidget" name="KWinScreenEdgesConfigUI">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>500</width>
+    <height>525</height>
+   </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>500</width>
+    <height>525</height>
+   </size>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QLabel" name="infoLabel">
+     <property name="text">
+      <string>You can trigger an action by pushing the mouse pointer against the corresponding screen edge or corner.</string>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <spacer name="verticalSpacer_2">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeType">
+      <enum>QSizePolicy::Minimum</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>20</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+   <item>
+    <widget class="KWin::Monitor" name="monitor" native="true">
+     <property name="minimumSize">
+      <size>
+       <width>200</width>
+       <height>200</height>
+      </size>
+     </property>
+     <property name="focusPolicy">
+      <enum>Qt::StrongFocus</enum>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <layout class="QFormLayout" name="formLayout">
+     <property name="formAlignment">
+      <set>Qt::AlignHCenter|Qt::AlignTop</set>
+     </property>
+     <item row="0" column="0">
+      <widget class="QLabel" name="quickMaximizeLabel">
+       <property name="text">
+        <string>&amp;Maximize:</string>
+       </property>
+       <property name="buddy">
+        <cstring>kcfg_ElectricBorderMaximize</cstring>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="1">
+      <widget class="QCheckBox" name="kcfg_ElectricBorderMaximize">
+       <property name="text">
+        <string>Windows dragged to top edge</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="0">
+      <widget class="QLabel" name="quickTileLabel">
+       <property name="text">
+        <string>&amp;Tile:</string>
+       </property>
+       <property name="buddy">
+        <cstring>kcfg_ElectricBorderTiling</cstring>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="1">
+      <widget class="QCheckBox" name="kcfg_ElectricBorderTiling">
+       <property name="text">
+        <string>Windows dragged to left or right edge</string>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="0">
+      <widget class="QLabel" name="label">
+       <property name="text">
+        <string>Behavior:</string>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="1">
+      <widget class="QCheckBox" name="remainActiveOnFullscreen">
+       <property name="text">
+        <string>Remain active when windows are fullscreen</string>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="0">
+      <widget class="QLabel" name="electricBorderCornerRatioLabel">
+       <property name="text">
+        <string>Trigger &amp;quarter tiling in:</string>
+       </property>
+       <property name="buddy">
+        <cstring>electricBorderCornerRatioSpin</cstring>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="1">
+      <layout class="QHBoxLayout" name="horizontalLayout">
+       <item>
+        <widget class="QSpinBox" name="electricBorderCornerRatioSpin">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+         <property name="suffix">
+          <string>%</string>
+         </property>
+         <property name="prefix">
+          <string>Outer </string>
+         </property>
+         <property name="minimum">
+          <number>1</number>
+         </property>
+         <property name="maximum">
+          <number>49</number>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="label_1">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+         <property name="text">
+          <string>of the screen</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item row="4" column="1">
+      <spacer name="verticalSpacer_1">
+       <property name="orientation">
+        <enum>Qt::Vertical</enum>
+       </property>
+       <property name="sizeType">
+        <enum>QSizePolicy::Fixed</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>20</width>
+         <height>4</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item row="5" column="0">
+      <widget class="QLabel" name="desktopSwitchLabel">
+       <property name="toolTip">
+        <string>Change desktop when the mouse pointer is pushed against the edge of the screen</string>
+       </property>
+       <property name="text">
+        <string>&amp;Switch desktop on edge:</string>
+       </property>
+       <property name="buddy">
+        <cstring>kcfg_ElectricBorders</cstring>
+       </property>
+      </widget>
+     </item>
+     <item row="5" column="1">
+      <widget class="QComboBox" name="kcfg_ElectricBorders">
+       <item>
+        <property name="text">
+         <string comment="Switch desktop on edge">Disabled</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Only when moving windows</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Always enabled</string>
+        </property>
+       </item>
+      </widget>
+     </item>
+     <item row="6" column="0">
+      <widget class="QLabel" name="activationDelayLabel">
+       <property name="toolTip">
+        <string>Amount of time required for the mouse pointer to be pushed against the edge of the screen before the action is triggered</string>
+       </property>
+       <property name="text">
+        <string>Activation &amp;delay:</string>
+       </property>
+       <property name="buddy">
+        <cstring>kcfg_ElectricBorderDelay</cstring>
+       </property>
+      </widget>
+     </item>
+     <item row="6" column="1">
+      <widget class="QSpinBox" name="kcfg_ElectricBorderDelay">
+       <property name="suffix">
+        <string> ms</string>
+       </property>
+       <property name="maximum">
+        <number>1000</number>
+       </property>
+       <property name="singleStep">
+        <number>50</number>
+       </property>
+       <property name="value">
+        <number>0</number>
+       </property>
+      </widget>
+     </item>
+     <item row="7" column="0">
+      <widget class="QLabel" name="triggerCooldownLabel">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
+       <property name="toolTip">
+        <string>Amount of time required after triggering an action until the next trigger can occur</string>
+       </property>
+       <property name="text">
+        <string>&amp;Reactivation delay:</string>
+       </property>
+       <property name="buddy">
+        <cstring>kcfg_ElectricBorderCooldown</cstring>
+       </property>
+      </widget>
+     </item>
+     <item row="7" column="1">
+      <widget class="QSpinBox" name="kcfg_ElectricBorderCooldown">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
+       <property name="suffix">
+        <string> ms</string>
+       </property>
+       <property name="maximum">
+        <number>1000</number>
+       </property>
+       <property name="singleStep">
+        <number>50</number>
+       </property>
+       <property name="value">
+        <number>0</number>
+       </property>
+      </widget>
+     </item>
+     <item row="8" column="0">
+      <widget class="QLabel" name="CornerBarrierLabel">
+       <property name="text">
+        <string>&amp;Corner barrier:</string>
+       </property>
+       <property name="buddy">
+        <cstring>kcfg_CornerBarrier</cstring>
+       </property>
+      </widget>
+     </item>
+     <item row="8" column="1">
+      <widget class="QCheckBox" name="kcfg_CornerBarrier">
+       <property name="whatsThis">
+        <string>Here you can enable or disable the virtual corner barrier between screens. The barrier prevents the pointer from moving to another screen when it is already touching a screen corner. This makes it easier to trigger user interface elements like maximized windows' close buttons when using multiple screens.</string>
+       </property>
+       <property name="toolTip">
+        <string comment="@info:tooltip">Prevents the pointer from crossing at screen corners.</string>
+       </property>
+      </widget>
+     </item>
+     <item row="9" column="0">
+      <widget class="QLabel" name="EdgeBarrierLabel">
+       <property name="text">
+        <string>&amp;Edge barrier:</string>
+       </property>
+       <property name="buddy">
+        <cstring>kcfg_EdgeBarrier</cstring>
+       </property>
+      </widget>
+     </item>
+     <item row="9" column="1">
+      <widget class="QSpinBox" name="kcfg_EdgeBarrier">
+       <property name="whatsThis">
+        <string>Here you can set size of the edge barrier between different screens. The barrier adds additional distance you have to move your pointer before it crosses the edge onto the other screen. This makes it easier to access user interface elements like Plasma Panels that are located on an edge between screens.</string>
+       </property>
+       <property name="toolTip">
+        <string comment="@info:tooltip">Additional distance the pointer needs to travel to cross screen edges.</string>
+       </property>
+       <property name="specialValueText">
+        <string>None</string>
+       </property>
+       <property name="suffix">
+        <string> px</string>
+       </property>
+       <property name="minimum">
+        <number>0</number>
+       </property>
+       <property name="maximum">
+        <number>1000</number>
+       </property>
+       <property name="value">
+        <number>100</number>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <spacer name="verticalSpacer_3">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeType">
+      <enum>QSizePolicy::Expanding</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>0</width>
+       <height>0</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>KWin::Monitor</class>
+   <extends>QWidget</extends>
+   <header>monitor.h</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>kcfg_ElectricBorderTiling</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>label_1</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>kcfg_ElectricBorderTiling</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>electricBorderCornerRatioSpin</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>kcfg_ElectricBorderTiling</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>electricBorderCornerRatioLabel</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>

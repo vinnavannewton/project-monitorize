@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<protocol name="test_driver">
+  <interface name="test_driver" version="1">
+    <request name="sync_actor_destroyed">
+      <arg name="callback" type="new_id" interface="wl_callback"/>
+      <arg name="surface" type="object" interface="wl_surface"/>
+    </request>
+
+    <request name="sync_effects_completed">
+      <arg name="callback" type="new_id" interface="wl_callback"/>
+      <arg name="surface" type="object" interface="wl_surface"/>
+    </request>
+
+    <request name="sync_window_shown">
+      <arg name="callback" type="new_id" interface="wl_callback"/>
+      <arg name="surface" type="object" interface="wl_surface"/>
+    </request>
+
+    <request name="sync_point">
+      <arg name="sequence" type="uint"/>
+      <arg name="surface" type="object" interface="wl_surface" allow-null="true"/>
+    </request>
+
+    <request name="verify_view">
+      <arg name="callback" type="new_id" interface="wl_callback"/>
+      <arg name="sequence" type="uint"/>
+    </request>
+
+    <request name="move_to">
+      <arg name="surface" type="object" interface="wl_surface"/>
+      <arg name="x" type="int"/>
+      <arg name="y" type="int"/>
+    </request>
+
+    <enum name="direction">
+      <entry name="left" value="1"/>
+      <entry name="right" value="2"/>
+    </enum>
+
+    <request name="tile">
+      <arg name="surface" type="object" interface="wl_surface"/>
+      <arg name="direction" type="uint" enum="direction"/>
+    </request>
+
+    <event name="terminate"/>
+
+    <event name="sync_event">
+      <arg name="sequence" type="uint"/>
+    </event>
+
+    <event name="property">
+      <arg name="name" type="string"/>
+      <arg name="value" type="string"/>
+    </event>
+
+    <event name="property_int">
+      <arg name="name" type="string"/>
+      <arg name="value" type="uint"/>
+    </event>
+  </interface>
+</protocol>

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0
+      http://www.kde.org/standards/kcfg/1.0/kcfg.xsd" >
+  <kcfgfile name="kwinrc" />
+  <group name="org.kde.kdecoration2">
+    <entry name="pluginName" key="library" type="String">
+      <label>Plugin name</label>
+      <default>org.kde.breeze</default>
+    </entry>
+    <entry name="theme" key="theme" type="String">
+      <label>Theme name</label>
+      <default>Breeze</default>
+    </entry>
+    <entry name="borderSize" key="BorderSize" type="String">
+      <label>Window border size</label>
+      <default>Normal</default>
+    </entry>
+    <entry name="borderSizeAuto" key="BorderSizeAuto" type="Bool">
+      <label>Use theme's default window border size</label>
+      <default>true</default>
+    </entry>
+    <entry name="closeOnDoubleClickOnMenu" key="CloseOnDoubleClickOnMenu" type="Bool">
+      <label>Close windows by double clicking the window menu button</label>
+      <default>false</default>
+    </entry>
+    <entry name="showToolTips" key="ShowToolTips" type="Bool">
+      <label>Show titlebar button tooltips</label>
+      <default>true</default>
+    </entry>
+    <entry name="buttonsOnLeft" key="ButtonsOnLeft" type="String">
+      <label>Titlebar left buttons</label>
+      <default>MSE</default>
+    </entry>
+    <entry name="buttonsOnRight" key="ButtonsOnRight" type="String">
+      <label>Titlebar right buttons</label>
+      <default>HIAX</default>
+    </entry>
+    <entry name="alwaysShowExcludeFromCapture" key="AlwaysShowExcludeFromCapture" type="Bool">
+      <label>Always show "Hide from Screenshots and Screen Recordings" button, even if the window is not already excluded from screenshots and screen recordings.</label>
+      <default>false</default>
+    </entry>
+  </group>
+</kcfg>

@@ -1,0 +1,396 @@
+# translation of kcmkwindecoration.po to Lithuanian
+#
+# Donatas Glodenis <dgvirtual@akl.lt>, 2004-2005.
+# Tomas Straupis <tomasstraupis@gmail.com>, 2010.
+# Remigijus Jarmalavičius <remigijus@jarmalavicius.lt>, 2011.
+# Liudas Alisauskas <liudas@akmc.lt>, 2013, 2015.
+# liudas@aksioma.lt <liudas@aksioma.lt>, 2014, 2015.
+msgid ""
+msgstr ""
+"Project-Id-Version: kcmkwindecoration\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-05-14 00:45+0000\n"
+"PO-Revision-Date: 2026-05-21 14:30+0300\n"
+"Last-Translator: Moo\n"
+"Language-Team: Lithuanian <kde-i18n-lt@kde.org>\n"
+"Language: lt\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=4; plural=(n==1 ? 0 : n%10>=2 && (n%100<10 || n"
+"%100>=20) ? 1 : n%10==0 || (n%100>10 && n%100<20) ? 2 : 3);\n"
+"X-Generator: Poedit 3.8\n"
+
+#: declarative-plugin/buttonsmodel.cpp:56
+#, kde-format
+msgid "Window menu"
+msgstr "Lango meniu"
+
+#: declarative-plugin/buttonsmodel.cpp:58
+#, kde-format
+msgid "Application menu"
+msgstr "Programos meniu"
+
+#: declarative-plugin/buttonsmodel.cpp:60
+#, kde-format
+msgid "On all desktops"
+msgstr "Visuose darbalaukiuose"
+
+#: declarative-plugin/buttonsmodel.cpp:62
+#, kde-format
+msgid "Minimize"
+msgstr "Suskleisti"
+
+#: declarative-plugin/buttonsmodel.cpp:64
+#, kde-format
+msgid "Maximize"
+msgstr "Išskleisti"
+
+#: declarative-plugin/buttonsmodel.cpp:66
+#, kde-format
+msgid "Close"
+msgstr "Užverti"
+
+#: declarative-plugin/buttonsmodel.cpp:68
+#, kde-format
+msgid "Context help"
+msgstr "Kontekstinė pagalba"
+
+#: declarative-plugin/buttonsmodel.cpp:70
+#, kde-format
+msgid "Keep below other windows"
+msgstr "Laikyti žemiau kitų langų"
+
+#: declarative-plugin/buttonsmodel.cpp:72
+#, kde-format
+msgid "Keep above other windows"
+msgstr "Laikyti aukščiau kitų langų"
+
+#: declarative-plugin/buttonsmodel.cpp:74
+#, kde-format
+msgid "Hide from screenshots and screen recordings"
+msgstr "Slėpti, kai daromos ekrano kopijos ir filmuojamas ekranas"
+
+#: declarative-plugin/buttonsmodel.cpp:76
+#, kde-format
+msgid "Spacer"
+msgstr "Tarpiklis"
+
+#: kcm.cpp:188
+#, kde-format
+msgctxt "%1 is the name of a border size"
+msgid "Theme default (%1)"
+msgstr "Apipavidalinimo numatytasis (%1)"
+
+#: kwin-applywindowdecoration.cpp:34
+#, kde-format
+msgid ""
+"This tool allows you to set the window decoration theme for the currently "
+"active session, without accidentally setting it to one that is either not "
+"available, or which is already set."
+msgstr ""
+"Šis įrankis jums leidžia šiuo metu aktyviam seansui nustatyti langų "
+"dekoracijų apipavidalinimą, apsaugodamas, kad nenustatytumėte atsitiktinai į "
+"tą, kuris neprieinamas ar į tą, kuris jau yra nustatytas."
+
+#: kwin-applywindowdecoration.cpp:35
+#, kde-format
+msgid ""
+"The name of the window decoration theme you wish to set for KWin. Passing a "
+"full path will attempt to find a theme in that directory, and then apply "
+"that if one can be deduced."
+msgstr ""
+"Langų dekoracijų apipavidalinimo, kurį norite nustatyti KWin, pavadinimas. "
+"Perdavus visą kelią, bus bandoma rasti apipavidalinimą nurodytame kataloge "
+"ir tuomet, jei pavyks nustatyti apipavidalinimą, bus bandoma jį taikyti."
+
+#: kwin-applywindowdecoration.cpp:36
+#, kde-format
+msgid ""
+"Show all the themes available on the system (and which is the current theme)"
+msgstr ""
+"Rodyti visus sistemoje prieinamus apipavidalinimus (ir kuris yra dabartinis "
+"apipavidalinimas)"
+
+#: kwin-applywindowdecoration.cpp:67
+#, kde-format
+msgid ""
+"Resolved %1 to the KWin Aurorae theme \"%2\", and will attempt to set that "
+"as your current theme."
+msgstr ""
+"Rastas %1 ir nustatytas į KWin Aurorae apipavidalinimą „%2“. Bus bandoma jį "
+"nustatyti kaip jūsų dabartinį apipavidalinimą."
+
+#: kwin-applywindowdecoration.cpp:73
+#, kde-format
+msgid ""
+"You attempted to pass a file path, but this could not be resolved to a "
+"theme, and we will have to abort, due to having no theme to set"
+msgstr ""
+"Jūs bandėte perduoti failo kelią, bet nepavyko jame rasti ir nustatyti "
+"apipavidalinimo, tad teks nutraukti šią užduotį, nes nėra apipavidalinimo, "
+"kurį galima būtų nustatyti"
+
+#: kwin-applywindowdecoration.cpp:79
+#, kde-format
+msgid ""
+"The requested theme \"%1\" is already set as the window decoration theme."
+msgstr ""
+"Užklaustas apipavidalinimas „%1“ jau yra nustatytas kaip langų dekoracijų "
+"apipavidalinimas."
+
+#: kwin-applywindowdecoration.cpp:101
+#, kde-format
+msgid ""
+"Successfully applied the pointer theme %1 to your current Plasma session"
+msgstr ""
+"Jūsų dabartiniam Plasma seansui sėkmingai pritaikytas rodyklės "
+"apipavidalinimas %1"
+
+#: kwin-applywindowdecoration.cpp:105
+#, kde-format
+msgid ""
+"Failed to save your theme settings - the reason is unknown, but this is an "
+"unrecoverable error. You may find that simply trying again will work."
+msgstr ""
+"Nepavyko įrašyti apipavidalinimo nuostatų. Priežastis nežinoma, bet tai yra "
+"neatkuriamoji klaida. Gali būti, kad pabandžius dar kartą, viskas suveiks."
+
+#: kwin-applywindowdecoration.cpp:109
+#, kde-format
+msgid ""
+"Could not find theme \"%1\". The theme should be one of the following "
+"options: %2"
+msgstr ""
+"Nepavyko rasti apipavidalinimo „%1“. Apipavidalinimas turėtų būti vienas iš "
+"šių variantų: %2"
+
+#: kwin-applywindowdecoration.cpp:114
+#, kde-format
+msgid "You have the following KWin window decoration themes on your system:"
+msgstr "Jūsų sistemoje yra šie KWin langų dekoracijų apipavidalinimai:"
+
+#: ui/Buttons.qml:85
+#, kde-format
+msgid "Titlebar"
+msgstr "Antraštės juosta"
+
+#: ui/Buttons.qml:245
+#, kde-format
+msgid "Drop button here to remove it"
+msgstr "Norėdami pašalinti mygtuką, tempkite jį čia"
+
+#: ui/Buttons.qml:261
+#, kde-format
+msgid "Drag buttons between here and the titlebar"
+msgstr "Tempkite mygtukus tarp šios vietos ir antraštės juostos"
+
+#: ui/ConfigureTitlebar.qml:16
+#, kde-format
+msgid "Titlebar Buttons"
+msgstr "Antraštės juostos mygtukai"
+
+#: ui/ConfigureTitlebar.qml:35
+#, kde-format
+msgctxt "checkbox label"
+msgid "Close windows by double clicking the window menu button"
+msgstr "Užverti langus spustelėjus du kartus lango meniu mygtuką"
+
+#: ui/ConfigureTitlebar.qml:52
+#, kde-format
+msgctxt "popup tip"
+msgid "Click and hold on the window menu button to show the menu."
+msgstr ""
+"Spustelėkite ir palaikykite nuspaudę meniu mygtuką, norėdami rodyti meniu."
+
+#: ui/ConfigureTitlebar.qml:59
+#, kde-format
+msgctxt "checkbox label"
+msgid "Show titlebar button tooltips"
+msgstr "Rodyti antraštės juostos mygtukų paaiškinimus"
+
+#: ui/ConfigureTitlebar.qml:73
+#, kde-format
+msgctxt "@option:check"
+msgid "Always show \"Hide from Screenshots and Screen Recordings\" button"
+msgstr ""
+"Visada rodyti mygtuką „Slėpti, kai daromos ekrano kopijos ir filmuojamas "
+"ekranas“"
+
+#: ui/ConfigureTitlebar.qml:85
+#, kde-format
+msgctxt "@info:tooltip"
+msgid ""
+"When unchecked the button only appears if the window is hidden from "
+"screenshots and screen recordings"
+msgstr ""
+"Kai nepažymėta, mygtukas rodomas tik tuo atveju, jei langas yra slepiamas "
+"darant ekrano kopijas ir filmuojant ekraną"
+
+#: ui/ConfigureTitlebar.qml:86
+#, kde-format
+msgctxt "@info:tooltip"
+msgid ""
+"To enable this option, add the \"Hide from Screenshots and Screen Recordings"
+"\" button to the titlebar first"
+msgstr ""
+"Norėdami įjungti šią parinktį, pirmiausiai, pridėkite į antraštės juostą "
+"mygtuką „Slėpti, kai daromos ekrano kopijos ir filmuojamas ekranas“"
+
+#: ui/main.qml:29
+#, kde-format
+msgctxt "Selector label"
+msgid "Window border size:"
+msgstr "Lango rėmelio dydis:"
+
+#: ui/main.qml:48
+#, kde-format
+msgctxt "button text"
+msgid "Configure Titlebar Buttons…"
+msgstr "Konfigūruoti antraštės juostos mygtukus…"
+
+#: ui/main.qml:54
+#, kde-format
+msgctxt "@action:button as in, \"Get New Window Decorations\""
+msgid "Get New…"
+msgstr "Gauti naują…"
+
+#: ui/Themes.qml:93
+#, kde-format
+msgid "Edit %1 Theme…"
+msgstr "Taisyti %1 apipavidalinimą…"
+
+#: utils.cpp:26
+#, kde-format
+msgid "No window borders"
+msgstr "Jokių lango rėmelių"
+
+#: utils.cpp:27
+#, kde-format
+msgid "No side window borders"
+msgstr "Jokių šoninių lango rėmelių"
+
+#: utils.cpp:28
+#, kde-format
+msgid "Tiny window borders"
+msgstr "Mažyčiai lango rėmeliai"
+
+#: utils.cpp:29
+#, kde-format
+msgid "Normal window borders"
+msgstr "Normalūs lango rėmeliai"
+
+#: utils.cpp:30
+#, kde-format
+msgid "Large window borders"
+msgstr "Dideli lango rėmeliai"
+
+#: utils.cpp:31
+#, kde-format
+msgid "Very large window borders"
+msgstr "Labai dideli lango rėmeliai"
+
+#: utils.cpp:32
+#, kde-format
+msgid "Huge window borders"
+msgstr "Didžiuliai lango rėmeliai"
+
+#: utils.cpp:33
+#, kde-format
+msgid "Very huge window borders"
+msgstr "Milžiniški lango rėmeliai"
+
+#: utils.cpp:34
+#, kde-format
+msgid "Oversized window borders"
+msgstr "Per dideli lango rėmeliai"
+
+#~ msgid "Hide from screencast"
+#~ msgstr "Slėpti, kai filmuojamas ekranas"
+
+#~ msgid "More actions for this window"
+#~ msgstr "Daugiau veiksmų su šiuo langu"
+
+#~ msgid "Shade"
+#~ msgstr "Slėpti lango turinį"
+
+#, fuzzy
+#~| msgctxt "button text"
+#~| msgid "Get New Window Decorations..."
+#~ msgctxt "button text"
+#~ msgid "Get New Window Decorations…"
+#~ msgstr "Gauti naujas langų dekoracijas..."
+
+#~ msgid "No Borders"
+#~ msgstr "Jokių rėmelių"
+
+#~ msgid "Tiny"
+#~ msgstr "Mažytis"
+
+#~ msgid "Normal"
+#~ msgstr "Normalus"
+
+#~ msgid "Large"
+#~ msgstr "Didelis"
+
+#~ msgid "Very Large"
+#~ msgstr "Labai didelis"
+
+#~ msgid "Huge"
+#~ msgstr "Didžiulis"
+
+#~ msgid "Very Huge"
+#~ msgstr "Milžiniškas"
+
+#~ msgid "Oversized"
+#~ msgstr "Per didelis"
+
+#~ msgid "This module lets you configure the window decorations."
+#~ msgstr "Šis modulis leidžia jums konfigūruoti langų dekoracijas."
+
+#~ msgctxt "NAME OF TRANSLATORS"
+#~ msgid "Your names"
+#~ msgstr "Moo"
+
+#~ msgctxt "EMAIL OF TRANSLATORS"
+#~ msgid "Your emails"
+#~ msgstr "<>"
+
+#~ msgid "Valerio Pilo"
+#~ msgstr "Valerio Pilo"
+
+#~ msgid "Author"
+#~ msgstr "Autorius"
+
+#~ msgctxt "tab label"
+#~ msgid "Theme"
+#~ msgstr "Apipavidalinimas"
+
+#~ msgctxt "popup tip"
+#~ msgid ""
+#~ "Close by double clicking: Keep the window's Menu button pressed until it "
+#~ "appears."
+#~ msgstr ""
+#~ "Užversite spustelėję du kartus: Norėdami atverti meniu, laikykite "
+#~ "nuspaustą Meniu mygtuką tol, kol meniu atsiras."
+
+#~ msgid "Menu"
+#~ msgstr "Meniu"
+
+#~ msgid "Keep below"
+#~ msgstr "Laikyti apačioje"
+
+#~ msgid "Keep above"
+#~ msgstr "Laikyti viršuje"
+
+#~ msgid "Download New Window Decorations"
+#~ msgstr "Atsisiųsti naujas langų dekoracijas"
+
+#~ msgctxt "checkbox label"
+#~ msgid "Use theme's default window border size"
+#~ msgstr "Naudoti apipavidalinimo numatytąjį lango rėmelio dydį"
+
+#, fuzzy
+#~| msgid "Search"
+#~ msgid "Search..."
+#~ msgstr "Ieškoti"

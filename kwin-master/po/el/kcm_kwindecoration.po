@@ -1,0 +1,630 @@
+# translation of kcmkwindecoration.po to
+# translation of kcmkwindecoration.po to Greek
+# Copyright (C) 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+#
+# Stergios Dramis <sdramis@egnatia.ee.auth.gr>, 2002-2004.
+# Spiros Georgaras <sngeorgaras@otenet.gr>, 2005, 2007.
+# Toussis Manolis <koppermind@yahoo.com>, 2005.
+# Spiros Georgaras <sng@hellug.gr>, 2007.
+# Toussis Manolis <manolis@koppermind.homelinux.org>, 2008.
+# Petros Vidalis <p_vidalis@hotmail.com>, 2009, 2010.
+# Dimitrios Glentadakis <dglent@gmail.com>, 2011, 2012.
+# Stelios <sstavra@gmail.com>, 2012.
+# Antonis Geralis <capoiosct@gmail.com>, 2014.
+# Dimitris Kardarakos <dimkard@gmail.com>, 2014, 2015.
+msgid ""
+msgstr ""
+"Project-Id-Version: kcmkwindecoration\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-05-14 00:45+0000\n"
+"PO-Revision-Date: 2024-09-06 22:12+0300\n"
+"Last-Translator: Αντώνης Γέραλης <capoiosct@gmail.com>\n"
+"Language-Team: Greek <kde-i18n-doc@kde.org>\n"
+"Language: el\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Lokalize 24.08.0\n"
+
+#: declarative-plugin/buttonsmodel.cpp:56
+#, fuzzy, kde-format
+#| msgctxt "Button showing window actions menu"
+#| msgid "Window Menu"
+msgid "Window menu"
+msgstr "Μενού παραθύρου"
+
+#: declarative-plugin/buttonsmodel.cpp:58
+#, kde-format
+msgid "Application menu"
+msgstr "Μενού εφαρμογής"
+
+#: declarative-plugin/buttonsmodel.cpp:60
+#, kde-format
+msgid "On all desktops"
+msgstr "Σε όλες τις επιφάνειες εργασίας"
+
+#: declarative-plugin/buttonsmodel.cpp:62
+#, kde-format
+msgid "Minimize"
+msgstr "Ελαχιστοποίηση"
+
+#: declarative-plugin/buttonsmodel.cpp:64
+#, kde-format
+msgid "Maximize"
+msgstr "Μεγιστοποίηση"
+
+#: declarative-plugin/buttonsmodel.cpp:66
+#, kde-format
+msgid "Close"
+msgstr "Κλείσιμο"
+
+#: declarative-plugin/buttonsmodel.cpp:68
+#, kde-format
+msgid "Context help"
+msgstr "Πλαίσιο βοήθειας"
+
+#: declarative-plugin/buttonsmodel.cpp:70
+#, kde-format
+msgid "Keep below other windows"
+msgstr "Διατήρηση κάτω από άλλα παράθυρα"
+
+#: declarative-plugin/buttonsmodel.cpp:72
+#, kde-format
+msgid "Keep above other windows"
+msgstr "Διατήρηση πάνω από άλλα παράθυρα"
+
+#: declarative-plugin/buttonsmodel.cpp:74
+#, kde-format
+msgid "Hide from screenshots and screen recordings"
+msgstr ""
+
+#: declarative-plugin/buttonsmodel.cpp:76
+#, kde-format
+msgid "Spacer"
+msgstr "Διαχωριστικό"
+
+#: kcm.cpp:188
+#, kde-format
+msgctxt "%1 is the name of a border size"
+msgid "Theme default (%1)"
+msgstr "Προεπιλεγμένο θέμα (%1)"
+
+#: kwin-applywindowdecoration.cpp:34
+#, kde-format
+msgid ""
+"This tool allows you to set the window decoration theme for the currently "
+"active session, without accidentally setting it to one that is either not "
+"available, or which is already set."
+msgstr ""
+"Αυτό το εργαλείο σας επιτρέπει να ορίσετε το θέμα διακόσμησης του παραθύρου "
+"για την τρέχουσα ενεργή συνεδρία, χωρίς να το ορίσετε κατά λάθος σε ένα θέμα "
+"που είτε δεν είναι διαθέσιμο είτε έχει ήδη οριστεί."
+
+#: kwin-applywindowdecoration.cpp:35
+#, kde-format
+msgid ""
+"The name of the window decoration theme you wish to set for KWin. Passing a "
+"full path will attempt to find a theme in that directory, and then apply "
+"that if one can be deduced."
+msgstr ""
+"Το όνομα του θέματος διακόσμησης παραθύρου που θέλετε να ορίσετε για το "
+"KWin. Αν περάσετε μια πλήρη διαδρομή, θα προσπαθήσει να βρει ένα θέμα σε "
+"αυτόν τον κατάλογο και στη συνέχεια θα εφαρμόσει αυτό το θέμα αν μπορεί να "
+"εξαχθεί."
+
+#: kwin-applywindowdecoration.cpp:36
+#, kde-format
+msgid ""
+"Show all the themes available on the system (and which is the current theme)"
+msgstr ""
+"Εμφάνιση όλων των θεμάτων που είναι διαθέσιμα στο σύστημα (και ποιο είναι το "
+"τρέχον θέμα)"
+
+#: kwin-applywindowdecoration.cpp:67
+#, kde-format
+msgid ""
+"Resolved %1 to the KWin Aurorae theme \"%2\", and will attempt to set that "
+"as your current theme."
+msgstr ""
+"Έγινε επίλυση του %1 στο θέμα KWin Aurorae «%2», και θα προσπαθήσει να το "
+"ορίσει ως το τρέχον θέμα σας."
+
+#: kwin-applywindowdecoration.cpp:73
+#, kde-format
+msgid ""
+"You attempted to pass a file path, but this could not be resolved to a "
+"theme, and we will have to abort, due to having no theme to set"
+msgstr ""
+"Προσπαθήσατε να περάσετε μια διαδρομή αρχείου, αλλά αυτό δεν μπόρεσε να "
+"επιλυθεί σε ένα θέμα, και θα πρέπει να ακυρώσουμε, λόγω του ότι δεν έχουμε "
+"θέμα για να ορίσουμε"
+
+#: kwin-applywindowdecoration.cpp:79
+#, kde-format
+msgid ""
+"The requested theme \"%1\" is already set as the window decoration theme."
+msgstr ""
+"Το ζητούμενο θέμα «%1» έχει ήδη οριστεί ως θέμα διακόσμησης του παραθύρου."
+
+#: kwin-applywindowdecoration.cpp:101
+#, fuzzy, kde-format
+#| msgid ""
+#| "Successfully applied the cursor theme %1 to your current Plasma session"
+msgid ""
+"Successfully applied the pointer theme %1 to your current Plasma session"
+msgstr "Επιτυχία εφαρμογής θέματος δρομέα %1 στην τρέχουσα συνεδρία του Plasma"
+
+#: kwin-applywindowdecoration.cpp:105
+#, kde-format
+msgid ""
+"Failed to save your theme settings - the reason is unknown, but this is an "
+"unrecoverable error. You may find that simply trying again will work."
+msgstr ""
+"Αποτυχία αποθήκευσης των ρυθμίσεων του θέματος - ο λόγος είναι άγνωστος, "
+"αλλά πρόκειται για σφάλμα που δεν μπορεί να αποκατασταθεί. Ίσως διαπιστώσετε "
+"ότι αν απλά προσπαθήσετε ξανά θα λειτουργήσει."
+
+#: kwin-applywindowdecoration.cpp:109
+#, kde-format
+msgid ""
+"Could not find theme \"%1\". The theme should be one of the following "
+"options: %2"
+msgstr ""
+"Αδυναμία εύρεσης του θέματος «%1». Το θέμα πρέπει να είναι μία από τις "
+"παρακάτω επιλογές: %2"
+
+#: kwin-applywindowdecoration.cpp:114
+#, kde-format
+msgid "You have the following KWin window decoration themes on your system:"
+msgstr "Έχετε τα ακόλουθα θέματα διακόσμησης παραθύρων KWin στο σύστημά σας:"
+
+#: ui/Buttons.qml:85
+#, kde-format
+msgid "Titlebar"
+msgstr "Γραμμή τίτλου"
+
+#: ui/Buttons.qml:245
+#, kde-format
+msgid "Drop button here to remove it"
+msgstr "Αφήστε το κουμπί εδώ για να το αφαιρέσετε"
+
+#: ui/Buttons.qml:261
+#, kde-format
+msgid "Drag buttons between here and the titlebar"
+msgstr "Σύρσιμο κουμπιών μεταξύ της θέσης αυτής και της γραμμής τίτλου"
+
+#: ui/ConfigureTitlebar.qml:16
+#, kde-format
+msgid "Titlebar Buttons"
+msgstr "Κουμπιά γραμμής τίτλου"
+
+#: ui/ConfigureTitlebar.qml:35
+#, fuzzy, kde-format
+#| msgctxt "checkbox label"
+#| msgid "Close windows by double clicking the menu button"
+msgctxt "checkbox label"
+msgid "Close windows by double clicking the window menu button"
+msgstr "Κλείσιμο παραθύρων με διπλό κλικ στο κουμπί του μενού"
+
+#: ui/ConfigureTitlebar.qml:52
+#, fuzzy, kde-format
+#| msgctxt "popup tip"
+#| msgid "Click and hold on the menu button to show the menu."
+msgctxt "popup tip"
+msgid "Click and hold on the window menu button to show the menu."
+msgstr ""
+"Κάντε κλικ και κρατήστε πατημένο το κουμπί μενού για να εμφανιστεί το μενού."
+
+#: ui/ConfigureTitlebar.qml:59
+#, kde-format
+msgctxt "checkbox label"
+msgid "Show titlebar button tooltips"
+msgstr "Εμφάνιση υποδείξεων κουμπιών παραθύρου"
+
+#: ui/ConfigureTitlebar.qml:73
+#, kde-format
+msgctxt "@option:check"
+msgid "Always show \"Hide from Screenshots and Screen Recordings\" button"
+msgstr ""
+
+#: ui/ConfigureTitlebar.qml:85
+#, kde-format
+msgctxt "@info:tooltip"
+msgid ""
+"When unchecked the button only appears if the window is hidden from "
+"screenshots and screen recordings"
+msgstr ""
+
+#: ui/ConfigureTitlebar.qml:86
+#, kde-format
+msgctxt "@info:tooltip"
+msgid ""
+"To enable this option, add the \"Hide from Screenshots and Screen Recordings"
+"\" button to the titlebar first"
+msgstr ""
+
+#: ui/main.qml:29
+#, kde-format
+msgctxt "Selector label"
+msgid "Window border size:"
+msgstr "Μέγεθος περιγράμματος:"
+
+#: ui/main.qml:48
+#, kde-format
+msgctxt "button text"
+msgid "Configure Titlebar Buttons…"
+msgstr "Διαμόρφωση κουμπιών παραθύρου…"
+
+#: ui/main.qml:54
+#, kde-format
+msgctxt "@action:button as in, \"Get New Window Decorations\""
+msgid "Get New…"
+msgstr "Λήψη νέων…"
+
+#: ui/Themes.qml:93
+#, kde-format
+msgid "Edit %1 Theme…"
+msgstr "Επεξεργασία θέματος %1…"
+
+#: utils.cpp:26
+#, kde-format
+msgid "No window borders"
+msgstr "Χωρίς περιγράμματα"
+
+#: utils.cpp:27
+#, kde-format
+msgid "No side window borders"
+msgstr "Χωρίς πλευρικά περιγράμματα"
+
+#: utils.cpp:28
+#, kde-format
+msgid "Tiny window borders"
+msgstr "Μικροσκοπικά περιγράμματα"
+
+#: utils.cpp:29
+#, kde-format
+msgid "Normal window borders"
+msgstr "Κανονικά περιγράμματα"
+
+#: utils.cpp:30
+#, kde-format
+msgid "Large window borders"
+msgstr "Μεγάλα περιγράμματα"
+
+#: utils.cpp:31
+#, kde-format
+msgid "Very large window borders"
+msgstr "Πολύ μεγάλα περιγράμματα"
+
+#: utils.cpp:32
+#, kde-format
+msgid "Huge window borders"
+msgstr "Τεράστια περιγράμματα"
+
+#: utils.cpp:33
+#, kde-format
+msgid "Very huge window borders"
+msgstr "Πολύ τεράστια περιγράμματα"
+
+#: utils.cpp:34
+#, kde-format
+msgid "Oversized window borders"
+msgstr "Υπερμεγέθη περιγράμματα"
+
+#~ msgid "More actions for this window"
+#~ msgstr "Περισσότερες ενέργειες για αυτό το παράθυρο"
+
+#~ msgid "Shade"
+#~ msgstr "Σκίαση"
+
+#~| msgid "Border size:"
+#~ msgid "Very Large Window Borders"
+#~ msgstr "Πολύ μεγάλα περιγράμματα"
+
+#, fuzzy
+#~| msgid "Get New Decorations..."
+#~ msgctxt "button text"
+#~ msgid "Get New Window Decorations…"
+#~ msgstr "Λήψη νέων διακοσμήσεων παραθύρου..."
+
+#, fuzzy
+#~| msgctxt "@item:inlistbox Border size:"
+#~| msgid "No Borders"
+#~ msgid "No Borders"
+#~ msgstr "Χωρίς περιγράμματα"
+
+#, fuzzy
+#~| msgctxt "@item:inlistbox Border size:"
+#~| msgid "Tiny"
+#~ msgid "Tiny"
+#~ msgstr "Μικροσκοπικό"
+
+#, fuzzy
+#~| msgctxt "@item:inlistbox Border size:"
+#~| msgid "Normal"
+#~ msgid "Normal"
+#~ msgstr "Κανονικό"
+
+#, fuzzy
+#~| msgctxt "@item:inlistbox Border size:"
+#~| msgid "Large"
+#~ msgid "Large"
+#~ msgstr "Μεγάλο"
+
+#, fuzzy
+#~| msgctxt "@item:inlistbox Border size:"
+#~| msgid "Very Large"
+#~ msgid "Very Large"
+#~ msgstr "Πολύ μεγάλο"
+
+#, fuzzy
+#~| msgctxt "@item:inlistbox Border size:"
+#~| msgid "Huge"
+#~ msgid "Huge"
+#~ msgstr "Τεράστιο"
+
+#, fuzzy
+#~| msgctxt "@item:inlistbox Border size:"
+#~| msgid "Very Huge"
+#~ msgid "Very Huge"
+#~ msgstr "Τερατώδες"
+
+#, fuzzy
+#~| msgctxt "@item:inlistbox Border size:"
+#~| msgid "Oversized"
+#~ msgid "Oversized"
+#~ msgstr "Υπερφυσικό"
+
+#~ msgctxt "NAME OF TRANSLATORS"
+#~ msgid "Your names"
+#~ msgstr ""
+#~ "Στέργιος Δράμης,Σπύρος Γεωργαράς,Τούσης Μανώλης, Δημήτριος Γλενταδάκης"
+
+#~ msgctxt "EMAIL OF TRANSLATORS"
+#~ msgid "Your emails"
+#~ msgstr ""
+#~ "sdramis@egnatia.ee.auth.gr,sngeorgaras@otenet.gr,manolis@koppermind."
+#~ "homelinux.org, dglent@gmail.com"
+
+#, fuzzy
+#~| msgid "Get New Decorations..."
+#~ msgid "Window Decorations"
+#~ msgstr "Λήψη νέων διακοσμήσεων παραθύρου..."
+
+#, fuzzy
+#~| msgid "Theme"
+#~ msgctxt "tab label"
+#~ msgid "Theme"
+#~ msgstr "Θέμα"
+
+#, fuzzy
+#~| msgid ""
+#~| "Close by double clicking:\n"
+#~| " To open the menu, keep the button pressed until it appears."
+#~ msgctxt "popup tip"
+#~ msgid ""
+#~ "Close by double clicking: Keep the window's Menu button pressed until it "
+#~ "appears."
+#~ msgstr ""
+#~ "Κλείσιμο με διπλό κλικ  :\n"
+#~ " Για να ανοίξετε το μενού, κρατήστε το κουμπί πατημένο μέχρι να "
+#~ "εμφανιστεί."
+
+#~ msgid "Menu"
+#~ msgstr "Μενού"
+
+#~ msgid "Keep below"
+#~ msgstr "Διατήρηση από κάτω"
+
+#~ msgid "Keep above"
+#~ msgstr "Διατήρηση από πάνω"
+
+#, fuzzy
+#~| msgid "Get New Decorations..."
+#~ msgid "Download New Window Decorations"
+#~ msgstr "Λήψη νέων διακοσμήσεων παραθύρου..."
+
+#, fuzzy
+#~| msgid "Search"
+#~ msgid "Search..."
+#~ msgstr "Αναζήτηση"
+
+#~ msgid "Close windows by double clicking &the menu button"
+#~ msgstr "Κλείσιμο παραθύρων με διπλό &κλικ στο κουμπί μενού"
+
+#~ msgid "Border si&ze:"
+#~ msgstr "Μέγεθος &περιγράμματος:"
+
+#~ msgid "Buttons"
+#~ msgstr "Κουμπιά"
+
+#, fuzzy
+#~| msgid "Configure Buttons..."
+#~ msgid "Configure %1..."
+#~ msgstr "Διαμόρφωση κουμπιών..."
+
+#, fuzzy
+#~| msgid "Normal"
+#~ msgid "Form"
+#~ msgstr "Κανονικό"
+
+#~ msgid "Button size:"
+#~ msgstr "Μέγεθος κουμπιού:"
+
+#~ msgctxt "@item:inlistbox Button size:"
+#~ msgid "Tiny"
+#~ msgstr "Μικροσκοπικό"
+
+#~ msgctxt "@item:inlistbox Button size:"
+#~ msgid "Normal"
+#~ msgstr "Κανονικό"
+
+#~ msgctxt "@item:inlistbox Button size:"
+#~ msgid "Large"
+#~ msgstr "Μεγάλο"
+
+#~ msgctxt "@item:inlistbox Button size:"
+#~ msgid "Very Large"
+#~ msgstr "Πολύ μεγάλο"
+
+#~ msgctxt "@item:inlistbox Button size:"
+#~ msgid "Huge"
+#~ msgstr "Τεράστιο"
+
+#~ msgctxt "@item:inlistbox Button size:"
+#~ msgid "Very Huge"
+#~ msgstr "Υπερτεράστιο"
+
+#~ msgctxt "@item:inlistbox Button size:"
+#~ msgid "Oversized"
+#~ msgstr "Υπερφυσικό"
+
+#~ msgid "KDE"
+#~ msgstr "KDE"
+
+#~ msgid "%1 (unavailable)"
+#~ msgstr "%1 (μη διαθέσιμο)"
+
+#~ msgid ""
+#~ "To add or remove titlebar buttons, simply <i>drag</i> items between the "
+#~ "available item list and the titlebar preview. Similarly, drag items "
+#~ "within the titlebar preview to re-position them."
+#~ msgstr ""
+#~ "Για να προσθέσετε ή να αφαιρέσετε κουμπιά από τη γραμμή τίτλου, απλά "
+#~ "<i>σύρετε</i> αντικείμενα μεταξύ της διαθέσιμης λίστας αντικειμένων και "
+#~ "της προεπισκόπησης της γραμμής τίτλου. Παρόμοια, σύρετε αντικείμενα μέσα "
+#~ "στη προεπισκόπηση της γραμμής τίτλου για να τα επανατοποθετήσετε."
+
+#~ msgid "Resize"
+#~ msgstr "Αλλαγή μεγέθους"
+
+#~ msgid "Help"
+#~ msgstr "Βοήθεια"
+
+#~ msgid "--- spacer ---"
+#~ msgstr "--- κενό ---"
+
+#~ msgid ""
+#~ "Enabling this checkbox will show window button tooltips. If this checkbox "
+#~ "is off, no window button tooltips will be shown."
+#~ msgstr ""
+#~ "Ενεργοποιώντας αυτό το πλαίσιο επιλογής θα εμφανίζονται οι υποδείξεις "
+#~ "κουμπιών παραθύρων. Αν αυτό το πλαίσιο επιλογής είναι απενεργοποιημένο, "
+#~ "δε θα εμφανίζονται οι υποδείξεις κουμπιών παραθύρων."
+
+#~ msgid "Please note that this option is not available on all styles yet."
+#~ msgstr ""
+#~ "Παρακαλώ σημειώστε ότι αυτή η επιλογή δεν είναι διαθέσιμη για όλα τα στυλ "
+#~ "ακόμη."
+
+#~ msgid "Use custom titlebar button &positions"
+#~ msgstr "Χρήση προσαρμοσμένων &θέσεων για τα κουμπιά της γραμμής τίτλου"
+
+#~ msgid "B&order size:"
+#~ msgstr "Μέγεθ&ος περιγράμματος:"
+
+#~ msgid "Use this combobox to change the border size of the decoration."
+#~ msgstr ""
+#~ "Χρησιμοποιήστε αυτό το πλαίσιο επιλογών για να ρυθμίσετε το μέγεθος "
+#~ "περιγράμματος της διακόσμησης παραθύρου."
+
+#~ msgctxt "@item:inlistbox Border size:"
+#~ msgid "No Side Border"
+#~ msgstr "Χωρίς πλευρική οριογραμμή"
+
+#~ msgctxt "@item:inlistbox Border size:"
+#~ msgid "No Border"
+#~ msgstr "Χωρίς οριογραμμή"
+
+#~ msgid "Decoration Options"
+#~ msgstr "Επιλογές διακόσμησης"
+
+#~ msgid ""
+#~ "Select the window decoration. This is the look and feel of both the "
+#~ "window borders and the window handle."
+#~ msgstr ""
+#~ "Επιλέξτε τη διακόσμηση παραθύρου. Αυτή είναι η μορφή και η αίσθηση και "
+#~ "των περιγραμμάτων των παραθύρων και της διαχείρισης των παραθύρων."
+
+#~ msgid "Configure Decoration..."
+#~ msgstr "Διαμόρφωση διακόσμησης..."
+
+#~ msgid "Window Decoration Control Module"
+#~ msgstr "Άρθρωμα ελέγχου της διακόσμησης παραθύρων"
+
+#~ msgid "(c) 2001 Karol Szwed"
+#~ msgstr "(c) 2001 Karol Szwed"
+
+#~ msgid "Karol Szwed"
+#~ msgstr "Karol Szwed"
+
+#~ msgid ""
+#~ "<h1>Installation error</h1>The resource<h2>kwin/kcm_kwindecoration/main."
+#~ "qml</h2>could not be located in any application data path.<h2>Please "
+#~ "contact your distribution</h2>The application will now abort"
+#~ msgstr ""
+#~ "<h1>Σφάλμα εγκατάστασης</h1>Ο πόρος<h2>kwin/kcm_kwindecoration/main.qml</"
+#~ "h2>δεν βρέθηκε σε καμία διαδρομή δεδομένων εφαρμογών.<h2>Παρακαλώ "
+#~ "επικοινωνήστε με τη διανομή σας.</h2>Η εφαρμογή θα τερματίσει."
+
+#~ msgid "Installation Error"
+#~ msgstr "Σφάλμα εγκατάστασης"
+
+#~ msgid "Oxygen"
+#~ msgstr "Οξυγόνο"
+
+#~ msgid ""
+#~ "<h1>Window Manager Decoration</h1><p>This module allows you to choose the "
+#~ "window border decorations, as well as titlebar button positions and "
+#~ "custom decoration options.</p>To choose a theme for your window "
+#~ "decoration click on its name and apply your choice by clicking the \"Apply"
+#~ "\" button below. If you do not want to apply your choice you can click "
+#~ "the \"Reset\" button to discard your changes.<p>You can configure each "
+#~ "theme. There are different options specific for each theme.</p><p>On the "
+#~ "\"Buttons\" tab check the \"Use custom titlebar button positions\" box "
+#~ "and you can change the positions of the buttons to your liking.</p>"
+#~ msgstr ""
+#~ "<h1>Διακόσμηση διαχειριστή παραθύρων</h1><p>Αυτό το άρθρωμα σας επιτρέπει "
+#~ "να επιλέξετε τις διακοσμήσεις του περιγράμματος των παραθύρων, τις θέσεις "
+#~ "των κουμπιών στη γραμμή τίτλου καθώς και άλλες προσαρμοσμένες επιλογές "
+#~ "των διακοσμήσεων.</p>Για να επιλέξετε ένα θέμα για τη διακόσμηση των "
+#~ "παραθύρων πατήστε στο όνομά του και εφαρμόστε την επιλογή σας πατώντας το "
+#~ "κουμπί \"Εφαρμογή\" παρακάτω. Αν δε θέλετε να ενεργοποιήσετε την επιλογή "
+#~ "σας μπορείτε να πατήσετε το κουμπί \"Επαναφορά\" για να απορρίψετε τις "
+#~ "αλλαγές σας.<p>Μπορείτε να διαμορφώσετε κάθε θέμα. Υπάρχουν διαφορετικές "
+#~ "επιλογές, ανάλογα με το θέμα. </p><p>Στην καρτέλα \"Κουμπιά\" επιλέγοντας "
+#~ "το πλαίσιο \"Χρήση προσαρμοσμένων θέσεων για τα κουμπιά της γραμμής τίτλου"
+#~ "\"  μπορείτε να αλλάξετε τις θέσεις των κουμπιών, ανάλογα με το γούστο "
+#~ "σας.</p>"
+
+#~ msgid "Active Window"
+#~ msgstr "Ενεργό παράθυρο"
+
+#~ msgid "Inactive Window"
+#~ msgstr "Ανενεργό παράθυρο"
+
+#~ msgid "kcmkwindecoration"
+#~ msgstr "kcmkwindecoration"
+
+#~ msgctxt "Caption to decoration preview, %1 author name"
+#~ msgid "by %1"
+#~ msgstr "από τον/την %1"
+
+#~ msgid ""
+#~ "No preview available.\n"
+#~ "Most probably there\n"
+#~ "was a problem loading the plugin."
+#~ msgstr ""
+#~ "Δεν υπάρχει διαθέσιμη προεπισκόπηση.\n"
+#~ "Πιθανόν υπήρξε ένα σφάλμα\n"
+#~ "κατά τη φόρτωση του προσθέτου."
+
+#~ msgid "&Buttons"
+#~ msgstr "&Κουμπιά"
+
+#~ msgid "Ozone"
+#~ msgstr "Ozone"
+
+#~ msgid "KDE 2"
+#~ msgstr "KDE 2"

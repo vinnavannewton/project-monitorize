@@ -1,0 +1,210 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR This file is copyright:
+# This file is distributed under the same license as the kwin package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: kwin\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-05-05 00:46+0000\n"
+"PO-Revision-Date: 2026-04-29 05:31+0200\n"
+"Last-Translator: Temuri Doghonadze <temuri.doghonadze@gmail.com>\n"
+"Language-Team: Georgian <kde-i18n-doc@kde.org>\n"
+"Language: ka\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: Poedit 3.9\n"
+
+#: ui/main.qml:28
+#, kde-kuit-format
+msgctxt "@info:usagetip"
+msgid ""
+"Legacy X11 apps with global shortcuts and other features accessed while "
+"running in the background need to be able to listen for keystrokes all the "
+"time.<nl/><nl/>If you use any of these apps, you can choose your preferred "
+"balance of security and compatibility here."
+msgstr ""
+"მოძველებული X11-ის აპები გლობალური მალსახმობებით და სხვა ფუნქციებით, "
+"რომლებთანაც წვდომა განხორციელდა მაშინ, როცა ისინი ფონურად ეშვებოდნენ, "
+"საჭიროა, რომ ღილაკის დაჭერებს ყოველთვის უსმენდნენ.<nl/><nl/>თუ იყენებთ ასეთ "
+"აპებს, აქ შეგიძლიათ, აირჩიოთ ბალანსი უსაფრთხოებასა და თავსებადობას შორის."
+
+#: ui/main.qml:49
+#, kde-format
+msgctxt "@title:group"
+msgid "Listening for keystrokes:"
+msgstr "უსმენს ღილაკის დაჭერებს:"
+
+#: ui/main.qml:52
+#, kde-format
+msgctxt "@option:radio Listening for keystrokes is prohibited"
+msgid "Prohibited"
+msgstr "აკრძალულია"
+
+#: ui/main.qml:61
+#, kde-format
+msgctxt "@info:usagetip"
+msgid "Most secure; global shortcuts will not work in X11 apps"
+msgstr "ყველაზე დაცული, გლობალური მალსახმობები არ იმუშავებს X11-ის აპებში"
+
+#: ui/main.qml:67
+#, kde-format
+msgctxt "@option:radio Listening for keystrokes is allowed for…"
+msgid "Only the Meta, Control, Alt, and Shift keys"
+msgstr "მხოლოდ ღილაკები Meta, Control, Alt და Shift"
+
+#: ui/main.qml:76
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"High security; push-to-talk and other modifier-only global shortcuts will "
+"work in X11 apps"
+msgstr ""
+"მაღალი უსაფრთხოება: დააწექით-სალაპარაკოდ და სხვა მხოლოდ-მოდიფიკატორის მქონე "
+"გლობალური მალსახმობები არ იმუშავებს X11-ის აპებში"
+
+#: ui/main.qml:81
+#, kde-format
+msgctxt "@option:radio Listening for keystrokes is allowed for…"
+msgid ""
+"As above, plus any key pressed while the Control, Alt, or Meta key is also "
+"pressed"
+msgstr ""
+"იგივე, რაც ზემოთ, დამატებული ნებისმიერი ღილაკი, სანამ გიჭირავთ Control, Alt, "
+"ან Meta ღილაკიც"
+
+#: ui/main.qml:90
+#, kde-format
+msgctxt "@info:usagetip"
+msgid "Moderate security; all global shortcuts will work in X11 apps"
+msgstr ""
+"საშუალო უსაფრთხოება: ყველა გლობალური მალსახმობი იმუშავებს X11-ის აპებში"
+
+#: ui/main.qml:96
+#, kde-format
+msgctxt "@option:radio Listening for keystrokes is always allowed"
+msgid "Always allowed"
+msgstr "ყოველთვის დაშვებულია"
+
+#: ui/main.qml:105
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"Least secure; all X11 apps will be able to see any text you type into any "
+"application"
+msgstr ""
+"ყველაზე ნაკლებად დაცული. ყველა X11-ის აპი დაინახავს ყველა ტექსტს, რომელიც "
+"სხვა აპლიკაციაში აკრიფეს"
+
+#: ui/main.qml:111
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"Note that using this setting will reduce system security and permit "
+"malicious software to steal passwords and spy on the text that you type. "
+"Make sure you understand and accept this risk."
+msgstr ""
+"დაიმახსოვრეთ, რომ ამ პარამეტრის გამოყენება შეამცირებს სისტემის უსაფრთხოებას "
+"და დაუშვებს, რომ მავნე პროგრამებმა მოიპაროს პაროლები და იჯაშუშოს ტექსტზე, "
+"რომელსაც კრეფთ. დარწმუნდით, რომ იცით, რას აკეთებთ."
+
+#: ui/main.qml:118
+#, kde-format
+msgctxt "@title:group"
+msgid "Listening for mouse buttons:"
+msgstr "თაგუნას ღილაკების მოსმენა:"
+
+#: ui/main.qml:121
+#, kde-format
+msgctxt "@option:radio Listening for mouse buttons is allowed"
+msgid "Allowed"
+msgstr "დაშვებულია"
+
+#: ui/main.qml:130
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"Moderate security; global shortcuts involving mouse buttons will work in X11 "
+"apps"
+msgstr ""
+"შუალედური უსაფრთხოება: X11-ის აპებში იმუშავებს გლობალური მალსახმობები, "
+"რომლებიც თაგუნას ღილაკებს შეიცავს"
+
+#: ui/main.qml:141
+#, kde-format
+msgctxt "@title:group"
+msgid "Control of pointer and keyboard:"
+msgstr "კურსორის და კლავიატურის მართვა:"
+
+#: ui/main.qml:146
+#, kde-format
+msgctxt ""
+"@option:check Allowed control of pointer and keyboard without asking for "
+"permissions for allowed apps"
+msgid "Allowed apps"
+msgstr "დაშვებული აპლიკაციები"
+
+#: ui/main.qml:152
+#, kde-format
+msgctxt "@action:button"
+msgid "See Allowed Applications…"
+msgstr "დაშვებული აპლიკაციების ნახვა…"
+
+#: ui/main.qml:163
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"Moderate security; XWayland-using apps claiming to be something on this list "
+"will be able to take control of the computer, because XWayland-using apps’ "
+"identities can’t be verified"
+msgstr ""
+"ზომიერი უსაფრთხოება: XWayland-ის გამომყენებელი აპებს, რომლებიც აცხადებენ, "
+"რომ ამ სიაში რამეს წარმოადგენენ, უფლება ექნებათ, კომპიუტერი მართონ, რადგან "
+"XWayland-ის გამომყენებელი აპების იდენტიფიკაცია შეუძლებელია"
+
+#: ui/main.qml:169
+#, kde-format
+msgctxt ""
+"@option:radio Allow control of pointer and keyboard without asking for "
+"permission"
+msgid "Allow without asking for permission"
+msgstr "დაშვება წვდომის მოთხოვნის გარეშე"
+
+#: ui/main.qml:174
+#, kde-format
+msgctxt "@info:usagetip"
+msgid "Least secure; all X11 apps will be able to take control of the computer"
+msgstr ""
+"ნაკლებად დაცული: ყველა X11-ის აპს ექნება საშუალება, კომპიუტერის მართვა თავის "
+"თავზე აიღოს"
+
+#: ui/main.qml:181
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"Note that using this setting will drastically reduce system security and "
+"permit malicious software to take complete control of your pointer and "
+"keyboard. Make sure you understand and accept this risk."
+msgstr ""
+"დაიმახსოვრეთ, რომ ამ პარამეტრის გამოყენება მკვეთრად შეამცირებს სისტემის "
+"უსაფრთხოებას და დაუშვებს, რომ მავნე პროგრამამ აიღოს თქვენი კურსორისა და "
+"კლავიატურის კონტროლი თავის ხელში. დარწმუნდით, რომ იცით, რას აკეთებთ."
+
+#: ui/main.qml:189
+#, kde-format
+msgctxt ""
+"@title:window title of the page opened by the 'See allowed applications' "
+"button"
+msgid "Applications allowed to control the pointer and keyboard"
+msgstr "კურსორის და კლავიატურის მართვის უფლების მქონე აპლიკაციები"
+
+#: ui/main.qml:209
+#, kde-format
+msgctxt "@info:tooltip %1 is the name of the app/binary"
+msgid "Do not allow %1 to control the pointer and keyboard without asking"
+msgstr ""
+"%1-ს არ ექნება უფლება, აკონტროლოს თაგუნას მაჩვენებელი და კლავიატურა კითხვის "
+"გარეშე"

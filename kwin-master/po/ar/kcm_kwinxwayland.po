@@ -1,0 +1,257 @@
+# Copyright (C) 2024 This file is copyright:
+# This file is distributed under the same license as the kwin package.
+# SPDX-FileCopyrightText: 2022, 2024, 2025, 2026 Zayed Al-Saidi <zayed.alsaidi@gmail.com>
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: kwin\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-05-05 00:46+0000\n"
+"PO-Revision-Date: 2026-04-30 09:11+0400\n"
+"Last-Translator: Zayed Al-Saidi <zayed.alsaidi@gmail.com>\n"
+"Language-Team: ar\n"
+"Language: ar\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=6; plural=n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 "
+"&& n%100<=10 ? 3 : n%100>=11 ? 4 : 5;\n"
+"X-Generator: Lokalize 23.08.5\n"
+
+#: ui/main.qml:28
+#, kde-kuit-format
+msgctxt "@info:usagetip"
+msgid ""
+"Legacy X11 apps with global shortcuts and other features accessed while "
+"running in the background need to be able to listen for keystrokes all the "
+"time.<nl/><nl/>If you use any of these apps, you can choose your preferred "
+"balance of security and compatibility here."
+msgstr ""
+"يجب أن تكون تطبيقات X11 القديمة ذات الاختصارات العامة والميزات الأخرى التي "
+"يُصل إليها أثناء تشغيلها في الخلفية قادرة على الاستماع إلى ضغطات المفاتيح "
+"طوال الوقت.<nl/><nl/>إذا كنت تستخدم أيًا من هذه التطبيقات، يمكنك اختيار "
+"التوازن المفضل لديك بين الأمان والتوافق هنا."
+
+#: ui/main.qml:49
+#, kde-format
+msgctxt "@title:group"
+msgid "Listening for keystrokes:"
+msgstr "التنصت على ضغطات المفاتيح:"
+
+#: ui/main.qml:52
+#, kde-format
+msgctxt "@option:radio Listening for keystrokes is prohibited"
+msgid "Prohibited"
+msgstr "محظور"
+
+#: ui/main.qml:61
+#, kde-format
+msgctxt "@info:usagetip"
+msgid "Most secure; global shortcuts will not work in X11 apps"
+msgstr "الأكثر أماناً؛ لن تعمل الاختصارات العامة في تطبيقات X11"
+
+#: ui/main.qml:67
+#, kde-format
+msgctxt "@option:radio Listening for keystrokes is allowed for…"
+msgid "Only the Meta, Control, Alt, and Shift keys"
+msgstr "فقط مفاتيح Meta و Control و Alt و Shift"
+
+#: ui/main.qml:76
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"High security; push-to-talk and other modifier-only global shortcuts will "
+"work in X11 apps"
+msgstr ""
+"أمان عالٍ؛ ستعمل اختصارات الضغط للتحدث وغيرها من الاختصارات العامة للمعدل فقط "
+"في تطبيقات X11"
+
+#: ui/main.qml:81
+#, kde-format
+msgctxt "@option:radio Listening for keystrokes is allowed for…"
+msgid ""
+"As above, plus any key pressed while the Control, Alt, or Meta key is also "
+"pressed"
+msgstr ""
+"كما هو مذكور أعلاه، بالإضافة إلى أي مفتاح يستخدم أثناء الضغط على مفاتيح "
+"Control أو Alt أو Meta"
+
+#: ui/main.qml:90
+#, kde-format
+msgctxt "@info:usagetip"
+msgid "Moderate security; all global shortcuts will work in X11 apps"
+msgstr "حماية معتدلة؛ ستعمل جميع الاختصارات العامة في تطبيقات X11"
+
+#: ui/main.qml:96
+#, kde-format
+msgctxt "@option:radio Listening for keystrokes is always allowed"
+msgid "Always allowed"
+msgstr "مسموح دائما"
+
+#: ui/main.qml:105
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"Least secure; all X11 apps will be able to see any text you type into any "
+"application"
+msgstr ""
+"الأقل أمانًا؛ جميع تطبيقات X11 ستكون قادرة على رؤية أي نص تكتبه في أي تطبيق"
+
+#: ui/main.qml:111
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"Note that using this setting will reduce system security and permit "
+"malicious software to steal passwords and spy on the text that you type. "
+"Make sure you understand and accept this risk."
+msgstr ""
+"لاحظ أن استخدام هذا الإعداد سيقلل من أمان النظام ويسمح للبرامج الضارة بسرقة "
+"كلمات السر والتجسس على النص الذي تكتبه. تأكد من فهمك وقبول هذا الخطر."
+
+#: ui/main.qml:118
+#, kde-format
+msgctxt "@title:group"
+msgid "Listening for mouse buttons:"
+msgstr "التنصت على أزرار الفأرة:"
+
+#: ui/main.qml:121
+#, kde-format
+msgctxt "@option:radio Listening for mouse buttons is allowed"
+msgid "Allowed"
+msgstr "مسموح"
+
+#: ui/main.qml:130
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"Moderate security; global shortcuts involving mouse buttons will work in X11 "
+"apps"
+msgstr ""
+"أمان معتدل؛ ستعمل الاختصارات العامة التي تتضمن أزرار الفأرة في تطبيقات X11"
+
+#: ui/main.qml:141
+#, kde-format
+msgctxt "@title:group"
+msgid "Control of pointer and keyboard:"
+msgstr "التحكم بالمؤشر ولوحة المفاتيح:"
+
+#: ui/main.qml:146
+#, kde-format
+msgctxt ""
+"@option:check Allowed control of pointer and keyboard without asking for "
+"permissions for allowed apps"
+msgid "Allowed apps"
+msgstr "التطبيقات المسموحة"
+
+#: ui/main.qml:152
+#, kde-format
+msgctxt "@action:button"
+msgid "See Allowed Applications…"
+msgstr "اعرض التطبيقات المسموح بها…"
+
+#: ui/main.qml:163
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"Moderate security; XWayland-using apps claiming to be something on this list "
+"will be able to take control of the computer, because XWayland-using apps’ "
+"identities can’t be verified"
+msgstr ""
+"مستوى أمان متوسط؛ ستتمكن التطبيقات التي تستخدم XWayland وتدعي أنها مدرجة في "
+"هذه القائمة من السيطرة على الحاسوب، لأن هويات التطبيقات التي تستخدم XWayland "
+"لا يمكن التحقق منها"
+
+#: ui/main.qml:169
+#, kde-format
+msgctxt ""
+"@option:radio Allow control of pointer and keyboard without asking for "
+"permission"
+msgid "Allow without asking for permission"
+msgstr "اسمح دون طلب الإذن"
+
+#: ui/main.qml:174
+#, kde-format
+msgctxt "@info:usagetip"
+msgid "Least secure; all X11 apps will be able to take control of the computer"
+msgstr "الأقل أماناً؛ ستتمكن جميع تطبيقات X11 من التحكم في الحاسوب"
+
+#: ui/main.qml:181
+#, kde-format
+msgctxt "@info:usagetip"
+msgid ""
+"Note that using this setting will drastically reduce system security and "
+"permit malicious software to take complete control of your pointer and "
+"keyboard. Make sure you understand and accept this risk."
+msgstr ""
+"لاحظ أن استخدام هذا الإعداد سيقلل بشكل كبير من أمان النظام ويسمح للبرامج "
+"الضارة بالتحكم الكامل في المؤشر ولوحة المفاتيح. تأكد من فهمك وقبولك لهذه "
+"المخاطرة."
+
+#: ui/main.qml:189
+#, kde-format
+msgctxt ""
+"@title:window title of the page opened by the 'See allowed applications' "
+"button"
+msgid "Applications allowed to control the pointer and keyboard"
+msgstr "التطبيقات المسموح لها بالتحكم في المؤشر ولوحة المفاتيح"
+
+#: ui/main.qml:209
+#, kde-format
+msgctxt "@info:tooltip %1 is the name of the app/binary"
+msgid "Do not allow %1 to control the pointer and keyboard without asking"
+msgstr "لا تسمح لـ %1 بالتحكم في المؤشر ولوحة المفاتيح دون استئذان"
+
+#~ msgctxt "@info"
+#~ msgid "Changes will take effect the next time you log in."
+#~ msgstr "ستأخذ التغييرات مفعولها في المرة القادمة التي تلج فيها."
+
+#~ msgctxt "@action:button"
+#~ msgid "Log Out Now"
+#~ msgstr "اخرج الآن"
+
+#~ msgid ""
+#~ "Some legacy X11 apps require the ability to read keystrokes typed in "
+#~ "other apps for certain features, such as handling global keyboard "
+#~ "shortcuts. This is allowed by default. However other features may require "
+#~ "the ability to read all keys, and this is disabled by default for "
+#~ "security reasons. If you need to use such apps, you can choose your "
+#~ "preferred balance of security and functionality here."
+#~ msgstr ""
+#~ "تتطلب بعض تطبيقات اكس11 القديمة القدرة على قراءة ضغطات المفاتيح المكتوبة "
+#~ "في تطبيقات أخرى للحصول على ميزات معينة، مثل التعامل مع اختصارات لوحة "
+#~ "المفاتيح العامة. هذا مسموح به بشكل افتراضي. ومع ذلك، قد تتطلب الميزات "
+#~ "الأخرى القدرة على قراءة جميع المفاتيح، هذا الخيار معطل افتراضيًا لأسباب "
+#~ "أمنية. إذا كنت بحاجة إلى استخدام مثل هذه التطبيقات، فيمكنك اختيار توازن "
+#~ "الأمان والوظائف المفضل لديك هنا."
+
+#~ msgid "Allow legacy X11 apps to read keystrokes typed in all apps:"
+#~ msgstr ""
+#~ "اسمح لتطبيقات اكس11 القديمة بقراءة المفاتيح المضغوطة في كل التطبيقات:"
+
+#~ msgid "Never"
+#~ msgstr "لا، مطلقاً"
+
+#~ msgid "Only non-character keys"
+#~ msgstr "فقط المفاتيح غير حرفية"
+
+#~ msgid ""
+#~ "This module lets configure which keyboard events are forwarded to X11 "
+#~ "apps regardless of their focus."
+#~ msgstr ""
+#~ "تتيح هذه الوحدة ضبط أحداث لوحة المفاتيح التي يعاد توجيهها إلى تطبيقات "
+#~ "اكس11 بغض النظر عن موضع تركيز لوحة المفاتيح."
+
+#~ msgctxt "NAME OF TRANSLATORS"
+#~ msgid "Your names"
+#~ msgstr "زايد السعيدي"
+
+#~ msgctxt "EMAIL OF TRANSLATORS"
+#~ msgid "Your emails"
+#~ msgstr "zayed.alsaidi@gmail.com"
+
+#~ msgid "Legacy X11 App Support"
+#~ msgstr "دعم تطبيقات اكس11 القديمة"
+
+#~ msgid "Allow legacy X11 apps to read keystrokes typed in other apps"
+#~ msgstr ""
+#~ "اسمح لتطبيقات اكس11 القديمة بقراءة المفاتيح المضغوطة في التطبيقات الأخرى"

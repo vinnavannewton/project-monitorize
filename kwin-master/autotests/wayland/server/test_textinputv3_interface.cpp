@@ -1,0 +1,849 @@
+/*
+    SPDX-FileCopyrightText: 2020 Bhushan Shah <bshah@kde.org>
+
+    SPDX-License-Identifier: LGPL-2.1-only OR LGPL-3.0-only OR LicenseRef-KDE-Accepted-LGPL
+*/
+
+#include <memory>
+
+#include <QObject>
+#include <QSignalSpy>
+#include <QTest>
+#include <QThread>
+
+#include "wayland/compositor.h"
+#include "wayland/display.h"
+#include "wayland/seat.h"
+#include "wayland/surface.h"
+#include "wayland/textinput_v3.h"
+
+#include "KWayland/Client/compositor.h"
+#include "KWayland/Client/connection_thread.h"
+#include "KWayland/Client/event_queue.h"
+#include "KWayland/Client/registry.h"
+#include "KWayland/Client/seat.h"
+#include "KWayland/Client/surface.h"
+
+#include "qwayland-text-input-unstable-v3.h"
+
+using namespace KWin;
+
+Q_DECLARE_METATYPE(QtWayland::zwp_text_input_v3::content_purpose)
+Q_DECLARE_METATYPE(QtWayland::zwp_text_input_v3::content_hint)
+
+class TextInputV3 : public QObject, public QtWayland::zwp_text_input_v3
+{
+    Q_OBJECT
+Q_SIGNALS:
+    void surface_enter(wl_surface *surface);
+    void surface_leave(wl_surface *surface);
+    void commit_string(const QString &text);
+    void delete_surrounding_text(quint32 before_length, quint32 after_length);
+    void preedit_string(const QString &text, quint32 cursor_begin, quint32 cursor_end);
+    void done(quint32 serial);
+
+public:
+    ~TextInputV3() override
+    {
+        destroy();
+    }
+    void zwp_text_input_v3_enter(struct ::wl_surface *surface) override
+    {
+        Q_EMIT surface_enter(surface);
+    }
+    void zwp_text_input_v3_leave(struct ::wl_surface *surface) override
+    {
+        Q_EMIT surface_leave(surface);
+    }
+    void zwp_text_input_v3_commit_string(const QString &text) override
+    {
+        commitText = text;
+    }
+    void zwp_text_input_v3_delete_surrounding_text(uint32_t before_length, uint32_t after_length) override
+    {
+        before = before_length;
+        after = after_length;
+    }
+    void zwp_text_input_v3_done(uint32_t serial) override
+    {
+        Q_EMIT commit_string(commitText);
+        Q_EMIT preedit_string(preeditText, cursorBegin, cursorEnd);
+        Q_EMIT delete_surrounding_text(before, after);
+        Q_EMIT done(serial);
+    }
+    void zwp_text_input_v3_preedit_string(const QString &text, int32_t cursor_begin, int32_t cursor_end) override
+    {
+        preeditText = text;
+        cursorBegin = cursor_begin;
+        cursorEnd = cursor_end;
+    }
+
+private:
+    QString preeditText;
+    QString commitText;
+    uint32_t cursorBegin, cursorEnd;
+    uint32_t before, after;
+};
+
+class TextInputManagerV3 : public QtWayland::zwp_text_input_manager_v3
+{
+public:
+    ~TextInputManagerV3() override
+    {
+        destroy();
+    }
+};
+
+class TestTextInputV3Interface : public QObject
+{
+    Q_OBJECT
+
+public:
+    ~TestTextInputV3Interface() override;
+
+private Q_SLOTS:
+    void initTestCase_data();
+    void initTestCase();
+    void init();
+    void cleanup();
+    void testEnableDisable();
+    void testEvents();
+    void testContentPurpose_data();
+    void testContentPurpose();
+    void testContentHints_data();
+    void testContentHints();
+    void testMultipleTextinputs();
+    void testMultipleTextinputsOverlappedUpdate();
+
+private:
+    KWayland::Client::ConnectionThread *m_connection = nullptr;
+    KWayland::Client::EventQueue *m_queue = nullptr;
+    KWayland::Client::Compositor *m_clientCompositor = nullptr;
+    KWayland::Client::Seat *m_clientSeat = nullptr;
+
+    SeatInterface *m_seat = nullptr;
+    QThread *m_thread = nullptr;
+    KWin::Display m_display;
+    TextInputV3 *m_clientTextInputV3 = nullptr;
+    CompositorInterface *m_serverCompositor = nullptr;
+    TextInputV3Interface *m_serverTextInputV3 = nullptr;
+    TextInputManagerV3 *m_clientTextInputManagerV3 = nullptr;
+
+    quint32 m_totalCommits = 0;
+};
+
+void TestTextInputV3Interface::initTestCase_data()
+{
+    QTest::addColumn<quint32>("textInputManagerVersion");
+
+    QTest::newRow("v1") << 1u;
+    QTest::newRow("v2") << 2u;
+}
+
+void TestTextInputV3Interface::initTestCase()
+{
+    m_display.addSocketName(qAppName());
+    m_display.start();
+    QVERIFY(m_display.isRunning());
+
+    m_seat = new SeatInterface(&m_display, QStringLiteral("seat0"), this);
+    m_seat->setHasKeyboard(true);
+
+    m_serverCompositor = new CompositorInterface(&m_display, this);
+    new TextInputManagerV3Interface(&m_display);
+}
+
+void TestTextInputV3Interface::init()
+{
+    QFETCH_GLOBAL(quint32, textInputManagerVersion);
+
+    QVERIFY(!m_connection);
+    QVERIFY(!m_queue);
+    QVERIFY(!m_clientCompositor);
+    QVERIFY(!m_clientSeat);
+    QVERIFY(!m_clientTextInputManagerV3);
+    QVERIFY(!m_clientTextInputV3);
+
+    m_connection = new KWayland::Client::ConnectionThread;
+    QSignalSpy connectedSpy(m_connection, &KWayland::Client::ConnectionThread::connected);
+    m_connection->setSocketName(qAppName());
+
+    m_thread = new QThread(this);
+    m_connection->moveToThread(m_thread);
+    m_thread->start();
+
+    m_connection->initConnection();
+    QVERIFY(connectedSpy.wait());
+    QVERIFY(!m_connection->connections().isEmpty());
+
+    m_queue = new KWayland::Client::EventQueue(this);
+    QVERIFY(!m_queue->isValid());
+    m_queue->setup(m_connection);
+    QVERIFY(m_queue->isValid());
+
+    auto registry = new KWayland::Client::Registry(this);
+    connect(registry, &KWayland::Client::Registry::interfaceAnnounced, this, [this, registry, textInputManagerVersion](const QByteArray &interface, quint32 id, quint32 version) {
+        if (interface == QByteArrayLiteral("zwp_text_input_manager_v3")) {
+            QVERIFY(version >= textInputManagerVersion);
+            m_clientTextInputManagerV3 = new TextInputManagerV3();
+            m_clientTextInputManagerV3->init(*registry, id, textInputManagerVersion);
+        }
+    });
+
+    connect(registry, &KWayland::Client::Registry::seatAnnounced, this, [this, registry](quint32 name, quint32 version) {
+        m_clientSeat = registry->createSeat(name, version);
+    });
+
+    QSignalSpy allAnnouncedSpy(registry, &KWayland::Client::Registry::interfaceAnnounced);
+    QSignalSpy compositorSpy(registry, &KWayland::Client::Registry::compositorAnnounced);
+    QSignalSpy shmSpy(registry, &KWayland::Client::Registry::shmAnnounced);
+    registry->setEventQueue(m_queue);
+    registry->create(m_connection->display());
+    QVERIFY(registry->isValid());
+    registry->setup();
+    QVERIFY(allAnnouncedSpy.wait());
+
+    m_clientCompositor = registry->createCompositor(compositorSpy.first().first().value<quint32>(), compositorSpy.first().last().value<quint32>(), this);
+    QVERIFY(m_clientCompositor->isValid());
+    // create a text input v3
+    m_clientTextInputV3 = new TextInputV3();
+    m_clientTextInputV3->init(m_clientTextInputManagerV3->get_text_input(*m_clientSeat));
+    QVERIFY(m_clientTextInputV3);
+
+    delete registry;
+    m_totalCommits = 0;
+}
+
+void TestTextInputV3Interface::cleanup()
+{
+    m_seat->setFocusedTextInputSurface(nullptr);
+    m_serverTextInputV3 = nullptr;
+    if (m_clientTextInputV3) {
+        delete m_clientTextInputV3;
+        m_clientTextInputV3 = nullptr;
+    }
+    if (m_clientTextInputManagerV3) {
+        delete m_clientTextInputManagerV3;
+        m_clientTextInputManagerV3 = nullptr;
+    }
+    if (m_clientCompositor) {
+        delete m_clientCompositor;
+        m_clientCompositor = nullptr;
+    }
+    if (m_clientSeat) {
+        delete m_clientSeat;
+        m_clientSeat = nullptr;
+    }
+    if (m_queue) {
+        delete m_queue;
+        m_queue = nullptr;
+    }
+    if (m_thread) {
+        m_thread->quit();
+        m_thread->wait();
+        delete m_thread;
+        m_thread = nullptr;
+    }
+    if (m_connection) {
+        m_connection->deleteLater();
+        m_connection = nullptr;
+    }
+}
+
+TestTextInputV3Interface::~TestTextInputV3Interface() = default;
+
+// Ensures that enable disable events don't fire without commit
+void TestTextInputV3Interface::testEnableDisable()
+{
+    QFETCH_GLOBAL(quint32, textInputManagerVersion);
+
+    // create a surface
+    QSignalSpy serverSurfaceCreatedSpy(m_serverCompositor, &CompositorInterface::surfaceCreated);
+    std::unique_ptr<KWayland::Client::Surface> clientSurface(m_clientCompositor->createSurface(this));
+    QVERIFY(serverSurfaceCreatedSpy.wait());
+    SurfaceInterface *serverSurface = serverSurfaceCreatedSpy.first().first().value<SurfaceInterface *>();
+    QVERIFY(serverSurface);
+
+    m_serverTextInputV3 = m_seat->textInputV3();
+    QVERIFY(m_serverTextInputV3);
+
+    QSignalSpy focusedSurfaceChangedSpy(m_seat, &SeatInterface::focusedTextInputSurfaceChanged);
+    QSignalSpy textInputEnabledSpy(m_serverTextInputV3, &TextInputV3Interface::enabledChanged);
+    QSignalSpy cursorRectangleChangedSpy(m_serverTextInputV3, &TextInputV3Interface::cursorRectangleChanged);
+    QSignalSpy enableRequestedSpy(m_serverTextInputV3, &TextInputV3Interface::enableRequested);
+    QSignalSpy requestShowInputPanelSpy(m_serverTextInputV3, &TextInputV3Interface::requestShowInputPanel);
+    QSignalSpy requestHideInputPanelSpy(m_serverTextInputV3, &TextInputV3Interface::requestHideInputPanel);
+
+    QSignalSpy surfaceEnterSpy(m_clientTextInputV3, &TextInputV3::surface_enter);
+    QSignalSpy surfaceLeaveSpy(m_clientTextInputV3, &TextInputV3::surface_leave);
+
+    // Enter the textinput
+
+    QCOMPARE(focusedSurfaceChangedSpy.count(), 0);
+
+    // Make sure that entering surface does not trigger the text input
+    m_seat->setFocusedTextInputSurface(serverSurface);
+    QVERIFY(surfaceEnterSpy.wait());
+    QCOMPARE(surfaceEnterSpy.count(), 1);
+    QCOMPARE(focusedSurfaceChangedSpy.count(), 1);
+    QCOMPARE(textInputEnabledSpy.count(), 0);
+
+    // Now enable the textInput, we should not get event just yet
+    m_clientTextInputV3->enable();
+    m_clientTextInputV3->set_cursor_rectangle(0, 0, 20, 20);
+    m_clientTextInputV3->set_surrounding_text("KDE Plasma Desktop", 0, 3);
+    QCOMPARE(textInputEnabledSpy.count(), 0);
+    QCOMPARE(cursorRectangleChangedSpy.count(), 0);
+
+    // after we do commit we should get event
+    m_clientTextInputV3->commit();
+    QVERIFY(textInputEnabledSpy.wait());
+    if (textInputManagerVersion == 2) {
+        clientSurface->commit(KWayland::Client::Surface::CommitFlag::None);
+        QVERIFY(cursorRectangleChangedSpy.wait());
+    }
+    m_totalCommits++;
+
+    QCOMPARE(enableRequestedSpy.count(), 0);
+    QCOMPARE(textInputEnabledSpy.count(), 1);
+    QCOMPARE(cursorRectangleChangedSpy.count(), 1);
+    QCOMPARE(m_serverTextInputV3->cursorRectangle(), Rect(0, 0, 20, 20));
+    QCOMPARE(m_serverTextInputV3->surroundingText(), QString("KDE Plasma Desktop"));
+    QCOMPARE(m_serverTextInputV3->surroundingTextCursorPosition(), 0);
+    QCOMPARE(m_serverTextInputV3->surroundingTextSelectionAnchor(), 3);
+
+    if (textInputManagerVersion == 2) {
+        m_clientTextInputV3->show_input_panel();
+        QVERIFY(requestShowInputPanelSpy.wait());
+        QCOMPARE(requestShowInputPanelSpy.count(), 1);
+
+        m_clientTextInputV3->hide_input_panel();
+        QVERIFY(requestHideInputPanelSpy.wait());
+        QCOMPARE(requestHideInputPanelSpy.count(), 1);
+    }
+
+    // Do another enable when it's already enabled.
+    m_clientTextInputV3->enable();
+    m_clientTextInputV3->set_cursor_rectangle(0, 0, 20, 20);
+    m_clientTextInputV3->set_surrounding_text("KDE Plasma Desktop", 0, 3);
+    m_clientTextInputV3->commit();
+    QVERIFY(enableRequestedSpy.wait());
+    if (textInputManagerVersion == 2) {
+        clientSurface->commit(KWayland::Client::Surface::CommitFlag::None);
+    }
+    QCOMPARE(textInputEnabledSpy.count(), 1);
+    QCOMPARE(cursorRectangleChangedSpy.count(), 1);
+    QCOMPARE(m_serverTextInputV3->cursorRectangle(), Rect(0, 0, 20, 20));
+    QCOMPARE(m_serverTextInputV3->surroundingText(), QString("KDE Plasma Desktop"));
+    QCOMPARE(m_serverTextInputV3->surroundingTextCursorPosition(), 0);
+    QCOMPARE(m_serverTextInputV3->surroundingTextSelectionAnchor(), 3);
+    m_totalCommits++;
+
+    // disabling we should not get the event
+    m_clientTextInputV3->disable();
+    QCOMPARE(textInputEnabledSpy.count(), 1);
+
+    // after we do commit we should get event
+    m_clientTextInputV3->commit();
+    QVERIFY(textInputEnabledSpy.wait());
+    QCOMPARE(textInputEnabledSpy.count(), 2);
+    m_totalCommits++;
+
+    // Lets try leaving the surface and make sure event propogage
+    m_seat->setFocusedTextInputSurface(nullptr);
+    QVERIFY(surfaceLeaveSpy.wait());
+    QCOMPARE(surfaceLeaveSpy.count(), 1);
+}
+
+void TestTextInputV3Interface::testEvents()
+{
+    // create a surface
+    QSignalSpy serverSurfaceCreatedSpy(m_serverCompositor, &CompositorInterface::surfaceCreated);
+    std::unique_ptr<KWayland::Client::Surface> clientSurface(m_clientCompositor->createSurface(this));
+    QVERIFY(serverSurfaceCreatedSpy.wait());
+    SurfaceInterface *serverSurface = serverSurfaceCreatedSpy.first().first().value<SurfaceInterface *>();
+    QVERIFY(serverSurface);
+
+    m_serverTextInputV3 = m_seat->textInputV3();
+    QVERIFY(m_serverTextInputV3);
+
+    QSignalSpy focusedSurfaceChangedSpy(m_seat, &SeatInterface::focusedTextInputSurfaceChanged);
+    QSignalSpy textInputEnabledSpy(m_serverTextInputV3, &TextInputV3Interface::enabledChanged);
+    QSignalSpy doneSpy(m_clientTextInputV3, &TextInputV3::done);
+
+    // Enter the textinput
+    QCOMPARE(focusedSurfaceChangedSpy.count(), 0);
+
+    // Make sure that entering surface does not trigger the text input
+    m_seat->setFocusedTextInputSurface(serverSurface);
+    // FIXME: somehow this triggers BEFORE setFocusedTextInputSurface returns :(
+    //  QVERIFY(focusedSurfaceChangedSpy.wait());
+    QCOMPARE(focusedSurfaceChangedSpy.count(), 1);
+
+    // Now enable the textInput
+    m_clientTextInputV3->enable();
+    m_clientTextInputV3->commit();
+    m_totalCommits++;
+    QVERIFY(textInputEnabledSpy.wait());
+    QVERIFY(doneSpy.wait());
+    QCOMPARE(doneSpy.count(), 1);
+
+    QSignalSpy preEditSpy(m_clientTextInputV3, &TextInputV3::preedit_string);
+    QSignalSpy commitStringSpy(m_clientTextInputV3, &TextInputV3::commit_string);
+    QSignalSpy deleteSurroundingSpy(m_clientTextInputV3, &TextInputV3::delete_surrounding_text);
+
+    m_serverTextInputV3->sendPreEditString("Hello KDE community!", 1, 2);
+    m_serverTextInputV3->deleteSurroundingText(6, 10);
+    m_serverTextInputV3->commitString("Plasma");
+    m_serverTextInputV3->done();
+
+    QVERIFY(doneSpy.wait());
+    QCOMPARE(doneSpy.count(), 2);
+    QCOMPARE(preEditSpy.count(), 1);
+    QCOMPARE(commitStringSpy.count(), 1);
+    QCOMPARE(deleteSurroundingSpy.count(), 1);
+
+    QCOMPARE(preEditSpy.last().at(0).value<QString>(), "Hello KDE community!");
+    QCOMPARE(preEditSpy.last().at(1).value<quint32>(), 1);
+    QCOMPARE(preEditSpy.last().at(2).value<quint32>(), 2);
+    QCOMPARE(commitStringSpy.last().at(0).value<QString>(), "Plasma");
+    QCOMPARE(deleteSurroundingSpy.last().at(0).value<quint32>(), 6);
+    QCOMPARE(deleteSurroundingSpy.last().at(1).value<quint32>(), 10);
+
+    // zwp_text_input_v3.done event have serial of total commits
+    QCOMPARE(doneSpy.last().at(0).value<quint32>(), m_totalCommits);
+
+    // Now disable the textInput
+    m_clientTextInputV3->disable();
+    m_clientTextInputV3->commit();
+    m_totalCommits++;
+    QVERIFY(textInputEnabledSpy.wait());
+}
+
+void TestTextInputV3Interface::testContentPurpose_data()
+{
+    QTest::addColumn<QtWayland::zwp_text_input_v3::content_purpose>("clientPurpose");
+    QTest::addColumn<KWin::TextInputContentPurpose>("serverPurpose");
+
+    QTest::newRow("Alpha") << QtWayland::zwp_text_input_v3::content_purpose_alpha << TextInputContentPurpose::Alpha;
+    QTest::newRow("Digits") << QtWayland::zwp_text_input_v3::content_purpose_digits << TextInputContentPurpose::Digits;
+    QTest::newRow("Number") << QtWayland::zwp_text_input_v3::content_purpose_number << TextInputContentPurpose::Number;
+    QTest::newRow("Phone") << QtWayland::zwp_text_input_v3::content_purpose_phone << TextInputContentPurpose::Phone;
+    QTest::newRow("Url") << QtWayland::zwp_text_input_v3::content_purpose_url << TextInputContentPurpose::Url;
+    QTest::newRow("Email") << QtWayland::zwp_text_input_v3::content_purpose_email << TextInputContentPurpose::Email;
+    QTest::newRow("Name") << QtWayland::zwp_text_input_v3::content_purpose_name << TextInputContentPurpose::Name;
+    QTest::newRow("Password") << QtWayland::zwp_text_input_v3::content_purpose_password << TextInputContentPurpose::Password;
+    QTest::newRow("Pin") << QtWayland::zwp_text_input_v3::content_purpose_pin << TextInputContentPurpose::Pin;
+    QTest::newRow("Date") << QtWayland::zwp_text_input_v3::content_purpose_date << TextInputContentPurpose::Date;
+    QTest::newRow("Time") << QtWayland::zwp_text_input_v3::content_purpose_time << TextInputContentPurpose::Time;
+    QTest::newRow("DateTime") << QtWayland::zwp_text_input_v3::content_purpose_datetime << TextInputContentPurpose::DateTime;
+    QTest::newRow("Terminal") << QtWayland::zwp_text_input_v3::content_purpose_terminal << TextInputContentPurpose::Terminal;
+}
+
+void TestTextInputV3Interface::testContentPurpose()
+{
+    // create a surface
+    QSignalSpy serverSurfaceCreatedSpy(m_serverCompositor, &CompositorInterface::surfaceCreated);
+    std::unique_ptr<KWayland::Client::Surface> clientSurface(m_clientCompositor->createSurface(this));
+    QVERIFY(serverSurfaceCreatedSpy.wait());
+    SurfaceInterface *serverSurface = serverSurfaceCreatedSpy.first().first().value<SurfaceInterface *>();
+    QVERIFY(serverSurface);
+
+    m_serverTextInputV3 = m_seat->textInputV3();
+    QVERIFY(m_serverTextInputV3);
+
+    QSignalSpy focusedSurfaceChangedSpy(m_seat, &SeatInterface::focusedTextInputSurfaceChanged);
+    QSignalSpy textInputEnabledSpy(m_serverTextInputV3, &TextInputV3Interface::enabledChanged);
+
+    // Enter the textinput
+    QCOMPARE(focusedSurfaceChangedSpy.count(), 0);
+
+    // Make sure that entering surface does not trigger the text input
+    m_seat->setFocusedTextInputSurface(serverSurface);
+    // FIXME: somehow this triggers BEFORE setFocusedTextInputSurface returns :(
+    //  QVERIFY(focusedSurfaceChangedSpy.wait());
+    QCOMPARE(focusedSurfaceChangedSpy.count(), 1);
+
+    // Now enable the textInput
+    m_clientTextInputV3->enable();
+    m_clientTextInputV3->commit();
+    QVERIFY(textInputEnabledSpy.wait());
+    m_totalCommits++;
+
+    // Default should be normal content purpose
+    QCOMPARE(m_serverTextInputV3->contentPurpose(), TextInputContentPurpose::Normal);
+
+    QSignalSpy contentTypeChangedSpy(m_serverTextInputV3, &TextInputV3Interface::contentTypeChanged);
+
+    QFETCH(QtWayland::zwp_text_input_v3::content_purpose, clientPurpose);
+    m_clientTextInputV3->enable();
+    m_clientTextInputV3->set_content_type(QtWayland::zwp_text_input_v3::content_hint_none, clientPurpose);
+    m_clientTextInputV3->commit();
+    QVERIFY(contentTypeChangedSpy.wait());
+    QTEST(m_serverTextInputV3->contentPurpose(), "serverPurpose");
+    m_totalCommits++;
+
+    // Setting same thing should not trigger update
+    m_clientTextInputV3->enable();
+    m_clientTextInputV3->set_content_type(QtWayland::zwp_text_input_v3::content_hint_none, clientPurpose);
+    m_clientTextInputV3->commit();
+    QVERIFY(!contentTypeChangedSpy.wait(100));
+    m_totalCommits++;
+
+    // unset to normal
+    m_clientTextInputV3->enable();
+    m_clientTextInputV3->set_content_type(QtWayland::zwp_text_input_v3::content_hint_none, QtWayland::zwp_text_input_v3::content_purpose_normal);
+    m_clientTextInputV3->commit();
+    QVERIFY(contentTypeChangedSpy.wait());
+    m_totalCommits++;
+    QCOMPARE(m_serverTextInputV3->contentPurpose(), TextInputContentPurpose::Normal);
+
+    // Now disable the textInput
+    m_clientTextInputV3->disable();
+    m_clientTextInputV3->commit();
+    m_totalCommits++;
+    QVERIFY(textInputEnabledSpy.wait());
+}
+
+void TestTextInputV3Interface::testContentHints_data()
+{
+    QTest::addColumn<quint32>("clientHint");
+    QTest::addColumn<KWin::TextInputContentHints>("serverHints");
+
+    QTest::addRow("Spellcheck") << quint32(QtWayland::zwp_text_input_v3::content_hint_spellcheck)
+                                << TextInputContentHints(TextInputContentHint::AutoCorrection);
+    QTest::addRow("Completion") << quint32(QtWayland::zwp_text_input_v3::content_hint_completion)
+                                << TextInputContentHints(TextInputContentHint::AutoCompletion);
+    QTest::addRow("AutoCapital") << quint32(QtWayland::zwp_text_input_v3::content_hint_auto_capitalization)
+                                 << TextInputContentHints(TextInputContentHint::AutoCapitalization);
+    QTest::addRow("Lowercase") << quint32(QtWayland::zwp_text_input_v3::content_hint_lowercase) << TextInputContentHints(TextInputContentHint::LowerCase);
+    QTest::addRow("Uppercase") << quint32(QtWayland::zwp_text_input_v3::content_hint_uppercase) << TextInputContentHints(TextInputContentHint::UpperCase);
+    QTest::addRow("Titlecase") << quint32(QtWayland::zwp_text_input_v3::content_hint_titlecase) << TextInputContentHints(TextInputContentHint::TitleCase);
+    QTest::addRow("HiddenText") << quint32(QtWayland::zwp_text_input_v3::content_hint_hidden_text) << TextInputContentHints(TextInputContentHint::HiddenText);
+    QTest::addRow("SensitiveData") << quint32(QtWayland::zwp_text_input_v3::content_hint_sensitive_data)
+                                   << TextInputContentHints(TextInputContentHint::SensitiveData);
+    QTest::addRow("Latin") << quint32(QtWayland::zwp_text_input_v3::content_hint_latin) << TextInputContentHints(TextInputContentHint::Latin);
+    QTest::addRow("Multiline") << quint32(QtWayland::zwp_text_input_v3::content_hint_multiline) << TextInputContentHints(TextInputContentHint::MultiLine);
+    QTest::addRow("Auto") << quint32(QtWayland::zwp_text_input_v3::content_hint_completion | QtWayland::zwp_text_input_v3::content_hint_spellcheck
+                                     | QtWayland::zwp_text_input_v3::content_hint_auto_capitalization)
+                          << TextInputContentHints(TextInputContentHint::AutoCompletion | TextInputContentHint::AutoCorrection
+                                                   | TextInputContentHint::AutoCapitalization);
+}
+
+void TestTextInputV3Interface::testContentHints()
+{
+    // create a surface
+    QSignalSpy serverSurfaceCreatedSpy(m_serverCompositor, &CompositorInterface::surfaceCreated);
+    std::unique_ptr<KWayland::Client::Surface> clientSurface(m_clientCompositor->createSurface(this));
+    QVERIFY(serverSurfaceCreatedSpy.wait());
+    SurfaceInterface *serverSurface = serverSurfaceCreatedSpy.first().first().value<SurfaceInterface *>();
+    QVERIFY(serverSurface);
+
+    m_serverTextInputV3 = m_seat->textInputV3();
+    QVERIFY(m_serverTextInputV3);
+
+    QSignalSpy focusedSurfaceChangedSpy(m_seat, &SeatInterface::focusedTextInputSurfaceChanged);
+    QSignalSpy textInputEnabledSpy(m_serverTextInputV3, &TextInputV3Interface::enabledChanged);
+
+    // Enter the textinput
+    QCOMPARE(focusedSurfaceChangedSpy.count(), 0);
+
+    // Make sure that entering surface does not trigger the text input
+    m_seat->setFocusedTextInputSurface(serverSurface);
+    // FIXME: somehow this triggers BEFORE setFocusedTextInputSurface returns :(
+    //  QVERIFY(focusedSurfaceChangedSpy.wait());
+    QCOMPARE(focusedSurfaceChangedSpy.count(), 1);
+
+    // Now enable the textInput
+    m_clientTextInputV3->enable();
+    m_clientTextInputV3->commit();
+    QVERIFY(textInputEnabledSpy.wait());
+    m_totalCommits++;
+
+    QCOMPARE(m_serverTextInputV3->contentHints(), TextInputContentHint::None);
+
+    // Now disable the textInput
+    m_clientTextInputV3->disable();
+    m_clientTextInputV3->commit();
+    QVERIFY(textInputEnabledSpy.wait());
+    m_totalCommits++;
+
+    QSignalSpy contentTypeChangedSpy(m_serverTextInputV3, &TextInputV3Interface::contentTypeChanged);
+
+    QFETCH(quint32, clientHint);
+    m_clientTextInputV3->enable();
+    m_clientTextInputV3->set_content_type(clientHint, QtWayland::zwp_text_input_v3::content_purpose_normal);
+    m_clientTextInputV3->commit();
+    QVERIFY(contentTypeChangedSpy.wait());
+    QTEST(m_serverTextInputV3->contentHints(), "serverHints");
+    m_totalCommits++;
+
+    // Setting same thing should not trigger update
+    m_clientTextInputV3->enable();
+    m_clientTextInputV3->set_content_type(clientHint, QtWayland::zwp_text_input_v3::content_purpose_normal);
+    m_clientTextInputV3->commit();
+    QVERIFY(!contentTypeChangedSpy.wait(100));
+    m_totalCommits++;
+
+    // unset to normal
+    m_clientTextInputV3->enable();
+    m_clientTextInputV3->set_content_type(QtWayland::zwp_text_input_v3::content_hint_none, QtWayland::zwp_text_input_v3::content_purpose_normal);
+    m_clientTextInputV3->commit();
+    QVERIFY(contentTypeChangedSpy.wait());
+    m_totalCommits++;
+
+    // Now disable the textInput
+    m_clientTextInputV3->disable();
+    m_clientTextInputV3->commit();
+    QVERIFY(textInputEnabledSpy.wait());
+    m_totalCommits++;
+}
+
+void TestTextInputV3Interface::testMultipleTextinputs()
+{
+    // create two more text inputs
+    TextInputV3 *ti1 = new TextInputV3();
+    ti1->init(m_clientTextInputManagerV3->get_text_input(*m_clientSeat));
+    QVERIFY(ti1);
+
+    TextInputV3 *ti2 = new TextInputV3();
+    ti2->init(m_clientTextInputManagerV3->get_text_input(*m_clientSeat));
+    QVERIFY(ti2);
+
+    // create a surface
+    QSignalSpy serverSurfaceCreatedSpy(m_serverCompositor, &CompositorInterface::surfaceCreated);
+    std::unique_ptr<KWayland::Client::Surface> clientSurface(m_clientCompositor->createSurface(this));
+    QVERIFY(serverSurfaceCreatedSpy.wait());
+    SurfaceInterface *serverSurface = serverSurfaceCreatedSpy.first().first().value<SurfaceInterface *>();
+    QVERIFY(serverSurface);
+
+    QSignalSpy focusedSurfaceChangedSpy(m_seat, &SeatInterface::focusedTextInputSurfaceChanged);
+    // Make sure that entering surface does not trigger the text input
+    m_seat->setFocusedTextInputSurface(serverSurface);
+    QCOMPARE(focusedSurfaceChangedSpy.count(), 1);
+
+    m_serverTextInputV3 = m_seat->textInputV3();
+    QVERIFY(m_serverTextInputV3);
+    QVERIFY(!m_serverTextInputV3->isEnabled());
+
+    QSignalSpy doneSpy1(ti1, &TextInputV3::done);
+    QSignalSpy committedSpy(m_serverTextInputV3, &TextInputV3Interface::stateCommitted);
+    // Enable ti1
+    ti1->enable();
+    ti1->commit();
+    QVERIFY(committedSpy.wait());
+    QCOMPARE(committedSpy.last().at(0).value<quint32>(), 1);
+    QVERIFY(m_serverTextInputV3->isEnabled());
+    QVERIFY(doneSpy1.wait());
+
+    // Send another three commits on ti1
+    ti1->enable();
+    ti1->set_surrounding_text("hello", 0, 1);
+    ti1->commit();
+    QVERIFY(committedSpy.wait());
+    QCOMPARE(committedSpy.last().at(0).value<quint32>(), 2);
+    QVERIFY(m_serverTextInputV3->isEnabled());
+    QVERIFY(doneSpy1.wait());
+
+    ti1->enable();
+    ti1->set_content_type(QtWayland::zwp_text_input_v3::content_hint_none, QtWayland::zwp_text_input_v3::content_purpose_normal);
+    ti1->commit();
+    QVERIFY(committedSpy.wait());
+    QCOMPARE(committedSpy.last().at(0).value<quint32>(), 3);
+    QVERIFY(m_serverTextInputV3->isEnabled());
+    QVERIFY(doneSpy1.wait());
+
+    // at this point total commit count to ti1 is 3
+    QSignalSpy doneSpy2(ti2, &TextInputV3::done);
+
+    m_serverTextInputV3->commitString("Hello");
+    m_serverTextInputV3->done();
+    QVERIFY(doneSpy1.wait());
+
+    // zwp_text_input_v3.done event have serial of total commits
+    QCOMPARE(doneSpy1.last().at(0).value<quint32>(), 3);
+
+    // now ti1 is at 4 commit, while ti2 is still 0
+    ti1->disable();
+    ti1->commit();
+    QVERIFY(committedSpy.wait());
+    QCOMPARE(committedSpy.last().at(0).value<quint32>(), 4);
+    QVERIFY(!m_serverTextInputV3->isEnabled());
+
+    // first commit to ti2
+    ti2->enable();
+    ti2->commit();
+    QVERIFY(committedSpy.wait());
+    QCOMPARE(committedSpy.last().at(0).value<quint32>(), 1);
+    QVERIFY(m_serverTextInputV3->isEnabled());
+
+    // send commit string
+    m_serverTextInputV3->commitString("Hello world");
+    m_serverTextInputV3->done();
+    QVERIFY(doneSpy2.wait());
+
+    // ti2 is at one commit
+    QCOMPARE(doneSpy2.last().at(0).value<quint32>(), 1);
+    ti2->disable();
+    ti2->commit();
+    QVERIFY(committedSpy.wait());
+    QCOMPARE(committedSpy.last().at(0).value<quint32>(), 2);
+    QVERIFY(!m_serverTextInputV3->isEnabled());
+
+    // now re-enable the ti1 and verify sending commits to t2 hasn't affected it's serial
+    // Enable ti1 : 5 commits now
+    ti1->enable();
+    ti1->commit();
+    QVERIFY(committedSpy.wait());
+    QCOMPARE(committedSpy.last().at(0).value<quint32>(), 5);
+    QVERIFY(m_serverTextInputV3->isEnabled());
+
+    // send done signal
+    m_serverTextInputV3->commitString("Hello");
+    m_serverTextInputV3->done();
+    QVERIFY(doneSpy1.wait());
+    QCOMPARE(doneSpy1.last().at(0).value<quint32>(), 5);
+
+    // cleanup
+    if (ti1) {
+        delete ti1;
+        ti1 = nullptr;
+    }
+    if (ti2) {
+        delete ti2;
+        ti2 = nullptr;
+    }
+}
+
+struct TextInputV3TestClient
+{
+    TextInputV3TestClient(QObject *parent, KWin::Display *display, const QString &socketName, quint32 textInputManagerVersion)
+    {
+        display->addSocketName(socketName);
+        connection = new KWayland::Client::ConnectionThread;
+        QSignalSpy connectedSpy(connection, &KWayland::Client::ConnectionThread::connected);
+        connection->setSocketName(socketName);
+
+        thread = new QThread(parent);
+        connection->moveToThread(thread);
+        thread->start();
+
+        connection->initConnection();
+        QVERIFY(connectedSpy.wait());
+        QVERIFY(!connection->connections().isEmpty());
+
+        queue = std::make_unique<KWayland::Client::EventQueue>(parent);
+        QVERIFY(!queue->isValid());
+        queue->setup(connection);
+        QVERIFY(queue->isValid());
+
+        registry = std::make_unique<KWayland::Client::Registry>(parent);
+        QObject::connect(registry.get(), &KWayland::Client::Registry::interfaceAnnounced, parent, [this, textInputManagerVersion](const QByteArray &interface, quint32 id, quint32 version) {
+            if (interface == QByteArrayLiteral("zwp_text_input_manager_v3")) {
+                QVERIFY(version >= textInputManagerVersion);
+                textInputManagerV3 = std::make_unique<TextInputManagerV3>();
+                textInputManagerV3->init(*registry, id, textInputManagerVersion);
+            }
+        });
+        QObject::connect(registry.get(), &KWayland::Client::Registry::seatAnnounced, parent, [this](quint32 name, quint32 version) {
+            seat.reset(registry->createSeat(name, version));
+        });
+
+        QSignalSpy allAnnouncedSpy(registry.get(), &KWayland::Client::Registry::interfaceAnnounced);
+        QSignalSpy compositorSpy(registry.get(), &KWayland::Client::Registry::compositorAnnounced);
+        registry->setEventQueue(queue.get());
+        registry->create(connection->display());
+        QVERIFY(registry->isValid());
+        registry->setup();
+        QVERIFY(allAnnouncedSpy.wait());
+
+        clientCompositor.reset(registry->createCompositor(compositorSpy.first().first().value<quint32>(), compositorSpy.first().last().value<quint32>(), parent));
+        QVERIFY(clientCompositor->isValid());
+
+        textInput = std::make_unique<TextInputV3>();
+        textInput->init(textInputManagerV3->get_text_input(*seat));
+    }
+
+    ~TextInputV3TestClient()
+    {
+        textInput.reset();
+        clientCompositor.reset();
+        textInputManagerV3.reset();
+        seat.reset();
+        registry.reset();
+        queue.reset();
+        if (thread) {
+            thread->quit();
+            thread->wait();
+            delete thread;
+            thread = nullptr;
+        }
+        connection->deleteLater();
+        connection = nullptr;
+    }
+
+    QThread *thread = nullptr;
+    KWayland::Client::ConnectionThread *connection = nullptr;
+    std::unique_ptr<KWayland::Client::EventQueue> queue;
+    std::unique_ptr<KWayland::Client::Registry> registry;
+    std::unique_ptr<KWayland::Client::Seat> seat;
+    std::unique_ptr<TextInputManagerV3> textInputManagerV3;
+    std::unique_ptr<KWayland::Client::Compositor> clientCompositor;
+    std::unique_ptr<TextInputV3> textInput;
+};
+
+void TestTextInputV3Interface::testMultipleTextinputsOverlappedUpdate()
+{
+    QFETCH_GLOBAL(quint32, textInputManagerVersion);
+
+    TextInputV3TestClient client1(this, &m_display, QString("%1_%2").arg(qAppName()).arg(1), textInputManagerVersion);
+    TextInputV3TestClient client2(this, &m_display, QString("%1_%2").arg(qAppName()).arg(2), textInputManagerVersion);
+
+    // create a two surface
+    QSignalSpy serverSurfaceCreatedSpy(m_serverCompositor, &CompositorInterface::surfaceCreated);
+    std::unique_ptr<KWayland::Client::Surface> clientSurface(client1.clientCompositor->createSurface(this));
+    QVERIFY(serverSurfaceCreatedSpy.wait());
+    SurfaceInterface *serverSurface = serverSurfaceCreatedSpy.first().first().value<SurfaceInterface *>();
+    QVERIFY(serverSurface);
+
+    serverSurfaceCreatedSpy.clear();
+    std::unique_ptr<KWayland::Client::Surface> clientSurface2(client2.clientCompositor->createSurface(this));
+    QVERIFY(serverSurfaceCreatedSpy.wait());
+    SurfaceInterface *serverSurface2 = serverSurfaceCreatedSpy.first().first().value<SurfaceInterface *>();
+    QVERIFY(serverSurface2);
+
+    QSignalSpy focusedSurfaceChangedSpy(m_seat, &SeatInterface::focusedTextInputSurfaceChanged);
+    // Make sure that entering surface does not trigger the text input
+    m_seat->setFocusedTextInputSurface(serverSurface);
+    QCOMPARE(focusedSurfaceChangedSpy.count(), 1);
+
+    m_serverTextInputV3 = m_seat->textInputV3();
+    QVERIFY(m_serverTextInputV3);
+    QVERIFY(!m_serverTextInputV3->isEnabled());
+
+    QSignalSpy doneSpy1(client1.textInput.get(), &TextInputV3::done);
+    QSignalSpy doneSpy2(client2.textInput.get(), &TextInputV3::done);
+    QSignalSpy committedSpy(m_serverTextInputV3, &TextInputV3Interface::stateCommitted);
+    // Send enable and disable at the same time.
+    client1.textInput->enable();
+    client2.textInput->disable();
+    client1.textInput->commit();
+    QVERIFY(committedSpy.wait());
+    QCOMPARE(committedSpy.last().at(0).value<quint32>(), 1);
+    QVERIFY(m_serverTextInputV3->isEnabled());
+    QVERIFY(doneSpy1.wait());
+
+    client2.textInput->commit();
+    QVERIFY(committedSpy.wait());
+    QCOMPARE(committedSpy.last().at(0).value<quint32>(), 1);
+    QVERIFY(m_serverTextInputV3->isEnabled());
+    QVERIFY(doneSpy2.wait());
+
+    m_seat->setFocusedTextInputSurface(serverSurface2);
+    QCOMPARE(focusedSurfaceChangedSpy.count(), 2);
+    QVERIFY(!m_serverTextInputV3->isEnabled());
+}
+
+QTEST_GUILESS_MAIN(TestTextInputV3Interface)
+
+#include "test_textinputv3_interface.moc"

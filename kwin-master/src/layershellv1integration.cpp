@@ -1,0 +1,219 @@
+/*
+    SPDX-FileCopyrightText: 2020 Vlad Zahorodnii <vlad.zahorodnii@kde.org>
+
+    SPDX-License-Identifier: GPL-2.0-or-later
+*/
+
+#include "layershellv1integration.h"
+#include "core/output.h"
+#include "layershellv1window.h"
+#include "wayland/display.h"
+#include "wayland/layershell_v1.h"
+#include "wayland/output.h"
+#include "wayland_server.h"
+#include "workspace.h"
+
+namespace KWin
+{
+
+static const Qt::Edges AnchorHorizontal = Qt::LeftEdge | Qt::RightEdge;
+static const Qt::Edges AnchorVertical = Qt::TopEdge | Qt::BottomEdge;
+
+LayerShellV1Integration::LayerShellV1Integration(QObject *parent)
+    : WaylandShellIntegration(parent)
+{
+    LayerShellV1Interface *shell = new LayerShellV1Interface(waylandServer()->display(), this);
+    connect(shell, &LayerShellV1Interface::surfaceCreated,
+            this, &LayerShellV1Integration::createWindow);
+
+    connect(workspace(), &Workspace::aboutToRearrange, this, &LayerShellV1Integration::rearrange);
+}
+
+void LayerShellV1Integration::createWindow(LayerSurfaceV1Interface *shellSurface)
+{
+    LogicalOutput *output;
+    if (OutputInterface *preferredOutput = shellSurface->output()) {
+        if (preferredOutput->isRemoved()) {
+            shellSurface->sendClosed();
+            return;
+        }
+        output = preferredOutput->handle();
+    } else {
+        output = workspace()->activeOutput();
+    }
+
+    Q_EMIT windowCreated(new LayerShellV1Window(shellSurface, output, this));
+}
+
+void LayerShellV1Integration::recreateWindow(LayerSurfaceV1Interface *shellSurface)
+{
+    destroyWindow(shellSurface);
+    createWindow(shellSurface);
+}
+
+void LayerShellV1Integration::destroyWindow(LayerSurfaceV1Interface *shellSurface)
+{
+    const QList<Window *> windows = waylandServer()->windows();
+    for (Window *window : windows) {
+        LayerShellV1Window *layerShellWindow = qobject_cast<LayerShellV1Window *>(window);
+        if (layerShellWindow && layerShellWindow->shellSurface() == shellSurface) {
+            layerShellWindow->destroyWindow();
+            break;
+        }
+    }
+}
+
+static void rearrangeLayer(const QList<LayerShellV1Window *> &windows, Rect *workArea,
+                           LayerSurfaceV1Interface::Layer layer, bool exclusive)
+{
+    for (LayerShellV1Window *window : windows) {
+        LayerSurfaceV1Interface *shellSurface = window->shellSurface();
+
+        if (shellSurface->layer() != layer) {
+            continue;
+        }
+        if (exclusive != (shellSurface->exclusiveZone() > 0)) {
+            continue;
+        }
+
+        RectF bounds;
+        if (shellSurface->exclusiveZone() < 0) {
+            bounds = window->desiredOutput()->geometry();
+        } else {
+            bounds = *workArea;
+        }
+
+        RectF geometry(QPointF(0, 0), shellSurface->desiredSize());
+        const QMarginsF margins = shellSurface->margins();
+
+        if ((shellSurface->anchor() & AnchorHorizontal) && geometry.width() == 0) {
+            geometry.setLeft(bounds.left());
+            geometry.setRight(bounds.right());
+        } else if (shellSurface->anchor() & Qt::LeftEdge) {
+            geometry.moveLeft(bounds.left());
+        } else if (shellSurface->anchor() & Qt::RightEdge) {
+            geometry.moveRight(bounds.right());
+        } else {
+            geometry.moveHorizontalCenter(bounds.horizontalCenter());
+        }
+
+        if ((shellSurface->anchor() & AnchorVertical) && geometry.height() == 0) {
+            geometry.setTop(bounds.top());
+            geometry.setBottom(bounds.bottom());
+        } else if (shellSurface->anchor() & Qt::TopEdge) {
+            geometry.moveTop(bounds.top());
+        } else if (shellSurface->anchor() & Qt::BottomEdge) {
+            geometry.moveBottom(bounds.bottom());
+        } else {
+            geometry.moveVerticalCenter(bounds.verticalCenter());
+        }
+
+        if ((shellSurface->anchor() & AnchorHorizontal) == AnchorHorizontal) {
+            geometry.adjust(margins.left(), 0, -margins.right(), 0);
+        } else if (shellSurface->anchor() & Qt::LeftEdge) {
+            geometry.translate(margins.left(), 0);
+        } else if (shellSurface->anchor() & Qt::RightEdge) {
+            geometry.translate(-margins.right(), 0);
+        }
+
+        if ((shellSurface->anchor() & AnchorVertical) == AnchorVertical) {
+            geometry.adjust(0, margins.top(), 0, -margins.bottom());
+        } else if (shellSurface->anchor() & Qt::TopEdge) {
+            geometry.translate(0, margins.top());
+        } else if (shellSurface->anchor() & Qt::BottomEdge) {
+            geometry.translate(0, -margins.bottom());
+        }
+
+        // Move the window's bottom if its virtual keyboard is overlapping it
+        if (shellSurface->exclusiveZone() >= 0 && !window->virtualKeyboardGeometry().isEmpty() && geometry.bottom() > window->virtualKeyboardGeometry().top()) {
+            geometry.setBottom(window->virtualKeyboardGeometry().top());
+        }
+
+        window->updateLayer();
+
+        if (geometry.isValid()) {
+            window->place(geometry);
+        } else {
+            qCWarning(KWIN_CORE) << "Closing a layer shell window due to invalid geometry";
+            window->closeWindow();
+            continue;
+        }
+
+        if (exclusive && shellSurface->exclusiveZone() > 0) {
+            switch (shellSurface->exclusiveEdge()) {
+            case Qt::LeftEdge:
+                workArea->adjust(margins.left() + shellSurface->exclusiveZone(), 0, 0, 0);
+                break;
+            case Qt::RightEdge:
+                workArea->adjust(0, 0, -margins.right() - shellSurface->exclusiveZone(), 0);
+                break;
+            case Qt::TopEdge:
+                workArea->adjust(0, margins.top() + shellSurface->exclusiveZone(), 0, 0);
+                break;
+            case Qt::BottomEdge:
+                workArea->adjust(0, 0, 0, -margins.bottom() - shellSurface->exclusiveZone());
+                break;
+            }
+        }
+    }
+}
+
+static int weightForWindow(const LayerShellV1Window *window)
+{
+    return (window->shellSurface()->anchor() & AnchorHorizontal) == AnchorHorizontal ? 1 : 0;
+}
+
+static QList<LayerShellV1Window *> windowsForOutput(LogicalOutput *output)
+{
+    QList<LayerShellV1Window *> result;
+    const QList<Window *> windows = waylandServer()->windows();
+    for (Window *window : windows) {
+        LayerShellV1Window *layerShellWindow = qobject_cast<LayerShellV1Window *>(window);
+        if (!layerShellWindow || layerShellWindow->desiredOutput() != output) {
+            continue;
+        }
+        if (layerShellWindow->shellSurface()->isCommitted()) {
+            result.append(layerShellWindow);
+        }
+    }
+    std::stable_sort(result.begin(), result.end(), [](LayerShellV1Window *a, LayerShellV1Window *b) {
+        if (a->layer() < b->layer()) {
+            return false;
+        } else if (a->layer() > b->layer()) {
+            return true;
+        } else {
+            return weightForWindow(a) > weightForWindow(b);
+        }
+    });
+    return result;
+}
+
+static void rearrangeOutput(LogicalOutput *output)
+{
+    const QList<LayerShellV1Window *> windows = windowsForOutput(output);
+    if (!windows.isEmpty()) {
+        Rect workArea = output->geometry();
+
+        rearrangeLayer(windows, &workArea, LayerSurfaceV1Interface::OverlayLayer, true);
+        rearrangeLayer(windows, &workArea, LayerSurfaceV1Interface::TopLayer, true);
+        rearrangeLayer(windows, &workArea, LayerSurfaceV1Interface::BottomLayer, true);
+        rearrangeLayer(windows, &workArea, LayerSurfaceV1Interface::BackgroundLayer, true);
+
+        rearrangeLayer(windows, &workArea, LayerSurfaceV1Interface::OverlayLayer, false);
+        rearrangeLayer(windows, &workArea, LayerSurfaceV1Interface::TopLayer, false);
+        rearrangeLayer(windows, &workArea, LayerSurfaceV1Interface::BottomLayer, false);
+        rearrangeLayer(windows, &workArea, LayerSurfaceV1Interface::BackgroundLayer, false);
+    }
+}
+
+void LayerShellV1Integration::rearrange()
+{
+    const QList<LogicalOutput *> outputs = workspace()->outputs();
+    for (LogicalOutput *output : outputs) {
+        rearrangeOutput(output);
+    }
+}
+
+} // namespace KWin
+
+#include "moc_layershellv1integration.cpp"

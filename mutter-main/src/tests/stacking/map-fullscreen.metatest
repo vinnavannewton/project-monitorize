@@ -1,0 +1,52 @@
+set_pref center-new-windows false
+resize_monitor default 400 400
+new_client w wayland
+new_client x x11
+
+# Map a Wayland window fullscreen, and make sure it gets placed according to its
+# nonfullscreen size:
+#
+# ------------
+# | ----     |
+# | |w |     |
+# | ----     |
+# |          |
+# |          |
+# ------------
+
+create w/1 csd
+resize_ignore_titlebar w/1 120 120
+fullscreen w/1
+show w/1
+wait_reconfigure w/1
+assert_size w/1 MONITOR_WIDTH MONITOR_HEIGHT
+assert_position w/1 0 0
+
+unfullscreen w/1
+wait_reconfigure w/1
+assert_size w/1 120 120
+assert_position w/1 18 12
+
+# Map a X11 window fullscreen, and make sure it gets placed according to it's
+# nonfullscreen size
+#
+# ------------
+# | ----     |
+# | |w |     |
+# | ----     |
+# | |x |     |
+# | ----     |
+# ------------
+
+create x/1 csd
+resize_ignore_titlebar x/1 120 120
+fullscreen x/1
+show x/1
+wait_reconfigure x/1
+assert_size x/1 MONITOR_WIDTH MONITOR_HEIGHT
+assert_position x/1 0 0
+
+unfullscreen x/1
+wait_reconfigure x/1
+assert_size x/1 120 120
+assert_position x/1 18 132
