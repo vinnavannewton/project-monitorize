@@ -867,6 +867,47 @@ class UInputCreationTest(unittest.TestCase):
         geom.map_gnome_devices.assert_called_once_with(True)
         geom.verify_gnome_devices.assert_called_once_with(devices)
 
+    def test_kde_missing_event_node_reports_permission_hint(self):
+        ecodes = types.SimpleNamespace(
+            EV_ABS=3,
+            EV_KEY=1,
+            ABS_X=0,
+            ABS_Y=1,
+            ABS_MT_SLOT=47,
+            ABS_MT_POSITION_X=53,
+            ABS_MT_POSITION_Y=54,
+            ABS_MT_TRACKING_ID=57,
+            BTN_TOUCH=330,
+            BUS_USB=3,
+            INPUT_PROP_DIRECT=1,
+        )
+        fake_evdev = types.SimpleNamespace(
+            AbsInfo=lambda value, minimum, maximum, fuzz, flat, resolution: (
+                value, minimum, maximum, fuzz, flat, resolution,
+            )
+        )
+        geom = Mock(
+            de="kde",
+            screen_w=1920,
+            screen_h=1200,
+            map_kde_devices=Mock(return_value=set()),
+            uinput_bounds=Mock(return_value=(1920, 1200, 0, 0, 1920, 1200)),
+            rotation=Mock(return_value=0),
+        )
+
+        with (
+            patch.object(uinput_backend, "ecodes", ecodes),
+            patch.object(uinput_backend, "evdev", fake_evdev),
+            patch.object(
+                uinput_backend,
+                "UInput",
+                return_value=types.SimpleNamespace(device=None),
+            ),
+            patch("monitorize.input_bridge.uinput_backend.time.sleep"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "MONITORIZE_UINPUT_PERMISSION"):
+                UInputBackend(geom, Mock()).setup()
+
     def test_stylus_capabilities_include_tablet_metadata(self):
         ecodes = types.SimpleNamespace(
             EV_ABS=3,

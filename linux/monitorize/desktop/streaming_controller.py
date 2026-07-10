@@ -39,6 +39,7 @@ from monitorize.config.validation import (
     sanitize_fps,
     sanitize_resolution,
 )
+from monitorize.input_bridge.uinput_backend import UINPUT_PERMISSION_HINT
 
 
 GNOME_LAYOUT_CHANGE_DEBOUNCE_MS = 750
@@ -502,11 +503,14 @@ class StreamingController(QObject):
         process = self.input_bridge if process is None else process
         if generation != self.generation or process is not self.input_bridge:
             return
+        raw = bytes(process.readAllStandardOutput()).decode(
+            "utf-8", errors="replace"
+        )
+        if "MONITORIZE_UINPUT_PERMISSION:" in raw:
+            self._set_status(UINPUT_PERMISSION_HINT.split(": ", 1)[1])
         self.logAppended.emit(
             "INPUT",
-            bytes(process.readAllStandardOutput()).decode(
-                "utf-8", errors="replace"
-            ),
+            raw,
         )
 
     def _process_error(self, label, generation, process, current_process):
