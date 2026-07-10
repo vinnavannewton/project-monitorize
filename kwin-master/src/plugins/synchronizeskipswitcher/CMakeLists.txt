@@ -1,1 +1,0 @@
-kwin_add_script(synchronizeskipswitcher package)
