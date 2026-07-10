@@ -407,7 +407,7 @@ def clear_receiver_credentials(host: str) -> None:
 
 
 
-#to get recent device connection, writing in last 
+
 def load_recent_usb_devices() -> list[dict]:
     s = _get_settings()
     raw = s.value("recent/usb_devices", "[]")

@@ -14,7 +14,7 @@ def test():
     view = QQuickView()
     view.rootContext().setContextProperty("backend", backend)
     
-    # Load WifiPage.qml directly to see if there are QML errors
+    
     wifi_url = QUrl.fromLocalFile(os.path.join(QML_DIR, "WifiPage.qml"))
     
     from PyQt6.QtQml import QQmlComponent
@@ -35,7 +35,7 @@ def test():
     else:
         print("UsbStep1Page loaded successfully!")
 
-    # Set some dummy devices in backend to test conversion
+    
     backend._recent_usb_devices = [{"serial": "12345", "name": "USB Device 1", "online": True}]
     backend._recent_wifi_devices = [{"ip": "192.168.1.100", "name": "Wifi Device 1", "online": False}]
 
@@ -48,7 +48,7 @@ def test():
     val2 = expr2.evaluate()
     print("QML recentWifiDevices type:", type(val2), "val:", val2)
     
-    # Check length
+    
     expr3 = QQmlExpression(view.engine().rootContext(), None, "backend.recentWifiDevices.length")
     val3 = expr3.evaluate()
     print("QML recentWifiDevices.length:", val3)
