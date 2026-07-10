@@ -61,7 +61,7 @@
 
 ### Android:
 
-**Install the APK from the [Releases](https://github.com/vinnavannewton/project-monitorize/releases/latest) section.**
+**Install the APK from Android [Releases](https://github.com/vinnavannewton/project-monitorize/releaseslatest).**
 
 Or build from source:
 

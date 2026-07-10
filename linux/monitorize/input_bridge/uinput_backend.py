@@ -1,5 +1,6 @@
 """evdev/uinput touch and stylus backend."""
 
+import errno
 import logging
 import os
 import threading
@@ -18,6 +19,10 @@ from .geometry import (
 
 log = logging.getLogger("TouchDaemon")
 STYLUS_AXIS_RESOLUTION = 100
+UINPUT_PERMISSION_HINT = (
+    "MONITORIZE_UINPUT_PERMISSION: Monitorize needs uinput permission. "
+    "Run: sudo usermod -aG monitorize \"$USER\" then log out and log back in."
+)
 
 try:
     import evdev
@@ -50,34 +55,41 @@ class UInputBackend:
         self.target = x, y, width, height
         self.rotation = self.geometry.rotation()
         direct = [ecodes.INPUT_PROP_DIRECT] if hasattr(ecodes, "INPUT_PROP_DIRECT") else None
-        self.touch = UInput(
-            self._touch_capabilities(),
-            name="Monitorize-Touch",
-            vendor=MONITORIZE_INPUT_VENDOR_ID,
-            product=MONITORIZE_TOUCH_PRODUCT_ID,
-            bustype=ecodes.BUS_USB,
-            input_props=direct,
-        )
-        if stylus_features:
-            self.stylus = UInput(
-                self._stylus_capabilities(),
-                name="Monitorize-Stylus",
+        try:
+            self.touch = UInput(
+                self._touch_capabilities(),
+                name="Monitorize-Touch",
                 vendor=MONITORIZE_INPUT_VENDOR_ID,
-                product=MONITORIZE_STYLUS_PRODUCT_ID,
+                product=MONITORIZE_TOUCH_PRODUCT_ID,
                 bustype=ecodes.BUS_USB,
                 input_props=direct,
             )
+            if stylus_features:
+                self.stylus = UInput(
+                    self._stylus_capabilities(),
+                    name="Monitorize-Stylus",
+                    vendor=MONITORIZE_INPUT_VENDOR_ID,
+                    product=MONITORIZE_STYLUS_PRODUCT_ID,
+                    bustype=ecodes.BUS_USB,
+                    input_props=direct,
+                )
+        except OSError as exc:
+            if getattr(exc, "errno", None) in (
+                errno.EACCES, errno.EPERM, errno.ENOENT,
+            ):
+                raise RuntimeError(f"{UINPUT_PERMISSION_HINT} ({exc})") from exc
+            raise
         self._map_devices(stylus_features)
         time.sleep(2)
         if self.geometry.de == "kde":
             mapped = self.geometry.map_kde_devices([self.touch, self.stylus])
-            touch_event = os.path.basename(self.touch.device.path)
+            touch_event = self._event_name(self.touch, "Monitorize-Touch")
             if touch_event not in mapped:
                 raise RuntimeError(
                     f"KDE could not bind Monitorize-Touch to "
                     f"{os.environ.get('MONITORIZE_OUTPUT', 'Virtual-Monitorize-1')}"
                 )
-            if self.stylus and os.path.basename(self.stylus.device.path) not in mapped:
+            if self.stylus and self._event_name(self.stylus, "Monitorize-Stylus") not in mapped:
                 self.stylus.close()
                 self.stylus = None
         elif self.geometry.de == "gnome":
@@ -95,6 +107,15 @@ class UInputBackend:
                             "GNOME did not confirm Monitorize-Stylus output mapping; "
                             "stylus pressure may fall back to touch emulation"
                         )
+
+    def _event_name(self, device, label):
+        event_device = getattr(device, "device", None)
+        path = getattr(event_device, "path", "")
+        if not path:
+            raise RuntimeError(
+                f"{UINPUT_PERMISSION_HINT} KDE could not read the {label} event node."
+            )
+        return os.path.basename(path)
 
     def _abs(self, code, minimum, maximum, resolution=0):
         return code, evdev.AbsInfo(0, minimum, maximum, 0, 0, resolution)
