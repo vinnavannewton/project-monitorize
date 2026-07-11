@@ -328,7 +328,6 @@ def save_receiver_settings(*, ip: str, port: str, use_encryption: bool = True,
         "decoder": sanitize_decoder(decoder),
     })
 
-
 def load_receiver_settings() -> dict:
     data = _load_group("receiver", {
         "manual_ip": "",
@@ -405,3 +404,47 @@ def clear_receiver_credentials(host: str) -> None:
     key = hashlib.sha256(credential_host_key(host).encode()).hexdigest()
     s.remove(f"receiver_trust/{key}")
     s.sync()
+
+
+
+
+def load_recent_usb_devices() -> list[dict]:
+    s = _get_settings()
+    raw = s.value("recent/usb_devices", "[]")
+    try:
+        devices = json.loads(raw)
+        return devices if isinstance(devices, list) else []
+    except Exception:
+        return []
+
+
+def add_recent_usb_device(device: dict) -> None:
+    s = _get_settings()
+    devices = load_recent_usb_devices()
+    devices = [d for d in devices if isinstance(d, dict) and d.get("serial") != device.get("serial")]
+    devices.insert(0, device)
+    devices = devices[:5]
+    s.setValue("recent/usb_devices", json.dumps(devices))
+    s.sync()
+    os.chmod(CONFIG_FILE, 0o600)
+
+
+def load_recent_wifi_devices() -> list[dict]:
+    s = _get_settings()
+    raw = s.value("recent/wifi_devices", "[]")
+    try:
+        devices = json.loads(raw)
+        return devices if isinstance(devices, list) else []
+    except Exception:
+        return []
+
+
+def add_recent_wifi_device(device: dict) -> None:
+    s = _get_settings()
+    devices = load_recent_wifi_devices()
+    devices = [d for d in devices if isinstance(d, dict) and d.get("ip") != device.get("ip")]
+    devices.insert(0, device)
+    devices = devices[:5]
+    s.setValue("recent/wifi_devices", json.dumps(devices))
+    s.sync()
+    os.chmod(CONFIG_FILE, 0o600)

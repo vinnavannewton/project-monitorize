@@ -59,6 +59,7 @@ class StreamingController(QObject):
     secondStreamChanged = pyqtSignal(bool)
     primaryReadyChanged = pyqtSignal(bool)
     logAppended = pyqtSignal(str, str)
+    clientConnected = pyqtSignal(str, str)
 
     def __init__(self, de, local_ip, discovery, parent=None):
         super().__init__(parent)
@@ -315,6 +316,14 @@ class StreamingController(QObject):
                 self.pairingCodeChanged.emit(self.pairing_code)
             elif "Pairing accepted" in line or "Client authenticated" in line:
                 self._set_status("Status: Streaming securely")
+                client_ip = ""
+                client_name = "Android Device"
+                if "IP: " in line:
+                    client_ip = line.split("IP: ")[1].split(" ")[0].strip()
+                if "Name: " in line:
+                    client_name = line.split("Name: ")[1].strip()
+                if client_ip:
+                    self.clientConnected.emit(client_ip, client_name)
 
     def _launch_input(self, generation=None):
         generation = self.generation if generation is None else generation
