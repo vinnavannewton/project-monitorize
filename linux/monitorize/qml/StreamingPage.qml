@@ -595,7 +595,7 @@ Item {
                     ? "Creates Monitorize Display 2 in KDE.\nArrange it in System Settings → Display Configuration."
                     : backend.detectedDe === "gnome"
                     ? "Creates a second native GNOME virtual display.\nArrange it in Settings → Displays; GNOME may show matching monitor labels."
-                    : "Your desktop will open a screen-share picker.\nChoose the display to stream on the third-display port."
+                    : "Creates a second Hyprland HEADLESS display.\nWhen the portal opens, select that new display."
                 font.pixelSize: 12
                 color: theme.cardTextMuted
                 wrapMode: Text.Wrap
@@ -724,7 +724,7 @@ Item {
                 CustomButton {
                     text: backend.detectedDe === "kde" || backend.detectedDe === "gnome"
                         ? "▶  Create Virtual Display"
-                        : "▶  Start Third Display"
+                        : "▶  Create Headless Display"
                     implicitWidth: 170
                     implicitHeight: 36
                     onClicked: {

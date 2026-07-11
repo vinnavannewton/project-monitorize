@@ -431,7 +431,12 @@ class Geometry:
         return mapped
 
     def hyprland_output_name(self):
-        monitor = headless_output(json_command(["hyprctl", "monitors", "-j"]))
+        outputs = json_command(["hyprctl", "monitors", "-j"])
+        expected = os.environ.get("MONITORIZE_OUTPUT", "")
+        monitor = next(
+            (item for item in outputs if item.get("name") == expected), None
+        ) if expected else None
+        monitor = monitor or headless_output(outputs)
         return monitor.get("name") if monitor else None
 
     def map_hyprland_device(self, device_name: str, monitor_name=None):

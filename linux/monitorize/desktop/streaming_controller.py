@@ -167,12 +167,13 @@ class StreamingController(QObject):
         elif self.de == "hyprland":
             self._set_status("Setting up virtual monitor on Hyprland…")
             output, error = self.display.prepare_hyprland(
-                self.width, self.height, self.fps
+                self.width, self.height, self.fps, "primary"
             )
             if error:
                 self._fail(error)
                 return
             self.logAppended.emit("STREAMER", f"Created headless monitor: {output}")
+            self.env.insert("MONITORIZE_OUTPUT", output)
             self._set_status("Waiting for virtual monitor to be ready…")
             verified = self.display.wait_for_headless_ready(
                 output, self.width, self.height,
@@ -649,6 +650,30 @@ class StreamingController(QObject):
         third_encoder = sanitize_encoder(encoder)
         third_encoder_profile = sanitize_encoder_profile(encoder_profile)
 
+        third_output = ""
+        if self.de == "hyprland":
+            self._set_status("Creating additional Hyprland headless display…")
+            third_output, error = self.display.prepare_hyprland(
+                width, height, third_fps, "additional"
+            )
+            if error:
+                self.logAppended.emit("STREAMER", f"[Third display] ERROR: {error}")
+                self._set_status(error)
+                self.secondStreamChanged.emit(False)
+                self._advertise()
+                return
+            if not self.display.wait_for_headless_ready(third_output, width, height):
+                self.display.remove_hyprland_output("additional")
+                error = f"Hyprland did not make {third_output} ready"
+                self.logAppended.emit("STREAMER", f"[Third display] ERROR: {error}")
+                self._set_status(error)
+                self.secondStreamChanged.emit(False)
+                self._advertise()
+                return
+            self.logAppended.emit(
+                "STREAMER", f"[Third display] Created headless monitor: {third_output}"
+            )
+
         env = QProcessEnvironment.systemEnvironment()
         env.insert("PYTHONUNBUFFERED", "1")
         env.insert("MONITORIZE_ENCODER", {
@@ -668,7 +693,7 @@ class StreamingController(QObject):
             env.insert("MONITORIZE_PORTAL_SOURCE_TYPE", "1")
             env.insert(
                 "MONITORIZE_PORTAL_SELECTOR_HINT",
-                "Choose the display to stream as Monitorize's third display.",
+                f"Select {third_output} for Monitorize's additional display.",
             )
         env.insert(
             "MONITORIZE_PORT",
@@ -713,13 +738,14 @@ class StreamingController(QObject):
             "-m", module,
             str(width), str(height), str(third_fps), str(third_bitrate),
             "wifi" if self.wifi else "usb",
+            *([third_output] if self.de == "hyprland" else []),
         ])
         self.secondStreamChanged.emit(True)
         self._advertise()
         action = (
             "Creating KDE virtual display" if self.de == "kde" else
             "Creating GNOME virtual display" if self.de == "gnome" else
-            "Portal picker opened"
+            f"Select {third_output} in the portal picker"
         )
         self.logAppended.emit(
             "STREAMER",
@@ -793,6 +819,8 @@ class StreamingController(QObject):
         self.third_streaming = False
         self.third_ready = False
         self.third_gst_pids.clear()
+        if self.de == "hyprland":
+            self.display.remove_hyprland_output("additional")
         self.secondStreamChanged.emit(False)
         self._advertise()
 
@@ -859,6 +887,8 @@ class StreamingController(QObject):
         )
         self.third_streaming = False
         self.third_ready = False
+        if self.de == "hyprland":
+            self.display.remove_hyprland_output("additional")
         self.gnome_outputs.pop("additional", None)
         self._advertise()
         self.secondStreamChanged.emit(False)

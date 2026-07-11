@@ -20,6 +20,7 @@ from monitorize.platform import (
     kde_virtual_monitor,
     process_utils,
 )
+from monitorize.platform.display_controller import DisplayController
 from monitorize.desktop.discovery_service import DiscoveryService
 from monitorize.desktop.backend import MonitorizeBackend
 from monitorize.desktop.receiver_controller import ReceiverController
@@ -234,6 +235,29 @@ class DiscoveryServiceTest(unittest.TestCase):
             service.advertise("127.0.0.1", False, True)
             service.advertise("127.0.0.1", False, True)
         self.assertEqual(len(registered), 1)
+
+
+class HyprlandDisplayControllerTest(unittest.TestCase):
+    def test_additional_output_has_independent_creation_and_removal(self):
+        display = DisplayController("hyprland")
+        with (
+            patch.object(
+                display,
+                "headless_monitors",
+                side_effect=[["HEADLESS-1"], ["HEADLESS-1", "HEADLESS-2"]],
+            ),
+            patch("monitorize.platform.display_controller.subprocess.run") as run,
+        ):
+            run.return_value.returncode = 0
+            output, error = display.prepare_hyprland(1280, 720, 60, "additional")
+            display.remove_hyprland_output("additional")
+        self.assertEqual((output, error), ("HEADLESS-2", ""))
+        self.assertIsNone(display.additional_output)
+        self.assertIsNone(display.created_output)
+        self.assertIn(
+            (["hyprctl", "output", "remove", "HEADLESS-2"],),
+            [call.args for call in run.call_args_list],
+        )
 
 
 class AppLogTest(unittest.TestCase):
@@ -1435,14 +1459,20 @@ class StreamingControllerTest(unittest.TestCase):
         self.assertEqual(events, [True])
         discovery.advertise.assert_called_once_with("10.0.0.1", False, False, 60)
 
-    def test_hyprland_third_display_uses_portal_monitor_picker(self):
+    def test_hyprland_third_display_creates_headless_output_before_picker(self):
         controller = StreamingController("hyprland", "10.0.0.1", Mock())
         controller.streaming = True
         controller.wifi = True
         controller.primary_ready = True
         process = process_mock()
 
-        with patch("monitorize.desktop.streaming_controller.QProcess", return_value=process):
+        with (
+            patch.object(
+                controller.display, "prepare_hyprland", return_value=("HEADLESS-2", "")
+            ) as prepare,
+            patch.object(controller.display, "wait_for_headless_ready", return_value=True) as ready,
+            patch("monitorize.desktop.streaming_controller.QProcess", return_value=process),
+        ):
             controller.start_third(
                 "1280x720", "30", "4000",
                 "Software (CPU / x264enc)", "Balanced",
@@ -1452,8 +1482,45 @@ class StreamingControllerTest(unittest.TestCase):
         env = process.setProcessEnvironment.call_args.args[0]
         self.assertEqual(args[:2], ["-m", "monitorize.streaming.Streamer_hyprland"])
         self.assertEqual(args[2:6], ["1280", "720", "30", "4000"])
+        self.assertEqual(args[-1], "HEADLESS-2")
+        prepare.assert_called_once_with(1280, 720, 30, "additional")
+        ready.assert_called_once_with("HEADLESS-2", 1280, 720)
         self.assertEqual(env.value("MONITORIZE_PORTAL_SOURCE_TYPE"), "1")
-        self.assertIn("third display", env.value("MONITORIZE_PORTAL_SELECTOR_HINT"))
+        self.assertIn("HEADLESS-2", env.value("MONITORIZE_PORTAL_SELECTOR_HINT"))
+
+    def test_hyprland_third_output_failure_keeps_primary_streaming(self):
+        controller = StreamingController("hyprland", "10.0.0.1", Mock())
+        controller.streaming = True
+        controller.primary_ready = True
+        events = []
+        controller.secondStreamChanged.connect(events.append)
+        with (
+            patch.object(
+                controller.display, "prepare_hyprland", return_value=("", "headless failed")
+            ),
+            patch("monitorize.desktop.streaming_controller.QProcess") as process,
+        ):
+            controller.start_third(
+                "1280x720", "30", "4000",
+                "Software (CPU / x264enc)", "Balanced",
+            )
+        process.assert_not_called()
+        self.assertTrue(controller.streaming)
+        self.assertFalse(controller.third_streaming)
+        self.assertEqual(events, [False])
+
+    def test_hyprland_third_stop_removes_only_additional_output(self):
+        controller = StreamingController("hyprland", "10.0.0.1", Mock())
+        controller.streaming = True
+        controller.third_streaming = True
+        controller.third_streamer = process_mock()
+        with (
+            patch("monitorize.desktop.streaming_controller.stop_processes"),
+            patch("monitorize.desktop.streaming_controller.kill_patterns"),
+            patch.object(controller.display, "remove_hyprland_output") as remove,
+        ):
+            controller.stop_third()
+        remove.assert_called_once_with("additional")
 
     def test_encrypted_third_display_uses_tls_backend_port(self):
         controller = StreamingController("kde", "10.0.0.1", Mock())
@@ -3299,6 +3366,7 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertLess(save_index, add_index)
         self.assertNotIn("Add Third Display", qml)
         self.assertIn("Add Another Display", qml)
+        self.assertIn("Creates a second Hyprland HEADLESS display.", qml)
         display_config = qml[qml.index('text: "⚙ Display Config"'):]
         self.assertIn('visible: backend.detectedDe === "hyprland"', display_config)
         self.assertIn("readonly property int actionButtonWidth: 160", qml)
@@ -3352,7 +3420,7 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn("id: s2EncoderProfileCombo", qml)
         self.assertEqual(qml.count("ChoiceChips {"), 2)
         self.assertIn("width: Math.min(page.width - 40, 560)", qml)
-        self.assertIn("Your desktop will open a screen-share picker.", qml)
+        self.assertIn("Creates a second Hyprland HEADLESS display.", qml)
         self.assertIn("Creates Monitorize Display 2 in KDE.", qml)
         self.assertIn("▶  Create Virtual Display", qml)
         self.assertNotIn("host-side display backend is currently disabled", qml)

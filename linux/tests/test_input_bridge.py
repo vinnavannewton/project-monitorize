@@ -1,3 +1,4 @@
+import os
 import struct
 import unittest
 import threading
@@ -415,6 +416,20 @@ class KdeGeometryTest(unittest.TestCase):
             geom.uinput_bounds(),
             (1920, 1200, 0.0, 0.0, 1920.0, 1200.0),
         )
+
+
+class HyprlandGeometryTest(unittest.TestCase):
+    def test_hyprland_mapping_prefers_exact_primary_headless_output(self):
+        geom = geometry.Geometry("hyprland", 1920, 1200)
+        outputs = [
+            {"name": "HEADLESS-2"},
+            {"name": "HEADLESS-1"},
+        ]
+        with (
+            patch.dict(os.environ, {"MONITORIZE_OUTPUT": "HEADLESS-1"}),
+            patch("monitorize.input_bridge.geometry.json_command", return_value=outputs),
+        ):
+            self.assertEqual(geom.hyprland_output_name(), "HEADLESS-1")
 
 
 class GnomeGeometryTest(unittest.TestCase):
