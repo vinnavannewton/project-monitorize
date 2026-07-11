@@ -232,8 +232,12 @@ class MainActivity : ComponentActivity() {
                                     recentDevices = recentDevices,
                                     onDeviceSelected = { device ->
                                         discovery.stopDiscovery()
-                                        decodedWidth = width
-                                        decodedHeight = height
+                                        if (device.width > 0 && device.height > 0) {
+                                            width = device.width
+                                            height = device.height
+                                        }
+                                        decodedWidth = device.width.takeIf { it > 0 } ?: width
+                                        decodedHeight = device.height.takeIf { it > 0 } ?: height
                                         selectedDevice = device
                                         currentScreen = Screen.Receive
                                         disconnectionMessage = null 
@@ -494,6 +498,8 @@ class MainActivity : ComponentActivity() {
                                 name = entry.optString("name").ifBlank { "WiFi Device" },
                                 ip = host,
                                 port = port,
+                                width = entry.optInt("width", 0),
+                                height = entry.optInt("height", 0),
                                 encrypted = entry.optBoolean("encrypted", false),
                                 fingerprint = entry.optString("fingerprint").takeIf { it.isNotBlank() }
                             )
@@ -566,6 +572,8 @@ class MainActivity : ComponentActivity() {
                     .put("name", device.name)
                     .put("ip", device.ip)
                     .put("port", device.port)
+                    .put("width", device.width)
+                    .put("height", device.height)
                     .put("encrypted", device.encrypted)
                     .put("fingerprint", device.fingerprint ?: "")
             )
@@ -664,7 +672,11 @@ class MainActivity : ComponentActivity() {
             return@withLock
         }
 
-        val streamDimensions = sanitizeStreamDimensions(width, height)
+        val streamDimensions = sanitizeStreamDimensions(
+            device?.width?.takeIf { it > 0 } ?: width,
+            device?.height?.takeIf { it > 0 } ?: height,
+        )
+        val streamFps = device?.fps ?: DEFAULT_STREAM_FPS
         val sessionId = synchronized(streamStateLock) {
             activeStreamSession += 1
             activeStreamSession
@@ -700,7 +712,8 @@ class MainActivity : ComponentActivity() {
         var inputStarted = false
 
         val streamReceiver = StreamReceiver(
-            d, streamDimensions.width, streamDimensions.height, hostIp.takeIf { it.isNotBlank() }, hostPort,
+            d, streamDimensions.width, streamDimensions.height, streamFps,
+            hostIp.takeIf { it.isNotBlank() }, hostPort,
             encrypted, savedFingerprint, savedToken
         )
         streamReceiver.apply {

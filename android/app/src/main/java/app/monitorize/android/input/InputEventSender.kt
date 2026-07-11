@@ -57,7 +57,8 @@ class InputEventSender(
         private const val PEN_FLAG_HOVER_EXIT = 1 shl 1
         private const val PEN_FLAG_HOVER_ENTER = 1 shl 2
         private const val ANDROID_FLAG_CANCELED = 0x20
-        private const val MAX_PENDING_FRAMES = 8
+        private const val MAX_PENDING_FRAMES = 4
+        private const val RETRY_DELAY_MS = 250L
         private const val UDP_UP_REPEATS = 3
         private const val UDP_MAGIC = 0x4D5A4955
         private const val UDP_VERSION: Byte = 1
@@ -271,7 +272,7 @@ class InputEventSender(
                         out = null
                         socket = null
                         try { s?.close() } catch (_: Exception) {}
-                        delay(2000)
+                        delay(RETRY_DELAY_MS)
                     }
                 }
             }
@@ -307,6 +308,8 @@ class InputEventSender(
                         val addr = InetAddress.getByName(hostIp)
                         val udpKey = if (encrypted) deriveUdpKey(authToken!!, fingerprint!!) else null
                         val keyId = udpKey?.let { udpKeyId(it) }
+                        val keySpec = udpKey?.let { SecretKeySpec(it, "AES") }
+                        val cipher = udpKey?.let { Cipher.getInstance("AES/GCM/NoPadding") }
                         val noncePrefix = ByteArray(4)
                         if (udpKey != null) SecureRandom().nextBytes(noncePrefix)
                         var counter = 1L
@@ -318,7 +321,7 @@ class InputEventSender(
                                 val repeats = if (frame[5].toInt() == ACTION_UP_WIRE) UDP_UP_REPEATS else 1
                                 repeat(repeats) {
                                     val payload = if (udpKey != null && keyId != null) {
-                                        encryptUdpFrame(frame, udpKey, keyId, noncePrefix, counter++)
+                                        encryptUdpFrame(frame, keySpec!!, keyId, noncePrefix, counter++, cipher!!)
                                     } else {
                                         frame
                                     }
@@ -337,7 +340,7 @@ class InputEventSender(
                         if (udpSocket === u) udpSocket = null
                         try { u?.close() } catch (_: Exception) {}
                     }
-                    delay(2000)
+                    delay(RETRY_DELAY_MS)
                 }
             }
         }
@@ -477,10 +480,11 @@ class InputEventSender(
 
     private fun encryptUdpFrame(
         frame: ByteArray,
-        key: ByteArray,
+        key: SecretKeySpec,
         keyId: ByteArray,
         noncePrefix: ByteArray,
-        counter: Long
+        counter: Long,
+        cipher: Cipher
     ): ByteArray {
         val header = ByteArray(UDP_HEADER_SIZE)
         writeInt(header, 0, UDP_MAGIC)
@@ -489,8 +493,7 @@ class InputEventSender(
         System.arraycopy(noncePrefix, 0, header, 9, 4)
         writeLong(header, 13, counter)
         val nonce = noncePrefix + header.copyOfRange(13, 21)
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(128, nonce))
+        cipher.init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(128, nonce))
         cipher.updateAAD(header)
         return header + cipher.doFinal(frame)
     }

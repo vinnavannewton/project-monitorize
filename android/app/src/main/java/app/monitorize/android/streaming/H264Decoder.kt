@@ -49,21 +49,19 @@ class H264Decoder(
     }
 
     @Synchronized
-    fun init(width: Int, height: Int) {
+    fun init(width: Int, height: Int, fps: Int = 60) {
         release()
         val generation = decoderGeneration.incrementAndGet()
         fatalError.set(false)
         val firstFrameReported = AtomicBoolean(false)
         try {
-            Log.i(TAG, "Init: ${width}×${height}")
+            Log.i(TAG, "Init: ${width}×${height}@${fps}")
 
             val format = MediaFormat.createVideoFormat(
                 MediaFormat.MIMETYPE_VIDEO_AVC, width, height
             ).apply {
-                val maxDimension = maxOf(width, height)
                 setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, MAX_INPUT)
-                setInteger(MediaFormat.KEY_MAX_WIDTH, maxDimension)
-                setInteger(MediaFormat.KEY_MAX_HEIGHT, maxDimension)
+                setInteger(MediaFormat.KEY_FRAME_RATE, fps.coerceIn(24, 240))
                 setInteger(MediaFormat.KEY_OPERATING_RATE, Short.MAX_VALUE.toInt())
                 setInteger(MediaFormat.KEY_PRIORITY, 0)
                 setInteger(MediaFormat.KEY_LOW_LATENCY, 1)

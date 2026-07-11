@@ -14,6 +14,7 @@ class StreamReceiver(
     private val decoder: H264Decoder,
     private val width: Int,
     private val height: Int,
+    private val fps: Int = 60,
     private val hostIp: String? = null,
     private val hostPort: Int = 7110,
     private val encrypted: Boolean = false,
@@ -125,7 +126,7 @@ class StreamReceiver(
             socket.tcpNoDelay = true
             socket.keepAlive = true
             socket.soTimeout = STREAM_IDLE_TIMEOUT_MS
-            socket.receiveBufferSize = 1024 * 1024
+            socket.receiveBufferSize = 256 * 1024
             try {
                 
                 socket.trafficClass = 0xC0
@@ -135,7 +136,7 @@ class StreamReceiver(
             controlSocket = socket
 
             onStatusChange?.invoke(if (hasConnected) "Reconnected" else "Connected")
-            decoder.init(width, height)
+            decoder.init(width, height, fps)
             onStatusChange?.invoke("")
             hasConnected = true
 

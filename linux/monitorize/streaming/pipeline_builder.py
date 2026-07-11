@@ -108,14 +108,14 @@ def _cpu_encoder_params(
         return (
             f"x264enc tune=zerolatency speed-preset=ultrafast bitrate={bitrate} "
             f"key-int-max={key_int} byte-stream=true bframes=0 ref=1 "
-            f"sliced-threads=false mb-tree=false threads=1{ir_opt}"
+            f"sliced-threads=true mb-tree=false threads=0{ir_opt}"
         )
     speed = "superfast" if encoder_profile == "Balanced" else "veryfast"
     refs = 1 if encoder_profile == "Balanced" else 2
     return (
         f"x264enc tune=zerolatency speed-preset={speed} bitrate={bitrate} "
         f"key-int-max={key_int} byte-stream=true bframes=0 ref={refs} "
-        f"sliced-threads=false mb-tree=false threads=1{ir_opt}"
+        f"sliced-threads=true mb-tree=false threads=0{ir_opt}"
     )
 
 
@@ -205,7 +205,7 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
 
     
     
-    sink = f"tcpserversink host={host} port={port} sync=false sync-method=2 recover-policy=2 buffers-max=10 buffers-soft-max=5 qos-dscp=48"
+    sink = f"tcpserversink host={host} port={port} sync=false sync-method=2 recover-policy=2 buffers-max=3 buffers-soft-max=2 qos-dscp=48"
 
     taskset_prefix = []
     if not hw_encoder:
@@ -247,11 +247,6 @@ def _failed_during_startup(proc, timeout=1.0):
 def _nvidia_memory_candidates():
     encoder = _gst_inspect("nvh264enc")
     candidates = []
-    if "memory:GLMemory" in encoder and all(
-        _gst_inspect(element)
-        for element in ("glupload", "glcolorconvert", "glcolorscale")
-    ):
-        candidates.append("gl")
     if "memory:CUDAMemory" in encoder and all(
         _gst_inspect(element)
         for element in ("cudaupload", "cudaconvertscale")
@@ -299,7 +294,11 @@ def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
         print(f"\n[Pipeline] Encoder: {label}")
         print(f"[GStreamer] {shlex.join(pipeline)}\n")
         proc = _launch(pipeline, pass_fds=pass_fds)
-        if not hw_encoder or not _failed_during_startup(proc):
+        if not _failed_during_startup(proc):
+            print("[Pipeline] READY", flush=True)
+            return proc
+        if not hw_encoder:
+            print("[Pipeline] CPU encoder failed during startup", flush=True)
             return proc
         print(f"[Pipeline] {label} failed during startup; trying fallback")
 
@@ -314,4 +313,8 @@ def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
     )
     print(f"[GStreamer] {shlex.join(pipeline)}\n")
     proc = _launch(pipeline, pass_fds=pass_fds)
+    if _failed_during_startup(proc):
+        print("[Pipeline] CPU fallback failed during startup", flush=True)
+    else:
+        print("[Pipeline] READY", flush=True)
     return proc

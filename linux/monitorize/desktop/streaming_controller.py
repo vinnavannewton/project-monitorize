@@ -29,6 +29,7 @@ from monitorize.config.settings import (
 )
 from monitorize.platform.utils import LINUX_DIR
 from monitorize.config.validation import (
+    DEFAULT_BITRATE,
     DEFAULT_FPS,
     DEFAULT_PRIMARY_RESOLUTION,
     DEFAULT_SECONDARY_RESOLUTION,
@@ -43,6 +44,8 @@ from monitorize.input_bridge.uinput_backend import UINPUT_PERMISSION_HINT
 
 
 GNOME_LAYOUT_CHANGE_DEBOUNCE_MS = 750
+DUAL_WIFI_BITRATE_BUDGET_KBPS = 30000
+MIN_SECONDARY_BITRATE_KBPS = 4000
 THIRD_STREAM_PUBLIC_PORT = 7114
 THIRD_STREAM_BACKEND_PORT = 7115
 THIRD_INPUT_PUBLIC_PORT = 7117
@@ -75,6 +78,8 @@ class StreamingController(QObject):
         self.pairing_code = ""
         self.wifi = False
         self.encrypted = False
+        self.bitrate = DEFAULT_BITRATE
+        self.width, self.height = DEFAULT_PRIMARY_RESOLUTION
         self.fps = DEFAULT_FPS
         self.streamer = self.input_bridge = self.tls_proxy = None
         self.gst_pids = set()
@@ -89,6 +94,7 @@ class StreamingController(QObject):
         self.third_streamer = None
         self.third_streaming = False
         self.third_ready = False
+        self.third_width, self.third_height = DEFAULT_SECONDARY_RESOLUTION
         self.third_fps = DEFAULT_FPS
         self.third_generation = 0
         self.third_gst_pids = set()
@@ -413,7 +419,7 @@ class StreamingController(QObject):
             lines = raw.splitlines()
         for line in lines:
             self._track_gst_pid(line)
-            if "Setting pipeline to PLAYING" in line or "New clock:" in line:
+            if line == "[Pipeline] READY":
                 self._set_primary_ready(True)
             if self.de == "kde":
                 self._handle_kde_streamer_line(line, generation)
@@ -491,7 +497,6 @@ class StreamingController(QObject):
             )
         elif event.get("type") == "gnome_capture_ready" and slot == "primary":
             self.streamer_has_pipewire_node = True
-            self._set_primary_ready(True)
             if not self.input_launched:
                 self.input_launched = True
                 self._launch_input(generation)
@@ -527,6 +532,8 @@ class StreamingController(QObject):
         )
         if "MONITORIZE_UINPUT_PERMISSION:" in raw:
             self._set_status(UINPUT_PERMISSION_HINT.split(": ", 1)[1])
+        elif "[TouchDaemon] INFO READY" in raw:
+            self._set_status("Touch and stylus input ready")
         self.logAppended.emit(
             "INPUT",
             raw,
@@ -672,6 +679,18 @@ class StreamingController(QObject):
         third_encoder_profile = sanitize_encoder_profile(encoder_profile)
         third_touch_enabled = bool(enable_touch)
         third_stylus_enabled = bool(enable_stylus_features)
+        if self.wifi:
+            available = max(
+                MIN_SECONDARY_BITRATE_KBPS,
+                DUAL_WIFI_BITRATE_BUDGET_KBPS - self.bitrate,
+            )
+            if third_bitrate > available:
+                self.logAppended.emit(
+                    "STREAMER",
+                    f"[Third display] Bitrate limited from {third_bitrate} to "
+                    f"{available} kbps to keep dual Wi-Fi streams responsive.",
+                )
+                third_bitrate = available
 
         third_output = ""
         if self.de == "hyprland":
@@ -872,6 +891,8 @@ class StreamingController(QObject):
         )
         if "MONITORIZE_UINPUT_PERMISSION:" in raw:
             self._set_status(UINPUT_PERMISSION_HINT.split(": ", 1)[1])
+        elif "[TouchDaemon] INFO READY" in raw:
+            self._set_status("Additional-display touch and stylus ready")
         self.logAppended.emit("INPUT", f"[Third display] {raw}")
 
     def _third_input_finished(self, code, _status, generation, process):
@@ -946,7 +967,7 @@ class StreamingController(QObject):
                 self._set_status("Third display selected; stream pipeline starting...")
             elif line.startswith("[ERROR]"):
                 self._set_status(line.removeprefix("[ERROR]").strip())
-            if "Setting pipeline to PLAYING" in line or "New clock:" in line:
+            if line == "[Pipeline] READY":
                 if not self.third_ready:
                     self.third_ready = True
                     self._advertise()
@@ -1066,6 +1087,10 @@ class StreamingController(QObject):
                 self.third_ready,
                 self.fps,
                 self.third_fps,
+                self.width,
+                self.height,
+                self.third_width if self.third_streaming else None,
+                self.third_height if self.third_streaming else None,
             )
 
     def stop(self):

@@ -83,6 +83,8 @@ class DiscoveryServiceTest(unittest.TestCase):
         self.assertEqual(registered[0].port, 7110)
         self.assertEqual(registered[0].properties["encrypted"], "0")
         self.assertEqual(registered[0].properties["fps"], "60")
+        self.assertEqual(registered[0].properties["width"], "1280")
+        self.assertEqual(registered[0].properties["height"], "800")
         self.assertEqual(registered[0].properties["third_available"], "1")
         self.assertEqual(registered[1].port, 7114)
         self.assertIn("Second Virtual Monitor", registered[1].name)
@@ -108,9 +110,16 @@ class DiscoveryServiceTest(unittest.TestCase):
         )
         service = DiscoveryService()
         with patch.dict(sys.modules, {"zeroconf": fake_module}):
-            service.advertise("127.0.0.1", False, True, 90, 75)
+            service.advertise(
+                "127.0.0.1", False, True, 90, 75,
+                2560, 1600, 1920, 1200,
+            )
         self.assertEqual(registered[0].properties["fps"], "90")
         self.assertEqual(registered[1].properties["fps"], "75")
+        self.assertEqual(registered[0].properties["width"], "2560")
+        self.assertEqual(registered[0].properties["height"], "1600")
+        self.assertEqual(registered[1].properties["width"], "1920")
+        self.assertEqual(registered[1].properties["height"], "1200")
 
 
     def test_encrypted_advertisement_declares_udp_input_transport(self):
@@ -1181,7 +1190,8 @@ class StreamingControllerTest(unittest.TestCase):
         self.assertEqual(args[-1], "HEADLESS-2")
         self.assertIn("wifi", args)
         discovery.advertise.assert_called_once_with(
-            "10.0.0.1", False, False, 60, 60
+            "10.0.0.1", False, False, 60, 60,
+            1920, 1200, None, None,
         )
 
     def test_gnome_streamer_command_uses_display_type_only(self):
@@ -1455,6 +1465,18 @@ class StreamingControllerTest(unittest.TestCase):
         controller._read_input(generation=3, process=process)
         self.assertIn("Monitorize udev rule", controller.status)
 
+    def test_input_ready_marker_updates_status(self):
+        controller = self.kde_controller()
+        process = process_mock()
+        process.readAllStandardOutput.return_value = (
+            b"[TouchDaemon] INFO READY input_slot=primary\n"
+        )
+        controller.input_bridge = process
+
+        controller._read_input(generation=3, process=process)
+
+        self.assertEqual(controller.status, "Touch and stylus input ready")
+
     def test_runtime_general_settings_override_saved_defaults(self):
         controller = self.kde_controller()
         controller.runtime_general = {
@@ -1548,7 +1570,8 @@ class StreamingControllerTest(unittest.TestCase):
         self.assertEqual(env.value("MONITORIZE_PORTAL_SOURCE_TYPE"), "")
         self.assertEqual(events, [True])
         discovery.advertise.assert_called_once_with(
-            "10.0.0.1", False, False, 60, 60
+            "10.0.0.1", False, False, 60, 60,
+            1920, 1080, 1920, 1080,
         )
 
     def test_third_custom_mode_uses_shared_resolution_and_fps_sanitizers(self):
@@ -1566,6 +1589,24 @@ class StreamingControllerTest(unittest.TestCase):
 
         args = process.start.call_args.args[1]
         self.assertEqual(args[2:6], ["3440", "1440", "75", "8000"])
+
+    def test_dual_wifi_caps_secondary_bitrate_to_shared_budget(self):
+        controller = self.kde_controller()
+        controller.primary_ready = True
+        controller.bitrate = 20250
+        logs = []
+        controller.logAppended.connect(lambda label, message: logs.append((label, message)))
+        process = process_mock()
+
+        with patch("monitorize.desktop.streaming_controller.QProcess", return_value=process):
+            controller.start_third(
+                "1920x1200", "60", "20500",
+                "NVIDIA NVENC (nvh264enc)", "Low Latency",
+            )
+
+        args = process.start.call_args.args[1]
+        self.assertEqual(args[5], "9750")
+        self.assertTrue(any("Bitrate limited" in message for _, message in logs))
 
     def test_hyprland_third_display_creates_headless_output_before_picker(self):
         controller = StreamingController("hyprland", "10.0.0.1", Mock())
@@ -1675,6 +1716,22 @@ class StreamingControllerTest(unittest.TestCase):
             controller._maybe_launch_third_input(5)
         disabled.assert_not_called()
 
+    def test_third_input_ready_marker_updates_status(self):
+        controller = self.kde_controller()
+        controller.third_generation = 5
+        process = process_mock()
+        process.readAllStandardOutput.return_value = (
+            b"[TouchDaemon] INFO READY input_slot=additional\n"
+        )
+        controller.third_input_bridge = process
+
+        controller._read_third_input(5, process)
+
+        self.assertEqual(
+            controller.status,
+            "Additional-display touch and stylus ready",
+        )
+
     def test_encrypted_third_touch_uses_tls_udp_backend_port(self):
         controller = self.kde_controller()
         controller.encrypted = True
@@ -1765,7 +1822,7 @@ class StreamingControllerTest(unittest.TestCase):
         process = process_mock()
         process.readAllStandardOutput.return_value = (
             b"[Portal] Got PipeWire node=42 fd=9\n"
-            b"New clock: GstSystemClock\n"
+            b"[Pipeline] READY\n"
         )
         controller.third_streamer = process
 
@@ -1774,7 +1831,7 @@ class StreamingControllerTest(unittest.TestCase):
         self.assertTrue(controller.third_ready)
         self.assertEqual(
             discovery.advertise.call_args_list[-1].args,
-            ("10.0.0.1", False, True, 60, 60),
+            ("10.0.0.1", False, True, 60, 60, 1920, 1080, 1920, 1080),
         )
 
     def test_stale_third_streamer_output_is_ignored(self):
@@ -2959,6 +3016,29 @@ class PipelineBuilderTest(unittest.TestCase):
         self.assertIn("strict-gop=true", text)
         self.assertIn("repeat-sequence-header=true", text)
 
+    def test_cpu_uses_parallel_same_frame_threads(self):
+        text = self._pipeline_text()
+        self.assertIn("sliced-threads=true", text)
+        self.assertIn("threads=0", text)
+        self.assertNotIn("threads=1", text)
+
+    def test_tcp_client_backlog_is_bounded_for_low_latency(self):
+        text = self._pipeline_text()
+        self.assertIn("buffers-max=3", text)
+        self.assertIn("buffers-soft-max=2", text)
+
+    def test_nvidia_auto_prefers_cuda_over_unreliable_kde_gl_import(self):
+        pipeline_builder._gst_inspect.cache_clear()
+        encoder = "memory:GLMemory memory:CUDAMemory"
+        with patch.object(
+            pipeline_builder, "_gst_inspect",
+            side_effect=lambda element: encoder if element == "nvh264enc" else "ok",
+        ):
+            self.assertEqual(
+                pipeline_builder._nvidia_memory_candidates(),
+                ["cuda", "system"],
+            )
+
     def test_stability_nvenc_uses_short_gop_without_unsupported_intra_refresh(self):
         text = self._pipeline_text(
             hw_encoder="nvh264enc", stream_type="Stability"
@@ -3049,6 +3129,7 @@ class PipelineBuilderTest(unittest.TestCase):
         failed.wait.return_value = 1
         cpu = Mock()
         cpu.pid = 2
+        cpu.wait.side_effect = TimeoutExpired("gst-launch-1.0", 1.0)
         with patch(
             "monitorize.streaming.pipeline_builder.subprocess.Popen",
             side_effect=[failed, cpu],

@@ -151,7 +151,10 @@ class DiscoveryService(QObject):
                 pass
             self.discovery_zc = None
 
-    def advertise(self, ip, encrypted, third_available, fps=60, third_fps=None):
+    def advertise(
+        self, ip, encrypted, third_available, fps=60, third_fps=None,
+        width=1280, height=800, third_width=None, third_height=None,
+    ):
         try:
             from zeroconf import ServiceInfo, Zeroconf
             hostname = socket.gethostname()
@@ -160,11 +163,13 @@ class DiscoveryService(QObject):
                 from monitorize.security.tls_proxy import certificate_fingerprint
                 fingerprint = certificate_fingerprint()
 
-            def properties(name, port, stream_fps):
+            def properties(name, port, stream_fps, stream_width, stream_height):
                 values = {
                     "name": name,
                     "port": port,
                     "fps": str(sanitize_fps(stream_fps)),
+                    "width": str(stream_width),
+                    "height": str(stream_height),
                     "encrypted": "1" if encrypted else "0",
                 }
                 if encrypted:
@@ -173,7 +178,7 @@ class DiscoveryService(QObject):
                 return values
 
             primary_properties = properties(
-                f"{hostname} — First Virtual Monitor", 7110, fps
+                f"{hostname} — First Virtual Monitor", 7110, fps, width, height
             )
             primary_properties.update({
                 "encrypted": "1" if encrypted else "0",
@@ -191,6 +196,8 @@ class DiscoveryService(QObject):
                         f"{hostname} — Second Virtual Monitor",
                         7114,
                         fps if third_fps is None else third_fps,
+                        width if third_width is None else third_width,
+                        height if third_height is None else third_height,
                     ),
                 ))
             state = (

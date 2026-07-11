@@ -18,6 +18,8 @@ data class DiscoveredDevice(
     val ip: String,
     val port: Int,
     val fps: Int = DEFAULT_STREAM_FPS,
+    val width: Int = 0,
+    val height: Int = 0,
     val isUsb: Boolean = false,
     val encrypted: Boolean = false,
     val fingerprint: String? = null,
@@ -128,6 +130,8 @@ class DeviceDiscovery(private val context: Context) {
                                 var fingerprint: String? = null
                                 var inputTransport: String? = null
                                 var fps = DEFAULT_STREAM_FPS
+                                var width = 0
+                                var height = 0
                                 try {
                                     resolved.attributes?.let { attrs ->
                                         if (attrs.containsKey("fn")) resolvedName = String(attrs["fn"]!!)
@@ -137,6 +141,8 @@ class DeviceDiscovery(private val context: Context) {
                                         fingerprint = attrs["fingerprint"]?.let { String(it) }
                                         inputTransport = attrs["input_transport"]?.let { String(it) }
                                         fps = attrs["fps"]?.let { parseFps(String(it)) } ?: DEFAULT_STREAM_FPS
+                                        width = attrs["width"]?.let { parseDimension(String(it)) } ?: 0
+                                        height = attrs["height"]?.let { parseDimension(String(it)) } ?: 0
                                     }
                                 } catch (_: Exception) {}
 
@@ -145,6 +151,8 @@ class DeviceDiscovery(private val context: Context) {
                                     ip = ip,
                                     port = resolved.port,
                                     fps = fps,
+                                    width = width,
+                                    height = height,
                                     encrypted = encrypted,
                                     fingerprint = fingerprint,
                                     inputTransport = inputTransport,
@@ -274,6 +282,8 @@ class DeviceDiscovery(private val context: Context) {
                     fingerprint = newDevice.fingerprint,
                     inputTransport = newDevice.inputTransport,
                     fps = newDevice.fps,
+                    width = newDevice.width,
+                    height = newDevice.height,
                     serviceName = newDevice.serviceName,
                 )
             } else {
@@ -289,6 +299,10 @@ class DeviceDiscovery(private val context: Context) {
 
     private fun parseFps(value: String): Int {
         return value.toIntOrNull()?.coerceIn(MIN_STREAM_FPS, MAX_STREAM_FPS) ?: DEFAULT_STREAM_FPS
+    }
+
+    private fun parseDimension(value: String): Int {
+        return value.toIntOrNull()?.takeIf { it in 2..7680 && it % 2 == 0 } ?: 0
     }
 
     fun stopDiscovery() {
