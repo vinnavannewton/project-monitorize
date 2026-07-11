@@ -70,6 +70,8 @@ class DiscoveryServiceTest(unittest.TestCase):
         class FakeInfo:
             def __init__(self, *args, **kwargs):
                 self.properties = kwargs["properties"]
+                self.name = args[1]
+                self.port = kwargs["port"]
 
         fake_module = types.SimpleNamespace(
             ServiceInfo=FakeInfo, Zeroconf=FakeZeroconf
@@ -77,9 +79,14 @@ class DiscoveryServiceTest(unittest.TestCase):
         service = DiscoveryService()
         with patch.dict(sys.modules, {"zeroconf": fake_module}):
             service.advertise("127.0.0.1", False, True)
+        self.assertEqual(len(registered), 2)
+        self.assertEqual(registered[0].port, 7110)
         self.assertEqual(registered[0].properties["encrypted"], "0")
         self.assertEqual(registered[0].properties["fps"], "60")
         self.assertEqual(registered[0].properties["third_available"], "1")
+        self.assertEqual(registered[1].port, 7114)
+        self.assertIn("Second Virtual Monitor", registered[1].name)
+        self.assertIn("Second Virtual Monitor", registered[1].properties["name"])
 
     def test_advertisement_declares_selected_fps(self):
         registered = []
@@ -94,14 +101,16 @@ class DiscoveryServiceTest(unittest.TestCase):
         class FakeInfo:
             def __init__(self, *args, **kwargs):
                 self.properties = kwargs["properties"]
+                self.port = kwargs["port"]
 
         fake_module = types.SimpleNamespace(
             ServiceInfo=FakeInfo, Zeroconf=FakeZeroconf
         )
         service = DiscoveryService()
         with patch.dict(sys.modules, {"zeroconf": fake_module}):
-            service.advertise("127.0.0.1", False, True, 90)
+            service.advertise("127.0.0.1", False, True, 90, 75)
         self.assertEqual(registered[0].properties["fps"], "90")
+        self.assertEqual(registered[1].properties["fps"], "75")
 
 
     def test_encrypted_advertisement_declares_udp_input_transport(self):
@@ -127,8 +136,13 @@ class DiscoveryServiceTest(unittest.TestCase):
             "zeroconf": fake_module,
             "monitorize.security.tls_proxy": fake_tls_proxy,
         }):
-            service.advertise("127.0.0.1", True, False)
-        self.assertEqual(registered[0].properties["input_transport"], "udp-aesgcm-v1")
+            service.advertise("127.0.0.1", True, True)
+        self.assertEqual(len(registered), 2)
+        for advertisement in registered:
+            self.assertEqual(
+                advertisement.properties["input_transport"], "udp-aesgcm-v1"
+            )
+            self.assertEqual(advertisement.properties["fingerprint"], "FP")
 
     def test_lost_service_removes_device(self):
         service = DiscoveryService()
@@ -234,7 +248,36 @@ class DiscoveryServiceTest(unittest.TestCase):
         with patch.dict(sys.modules, {"zeroconf": fake_module}):
             service.advertise("127.0.0.1", False, True)
             service.advertise("127.0.0.1", False, True)
-        self.assertEqual(len(registered), 1)
+        self.assertEqual(len(registered), 2)
+
+    def test_removing_third_advertisement_keeps_primary(self):
+        registered = []
+        unregistered = []
+
+        class FakeZeroconf:
+            def register_service(self, info):
+                registered.append(info)
+
+            def unregister_service(self, info):
+                unregistered.append(info)
+
+            def close(self):
+                pass
+
+        class FakeInfo:
+            def __init__(self, *args, **kwargs):
+                self.port = kwargs["port"]
+
+        fake_module = types.SimpleNamespace(
+            ServiceInfo=FakeInfo, Zeroconf=FakeZeroconf
+        )
+        service = DiscoveryService()
+        with patch.dict(sys.modules, {"zeroconf": fake_module}):
+            service.advertise("127.0.0.1", False, True)
+            service.advertise("127.0.0.1", False, False)
+
+        self.assertEqual([item.port for item in unregistered], [7110, 7114])
+        self.assertEqual([item.port for item in service.advertisements], [7110])
 
 
 class HyprlandDisplayControllerTest(unittest.TestCase):
@@ -972,6 +1015,29 @@ class ReceiverVideoWindowTest(unittest.TestCase):
             finally:
                 settings.CONFIG_DIR, settings.CONFIG_FILE = old_dir, old_file
 
+    def test_second_display_custom_mode_round_trips_sanitized_values(self):
+        old_dir, old_file = settings.CONFIG_DIR, settings.CONFIG_FILE
+        with tempfile.TemporaryDirectory() as directory:
+            try:
+                settings.CONFIG_DIR = directory
+                settings.CONFIG_FILE = str(Path(directory) / "settings.ini")
+                settings.save_second_display_settings(
+                    resolution="Custom...", custom_w="3441", custom_h="1441",
+                    fps="Custom...", custom_fps="999", bitrate="8000",
+                    encoder="Software (CPU / x264enc)",
+                    encoder_profile="Low Latency",
+                )
+
+                loaded = settings.load_second_display_settings()
+
+                self.assertEqual(loaded["resolution"], "Custom...")
+                self.assertEqual(loaded["custom_w"], "3440")
+                self.assertEqual(loaded["custom_h"], "1440")
+                self.assertEqual(loaded["fps"], "Custom...")
+                self.assertEqual(loaded["custom_fps"], "240")
+            finally:
+                settings.CONFIG_DIR, settings.CONFIG_FILE = old_dir, old_file
+
     def test_first_run_wifi_defaults_are_plain_cpu_1080p_16mbps(self):
         old_dir, old_file = settings.CONFIG_DIR, settings.CONFIG_FILE
         with tempfile.TemporaryDirectory() as directory:
@@ -1115,7 +1181,7 @@ class StreamingControllerTest(unittest.TestCase):
         self.assertEqual(args[-1], "HEADLESS-2")
         self.assertIn("wifi", args)
         discovery.advertise.assert_called_once_with(
-            "10.0.0.1", False, False, 60
+            "10.0.0.1", False, False, 60, 60
         )
 
     def test_gnome_streamer_command_uses_display_type_only(self):
@@ -1481,7 +1547,25 @@ class StreamingControllerTest(unittest.TestCase):
         self.assertEqual(env.value("MONITORIZE_PORT"), "7114")
         self.assertEqual(env.value("MONITORIZE_PORTAL_SOURCE_TYPE"), "")
         self.assertEqual(events, [True])
-        discovery.advertise.assert_called_once_with("10.0.0.1", False, False, 60)
+        discovery.advertise.assert_called_once_with(
+            "10.0.0.1", False, False, 60, 60
+        )
+
+    def test_third_custom_mode_uses_shared_resolution_and_fps_sanitizers(self):
+        controller = self.kde_controller()
+        controller.streaming = True
+        controller.wifi = True
+        controller.primary_ready = True
+        process = process_mock()
+
+        with patch("monitorize.desktop.streaming_controller.QProcess", return_value=process):
+            controller.start_third(
+                "3441x1441", "75", "8000",
+                "Software (CPU / x264enc)", "Low Latency",
+            )
+
+        args = process.start.call_args.args[1]
+        self.assertEqual(args[2:6], ["3440", "1440", "75", "8000"])
 
     def test_hyprland_third_display_creates_headless_output_before_picker(self):
         controller = StreamingController("hyprland", "10.0.0.1", Mock())
@@ -1690,7 +1774,7 @@ class StreamingControllerTest(unittest.TestCase):
         self.assertTrue(controller.third_ready)
         self.assertEqual(
             discovery.advertise.call_args_list[-1].args,
-            ("10.0.0.1", False, True, 60),
+            ("10.0.0.1", False, True, 60, 60),
         )
 
     def test_stale_third_streamer_output_is_ignored(self):
@@ -2871,6 +2955,40 @@ class PipelineBuilderTest(unittest.TestCase):
         self.assertIn("tune=ultra-low-latency", text)
         self.assertIn("rc-lookahead=0", text)
         self.assertIn("bframes=0", text)
+        self.assertIn("vbv-buffer-size=134", text)
+        self.assertIn("strict-gop=true", text)
+        self.assertIn("repeat-sequence-header=true", text)
+
+    def test_stability_nvenc_uses_short_gop_without_unsupported_intra_refresh(self):
+        text = self._pipeline_text(
+            hw_encoder="nvh264enc", stream_type="Stability"
+        )
+        self.assertIn("gop-size=15", text)
+        self.assertIn("repeat-sequence-header=true", text)
+        self.assertNotIn("intra-refresh", text)
+
+    def test_nvenc_gl_path_preserves_dmabuf_and_uses_gl_memory(self):
+        text = self._pipeline_text(
+            hw_encoder="nvh264enc", nvidia_memory="gl"
+        )
+        self.assertIn("always-copy=false", text)
+        self.assertIn("glupload", text)
+        self.assertIn("glcolorconvert", text)
+        self.assertIn("glcolorscale", text)
+        self.assertIn("memory:GLMemory", text)
+        self.assertIn("format=RGBA", text)
+        self.assertNotIn("format=NV12", text)
+        self.assertNotIn("cudaupload", text)
+
+    def test_nvenc_system_fallback_keeps_hardware_encoder(self):
+        text = self._pipeline_text(
+            hw_encoder="nvh264enc", nvidia_memory="system"
+        )
+        self.assertIn("always-copy=true", text)
+        self.assertIn("videoconvert", text)
+        self.assertIn("format=NV12", text)
+        self.assertIn("nvh264enc", text)
+        self.assertNotIn("cudaupload", text)
 
     def test_balanced_and_quality_cpu_profiles_change_speed_preset(self):
         balanced = self._pipeline_text(encoder_profile="Balanced")
@@ -2909,7 +3027,7 @@ class PipelineBuilderTest(unittest.TestCase):
     def test_launch_uses_argv_without_shell(self):
         proc = Mock()
         proc.pid = 123
-        proc.wait.side_effect = TimeoutExpired("gst-launch-1.0", 0.25)
+        proc.wait.side_effect = TimeoutExpired("gst-launch-1.0", 1.0)
         with patch("monitorize.streaming.pipeline_builder.subprocess.Popen", return_value=proc) as popen:
             pipeline_builder.launch_with_fallback(
                 pw_fd=None, node_id=42, width=1280, height=800,
@@ -2944,6 +3062,32 @@ class PipelineBuilderTest(unittest.TestCase):
         second_argv = popen.call_args_list[1].args[0]
         self.assertIn("vah264enc", first_argv)
         self.assertIn("x264enc", second_argv)
+
+    def test_nvenc_launch_falls_back_from_gl_to_cuda(self):
+        failed = Mock(pid=1, returncode=1)
+        failed.wait.return_value = 1
+        cuda = Mock(pid=2, returncode=None)
+        cuda.wait.side_effect = TimeoutExpired("gst-launch-1.0", 1.0)
+        with (
+            patch(
+                "monitorize.streaming.pipeline_builder._nvidia_memory_candidates",
+                return_value=["gl", "cuda", "system"],
+            ),
+            patch(
+                "monitorize.streaming.pipeline_builder.subprocess.Popen",
+                side_effect=[failed, cuda],
+            ) as popen,
+        ):
+            result = pipeline_builder.launch_with_fallback(
+                pw_fd=None, node_id=42, width=1280, height=800,
+                fps=60, bitrate=8000, port=7110, hw_encoder="nvh264enc",
+            )
+        self.assertIs(result, cuda)
+        gl_argv = popen.call_args_list[0].args[0]
+        cuda_argv = popen.call_args_list[1].args[0]
+        self.assertIn("glupload", gl_argv)
+        self.assertIn("cudaupload", cuda_argv)
+        self.assertEqual(2, popen.call_count)
 
 
 class PortalStreamerTest(unittest.TestCase):
@@ -3368,6 +3512,18 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertNotIn("Please open the Monitorize app on your tablet.", qml)
         self.assertNotIn("backend.streamingStatus", qml)
 
+    def test_recent_wifi_devices_are_status_only(self):
+        qml_path = (
+            Path(__file__).resolve().parents[1]
+            / "monitorize"
+            / "qml"
+            / "WifiPage.qml"
+        )
+        qml = qml_path.read_text(encoding="utf-8")
+        self.assertNotIn("Start Server", qml)
+        self.assertNotIn("id: wifiItemMouse", qml)
+        self.assertIn('text: modelData.online ? "Online" : "Offline"', qml)
+
     def test_wifi_settings_page_uses_choice_chips_for_option_sets(self):
         qml_dir = Path(__file__).resolve().parents[1] / "monitorize" / "qml"
         qml_path = qml_dir / "WifiPage.qml"
@@ -3386,7 +3542,7 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn("theme.buttonBackgroundHover", chips_qml)
         self.assertIn("theme.buttonBackground", chips_qml)
         self.assertIn("function find(val)", chips_qml)
-        self.assertIn('return "NVIDIA (WIP)"', chips_qml)
+        self.assertIn('return "NVIDIA NVENC"', chips_qml)
         self.assertNotIn("chipText.implicitWidth + 24", chips_qml)
         self.assertNotIn("rowSpacing", chips_qml)
         self.assertIn("contentItem: Text", chips_qml)
@@ -3573,6 +3729,15 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertNotIn("#f472b6", qml)
         self.assertIn("id: s2EncoderCombo", qml)
         self.assertIn("id: s2EncoderProfileCombo", qml)
+        self.assertIn("id: s2CustomW", qml)
+        self.assertIn("id: s2CustomH", qml)
+        self.assertIn("id: s2CustomFps", qml)
+        self.assertIn("function secondResolutionValue()", qml)
+        self.assertIn("function secondFpsValue()", qml)
+        self.assertIn("validator: IntValidator { bottom: 320; top: 7680 }", qml)
+        self.assertIn("validator: IntValidator { bottom: 240; top: 4320 }", qml)
+        self.assertIn("validator: IntValidator { bottom: 24; top: 240 }", qml)
+        self.assertGreaterEqual(qml.count('"Custom..."'), 8)
         self.assertIn("id: s2TouchToggle", qml)
         self.assertIn("Enable touch for this display", qml)
         self.assertIn("id: s2StylusToggle", qml)

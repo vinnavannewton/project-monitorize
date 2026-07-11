@@ -251,7 +251,14 @@ class DeviceDiscovery(private val context: Context) {
         
         scope.launch(Dispatchers.Main) {
             if (!isDiscovering || generation != currentGeneration) return@launch
-            val index = devices.indexOfFirst { it.ip == newDevice.ip }
+            val serviceIndex = if (newDevice.serviceName.isBlank()) -1 else {
+                devices.indexOfFirst { it.serviceName == newDevice.serviceName }
+            }
+            val index = if (serviceIndex != -1) serviceIndex else {
+                devices.indexOfFirst {
+                    it.ip.equals(newDevice.ip, ignoreCase = true) && it.port == newDevice.port
+                }
+            }
             if (index != -1) {
                 val existing = devices[index]
                 

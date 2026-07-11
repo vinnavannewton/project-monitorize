@@ -89,6 +89,7 @@ class StreamingController(QObject):
         self.third_streamer = None
         self.third_streaming = False
         self.third_ready = False
+        self.third_fps = DEFAULT_FPS
         self.third_generation = 0
         self.third_gst_pids = set()
         self.third_event_buffer = ""
@@ -1064,6 +1065,7 @@ class StreamingController(QObject):
                 self.encrypted,
                 self.third_ready,
                 self.fps,
+                self.third_fps,
             )
 
     def stop(self):

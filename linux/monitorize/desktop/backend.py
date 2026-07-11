@@ -260,13 +260,14 @@ class MonitorizeBackend(QObject):
     def loadSecondDisplaySettings(self):
         return load_second_display_settings()
 
-    @pyqtSlot(str, str, str, str, str, bool, bool)
+    @pyqtSlot(str, str, str, str, str, str, str, str, bool, bool)
     def saveSecondDisplaySettings(
-        self, resolution, fps, bitrate, encoder, encoder_profile, enable_touch,
-        enable_stylus_features,
+        self, resolution, custom_w, custom_h, fps, custom_fps, bitrate,
+        encoder, encoder_profile, enable_touch, enable_stylus_features,
     ):
         save_second_display_settings(
-            resolution=resolution, fps=fps, bitrate=bitrate, encoder=encoder,
+            resolution=resolution, custom_w=custom_w, custom_h=custom_h,
+            fps=fps, custom_fps=custom_fps, bitrate=bitrate, encoder=encoder,
             encoder_profile=encoder_profile, enable_touch=enable_touch,
             enable_stylus_features=enable_stylus_features,
         )

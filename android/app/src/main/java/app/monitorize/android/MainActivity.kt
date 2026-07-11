@@ -87,7 +87,7 @@ private const val SURFACE_READY_BLOCKED_LOG_INTERVAL_MS = 500L
 private const val MAX_RECENT_WIFI_DEVICES = 5
 
 internal fun recentHostKey(device: DiscoveredDevice): String =
-    device.ip.trim().lowercase(Locale.ROOT)
+    "${device.ip.trim().lowercase(Locale.ROOT)}:${device.port}"
 
 private fun isRememberableWifiDevice(device: DiscoveredDevice): Boolean =
     !device.isUsb && device.ip.isNotBlank() && device.ip != "127.0.0.1"
@@ -1123,7 +1123,7 @@ fun DeviceItem(
             )
             
             Text(
-                device.ip, 
+                if (device.isUsb) device.ip else "${device.ip}:${device.port}",
                 color = Color.White.copy(alpha = 0.7f), 
                 fontSize = 13.sp,
                 modifier = Modifier.padding(top = 2.dp)

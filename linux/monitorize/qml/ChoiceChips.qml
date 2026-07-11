@@ -19,7 +19,7 @@ RowLayout {
     implicitHeight: 34
 
     function chipLabel(value) {
-        if (value.indexOf("NVIDIA") === 0) return "NVIDIA (WIP)"
+        if (value.indexOf("NVIDIA") === 0) return "NVIDIA NVENC"
         if (value.indexOf("Intel/AMD") === 0) return "VA-API"
         if (value.indexOf("Software") === 0) return "CPU"
         return value
