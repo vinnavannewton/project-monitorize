@@ -175,8 +175,8 @@ Item {
                         Layout.fillWidth: true
                         height: 52
                         radius: theme.controlRadius
-                        color: wifiItemMouse.containsMouse ? theme.surfaceAlt : theme.surface
-                        border.color: wifiItemMouse.containsMouse ? theme.borderHover : theme.border
+                        color: theme.surface
+                        border.color: theme.border
                         border.width: 1
 
                         RowLayout {
@@ -213,35 +213,11 @@ Item {
                             }
 
                             Text {
-                                text: modelData.online ? "Start Server" : "Offline"
+                                text: modelData.online ? "Online" : "Offline"
                                 font.pixelSize: 12
                                 font.weight: Font.Bold
                                 color: modelData.online ? theme.accent : theme.textMuted
                                 Layout.alignment: Qt.AlignVCenter
-                            }
-                        }
-
-                        MouseArea {
-                            id: wifiItemMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            enabled: modelData.online
-                            onClicked: {
-                                let cleanRes = resCombo.currentText;
-                                if (cleanRes !== "Custom...") {
-                                    cleanRes = cleanRes.split(" ")[0];
-                                }
-                                page.saveGeneralSettings();
-                                page.saveSettings();
-                                backend.startStreaming(
-                                    resCombo.currentText === "Custom..." ? customW.text + "x" + customH.text : cleanRes,
-                                    fpsCombo.currentText === "Custom..." ? customFps.text : fpsCombo.currentText,
-                                    page.bitrateKbpsText(),
-                                    displayTypeCombo.visible ? displayTypeCombo.currentText : "Extend",
-                                    encoderCombo.currentText,
-                                    encoderProfileCombo.currentText,
-                                    true
-                                );
                             }
                         }
                     }

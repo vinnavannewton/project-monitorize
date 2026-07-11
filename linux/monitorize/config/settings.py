@@ -8,6 +8,7 @@ import json
 from PyQt6.QtCore import QSettings
 
 from monitorize.config.validation import (
+    DEFAULT_SECONDARY_RESOLUTION,
     credential_host_key,
     normalize_host,
     sanitize_bitrate,
@@ -207,29 +208,59 @@ def load_general_settings() -> dict:
 def save_second_display_settings(*, resolution: str, fps: str, bitrate: str,
                                  encoder: str, encoder_profile: str,
                                  enable_touch: bool = True,
-                                 enable_stylus_features: bool = False):
-    _save_group("second_display", {
+                                 enable_stylus_features: bool = False,
+                                 custom_w: str = "", custom_h: str = "",
+                                 custom_fps: str = ""):
+    values = {
         "resolution": resolution,
-        "fps": str(sanitize_fps(fps)),
+        "custom_w": "",
+        "custom_h": "",
+        "fps": fps,
+        "custom_fps": "",
         "bitrate": str(sanitize_bitrate(bitrate)),
         "encoder": sanitize_encoder(encoder),
         "encoder_profile": sanitize_encoder_profile(encoder_profile),
         "enable_touch": bool(enable_touch),
         "enable_stylus_features": bool(enable_stylus_features),
-    })
+    }
+    if resolution == "Custom...":
+        width, height = sanitize_resolution(
+            f"{custom_w}x{custom_h}", DEFAULT_SECONDARY_RESOLUTION
+        )
+        values["custom_w"], values["custom_h"] = str(width), str(height)
+    if fps == "Custom...":
+        values["custom_fps"] = str(sanitize_fps(custom_fps))
+    else:
+        values["fps"] = str(sanitize_fps(fps))
+    _save_group("second_display", values)
 
 
 def load_second_display_settings() -> dict:
     data = _load_group("second_display", {
         "resolution": "1920x1080 (16:9)",
+        "custom_w": "",
+        "custom_h": "",
         "fps": "60",
+        "custom_fps": "",
         "bitrate": "8000",
         "encoder": "Software (CPU / x264enc)",
         "encoder_profile": "Low Latency",
         "enable_touch": True,
         "enable_stylus_features": False,
     }, ("enable_touch", "enable_stylus_features"))
-    data["fps"] = str(sanitize_fps(data["fps"]))
+    if data["resolution"] == "Custom...":
+        width, height = sanitize_resolution(
+            f"{data.get('custom_w', '')}x{data.get('custom_h', '')}",
+            DEFAULT_SECONDARY_RESOLUTION,
+        )
+        data["custom_w"], data["custom_h"] = str(width), str(height)
+    else:
+        data["custom_w"] = data["custom_h"] = ""
+    if data["fps"] == "Custom...":
+        data["custom_fps"] = str(sanitize_fps(data.get("custom_fps", "")))
+    else:
+        data["fps"] = str(sanitize_fps(data["fps"]))
+        data["custom_fps"] = ""
     data["bitrate"] = str(sanitize_bitrate(data["bitrate"]))
     data["encoder"] = sanitize_encoder(data["encoder"])
     data["encoder_profile"] = sanitize_encoder_profile(data["encoder_profile"])

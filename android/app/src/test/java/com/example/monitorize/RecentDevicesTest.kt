@@ -1,6 +1,6 @@
-package com.example.monitorize
+package app.monitorize.android
 
-import com.example.monitorize.discovery.DiscoveredDevice
+import app.monitorize.android.discovery.DiscoveredDevice
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -28,5 +28,16 @@ class RecentDevicesTest {
             listOf("192.168.1.6", "192.168.1.5", "192.168.1.4", "192.168.1.2"),
             removedRecentDevices(unchanged, device(3)).map { it.ip }
         )
+    }
+
+    @Test
+    fun monitorsOnTheSameHostRemainSeparateByPort() {
+        val first = DiscoveredDevice("PC — First Virtual Monitor", "192.168.1.2", 7110)
+        val second = DiscoveredDevice("PC — Second Virtual Monitor", "192.168.1.2", 7114)
+
+        val recent = updatedRecentDevices(updatedRecentDevices(emptyList(), first), second)
+
+        assertEquals(listOf(7114, 7110), recent.map { it.port })
+        assertEquals(listOf(second), removedRecentDevices(recent, first))
     }
 }
