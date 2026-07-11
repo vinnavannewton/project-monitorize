@@ -10,6 +10,7 @@ class DisplayController:
     def __init__(self, de):
         self.de = de
         self.created_output = None
+        self.additional_output = None
 
     def headless_monitors(self):
         try:
@@ -33,20 +34,53 @@ class DisplayController:
         except Exception:
             return []
 
-    def prepare_hyprland(self, width, height, fps):
+    def prepare_hyprland(self, width, height, fps, slot="primary"):
         old = set(self.headless_monitors())
-        subprocess.run(["hyprctl", "output", "create", "headless"], capture_output=True)
-        self.created_output = next(iter(set(self.headless_monitors()) - old), "HEADLESS-1")
+        result = subprocess.run(
+            ["hyprctl", "output", "create", "headless"], capture_output=True
+        )
+        if result.returncode != 0:
+            return "", "Hyprland could not create a headless output"
+        deadline = time.monotonic() + 2.0
+        created = []
+        while time.monotonic() < deadline:
+            created = sorted(set(self.headless_monitors()) - old)
+            if len(created) == 1:
+                break
+            time.sleep(0.1)
+        if len(created) != 1:
+            return "", "Hyprland did not expose one new headless output"
+        output = created[0]
         mode = f"{width}x{height}@{fps}"
-        subprocess.run(
-            ["hyprctl", "keyword", "monitor", f"{self.created_output},{mode},auto,1"],
+        configured = subprocess.run(
+            ["hyprctl", "keyword", "monitor", f"{output},{mode},auto,1"],
             capture_output=True,
         )
-        subprocess.run(
-            ["hyprctl", "eval", f"hl.monitor({{ output = '{self.created_output}', mode = '{mode}', position = 'auto', scale = 1.0 }})"],
+        if configured.returncode != 0:
+            subprocess.run(["hyprctl", "output", "remove", output], capture_output=True)
+            return "", f"Hyprland could not configure {output}"
+        configured = subprocess.run(
+            ["hyprctl", "eval", f"hl.monitor({{ output = '{output}', mode = '{mode}', position = 'auto', scale = 1.0 }})"],
             capture_output=True,
         )
-        return self.created_output, ""
+        if configured.returncode != 0:
+            subprocess.run(["hyprctl", "output", "remove", output], capture_output=True)
+            return "", f"Hyprland could not configure {output}"
+        if slot == "additional":
+            self.additional_output = output
+        else:
+            self.created_output = output
+        return output, ""
+
+    def remove_hyprland_output(self, slot="primary"):
+        output = self.additional_output if slot == "additional" else self.created_output
+        if not output or self.de != "hyprland":
+            return
+        subprocess.run(["hyprctl", "output", "remove", output], capture_output=True)
+        if slot == "additional":
+            self.additional_output = None
+        else:
+            self.created_output = None
 
     def wait_for_headless_ready(self, output_name, width, height,
                                 timeout_s=2.0, poll_interval_s=0.1):
@@ -74,11 +108,5 @@ class DisplayController:
         return False
 
     def cleanup(self):
-        if not self.created_output:
-            return
-        if self.de == "hyprland":
-            subprocess.run(
-                ["hyprctl", "output", "remove", self.created_output],
-                capture_output=True,
-            )
-        self.created_output = None
+        self.remove_hyprland_output("additional")
+        self.remove_hyprland_output("primary")
