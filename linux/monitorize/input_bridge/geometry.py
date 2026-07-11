@@ -11,6 +11,8 @@ log = logging.getLogger("TouchDaemon")
 MONITORIZE_INPUT_VENDOR_ID = 0x4D5A
 MONITORIZE_TOUCH_PRODUCT_ID = 0x1001
 MONITORIZE_STYLUS_PRODUCT_ID = 0x1002
+MONITORIZE_ADDITIONAL_TOUCH_PRODUCT_ID = 0x1003
+MONITORIZE_ADDITIONAL_STYLUS_PRODUCT_ID = 0x1004
 GNOME_INPUT_MAPPING_TIMEOUT = 5.0
 GNOME_INPUT_MAPPING_INTERVAL = 0.1
 GNOME_TOUCHSCREEN_SCHEMA = "org.gnome.desktop.peripherals.touchscreen"
@@ -112,7 +114,16 @@ def gnome_primary_monitor_edid_from_state(state):
     return None
 
 
-def write_gnome_input_mapping(edid, stylus_features=False):
+def input_product_ids(input_slot="primary"):
+    return (
+        MONITORIZE_ADDITIONAL_TOUCH_PRODUCT_ID
+        if input_slot == "additional" else MONITORIZE_TOUCH_PRODUCT_ID,
+        MONITORIZE_ADDITIONAL_STYLUS_PRODUCT_ID
+        if input_slot == "additional" else MONITORIZE_STYLUS_PRODUCT_ID,
+    )
+
+
+def write_gnome_input_mapping(edid, stylus_features=False, input_slot="primary"):
     try:
         values = [str(value) for value in edid]
     except TypeError:
@@ -120,12 +131,13 @@ def write_gnome_input_mapping(edid, stylus_features=False):
     if len(values) != 3 or not all(values):
         return False
     try:
+        touch_product, stylus_product = input_product_ids(input_slot)
         touch = _gio_settings(
             GNOME_TOUCHSCREEN_SCHEMA,
             _gnome_device_path(
                 "touchscreens",
                 MONITORIZE_INPUT_VENDOR_ID,
-                MONITORIZE_TOUCH_PRODUCT_ID,
+                touch_product,
             ),
         )
         touch.set_strv("output", values)
@@ -135,7 +147,7 @@ def write_gnome_input_mapping(edid, stylus_features=False):
                 _gnome_device_path(
                     "tablets",
                     MONITORIZE_INPUT_VENDOR_ID,
-                    MONITORIZE_STYLUS_PRODUCT_ID,
+                    stylus_product,
                 ),
             )
             tablet.set_strv("output", values)
@@ -228,11 +240,15 @@ def kde_virtual_output(outputs, output_name=None):
 
 
 class Geometry:
-    def __init__(self, de: str, screen_w: int, screen_h: int, gnome_primary=False):
+    def __init__(
+        self, de: str, screen_w: int, screen_h: int, gnome_primary=False,
+        input_slot="primary",
+    ):
         self.de = de
         self.screen_w = screen_w
         self.screen_h = screen_h
         self.gnome_primary = gnome_primary
+        self.input_slot = input_slot
         self._cache = None
         self._gnome_devices_mapped = False
 
@@ -358,7 +374,13 @@ class Geometry:
             try:
                 edid = edid_from_state(self._mutter_state())
                 if edid:
-                    mapped = write_gnome_input_mapping(edid, stylus_features)
+                    mapped = (
+                        write_gnome_input_mapping(
+                            edid, stylus_features, self.input_slot
+                        )
+                        if self.input_slot == "additional"
+                        else write_gnome_input_mapping(edid, stylus_features)
+                    )
                     self._gnome_devices_mapped = mapped
                     return mapped
             except Exception as exc:

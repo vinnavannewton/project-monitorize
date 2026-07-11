@@ -162,6 +162,21 @@ class MonitorizeBackend(QObject):
     def secondStreamActive(self):
         return self.streaming.third_active()
 
+    @pyqtProperty(bool, notify=isStreamingChanged)
+    def thirdEncryption(self):
+        """The additional Wi-Fi stream shares the primary stream's TLS setting."""
+        return self.streaming.wifi and self.streaming.encrypted
+
+    @pyqtProperty(str, notify=isStreamingChanged)
+    def thirdEncryptionStatus(self):
+        if not self.streaming.wifi:
+            return "Not used for USB streams"
+        return (
+            "Enabled — inherited from primary Wi-Fi stream"
+            if self.streaming.encrypted
+            else "Disabled — inherited from primary Wi-Fi stream"
+        )
+
     @pyqtProperty("QVariant", notify=presetsChanged)
     def presets(self):
         return list(self._presets)
@@ -245,11 +260,15 @@ class MonitorizeBackend(QObject):
     def loadSecondDisplaySettings(self):
         return load_second_display_settings()
 
-    @pyqtSlot(str, str, str, str, str)
-    def saveSecondDisplaySettings(self, resolution, fps, bitrate, encoder, encoder_profile):
+    @pyqtSlot(str, str, str, str, str, bool, bool)
+    def saveSecondDisplaySettings(
+        self, resolution, fps, bitrate, encoder, encoder_profile, enable_touch,
+        enable_stylus_features,
+    ):
         save_second_display_settings(
             resolution=resolution, fps=fps, bitrate=bitrate, encoder=encoder,
-            encoder_profile=encoder_profile,
+            encoder_profile=encoder_profile, enable_touch=enable_touch,
+            enable_stylus_features=enable_stylus_features,
         )
 
     @pyqtSlot(result="QVariant")
@@ -314,9 +333,15 @@ class MonitorizeBackend(QObject):
         self._pending_usb_preset = None
         self.streaming.stop()
 
-    @pyqtSlot(str, str, str, str, str)
-    def startSecondStream(self, res, fps, bitrate, encoder, encoder_profile):
-        self.streaming.start_third(res, fps, bitrate, encoder, encoder_profile)
+    @pyqtSlot(str, str, str, str, str, bool, bool)
+    def startSecondStream(
+        self, res, fps, bitrate, encoder, encoder_profile, enable_touch,
+        enable_stylus_features,
+    ):
+        self.streaming.start_third(
+            res, fps, bitrate, encoder, encoder_profile, enable_touch,
+            enable_stylus_features,
+        )
 
     @pyqtSlot()
     def stopSecondStream(self):

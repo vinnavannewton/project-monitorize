@@ -343,6 +343,8 @@ def main() -> None:
     parser.add_argument("--input-backend", type=_port_arg, default=7116)
     parser.add_argument("--second-video-port", type=_port_arg, default=7114)
     parser.add_argument("--second-video-backend", type=_port_arg, default=7115)
+    parser.add_argument("--second-input-port", type=_port_arg, default=7117)
+    parser.add_argument("--second-input-backend", type=_port_arg, default=7118)
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
 
@@ -362,6 +364,11 @@ def main() -> None:
     threading.Thread(
         target=proxy.serve_udp,
         args=(args.input_port, args.input_backend, fingerprint),
+        daemon=True,
+    ).start()
+    threading.Thread(
+        target=proxy.serve_udp,
+        args=(args.second_input_port, args.second_input_backend, fingerprint),
         daemon=True,
     ).start()
     proxy.serve(context, args.video_port, args.video_backend)

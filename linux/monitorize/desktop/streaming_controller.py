@@ -45,6 +45,8 @@ from monitorize.input_bridge.uinput_backend import UINPUT_PERMISSION_HINT
 GNOME_LAYOUT_CHANGE_DEBOUNCE_MS = 750
 THIRD_STREAM_PUBLIC_PORT = 7114
 THIRD_STREAM_BACKEND_PORT = 7115
+THIRD_INPUT_PUBLIC_PORT = 7117
+THIRD_INPUT_BACKEND_PORT = 7118
 GNOME_DISPLAY_CONFIG_SERVICE = "org.gnome.Mutter.DisplayConfig"
 GNOME_DISPLAY_CONFIG_PATH = "/org/gnome/Mutter/DisplayConfig"
 GNOME_DISPLAY_CONFIG_IFACE = "org.gnome.Mutter.DisplayConfig"
@@ -90,6 +92,12 @@ class StreamingController(QObject):
         self.third_generation = 0
         self.third_gst_pids = set()
         self.third_event_buffer = ""
+        self.third_input_bridge = None
+        self.third_input_launched = False
+        self.third_touch_enabled = True
+        self.third_stylus_enabled = False
+        self.third_output = ""
+        self.third_env = None
         self.encoder_profile = "Low Latency"
         self.runtime_general = None
         self.countdown_timer = QTimer(self)
@@ -625,7 +633,10 @@ class StreamingController(QObject):
             return
         self.gnome_layout_change_timer.start()
 
-    def start_third(self, res, fps, bitrate, encoder, encoder_profile):
+    def start_third(
+        self, res, fps, bitrate, encoder, encoder_profile, enable_touch=True,
+        enable_stylus_features=False,
+    ):
         if self.de not in ("kde", "gnome", "hyprland"):
             self.logAppended.emit(
                 "STREAMER",
@@ -658,6 +669,8 @@ class StreamingController(QObject):
         third_bitrate = sanitize_bitrate(bitrate)
         third_encoder = sanitize_encoder(encoder)
         third_encoder_profile = sanitize_encoder_profile(encoder_profile)
+        third_touch_enabled = bool(enable_touch)
+        third_stylus_enabled = bool(enable_stylus_features)
 
         third_output = ""
         if self.de == "hyprland":
@@ -712,6 +725,12 @@ class StreamingController(QObject):
             "MONITORIZE_HOST",
             "127.0.0.1" if (self.encrypted or not self.wifi) else "0.0.0.0",
         )
+        if third_output:
+            env.insert("MONITORIZE_OUTPUT", third_output)
+        if not self.wifi:
+            self._configure_third_usb_reverse(
+                third_touch_enabled or third_stylus_enabled
+            )
 
         self.third_generation += 1
         generation = self.third_generation
@@ -721,8 +740,14 @@ class StreamingController(QObject):
         self.third_bitrate = third_bitrate
         self.third_encoder = third_encoder
         self.third_encoder_profile = third_encoder_profile
+        self.third_touch_enabled = third_touch_enabled
+        self.third_stylus_enabled = third_stylus_enabled
+        self.third_output = third_output
+        self.third_env = env
         self.third_ready = False
         self.third_streaming = True
+        self.third_input_launched = False
+        self.third_input_bridge = None
         self.third_gst_pids.clear()
         self.third_event_buffer = ""
         self.third_streamer = self._new_third_process(env)
@@ -762,6 +787,111 @@ class StreamingController(QObject):
             f"{THIRD_STREAM_PUBLIC_PORT if not self.encrypted else THIRD_STREAM_BACKEND_PORT}.",
         )
 
+    @staticmethod
+    def _run_adb_reverse(*args):
+        try:
+            subprocess.run(["adb", "reverse", *args], capture_output=True)
+        except OSError:
+            pass
+
+    def _configure_third_usb_reverse(self, touch_enabled):
+        self._run_adb_reverse("--remove", f"tcp:{THIRD_STREAM_PUBLIC_PORT}")
+        self._run_adb_reverse("--remove", f"tcp:{THIRD_STREAM_BACKEND_PORT}")
+        self._run_adb_reverse(
+            f"tcp:{THIRD_STREAM_PUBLIC_PORT}", f"tcp:{THIRD_STREAM_PUBLIC_PORT}"
+        )
+        if touch_enabled:
+            self._run_adb_reverse(
+                f"tcp:{THIRD_STREAM_BACKEND_PORT}",
+                f"tcp:{THIRD_STREAM_BACKEND_PORT}",
+            )
+
+    def _maybe_launch_third_input(self, generation):
+        if (
+            not self.third_streaming
+            or generation != self.third_generation
+            or not self.third_ready
+            or not (self.third_touch_enabled or self.third_stylus_enabled)
+            or not self.third_output
+        ):
+            return
+        if self.third_input_launched or (
+            self.third_input_bridge is not None
+            and self.third_input_bridge.state() != QProcess.ProcessState.NotRunning
+        ):
+            return
+        env = QProcessEnvironment(
+            self.third_env or QProcessEnvironment.systemEnvironment()
+        )
+        env.insert("PYTHONUNBUFFERED", "1")
+        env.insert("MONITORIZE_OUTPUT", self.third_output)
+        self.third_input_bridge = self._new_third_process(env)
+        process = self.third_input_bridge
+        process.readyReadStandardOutput.connect(
+            lambda: self._read_third_input(generation, process)
+        )
+        process.finished.connect(
+            lambda code, status: self._third_input_finished(
+                code, status, generation, process
+            )
+        )
+        process.errorOccurred.connect(
+            lambda _error: self._third_input_error(generation, process)
+        )
+        port = (
+            THIRD_INPUT_BACKEND_PORT if self.wifi and self.encrypted
+            else THIRD_INPUT_PUBLIC_PORT if self.wifi
+            else THIRD_STREAM_BACKEND_PORT
+        )
+        args = [
+            "-m", "monitorize.input_bridge.touch_daemon",
+            str(self.third_width), str(self.third_height),
+            "--additional", "--port", str(port),
+        ]
+        if self.wifi:
+            args.append("--wifi")
+            if self.encrypted:
+                args.append("--local-udp")
+        if self.third_stylus_enabled:
+            args.append("--stylus-features")
+            if not self.third_touch_enabled:
+                args.append("--stylus-only")
+        process.start(sys.executable, args)
+        self.third_input_launched = True
+        self.logAppended.emit(
+            "INPUT",
+            f"[Third display] Touch bridge starting on port {port} for {self.third_output}.",
+        )
+
+    def _read_third_input(self, generation, process):
+        if generation != self.third_generation or process is not self.third_input_bridge:
+            return
+        raw = bytes(process.readAllStandardOutput()).decode(
+            "utf-8", errors="replace"
+        )
+        if "MONITORIZE_UINPUT_PERMISSION:" in raw:
+            self._set_status(UINPUT_PERMISSION_HINT.split(": ", 1)[1])
+        self.logAppended.emit("INPUT", f"[Third display] {raw}")
+
+    def _third_input_finished(self, code, _status, generation, process):
+        if generation != self.third_generation or process is not self.third_input_bridge:
+            return
+        self.logAppended.emit("INPUT", f"[Third display] Touch bridge exited (code {code})")
+        self.third_input_bridge = None
+        self.third_input_launched = False
+
+    def _third_input_error(self, generation, process):
+        if generation == self.third_generation and process is self.third_input_bridge:
+            self.logAppended.emit(
+                "INPUT", f"[Third display] Touch bridge error: {process.errorString()}"
+            )
+
+    def _stop_third_input(self):
+        if self.third_input_bridge is not None:
+            stop_processes(self.third_input_bridge)
+        self.third_input_bridge = None
+        self.third_input_launched = False
+
     def _read_third_streamer(self, generation=None, process=None):
         generation = self.third_generation if generation is None else generation
         process = self.third_streamer if process is None else process
@@ -782,6 +912,9 @@ class StreamingController(QObject):
             self._track_third_gst_pid(line)
             event = self._structured_event(line)
             if event and event.get("type") == "kde_output_ready":
+                self.third_output = str(event.get("name") or self.third_output)
+                if self.third_env is not None and self.third_output:
+                    self.third_env.insert("MONITORIZE_OUTPUT", self.third_output)
                 self.third_width = int(event.get("width") or self.third_width)
                 self.third_height = int(event.get("height") or self.third_height)
                 refresh = float(event.get("refresh_rate") or self.third_fps)
@@ -795,6 +928,9 @@ class StreamingController(QObject):
                 connector = str(event.get("connector") or "")
                 if connector:
                     self.gnome_outputs["additional"] = connector
+                    self.third_output = connector
+                    if self.third_env is not None:
+                        self.third_env.insert("MONITORIZE_OUTPUT", connector)
                     self._connect_gnome_display_config_signal()
                 self.third_width = int(event.get("width") or self.third_width)
                 self.third_height = int(event.get("height") or self.third_height)
@@ -814,6 +950,11 @@ class StreamingController(QObject):
                     self.third_ready = True
                     self._advertise()
                     self._set_status("Third display streaming")
+                self._maybe_launch_third_input(generation)
+            elif event and event.get("type") in (
+                "kde_output_ready", "gnome_output_ready",
+            ):
+                self._maybe_launch_third_input(generation)
 
     def _third_streamer_finished(
         self, code, _status, generation=None, process=None
@@ -824,9 +965,12 @@ class StreamingController(QObject):
         ):
             return
         self.logAppended.emit("STREAMER", f"[Third display] Streamer exited (code {code})")
+        self._stop_third_input()
         self.third_streamer = None
         self.third_streaming = False
         self.third_ready = False
+        self.third_output = ""
+        self.third_env = None
         self.third_gst_pids.clear()
         if self.de == "hyprland":
             self.display.remove_hyprland_output("additional")
@@ -876,6 +1020,8 @@ class StreamingController(QObject):
                 "bitrate": str(self.third_bitrate),
                 "encoder": self.third_encoder,
                 "encoder_profile": self.third_encoder_profile,
+                "enable_touch": self.third_touch_enabled,
+                "enable_stylus_features": self.third_stylus_enabled,
             }
         return config
 
@@ -883,6 +1029,7 @@ class StreamingController(QObject):
         if self.de == "gnome":
             self._save_gnome_virtual_layout()
         self.third_generation += 1
+        self._stop_third_input()
         if self.third_streamer is not None:
             stop_processes(self.third_streamer)
         self.third_streamer = None
@@ -896,6 +1043,13 @@ class StreamingController(QObject):
         )
         self.third_streaming = False
         self.third_ready = False
+        self.third_output = ""
+        self.third_env = None
+        self.third_touch_enabled = True
+        self.third_stylus_enabled = False
+        if not self.wifi:
+            self._run_adb_reverse("--remove", f"tcp:{THIRD_STREAM_PUBLIC_PORT}")
+            self._run_adb_reverse("--remove", f"tcp:{THIRD_STREAM_BACKEND_PORT}")
         if self.de == "hyprland":
             self.display.remove_hyprland_output("additional")
         self.gnome_outputs.pop("additional", None)
@@ -928,7 +1082,11 @@ class StreamingController(QObject):
         self.gnome_event_buffer = ""
         self._set_primary_ready(False)
         self.runtime_general = None
-        if self.third_streaming or self.third_streamer is not None:
+        if (
+            self.third_streaming
+            or self.third_streamer is not None
+            or self.third_input_bridge is not None
+        ):
             self.stop_third()
         stop_processes(self.streamer, self.input_bridge, self.tls_proxy)
         self.streamer = self.input_bridge = self.tls_proxy = None

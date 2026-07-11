@@ -957,6 +957,18 @@ class ReceiverVideoWindowTest(unittest.TestCase):
                 self.assertEqual(loaded["bitrate"], "250")
                 self.assertEqual(loaded["encoder"], "Software (CPU / x264enc)")
                 self.assertEqual(loaded["encoder_profile"], "Low Latency")
+                self.assertTrue(loaded["enable_touch"])
+                self.assertFalse(loaded["enable_stylus_features"])
+                settings.save_second_display_settings(
+                    resolution="1920x1080 (16:9)", fps="60", bitrate="8000",
+                    encoder="Software (CPU / x264enc)",
+                    encoder_profile="Low Latency", enable_touch=False,
+                    enable_stylus_features=True,
+                )
+                self.assertFalse(settings.load_second_display_settings()["enable_touch"])
+                self.assertTrue(
+                    settings.load_second_display_settings()["enable_stylus_features"]
+                )
             finally:
                 settings.CONFIG_DIR, settings.CONFIG_FILE = old_dir, old_file
 
@@ -1016,7 +1028,15 @@ class ReceiverVideoWindowTest(unittest.TestCase):
                             "enable_touch": True,
                             "enable_stylus_features": False,
                         },
-                        "third": {"enabled": False},
+                        "third": {
+                            "enabled": True,
+                            "resolution": "1280x720",
+                            "fps": "60",
+                            "bitrate": "8000",
+                            "encoder": "Software (CPU / x264enc)",
+                            "encoder_profile": "Low Latency",
+                            "enable_touch": False,
+                        },
                     })
                 settings.save_presets(presets)
                 loaded = settings.load_presets()
@@ -1025,6 +1045,8 @@ class ReceiverVideoWindowTest(unittest.TestCase):
                 self.assertEqual(loaded[0]["primary"]["encoder_profile"], "Balanced")
                 self.assertTrue(loaded[0]["wifi"]["use_encryption"])
                 self.assertTrue(loaded[0]["general"]["minimize_to_tray"])
+                self.assertFalse(loaded[0]["third"]["enable_touch"])
+                self.assertFalse(loaded[0]["third"]["enable_stylus_features"])
             finally:
                 settings.CONFIG_DIR, settings.CONFIG_FILE = old_dir, old_file
 
@@ -1365,7 +1387,7 @@ class StreamingControllerTest(unittest.TestCase):
         )
         controller.input_bridge = process
         controller._read_input(generation=3, process=process)
-        self.assertIn("sudo usermod -aG monitorize", controller.status)
+        self.assertIn("Monitorize udev rule", controller.status)
 
     def test_runtime_general_settings_override_saved_defaults(self):
         controller = self.kde_controller()
@@ -1427,6 +1449,8 @@ class StreamingControllerTest(unittest.TestCase):
             "bitrate": "12000",
             "encoder": "Software (CPU / x264enc)",
             "encoder_profile": "Quality",
+            "enable_touch": True,
+            "enable_stylus_features": False,
         })
 
     def test_kde_third_display_uses_distinct_native_virtual_slot(self):
@@ -1539,6 +1563,91 @@ class StreamingControllerTest(unittest.TestCase):
         env = process.setProcessEnvironment.call_args.args[0]
         self.assertEqual(env.value("MONITORIZE_PORT"), "7115")
         self.assertEqual(env.value("MONITORIZE_HOST"), "127.0.0.1")
+
+    def test_third_touch_uses_its_wifi_port_only_when_enabled(self):
+        controller = self.kde_controller()
+        controller.third_streaming = True
+        controller.third_ready = True
+        controller.third_generation = 5
+        controller.third_output = "Virtual-Monitorize-2"
+        controller.third_width, controller.third_height = 1280, 720
+        controller.third_touch_enabled = True
+        process = process_mock()
+
+        with patch("monitorize.desktop.streaming_controller.QProcess", return_value=process):
+            controller._maybe_launch_third_input(5)
+
+        args = process.start.call_args.args[1]
+        env = process.setProcessEnvironment.call_args.args[0]
+        self.assertIn("--additional", args)
+        self.assertEqual(args[args.index("--port") + 1], "7117")
+        self.assertIn("--wifi", args)
+        self.assertEqual(env.value("MONITORIZE_OUTPUT"), "Virtual-Monitorize-2")
+
+        controller.third_input_bridge = None
+        controller.third_input_launched = False
+        controller.third_touch_enabled = False
+        with patch("monitorize.desktop.streaming_controller.QProcess") as disabled:
+            controller._maybe_launch_third_input(5)
+        disabled.assert_not_called()
+
+    def test_encrypted_third_touch_uses_tls_udp_backend_port(self):
+        controller = self.kde_controller()
+        controller.encrypted = True
+        controller.third_streaming = True
+        controller.third_ready = True
+        controller.third_generation = 5
+        controller.third_output = "Virtual-Monitorize-2"
+        controller.third_width, controller.third_height = 1280, 720
+        process = process_mock()
+
+        with patch("monitorize.desktop.streaming_controller.QProcess", return_value=process):
+            controller._maybe_launch_third_input(5)
+
+        args = process.start.call_args.args[1]
+        self.assertEqual(args[args.index("--port") + 1], "7118")
+        self.assertIn("--wifi", args)
+        self.assertIn("--local-udp", args)
+
+    def test_third_stylus_can_run_without_additional_touch(self):
+        controller = self.kde_controller()
+        controller.third_streaming = True
+        controller.third_ready = True
+        controller.third_generation = 5
+        controller.third_output = "Virtual-Monitorize-2"
+        controller.third_width, controller.third_height = 1280, 720
+        controller.third_touch_enabled = False
+        controller.third_stylus_enabled = True
+        process = process_mock()
+
+        with patch("monitorize.desktop.streaming_controller.QProcess", return_value=process):
+            controller._maybe_launch_third_input(5)
+
+        args = process.start.call_args.args[1]
+        self.assertIn("--stylus-features", args)
+        self.assertIn("--stylus-only", args)
+        self.assertIn("--additional", args)
+
+    def test_third_usb_touch_uses_tcp_7115_and_matching_reverse_rules(self):
+        controller = self.kde_controller()
+        controller.wifi = False
+        controller.third_streaming = True
+        controller.third_ready = True
+        controller.third_generation = 5
+        controller.third_output = "Virtual-Monitorize-2"
+        controller.third_width, controller.third_height = 1280, 720
+        process = process_mock()
+
+        with patch("monitorize.desktop.streaming_controller.QProcess", return_value=process):
+            controller._maybe_launch_third_input(5)
+
+        args = process.start.call_args.args[1]
+        self.assertEqual(args[args.index("--port") + 1], "7115")
+        self.assertNotIn("--wifi", args)
+
+        with patch.object(controller, "_run_adb_reverse") as reverse:
+            controller._configure_third_usb_reverse(True)
+        self.assertEqual(reverse.call_args_list[-1].args, ("tcp:7115", "tcp:7115"))
 
     def test_gnome_third_display_uses_native_virtual_streamer(self):
         discovery = Mock()
@@ -3049,16 +3158,62 @@ class BackendFacadeTest(unittest.TestCase):
             encoding="utf-8"
         )
         nix_package = (root / "nix" / "package.nix").read_text(encoding="utf-8")
+        rpm_spec = (root / "monitorize.spec").read_text(encoding="utf-8")
+        rpm_permission = (
+            root / "packaging" / "fedora"
+            / "monitorize-kde-virtual-output.desktop"
+        ).read_text(encoding="utf-8")
         permission = (
             "X-KDE-Wayland-Interfaces=zkde_screencast_unstable_v1"
         )
 
-        for packaging in (installer, nix_package):
+        for packaging in (installer, nix_package, rpm_spec):
             self.assertIn("native/kde_virtual_output/build.sh", packaging)
+        for packaging in (installer, nix_package, rpm_permission):
             self.assertIn(permission, packaging)
         self.assertIn('HELPER_DESKTOP_FILE="${HELPER_NAME}.desktop"', installer)
         self.assertIn("monitorize-kde-virtual-output.desktop", nix_package)
+        self.assertIn("monitorize-kde-virtual-output.desktop", rpm_spec)
+        self.assertIn("Exec=/usr/bin/monitorize-kde-virtual-output", rpm_permission)
+        self.assertNotIn("BuildArch:      noarch", rpm_spec)
         self.assertIn("kbuildsycoca6", installer)
+
+    def test_fedora_rpm_covers_runtime_permissions_and_firewall(self):
+        root = Path(__file__).resolve().parents[2]
+        spec = (root / "monitorize.spec").read_text(encoding="utf-8")
+        rules = (
+            root / "packaging" / "fedora" / "70-monitorize-uinput.rules"
+        ).read_text(encoding="utf-8")
+        firewall = (
+            root / "packaging" / "fedora" / "monitorize.xml"
+        ).read_text(encoding="utf-8")
+        workflow = (
+            root / ".github" / "workflows" / "desktop.yml"
+        ).read_text(encoding="utf-8")
+
+        for dependency in (
+            "gstreamer1-plugin-libav",
+            "gstreamer1-plugins-ugly",
+            "pipewire-gstreamer",
+            "android-tools",
+            "openssl",
+            "qt6-qtwayland",
+        ):
+            self.assertIn(f"Requires:       {dependency}", spec)
+        self.assertNotIn("gstreamer1-plugin-openh264", spec)
+        self.assertNotIn("Requires:       gstreamer1-plugins-ugly-free", spec)
+        self.assertNotIn("groupadd", spec)
+        self.assertIn('TAG+="uaccess"', rules)
+        self.assertIn("Monitorize-Touch-2", rules)
+        self.assertIn("Monitorize-Stylus-2", rules)
+        self.assertIn('<include service="mdns"/>', firewall)
+        for protocol, port in (("tcp", "7110"), ("tcp", "7114"),
+                               ("udp", "7113"), ("udp", "7117")):
+            self.assertIn(f'<port protocol="{protocol}" port="{port}"/>', firewall)
+        self.assertIn("firewall-zones", spec)
+        self.assertIn("--remove-service=monitorize", spec)
+        self.assertIn("rpmfusion-free-release", workflow)
+        self.assertIn("Clean Fedora 44 RPM install", workflow)
 
     def test_main_menu_desktop_badge_uses_backend_detected_de(self):
         qml_path = (
@@ -3418,6 +3573,11 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertNotIn("#f472b6", qml)
         self.assertIn("id: s2EncoderCombo", qml)
         self.assertIn("id: s2EncoderProfileCombo", qml)
+        self.assertIn("id: s2TouchToggle", qml)
+        self.assertIn("Enable touch for this display", qml)
+        self.assertIn("id: s2StylusToggle", qml)
+        self.assertIn("Enable stylus features for this display", qml)
+        self.assertIn("backend.thirdEncryptionStatus", qml)
         self.assertEqual(qml.count("ChoiceChips {"), 2)
         self.assertIn("width: Math.min(page.width - 40, 560)", qml)
         self.assertIn("Creates a second Hyprland HEADLESS display.", qml)
@@ -3457,7 +3617,7 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertTrue({
             "detectedDe", "localIp", "isStreaming", "isReceiving",
             "discoveredDevices", "pairingCode", "secondStreamActive",
-            "presets", "presetLaunchStatus",
+            "thirdEncryption", "thirdEncryptionStatus", "presets", "presetLaunchStatus",
         } <= properties)
         self.assertTrue({
             "startStreaming", "stopStreaming", "connectToHost",
