@@ -8,6 +8,8 @@ Item {
 
     property bool enableTouch: true
     property bool enableStylusFeatures: false
+    property bool secondTouchEnabled: true
+    property bool secondStylusEnabled: false
     property bool loadingSettings: true
     property bool showPairingCode: true
     property int duplicatePresetIndex: -1
@@ -60,7 +62,9 @@ Item {
             s2FpsCombo.currentText,
             page.secondBitrateKbpsText(),
             s2EncoderCombo.currentText,
-            s2EncoderProfileCombo.currentText
+            s2EncoderProfileCombo.currentText,
+            page.secondTouchEnabled,
+            page.secondStylusEnabled
         )
     }
 
@@ -84,6 +88,9 @@ Item {
 
             let profileIdx = s2EncoderProfileCombo.find(s2["encoder_profile"] || "Low Latency");
             s2EncoderProfileCombo.currentIndex = profileIdx !== -1 ? profileIdx : 0;
+            page.secondTouchEnabled = s2["enable_touch"] !== undefined ? s2["enable_touch"] : true;
+            page.secondStylusEnabled = s2["enable_stylus_features"] !== undefined
+                ? s2["enable_stylus_features"] : false;
         }
         page.loadingSettings = false;
     }
@@ -689,6 +696,37 @@ Item {
                     model: ["Low Latency", "Balanced", "Quality"]
                     onActivated: page.saveSecondDisplaySettings()
                 }
+
+                Text { text: "Touch:"; color: theme.cardTextSecondary; font.pixelSize: 13 }
+                CustomToggle {
+                    id: s2TouchToggle
+                    text: "Enable touch for this display"
+                    checked: page.secondTouchEnabled
+                    onToggled: {
+                        page.secondTouchEnabled = checked
+                        page.saveSecondDisplaySettings()
+                    }
+                }
+
+                Text { text: "Stylus:"; color: theme.cardTextSecondary; font.pixelSize: 13 }
+                CustomToggle {
+                    id: s2StylusToggle
+                    text: "Enable stylus features for this display"
+                    checked: page.secondStylusEnabled
+                    onToggled: {
+                        page.secondStylusEnabled = checked
+                        page.saveSecondDisplaySettings()
+                    }
+                }
+
+                Text { text: "Encryption:"; color: theme.cardTextSecondary; font.pixelSize: 13 }
+                Text {
+                    text: backend.thirdEncryptionStatus
+                    color: theme.cardTextMuted
+                    font.pixelSize: 12
+                    wrapMode: Text.Wrap
+                    Layout.fillWidth: true
+                }
             }
 
             Item { Layout.preferredHeight: 6 }
@@ -734,7 +772,9 @@ Item {
                             s2FpsCombo.currentText,
                             page.secondBitrateKbpsText(),
                             s2EncoderCombo.currentText,
-                            s2EncoderProfileCombo.currentText
+                            s2EncoderProfileCombo.currentText,
+                            page.secondTouchEnabled,
+                            page.secondStylusEnabled
                         )
                         page.saveSecondDisplaySettings()
                         addDisplayPopup.close()

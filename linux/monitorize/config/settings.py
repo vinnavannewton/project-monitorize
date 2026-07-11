@@ -205,13 +205,17 @@ def load_general_settings() -> dict:
 
 
 def save_second_display_settings(*, resolution: str, fps: str, bitrate: str,
-                                 encoder: str, encoder_profile: str):
+                                 encoder: str, encoder_profile: str,
+                                 enable_touch: bool = True,
+                                 enable_stylus_features: bool = False):
     _save_group("second_display", {
         "resolution": resolution,
         "fps": str(sanitize_fps(fps)),
         "bitrate": str(sanitize_bitrate(bitrate)),
         "encoder": sanitize_encoder(encoder),
         "encoder_profile": sanitize_encoder_profile(encoder_profile),
+        "enable_touch": bool(enable_touch),
+        "enable_stylus_features": bool(enable_stylus_features),
     })
 
 
@@ -222,7 +226,9 @@ def load_second_display_settings() -> dict:
         "bitrate": "8000",
         "encoder": "Software (CPU / x264enc)",
         "encoder_profile": "Low Latency",
-    })
+        "enable_touch": True,
+        "enable_stylus_features": False,
+    }, ("enable_touch", "enable_stylus_features"))
     data["fps"] = str(sanitize_fps(data["fps"]))
     data["bitrate"] = str(sanitize_bitrate(data["bitrate"]))
     data["encoder"] = sanitize_encoder(data["encoder"])
@@ -285,6 +291,10 @@ def _normalize_preset(raw: dict) -> dict | None:
             "encoder": sanitize_encoder(third.get("encoder", "")),
             "encoder_profile": sanitize_encoder_profile(
                 third.get("encoder_profile", "Low Latency")
+            ),
+            "enable_touch": bool(third.get("enable_touch", True)),
+            "enable_stylus_features": bool(
+                third.get("enable_stylus_features", False)
             ),
         })
     return preset

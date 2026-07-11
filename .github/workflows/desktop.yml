@@ -41,19 +41,24 @@ jobs:
       - name: Install build dependencies
         run: |
           dnf -y install \
+            https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
+          dnf -y install \
             desktop-file-utils \
             dnf-plugins-core \
+            gcc \
             git \
             gstreamer1 \
-            gstreamer1-plugin-openh264 \
+            gstreamer1-plugin-libav \
             gstreamer1-plugins-bad-free \
             gstreamer1-plugins-base \
             gstreamer1-plugins-good \
-            gstreamer1-plugins-ugly-free \
+            gstreamer1-plugins-ugly \
             iproute \
             kmod \
             make \
+            pipewire-gstreamer \
             pipewire \
+            pkgconf-pkg-config \
             pyproject-rpm-macros \
             python3 \
             python3-cryptography \
@@ -70,6 +75,7 @@ jobs:
             systemd-rpm-macros \
             systemd-udev \
             util-linux \
+            wayland-devel \
             xdg-desktop-portal
 
       - name: Checkout
@@ -120,6 +126,8 @@ jobs:
           set -euo pipefail
           python3 -c 'import pathlib, tomllib; tomllib.loads(pathlib.Path("pyproject.toml").read_text())'
           desktop-file-validate packaging/fedora/monitorize.desktop
+          desktop-file-validate packaging/fedora/monitorize-kde-virtual-output.desktop
+          python3 -c 'import xml.etree.ElementTree as ET; ET.parse("packaging/fedora/monitorize.xml")'
           rpmspec -P monitorize.spec >/tmp/monitorize-rpmspec.out
 
       - name: Run unit tests
@@ -145,9 +153,123 @@ jobs:
           path: dist/**/*.rpm
           if-no-files-found: error
 
+  rpm-install-smoke:
+    name: Clean Fedora 44 RPM install
+    needs: ci
+    runs-on: ubuntu-latest
+    container: fedora:44
+
+    steps:
+      - name: Download RPM artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: monitorize-desktop-rpms
+          path: dist
+
+      - name: Enable RPM Fusion
+        run: |
+          dnf -y install \
+            https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
+
+      - name: Install Monitorize RPM
+        run: |
+          RPM=$(find dist -type f -name 'monitorize-[0-9]*.x86_64.rpm' -print -quit)
+          test -n "$RPM"
+          dnf -y install "$RPM"
+
+      - name: Verify runtime and package integration
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          set -euo pipefail
+          gst-inspect-1.0 pipewiresrc >/dev/null
+          gst-inspect-1.0 x264enc >/dev/null
+          gst-inspect-1.0 avdec_h264 >/dev/null
+          test -x /usr/bin/monitorize-kde-virtual-output
+          ! ldd /usr/bin/monitorize-kde-virtual-output | grep -q 'not found'
+          desktop-file-validate /usr/share/applications/monitorize.desktop
+          desktop-file-validate /usr/share/applications/monitorize-kde-virtual-output.desktop
+          python3 - <<'PY'
+          from PyQt6.QtCore import QUrl
+          from PyQt6.QtGui import QGuiApplication
+          from PyQt6.QtQml import QQmlComponent, QQmlEngine
+          from monitorize.platform.utils import QML_DIR
+
+          app = QGuiApplication([])
+          engine = QQmlEngine()
+          component = QQmlComponent(engine, QUrl.fromLocalFile(f"{QML_DIR}/main.qml"))
+          assert not component.isError(), "\n".join(error.toString() for error in component.errors())
+          PY
+          zone=$(firewall-offline-cmd --get-default-zone)
+          firewall-offline-cmd --zone="$zone" --query-service=monitorize
+
+  arch-install-smoke:
+    name: Clean Arch Linux manual install
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    env:
+      QT_QPA_PLATFORM: offscreen
+
+    steps:
+      - name: Install Arch dependencies
+        run: |
+          pacman -Syu --noconfirm --needed \
+            android-tools \
+            desktop-file-utils \
+            gcc \
+            git \
+            gst-libav \
+            gst-plugin-pipewire \
+            gst-plugins-bad \
+            gst-plugins-base \
+            gst-plugins-good \
+            gst-plugins-ugly \
+            gstreamer \
+            pipewire \
+            pkgconf \
+            python \
+            python-cryptography \
+            python-dbus \
+            python-evdev \
+            python-gobject \
+            python-pip \
+            python-pyqt6 \
+            python-zeroconf \
+            qt6-declarative \
+            wayland \
+            wireplumber
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run the manual installer
+        run: linux/scripts/install.sh
+
+      - name: Verify Arch runtime and installer output
+        run: |
+          set -euo pipefail
+          gst-inspect-1.0 pipewiresrc >/dev/null
+          gst-inspect-1.0 x264enc >/dev/null
+          gst-inspect-1.0 avdec_h264 >/dev/null
+          test -x linux/venv/bin/monitorize-kde-virtual-output
+          ! ldd linux/venv/bin/monitorize-kde-virtual-output | grep -q 'not found'
+          desktop-file-validate /root/.local/share/applications/monitorize.desktop
+          desktop-file-validate /root/.local/share/applications/monitorize-kde-virtual-output.desktop
+          PYTHONPATH=linux linux/venv/bin/python3 - <<'PY'
+          from PyQt6.QtCore import QUrl
+          from PyQt6.QtGui import QGuiApplication
+          from PyQt6.QtQml import QQmlComponent, QQmlEngine
+          from monitorize.platform.utils import QML_DIR
+
+          app = QGuiApplication([])
+          engine = QQmlEngine()
+          component = QQmlComponent(engine, QUrl.fromLocalFile(f"{QML_DIR}/main.qml"))
+          assert not component.isError(), "\n".join(error.toString() for error in component.errors())
+          PY
+
   release:
     name: Desktop Release
-    needs: ci
+    needs: [ci, rpm-install-smoke, arch-install-smoke]
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/desktop-v')
     runs-on: ubuntu-latest
     container: fedora:44

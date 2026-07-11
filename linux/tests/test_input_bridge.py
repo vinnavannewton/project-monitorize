@@ -225,6 +225,20 @@ class DispatcherTest(unittest.TestCase):
 
 
 class DaemonStartupTest(unittest.TestCase):
+    def test_additional_input_slot_has_a_distinct_touch_product_id(self):
+        primary_touch, primary_stylus = geometry.input_product_ids()
+        additional_touch, additional_stylus = geometry.input_product_ids("additional")
+        self.assertEqual(primary_touch, geometry.MONITORIZE_TOUCH_PRODUCT_ID)
+        self.assertEqual(primary_stylus, geometry.MONITORIZE_STYLUS_PRODUCT_ID)
+        self.assertEqual(
+            additional_touch, geometry.MONITORIZE_ADDITIONAL_TOUCH_PRODUCT_ID
+        )
+        self.assertEqual(
+            additional_stylus, geometry.MONITORIZE_ADDITIONAL_STYLUS_PRODUCT_ID
+        )
+        self.assertNotEqual(primary_touch, additional_touch)
+        self.assertNotEqual(primary_stylus, additional_stylus)
+
     def test_all_desktops_use_uinput_backend(self):
         for de in daemon_module.UINPUT_DESKTOPS:
             daemon = daemon_module.InputDaemon(100, 100, de=de)
@@ -534,6 +548,55 @@ class GnomeGeometryTest(unittest.TestCase):
         )
         stylus.set_string.assert_called_once_with("mapping", "absolute")
 
+    def test_additional_gnome_mapping_uses_distinct_touch_identity(self):
+        created = {}
+
+        def fake_settings(schema, path):
+            settings = Mock()
+            created[(schema, path)] = settings
+            return settings
+
+        with patch(
+            "monitorize.input_bridge.geometry._gio_settings",
+            side_effect=fake_settings,
+        ):
+            self.assertTrue(
+                geometry.write_gnome_input_mapping(
+                    ("MTR", "Monitorize Virtual 2", "serial-2"),
+                    input_slot="additional",
+                )
+            )
+
+        self.assertIn((
+            geometry.GNOME_TOUCHSCREEN_SCHEMA,
+            "/org/gnome/desktop/peripherals/touchscreens/4d5a:1003/",
+        ), created)
+
+    def test_additional_gnome_mapping_uses_distinct_stylus_identity(self):
+        created = {}
+
+        def fake_settings(schema, path):
+            settings = Mock()
+            created[(schema, path)] = settings
+            return settings
+
+        with patch(
+            "monitorize.input_bridge.geometry._gio_settings",
+            side_effect=fake_settings,
+        ):
+            self.assertTrue(
+                geometry.write_gnome_input_mapping(
+                    ("MTR", "Monitorize Virtual 2", "serial-2"),
+                    stylus_features=True,
+                    input_slot="additional",
+                )
+            )
+
+        self.assertIn((
+            geometry.GNOME_TABLET_SCHEMA,
+            "/org/gnome/desktop/peripherals/tablets/4d5a:1004/",
+        ), created)
+
     def test_gnome_mapping_failure_is_not_fatal(self):
         with patch(
             "monitorize.input_bridge.geometry._gio_settings",
@@ -588,6 +651,20 @@ class GnomeGeometryTest(unittest.TestCase):
 
         self.assertEqual(written, [(("DEL", "Built-in Display", "serial-2"), False)])
         self.assertTrue(geom._gnome_devices_mapped)
+
+    def test_gnome_additional_device_mapping_passes_additional_slot(self):
+        geom = geometry.Geometry("gnome", 1920, 1200, input_slot="additional")
+        with (
+            patch.object(geom, "_mutter_state", return_value=self.gnome_state()),
+            patch(
+                "monitorize.input_bridge.geometry.write_gnome_input_mapping",
+                return_value=True,
+            ) as write,
+        ):
+            self.assertTrue(geom.map_gnome_devices())
+        write.assert_called_once_with(
+            ("MTR", "Monitorize Virtual", "serial-1"), False, "additional"
+        )
 
     def test_gnome_map_devices_failed_write_leaves_devices_unmapped(self):
         geom = geometry.Geometry("gnome", 1920, 1200)
@@ -815,6 +892,19 @@ class GnomeGeometryTest(unittest.TestCase):
 
 
 class UInputCreationTest(unittest.TestCase):
+    def test_additional_hyprland_maps_distinct_stylus_name(self):
+        geom = Mock(
+            de="hyprland", input_slot="additional", screen_w=1920, screen_h=1200,
+        )
+        geom.hyprland_output_name.return_value = "HEADLESS-2"
+
+        UInputBackend(geom, Mock())._map_devices(stylus_features=True)
+
+        self.assertEqual(geom.map_hyprland_device.call_args_list, [
+            call("monitorize-touch-2", "HEADLESS-2"),
+            call("monitorize-stylus-2", "HEADLESS-2"),
+        ])
+
     def test_uinput_devices_use_stable_monitorize_ids(self):
         ecodes = types.SimpleNamespace(
             EV_ABS=3,
@@ -855,6 +945,7 @@ class UInputCreationTest(unittest.TestCase):
         ]
         geom = Mock(
             de="gnome",
+            input_slot="additional",
             screen_w=1920,
             screen_h=1200,
             map_gnome_devices=Mock(return_value=True),
@@ -874,10 +965,15 @@ class UInputCreationTest(unittest.TestCase):
         touch_kwargs = uinput.call_args_list[0].kwargs
         stylus_kwargs = uinput.call_args_list[1].kwargs
         self.assertEqual(touch_kwargs["vendor"], geometry.MONITORIZE_INPUT_VENDOR_ID)
-        self.assertEqual(touch_kwargs["product"], geometry.MONITORIZE_TOUCH_PRODUCT_ID)
-        self.assertEqual(stylus_kwargs["vendor"], geometry.MONITORIZE_INPUT_VENDOR_ID)
+        self.assertEqual(touch_kwargs["name"], "Monitorize-Touch-2")
         self.assertEqual(
-            stylus_kwargs["product"], geometry.MONITORIZE_STYLUS_PRODUCT_ID
+            touch_kwargs["product"], geometry.MONITORIZE_ADDITIONAL_TOUCH_PRODUCT_ID
+        )
+        self.assertEqual(stylus_kwargs["vendor"], geometry.MONITORIZE_INPUT_VENDOR_ID)
+        self.assertEqual(stylus_kwargs["name"], "Monitorize-Stylus-2")
+        self.assertEqual(
+            stylus_kwargs["product"],
+            geometry.MONITORIZE_ADDITIONAL_STYLUS_PRODUCT_ID,
         )
         geom.map_gnome_devices.assert_called_once_with(True)
         geom.verify_gnome_devices.assert_called_once_with(devices)
