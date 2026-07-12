@@ -2,7 +2,13 @@
 
 import shlex
 import subprocess
+import re
 from functools import lru_cache
+
+from .video_transport import (
+    FEC_PAYLOAD_TYPE, INITIAL_FEC_PERCENT, MTU, RTP_PAYLOAD_TYPE,
+    wait_for_client,
+)
 
 VALID_ENCODER_PROFILES = {"Low Latency", "Balanced", "Quality"}
 
@@ -50,6 +56,23 @@ def _encoder_profile(value):
     return value if value in VALID_ENCODER_PROFILES else "Low Latency"
 
 
+def _probe_encoder_properties(encoder):
+    """Drop properties not exposed by the installed GStreamer encoder."""
+    tokens = shlex.split(encoder)
+    if not tokens:
+        return encoder
+    info = _gst_inspect(tokens[0])
+    if not info:
+        return encoder
+    supported = set(re.findall(r"^\s{2,}([a-zA-Z0-9_-]+)\s+:\s", info, re.MULTILINE))
+    if not supported:
+        return encoder
+    return " ".join(
+        token for index, token in enumerate(tokens)
+        if index == 0 or "=" not in token or token.split("=", 1)[0] in supported
+    )
+
+
 def _hw_encoder_params(
     enc_name, bitrate, key_int, fps=60, intra_refresh=False, wifi_mode=False,
     encoder_profile="Low Latency",
@@ -62,7 +85,7 @@ def _hw_encoder_params(
             f"nvh264enc bitrate={bitrate} vbv-buffer-size={vbv} "
             f"zerolatency=true bframes=0 rc-lookahead=0 rc-mode=cbr "
             f"gop-size={key_int} tune=ultra-low-latency strict-gop=true "
-            f"repeat-sequence-header=true"
+            f"repeat-sequence-header=true num-surfaces=1 ref-frames=1"
         )
         if encoder_profile == "Low Latency":
             return f"{common} preset=p1"
@@ -71,7 +94,7 @@ def _hw_encoder_params(
     elif enc_name == "vah264enc" and wifi_mode and encoder_profile == "Low Latency":
         return (
             f"{enc_name} rate-control=cbr bitrate={bitrate} cabac=false cpb-size=2000 "
-            f"key-int-max={key_int} ref-frames=1 b-frames=0 target-usage=7"
+            f"key-int-max={key_int} ref-frames=1 b-frames=0 target-usage=7 async-depth=1"
         )
     elif enc_name == "vaapih264enc" and encoder_profile == "Low Latency":
         return (
@@ -108,7 +131,8 @@ def _cpu_encoder_params(
         return (
             f"x264enc tune=zerolatency speed-preset=ultrafast bitrate={bitrate} "
             f"key-int-max={key_int} byte-stream=true bframes=0 ref=1 "
-            f"sliced-threads=true mb-tree=false threads=0{ir_opt}"
+            f"sliced-threads=true mb-tree=false threads=0 sync-lookahead=0 "
+            f"vbv-buf-capacity=17{ir_opt}"
         )
     speed = "superfast" if encoder_profile == "Balanced" else "veryfast"
     refs = 1 if encoder_profile == "Balanced" else 2
@@ -123,7 +147,8 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
                    hw_encoder=None, host="127.0.0.1", stream_type="Speed",
                    wifi_mode=False, preserve_source_size=False,
                    preserve_source_rate=False, target_object=None,
-                   encoder_profile="Low Latency", nvidia_memory="cuda"):
+                   encoder_profile="Low Latency", nvidia_memory="cuda",
+                   rtp_endpoint=None):
     """
     Build a full gst-launch-1.0 argv list.
 
@@ -187,6 +212,7 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
             intra_refresh=intra_refresh, wifi_mode=wifi_mode,
             encoder_profile=encoder_profile,
         )
+        encoder = _probe_encoder_properties(encoder)
     else:
         rate_filter = "" if preserve_source_rate else f"videorate skip-to-first=false ! video/x-raw,framerate={fps}/1"
         dimensions = "" if preserve_source_size else f",width={width},height={height}"
@@ -196,16 +222,32 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
             bitrate, key_int, intra_refresh=intra_refresh,
             encoder_profile=encoder_profile,
         )
+        encoder = _probe_encoder_properties(encoder)
 
     parse = "h264parse config-interval=1"
-    if hw_encoder:
+    negotiated_profile = (
+        rtp_endpoint[3] if rtp_endpoint and len(rtp_endpoint) > 3 else None
+    )
+    if negotiated_profile == "high":
+        caps_out = "video/x-h264,profile=high,stream-format=byte-stream,alignment=au"
+    elif hw_encoder:
         caps_out = "video/x-h264,stream-format=byte-stream,alignment=au"
     else:
         caps_out = "video/x-h264,profile=baseline,stream-format=byte-stream,alignment=au"
 
     
     
-    sink = f"tcpserversink host={host} port={port} sync=false sync-method=2 recover-policy=2 buffers-max=3 buffers-soft-max=2 qos-dscp=48"
+    if rtp_endpoint:
+        client_host, client_port, *endpoint_options = rtp_endpoint
+        ssrc = f" ssrc={endpoint_options[0]}" if endpoint_options else ""
+        sink = (
+            f"rtph264pay aggregate-mode=none config-interval=-1 "
+            f"mtu={MTU} pt={RTP_PAYLOAD_TYPE}{ssrc} ! "
+            f"udpsink host={client_host} port={client_port} bind-port={port} "
+            f"sync=false async=false buffer-size=262144 qos-dscp=48"
+        )
+    else:
+        sink = f"tcpserversink host={host} port={port} sync=false sync-method=2 recover-policy=2 buffers-max=3 buffers-soft-max=2 qos-dscp=48"
 
     taskset_prefix = []
     if not hw_encoder:
@@ -227,7 +269,24 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
     return pipeline
 
 
-def _launch(argv, pass_fds=None):
+def _launch(argv, pass_fds=None, target_fps=60, target_bitrate=8000):
+    if "rtph264pay" in argv:
+        import sys
+        gst_index = argv.index("gst-launch-1.0")
+        elements = argv[gst_index + 2:]
+        bind_port = next(
+            int(token.split("=", 1)[1]) for token in elements
+            if token.startswith("bind-port=")
+        )
+        runner = [
+            sys.executable, "-m", "monitorize.streaming.gst_session",
+            "--control-port", str(bind_port), " ".join(elements),
+        ]
+        runner[5:5] = [
+            "--pacing-bitrate", str(target_bitrate),
+            "--target-fps", str(target_fps),
+        ]
+        argv = [*argv[:gst_index], *runner]
     kwargs = {"shell": False}
     if pass_fds:
         kwargs["pass_fds"] = pass_fds
@@ -271,6 +330,11 @@ def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
     encoder_profile = os.environ.get("MONITORIZE_ENCODER_PROFILE", "Low Latency")
     if preserve_source_size is None:
         preserve_source_size = os.environ.get("MONITORIZE_PRESERVE_SOURCE_SIZE") == "1"
+    rtp_endpoint = None
+    if server_mode and os.environ.get("MONITORIZE_VIDEO_TRANSPORT") == "rtp-udp-v1":
+        rtp_endpoint = wait_for_client(
+            port, width=width, height=height, fps=fps, bitrate=bitrate
+        )
     modes = [None]
     if hw_encoder == "nvh264enc":
         requested = os.environ.get("MONITORIZE_NVIDIA_MEMORY", "auto").lower()
@@ -289,11 +353,15 @@ def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
             preserve_source_rate=preserve_source_rate, target_object=target_object,
             encoder_profile=encoder_profile,
             nvidia_memory=mode or "cuda",
+            rtp_endpoint=rtp_endpoint,
         )
         label = f"{hw_encoder} ({mode})" if mode else (hw_encoder or "x264enc (CPU)")
         print(f"\n[Pipeline] Encoder: {label}")
         print(f"[GStreamer] {shlex.join(pipeline)}\n")
-        proc = _launch(pipeline, pass_fds=pass_fds)
+        proc = _launch(
+            pipeline, pass_fds=pass_fds,
+            target_fps=fps, target_bitrate=bitrate,
+        )
         if not _failed_during_startup(proc):
             print("[Pipeline] READY", flush=True)
             return proc
@@ -310,9 +378,13 @@ def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
         wifi_mode=server_mode, preserve_source_size=preserve_source_size,
         preserve_source_rate=preserve_source_rate, target_object=target_object,
         encoder_profile=encoder_profile,
+        rtp_endpoint=rtp_endpoint,
     )
     print(f"[GStreamer] {shlex.join(pipeline)}\n")
-    proc = _launch(pipeline, pass_fds=pass_fds)
+    proc = _launch(
+        pipeline, pass_fds=pass_fds,
+        target_fps=fps, target_bitrate=bitrate,
+    )
     if _failed_during_startup(proc):
         print("[Pipeline] CPU fallback failed during startup", flush=True)
     else:

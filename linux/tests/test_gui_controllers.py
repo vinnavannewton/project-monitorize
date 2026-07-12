@@ -3027,6 +3027,15 @@ class PipelineBuilderTest(unittest.TestCase):
         self.assertIn("buffers-max=3", text)
         self.assertIn("buffers-soft-max=2", text)
 
+    def test_rtp_video_uses_simple_interoperable_udp_packetization(self):
+        text = self._pipeline_text(rtp_endpoint=("10.0.0.8", 49152))
+        self.assertIn("rtph264pay", text)
+        self.assertIn("aggregate-mode=none", text)
+        self.assertIn("mtu=1200", text)
+        self.assertNotIn("rtpulpfecenc", text)
+        self.assertIn("udpsink host=10.0.0.8 port=49152", text)
+        self.assertNotIn("tcpserversink", text)
+
     def test_nvidia_auto_prefers_cuda_over_unreliable_kde_gl_import(self):
         pipeline_builder._gst_inspect.cache_clear()
         encoder = "memory:GLMemory memory:CUDAMemory"
@@ -3046,6 +3055,14 @@ class PipelineBuilderTest(unittest.TestCase):
         self.assertIn("gop-size=15", text)
         self.assertIn("repeat-sequence-header=true", text)
         self.assertNotIn("intra-refresh", text)
+
+    def test_encoder_probe_removes_unsupported_properties(self):
+        inspected = """Element Properties:\n  bitrate             : target bitrate\n  bframes             : B frames\n"""
+        with patch.object(pipeline_builder, "_gst_inspect", return_value=inspected):
+            value = pipeline_builder._probe_encoder_properties(
+                "nvh264enc bitrate=8000 bframes=0 not-installed=true"
+            )
+        self.assertEqual(value, "nvh264enc bitrate=8000 bframes=0")
 
     def test_nvenc_gl_path_preserves_dmabuf_and_uses_gl_memory(self):
         text = self._pipeline_text(
@@ -3432,7 +3449,8 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn("Monitorize-Touch-2", rules)
         self.assertIn("Monitorize-Stylus-2", rules)
         self.assertIn('<include service="mdns"/>', firewall)
-        for protocol, port in (("tcp", "7110"), ("tcp", "7114"),
+        for protocol, port in (("tcp", "7110"), ("udp", "7110"),
+                               ("tcp", "7114"), ("udp", "7114"),
                                ("udp", "7113"), ("udp", "7117")):
             self.assertIn(f'<port protocol="{protocol}" port="{port}"/>', firewall)
         self.assertIn("firewall-zones", spec)

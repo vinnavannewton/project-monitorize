@@ -2,15 +2,19 @@ package app.monitorize.android.streaming
 
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
+import android.media.MediaCodecList
 import android.media.MediaFormat
+import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Log
 import android.view.Surface
+import android.view.Choreographer
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 
 
 class H264Decoder(
@@ -25,6 +29,12 @@ class H264Decoder(
     private var callbackThread: HandlerThread? = null
     private val decoderGeneration = AtomicInteger(0)
     private val fatalError = AtomicBoolean(false)
+    private val pendingOutputBuffer = AtomicInteger(-1)
+    private val renderedSinceStats = AtomicInteger(0)
+    private val decodedSinceStats = AtomicInteger(0)
+    private val decodeMicrosSinceStats = AtomicLong(0)
+
+    data class Stats(val renderedFrames: Int, val queueDepth: Int, val decodeMicros: Long)
 
     class FrameChunk(val data: ByteArray) {
         var size: Int = 0
@@ -33,7 +43,7 @@ class H264Decoder(
 
     
     
-    private val POOL_SIZE = 3
+    private val POOL_SIZE = 1
     private val chunkPool = ArrayBlockingQueue<FrameChunk>(POOL_SIZE)
     private val chunkQueue = LinkedBlockingQueue<FrameChunk>(POOL_SIZE)
     
@@ -65,13 +75,18 @@ class H264Decoder(
                 setInteger(MediaFormat.KEY_OPERATING_RATE, Short.MAX_VALUE.toInt())
                 setInteger(MediaFormat.KEY_PRIORITY, 0)
                 setInteger(MediaFormat.KEY_LOW_LATENCY, 1)
-                try {
-                    setInteger(
-                        MediaFormat.KEY_PROFILE,
-                        MediaCodecInfo.CodecProfileLevel.AVCProfileConstrainedBaseline
-                    )
-                } catch (_: Exception) {}
             }
+
+            val decoderInfo = selectDecoder()
+                ?: throw IllegalStateException("No H.264 decoder available")
+            val hasQualcommOptions = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                (decoderInfo.name.startsWith("c2.qti", true) ||
+                    decoderInfo.name.startsWith("omx.qcom", true))
+            if (hasQualcommOptions) {
+                format.setInteger("vendor.qti-ext-dec-picture-order.enable", 1)
+                format.setInteger("vendor.qti-ext-dec-low-latency.enable", 1)
+            }
+            Log.i(TAG, "Decoder: ${decoderInfo.name}")
 
             callbackThread = HandlerThread("MonitorizeDecoder").also {
                 it.priority = Thread.MAX_PRIORITY
@@ -79,7 +94,7 @@ class H264Decoder(
             }
             val handler = Handler(callbackThread!!.looper)
 
-            codec = MediaCodec.createDecoderByType(MediaFormat.MIMETYPE_VIDEO_AVC).also {
+            codec = MediaCodec.createByCodecName(decoderInfo.name).also {
                 it.setCallback(object : MediaCodec.Callback() {
                     override fun onInputBufferAvailable(mc: MediaCodec, inputBufferId: Int) {
                         if (!isCurrent(generation)) return
@@ -100,10 +115,12 @@ class H264Decoder(
                         mc: MediaCodec, outputBufferId: Int, info: MediaCodec.BufferInfo
                     ) {
                         if (!isCurrent(generation)) return
-                        try {
-                            mc.releaseOutputBuffer(outputBufferId, true)
-                            frameCount++
-                        } catch (e: Exception) {}
+                        decodedSinceStats.incrementAndGet()
+                        decodeMicrosSinceStats.addAndGet(
+                            (System.nanoTime() / 1000 - info.presentationTimeUs).coerceAtLeast(0)
+                        )
+                        val old = pendingOutputBuffer.getAndSet(outputBufferId)
+                        if (old >= 0) try { mc.releaseOutputBuffer(old, false) } catch (_: Exception) {}
                     }
 
                     override fun onError(mc: MediaCodec, e: MediaCodec.CodecException) {
@@ -139,14 +156,42 @@ class H264Decoder(
                     }
                 }, handler)
 
-                it.configure(format, surface, null, 0)
+                try {
+                    it.configure(format, surface, null, 0)
+                } catch (first: Exception) {
+                    if (!hasQualcommOptions || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                        throw first
+                    }
+                    Log.w(TAG, "Decoder rejected Qualcomm low-latency options; retrying", first)
+                    format.removeKey("vendor.qti-ext-dec-picture-order.enable")
+                    format.removeKey("vendor.qti-ext-dec-low-latency.enable")
+                    it.configure(format, surface, null, 0)
+                }
                 it.setOnFrameRenderedListener({ _, _, _ ->
+                    renderedSinceStats.incrementAndGet()
                     if (isCurrent(generation) && firstFrameReported.compareAndSet(false, true)) {
                         onFirstFrameRendered()
                     }
                 }, handler)
                 initialized = true
                 it.start()
+                handler.post {
+                    val choreographer = Choreographer.getInstance()
+                    val callback = object : Choreographer.FrameCallback {
+                        override fun doFrame(frameTimeNanos: Long) {
+                            if (!isCurrent(generation)) return
+                            val output = pendingOutputBuffer.getAndSet(-1)
+                            if (output >= 0) {
+                                try {
+                                    it.releaseOutputBuffer(output, frameTimeNanos)
+                                    frameCount++
+                                } catch (_: Exception) {}
+                            }
+                            choreographer.postFrameCallback(this)
+                        }
+                    }
+                    choreographer.postFrameCallback(callback)
+                }
             }
             frameCount = 0
         } catch (e: Exception) {
@@ -157,6 +202,41 @@ class H264Decoder(
     }
 
     private val pendingInputBuffers = LinkedBlockingQueue<Int>(16)
+
+    private fun selectDecoder(): MediaCodecInfo? {
+        return MediaCodecList(MediaCodecList.ALL_CODECS).codecInfos
+            .asSequence()
+            .filter { !it.isEncoder && it.supportedTypes.any { type ->
+                type.equals(MediaFormat.MIMETYPE_VIDEO_AVC, true)
+            } }
+            .filter { info ->
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    info.isHardwareAccelerated && !info.isSoftwareOnly
+                } else {
+                    !info.name.contains("google", true) &&
+                        !info.name.contains("android", true)
+                }
+            }
+            .sortedByDescending { info ->
+                val name = info.name.lowercase()
+                var score = if (name.contains("low_latency") || name.contains("lowlatency")) 4 else 0
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    try {
+                        if (info.getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC)
+                                .isFeatureSupported(MediaCodecInfo.CodecCapabilities.FEATURE_LowLatency)) {
+                            score += 8
+                        }
+                    } catch (_: Exception) {}
+                }
+                score
+            }
+            .firstOrNull()
+            ?: MediaCodecList(MediaCodecList.ALL_CODECS).codecInfos.firstOrNull {
+                !it.isEncoder && it.supportedTypes.any { type ->
+                    type.equals(MediaFormat.MIMETYPE_VIDEO_AVC, true)
+                }
+            }
+    }
 
     private fun isCurrent(generation: Int): Boolean {
         return initialized && !fatalError.get() && decoderGeneration.get() == generation
@@ -233,6 +313,16 @@ class H264Decoder(
         }
     }
 
+    fun takeStats(): Stats {
+        val decoded = decodedSinceStats.getAndSet(0)
+        val totalMicros = decodeMicrosSinceStats.getAndSet(0)
+        return Stats(
+            renderedFrames = renderedSinceStats.getAndSet(0),
+            queueDepth = chunkQueue.size + if (pendingOutputBuffer.get() >= 0) 1 else 0,
+            decodeMicros = if (decoded == 0) 0 else totalMicros / decoded,
+        )
+    }
+
     fun feedChunk(data: ByteArray, offset: Int, size: Int, isKeyFrame: Boolean = false): Boolean {
         if (!initialized || fatalError.get()) return false
 
@@ -276,6 +366,11 @@ class H264Decoder(
         fatalError.set(false)
         drainQueuedFrames()?.let { recycleChunk(it) }
         pendingInputBuffers.clear()
+        renderedSinceStats.set(0)
+        decodedSinceStats.set(0)
+        decodeMicrosSinceStats.set(0)
+        val pendingOutput = pendingOutputBuffer.getAndSet(-1)
+        if (pendingOutput >= 0) try { codec?.releaseOutputBuffer(pendingOutput, false) } catch (_: Exception) {}
         try { codec?.stop(); codec?.release() } catch (_: Exception) {}
         codec = null
         try {

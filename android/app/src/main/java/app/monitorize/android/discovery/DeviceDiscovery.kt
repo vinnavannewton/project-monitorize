@@ -20,6 +20,8 @@ data class DiscoveredDevice(
     val fps: Int = DEFAULT_STREAM_FPS,
     val width: Int = 0,
     val height: Int = 0,
+    val videoTransport: String? = null,
+    val videoControlPort: Int = 0,
     val isUsb: Boolean = false,
     val encrypted: Boolean = false,
     val fingerprint: String? = null,
@@ -132,6 +134,8 @@ class DeviceDiscovery(private val context: Context) {
                                 var fps = DEFAULT_STREAM_FPS
                                 var width = 0
                                 var height = 0
+                                var videoTransport: String? = null
+                                var videoControlPort = 0
                                 try {
                                     resolved.attributes?.let { attrs ->
                                         if (attrs.containsKey("fn")) resolvedName = String(attrs["fn"]!!)
@@ -143,6 +147,9 @@ class DeviceDiscovery(private val context: Context) {
                                         fps = attrs["fps"]?.let { parseFps(String(it)) } ?: DEFAULT_STREAM_FPS
                                         width = attrs["width"]?.let { parseDimension(String(it)) } ?: 0
                                         height = attrs["height"]?.let { parseDimension(String(it)) } ?: 0
+                                        videoTransport = attrs["video_transport"]?.let { String(it) }
+                                        videoControlPort = attrs["video_control_port"]
+                                            ?.let { String(it).toIntOrNull() } ?: 0
                                     }
                                 } catch (_: Exception) {}
 
@@ -153,6 +160,8 @@ class DeviceDiscovery(private val context: Context) {
                                     fps = fps,
                                     width = width,
                                     height = height,
+                                    videoTransport = videoTransport,
+                                    videoControlPort = videoControlPort,
                                     encrypted = encrypted,
                                     fingerprint = fingerprint,
                                     inputTransport = inputTransport,
@@ -284,6 +293,8 @@ class DeviceDiscovery(private val context: Context) {
                     fps = newDevice.fps,
                     width = newDevice.width,
                     height = newDevice.height,
+                    videoTransport = newDevice.videoTransport,
+                    videoControlPort = newDevice.videoControlPort,
                     serviceName = newDevice.serviceName,
                 )
             } else {

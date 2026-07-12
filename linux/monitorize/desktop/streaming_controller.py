@@ -155,6 +155,8 @@ class StreamingController(QObject):
         self.env.insert("MONITORIZE_ENCODER_PROFILE", self.encoder_profile)
         settings = options.get("wifi") or (load_wifi_settings() if wifi else {})
         self.encrypted = settings.get("use_encryption", True) if wifi else False
+        if wifi and not self.encrypted:
+            self.env.insert("MONITORIZE_VIDEO_TRANSPORT", "rtp-udp-v1")
         self.env.insert("MONITORIZE_STREAM_TYPE", settings.get("stream_type", "Speed"))
         self.runtime_general = options.get("general")
         if self.encrypted:
@@ -297,7 +299,11 @@ class StreamingController(QObject):
         else:
             self.input_launched = False
             self.streamer_buffer = ""
-        self._set_status("Status: Streaming…")
+        self._set_status(
+            "Waiting for Android receiver…"
+            if self.wifi and not self.encrypted
+            else "Status: Streaming…"
+        )
 
     def _launch_tls(self):
         self.tls_proxy = self._new_process(use_env=False)
@@ -421,6 +427,7 @@ class StreamingController(QObject):
             self._track_gst_pid(line)
             if line == "[Pipeline] READY":
                 self._set_primary_ready(True)
+                self._set_status("Status: Streaming…")
             if self.de == "kde":
                 self._handle_kde_streamer_line(line, generation)
             elif self.de == "gnome":
@@ -723,6 +730,8 @@ class StreamingController(QObject):
             "Intel/AMD VA-API (vah264enc)": "vaapi",
         }.get(third_encoder, "cpu"))
         env.insert("MONITORIZE_ENCODER_PROFILE", third_encoder_profile)
+        if self.wifi and not self.encrypted:
+            env.insert("MONITORIZE_VIDEO_TRANSPORT", "rtp-udp-v1")
         if self.de == "kde":
             env.insert("MONITORIZE_KDE_VIRTUAL_SLOT", "additional")
             env.insert("MONITORIZE_PRESERVE_SOURCE_SIZE", "1")

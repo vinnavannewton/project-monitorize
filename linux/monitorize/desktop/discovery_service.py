@@ -175,6 +175,16 @@ class DiscoveryService(QObject):
                 if encrypted:
                     values["fingerprint"] = fingerprint
                     values["input_transport"] = "udp-aesgcm-v1"
+                else:
+                    values.update({
+                        "video_transport": "rtp-udp-v1",
+                        "video_protocol_version": "1",
+                        "video_codec": "h264",
+                        "video_control_port": str(port),
+                        "rtp_pt": "96",
+                        "fec_pt": "122",
+                        "mtu": "1200",
+                    })
                 return values
 
             primary_properties = properties(

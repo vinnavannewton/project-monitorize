@@ -303,7 +303,9 @@ class MainActivity : ComponentActivity() {
                                         }
                                     },
                                     onSurfaceRenderTimeout = {
-                                        status.value = "Video surface did not render; try moving your mouse into the virtual display"
+                                        if (status.value.isBlank()) {
+                                            status.value = "Video surface did not render; check the desktop stream log"
+                                        }
                                     },
                                     onInputEvent = { event, viewW, viewH -> inputSender?.send(event, viewW, viewH) }
                                 )
@@ -443,13 +445,15 @@ class MainActivity : ComponentActivity() {
         super.onStop()
         discovery.stopDiscovery()
         clearPairingUi?.invoke(false)
-        closeStreamResourcesBlocking(snapshotAndClearStreamResources(invalidateSurface = true))
+        val resources = snapshotAndClearStreamResources(invalidateSurface = true)
+        Thread({ closeStreamResourcesBlocking(resources) }, "MonitorizeCleanup").start()
     }
 
     override fun onDestroy() {
         super.onDestroy()
         clearPairingUi?.invoke(false)
-        closeStreamResourcesBlocking(snapshotAndClearStreamResources(invalidateSurface = true))
+        val resources = snapshotAndClearStreamResources(invalidateSurface = true)
+        Thread({ closeStreamResourcesBlocking(resources) }, "MonitorizeCleanup").start()
     }
 
     private fun restartApp() {
@@ -500,6 +504,10 @@ class MainActivity : ComponentActivity() {
                                 port = port,
                                 width = entry.optInt("width", 0),
                                 height = entry.optInt("height", 0),
+                                fps = entry.optInt("fps", 60),
+                                videoTransport = entry.optString("videoTransport")
+                                    .takeIf { it.isNotBlank() },
+                                videoControlPort = entry.optInt("videoControlPort", 0),
                                 encrypted = entry.optBoolean("encrypted", false),
                                 fingerprint = entry.optString("fingerprint").takeIf { it.isNotBlank() }
                             )
@@ -574,6 +582,9 @@ class MainActivity : ComponentActivity() {
                     .put("port", device.port)
                     .put("width", device.width)
                     .put("height", device.height)
+                    .put("fps", device.fps)
+                    .put("videoTransport", device.videoTransport ?: "")
+                    .put("videoControlPort", device.videoControlPort)
                     .put("encrypted", device.encrypted)
                     .put("fingerprint", device.fingerprint ?: "")
             )
@@ -714,7 +725,8 @@ class MainActivity : ComponentActivity() {
         val streamReceiver = StreamReceiver(
             d, streamDimensions.width, streamDimensions.height, streamFps,
             hostIp.takeIf { it.isNotBlank() }, hostPort,
-            encrypted, savedFingerprint, savedToken
+            encrypted, savedFingerprint, savedToken,
+            device?.videoTransport, device?.videoControlPort ?: 0
         )
         streamReceiver.apply {
             onStatusChange = { msg ->
@@ -774,9 +786,29 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+            onPlainTransportReady = plain@ {
+                if (!isActiveStream(sessionId, streamReceiver) || inputStarted) {
+                    return@plain
+                }
+                val sender = InputEventSender(hostIp.takeIf { it.isNotBlank() }, hostPort)
+                val assigned = synchronized(streamStateLock) {
+                    if (activeStreamSession == sessionId && receiver === streamReceiver && inputSender == null) {
+                        inputStarted = true
+                        inputSender = sender
+                        sender.start()
+                        true
+                    } else {
+                        false
+                    }
+                }
+                if (!assigned) sender.stop()
+            }
         }
 
-        val unencryptedInputSender = if (!encrypted) {
+        val transportNegotiatesSecurity = device?.let {
+            it.videoTransport == "rtp-udp-v1" && !it.isUsb
+        } == true
+        val unencryptedInputSender = if (!encrypted && !transportNegotiatesSecurity) {
             InputEventSender(hostIp.takeIf { it.isNotBlank() }, hostPort)
         } else {
             null
@@ -1052,7 +1084,9 @@ fun HomeScreen(
                                     }
                                     onDeviceSelected(DiscoveredDevice(
                                         name = "Manual WiFi", ip = ip, port = port,
-                                        isUsb = false, encrypted = false
+                                        videoTransport = "rtp-udp-v1",
+                                        videoControlPort = port,
+                                        isUsb = false, encrypted = true
                                     ))
                                 }
                             }
@@ -1386,27 +1420,6 @@ fun ReceiveScreen(
     onInputEvent: (android.view.MotionEvent, Float, Float) -> Unit
 ) {
     BackHandler(onBack = onBack)
-    var surfaceKey by remember(hostIp, width, height, fps) { mutableStateOf(0) }
-    var surfaceRecreateUsed by remember(hostIp, width, height, fps) { mutableStateOf(false) }
-
-    LaunchedEffect(hostIp, width, height, fps) {
-        delay(300)
-        if (!surfaceRecreateUsed) {
-            surfaceRecreateUsed = true
-            surfaceKey += 1
-            Log.w("ReceiveScreen", "Recreating SurfaceView once after initial attach")
-        }
-    }
-
-    fun handleSurfaceStartupFailure() {
-        if (!surfaceRecreateUsed) {
-            surfaceRecreateUsed = true
-            surfaceKey += 1
-            Log.w("ReceiveScreen", "Recreating SurfaceView once after startup failure")
-        } else {
-            onSurfaceRenderTimeout()
-        }
-    }
 
     Box(
         modifier = Modifier.fillMaxSize().background(Color.Black),
@@ -1415,19 +1428,17 @@ fun ReceiveScreen(
         
         
         Box(modifier = Modifier.aspectRatio(displayWidth.toFloat() / displayHeight.toFloat())) {
-            key(surfaceKey) {
-                StreamSurface(
-                    modifier = Modifier.fillMaxSize(),
-                    width = width,
-                    height = height,
-                    fps = fps,
-                    hostIp = hostIp,
-                    onSurfaceCreated = onSurfaceCreated,
-                    onSurfaceDestroyed = onSurfaceDestroyed,
-                    onSurfaceRenderTimeout = ::handleSurfaceStartupFailure,
-                    onInputEvent = onInputEvent
-                )
-            }
+            StreamSurface(
+                modifier = Modifier.fillMaxSize(),
+                width = width,
+                height = height,
+                fps = fps,
+                hostIp = hostIp,
+                onSurfaceCreated = onSurfaceCreated,
+                onSurfaceDestroyed = onSurfaceDestroyed,
+                onSurfaceRenderTimeout = onSurfaceRenderTimeout,
+                onInputEvent = onInputEvent
+            )
         }
 
         
@@ -1472,7 +1483,6 @@ fun StreamSurface(
                     private var hasSurfaceEvent = false
                     private var hasSizedSurfaceChange = false
                     private var firstFrameRendered = false
-                    private var watchdogRestartUsed = false
                     private var pendingForceRestart = false
                     private var readinessRetryStartedAt = 0L
                     private var lastReadinessBlockedLogAt = 0L
@@ -1485,7 +1495,6 @@ fun StreamSurface(
                         callbackSurfaceWidth = 0
                         callbackSurfaceHeight = 0
                         applyFrameRateHint(holder.surface)
-                        watchdogRestartUsed = false
                         scheduleSurfaceReadyChecks(reason = "surfaceCreated")
                     }
 
@@ -1495,7 +1504,12 @@ fun StreamSurface(
                         callbackSurfaceHeight = h
                         hasSizedSurfaceChange = w > 0 && h > 0
                         applyFrameRateHint(holder.surface)
-                        scheduleSurfaceReadyChecks(forceRestart = true, reason = "surfaceChanged")
+                        val streamSizeChanged = surfaceGeneration != 0L &&
+                            (w != activeSurfaceWidth || h != activeSurfaceHeight)
+                        scheduleSurfaceReadyChecks(
+                            forceRestart = streamSizeChanged,
+                            reason = "surfaceChanged",
+                        )
                     }
 
                     override fun surfaceDestroyed(holder: SurfaceHolder) {
@@ -1506,7 +1520,6 @@ fun StreamSurface(
                         callbackSurfaceWidth = 0
                         callbackSurfaceHeight = 0
                         firstFrameRendered = false
-                        watchdogRestartUsed = false
                         lastReadinessBlockedLogAt = 0L
                         stopActiveStream()
                     }
@@ -1597,14 +1610,11 @@ fun StreamSurface(
                             if (generation != surfaceGeneration || firstFrameRendered) {
                                 return@Runnable
                             }
-                            if (!watchdogRestartUsed) {
-                                watchdogRestartUsed = true
-                                callbackSurfaceWidth = surfaceWidth
-                                callbackSurfaceHeight = surfaceHeight
-                                maybeStartOrRestartStream(forceRestart = true)
-                            } else {
-                                onSurfaceRenderTimeout()
-                            }
+                            Log.w(
+                                "StreamSurface",
+                                "No rendered frame after 2s on ${surfaceWidth}x${surfaceHeight}",
+                            )
+                            onSurfaceRenderTimeout()
                         }
                         firstFrameWatchdog = watchdog
                         postDelayed(watchdog, 2000L)

@@ -2,6 +2,7 @@ package app.monitorize.android.security
 
 import android.annotation.SuppressLint
 import java.net.InetSocketAddress
+import java.net.Socket
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
@@ -47,7 +48,7 @@ fun connectTls(host: String, port: Int, expectedFingerprint: String? = null): Se
     }
 }
 
-fun readAsciiLine(socket: SSLSocket, limit: Int = 256): String {
+fun readAsciiLine(socket: Socket, limit: Int = 256): String {
     val bytes = ArrayList<Byte>()
     while (bytes.size < limit) {
         val value = socket.inputStream.read()
