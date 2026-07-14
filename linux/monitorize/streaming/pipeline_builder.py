@@ -79,45 +79,47 @@ def _hw_encoder_params(
 ):
     """Return GStreamer property string for a detected hardware encoder."""
     encoder_profile = _encoder_profile(encoder_profile)
+    one_frame_kbits = max(1, (bitrate + max(fps, 1) - 1) // max(fps, 1))
     if enc_name == "nvh264enc":
-        vbv = max(1, (bitrate + max(fps, 1) - 1) // max(fps, 1))
         common = (
-            f"nvh264enc bitrate={bitrate} vbv-buffer-size={vbv} "
+            f"nvh264enc bitrate={bitrate} vbv-buffer-size={one_frame_kbits} "
             f"zerolatency=true bframes=0 rc-lookahead=0 rc-mode=cbr "
             f"gop-size={key_int} tune=ultra-low-latency strict-gop=true "
-            f"repeat-sequence-header=true num-surfaces=1 ref-frames=1"
+            f"repeat-sequence-header=true aud=true num-surfaces=1 ref-frames=1"
         )
         if encoder_profile == "Low Latency":
             return f"{common} preset=p1"
         preset = "p3" if encoder_profile == "Balanced" else "p5"
         return f"{common} preset={preset}"
-    elif enc_name == "vah264enc" and wifi_mode and encoder_profile == "Low Latency":
+    elif enc_name in ("vah264enc", "vah264lpenc") and wifi_mode and encoder_profile == "Low Latency":
         return (
-            f"{enc_name} rate-control=cbr bitrate={bitrate} cabac=false cpb-size=2000 "
-            f"key-int-max={key_int} ref-frames=1 b-frames=0 target-usage=7 async-depth=1"
+            f"{enc_name} rate-control=cbr bitrate={bitrate} cabac=false "
+            f"cpb-size={one_frame_kbits} key-int-max={key_int} ref-frames=1 "
+            f"b-frames=0 target-usage=7 async-depth=1 aud=true"
         )
     elif enc_name == "vaapih264enc" and encoder_profile == "Low Latency":
         return (
             f"{enc_name} rate-control=cqp init-qp=20 cabac=false "
-            f"keyframe-period={key_int} max-bframes=0 quality-level=7"
+            f"keyframe-period={key_int} max-bframes=0 quality-level=7 aud=true"
         )
     elif enc_name == "vaapih264enc":
         quality = 5 if encoder_profile == "Balanced" else 3
         return (
             f"{enc_name} rate-control=cqp init-qp=20 cabac=true "
-            f"keyframe-period={key_int} max-bframes=0 quality-level={quality}"
+            f"keyframe-period={key_int} max-bframes=0 quality-level={quality} aud=true"
         )
     elif encoder_profile != "Low Latency":
         usage = 5 if encoder_profile == "Balanced" else 3
         refs = 1 if encoder_profile == "Balanced" else 2
         return (
             f"{enc_name} rate-control=cbr bitrate={bitrate} cabac=true cpb-size=2000 "
-            f"key-int-max={key_int} ref-frames={refs} b-frames=0 target-usage={usage}"
+            f"key-int-max={key_int} ref-frames={refs} b-frames=0 "
+            f"target-usage={usage} aud=true"
         )
     
     return (
         f"{enc_name} rate-control=cqp qpi=20 qpp=22 cabac=false cpb-size=2000 "
-        f"key-int-max={key_int} ref-frames=1 b-frames=0 target-usage=7"
+        f"key-int-max={key_int} ref-frames=1 b-frames=0 target-usage=7 aud=true"
     )
 
 
@@ -132,7 +134,7 @@ def _cpu_encoder_params(
             f"x264enc tune=zerolatency speed-preset=ultrafast bitrate={bitrate} "
             f"key-int-max={key_int} byte-stream=true bframes=0 ref=1 "
             f"sliced-threads=true mb-tree=false threads=0 sync-lookahead=0 "
-            f"vbv-buf-capacity=17{ir_opt}"
+            f"vbv-buf-capacity=17 aud=true{ir_opt}"
         )
     speed = "superfast" if encoder_profile == "Balanced" else "veryfast"
     refs = 1 if encoder_profile == "Balanced" else 2
@@ -166,12 +168,22 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
     
     zero_copy = hw_encoder != "nvh264enc" or nvidia_memory == "gl"
     always_copy = "false" if hw_encoder and zero_copy else "true"
+    keepalive_ms = max(1, round(1000 / max(fps, 1)))
     if target_object is not None:
-        src = f"pipewiresrc target-object={target_object} do-timestamp=true always-copy={always_copy} keepalive-time=1000"
+        src = (
+            f"pipewiresrc target-object={target_object} do-timestamp=true "
+            f"always-copy={always_copy} keepalive-time={keepalive_ms}"
+        )
     elif pw_fd is not None:
-        src = f"pipewiresrc fd={pw_fd} path={node_id} do-timestamp=true always-copy={always_copy} keepalive-time=1000"
+        src = (
+            f"pipewiresrc fd={pw_fd} path={node_id} do-timestamp=true "
+            f"always-copy={always_copy} keepalive-time={keepalive_ms}"
+        )
     else:
-        src = f"pipewiresrc path={node_id} do-timestamp=true always-copy={always_copy} keepalive-time=1000"
+        src = (
+            f"pipewiresrc path={node_id} do-timestamp=true "
+            f"always-copy={always_copy} keepalive-time={keepalive_ms}"
+        )
 
     queue = "queue max-size-buffers=1 max-size-time=0 max-size-bytes=0 leaky=downstream"
 
@@ -179,13 +191,17 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
     
     if stream_type == "Stability":
         key_int = 15
-        intra_refresh = True
+        intra_refresh = not bool(rtp_endpoint)
     else:
         key_int = max(fps // 2, 15)
         intra_refresh = False
 
     if hw_encoder:
-        rate_filter = ""
+        rate_filter = (
+            f"videorate skip-to-first=false ! "
+            f"'video/x-raw(ANY),framerate={fps}/1'"
+            if wifi_mode else ""
+        )
         dimensions = "" if preserve_source_size else f",width={width},height={height}"
         if hw_encoder == "nvh264enc":
             if nvidia_memory == "gl":
@@ -214,7 +230,10 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
         )
         encoder = _probe_encoder_properties(encoder)
     else:
-        rate_filter = "" if preserve_source_rate else f"videorate skip-to-first=false ! video/x-raw,framerate={fps}/1"
+        rate_filter = (
+            f"videorate skip-to-first=false ! video/x-raw,framerate={fps}/1"
+            if wifi_mode or not preserve_source_rate else ""
+        )
         dimensions = "" if preserve_source_size else f",width={width},height={height}"
         scale = "" if preserve_source_size else " ! videoscale"
         convert = f"videoconvert n-threads=4{scale} ! video/x-raw,format=I420{dimensions}"

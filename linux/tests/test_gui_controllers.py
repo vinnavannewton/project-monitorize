@@ -3003,6 +3003,34 @@ class PipelineBuilderTest(unittest.TestCase):
         self.assertIn("target-object=101", text)
         self.assertNotIn("videorate", text)
         self.assertNotIn("framerate=60/1", text)
+        self.assertIn("keepalive-time=17", text)
+
+    def test_cpu_wifi_clocks_keepalive_frames_at_target_rate(self):
+        text = self._pipeline_text(
+            target_object="101", preserve_source_rate=True, wifi_mode=True
+        )
+        self.assertIn("keepalive-time=17", text)
+        self.assertIn("videorate", text)
+        self.assertIn("framerate=60/1", text)
+
+    def test_hardware_wifi_clocks_frames_without_losing_memory_features(self):
+        for encoder in ("nvh264enc", "vah264enc"):
+            with self.subTest(encoder=encoder):
+                text = self._pipeline_text(
+                    hw_encoder=encoder, target_object="101",
+                    preserve_source_rate=True, wifi_mode=True,
+                )
+                self.assertIn("videorate", text)
+                self.assertIn("video/x-raw(ANY),framerate=60/1", text)
+
+    def test_hardware_wifi_emits_aud_and_uses_one_frame_rate_control_buffer(self):
+        nvenc = self._pipeline_text(hw_encoder="nvh264enc", wifi_mode=True)
+        vaapi = self._pipeline_text(hw_encoder="vah264enc", wifi_mode=True)
+        self.assertIn("aud=true", nvenc)
+        self.assertIn("vbv-buffer-size=134", nvenc)
+        self.assertIn("aud=true", vaapi)
+        self.assertIn("cpb-size=134", vaapi)
+        self.assertNotIn("cpb-size=2000", vaapi)
 
     def test_low_latency_encoder_profile_keeps_current_nvenc_settings(self):
         text = self._pipeline_text(
@@ -3035,6 +3063,13 @@ class PipelineBuilderTest(unittest.TestCase):
         self.assertNotIn("rtpulpfecenc", text)
         self.assertIn("udpsink host=10.0.0.8 port=49152", text)
         self.assertNotIn("tcpserversink", text)
+
+    def test_stability_cpu_rtp_keeps_real_idrs_for_loss_recovery(self):
+        text = self._pipeline_text(
+            stream_type="Stability", rtp_endpoint=("10.0.0.8", 49152)
+        )
+        self.assertIn("key-int-max=15", text)
+        self.assertNotIn("intra-refresh", text)
 
     def test_nvidia_auto_prefers_cuda_over_unreliable_kde_gl_import(self):
         pipeline_builder._gst_inspect.cache_clear()

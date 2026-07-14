@@ -24,9 +24,24 @@ class RtpH264AssemblerTest {
 
     @Test fun reconstructsSingleNal() {
         val assembler = RtpH264Assembler()
+        assertNull(assembler.offer(packet(6, 90, false, byteArrayOf(0x09, 0x10))))
         assertArrayEquals(
-            byteArrayOf(0, 0, 0, 1, 0x65, 1, 2),
+            byteArrayOf(0, 0, 0, 1, 0x09, 0x10, 0, 0, 0, 1, 0x65, 1, 2),
             assembler.offer(packet(7, 90, true, byteArrayOf(0x65, 1, 2))),
+        )
+    }
+
+    @Test fun markerArrivingBeforeAudDoesNotCreateFakeFrame() {
+        val assembler = RtpH264Assembler()
+        assertNull(assembler.offer(packet(12, 90, true, byteArrayOf(0x65, 3))))
+        assertNull(assembler.offer(packet(10, 90, false, byteArrayOf(0x09, 0x10))))
+        assertArrayEquals(
+            byteArrayOf(
+                0, 0, 0, 1, 0x09, 0x10,
+                0, 0, 0, 1, 0x41, 2,
+                0, 0, 0, 1, 0x65, 3,
+            ),
+            assembler.offer(packet(11, 90, false, byteArrayOf(0x41, 2))),
         )
     }
 

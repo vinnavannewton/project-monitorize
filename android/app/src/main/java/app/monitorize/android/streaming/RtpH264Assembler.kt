@@ -43,8 +43,13 @@ internal class RtpH264Assembler {
         }
         if (firstPacketNanos == 0L) firstPacketNanos = System.nanoTime()
         packets[packet.sequence] = packet
-        if (startSequence == null) {
+        val nalType = packet.payload[0].toInt() and 0x1f
+        if (nalType == 9) {
             startSequence = packet.sequence
+        } else if (nalType == 28 && packet.payload.size >= 2) {
+            if (packet.payload[1].toInt() and 0x80 != 0) {
+                if (startSequence == null) startSequence = packet.sequence
+            }
         }
         if (packet.marker) endSequence = packet.sequence
         return assembleIfComplete()
