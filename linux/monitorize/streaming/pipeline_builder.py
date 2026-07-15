@@ -1,22 +1,14 @@
-"""Build and launch low-latency PipeWire to H.264 GStreamer pipelines."""
+"""
+pipeline_builder.py — Shared GStreamer pipeline construction with iGPU HW encoding + CPU fallback.
 
-import shlex
+Detects available VA-API H.264 encoders (AMD/Intel iGPU only, skips NVIDIA dGPU).
+Falls back to optimised x264enc if no hardware encoder is found.
+"""
+
 import subprocess
-from functools import lru_cache
+import shlex
 
 VALID_ENCODER_PROFILES = {"Low Latency", "Balanced", "Quality"}
-
-
-@lru_cache(maxsize=None)
-def _gst_inspect(element):
-    try:
-        result = subprocess.run(
-            ["gst-inspect-1.0", element], capture_output=True, text=True,
-            timeout=5,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return ""
-    return result.stdout if result.returncode == 0 else ""
 
 
 def get_encoder(preference: str = "cpu") -> str | None:
@@ -31,16 +23,16 @@ def get_encoder(preference: str = "cpu") -> str | None:
     pref = preference.lower()
     
     if pref == "nvidia":
-        if _gst_inspect("nvh264enc"):
-            return "nvh264enc"
-        print("[Pipeline] NVIDIA NVENC is unavailable; using CPU x264enc")
-        return None
+        return "nvh264enc"
         
     elif pref == "vaapi":
         for enc in ("vah264enc", "vah264lpenc", "vaapih264enc"):
-            info = _gst_inspect(enc)
-            if info and "nvidia" not in info.lower():
-                return enc
+            try:
+                res = subprocess.run(["gst-inspect-1.0", enc], capture_output=True, text=True, timeout=5)
+                if res.returncode == 0 and "nvidia" not in res.stdout.lower():
+                    return enc
+            except Exception:
+                continue
         return "vah264enc"  
         
     return None
@@ -51,23 +43,23 @@ def _encoder_profile(value):
 
 
 def _hw_encoder_params(
-    enc_name, bitrate, key_int, fps=60, intra_refresh=False, wifi_mode=False,
+    enc_name, bitrate, key_int, intra_refresh=False, wifi_mode=False,
     encoder_profile="Low Latency",
 ):
     """Return GStreamer property string for a detected hardware encoder."""
     encoder_profile = _encoder_profile(encoder_profile)
     if enc_name == "nvh264enc":
-        vbv = max(1, (bitrate + max(fps, 1) - 1) // max(fps, 1))
-        common = (
-            f"nvh264enc bitrate={bitrate} vbv-buffer-size={vbv} "
-            f"zerolatency=true bframes=0 rc-lookahead=0 rc-mode=cbr "
-            f"gop-size={key_int} tune=ultra-low-latency strict-gop=true "
-            f"repeat-sequence-header=true"
-        )
+        ir_opt = " intra-refresh=true" if intra_refresh else ""
         if encoder_profile == "Low Latency":
-            return f"{common} preset=p1"
+            return (
+                f"nvh264enc bitrate={bitrate} zerolatency=true bframes=0 rc-lookahead=0 "
+                f"rc-mode=cbr gop-size={key_int} tune=ultra-low-latency preset=p1{ir_opt}"
+            )
         preset = "p3" if encoder_profile == "Balanced" else "p5"
-        return f"{common} preset={preset}"
+        return (
+            f"nvh264enc bitrate={bitrate} zerolatency=true bframes=0 rc-lookahead=0 "
+            f"rc-mode=cbr gop-size={key_int} tune=ultra-low-latency preset={preset}{ir_opt}"
+        )
     elif enc_name == "vah264enc" and wifi_mode and encoder_profile == "Low Latency":
         return (
             f"{enc_name} rate-control=cbr bitrate={bitrate} cabac=false cpb-size=2000 "
@@ -122,8 +114,7 @@ def _cpu_encoder_params(
 def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
                    hw_encoder=None, host="127.0.0.1", stream_type="Speed",
                    wifi_mode=False, preserve_source_size=False,
-                   preserve_source_rate=False, target_object=None,
-                   encoder_profile="Low Latency", nvidia_memory="cuda"):
+                   encoder_profile="Low Latency"):
     """
     Build a full gst-launch-1.0 argv list.
 
@@ -139,11 +130,8 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
         Element name from detect_igpu_encoder(), or None for CPU fallback.
     """
     
-    zero_copy = hw_encoder != "nvh264enc" or nvidia_memory == "gl"
-    always_copy = "false" if hw_encoder and zero_copy else "true"
-    if target_object is not None:
-        src = f"pipewiresrc target-object={target_object} do-timestamp=true always-copy={always_copy} keepalive-time=1000"
-    elif pw_fd is not None:
+    always_copy = "false" if (hw_encoder and hw_encoder != "nvh264enc") else "true"
+    if pw_fd is not None:
         src = f"pipewiresrc fd={pw_fd} path={node_id} do-timestamp=true always-copy={always_copy} keepalive-time=1000"
     else:
         src = f"pipewiresrc path={node_id} do-timestamp=true always-copy={always_copy} keepalive-time=1000"
@@ -163,32 +151,17 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
         rate_filter = ""
         dimensions = "" if preserve_source_size else f",width={width},height={height}"
         if hw_encoder == "nvh264enc":
-            if nvidia_memory == "gl":
-                convert = (
-                    "glupload ! glcolorconvert ! glcolorscale ! "
-                    f"'video/x-raw(memory:GLMemory),format=RGBA{dimensions}'"
-                )
-            elif nvidia_memory == "system":
-                scale = "" if preserve_source_size else " ! videoscale"
-                convert = (
-                    f"videoconvert n-threads=4{scale} ! "
-                    f"video/x-raw,format=NV12{dimensions}"
-                )
-            else:
-                convert = (
-                    "cudaupload ! cudaconvertscale ! "
-                    f"'video/x-raw(memory:CUDAMemory),format=NV12{dimensions}'"
-                )
+            convert = f"cudaupload ! cudaconvertscale ! 'video/x-raw(memory:CUDAMemory),format=NV12{dimensions}'"
         else:
             postproc = "vapostproc" if hw_encoder in ("vah264enc", "vah264lpenc") else "vaapipostproc"
             convert = f"{postproc} ! 'video/x-raw(memory:VAMemory),format=NV12{dimensions}'"
         encoder = _hw_encoder_params(
-            hw_encoder, bitrate, key_int, fps=fps,
+            hw_encoder, bitrate, key_int,
             intra_refresh=intra_refresh, wifi_mode=wifi_mode,
             encoder_profile=encoder_profile,
         )
     else:
-        rate_filter = "" if preserve_source_rate else f"videorate skip-to-first=false ! video/x-raw,framerate={fps}/1"
+        rate_filter = f"videorate skip-to-first=false ! video/x-raw,framerate={fps}/1"
         dimensions = "" if preserve_source_size else f",width={width},height={height}"
         scale = "" if preserve_source_size else " ! videoscale"
         convert = f"videoconvert n-threads=4{scale} ! video/x-raw,format=I420{dimensions}"
@@ -236,36 +209,17 @@ def _launch(argv, pass_fds=None):
     return proc
 
 
-def _failed_during_startup(proc, timeout=1.0):
+def _failed_immediately(proc, timeout=0.25):
     try:
         proc.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
         return False
-    return True
-
-
-def _nvidia_memory_candidates():
-    encoder = _gst_inspect("nvh264enc")
-    candidates = []
-    if "memory:GLMemory" in encoder and all(
-        _gst_inspect(element)
-        for element in ("glupload", "glcolorconvert", "glcolorscale")
-    ):
-        candidates.append("gl")
-    if "memory:CUDAMemory" in encoder and all(
-        _gst_inspect(element)
-        for element in ("cudaupload", "cudaconvertscale")
-    ):
-        candidates.append("cuda")
-    candidates.append("system")
-    return candidates
+    return proc.returncode not in (None, 0)
 
 
 def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
                          hw_encoder=None, pass_fds=None,
-                         host="127.0.0.1", server_mode=False,
-                         target_object=None, preserve_source_size=None,
-                         preserve_source_rate=False):
+                         host="127.0.0.1", server_mode=False):
     """
     Launch the streaming pipeline.
 
@@ -274,44 +228,28 @@ def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
     import os
     stream_type = os.environ.get("MONITORIZE_STREAM_TYPE", "Speed")
     encoder_profile = os.environ.get("MONITORIZE_ENCODER_PROFILE", "Low Latency")
-    if preserve_source_size is None:
-        preserve_source_size = os.environ.get("MONITORIZE_PRESERVE_SOURCE_SIZE") == "1"
-    modes = [None]
-    if hw_encoder == "nvh264enc":
-        requested = os.environ.get("MONITORIZE_NVIDIA_MEMORY", "auto").lower()
-        modes = (
-            [requested]
-            if requested in {"gl", "cuda", "system"}
-            else _nvidia_memory_candidates()
-        )
-
-    for mode in modes:
-        pipeline = build_pipeline(
-            pw_fd=pw_fd, node_id=node_id,
-            width=width, height=height, fps=fps, bitrate=bitrate, port=port,
-            hw_encoder=hw_encoder, host=host, stream_type=stream_type,
-            wifi_mode=server_mode, preserve_source_size=preserve_source_size,
-            preserve_source_rate=preserve_source_rate, target_object=target_object,
-            encoder_profile=encoder_profile,
-            nvidia_memory=mode or "cuda",
-        )
-        label = f"{hw_encoder} ({mode})" if mode else (hw_encoder or "x264enc (CPU)")
-        print(f"\n[Pipeline] Encoder: {label}")
-        print(f"[GStreamer] {shlex.join(pipeline)}\n")
-        proc = _launch(pipeline, pass_fds=pass_fds)
-        if not hw_encoder or not _failed_during_startup(proc):
-            return proc
-        print(f"[Pipeline] {label} failed during startup; trying fallback")
-
-    print("[Pipeline] Hardware encoder paths failed; retrying CPU x264enc")
+    preserve_source_size = os.environ.get("MONITORIZE_PRESERVE_SOURCE_SIZE") == "1"
     pipeline = build_pipeline(
         pw_fd=pw_fd, node_id=node_id,
         width=width, height=height, fps=fps, bitrate=bitrate, port=port,
-        hw_encoder=None, host=host, stream_type=stream_type,
+        hw_encoder=hw_encoder, host=host, stream_type=stream_type,
         wifi_mode=server_mode, preserve_source_size=preserve_source_size,
-        preserve_source_rate=preserve_source_rate, target_object=target_object,
         encoder_profile=encoder_profile,
     )
+    label = hw_encoder or "x264enc (CPU)"
+    print(f"\n[Pipeline] Encoder: {label}")
     print(f"[GStreamer] {shlex.join(pipeline)}\n")
+
     proc = _launch(pipeline, pass_fds=pass_fds)
+    if hw_encoder and _failed_immediately(proc):
+        print("[Pipeline] Hardware encoder failed immediately; retrying CPU x264enc")
+        pipeline = build_pipeline(
+            pw_fd=pw_fd, node_id=node_id,
+            width=width, height=height, fps=fps, bitrate=bitrate, port=port,
+            hw_encoder=None, host=host, stream_type=stream_type,
+            wifi_mode=server_mode, preserve_source_size=preserve_source_size,
+            encoder_profile=encoder_profile,
+        )
+        print(f"[GStreamer] {shlex.join(pipeline)}\n")
+        proc = _launch(pipeline, pass_fds=pass_fds)
     return proc

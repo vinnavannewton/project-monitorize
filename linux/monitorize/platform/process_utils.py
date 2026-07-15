@@ -9,7 +9,7 @@ from pathlib import Path
 
 from PyQt6.QtCore import QProcess
 
-LINUX_DIR = str(Path(__file__).resolve().parents[2])
+LINUX_DIR = str(Path(__file__).resolve().parents[1])
 
 
 def gst_has_element(name):

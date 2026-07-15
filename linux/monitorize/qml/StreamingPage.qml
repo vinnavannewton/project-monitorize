@@ -8,8 +8,6 @@ Item {
 
     property bool enableTouch: true
     property bool enableStylusFeatures: false
-    property bool secondTouchEnabled: true
-    property bool secondStylusEnabled: false
     property bool loadingSettings: true
     property bool showPairingCode: true
     property int duplicatePresetIndex: -1
@@ -46,17 +44,6 @@ Item {
         return String(Math.round(page.clampMbps(parseFloat(s2BitrateField.text)) * 1000))
     }
 
-    function secondResolutionValue() {
-        return s2ResCombo.currentText === "Custom..."
-            ? s2CustomW.text + "x" + s2CustomH.text
-            : s2ResCombo.currentText.split(" ")[0]
-    }
-
-    function secondFpsValue() {
-        return s2FpsCombo.currentText === "Custom..."
-            ? s2CustomFps.text : s2FpsCombo.currentText
-    }
-
     function setSecondBitrateMbps(value, save) {
         page.syncingSecondBitrate = true
         let mbps = page.clampMbps(value)
@@ -70,15 +57,10 @@ Item {
         if (page.loadingSettings) return
         backend.saveSecondDisplaySettings(
             s2ResCombo.currentText,
-            s2ResCombo.currentText === "Custom..." ? s2CustomW.text : "",
-            s2ResCombo.currentText === "Custom..." ? s2CustomH.text : "",
             s2FpsCombo.currentText,
-            s2FpsCombo.currentText === "Custom..." ? s2CustomFps.text : "",
             page.secondBitrateKbpsText(),
             s2EncoderCombo.currentText,
-            s2EncoderProfileCombo.currentText,
-            page.secondTouchEnabled,
-            page.secondStylusEnabled
+            s2EncoderProfileCombo.currentText
         )
     }
 
@@ -91,16 +73,9 @@ Item {
         if (s2) {
             let resIdx = s2ResCombo.find(s2["resolution"] || "1920x1080 (16:9)");
             s2ResCombo.currentIndex = resIdx !== -1 ? resIdx : 2;
-            if (s2["resolution"] === "Custom...") {
-                s2CustomW.text = s2["custom_w"] || "1920";
-                s2CustomH.text = s2["custom_h"] || "1080";
-            }
 
             let fpsIdx = s2FpsCombo.find(s2["fps"] || "60");
             s2FpsCombo.currentIndex = fpsIdx !== -1 ? fpsIdx : 1;
-            if (s2["fps"] === "Custom...") {
-                s2CustomFps.text = s2["custom_fps"] || "60";
-            }
 
             page.setSecondBitrateMbps(Number(s2["bitrate"] || "8000") / 1000, false);
 
@@ -109,9 +84,6 @@ Item {
 
             let profileIdx = s2EncoderProfileCombo.find(s2["encoder_profile"] || "Low Latency");
             s2EncoderProfileCombo.currentIndex = profileIdx !== -1 ? profileIdx : 0;
-            page.secondTouchEnabled = s2["enable_touch"] !== undefined ? s2["enable_touch"] : true;
-            page.secondStylusEnabled = s2["enable_stylus_features"] !== undefined
-                ? s2["enable_stylus_features"] : false;
         }
         page.loadingSettings = false;
     }
@@ -333,7 +305,7 @@ Item {
             Button {
                 id: displayActionButton
                 text: backend.secondStreamActive ? "Remove Third Display" : "Add Another Display"
-                visible: backend.detectedDe === "kde" || backend.detectedDe === "gnome" || backend.detectedDe === "hyprland"
+                visible: backend.detectedDe === "kde" || backend.detectedDe === "hyprland"
                 Layout.preferredWidth: page.actionButtonWidth
                 Layout.preferredHeight: page.actionButtonHeight
                 implicitWidth: page.actionButtonWidth
@@ -619,11 +591,7 @@ Item {
             }
 
             Text {
-                text: backend.detectedDe === "kde"
-                    ? "Creates Monitorize Display 2 in KDE.\nArrange it in System Settings → Display Configuration."
-                    : backend.detectedDe === "gnome"
-                    ? "Creates a second native GNOME virtual display.\nArrange it in Settings → Displays; GNOME may show matching monitor labels."
-                    : "Creates a second Hyprland HEADLESS display.\nWhen the portal opens, select that new display."
+                text: "Your desktop will open a screen-share picker.\nChoose the display to stream on the third-display port."
                 font.pixelSize: 12
                 color: theme.cardTextMuted
                 wrapMode: Text.Wrap
@@ -642,75 +610,17 @@ Item {
                 Text { text: "Resolution:"; color: theme.cardTextSecondary; font.pixelSize: 13 }
                 CustomComboBox {
                     id: s2ResCombo
-                    model: ["1280x720 (16:9)", "1280x800 (16:10)", "1920x1080 (16:9)", "1920x1200 (16:10)", "2560x1440 (16:9)", "2560x1600 (16:10)", "Custom..."]
+                    model: ["1280x720 (16:9)", "1280x800 (16:10)", "1920x1080 (16:9)", "1920x1200 (16:10)", "2560x1440 (16:9)", "2560x1600 (16:10)"]
                     currentIndex: 2
                     onActivated: page.saveSecondDisplaySettings()
-                }
-
-                Text {
-                    text: ""
-                    visible: s2ResCombo.currentText === "Custom..."
-                }
-                RowLayout {
-                    spacing: 8
-                    visible: s2ResCombo.currentText === "Custom..."
-
-                    CustomTextField {
-                        id: s2CustomW
-                        text: "1920"
-                        placeholderText: "Width"
-                        maximumLength: 4
-                        validator: IntValidator { bottom: 320; top: 7680 }
-                        Layout.preferredWidth: 92
-                        onTextEdited: page.saveSecondDisplaySettings()
-                    }
-                    Text { text: "×"; color: theme.cardTextSecondary; font.pixelSize: 18 }
-                    CustomTextField {
-                        id: s2CustomH
-                        text: "1080"
-                        placeholderText: "Height"
-                        maximumLength: 4
-                        validator: IntValidator { bottom: 240; top: 4320 }
-                        Layout.preferredWidth: 92
-                        onTextEdited: page.saveSecondDisplaySettings()
-                    }
-                    Text {
-                        text: "320–7680 × 240–4320"
-                        color: theme.cardTextMuted
-                        font.pixelSize: 10
-                    }
                 }
 
                 Text { text: "FPS:"; color: theme.cardTextSecondary; font.pixelSize: 13 }
                 CustomComboBox {
                     id: s2FpsCombo
-                    model: ["30", "60", "90", "120", "Custom..."]
+                    model: ["30", "60", "90", "120"]
                     currentIndex: 1
                     onActivated: page.saveSecondDisplaySettings()
-                }
-
-                Text {
-                    text: ""
-                    visible: s2FpsCombo.currentText === "Custom..."
-                }
-                RowLayout {
-                    spacing: 8
-                    visible: s2FpsCombo.currentText === "Custom..."
-
-                    CustomTextField {
-                        id: s2CustomFps
-                        text: "60"
-                        placeholderText: "FPS"
-                        maximumLength: 3
-                        validator: IntValidator { bottom: 24; top: 240 }
-                        Layout.preferredWidth: 92
-                        onTextEdited: page.saveSecondDisplaySettings()
-                    }
-                    Text {
-                        text: "24–240"
-                        color: theme.cardTextMuted
-                        font.pixelSize: 10
-                    }
                 }
 
                 Text { text: "Bitrate (Mbps):"; color: theme.cardTextSecondary; font.pixelSize: 13 }
@@ -775,37 +685,6 @@ Item {
                     model: ["Low Latency", "Balanced", "Quality"]
                     onActivated: page.saveSecondDisplaySettings()
                 }
-
-                Text { text: "Touch:"; color: theme.cardTextSecondary; font.pixelSize: 13 }
-                CustomToggle {
-                    id: s2TouchToggle
-                    text: "Enable touch for this display"
-                    checked: page.secondTouchEnabled
-                    onToggled: {
-                        page.secondTouchEnabled = checked
-                        page.saveSecondDisplaySettings()
-                    }
-                }
-
-                Text { text: "Stylus:"; color: theme.cardTextSecondary; font.pixelSize: 13 }
-                CustomToggle {
-                    id: s2StylusToggle
-                    text: "Enable stylus features for this display"
-                    checked: page.secondStylusEnabled
-                    onToggled: {
-                        page.secondStylusEnabled = checked
-                        page.saveSecondDisplaySettings()
-                    }
-                }
-
-                Text { text: "Encryption:"; color: theme.cardTextSecondary; font.pixelSize: 13 }
-                Text {
-                    text: backend.thirdEncryptionStatus
-                    color: theme.cardTextMuted
-                    font.pixelSize: 12
-                    wrapMode: Text.Wrap
-                    Layout.fillWidth: true
-                }
             }
 
             Item { Layout.preferredHeight: 6 }
@@ -839,20 +718,17 @@ Item {
                 }
 
                 CustomButton {
-                    text: backend.detectedDe === "kde" || backend.detectedDe === "gnome"
-                        ? "▶  Create Virtual Display"
-                        : "▶  Create Headless Display"
+                    text: "▶  Start Third Display"
                     implicitWidth: 170
                     implicitHeight: 36
                     onClicked: {
+                        let cleanRes = s2ResCombo.currentText.split(" ")[0]
                         backend.startSecondStream(
-                            page.secondResolutionValue(),
-                            page.secondFpsValue(),
+                            cleanRes,
+                            s2FpsCombo.currentText,
                             page.secondBitrateKbpsText(),
                             s2EncoderCombo.currentText,
-                            s2EncoderProfileCombo.currentText,
-                            page.secondTouchEnabled,
-                            page.secondStylusEnabled
+                            s2EncoderProfileCombo.currentText
                         )
                         page.saveSecondDisplaySettings()
                         addDisplayPopup.close()

@@ -10,7 +10,7 @@ on:
     branches:
       - main
     tags:
-      - "android-v*.*.*"
+      - "v*.*.*"
     paths:
       - "android/**"
 
@@ -53,7 +53,7 @@ jobs:
   release:
     name: Android Release
     needs: ci
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/android-v')
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -80,15 +80,15 @@ jobs:
       - name: Validate tag matches Gradle versionName
         run: |
           set -euo pipefail
-          TAG_VERSION="${GITHUB_REF_NAME#android-v}"
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
           if ! printf '%s\n' "$TAG_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-            echo "Tag $GITHUB_REF_NAME must use android-vMAJOR.MINOR.PATCH format, for example android-v0.2.7"
+            echo "Tag $GITHUB_REF_NAME must use vMAJOR.MINOR.PATCH format, for example v0.2.4"
             exit 1
           fi
 
           GRADLE_VERSION="$(grep -E '^val appVersionName = "' app/build.gradle.kts | sed -E 's/^val appVersionName = "([^"]+)".*/\1/')"
           if [ "$TAG_VERSION" != "$GRADLE_VERSION" ]; then
-            echo "Tag android-v$TAG_VERSION does not match Android versionName $GRADLE_VERSION"
+            echo "Tag v$TAG_VERSION does not match Android versionName $GRADLE_VERSION"
             exit 1
           fi
 
@@ -112,21 +112,19 @@ jobs:
           set -euo pipefail
           printf '%s' "$ANDROID_RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/android-release.jks"
 
-      - name: Build signed release artifacts
+      - name: Build signed release APK
         env:
           ANDROID_RELEASE_KEYSTORE: ${{ runner.temp }}/android-release.jks
           ANDROID_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEYSTORE_PASSWORD }}
           ANDROID_RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
           ANDROID_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
-        run: ./gradlew --no-daemon :app:assembleRelease :app:bundleRelease
+        run: ./gradlew --no-daemon :app:assembleRelease
 
-      - name: Upload signed release artifacts
+      - name: Upload signed APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: monitorize-android-${{ github.ref_name }}
-          path: |
-            android/app/build/outputs/apk/release/*.apk
-            android/app/build/outputs/bundle/release/*.aab
+          path: android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
       - name: Create GitHub release
@@ -137,41 +135,14 @@ jobs:
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release edit "$GITHUB_REF_NAME" \
               --title "$GITHUB_REF_NAME" \
-              --notes "Monitorize Android $GITHUB_REF_NAME" \
-              --draft=false \
-              --latest
+              --notes "Monitorize Android $GITHUB_REF_NAME"
           else
             gh release create "$GITHUB_REF_NAME" \
               --title "$GITHUB_REF_NAME" \
-              --notes "Monitorize Android $GITHUB_REF_NAME" \
-              --latest
+              --notes "Monitorize Android $GITHUB_REF_NAME"
           fi
 
       - name: Upload APK to GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "$GITHUB_REF_NAME" app/build/outputs/apk/release/*.apk --clobber
-
-      - name: Check Google Play service account
-        id: google_play
-        env:
-          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
-        run: |
-          set -euo pipefail
-          if [ -n "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" ]; then
-            echo "available=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON is not set; skipping Google Play upload."
-          fi
-
-      - name: Upload AAB to Google Play internal track
-        if: steps.google_play.outputs.available == 'true'
-        uses: r0adkll/upload-google-play@v1.1.5
-        with:
-          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
-          packageName: app.monitorize.android
-          releaseFiles: android/app/build/outputs/bundle/release/*.aab
-          tracks: internal
-          status: completed
-          releaseName: ${{ github.ref_name }}

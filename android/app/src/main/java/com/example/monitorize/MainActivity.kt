@@ -1,8 +1,7 @@
-package app.monitorize.android
+package com.example.monitorize
 
 import android.content.Context
 import android.content.Intent
-import android.content.SharedPreferences
 import android.net.wifi.WifiManager
 import android.util.Log
 import android.os.Build
@@ -18,11 +17,9 @@ import androidx.activity.compose.setContent
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -49,27 +46,24 @@ import androidx.compose.ui.zIndex
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import app.monitorize.android.discovery.DeviceDiscovery
-import app.monitorize.android.discovery.DiscoveredDevice
-import app.monitorize.android.input.InputEventSender
-import app.monitorize.android.streaming.H264Decoder
-import app.monitorize.android.streaming.StreamReceiver
-import app.monitorize.android.ui.theme.BreezeAccent as AccentIndigo
-import app.monitorize.android.ui.theme.BreezeBackground as BackgroundDark
-import app.monitorize.android.ui.theme.BreezeBorder as BorderDark
-import app.monitorize.android.ui.theme.BreezeButton as GreenAccent
-import app.monitorize.android.ui.theme.BreezeSurface as CardDark
-import app.monitorize.android.ui.theme.BreezeTextMuted as TextMuted
-import app.monitorize.android.ui.theme.MonitorizeTheme
+import com.example.monitorize.discovery.DeviceDiscovery
+import com.example.monitorize.discovery.DiscoveredDevice
+import com.example.monitorize.input.InputEventSender
+import com.example.monitorize.streaming.H264Decoder
+import com.example.monitorize.streaming.StreamReceiver
+import com.example.monitorize.ui.theme.BreezeAccent as AccentIndigo
+import com.example.monitorize.ui.theme.BreezeBackground as BackgroundDark
+import com.example.monitorize.ui.theme.BreezeBorder as BorderDark
+import com.example.monitorize.ui.theme.BreezeButton as GreenAccent
+import com.example.monitorize.ui.theme.BreezeSurface as CardDark
+import com.example.monitorize.ui.theme.BreezeTextMuted as TextMuted
+import com.example.monitorize.ui.theme.MonitorizeTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import org.json.JSONObject
-import java.util.Locale
 
 
 
@@ -83,29 +77,6 @@ enum class Screen { Home, Receive }
 private const val SURFACE_READY_RETRY_INTERVAL_MS = 75L
 private const val SURFACE_READY_RETRY_TIMEOUT_MS = 3000L
 private const val SURFACE_READY_BLOCKED_LOG_INTERVAL_MS = 500L
-
-private const val MAX_RECENT_WIFI_DEVICES = 5
-
-internal fun recentHostKey(device: DiscoveredDevice): String =
-    "${device.ip.trim().lowercase(Locale.ROOT)}:${device.port}"
-
-private fun isRememberableWifiDevice(device: DiscoveredDevice): Boolean =
-    !device.isUsb && device.ip.isNotBlank() && device.ip != "127.0.0.1"
-
-internal fun updatedRecentDevices(
-    existing: List<DiscoveredDevice>,
-    device: DiscoveredDevice
-): List<DiscoveredDevice> {
-    if (!isRememberableWifiDevice(device)) return existing
-    val hostKey = recentHostKey(device)
-    return (listOf(device.copy(isUsb = false)) + existing.filterNot { recentHostKey(it) == hostKey })
-        .take(MAX_RECENT_WIFI_DEVICES)
-}
-
-internal fun removedRecentDevices(
-    existing: List<DiscoveredDevice>,
-    device: DiscoveredDevice
-): List<DiscoveredDevice> = existing.filterNot { recentHostKey(it) == recentHostKey(device) }
 
 class MainActivity : ComponentActivity() {
 
@@ -138,7 +109,6 @@ class MainActivity : ComponentActivity() {
         private const val DEFAULT_STREAM_HEIGHT = 800
         private const val MIN_STREAM_DIMENSION = 2
         private const val MAX_STREAM_DIMENSION = 7680
-        private const val RECENT_WIFI_DEVICES_KEY = "recent_wifi_devices"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -177,7 +147,6 @@ class MainActivity : ComponentActivity() {
             var decodedWidth by remember { mutableIntStateOf(width) }
             var decodedHeight by remember { mutableIntStateOf(height) }
             var selectedDevice by remember { mutableStateOf<DiscoveredDevice?>(null) }
-            var recentDevices by remember { mutableStateOf(loadRecentDevices()) }
             var disconnectionMessage by remember { mutableStateOf<String?>(
                 if (intent.getBooleanExtra("SHOW_DISCONNECTED", false)) "Disconnected" else null
             ) }
@@ -229,7 +198,6 @@ class MainActivity : ComponentActivity() {
                             Screen.Home -> {
                                 HomeScreen(
                                     devices = discovery.devices,
-                                    recentDevices = recentDevices,
                                     onDeviceSelected = { device ->
                                         discovery.stopDiscovery()
                                         decodedWidth = width
@@ -237,9 +205,6 @@ class MainActivity : ComponentActivity() {
                                         selectedDevice = device
                                         currentScreen = Screen.Receive
                                         disconnectionMessage = null 
-                                    },
-                                    onForgetDevice = { device ->
-                                        recentDevices = forgetRecentDevice(device)
                                     },
                                     onSettingsToggle = { isSettingsOpen = true },
                                     onStartDiscovery = { discovery.startDiscovery() }
@@ -276,12 +241,7 @@ class MainActivity : ComponentActivity() {
                                                     decodedWidth = decodedW
                                                     decodedHeight = decodedH
                                                 },
-                                                onFirstFrameRendered = {
-                                                    selectedDevice?.let { device ->
-                                                        recentDevices = rememberRecentDevice(device)
-                                                    }
-                                                    onFirstFrameRendered()
-                                                },
+                                                onFirstFrameRendered = onFirstFrameRendered,
                                                 onDisconnect = {
                                                     runOnUiThread {
                                                         disconnectionMessage = "Connection stopped"
@@ -299,7 +259,7 @@ class MainActivity : ComponentActivity() {
                                         }
                                     },
                                     onSurfaceRenderTimeout = {
-                                        status.value = "Video surface did not render; try moving your mouse into the virtual display"
+                                        status.value = "Video surface did not render; reconnect the receiver"
                                     },
                                     onInputEvent = { event, viewW, viewH -> inputSender?.send(event, viewW, viewH) }
                                 )
@@ -313,11 +273,7 @@ class MainActivity : ComponentActivity() {
                             exit = slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(300)),
                             modifier = Modifier.align(Alignment.CenterEnd).zIndex(10f)
                         ) {
-                            val panelWidthFraction = when {
-                                isTablet -> 0.38f
-                                isLandscapeMobile -> 0.42f
-                                else -> 0.74f
-                            }
+                            val panelWidthFraction = if (isTablet || isLandscapeMobile) 0.45f else 0.85f
 
                             Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(panelWidthFraction).background(CardDark).border(1.dp, BorderDark)) {
                                 SettingsPanel(
@@ -477,100 +433,6 @@ class MainActivity : ComponentActivity() {
         val clamped = bounded.coerceIn(MIN_STREAM_DIMENSION, MAX_STREAM_DIMENSION)
         val even = if (clamped % 2 == 0) clamped else clamped - 1
         return even.coerceAtLeast(MIN_STREAM_DIMENSION)
-    }
-
-    private fun loadRecentDevices(): List<DiscoveredDevice> {
-        val saved = prefs.getString(RECENT_WIFI_DEVICES_KEY, null) ?: return emptyList()
-        return try {
-            val devices = JSONArray(saved).let { entries ->
-                buildList {
-                    for (index in 0 until entries.length()) {
-                        val entry = entries.optJSONObject(index) ?: continue
-                        val host = entry.optString("ip").trim()
-                        val port = entry.optInt("port", 7110)
-                        if (host.isBlank() || host == "127.0.0.1" || port !in 1..65532) continue
-                        add(
-                            DiscoveredDevice(
-                                name = entry.optString("name").ifBlank { "WiFi Device" },
-                                ip = host,
-                                port = port,
-                                encrypted = entry.optBoolean("encrypted", false),
-                                fingerprint = entry.optString("fingerprint").takeIf { it.isNotBlank() }
-                            )
-                        )
-                    }
-                }
-            }
-            devices.asReversed().fold(emptyList()) { recent, device ->
-                updatedRecentDevices(recent, device)
-            }
-        } catch (_: Exception) {
-            emptyList()
-        }
-    }
-
-    private fun rememberRecentDevice(device: DiscoveredDevice): List<DiscoveredDevice> {
-        if (!isRememberableWifiDevice(device)) return loadRecentDevices()
-        val remembered = device.copy(
-            fingerprint = device.fingerprint ?: prefs.getString("tls_host_${device.ip}", null),
-            isUsb = false,
-            inputTransport = null,
-            serviceName = ""
-        )
-        val recentDevices = updatedRecentDevices(loadRecentDevices(), remembered)
-        persistRecentDevices(recentDevices)
-        return recentDevices
-    }
-
-    private fun forgetRecentDevice(device: DiscoveredDevice): List<DiscoveredDevice> {
-        val savedDevices = loadRecentDevices()
-        val fingerprints = buildSet {
-            add(device.fingerprint)
-            add(prefs.getString("tls_host_${device.ip}", null))
-            savedDevices.filter { recentHostKey(it) == recentHostKey(device) }
-                .forEach { add(it.fingerprint) }
-        }.filterNotNull().filter { it.isNotBlank() }
-        val recentDevices = removedRecentDevices(savedDevices, device)
-
-        prefs.edit().apply {
-            remove("tls_host_${device.ip}")
-            prefs.all
-                .filter { (key, value) ->
-                    key.startsWith("tls_host_") && value is String && value in fingerprints
-                }
-                .keys
-                .forEach { remove(it) }
-            fingerprints.forEach { remove("tls_token_$it") }
-            writeRecentDevices(this, recentDevices)
-            apply()
-        }
-        return recentDevices
-    }
-
-    private fun persistRecentDevices(devices: List<DiscoveredDevice>) {
-        prefs.edit().apply {
-            writeRecentDevices(this, devices)
-            apply()
-        }
-    }
-
-    private fun writeRecentDevices(editor: SharedPreferences.Editor, devices: List<DiscoveredDevice>) {
-        if (devices.isEmpty()) {
-            editor.remove(RECENT_WIFI_DEVICES_KEY)
-            return
-        }
-        val entries = JSONArray()
-        devices.forEach { device ->
-            entries.put(
-                JSONObject()
-                    .put("name", device.name)
-                    .put("ip", device.ip)
-                    .put("port", device.port)
-                    .put("encrypted", device.encrypted)
-                    .put("fingerprint", device.fingerprint ?: "")
-            )
-        }
-        editor.putString(RECENT_WIFI_DEVICES_KEY, entries.toString())
     }
 
     private fun registerSurfaceCreated(): Long = synchronized(streamStateLock) {
@@ -806,9 +668,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun HomeScreen(
     devices: List<DiscoveredDevice>,
-    recentDevices: List<DiscoveredDevice>,
     onDeviceSelected: (DiscoveredDevice) -> Unit,
-    onForgetDevice: (DiscoveredDevice) -> Unit,
     onSettingsToggle: () -> Unit,
     onStartDiscovery: () -> Unit = {}
 ) {
@@ -822,24 +682,12 @@ fun HomeScreen(
         else -> 28.dp
     }
     val topSpacerHeight = when {
-        isTablet -> 104.dp
-        isLandscapeMobile -> 56.dp
-        else -> 88.dp
+        isTablet -> 100.dp
+        isLandscapeMobile -> 40.dp
+        else -> 60.dp
     }
-    val devicesSpacing = if (isLandscapeMobile) 12.dp else 22.dp
+    val devicesSpacing = if (isLandscapeMobile) 10.dp else 14.dp
     val settingsButtonPadding = if (isLandscapeMobile) 16.dp else 24.dp
-    val settingsButtonSize = when {
-        isTablet -> 48.dp
-        isLandscapeMobile -> 36.dp
-        else -> 44.dp
-    }
-    val settingsIconSize = when {
-        isTablet -> 24.dp
-        isLandscapeMobile -> 18.dp
-        else -> 22.dp
-    }
-    val refreshButtonWidth = if (isLandscapeMobile) 82.dp else 94.dp
-    val refreshButtonHeight = if (isLandscapeMobile) 34.dp else 38.dp
     val manualRowPadding = if (isLandscapeMobile) 16.dp else 32.dp
     val manualSpacerHeight = if (isLandscapeMobile) 12.dp else 16.dp
     val manualFieldHeight = if (isLandscapeMobile) 48.dp else 56.dp
@@ -852,131 +700,92 @@ fun HomeScreen(
     var manualIp by remember { mutableStateOf(prefs.getString("manual_ip", "") ?: "") }
     var manualPort by remember { mutableStateOf(prefs.getString("manual_port", "7110") ?: "7110") }
     var manualError by remember { mutableStateOf<String?>(null) }
-    var deviceToForget by remember { mutableStateOf<DiscoveredDevice?>(null) }
-    val recentHostKeys = recentDevices.map(::recentHostKey).toSet()
-    val discoveredByHost = devices.filterNot { it.isUsb }.associateBy(::recentHostKey)
-    val displayedRecentDevices = recentDevices.map { recent ->
-        discoveredByHost[recentHostKey(recent)] ?: recent
-    }
-    val otherDevices = devices.filter { it.isUsb || recentHostKey(it) !in recentHostKeys }
 
     LaunchedEffect(Unit) {
         onStartDiscovery()
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        IconButton(
-            onClick = onSettingsToggle,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(settingsButtonPadding)
-                .size(settingsButtonSize)
-                .clip(CircleShape)
-                .background(CardDark)
-        ) {
-            Icon(
-                Icons.Default.Settings,
-                contentDescription = "Settings",
-                tint = Color.White,
-                modifier = Modifier.size(settingsIconSize)
-            )
+        if (isTablet) {
+            IconButton(
+                onClick = onSettingsToggle,
+                modifier = Modifier.align(Alignment.TopEnd).padding(settingsButtonPadding).size(48.dp).background(CardDark, CircleShape)
+            ) {
+                Icon(Icons.Default.Settings, contentDescription = "Settings", tint = Color.White)
+            }
         }
 
         Column(
             modifier = Modifier.fillMaxSize().padding(horizontal = horizontalPadding)
         ) {
             Spacer(modifier = Modifier.height(topSpacerHeight))
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(devicesSpacing),
-                contentPadding = PaddingValues(bottom = 16.dp)
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                if (displayedRecentDevices.isNotEmpty()) {
-                    item {
-                        Text(
-                            "FREQUENTLY CONNECTED:",
-                            fontSize = 11.sp,
-                            color = TextMuted,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 2.sp
-                        )
-                    }
-                    items(displayedRecentDevices, key = { recentHostKey(it) }) { device ->
-                        DeviceItem(
-                            device = device,
-                            onClick = { onDeviceSelected(device) },
-                            onLongClick = { deviceToForget = device }
-                        )
-                    }
-                }
-
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                Text(
+                    "DEVICES:",
+                    fontSize = 11.sp,
+                    color = TextMuted,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 2.sp
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(AccentIndigo.copy(alpha = 0.15f))
+                            .border(1.dp, AccentIndigo.copy(alpha = 0.4f), RoundedCornerShape(6.dp))
+                            .clickable { onStartDiscovery() }
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
                     ) {
                         Text(
-                            "DEVICES:",
+                            text = "REFRESH",
+                            color = AccentIndigo,
                             fontSize = 11.sp,
-                            color = TextMuted,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 2.sp
+                            fontWeight = FontWeight.Bold
                         )
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(AccentIndigo.copy(alpha = 0.15f))
-                                    .border(1.dp, AccentIndigo.copy(alpha = 0.4f), RoundedCornerShape(6.dp))
-                                    .clickable { onStartDiscovery() }
-                                    .padding(horizontal = 12.dp, vertical = 6.dp)
-                            ) {
-                                Text(
-                                    text = "REFRESH",
-                                    color = AccentIndigo,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                            if (!isTablet) {
-                                IconButton(
-                                    onClick = onSettingsToggle,
-                                    modifier = Modifier
-                                        .size(if (isLandscapeMobile) 32.dp else 36.dp)
-                                        .background(CardDark, CircleShape)
-                                ) {
-                                    Icon(
-                                        Icons.Default.Settings,
-                                        contentDescription = "Settings",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(if (isLandscapeMobile) 18.dp else 20.dp)
-                                    )
-                                }
-                            }
-                        }
                     }
-                }
-
-                if (otherDevices.isEmpty()) {
-                    item {
-                        Box(
-                            modifier = Modifier.fillParentMaxSize(),
-                            contentAlignment = Alignment.Center
+                    if (!isTablet) {
+                        IconButton(
+                            onClick = onSettingsToggle,
+                            modifier = Modifier
+                                .size(if (isLandscapeMobile) 32.dp else 36.dp)
+                                .background(CardDark, CircleShape)
                         ) {
-                            Text(
-                                "Searching for devices...\n(Check USB or Wi-Fi connection)",
-                                color = TextMuted,
-                                fontSize = 14.sp,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            Icon(
+                                Icons.Default.Settings,
+                                contentDescription = "Settings",
+                                tint = Color.White,
+                                modifier = Modifier.size(if (isLandscapeMobile) 18.dp else 20.dp)
                             )
                         }
                     }
-                } else {
-                    items(otherDevices, key = { if (it.isUsb) "usb" else recentHostKey(it) }) { device ->
+                }
+            }
+            Spacer(modifier = Modifier.height(devicesSpacing))
+
+            if (devices.isEmpty()) {
+                Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Text(
+                        "Searching for devices...\n(Check USB or Wi-Fi connection)",
+                        color = TextMuted,
+                        fontSize = 14.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(devicesSpacing),
+                    contentPadding = PaddingValues(bottom = 16.dp)
+                ) {
+                    items(devices) { device ->
                         DeviceItem(device = device, onClick = { onDeviceSelected(device) })
                     }
                 }
@@ -1057,35 +866,11 @@ fun HomeScreen(
                 }
             }
         }
-
-        deviceToForget?.let { device ->
-            AlertDialog(
-                onDismissRequest = { deviceToForget = null },
-                title = { Text("Forget saved device?") },
-                text = {
-                    Text("Remove ${device.name} from Frequently Connected and forget its saved credentials?")
-                },
-                confirmButton = {
-                    TextButton(onClick = {
-                        onForgetDevice(device)
-                        deviceToForget = null
-                    }) { Text("Forget") }
-                },
-                dismissButton = {
-                    TextButton(onClick = { deviceToForget = null }) { Text("Cancel") }
-                }
-            )
-        }
     }
 }
 
 @Composable
-@OptIn(ExperimentalFoundationApi::class)
-fun DeviceItem(
-    device: DiscoveredDevice,
-    onClick: () -> Unit,
-    onLongClick: (() -> Unit)? = null
-) {
+fun DeviceItem(device: DiscoveredDevice, onClick: () -> Unit) {
     val configuration = LocalConfiguration.current
     val isTablet = configuration.smallestScreenWidthDp >= 600
     val isLandscapeMobile = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE && !isTablet
@@ -1094,23 +879,13 @@ fun DeviceItem(
     val horizontalPadding = if (isLandscapeMobile) 16.dp else 18.dp
     val titleFontSize = if (isLandscapeMobile) 16.sp else 18.sp
 
-    val interactionModifier = if (onLongClick == null) {
-        Modifier.clickable(onClick = onClick)
-    } else {
-        Modifier.combinedClickable(
-            onClick = onClick,
-            onLongClick = onLongClick,
-            onLongClickLabel = "Forget saved device"
-        )
-    }
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(CardDark)
             .border(1.dp, BorderDark, RoundedCornerShape(12.dp))
-            .then(interactionModifier)
+            .clickable(onClick = onClick)
             .padding(horizontal = horizontalPadding, vertical = verticalPadding),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -1123,7 +898,7 @@ fun DeviceItem(
             )
             
             Text(
-                if (device.isUsb) device.ip else "${device.ip}:${device.port}",
+                device.ip, 
                 color = Color.White.copy(alpha = 0.7f), 
                 fontSize = 13.sp,
                 modifier = Modifier.padding(top = 2.dp)
@@ -1257,21 +1032,14 @@ fun SettingsPanel(
 
     val configuration = LocalConfiguration.current
     val isTablet = configuration.smallestScreenWidthDp >= 600
-    val panelHorizontalPadding = if (isTablet) 28.dp else 18.dp
-    val panelTopPadding = if (isTablet) 40.dp else 52.dp
-    val panelBottomPadding = if (isTablet) 28.dp else 20.dp
+    val panelPadding = if (isTablet) 28.dp else 20.dp
     val titleSize = if (isTablet) 22.sp else 18.sp
     val spacingHeight = if (isTablet) 24.dp else 16.dp
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(
-                start = panelHorizontalPadding,
-                top = panelTopPadding,
-                end = panelHorizontalPadding,
-                bottom = panelBottomPadding,
-            )
+            .padding(panelPadding)
             .verticalScroll(rememberScrollState())
     ) {
         Text("Resolution Settings", fontSize = titleSize, fontWeight = FontWeight.Bold, color = Color.White)
