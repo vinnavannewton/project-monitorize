@@ -8,6 +8,7 @@ import json
 from PyQt6.QtCore import QSettings
 
 from monitorize.config.validation import (
+    DEFAULT_SECONDARY_RESOLUTION,
     credential_host_key,
     normalize_host,
     sanitize_bitrate,
@@ -205,25 +206,61 @@ def load_general_settings() -> dict:
 
 
 def save_second_display_settings(*, resolution: str, fps: str, bitrate: str,
-                                 encoder: str, encoder_profile: str):
-    _save_group("second_display", {
+                                 encoder: str, encoder_profile: str,
+                                 enable_touch: bool = True,
+                                 enable_stylus_features: bool = False,
+                                 custom_w: str = "", custom_h: str = "",
+                                 custom_fps: str = ""):
+    values = {
         "resolution": resolution,
-        "fps": str(sanitize_fps(fps)),
+        "custom_w": "",
+        "custom_h": "",
+        "fps": fps,
+        "custom_fps": "",
         "bitrate": str(sanitize_bitrate(bitrate)),
         "encoder": sanitize_encoder(encoder),
         "encoder_profile": sanitize_encoder_profile(encoder_profile),
-    })
+        "enable_touch": bool(enable_touch),
+        "enable_stylus_features": bool(enable_stylus_features),
+    }
+    if resolution == "Custom...":
+        width, height = sanitize_resolution(
+            f"{custom_w}x{custom_h}", DEFAULT_SECONDARY_RESOLUTION
+        )
+        values["custom_w"], values["custom_h"] = str(width), str(height)
+    if fps == "Custom...":
+        values["custom_fps"] = str(sanitize_fps(custom_fps))
+    else:
+        values["fps"] = str(sanitize_fps(fps))
+    _save_group("second_display", values)
 
 
 def load_second_display_settings() -> dict:
     data = _load_group("second_display", {
         "resolution": "1920x1080 (16:9)",
+        "custom_w": "",
+        "custom_h": "",
         "fps": "60",
+        "custom_fps": "",
         "bitrate": "8000",
         "encoder": "Software (CPU / x264enc)",
         "encoder_profile": "Low Latency",
-    })
-    data["fps"] = str(sanitize_fps(data["fps"]))
+        "enable_touch": True,
+        "enable_stylus_features": False,
+    }, ("enable_touch", "enable_stylus_features"))
+    if data["resolution"] == "Custom...":
+        width, height = sanitize_resolution(
+            f"{data.get('custom_w', '')}x{data.get('custom_h', '')}",
+            DEFAULT_SECONDARY_RESOLUTION,
+        )
+        data["custom_w"], data["custom_h"] = str(width), str(height)
+    else:
+        data["custom_w"] = data["custom_h"] = ""
+    if data["fps"] == "Custom...":
+        data["custom_fps"] = str(sanitize_fps(data.get("custom_fps", "")))
+    else:
+        data["fps"] = str(sanitize_fps(data["fps"]))
+        data["custom_fps"] = ""
     data["bitrate"] = str(sanitize_bitrate(data["bitrate"]))
     data["encoder"] = sanitize_encoder(data["encoder"])
     data["encoder_profile"] = sanitize_encoder_profile(data["encoder_profile"])
@@ -286,6 +323,10 @@ def _normalize_preset(raw: dict) -> dict | None:
             "encoder_profile": sanitize_encoder_profile(
                 third.get("encoder_profile", "Low Latency")
             ),
+            "enable_touch": bool(third.get("enable_touch", True)),
+            "enable_stylus_features": bool(
+                third.get("enable_stylus_features", False)
+            ),
         })
     return preset
 
@@ -328,7 +369,6 @@ def save_receiver_settings(*, ip: str, port: str, use_encryption: bool = True,
         "decoder": sanitize_decoder(decoder),
     })
 
-
 def load_receiver_settings() -> dict:
     data = _load_group("receiver", {
         "manual_ip": "",
@@ -342,30 +382,7 @@ def load_receiver_settings() -> dict:
     return data
 
 
-def _kde_virtual_group(slot: str) -> str:
-    return "kde_virtual_primary"
-
-
-def load_kde_virtual_layout(slot: str = "primary") -> dict:
-    data = _load_group(_kde_virtual_group(slot), {
-        "x": "", "y": "", "rotation": "",
-    })
-    if slot == "primary" and not data["x"] and not data["y"]:
-        data.update(_load_group("kde_virtual", {"x": "", "y": ""}))
-    try:
-        data["position"] = (int(float(data["x"])), int(float(data["y"])))
-    except (TypeError, ValueError):
-        data["position"] = None
-    return {"position": data["position"], "rotation": str(data["rotation"] or "")}
-
-
-def save_kde_virtual_layout(slot: str, x: int, y: int, rotation="") -> None:
-    _save_group(_kde_virtual_group(slot), {
-        "x": int(x), "y": int(y), "rotation": str(rotation or ""),
-    })
-
-
-def _gnome_virtual_group(slot: str) -> str:
+def _gnome_virtual_group(slot: str = "primary") -> str:
     return "gnome_virtual_primary"
 
 
@@ -375,14 +392,33 @@ def load_gnome_virtual_layout(slot: str = "primary") -> dict:
         layout = json.loads(data["layout"]) if data["layout"] else None
     except (TypeError, ValueError, json.JSONDecodeError):
         layout = None
-    if not isinstance(layout, list):
-        layout = None
-    return {"logical_monitors": layout}
+    if isinstance(layout, list):
+        layout = {"version": 2, "topologies": {"primary": layout}}
+    if not isinstance(layout, dict) or layout.get("version") != 2:
+        layout = {"version": 2, "topologies": {}}
+    topologies = layout.get("topologies")
+    if not isinstance(topologies, dict):
+        topologies = {}
+    saved = topologies.get(slot)
+    return {"logical_monitors": saved if isinstance(saved, list) else None}
 
 
 def save_gnome_virtual_layout(slot: str, logical_monitors: list) -> None:
-    _save_group(_gnome_virtual_group(slot), {
-        "layout": json.dumps(logical_monitors, separators=(",", ":")),
+    data = _load_group(_gnome_virtual_group(), {"layout": ""})
+    try:
+        stored = json.loads(data["layout"]) if data["layout"] else {}
+    except (TypeError, ValueError, json.JSONDecodeError):
+        stored = {}
+    if isinstance(stored, list):
+        stored = {"version": 2, "topologies": {"primary": stored}}
+    if not isinstance(stored, dict) or stored.get("version") != 2:
+        stored = {"version": 2, "topologies": {}}
+    topologies = stored.setdefault("topologies", {})
+    if not isinstance(topologies, dict):
+        topologies = stored["topologies"] = {}
+    topologies[slot] = logical_monitors
+    _save_group(_gnome_virtual_group(), {
+        "layout": json.dumps(stored, separators=(",", ":")),
     })
 
 
@@ -409,3 +445,47 @@ def clear_receiver_credentials(host: str) -> None:
     key = hashlib.sha256(credential_host_key(host).encode()).hexdigest()
     s.remove(f"receiver_trust/{key}")
     s.sync()
+
+
+
+
+def load_recent_usb_devices() -> list[dict]:
+    s = _get_settings()
+    raw = s.value("recent/usb_devices", "[]")
+    try:
+        devices = json.loads(raw)
+        return devices if isinstance(devices, list) else []
+    except Exception:
+        return []
+
+
+def add_recent_usb_device(device: dict) -> None:
+    s = _get_settings()
+    devices = load_recent_usb_devices()
+    devices = [d for d in devices if isinstance(d, dict) and d.get("serial") != device.get("serial")]
+    devices.insert(0, device)
+    devices = devices[:5]
+    s.setValue("recent/usb_devices", json.dumps(devices))
+    s.sync()
+    os.chmod(CONFIG_FILE, 0o600)
+
+
+def load_recent_wifi_devices() -> list[dict]:
+    s = _get_settings()
+    raw = s.value("recent/wifi_devices", "[]")
+    try:
+        devices = json.loads(raw)
+        return devices if isinstance(devices, list) else []
+    except Exception:
+        return []
+
+
+def add_recent_wifi_device(device: dict) -> None:
+    s = _get_settings()
+    devices = load_recent_wifi_devices()
+    devices = [d for d in devices if isinstance(d, dict) and d.get("ip") != device.get("ip")]
+    devices.insert(0, device)
+    devices = devices[:5]
+    s.setValue("recent/wifi_devices", json.dumps(devices))
+    s.sync()
+    os.chmod(CONFIG_FILE, 0o600)

@@ -16,7 +16,7 @@ class DiscoveryService(QObject):
         self.browser = None
         self.discovery_zc = None
         self.advertisement_zc = None
-        self.advertisement = None
+        self.advertisements = []
         self.advertisement_state = None
         self.service_names = {}
 
@@ -151,36 +151,71 @@ class DiscoveryService(QObject):
                 pass
             self.discovery_zc = None
 
-    def advertise(self, ip, encrypted, third_available, fps=60):
+    def advertise(self, ip, encrypted, third_available, fps=60, third_fps=None):
         try:
             from zeroconf import ServiceInfo, Zeroconf
             hostname = socket.gethostname()
-            properties = {
-                "name": hostname,
-                "port": 7110,
-                "fps": str(sanitize_fps(fps)),
+            fingerprint = ""
+            if encrypted:
+                from monitorize.security.tls_proxy import certificate_fingerprint
+                fingerprint = certificate_fingerprint()
+
+            def properties(name, port, stream_fps):
+                values = {
+                    "name": name,
+                    "port": port,
+                    "fps": str(sanitize_fps(stream_fps)),
+                    "encrypted": "1" if encrypted else "0",
+                }
+                if encrypted:
+                    values["fingerprint"] = fingerprint
+                    values["input_transport"] = "udp-aesgcm-v1"
+                return values
+
+            primary_properties = properties(
+                f"{hostname} — First Virtual Monitor", 7110, fps
+            )
+            primary_properties.update({
                 "encrypted": "1" if encrypted else "0",
                 "third_available": "1" if third_available else "0",
                 "third_port": "7114",
-            }
-            if encrypted:
-                from monitorize.security.tls_proxy import certificate_fingerprint
-                properties["fingerprint"] = certificate_fingerprint()
-                properties["input_transport"] = "udp-aesgcm-v1"
-            state = (ip, bool(encrypted), bool(third_available), tuple(sorted(properties.items())))
+            })
+            advertised = [
+                ("First Virtual Monitor", 7110, primary_properties),
+            ]
+            if third_available:
+                advertised.append((
+                    "Second Virtual Monitor",
+                    7114,
+                    properties(
+                        f"{hostname} — Second Virtual Monitor",
+                        7114,
+                        fps if third_fps is None else third_fps,
+                    ),
+                ))
+            state = (
+                ip,
+                tuple(
+                    (label, port, tuple(sorted(values.items())))
+                    for label, port, values in advertised
+                ),
+            )
             if self.advertisement_zc is not None and state == self.advertisement_state:
                 return
             self.stop_advertising()
             self.advertisement_zc = Zeroconf()
-            self.advertisement = ServiceInfo(
-                "_monitorize._tcp.local.",
-                f"{hostname}._monitorize._tcp.local.",
-                addresses=[socket.inet_aton(ip)],
-                port=7110,
-                properties=properties,
-                server=f"{hostname}.local.",
-            )
-            self.advertisement_zc.register_service(self.advertisement)
+            instance_host = hostname[:36]
+            for label, port, values in advertised:
+                info = ServiceInfo(
+                    "_monitorize._tcp.local.",
+                    f"{instance_host} {label}._monitorize._tcp.local.",
+                    addresses=[socket.inet_aton(ip)],
+                    port=port,
+                    properties=values,
+                    server=f"{hostname}.local.",
+                )
+                self.advertisement_zc.register_service(info)
+                self.advertisements.append(info)
             self.advertisement_state = state
         except Exception as exc:
             print("Zeroconf registration/update failed:", exc)
@@ -189,9 +224,9 @@ class DiscoveryService(QObject):
     def stop_advertising(self):
         if self.advertisement_zc is None:
             return
-        if self.advertisement is not None:
+        for advertisement in self.advertisements:
             try:
-                self.advertisement_zc.unregister_service(self.advertisement)
+                self.advertisement_zc.unregister_service(advertisement)
             except Exception:
                 pass
         try:
@@ -199,7 +234,7 @@ class DiscoveryService(QObject):
         except Exception:
             pass
         self.advertisement_zc = None
-        self.advertisement = None
+        self.advertisements = []
         self.advertisement_state = None
 
     def close(self):

@@ -39,6 +39,40 @@ def touch_payload(action, cid, x):
 
 
 class ProxyAuthTest(unittest.TestCase):
+    def test_main_starts_second_encrypted_input_listener(self):
+        proxy = Mock()
+        threads = []
+
+        class FakeThread:
+            def __init__(self, target, args=(), daemon=False):
+                threads.append((target, args, daemon))
+
+            def start(self):
+                pass
+
+        with (
+            patch("monitorize.security.tls_proxy.ensure_identity", return_value=(Mock(), Mock())),
+            patch("monitorize.security.tls_proxy.create_server_context", return_value=Mock()),
+            patch("monitorize.security.tls_proxy.certificate_fingerprint", return_value="F" * 64),
+            patch("monitorize.security.tls_proxy.Proxy", return_value=proxy),
+            patch("monitorize.security.tls_proxy.threading.Thread", FakeThread),
+            patch(
+                "monitorize.security.tls_proxy.argparse.ArgumentParser.parse_args",
+                return_value=argparse.Namespace(
+                    video_port=7110, video_backend=7112,
+                    input_port=7113, input_backend=7116,
+                    second_video_port=7114, second_video_backend=7115,
+                    second_input_port=7117, second_input_backend=7118,
+                    debug=False,
+                ),
+            ),
+        ):
+            tls_proxy.main()
+
+        self.assertIn(
+            (proxy.serve_udp, (7117, 7118, "F" * 64), True), threads
+        )
+
     def test_pairing_code_is_reusable_and_tokens_reconnect(self):
         with tempfile.TemporaryDirectory() as directory:
             tls_proxy.TOKEN_FILE = Path(directory) / "token"

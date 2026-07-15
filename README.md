@@ -59,11 +59,9 @@
   </tr>
 </table>
 
-
-
 ### Android:
 
-**Install the APK from the [Releases](https://github.com/vinnavannewton/project-monitorize/releases/latest) section.**
+**Install the APK from Android [Releases](https://github.com/vinnavannewton/project-monitorize/releaseslatest).**
 
 Or build from source:
 
@@ -80,8 +78,6 @@ adb shell am start -n com.example.monitorize/.MainActivity
 1. After starting the stream in the desktop application make sure you go to your display settings and configure the newly created virtual display.
 
 2. When made changes to the virtual display's position and applied, then the stream crashes, it's normal just restart the stream and the virtual monitor will spawn in the previous applied position.
-
-
 
 ### Notes:
 
@@ -113,23 +109,25 @@ Please read the [Contribution Guide](https://github.com/vinnavannewton/project-m
 
 - [x] Stable gnome.
 
-- [x] Laptop as a viewer.
+- [x] Linux laptop as a viewer.
+
+- [ ] Windows laptop as a viewer.
 
 - [ ] Multi monitor setup.
 
-- [ ] Stable nvidia encoder (waiting for driver 610.x which implemented proper DMA BUF).
+- [x] NVIDIA NVENC with automatic DMA-BUF/GL, CUDA-upload, system-memory, and CPU fallback paths.
 
 - [ ] AppImage.
 
 ---
 
-Star History
+## Star History
 
-<a href="https://www.star-history.com/#vinnavannewton/project-monitorize&Date">
+<a href="https://www.star-history.com/?type=timeline&repos=vinnavannewton%2Fproject-monitorize">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=vinnavannewton/project-monitorize&type=date&theme=dark&legend=top-left&cache=20260704" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=vinnavannewton/project-monitorize&type=date&legend=top-left&cache=20260704" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=vinnavannewton/project-monitorize&type=date&legend=top-left&cache=20260704" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=vinnavannewton/project-monitorize&type=timeline&theme=dark&legend=top-left&sealed_token=i7tImjFAdn6mJ7yyA6dCuwhVSy9r7uKrNKAkLLhC-1M3qLL9yJIwEQM0Fdf0M5QZGhCq_-7SEIzjL2sZDwbC0p39iYygcf1qunSnjYfURTQmwsVJGtyRRkZcv2apbaeXmn0rW6vGgif5DjDrhPsMAgM82DP2VRXDcxAkL2dDMvJj6fZocbabPGEMA_F6" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=vinnavannewton/project-monitorize&type=timeline&legend=top-left&sealed_token=i7tImjFAdn6mJ7yyA6dCuwhVSy9r7uKrNKAkLLhC-1M3qLL9yJIwEQM0Fdf0M5QZGhCq_-7SEIzjL2sZDwbC0p39iYygcf1qunSnjYfURTQmwsVJGtyRRkZcv2apbaeXmn0rW6vGgif5DjDrhPsMAgM82DP2VRXDcxAkL2dDMvJj6fZocbabPGEMA_F6" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=vinnavannewton/project-monitorize&type=timeline&legend=top-left&sealed_token=i7tImjFAdn6mJ7yyA6dCuwhVSy9r7uKrNKAkLLhC-1M3qLL9yJIwEQM0Fdf0M5QZGhCq_-7SEIzjL2sZDwbC0p39iYygcf1qunSnjYfURTQmwsVJGtyRRkZcv2apbaeXmn0rW6vGgif5DjDrhPsMAgM82DP2VRXDcxAkL2dDMvJj6fZocbabPGEMA_F6" />
  </picture>
 </a>
 
