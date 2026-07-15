@@ -2,16 +2,10 @@
 
 from PyQt6.QtCore import QObject, QTimer, pyqtProperty, pyqtSignal, pyqtSlot
 
-import threading, time, subprocess
-
 from monitorize.config import app_log, autostart
 from monitorize.desktop.discovery_service import DiscoveryService
 from monitorize.desktop.receiver_controller import ReceiverController
 from monitorize.config.settings import (
-    load_recent_usb_devices,
-    load_recent_wifi_devices,
-    add_recent_usb_device,
-    add_recent_wifi_device,
     MAX_PRESETS,
     load_general_settings,
     load_presets,
@@ -59,9 +53,6 @@ class MonitorizeBackend(QObject):
     configureDisplayRequested = pyqtSignal()
     presetsChanged = pyqtSignal()
     presetLaunchStatusChanged = pyqtSignal(str)
-    recentUsbDevicesChanged = pyqtSignal()
-    recentWifiDevicesChanged = pyqtSignal()
-    recentStatusUpdated = pyqtSignal(list,dict) 
 
     def __init__(self, de, parent=None):
         super().__init__(parent)
@@ -80,18 +71,10 @@ class MonitorizeBackend(QObject):
         self.network_timer.timeout.connect(self._check_network_ip)
         self.network_timer.start()
 
-        
-        self._recent_usb_devices = []
-        self._recent_wifi_devices = []
-        self.recentStatusUpdated.connect(self._on_recent_status_updated)
-        self.status_checker = RecentDeviceStatusChecker(self)
-        self.status_checker.start()
-
     def _wire_signals(self):
         self.usb.statusChanged.connect(self.usbStatusTextChanged)
         self.usb.busyChanged.connect(self.usbBusyChanged)
         self.usb.scanFinished.connect(self._finish_usb_preset_launch)
-        self.usb.scanFinished.connect(self._on_usb_scan_finished)
         self.discovery.devicesChanged.connect(self.discoveredDevicesChanged)
         self.receiver.receivingChanged.connect(self.isReceivingChanged)
         self.receiver.statusChanged.connect(self.receiverStatusChanged)
@@ -108,7 +91,6 @@ class MonitorizeBackend(QObject):
         self.streaming.secondStreamChanged.connect(self.secondStreamActiveChanged)
         self.streaming.logAppended.connect(app_log.write)
         self.streaming.logAppended.connect(self.logAppended)
-        self.streaming.clientConnected.connect(self._on_wifi_client_connected)
 
     @pyqtProperty(str, notify=detectedDeChanged)
     def detectedDe(self):
@@ -170,21 +152,6 @@ class MonitorizeBackend(QObject):
     def secondStreamActive(self):
         return self.streaming.third_active()
 
-    @pyqtProperty(bool, notify=isStreamingChanged)
-    def thirdEncryption(self):
-        """The additional Wi-Fi stream shares the primary stream's TLS setting."""
-        return self.streaming.wifi and self.streaming.encrypted
-
-    @pyqtProperty(str, notify=isStreamingChanged)
-    def thirdEncryptionStatus(self):
-        if not self.streaming.wifi:
-            return "Not used for USB streams"
-        return (
-            "Enabled — inherited from primary Wi-Fi stream"
-            if self.streaming.encrypted
-            else "Disabled — inherited from primary Wi-Fi stream"
-        )
-
     @pyqtProperty("QVariant", notify=presetsChanged)
     def presets(self):
         return list(self._presets)
@@ -193,19 +160,13 @@ class MonitorizeBackend(QObject):
     def presetLaunchStatus(self):
         return self._preset_launch_status
 
-    @pyqtProperty(list, notify=recentUsbDevicesChanged)
-    def recentUsbDevices(self):
-        return self._recent_usb_devices
-
-    @pyqtProperty(list, notify=recentWifiDevicesChanged)
-    def recentWifiDevices(self):
-        return self._recent_wifi_devices
-
     @pyqtSlot()
-    @pyqtSlot(str)
-    def startUsbScan(self, serial=None):
+    def startUsbScan(self):
+        if not self.canHostStream:
+            self.usb._set_status("Host streaming is not available on Windows yet.")
+            return
         self._pending_usb_preset = None
-        self.usb.start(serial)
+        self.usb.start()
 
     @pyqtSlot()
     def resetUsbStatus(self):
@@ -270,16 +231,11 @@ class MonitorizeBackend(QObject):
     def loadSecondDisplaySettings(self):
         return load_second_display_settings()
 
-    @pyqtSlot(str, str, str, str, str, str, str, str, bool, bool)
-    def saveSecondDisplaySettings(
-        self, resolution, custom_w, custom_h, fps, custom_fps, bitrate,
-        encoder, encoder_profile, enable_touch, enable_stylus_features,
-    ):
+    @pyqtSlot(str, str, str, str, str)
+    def saveSecondDisplaySettings(self, resolution, fps, bitrate, encoder, encoder_profile):
         save_second_display_settings(
-            resolution=resolution, custom_w=custom_w, custom_h=custom_h,
-            fps=fps, custom_fps=custom_fps, bitrate=bitrate, encoder=encoder,
-            encoder_profile=encoder_profile, enable_touch=enable_touch,
-            enable_stylus_features=enable_stylus_features,
+            resolution=resolution, fps=fps, bitrate=bitrate, encoder=encoder,
+            encoder_profile=encoder_profile,
         )
 
     @pyqtSlot(result="QVariant")
@@ -347,15 +303,12 @@ class MonitorizeBackend(QObject):
         self._pending_usb_preset = None
         self.streaming.stop()
 
-    @pyqtSlot(str, str, str, str, str, bool, bool)
-    def startSecondStream(
-        self, res, fps, bitrate, encoder, encoder_profile, enable_touch,
-        enable_stylus_features,
-    ):
-        self.streaming.start_third(
-            res, fps, bitrate, encoder, encoder_profile, enable_touch,
-            enable_stylus_features,
-        )
+    @pyqtSlot(str, str, str, str, str)
+    def startSecondStream(self, res, fps, bitrate, encoder, encoder_profile):
+        if not self.canHostStream:
+            self.streaming._set_status("Host streaming is not available on Windows yet.")
+            return
+        self.streaming.start_third(res, fps, bitrate, encoder, encoder_profile)
 
     @pyqtSlot()
     def stopSecondStream(self):
@@ -497,94 +450,3 @@ class MonitorizeBackend(QObject):
         self.streaming.stop()
         self.receiver.stop()
         self.discovery.close()
-        self.status_checker.stop()
-
-    def _on_recent_status_updated(self, online_usb_serials, online_wifi_ips):
-        raw_usb = load_recent_usb_devices()
-        for dev in raw_usb:
-            dev["online"] = dev.get("serial") in online_usb_serials
-        self._recent_usb_devices = raw_usb
-        self.recentUsbDevicesChanged.emit()
-
-        raw_wifi = load_recent_wifi_devices()
-        for dev in raw_wifi:
-            dev["online"] = online_wifi_ips.get(dev.get("ip"), False)
-        self._recent_wifi_devices = raw_wifi
-        self.recentWifiDevicesChanged.emit()
-
-    def _on_usb_scan_finished(self, success):
-        if not success:
-            return
-        def worker():
-            try:
-                serial = getattr(self.usb, "serial", None)
-                if not serial:
-                    res = subprocess.run(["adb", "devices"], capture_output=True, text=True, timeout=2)
-                    if res.returncode == 0:
-                        lines = [line.split()[0] for line in res.stdout.splitlines() if line.endswith("device")]
-                        if len(lines) == 1:
-                            serial = lines[0]
-                if serial:
-                    model_res = subprocess.run(["adb", "-s", serial, "shell", "getprop", "ro.product.model"], capture_output=True, text=True, timeout=2)
-                    model = model_res.stdout.strip() if model_res.returncode == 0 else "Unknown USB Device"
-                    if not model:
-                        model = "Unknown USB Device"
-                    add_recent_usb_device({"serial": serial, "name": model})
-            except Exception as e:
-                app_log.error(f"Error saving USB device to recents: {e}")
-        threading.Thread(target=worker, daemon=True).start()
-
-    def _on_wifi_client_connected(self, ip, name):
-        try:
-            add_recent_wifi_device({"ip": ip, "name": name})
-        except Exception as e:
-            app_log.error(f"Error saving Wi-Fi device to recents: {e}")
-
-
-
-
-
-class RecentDeviceStatusChecker(threading.Thread):
-    def __init__(self, backend):
-        super().__init__(daemon=True)
-        self.backend = backend
-        self.running = True
-
-
-    def stop(self):
-        self.running= False
-
-    def run(self):
-        while self.running:
-            
-            online_usb = []
-            try:
-                res = subprocess.run(["adb", "devices"], capture_output=True, text=True, timeout=3)
-                if res.returncode == 0:
-                    for line in res.stdout.splitlines():
-                        if line.endswith("device"):
-                            online_usb.append(line.split()[0])
-            except Exception:
-                pass
-
-            
-            online_wifi = {}
-            try:
-                recent_wifi = load_recent_wifi_devices()
-            except Exception:
-                recent_wifi = []
-            for device in recent_wifi:
-                ip = device.get("ip")
-                if ip:
-                    try:
-                        res = subprocess.run(["ping", "-c", "1", "-W", "1", ip], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                        online_wifi[ip] = (res.returncode == 0)
-                    except Exception:  
-                        online_wifi[ip] = False
-
-            
-            try:
-                self.backend.recentStatusUpdated.emit(online_usb, online_wifi)
-            except Exception:
-                pass
-            time.sleep(5)

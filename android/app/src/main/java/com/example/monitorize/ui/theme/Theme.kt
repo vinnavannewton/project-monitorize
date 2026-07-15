@@ -1,4 +1,4 @@
-package app.monitorize.android.ui.theme
+package com.example.monitorize.ui.theme
 
 import android.os.Build
 import androidx.compose.material3.MaterialTheme

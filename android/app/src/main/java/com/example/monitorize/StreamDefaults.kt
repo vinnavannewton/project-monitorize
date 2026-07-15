@@ -1,4 +1,4 @@
-package app.monitorize.android
+package com.example.monitorize
 
 
 const val DEFAULT_STREAM_FPS = 60
