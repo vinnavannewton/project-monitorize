@@ -1,4 +1,4 @@
-package app.monitorize.android.ui.theme
+package com.example.monitorize.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

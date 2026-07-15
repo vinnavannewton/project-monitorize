@@ -19,19 +19,15 @@ class InputDaemon:
     def __init__(
         self, width, height, wifi=False, stylus_features=False,
         stylus_only=False, de=None, udp_host="0.0.0.0", udp_port=7113,
-        tcp_port=7111, gnome_primary=False, input_slot="primary",
+        gnome_primary=False,
     ):
         self.shutdown = threading.Event()
         self.de = de or detect_de()
         self.wifi = wifi
         self.udp_host = udp_host
         self.udp_port = udp_port
-        self.tcp_port = tcp_port
         self.stylus_features = stylus_features and self.de in UINPUT_DESKTOPS
-        self.geometry = Geometry(
-            self.de, width, height, gnome_primary=gnome_primary,
-            input_slot=input_slot,
-        )
+        self.geometry = Geometry(self.de, width, height, gnome_primary=gnome_primary)
         self.backend = UInputBackend(self.geometry, self.shutdown)
         self.dispatcher = InputDispatcher(self.backend, stylus_only)
 
@@ -43,7 +39,7 @@ class InputDaemon:
         transport = run_udp_server if self.wifi else run_tcp_server
         args = (
             (self.dispatcher, self.shutdown, self.geometry, self.udp_host, self.udp_port)
-            if self.wifi else (self.dispatcher, self.shutdown, self.tcp_port)
+            if self.wifi else (self.dispatcher, self.shutdown)
         )
         threading.Thread(target=transport, args=args, daemon=True).start()
         while not self.shutdown.is_set():
