@@ -4,7 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-val appVersionName = "0.2.6"
+val appVersionName = "0.2.7"
 
 fun versionCodeFromSemver(versionName: String): Int {
     val parts = versionName.split(".")
@@ -35,13 +35,13 @@ val hasReleaseSigning = listOf(
 ).all { !it.isNullOrBlank() }
 
 android {
-    namespace = "com.example.monitorize"
+    namespace = "app.monitorize.android"
     compileSdk {
         version = release(36)
     }
 
     defaultConfig {
-        applicationId = "com.example.monitorize"
+        applicationId = "app.monitorize.android"
         minSdk = 28
         targetSdk = 36
         versionCode = versionCodeFromSemver(appVersionName)
@@ -91,4 +91,5 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.material3)
+    testImplementation("junit:junit:4.13.2")
 }

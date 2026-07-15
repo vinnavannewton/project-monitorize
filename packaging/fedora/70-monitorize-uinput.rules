@@ -1,0 +1,5 @@
+KERNEL=="uinput", TAG+="uaccess", MODE="0660", OPTIONS+="static_node=uinput"
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="Monitorize-Touch", TAG+="uaccess", MODE="0660"
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="Monitorize-Stylus", TAG+="uaccess", MODE="0660"
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="Monitorize-Touch-2", TAG+="uaccess", MODE="0660"
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="Monitorize-Stylus-2", TAG+="uaccess", MODE="0660"

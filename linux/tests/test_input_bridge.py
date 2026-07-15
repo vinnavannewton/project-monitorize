@@ -1,3 +1,4 @@
+import os
 import struct
 import unittest
 import threading
@@ -224,6 +225,20 @@ class DispatcherTest(unittest.TestCase):
 
 
 class DaemonStartupTest(unittest.TestCase):
+    def test_additional_input_slot_has_a_distinct_touch_product_id(self):
+        primary_touch, primary_stylus = geometry.input_product_ids()
+        additional_touch, additional_stylus = geometry.input_product_ids("additional")
+        self.assertEqual(primary_touch, geometry.MONITORIZE_TOUCH_PRODUCT_ID)
+        self.assertEqual(primary_stylus, geometry.MONITORIZE_STYLUS_PRODUCT_ID)
+        self.assertEqual(
+            additional_touch, geometry.MONITORIZE_ADDITIONAL_TOUCH_PRODUCT_ID
+        )
+        self.assertEqual(
+            additional_stylus, geometry.MONITORIZE_ADDITIONAL_STYLUS_PRODUCT_ID
+        )
+        self.assertNotEqual(primary_touch, additional_touch)
+        self.assertNotEqual(primary_stylus, additional_stylus)
+
     def test_all_desktops_use_uinput_backend(self):
         for de in daemon_module.UINPUT_DESKTOPS:
             daemon = daemon_module.InputDaemon(100, 100, de=de)
@@ -343,6 +358,19 @@ class KdeGeometryTest(unittest.TestCase):
         ]
         self.assertEqual(geometry.kde_virtual_output(outputs)["name"], "Virtual-1")
 
+    def test_kde_virtual_output_prefers_explicit_primary_with_two_virtuals(self):
+        outputs = [
+            {"name": "Virtual-Monitorize-2", "enabled": True},
+            {"name": "Virtual-Monitorize-1", "enabled": True},
+        ]
+        with patch.dict(
+            geometry.os.environ,
+            {"MONITORIZE_OUTPUT": "Virtual-Monitorize-1"},
+            clear=False,
+        ):
+            output = geometry.kde_virtual_output(outputs)
+        self.assertEqual(output["name"], "Virtual-Monitorize-1")
+
     def test_kde_rect_uses_detected_virtual_output(self):
         geom = geometry.Geometry("kde", 2560, 1600)
         outputs = {
@@ -360,7 +388,7 @@ class KdeGeometryTest(unittest.TestCase):
         with patch("monitorize.input_bridge.geometry.json_command", return_value=outputs):
             self.assertEqual(geom._rect_kde(), (1463.0, 0.0, 2560.0, 1600.0))
 
-    def test_kde_portal_geometry_does_not_fallback_to_primary_output(self):
+    def test_kde_native_geometry_does_not_fallback_to_primary_output(self):
         geom = geometry.Geometry("kde", 1920, 1200)
         outputs = {
             "outputs": [
@@ -378,29 +406,44 @@ class KdeGeometryTest(unittest.TestCase):
         with (
             patch.dict(
                 geometry.os.environ,
-                {"MONITORIZE_PORTAL_SOURCE_TYPE": "4"},
+                {
+                    "MONITORIZE_KDE_VIRTUAL_SLOT": "primary",
+                    "MONITORIZE_OUTPUT": "Virtual-Monitorize-1",
+                },
                 clear=False,
             ),
             patch("monitorize.input_bridge.geometry.json_command", return_value=outputs),
         ):
             self.assertIsNone(geom._rect_kde())
 
-    def test_kde_rotation_accepts_numeric_and_lowercase_values(self):
-        cases = (
-            (1, 0), (2, 270), (4, 180), (8, 90),
-            ("none", 0), ("left", 270), ("inverted", 180), ("right", 90),
+    def test_kde_rotation_is_delegated_to_kwin_output_mapping(self):
+        geom = geometry.Geometry("kde", 1920, 1200)
+        with patch("monitorize.input_bridge.geometry.json_command") as query:
+            self.assertEqual(geom.rotation(), 0)
+        query.assert_not_called()
+
+    def test_kde_uinput_coordinates_are_output_local_for_live_layout_changes(self):
+        geom = geometry.Geometry("kde", 1920, 1200)
+        geom._cache = (2560.0, 300.0, 1920.0, 1200.0)
+
+        self.assertEqual(
+            geom.uinput_bounds(),
+            (1920, 1200, 0.0, 0.0, 1920.0, 1200.0),
         )
-        for value, expected in cases:
-            geom = geometry.Geometry("kde", 1920, 1200)
-            with patch("monitorize.input_bridge.geometry.json_command", return_value={
-                "outputs": [{
-                    "name": "Virtual-1",
-                    "enabled": True,
-                    "connected": True,
-                    "rotation": value,
-                }]
-            }):
-                self.assertEqual(geom.rotation(), expected)
+
+
+class HyprlandGeometryTest(unittest.TestCase):
+    def test_hyprland_mapping_prefers_exact_primary_headless_output(self):
+        geom = geometry.Geometry("hyprland", 1920, 1200)
+        outputs = [
+            {"name": "HEADLESS-2"},
+            {"name": "HEADLESS-1"},
+        ]
+        with (
+            patch.dict(os.environ, {"MONITORIZE_OUTPUT": "HEADLESS-1"}),
+            patch("monitorize.input_bridge.geometry.json_command", return_value=outputs),
+        ):
+            self.assertEqual(geom.hyprland_output_name(), "HEADLESS-1")
 
 
 class GnomeGeometryTest(unittest.TestCase):
@@ -439,6 +482,16 @@ class GnomeGeometryTest(unittest.TestCase):
             geometry.gnome_virtual_monitor_edid_from_state(self.gnome_state()),
             ("MTR", "Monitorize Virtual", "serial-1"),
         )
+
+    def test_gnome_virtual_monitor_edid_uses_exact_meta_connector(self):
+        state = self.gnome_state()
+        second = ("Meta-1", "MTR", "Monitorize Virtual", "serial-3")
+        state = (state[0], [*state[1], (second, state[1][0][1], {})], state[2], state[3])
+        self.assertEqual(
+            geometry.gnome_virtual_monitor_edid_from_state(state, "Meta-1"),
+            ("MTR", "Monitorize Virtual", "serial-3"),
+        )
+        self.assertIsNone(geometry.gnome_virtual_monitor_edid_from_state(state, "Meta-9"))
 
     def test_gnome_primary_monitor_edid_from_state(self):
         self.assertEqual(
@@ -495,6 +548,55 @@ class GnomeGeometryTest(unittest.TestCase):
         )
         stylus.set_string.assert_called_once_with("mapping", "absolute")
 
+    def test_additional_gnome_mapping_uses_distinct_touch_identity(self):
+        created = {}
+
+        def fake_settings(schema, path):
+            settings = Mock()
+            created[(schema, path)] = settings
+            return settings
+
+        with patch(
+            "monitorize.input_bridge.geometry._gio_settings",
+            side_effect=fake_settings,
+        ):
+            self.assertTrue(
+                geometry.write_gnome_input_mapping(
+                    ("MTR", "Monitorize Virtual 2", "serial-2"),
+                    input_slot="additional",
+                )
+            )
+
+        self.assertIn((
+            geometry.GNOME_TOUCHSCREEN_SCHEMA,
+            "/org/gnome/desktop/peripherals/touchscreens/4d5a:1003/",
+        ), created)
+
+    def test_additional_gnome_mapping_uses_distinct_stylus_identity(self):
+        created = {}
+
+        def fake_settings(schema, path):
+            settings = Mock()
+            created[(schema, path)] = settings
+            return settings
+
+        with patch(
+            "monitorize.input_bridge.geometry._gio_settings",
+            side_effect=fake_settings,
+        ):
+            self.assertTrue(
+                geometry.write_gnome_input_mapping(
+                    ("MTR", "Monitorize Virtual 2", "serial-2"),
+                    stylus_features=True,
+                    input_slot="additional",
+                )
+            )
+
+        self.assertIn((
+            geometry.GNOME_TABLET_SCHEMA,
+            "/org/gnome/desktop/peripherals/tablets/4d5a:1004/",
+        ), created)
+
     def test_gnome_mapping_failure_is_not_fatal(self):
         with patch(
             "monitorize.input_bridge.geometry._gio_settings",
@@ -549,6 +651,20 @@ class GnomeGeometryTest(unittest.TestCase):
 
         self.assertEqual(written, [(("DEL", "Built-in Display", "serial-2"), False)])
         self.assertTrue(geom._gnome_devices_mapped)
+
+    def test_gnome_additional_device_mapping_passes_additional_slot(self):
+        geom = geometry.Geometry("gnome", 1920, 1200, input_slot="additional")
+        with (
+            patch.object(geom, "_mutter_state", return_value=self.gnome_state()),
+            patch(
+                "monitorize.input_bridge.geometry.write_gnome_input_mapping",
+                return_value=True,
+            ) as write,
+        ):
+            self.assertTrue(geom.map_gnome_devices())
+        write.assert_called_once_with(
+            ("MTR", "Monitorize Virtual", "serial-1"), False, "additional"
+        )
 
     def test_gnome_map_devices_failed_write_leaves_devices_unmapped(self):
         geom = geometry.Geometry("gnome", 1920, 1200)
@@ -776,6 +892,19 @@ class GnomeGeometryTest(unittest.TestCase):
 
 
 class UInputCreationTest(unittest.TestCase):
+    def test_additional_hyprland_maps_distinct_stylus_name(self):
+        geom = Mock(
+            de="hyprland", input_slot="additional", screen_w=1920, screen_h=1200,
+        )
+        geom.hyprland_output_name.return_value = "HEADLESS-2"
+
+        UInputBackend(geom, Mock())._map_devices(stylus_features=True)
+
+        self.assertEqual(geom.map_hyprland_device.call_args_list, [
+            call("monitorize-touch-2", "HEADLESS-2"),
+            call("monitorize-stylus-2", "HEADLESS-2"),
+        ])
+
     def test_uinput_devices_use_stable_monitorize_ids(self):
         ecodes = types.SimpleNamespace(
             EV_ABS=3,
@@ -816,6 +945,7 @@ class UInputCreationTest(unittest.TestCase):
         ]
         geom = Mock(
             de="gnome",
+            input_slot="additional",
             screen_w=1920,
             screen_h=1200,
             map_gnome_devices=Mock(return_value=True),
@@ -835,13 +965,59 @@ class UInputCreationTest(unittest.TestCase):
         touch_kwargs = uinput.call_args_list[0].kwargs
         stylus_kwargs = uinput.call_args_list[1].kwargs
         self.assertEqual(touch_kwargs["vendor"], geometry.MONITORIZE_INPUT_VENDOR_ID)
-        self.assertEqual(touch_kwargs["product"], geometry.MONITORIZE_TOUCH_PRODUCT_ID)
-        self.assertEqual(stylus_kwargs["vendor"], geometry.MONITORIZE_INPUT_VENDOR_ID)
+        self.assertEqual(touch_kwargs["name"], "Monitorize-Touch-2")
         self.assertEqual(
-            stylus_kwargs["product"], geometry.MONITORIZE_STYLUS_PRODUCT_ID
+            touch_kwargs["product"], geometry.MONITORIZE_ADDITIONAL_TOUCH_PRODUCT_ID
+        )
+        self.assertEqual(stylus_kwargs["vendor"], geometry.MONITORIZE_INPUT_VENDOR_ID)
+        self.assertEqual(stylus_kwargs["name"], "Monitorize-Stylus-2")
+        self.assertEqual(
+            stylus_kwargs["product"],
+            geometry.MONITORIZE_ADDITIONAL_STYLUS_PRODUCT_ID,
         )
         geom.map_gnome_devices.assert_called_once_with(True)
         geom.verify_gnome_devices.assert_called_once_with(devices)
+
+    def test_kde_missing_event_node_reports_permission_hint(self):
+        ecodes = types.SimpleNamespace(
+            EV_ABS=3,
+            EV_KEY=1,
+            ABS_X=0,
+            ABS_Y=1,
+            ABS_MT_SLOT=47,
+            ABS_MT_POSITION_X=53,
+            ABS_MT_POSITION_Y=54,
+            ABS_MT_TRACKING_ID=57,
+            BTN_TOUCH=330,
+            BUS_USB=3,
+            INPUT_PROP_DIRECT=1,
+        )
+        fake_evdev = types.SimpleNamespace(
+            AbsInfo=lambda value, minimum, maximum, fuzz, flat, resolution: (
+                value, minimum, maximum, fuzz, flat, resolution,
+            )
+        )
+        geom = Mock(
+            de="kde",
+            screen_w=1920,
+            screen_h=1200,
+            map_kde_devices=Mock(return_value=set()),
+            uinput_bounds=Mock(return_value=(1920, 1200, 0, 0, 1920, 1200)),
+            rotation=Mock(return_value=0),
+        )
+
+        with (
+            patch.object(uinput_backend, "ecodes", ecodes),
+            patch.object(uinput_backend, "evdev", fake_evdev),
+            patch.object(
+                uinput_backend,
+                "UInput",
+                return_value=types.SimpleNamespace(device=None),
+            ),
+            patch("monitorize.input_bridge.uinput_backend.time.sleep"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "MONITORIZE_UINPUT_PERMISSION"):
+                UInputBackend(geom, Mock()).setup()
 
     def test_stylus_capabilities_include_tablet_metadata(self):
         ecodes = types.SimpleNamespace(
