@@ -13,6 +13,8 @@
 , copyDesktopItems
 , makeDesktopItem
 , bash
+, pkg-config
+, wayland
 }:
 
 let
@@ -31,12 +33,15 @@ python3Packages.buildPythonApplication rec {
     qt6.wrapQtAppsHook
     copyDesktopItems
     gobject-introspection
+    pkg-config
+    wayland
   ];
 
   buildInputs = [
     qt6.qtbase
     qt6.qtdeclarative                   # QML engine
     qt6.qtwayland
+    wayland
   ];
 
   # Single, authoritative dependency list.
@@ -77,6 +82,22 @@ python3Packages.buildPythonApplication rec {
     exec ${python}/bin/python3 -m monitorize "\$@"
     WRAPPER
     chmod +x "$out/bin/monitorize"
+
+    # Native KWin virtual-output owner. The hidden desktop entry below grants
+    # this exact executable access to KWin's restricted screencast protocol.
+    native/kde_virtual_output/build.sh \
+      "$out/bin/monitorize-kde-virtual-output"
+
+    mkdir -p "$out/share/applications"
+    cat > "$out/share/applications/monitorize-kde-virtual-output.desktop" <<EOF
+    [Desktop Entry]
+    Type=Application
+    Name=Monitorize KDE Virtual Output
+    Exec=$out/bin/monitorize-kde-virtual-output
+    NoDisplay=true
+    Terminal=false
+    X-KDE-Wayland-Interfaces=zkde_screencast_unstable_v1
+    EOF
 
     # Icon
     mkdir -p "$out/share/icons/hicolor/192x192/apps"

@@ -1,4 +1,4 @@
-package com.example.monitorize.discovery
+package app.monitorize.android.discovery
 
 import android.content.Context
 import android.net.nsd.NsdManager
@@ -6,9 +6,9 @@ import android.net.nsd.NsdServiceInfo
 import android.net.wifi.WifiManager
 import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
-import com.example.monitorize.DEFAULT_STREAM_FPS
-import com.example.monitorize.MAX_STREAM_FPS
-import com.example.monitorize.MIN_STREAM_FPS
+import app.monitorize.android.DEFAULT_STREAM_FPS
+import app.monitorize.android.MAX_STREAM_FPS
+import app.monitorize.android.MIN_STREAM_FPS
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ChannelResult
@@ -251,7 +251,14 @@ class DeviceDiscovery(private val context: Context) {
         
         scope.launch(Dispatchers.Main) {
             if (!isDiscovering || generation != currentGeneration) return@launch
-            val index = devices.indexOfFirst { it.ip == newDevice.ip }
+            val serviceIndex = if (newDevice.serviceName.isBlank()) -1 else {
+                devices.indexOfFirst { it.serviceName == newDevice.serviceName }
+            }
+            val index = if (serviceIndex != -1) serviceIndex else {
+                devices.indexOfFirst {
+                    it.ip.equals(newDevice.ip, ignoreCase = true) && it.port == newDevice.port
+                }
+            }
             if (index != -1) {
                 val existing = devices[index]
                 
