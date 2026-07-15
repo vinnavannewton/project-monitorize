@@ -19,6 +19,7 @@ from monitorize.platform import (
     gnome_virtual_monitor,
     kde_virtual_monitor,
     process_utils,
+    utils as platform_utils,
 )
 from monitorize.platform.display_controller import DisplayController
 from monitorize.desktop.discovery_service import DiscoveryService
