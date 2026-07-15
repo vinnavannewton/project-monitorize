@@ -8,7 +8,16 @@ Item {
     property string selectedPresetName: ""
     readonly property int modeCardWidth: 220
     readonly property int modeCardSpacing: 30
-    readonly property int modeCardsWidth: modeCardWidth * 3 + modeCardSpacing * 2
+    readonly property int modeCardCount: backend.canHostStream ? 3 : 1
+    readonly property int modeCardsWidth: modeCardWidth * modeCardCount + modeCardSpacing * (modeCardCount - 1)
+
+    function desktopLabel() {
+        if (backend.detectedDe === "kde") return "KDE Plasma"
+        if (backend.detectedDe === "gnome") return "GNOME"
+        if (backend.detectedDe === "hyprland") return "Hyprland"
+        if (backend.detectedDe === "windows") return "Windows"
+        return backend.detectedDe.toUpperCase()
+    }
 
     ColumnLayout {
         anchors.centerIn: parent
@@ -51,7 +60,7 @@ Item {
                 }
 
                 Text {
-                    text: "Desktop: " + (backend.detectedDe === "kde" ? "KDE Plasma" : (backend.detectedDe === "gnome" ? "GNOME" : (backend.detectedDe === "hyprland" ? "Hyprland" : backend.detectedDe.toUpperCase())))
+                    text: "Desktop: " + page.desktopLabel()
                     color: theme.cardTextPrimary
                     font.pixelSize: 12
                     font.weight: Font.DemiBold
@@ -70,6 +79,7 @@ Item {
             // USB Mode Card
             Rectangle {
                 id: usbCard
+                visible: backend.canHostStream
                 implicitWidth: page.modeCardWidth
                 implicitHeight: 140
                 radius: theme.cardRadius
@@ -112,6 +122,7 @@ Item {
             // Wi-Fi Mode Card
             Rectangle {
                 id: wifiCard
+                visible: backend.canHostStream
                 implicitWidth: page.modeCardWidth
                 implicitHeight: 140
                 radius: theme.cardRadius

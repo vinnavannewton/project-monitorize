@@ -439,6 +439,26 @@ class ValidationTest(unittest.TestCase):
         self.assertEqual(sanitize_encoder_profile("Bogus"), "Low Latency")
 
 
+class PlatformDetectionTest(unittest.TestCase):
+    def test_windows_detects_windows_desktop(self):
+        with patch("monitorize.platform.utils.sys.platform", "win32"):
+            self.assertEqual(platform_utils.detect_desktop_environment(), "windows")
+
+    def test_windows_detection_does_not_prompt_for_linux_desktop(self):
+        from monitorize.desktop.main_window import MonitorizeWindow
+
+        window = Mock()
+        window._ask_desktop_environment = Mock()
+        with patch(
+            "monitorize.desktop.main_window.detect_desktop_environment",
+            return_value="windows",
+        ):
+            self.assertEqual(
+                MonitorizeWindow._select_desktop_environment(window), "windows"
+            )
+        window._ask_desktop_environment.assert_not_called()
+
+
 class ReceiverControllerTest(unittest.TestCase):
     def test_pipeline_preserves_compressed_frames_and_drops_only_after_decode(self):
         controller = ReceiverController("kde", Mock())
@@ -767,6 +787,80 @@ class ReceiverControllerTest(unittest.TestCase):
                 controller._sink_candidates(),
                 ["glimagesink", "xvimagesink", "ximagesink", "autovideosink"],
             )
+
+    def test_windows_receiver_profiles_prefer_d3d11_hardware_then_in_app_fallbacks(self):
+        controller = ReceiverController("windows", Mock())
+        with (
+            patch("monitorize.desktop.receiver_controller.sys.platform", "win32"),
+            patch(
+                "monitorize.desktop.receiver_controller.gst_has_element",
+                side_effect=lambda name: name in {
+                    "d3d11h264dec", "d3d11videosink",
+                },
+            ),
+            patch(
+                "monitorize.desktop.receiver_controller._gst_has_property",
+                return_value=False,
+            ),
+        ):
+            profiles = controller._windows_receiver_profiles("Hardware")
+        self.assertEqual(
+            profiles,
+            [
+                (["d3d11h264dec"], "D3D11 d3d11h264dec", "d3d11videosink"),
+                (["avdec_h264"], "Software avdec_h264", "d3d11videosink"),
+                (["avdec_h264"], "Software avdec_h264", "autovideosink"),
+            ],
+        )
+
+    def test_windows_receiver_launches_embedded_not_external_gstreamer(self):
+        controller = ReceiverController("windows", Mock())
+        controller.decoder_args = ["avdec_h264"]
+        controller.decoder_label = "Software avdec_h264"
+        controller.sink = "d3d11videosink"
+        item = Mock()
+        item.width.return_value = 1920
+        item.height.return_value = 1080
+        controller.video_item = item
+        with (
+            patch("monitorize.desktop.receiver_controller.sys.platform", "win32"),
+            patch.object(controller, "_embedded_sink_available", return_value=True),
+            patch.object(controller, "_launch_embedded_pipeline") as embedded,
+            patch.object(controller, "_launch_external_pipeline") as external,
+        ):
+            controller._launch_pipeline("10.0.0.2", 7110, generation=0)
+        embedded.assert_called_once_with("10.0.0.2", 7110, 0)
+        external.assert_not_called()
+
+    def test_windows_embedded_launch_uses_active_profile_sink(self):
+        controller = ReceiverController("windows", Mock())
+        controller.sink = "autovideosink"
+        with patch("monitorize.desktop.receiver_controller.sys.platform", "win32"):
+            self.assertEqual(controller._active_embedded_sink_name(), "autovideosink")
+
+    def test_windows_receiver_failure_does_not_launch_external_gstreamer(self):
+        controller = ReceiverController("windows", Mock())
+        controller.windows_profiles = [(["avdec_h264"], "Software avdec_h264", "d3d11videosink")]
+        controller.decoder_args = ["avdec_h264"]
+        controller.decoder_label = "Software avdec_h264"
+        controller.sink = "d3d11videosink"
+        item = Mock()
+        item.width.return_value = 1920
+        item.height.return_value = 1080
+        controller.video_item = item
+        with (
+            patch("monitorize.desktop.receiver_controller.sys.platform", "win32"),
+            patch.object(controller, "_embedded_sink_available", return_value=True),
+            patch.object(
+                controller, "_launch_embedded_pipeline",
+                side_effect=RuntimeError("missing sink"),
+            ),
+            patch.object(controller, "_launch_external_pipeline") as external,
+        ):
+            controller._launch_pipeline("10.0.0.2", 7110, generation=0)
+        external.assert_not_called()
+        self.assertFalse(controller.receiving)
+        self.assertEqual(controller.status, "Windows in-app receiver unavailable")
 
     def test_sink_args_only_include_supported_properties_and_stretch(self):
         controller = ReceiverController("kde", Mock())
@@ -2126,6 +2220,14 @@ class ProcessUtilsTest(unittest.TestCase):
             process_utils.kill_patterns("definitely-no-monitorize-process")
         run.assert_not_called()
 
+    def test_kill_patterns_noops_when_proc_is_unavailable(self):
+        with (
+            patch("monitorize.platform.process_utils.Path.exists", return_value=False),
+            patch("monitorize.platform.process_utils.Path.iterdir") as iterdir,
+        ):
+            process_utils.kill_patterns("gst-launch-1.0")
+        iterdir.assert_not_called()
+
 
 class GnomeVirtualMonitorCompatTest(unittest.TestCase):
     class FakeDbus:
@@ -3380,9 +3482,11 @@ class BackendFacadeTest(unittest.TestCase):
         qml = qml_path.read_text(encoding="utf-8")
         self.assertIn("readonly property int modeCardWidth: 220", qml)
         self.assertIn("readonly property int modeCardSpacing: 30", qml)
+        self.assertIn("readonly property int modeCardCount: backend.canHostStream ? 3 : 1", qml)
         self.assertIn("readonly property int modeCardsWidth", qml)
         self.assertIn("id: modeCardsRow", qml)
         self.assertEqual(qml.count("implicitWidth: page.modeCardWidth"), 3)
+        self.assertEqual(qml.count("visible: backend.canHostStream"), 2)
         self.assertEqual(qml.count("Layout.preferredWidth: modeCardsRow.implicitWidth"), 2)
         self.assertIn("width: modeCardsRow.implicitWidth", qml)
         self.assertIn("horizontalAlignment: Text.AlignLeft", qml)
@@ -3390,6 +3494,7 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn("width: 132", qml)
         self.assertIn("padding: 6", qml)
         self.assertIn("radius: theme.controlRadius", qml)
+        self.assertIn('if (backend.detectedDe === "windows") return "Windows"', qml)
         desktop_index = qml.index('text: "Desktop: "')
         desktop_block = qml[desktop_index: qml.index("Layout.alignment: Qt.AlignVCenter", desktop_index)]
         saved_index = qml.index('text: "Saved Presets"')
@@ -3483,6 +3588,7 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertNotIn('text: "⚙"', settings_block)
         self.assertIn('stroke="#ffffff"', icon)
         self.assertNotIn('stroke="#000000"', icon)
+        self.assertIn("visible: backend.canAutostart", qml)
 
     def test_streaming_config_pages_expose_return_source(self):
         qml_dir = Path(__file__).resolve().parents[1] / "monitorize" / "qml"
@@ -3760,7 +3866,7 @@ class BackendFacadeTest(unittest.TestCase):
         qml = qml_path.read_text(encoding="utf-8")
         self.assertIn("id: portField", qml)
         self.assertIn('text: "7110"', qml)
-        self.assertIn('portField.text = rec["port"] || "7110"', qml)
+        self.assertIn('portField.text = rec["manual_port"] || "7110"', qml)
         self.assertIn("validator: IntValidator { bottom: 1; top: 65535 }", qml)
         self.assertNotIn("id: displayCombo", qml)
         self.assertNotIn('model: ["Second display (7110)", "Third display (7114)"]', qml)
@@ -3790,6 +3896,26 @@ class BackendFacadeTest(unittest.TestCase):
             "saveCurrentPreset", "launchPreset", "renamePreset", "deletePreset",
             "isAutostartEnabled", "setAutostartEnabled",
         } <= methods)
+        backend.network_timer.stop()
+
+    def test_windows_backend_exposes_receiver_only_capabilities(self):
+        with (
+            patch("monitorize.desktop.backend.get_local_ip", return_value="127.0.0.1"),
+            patch("monitorize.platform.utils.sys.platform", "win32"),
+        ):
+            backend = MonitorizeBackend("windows")
+            self.assertFalse(backend.canAutostart)
+        self.assertFalse(backend.canHostStream)
+        with patch.object(backend.streaming, "start") as start:
+            backend.startStreaming(
+                "1920x1080", "60", "8000", "Extend",
+                "Software (CPU / x264enc)", "Low Latency", True,
+            )
+        start.assert_not_called()
+        self.assertEqual(
+            backend.streaming.status,
+            "Host streaming is not available on Windows yet.",
+        )
         backend.network_timer.stop()
 
     def test_second_stream_active_comes_from_streaming_controller(self):

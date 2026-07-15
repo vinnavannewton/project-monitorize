@@ -47,7 +47,7 @@ Item {
         let rec = backend.loadReceiverSettings()
         if (rec) {
             manualIpField.text = rec["manual_ip"] || ""
-            portField.text = rec["port"] || "7110"
+            portField.text = rec["manual_port"] || "7110"
             decoderCombo.currentIndex = rec["decoder"] === "Hardware" ? 1 : 0
             encryptionCheck.checked = rec["use_encryption"] !== false
         }

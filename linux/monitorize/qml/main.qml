@@ -229,6 +229,7 @@ Rectangle {
             CustomCheckBox {
                 id: autostartCheck
                 text: "Start Monitorize after login"
+                visible: backend.canAutostart
                 Layout.fillWidth: true
                 onCheckedChanged: root.saveAutostartSettings()
             }
