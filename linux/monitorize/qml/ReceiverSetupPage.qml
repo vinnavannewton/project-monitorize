@@ -7,11 +7,6 @@ Item {
     property var pendingDevice: null
     property string setupMessage: ""
 
-    function selectedPort(device) {
-        let port = portField.text.trim()
-        return port.length > 0 ? port : (device.port || 7110)
-    }
-
     function connectDevice(device, code) {
         backend.connectToHost(
             device.ip,
@@ -26,7 +21,7 @@ Item {
     function requestConnection(device) {
         let target = {
             "ip": device.ip,
-            "port": selectedPort(device),
+            "port": Number(device.port || 7110),
             "encrypted": device.encrypted === true,
             "fingerprint": device.fingerprint || "",
             "decoder": decoderCombo.currentText
