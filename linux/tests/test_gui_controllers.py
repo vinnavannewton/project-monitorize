@@ -801,11 +801,14 @@ class ReceiverControllerTest(unittest.TestCase):
         controller.port = 7110
         pipeline = object()
         controller.gst_pipeline = pipeline
+        stable = []
+        controller.streamStable.connect(lambda: stable.append(True))
         with patch.object(controller, "_inhibit_sleep"):
             controller._mark_stable(6, pipeline)
         self.assertTrue(controller.stable)
         self.assertTrue(controller.receiving)
         self.assertEqual(controller.status, "Receiving from 10.0.0.2:7110")
+        self.assertEqual(stable, [True])
 
     def test_receiver_connect_marks_session_active_before_stable(self):
         controller = ReceiverController("kde", Mock())
@@ -1308,6 +1311,34 @@ class ReceiverVideoWindowTest(unittest.TestCase):
                     settings.load_receiver_credentials("host.local"),
                     ("fingerprint", "token"),
                 )
+            finally:
+                settings.CONFIG_DIR, settings.CONFIG_FILE = old_dir, old_file
+
+    def test_recent_receiver_hosts_are_validated_mru_and_removable(self):
+        old_dir, old_file = settings.CONFIG_DIR, settings.CONFIG_FILE
+        with tempfile.TemporaryDirectory() as directory:
+            try:
+                settings.CONFIG_DIR = directory
+                settings.CONFIG_FILE = str(Path(directory) / "settings.ini")
+                settings._save_group("recent", {"receiver_hosts": json.dumps([
+                    {"name": "Bad", "ip": "", "port": 7110},
+                    {"name": "Old", "ip": "10.0.0.2", "port": 7110},
+                    {"name": "Duplicate", "ip": "10.0.0.2", "port": 7110},
+                ])})
+                self.assertEqual(settings.load_recent_receiver_hosts(), [{
+                    "name": "Old", "ip": "10.0.0.2", "port": 7110,
+                    "encrypted": False, "fingerprint": "", "fps": 0,
+                }])
+                for index in range(6):
+                    settings.add_recent_receiver_host({
+                        "name": f"Host {index}", "ip": f"10.0.0.{index + 3}",
+                        "port": 7110, "fps": 120,
+                    })
+                hosts = settings.load_recent_receiver_hosts()
+                self.assertEqual(len(hosts), 5)
+                self.assertEqual(hosts[0]["name"], "Host 5")
+                settings.remove_recent_receiver_host("10.0.0.8", 7110)
+                self.assertEqual(len(settings.load_recent_receiver_hosts()), 4)
             finally:
                 settings.CONFIG_DIR, settings.CONFIG_FILE = old_dir, old_file
 
@@ -4156,6 +4187,17 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertNotIn('text: modelData.encrypted === true ? "encrypted" : "wifi"', qml)
         self.assertNotIn('"  •  Second display"', qml)
 
+    def test_receiver_setup_has_frequently_connected_hosts_and_forget_menu(self):
+        qml_path = (
+            Path(__file__).resolve().parents[1]
+            / "monitorize" / "qml" / "ReceiverSetupPage.qml"
+        )
+        qml = qml_path.read_text(encoding="utf-8")
+        self.assertIn('text: "FREQUENTLY CONNECTED"', qml)
+        self.assertIn("model: backend.recentReceiverHosts", qml)
+        self.assertIn('text: "Forget"', qml)
+        self.assertIn("backend.forgetReceiverHost(", qml)
+
     def test_qml_api_remains_exposed(self):
         with patch("monitorize.desktop.backend.get_local_ip", return_value="127.0.0.1"):
             backend = MonitorizeBackend("kde")
@@ -4171,9 +4213,11 @@ class BackendFacadeTest(unittest.TestCase):
             "detectedDe", "localIp", "isStreaming", "isReceiving",
             "discoveredDevices", "pairingCode", "secondStreamActive",
             "thirdEncryption", "thirdEncryptionStatus", "presets", "presetLaunchStatus",
+            "recentReceiverHosts",
         } <= properties)
         self.assertTrue({
             "startStreaming", "stopStreaming", "connectToHost",
+            "forgetReceiverHost",
             "startHostDiscovery", "startUsbScan", "startSecondStream",
             "saveCurrentPreset", "launchPreset", "renamePreset", "deletePreset",
             "isAutostartEnabled", "setAutostartEnabled",
@@ -4218,6 +4262,39 @@ class BackendFacadeTest(unittest.TestCase):
         connect.assert_not_called()
         self.assertEqual(backend.receiver.status, "Invalid host or port")
         backend.network_timer.stop()
+
+    def test_receiver_stable_remembers_host_and_discovery_marks_it_online(self):
+        old_dir, old_file = settings.CONFIG_DIR, settings.CONFIG_FILE
+        with tempfile.TemporaryDirectory() as directory:
+            try:
+                settings.CONFIG_DIR = directory
+                settings.CONFIG_FILE = str(Path(directory) / "settings.ini")
+                with patch("monitorize.desktop.backend.get_local_ip", return_value="127.0.0.1"):
+                    backend = MonitorizeBackend("kde")
+                with patch.object(backend.receiver, "connect"):
+                    backend.connectToHost(
+                        "10.0.0.2", 7110, True, "fingerprint", "", "Hardware",
+                        120, "Desk Display",
+                    )
+                self.assertEqual(settings.load_recent_receiver_hosts(), [])
+                backend.receiver.streamStable.emit()
+                self.assertEqual(backend.recentReceiverHosts[0]["name"], "Desk Display")
+                self.assertTrue(backend.recentReceiverHosts[0]["encrypted"])
+                backend.discovery.add_device(
+                    "Live Desk", "10.0.0.2", 7110, True, "fingerprint",
+                    stream_fps=90,
+                )
+                self.assertTrue(backend.recentReceiverHosts[0]["online"])
+                self.assertEqual(backend.recentReceiverHosts[0]["name"], "Live Desk")
+                self.assertEqual(backend.discoveredDevices, [])
+                with patch("monitorize.desktop.backend.clear_receiver_credentials") as clear:
+                    backend.forgetReceiverHost("10.0.0.2", 7110)
+                self.assertEqual(settings.load_recent_receiver_hosts(), [])
+                clear.assert_called_once_with("10.0.0.2")
+                backend.network_timer.stop()
+                backend.status_checker.stop()
+            finally:
+                settings.CONFIG_DIR, settings.CONFIG_FILE = old_dir, old_file
 
     def test_usb_preset_scans_before_launching(self):
         preset = {

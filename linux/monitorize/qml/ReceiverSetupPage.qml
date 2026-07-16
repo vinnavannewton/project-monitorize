@@ -5,6 +5,7 @@ import QtQuick.Layouts
 Item {
     id: page
     property var pendingDevice: null
+    property var forgetTarget: null
     property string setupMessage: ""
 
     function connectDevice(device, code) {
@@ -15,7 +16,8 @@ Item {
             device.fingerprint || "",
             code || "",
             device.decoder || decoderCombo.currentText,
-            Number(device.fps || 0)
+            Number(device.fps || 0),
+            device.name || device.ip
         )
     }
 
@@ -26,7 +28,8 @@ Item {
             "encrypted": device.encrypted === true,
             "fingerprint": device.fingerprint || "",
             "decoder": decoderCombo.currentText,
-            "fps": Number(device.fps || 0)
+            "fps": Number(device.fps || 0),
+            "name": device.name || device.ip
         }
         setupMessage = ""
         if (target.encrypted
@@ -70,7 +73,9 @@ Item {
                 "fingerprint": fingerprint,
                 "decoder": decoderCombo.currentText,
                 "fps": pendingDevice && pendingDevice.ip === host
-                    ? Number(pendingDevice.fps || 0) : 0
+                    ? Number(pendingDevice.fps || 0) : 0,
+                "name": pendingDevice && pendingDevice.ip === host
+                    ? pendingDevice.name : host
             }
             pairingCodeField.text = ""
             pairingPopup.open()
@@ -145,16 +150,6 @@ Item {
             color: theme.border
         }
 
-        // Discovered Devices Section
-        Text {
-            text: "DISCOVERED HOSTS"
-            font.pixelSize: 11
-            font.weight: Font.Bold
-            color: theme.textMuted
-            Layout.topMargin: 4
-        }
-
-        // Device list area
         ScrollView {
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -164,6 +159,107 @@ Item {
             ColumnLayout {
                 width: parent.width
                 spacing: 8
+
+                ColumnLayout {
+                    visible: backend.recentReceiverHosts.length > 0
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    Text {
+                        text: "FREQUENTLY CONNECTED"
+                        font.pixelSize: 11
+                        font.weight: Font.Bold
+                        color: theme.textMuted
+                    }
+
+                    Repeater {
+                        model: backend.recentReceiverHosts
+
+                        Button {
+                            id: recentHostCard
+                            Layout.fillWidth: true
+                            implicitHeight: 68
+                            leftPadding: 18
+                            rightPadding: 8
+                            topPadding: 12
+                            bottomPadding: 12
+                            hoverEnabled: true
+                            onClicked: page.requestConnection(modelData)
+
+                            background: Rectangle {
+                                radius: 12
+                                color: recentHostCard.down || recentHostCard.hovered
+                                    ? theme.surfaceAlt : theme.surface
+                                border.color: recentHostCard.hovered
+                                    ? theme.borderHover : theme.border
+                                border.width: 1
+                            }
+
+                            contentItem: RowLayout {
+                                spacing: 12
+
+                                ColumnLayout {
+                                    spacing: 2
+                                    Layout.fillWidth: true
+
+                                    Text {
+                                        text: modelData.name || modelData.ip
+                                        font.pixelSize: 16
+                                        font.weight: Font.Bold
+                                        color: theme.cardTextPrimary
+                                    }
+                                    Text {
+                                        text: (modelData.ip || "") + ":" + (modelData.port || 7110)
+                                            + (modelData.encrypted === true ? "  •  encrypted" : "")
+                                            + (modelData.fps ? "  •  " + modelData.fps + " FPS" : "")
+                                        font.pixelSize: 13
+                                        color: theme.cardTextMuted
+                                    }
+                                }
+
+                                Text {
+                                    text: modelData.online ? "online" : "offline"
+                                    font.pixelSize: 10
+                                    font.weight: Font.ExtraBold
+                                    color: modelData.online ? "#4caf50" : theme.textMuted
+                                }
+
+                                ToolButton {
+                                    id: recentHostMenuButton
+                                    text: "⋮"
+                                    font.pixelSize: 18
+                                    onClicked: recentHostMenu.open()
+
+                                    Menu {
+                                        id: recentHostMenu
+                                        y: recentHostMenuButton.height
+                                        MenuItem {
+                                            text: "Forget"
+                                            onTriggered: {
+                                                page.forgetTarget = modelData
+                                                forgetPopup.open()
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 1
+                        color: theme.border
+                    }
+                }
+
+                Text {
+                    text: "DISCOVERED HOSTS"
+                    font.pixelSize: 11
+                    font.weight: Font.Bold
+                    color: theme.textMuted
+                    Layout.topMargin: 4
+                }
 
                 // Empty state
                 Text {
@@ -353,7 +449,8 @@ Item {
                             "encrypted": encryptionCheck.checked,
                             "fingerprint": "",
                             "thirdAvailable": true,
-                            "fps": 0
+                            "fps": 0,
+                            "name": ip
                         })
                     }
                 }
@@ -380,6 +477,52 @@ Item {
             font.pixelSize: 12
             wrapMode: Text.Wrap
             Layout.fillWidth: true
+        }
+    }
+
+    Popup {
+        id: forgetPopup
+        modal: true
+        anchors.centerIn: parent
+        width: 360
+        height: 160
+
+        background: Rectangle {
+            color: theme.surface
+            border.color: theme.border
+            radius: theme.cardRadius
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 20
+            spacing: 12
+
+            Text {
+                text: "Forget saved host?"
+                color: theme.cardTextPrimary
+                font.weight: Font.Bold
+            }
+            Text {
+                text: "This also removes its saved pairing credentials."
+                color: theme.cardTextSecondary
+                wrapMode: Text.Wrap
+                Layout.fillWidth: true
+            }
+            RowLayout {
+                Layout.alignment: Qt.AlignRight
+                Button { text: "Cancel"; onClicked: forgetPopup.close() }
+                CustomButton {
+                    text: "Forget"
+                    onClicked: {
+                        backend.forgetReceiverHost(
+                            page.forgetTarget.ip, page.forgetTarget.port
+                        )
+                        page.forgetTarget = null
+                        forgetPopup.close()
+                    }
+                }
+            }
         }
     }
 

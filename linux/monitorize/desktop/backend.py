@@ -9,9 +9,13 @@ from monitorize.desktop.discovery_service import DiscoveryService
 from monitorize.desktop.receiver_controller import ReceiverController
 from monitorize.config.settings import (
     load_recent_usb_devices,
+    load_recent_receiver_hosts,
     load_recent_wifi_devices,
     add_recent_usb_device,
+    add_recent_receiver_host,
     add_recent_wifi_device,
+    remove_recent_receiver_host,
+    clear_receiver_credentials,
     MAX_PRESETS,
     load_general_settings,
     load_presets,
@@ -60,6 +64,7 @@ class MonitorizeBackend(QObject):
     presetsChanged = pyqtSignal()
     presetLaunchStatusChanged = pyqtSignal(str)
     recentUsbDevicesChanged = pyqtSignal()
+    recentReceiverHostsChanged = pyqtSignal()
     recentWifiDevicesChanged = pyqtSignal()
     recentStatusUpdated = pyqtSignal(list,dict) 
 
@@ -74,7 +79,10 @@ class MonitorizeBackend(QObject):
         self._presets = load_presets()
         self._pending_usb_preset = None
         self._preset_launch_status = ""
+        self._recent_receiver_hosts = []
+        self._receiver_candidate = None
         self._wire_signals()
+        self._refresh_recent_receiver_hosts()
         self.network_timer = QTimer(self)
         self.network_timer.setInterval(5000)
         self.network_timer.timeout.connect(self._check_network_ip)
@@ -92,7 +100,7 @@ class MonitorizeBackend(QObject):
         self.usb.busyChanged.connect(self.usbBusyChanged)
         self.usb.scanFinished.connect(self._finish_usb_preset_launch)
         self.usb.scanFinished.connect(self._on_usb_scan_finished)
-        self.discovery.devicesChanged.connect(self.discoveredDevicesChanged)
+        self.discovery.devicesChanged.connect(self._refresh_recent_receiver_hosts)
         self.receiver.receivingChanged.connect(self.isReceivingChanged)
         self.receiver.statusChanged.connect(self.receiverStatusChanged)
         self.receiver.hostChanged.connect(self.receiverHostIpChanged)
@@ -101,6 +109,7 @@ class MonitorizeBackend(QObject):
         )
         self.receiver.logAppended.connect(self.receiverLogAppended)
         self.receiver.pairingRequired.connect(self.receiverPairingRequired)
+        self.receiver.streamStable.connect(self._remember_receiver_host)
         self.streaming.streamingChanged.connect(self.isStreamingChanged)
         self.streaming.statusChanged.connect(self.streamingStatusChanged)
         self.streaming.countdownChanged.connect(self.countdownChanged)
@@ -164,7 +173,15 @@ class MonitorizeBackend(QObject):
 
     @pyqtProperty("QVariant", notify=discoveredDevicesChanged)
     def discoveredDevices(self):
-        return list(self.discovery.devices)
+        recent_keys = {
+            self._receiver_host_key(host["ip"], host["port"])
+            for host in self._recent_receiver_hosts
+        }
+        return [
+            device for device in self.discovery.devices
+            if self._receiver_host_key(device["ip"], device["port"])
+            not in recent_keys
+        ]
 
     @pyqtProperty(bool, notify=secondStreamActiveChanged)
     def secondStreamActive(self):
@@ -196,6 +213,10 @@ class MonitorizeBackend(QObject):
     @pyqtProperty(list, notify=recentUsbDevicesChanged)
     def recentUsbDevices(self):
         return self._recent_usb_devices
+
+    @pyqtProperty("QVariant", notify=recentReceiverHostsChanged)
+    def recentReceiverHosts(self):
+        return list(self._recent_receiver_hosts)
 
     @pyqtProperty(list, notify=recentWifiDevicesChanged)
     def recentWifiDevices(self):
@@ -309,22 +330,72 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot(str, int, bool, str, str, str)
     @pyqtSlot(str, int, bool, str, str, str, int)
+    @pyqtSlot(str, int, bool, str, str, str, int, str)
     def connectToHost(
-        self, host, port, encrypted, fingerprint, code, decoder, stream_fps=0
+        self, host, port, encrypted, fingerprint, code, decoder, stream_fps=0,
+        name="",
     ):
         host = normalize_host(host)
         if not valid_host(host) or not valid_port(port):
             self.receiver._set_status("Invalid host or port")
             return
+        port = sanitize_port(port)
+        self._receiver_candidate = {
+            "name": str(name).strip() or host,
+            "ip": host,
+            "port": port,
+            "encrypted": bool(encrypted),
+            "fingerprint": str(fingerprint or "").strip(),
+            "fps": stream_fps,
+        }
         self.receiver.connect(
             host,
-            sanitize_port(port),
+            port,
             encrypted,
             fingerprint,
             code,
             sanitize_decoder(decoder),
             stream_fps,
         )
+
+    @pyqtSlot(str, int)
+    def forgetReceiverHost(self, host, port):
+        if not valid_host(host) or not valid_port(port):
+            return
+        remove_recent_receiver_host(host, port)
+        clear_receiver_credentials(host)
+        self._refresh_recent_receiver_hosts()
+
+    @staticmethod
+    def _receiver_host_key(host, port):
+        return normalize_host(host).lower(), sanitize_port(port)
+
+    def _refresh_recent_receiver_hosts(self):
+        live_hosts = {
+            self._receiver_host_key(device["ip"], device["port"]): device
+            for device in self.discovery.devices
+        }
+        merged = []
+        for saved in load_recent_receiver_hosts():
+            live = live_hosts.get(self._receiver_host_key(saved["ip"], saved["port"]))
+            host = dict(saved)
+            if live:
+                host.update(live)
+                if not live.get("fingerprint"):
+                    host["fingerprint"] = saved["fingerprint"]
+                host["online"] = True
+            else:
+                host["online"] = False
+            merged.append(host)
+        self._recent_receiver_hosts = merged
+        self.recentReceiverHostsChanged.emit()
+        self.discoveredDevicesChanged.emit()
+
+    def _remember_receiver_host(self):
+        if self._receiver_candidate is None:
+            return
+        add_recent_receiver_host(self._receiver_candidate)
+        self._refresh_recent_receiver_hosts()
 
     @pyqtSlot()
     def stopReceiving(self):
