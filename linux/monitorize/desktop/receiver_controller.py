@@ -217,9 +217,10 @@ class ReceiverController(QObject):
                 d3d11_sink,
             ))
         software = self._software_decoder_args()
+        software_label = f"Software {software[0]}"
         if d3d11_sink:
-            profiles.append((software, "Software avdec_h264", d3d11_sink))
-        profiles.append((software, "Software avdec_h264", "autovideosink"))
+            profiles.append((software, software_label, d3d11_sink))
+        profiles.append((software, software_label, "autovideosink"))
 
         unique = []
         seen = set()
@@ -348,7 +349,7 @@ class ReceiverController(QObject):
             self._apply_hardware_receiver_profile()
         else:
             self.decoder_args = self._software_decoder_args()
-            self.decoder_label = "Software avdec_h264"
+            self.decoder_label = f"Software {self.decoder_args[0]}"
         self.retry_count = 0
         self.retry_pending = False
         self.auth_failed = False
@@ -801,12 +802,19 @@ class ReceiverController(QObject):
         return args
 
     def _software_decoder_args(self):
+        decoder = "avdec_h264"
+        if (
+            not self._is_windows()
+            and not gst_has_element(decoder)
+            and gst_has_element("openh264dec")
+        ):
+            decoder = "openh264dec"
         props = dict(SOFTWARE_DECODER_PROPS)
         if getattr(self, "stream_fps", 0) > 60:
             props["max-threads"] = "4"
-        args = ["avdec_h264"]
+        args = [decoder]
         for name, value in props.items():
-            if _gst_has_property("avdec_h264", name):
+            if _gst_has_property(decoder, name):
                 args.append(f"{name}={value}")
         return args
 
@@ -898,7 +906,7 @@ class ReceiverController(QObject):
             self.sink_index += 1
             self.sink = self.sink_candidates[self.sink_index]
         self.decoder_args = self._software_decoder_args()
-        self.decoder_label = "Software avdec_h264"
+        self.decoder_label = f"Software {self.decoder_args[0]}"
         self.logAppended.emit(
             f"Receiver pipeline failed immediately; retrying with "
             f"{self.decoder_label}; sink: {self.sink}"

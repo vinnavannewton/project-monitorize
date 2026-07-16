@@ -21,6 +21,7 @@ Requires:       dbus-tools
 Requires:       firewalld
 Requires:       gstreamer1
 Requires:       gstreamer1-plugin-libav
+Requires:       gstreamer1-plugin-openh264
 Requires:       gstreamer1-plugins-bad-free
 Requires:       gstreamer1-plugins-base
 Requires:       gstreamer1-plugins-good

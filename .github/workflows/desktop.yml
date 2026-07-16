@@ -176,8 +176,8 @@ jobs:
           RPM=$(find dist -type f -name 'monitorize-[0-9]*.x86_64.rpm' -print -quit)
           test -n "$RPM"
           rpm -qp --requires "$RPM" | grep -Fx 'gstreamer1-plugin-libav'
-          dnf -y install "$RPM" gstreamer1-plugin-libav
-          gst-inspect-1.0 >/dev/null 2>&1 || true
+          rpm -qp --requires "$RPM" | grep -Fx 'gstreamer1-plugin-openh264'
+          dnf -y install "$RPM"
 
       - name: Verify runtime and package integration
         env:
@@ -186,7 +186,7 @@ jobs:
           set -euo pipefail
           gst-inspect-1.0 pipewiresrc >/dev/null
           gst-inspect-1.0 x264enc >/dev/null
-          gst-inspect-1.0 avdec_h264 >/dev/null
+          gst-inspect-1.0 openh264dec >/dev/null
           test -x /usr/bin/monitorize-kde-virtual-output
           ! ldd /usr/bin/monitorize-kde-virtual-output | grep -q 'not found'
           desktop-file-validate /usr/share/applications/monitorize.desktop
