@@ -16,7 +16,10 @@ from monitorize.config.settings import (
     save_receiver_credentials,
 )
 from monitorize.platform.utils import LINUX_DIR
-from monitorize.config.validation import normalize_host, sanitize_decoder, sanitize_port, valid_host, valid_port
+from monitorize.config.validation import (
+    normalize_host, sanitize_decoder, sanitize_fps, sanitize_port, valid_host,
+    valid_port,
+)
 
 
 COMPRESSED_QUEUE = [
@@ -152,6 +155,7 @@ class ReceiverController(QObject):
         self.retry_generation = None
         self.receiver_host = ""
         self.receiver_port = 0
+        self.stream_fps = 0
         self.pipeline_fallback_used = False
         self.stable = False
         self.video_item = None
@@ -289,7 +293,10 @@ class ReceiverController(QObject):
         self.status = value
         self.statusChanged.emit(value)
 
-    def connect(self, host, port, encrypted, fingerprint, pairing_code, decoder):
+    def connect(
+        self, host, port, encrypted, fingerprint, pairing_code, decoder,
+        stream_fps=0,
+    ):
         self.discovery.stop_browsing()
         self.stop()
         host = normalize_host(host)
@@ -309,6 +316,7 @@ class ReceiverController(QObject):
         self.fingerprint = fingerprint
         self.pairing_code = pairing_code
         self.decoder = decoder
+        self.stream_fps = sanitize_fps(stream_fps) if stream_fps else 0
         self.sink_candidates = self._sink_candidates()
         self.sink_index = 0
         self.sink = self.sink_candidates[0]
@@ -348,8 +356,11 @@ class ReceiverController(QObject):
         self.hostChanged.emit(self.host_label)
         if not encrypted:
             self._set_receiving(True)
-        self._set_status(f"Connecting to {host}:{port}…")
+        warning = self._display_fps_warning()
+        self._set_status(f"Connecting to {host}:{port}…{warning}")
         self.logAppended.emit(f"Connecting to {host} on port {port}…")
+        if warning:
+            self.logAppended.emit(f"WARNING: {warning.lstrip(' — ')}")
         self._start_attempt(generation)
 
     def set_video_item(self, item):
@@ -789,11 +800,34 @@ class ReceiverController(QObject):
         return args
 
     def _software_decoder_args(self):
+        props = dict(SOFTWARE_DECODER_PROPS)
+        if getattr(self, "stream_fps", 0) > 60:
+            props["max-threads"] = "4"
         args = ["avdec_h264"]
-        for name, value in SOFTWARE_DECODER_PROPS.items():
+        for name, value in props.items():
             if _gst_has_property("avdec_h264", name):
                 args.append(f"{name}={value}")
         return args
+
+    def _display_fps_warning(self):
+        if getattr(self, "stream_fps", 0) <= 0:
+            return ""
+        app = QGuiApplication.instance()
+        if app is None or not hasattr(app, "primaryScreen"):
+            return ""
+        screen = app.primaryScreen()
+        if screen is None:
+            return ""
+        try:
+            refresh = float(screen.refreshRate())
+        except (AttributeError, TypeError, ValueError):
+            return ""
+        if refresh <= 0 or self.stream_fps <= refresh + 0.5:
+            return ""
+        return (
+            f" — {self.stream_fps} FPS stream; this {round(refresh)} Hz display "
+            f"can show up to {round(refresh)} FPS"
+        )
 
     def _hardware_decoder_args(self, decoder):
         props = dict(HARDWARE_DECODER_PROPS)

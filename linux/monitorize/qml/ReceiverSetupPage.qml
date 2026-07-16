@@ -14,7 +14,8 @@ Item {
             device.encrypted === true,
             device.fingerprint || "",
             code || "",
-            device.decoder || decoderCombo.currentText
+            device.decoder || decoderCombo.currentText,
+            Number(device.fps || 0)
         )
     }
 
@@ -24,7 +25,8 @@ Item {
             "port": Number(device.port || 7110),
             "encrypted": device.encrypted === true,
             "fingerprint": device.fingerprint || "",
-            "decoder": decoderCombo.currentText
+            "decoder": decoderCombo.currentText,
+            "fps": Number(device.fps || 0)
         }
         setupMessage = ""
         if (target.encrypted
@@ -66,7 +68,9 @@ Item {
                 "port": port,
                 "encrypted": true,
                 "fingerprint": fingerprint,
-                "decoder": decoderCombo.currentText
+                "decoder": decoderCombo.currentText,
+                "fps": pendingDevice && pendingDevice.ip === host
+                    ? Number(pendingDevice.fps || 0) : 0
             }
             pairingCodeField.text = ""
             pairingPopup.open()
@@ -215,6 +219,7 @@ Item {
                                 Text {
                                     text: (modelData.ip || "") + ":" + (modelData.port || 7110)
                                         + (modelData.encrypted === true ? "  •  encrypted" : "")
+                                        + (modelData.fps ? "  •  " + modelData.fps + " FPS" : "")
                                     font.pixelSize: 13
                                     color: theme.cardTextMuted
                                 }
@@ -347,7 +352,8 @@ Item {
                             "port": p,
                             "encrypted": encryptionCheck.checked,
                             "fingerprint": "",
-                            "thirdAvailable": true
+                            "thirdAvailable": true,
+                            "fps": 0
                         })
                     }
                 }
