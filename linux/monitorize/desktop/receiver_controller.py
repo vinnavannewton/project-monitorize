@@ -20,8 +20,7 @@ from monitorize.config.validation import normalize_host, sanitize_decoder, sanit
 
 
 COMPRESSED_QUEUE = [
-    "queue", "max-size-buffers=1", "max-size-time=0", "max-size-bytes=0",
-    "leaky=downstream",
+    "queue", "max-size-buffers=3", "max-size-time=0", "max-size-bytes=4194304",
 ]
 RAW_DROP_QUEUE = [
     "queue", "max-size-buffers=1", "max-size-time=0", "max-size-bytes=0",
