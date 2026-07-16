@@ -20,7 +20,8 @@ from monitorize.config.validation import normalize_host, sanitize_decoder, sanit
 
 
 COMPRESSED_QUEUE = [
-    "queue", "max-size-buffers=3", "max-size-time=0", "max-size-bytes=4194304",
+    "queue", "max-size-buffers=1", "max-size-time=0", "max-size-bytes=0",
+    "leaky=downstream",
 ]
 RAW_DROP_QUEUE = [
     "queue", "max-size-buffers=1", "max-size-time=0", "max-size-bytes=0",
@@ -740,6 +741,20 @@ class ReceiverController(QObject):
     def _use_receiver_fallback(self):
         if self._is_windows():
             return self._retry_windows_embedded_fallback()
+        if self.decoder == "Hardware":
+            if self.sink_index + 1 >= len(self.sink_candidates):
+                return False
+            self.sink_index += 1
+            self.sink = self.sink_candidates[self.sink_index]
+            self.logAppended.emit(
+                f"Hardware receiver pipeline failed; retrying with "
+                f"{self.decoder_label}; sink: {self.sink}"
+            )
+            self.process = None
+            self._launch_external_pipeline(
+                self.receiver_host, self.receiver_port, self.generation
+            )
+            return True
         if self.pipeline_fallback_used:
             return False
         self.pipeline_fallback_used = True
@@ -890,14 +905,16 @@ class ReceiverController(QObject):
         self.logAppended.emit(f"Receiver process exited (code {code})")
         self.stable_timer.stop()
         elapsed = time.monotonic() - self.attempt_started
-        if (
-            code
-            and not self.stopping
-            and not self.stable
-            and elapsed < 2
-            and self._use_receiver_fallback()
-        ):
-            return
+        if code and not self.stopping and not self.stable and elapsed < 2:
+            if self._use_receiver_fallback():
+                return
+            if self.decoder == "Hardware":
+                self.logAppended.emit(
+                    "ERROR: Hardware receiver pipeline failed with every available sink."
+                )
+                self._set_status("Hardware receiver pipeline failed — see logs")
+                self._set_receiving(False)
+                return
         max_retries = 30 if self.stable else 10
         if (
             not self.stopping
