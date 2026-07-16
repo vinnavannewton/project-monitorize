@@ -468,11 +468,13 @@ class PlatformDetectionTest(unittest.TestCase):
 
 
 class ReceiverControllerTest(unittest.TestCase):
-    def test_pipeline_preserves_compressed_frames_before_decode(self):
+    def test_hardware_pipeline_preserves_compressed_frames_and_uses_dmabuf(self):
         controller = ReceiverController("kde", Mock())
+        controller.decoder = "Hardware"
         controller.decoder_args = ["vah264dec"]
-        controller.decoder_label = "VA-API"
-        controller.sink = "xvimagesink"
+        controller.decoder_label = "VA-API vah264dec"
+        controller.hardware_path = "dmabuf"
+        controller.sink = "waylandsink"
         process = process_mock()
         with (
             patch("monitorize.desktop.receiver_controller.QProcess", return_value=process),
@@ -494,10 +496,67 @@ class ReceiverControllerTest(unittest.TestCase):
         self.assertIn("max-size-buffers=3", args[first_queue_index:decoder_index])
         self.assertNotIn("leaky=downstream", args[first_queue_index:decoder_index])
         self.assertIn("leaky=downstream", args[decoder_index:])
+        self.assertIn("video/x-raw(memory:VAMemory)", args[decoder_index:])
+        self.assertIn("vapostproc", args[decoder_index:])
+        self.assertIn(
+            "video/x-raw(memory:DMABuf),format=DMA_DRM", args[decoder_index:]
+        )
+        self.assertNotIn("videoconvert", args)
+        self.assertNotIn("videoscale", args)
         self.assertIn("sync=false", args)
         self.assertIn("async=false", args)
         self.assertIn("force-aspect-ratio=false", args)
         self.assertIn("port=7114", args)
+
+    def test_embedded_hardware_pipeline_scales_in_dmabuf_memory(self):
+        controller = ReceiverController("kde", Mock())
+        controller.decoder = "Hardware"
+        controller.decoder_args = ["vah264dec"]
+        controller.decoder_label = "VA-API vah264dec"
+        controller.hardware_path = "dmabuf"
+        controller.sink = "glimagesink"
+        controller.receiver_surface_width = 1920
+        controller.receiver_surface_height = 1080
+        with patch(
+            "monitorize.desktop.receiver_controller._gst_has_property",
+            return_value=True,
+        ):
+            description = controller._embedded_pipeline_description(
+                "10.0.0.2", 7110, "glimagesink"
+            )
+        self.assertIn("video/x-raw(memory:VAMemory)", description)
+        self.assertIn("vapostproc", description)
+        self.assertIn(
+            "video/x-raw(memory:DMABuf),format=DMA_DRM,width=1920,height=1080,"
+            "pixel-aspect-ratio=1/1",
+            description,
+        )
+        self.assertNotIn("videoconvert", description)
+        self.assertNotIn("videoscale", description)
+
+    def test_legacy_hardware_pipeline_keeps_va_surfaces(self):
+        controller = ReceiverController("kde", Mock())
+        controller.decoder = "Hardware"
+        controller.decoder_args = ["vaapih264dec", "low-latency=true"]
+        controller.decoder_label = "VA-API vaapih264dec"
+        controller.hardware_path = "vasurface"
+        controller.hardware_sink_props = {"display": "wayland"}
+        controller.sink = "vaapisink"
+        process = process_mock()
+        with (
+            patch("monitorize.desktop.receiver_controller.QProcess", return_value=process),
+            patch(
+                "monitorize.desktop.receiver_controller._gst_has_property",
+                return_value=True,
+            ),
+        ):
+            controller._launch_pipeline("10.0.0.2", 7110)
+        _command, args = process.start.call_args.args
+        self.assertIn("low-latency=true", args)
+        self.assertIn("video/x-raw(memory:VASurface)", args)
+        self.assertIn("display=wayland", args)
+        self.assertNotIn("videoconvert", args)
+        self.assertNotIn("videoscale", args)
 
     def test_embedded_pipeline_uses_video_overlay_sink(self):
         controller = ReceiverController("kde", Mock())
@@ -798,6 +857,79 @@ class ReceiverControllerTest(unittest.TestCase):
                 ["glimagesink", "xvimagesink", "ximagesink", "autovideosink"],
             )
 
+    def test_wayland_hardware_profiles_are_complete_zero_copy_paths(self):
+        controller = ReceiverController("kde", Mock())
+        available = {
+            "vah264dec", "vapostproc", "waylandsink", "glimagesink",
+            "vaapih264dec", "vaapisink",
+        }
+        with (
+            patch.dict(
+                os.environ,
+                {"XDG_SESSION_TYPE": "wayland", "WAYLAND_DISPLAY": "wayland-0"},
+                clear=True,
+            ),
+            patch(
+                "monitorize.desktop.receiver_controller.gst_has_element",
+                side_effect=lambda name: name in available,
+            ),
+            patch(
+                "monitorize.desktop.receiver_controller._gst_has_property",
+                return_value=True,
+            ),
+        ):
+            profiles = controller._hardware_receiver_profiles()
+        self.assertEqual([profile[2] for profile in profiles], [
+            "waylandsink", "glimagesink", "vaapisink",
+        ])
+        self.assertEqual([profile[3] for profile in profiles], [
+            "dmabuf", "dmabuf", "vasurface",
+        ])
+        self.assertIn("low-latency=true", profiles[-1][0])
+        self.assertEqual(profiles[-1][4], {"display": "wayland"})
+
+    def test_hardware_profile_requires_complete_zero_copy_chain(self):
+        controller = ReceiverController("kde", Mock())
+        with (
+            patch.dict(
+                os.environ,
+                {"XDG_SESSION_TYPE": "wayland", "WAYLAND_DISPLAY": "wayland-0"},
+                clear=True,
+            ),
+            patch(
+                "monitorize.desktop.receiver_controller.gst_has_element",
+                side_effect=lambda name: name in {"vah264dec", "waylandsink"},
+            ),
+        ):
+            self.assertEqual(controller._hardware_receiver_profiles(), [])
+
+    def test_x11_hardware_profiles_use_gl_then_legacy_va_sink(self):
+        controller = ReceiverController("kde", Mock())
+        available = {
+            "vah264dec", "vapostproc", "glimagesink",
+            "vaapih264dec", "vaapisink",
+        }
+        with (
+            patch.dict(
+                os.environ,
+                {"XDG_SESSION_TYPE": "x11", "DISPLAY": ":0"},
+                clear=True,
+            ),
+            patch(
+                "monitorize.desktop.receiver_controller.gst_has_element",
+                side_effect=lambda name: name in available,
+            ),
+            patch(
+                "monitorize.desktop.receiver_controller._gst_has_property",
+                return_value=True,
+            ),
+        ):
+            profiles = controller._hardware_receiver_profiles()
+        self.assertEqual([profile[2] for profile in profiles], [
+            "glimagesink", "vaapisink",
+        ])
+        self.assertEqual(profiles[-1][4], {"display": "x11"})
+
     def test_windows_receiver_profiles_prefer_d3d11_hardware_then_in_app_fallbacks(self):
         controller = ReceiverController("windows", Mock())
         with (
@@ -891,7 +1023,7 @@ class ReceiverControllerTest(unittest.TestCase):
         self.assertIn("fullscreen=true", args)
         self.assertIn("force-aspect-ratio=false", args)
 
-    def test_hardware_failure_retries_next_sink_without_software_decoder(self):
+    def test_hardware_failure_retries_next_zero_copy_profile(self):
         controller = ReceiverController("kde", Mock())
         controller.generation = 4
         controller.decoder = "Hardware"
@@ -899,21 +1031,34 @@ class ReceiverControllerTest(unittest.TestCase):
         controller.port = 7110
         controller.receiver_host = "10.0.0.2"
         controller.receiver_port = 7110
-        controller.sink_candidates = ["glimagesink", "autovideosink"]
-        controller.sink_index = 0
+        controller.hardware_profiles = [
+            (["vah264dec"], "VA-API vah264dec", "glimagesink", "dmabuf", {}),
+            (
+                ["vaapih264dec", "low-latency=true"],
+                "VA-API vaapih264dec",
+                "vaapisink",
+                "vasurface",
+                {"display": "wayland"},
+            ),
+        ]
+        controller.hardware_profile_index = 0
         controller.sink = "glimagesink"
         controller.decoder_args = ["vah264dec"]
         controller.decoder_label = "VA-API"
+        controller.hardware_path = "dmabuf"
         controller.process = process_mock()
         controller.attempt_started = __import__("time").monotonic()
         with patch.object(controller, "_launch_external_pipeline") as launch:
             controller._finished(1, None, controller.process, generation=4)
         launch.assert_called_once_with("10.0.0.2", 7110, 4)
-        self.assertEqual(controller.sink, "autovideosink")
-        self.assertEqual(controller.decoder_args, ["vah264dec"])
-        self.assertEqual(controller.decoder_label, "VA-API")
+        self.assertEqual(controller.sink, "vaapisink")
+        self.assertEqual(
+            controller.decoder_args, ["vaapih264dec", "low-latency=true"]
+        )
+        self.assertEqual(controller.hardware_path, "vasurface")
+        self.assertNotIn("avdec_h264", controller.decoder_args)
 
-    def test_hardware_failure_with_no_remaining_sink_stops_without_software(self):
+    def test_hardware_failure_with_no_remaining_profile_stops_without_software(self):
         controller = ReceiverController("kde", Mock())
         controller.generation = 4
         controller.decoder = "Hardware"
@@ -921,18 +1066,23 @@ class ReceiverControllerTest(unittest.TestCase):
         controller.port = 7110
         controller.receiver_host = "10.0.0.2"
         controller.receiver_port = 7110
-        controller.sink_candidates = ["glimagesink"]
+        controller.hardware_profiles = [
+            (["vah264dec"], "VA-API vah264dec", "glimagesink", "dmabuf", {}),
+        ]
+        controller.hardware_profile_index = 0
         controller.sink = "glimagesink"
         controller.decoder_args = ["vah264dec"]
         controller.decoder_label = "VA-API"
         controller.process = process_mock()
         controller.attempt_started = __import__("time").monotonic()
         controller._finished(1, None, controller.process, generation=4)
-        self.assertEqual(controller.status, "Hardware receiver pipeline failed — see logs")
+        self.assertEqual(
+            controller.status, "Hardware zero-copy receiver failed — see logs"
+        )
         self.assertFalse(controller.receiving)
         self.assertEqual(controller.decoder_args, ["vah264dec"])
 
-    def test_hardware_mode_without_vaapi_decoder_does_not_start_software(self):
+    def test_hardware_mode_without_zero_copy_profile_does_not_start_software(self):
         controller = ReceiverController("kde", Mock())
         with (
             patch(
@@ -945,7 +1095,7 @@ class ReceiverControllerTest(unittest.TestCase):
         start.assert_not_called()
         self.assertEqual(
             controller.status,
-            "Hardware decoder unavailable — install the GStreamer VA-API decoder",
+            "Hardware zero-copy unavailable — install GStreamer VA/DMABuf plugins",
         )
 
 
