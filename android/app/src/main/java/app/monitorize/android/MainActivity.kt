@@ -107,6 +107,13 @@ internal fun removedRecentDevices(
     device: DiscoveredDevice
 ): List<DiscoveredDevice> = existing.filterNot { recentHostKey(it) == recentHostKey(device) }
 
+internal fun isRecentWifiDeviceOnline(
+    recentDevice: DiscoveredDevice,
+    discoveredDevices: List<DiscoveredDevice>
+): Boolean = !recentDevice.isUsb && discoveredDevices.any {
+    !it.isUsb && recentHostKey(it) == recentHostKey(recentDevice)
+}
+
 class MainActivity : ComponentActivity() {
 
     @Volatile private var decoder: H264Decoder? = null
@@ -904,6 +911,7 @@ fun HomeScreen(
                     items(displayedRecentDevices, key = { recentHostKey(it) }) { device ->
                         DeviceItem(
                             device = device,
+                            isOnline = isRecentWifiDeviceOnline(device, devices),
                             onClick = { onDeviceSelected(device) },
                             onLongClick = { deviceToForget = device }
                         )
@@ -1083,6 +1091,7 @@ fun HomeScreen(
 @OptIn(ExperimentalFoundationApi::class)
 fun DeviceItem(
     device: DiscoveredDevice,
+    isOnline: Boolean? = null,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null
 ) {
@@ -1130,18 +1139,34 @@ fun DeviceItem(
             )
         }
         
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(4.dp))
-                .background(Color.White.copy(alpha = 0.2f))
-                .padding(horizontal = 10.dp, vertical = 4.dp)
-        ) {
-            Text(
-                text = if (device.isUsb) "usb" else "wifi",
-                color = Color.White,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.ExtraBold
-            )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            val statusColor = when (isOnline) {
+                true -> Color(0xFF4CAF50)
+                false -> Color(0xFFF44336)
+                null -> Color.White.copy(alpha = 0.2f)
+            }
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(statusColor)
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    text = if (device.isUsb) "usb" else "wifi",
+                    color = Color.White,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+            isOnline?.let { online ->
+                Spacer(modifier = Modifier.height(3.dp))
+                Text(
+                    text = if (online) "online" else "offline",
+                    color = statusColor,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
         }
     }
 }

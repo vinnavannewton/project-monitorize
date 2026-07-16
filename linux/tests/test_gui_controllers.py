@@ -25,7 +25,7 @@ from monitorize.desktop.discovery_service import DiscoveryService
 from monitorize.desktop.backend import MonitorizeBackend
 from monitorize.desktop.receiver_controller import ReceiverController
 from monitorize.desktop.streaming_controller import StreamingController
-from monitorize.desktop.usb_controller import UsbController
+from monitorize.desktop.usb_controller import UsbController, authorized_adb_serials
 from monitorize.config.validation import (
     DEFAULT_PRIMARY_RESOLUTION,
     sanitize_encoder_profile,
@@ -3382,9 +3382,11 @@ class UsbControllerTest(unittest.TestCase):
         controller = UsbController()
         calls = []
         controller._run = lambda args, callback: calls.append((args, callback))
+        controller._authorized_serials = Mock(return_value=["android-1"])
         controller.start()
         self.assertEqual(calls[0][0], ["devices"])
         controller._devices_done(0, None)
+        self.assertEqual(controller.serial, "android-1")
         self.assertEqual(
             calls[1][0], ["reverse", "tcp:7110", "tcp:7112"]
         )
@@ -3395,6 +3397,34 @@ class UsbControllerTest(unittest.TestCase):
         controller._touch_done(0, None)
         self.assertEqual(controller.status, "Device ready!")
         self.assertFalse(controller.busy)
+
+    def test_only_authorized_adb_devices_are_accepted(self):
+        output = "List of devices attached\nready\tdevice\nlocked\tunauthorized\ngone\toffline\n"
+
+        self.assertEqual(["ready"], authorized_adb_serials(output))
+
+    def test_unavailable_selected_device_does_not_configure_reverse_ports(self):
+        controller = UsbController()
+        calls = []
+        controller._run = lambda args, callback: calls.append((args, callback))
+        controller._authorized_serials = Mock(return_value=[])
+
+        controller.start("missing-device")
+        controller._devices_done(0, None)
+
+        self.assertEqual([["devices"]], [args for args, _ in calls])
+        self.assertIn("not authorized", controller.status)
+        self.assertFalse(controller.busy)
+
+    def test_usb_page_auto_scans_only_one_authorized_recent_device(self):
+        qml_path = Path(__file__).resolve().parents[1] / "monitorize" / "qml" / "UsbStep1Page.qml"
+        qml = qml_path.read_text(encoding="utf-8")
+
+        self.assertIn("function startAutomaticScanIfReady()", qml)
+        self.assertIn("if (onlineSerials.length !== 1)", qml)
+        self.assertIn("backend.startUsbScan(onlineSerials[0])", qml)
+        self.assertNotIn('text: modelData.online ? "Connect"', qml)
+        self.assertNotIn("MouseArea {", qml)
 
 
 class BackendFacadeTest(unittest.TestCase):
