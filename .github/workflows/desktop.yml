@@ -177,6 +177,7 @@ jobs:
           test -n "$RPM"
           rpm -qp --requires "$RPM" | grep -Fx 'gstreamer1-plugin-libav'
           dnf -y install "$RPM" gstreamer1-plugin-libav
+          gst-inspect-1.0 >/dev/null 2>&1 || true
 
       - name: Verify runtime and package integration
         env:
