@@ -181,20 +181,30 @@ Item {
                     id: deviceRepeater
                     model: []
 
-                    Rectangle {
+                    Button {
+                        id: deviceCard
                         Layout.fillWidth: true
-                        implicitHeight: 60
-                        radius: theme.cardRadius
-                        color: devMouseArea.containsMouse ? theme.surfaceAlt : theme.surface
-                        border.color: devMouseArea.containsMouse ? theme.borderHover : theme.border
-                        border.width: 1
-                        Behavior on color { ColorAnimation { duration: 150 } }
-                        Behavior on border.color { ColorAnimation { duration: 150 } }
+                        implicitHeight: 68
+                        leftPadding: 18
+                        rightPadding: 18
+                        topPadding: 12
+                        bottomPadding: 12
+                        hoverEnabled: true
+                        text: modelData.name || "Unknown"
+                        onClicked: page.requestConnection(modelData)
 
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.leftMargin: 16
-                            anchors.rightMargin: 16
+                        background: Rectangle {
+                            radius: 12
+                            color: deviceCard.down || deviceCard.hovered
+                                ? theme.surfaceAlt : theme.surface
+                            border.color: deviceCard.hovered
+                                ? theme.borderHover : theme.border
+                            border.width: 1
+                            Behavior on color { ColorAnimation { duration: 150 } }
+                            Behavior on border.color { ColorAnimation { duration: 150 } }
+                        }
+
+                        contentItem: RowLayout {
                             spacing: 12
 
                             ColumnLayout {
@@ -202,46 +212,34 @@ Item {
                                 Layout.fillWidth: true
 
                                 Text {
-                                    text: modelData.name || "Unknown"
-                                    font.pixelSize: 15
+                                    text: deviceCard.text
+                                    font.pixelSize: 16
                                     font.weight: Font.Bold
                                     color: theme.cardTextPrimary
                                 }
                                 Text {
-                                    text: (modelData.ip || "")
-                                        + "  •  Second display"
-                                        + (modelData.thirdAvailable ? "  •  Third display available" : "")
-                                    font.pixelSize: 12
+                                    text: (modelData.ip || "") + ":" + (modelData.port || 7110)
+                                        + (modelData.encrypted === true ? "  •  encrypted" : "")
+                                    font.pixelSize: 13
                                     color: theme.cardTextMuted
                                 }
                             }
 
-                            // Badge
                             Rectangle {
-                                implicitWidth: badgeText.implicitWidth + 16
+                                implicitWidth: onlineText.implicitWidth + 20
                                 implicitHeight: 22
-                                radius: 6
-                                color: theme.accentAlpha20
-                                border.color: theme.accentAlpha40
-                                border.width: 1
+                                radius: 4
+                                color: "#4caf50"
+                                Layout.alignment: Qt.AlignVCenter
 
                                 Text {
-                                    id: badgeText
+                                    id: onlineText
                                     anchors.centerIn: parent
-                                    text: modelData.encrypted === true ? "encrypted" : "wifi"
+                                    text: "online"
                                     font.pixelSize: 10
                                     font.weight: Font.ExtraBold
-                                    color: theme.accent
+                                    color: "#ffffff"
                                 }
-                            }
-                        }
-
-                        MouseArea {
-                            id: devMouseArea
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            onClicked: {
-                                page.requestConnection(modelData)
                             }
                         }
                     }

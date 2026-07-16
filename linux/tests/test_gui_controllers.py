@@ -3912,6 +3912,21 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertEqual(qml.count("ChoiceChips {"), 1)
         self.assertEqual(qml.count("CustomComboBox {"), 0)
 
+    def test_receiver_discovery_cards_are_clickable_and_show_online(self):
+        qml_path = (
+            Path(__file__).resolve().parents[1]
+            / "monitorize"
+            / "qml"
+            / "ReceiverSetupPage.qml"
+        )
+        qml = qml_path.read_text(encoding="utf-8")
+        self.assertIn("id: deviceCard", qml)
+        self.assertIn("onClicked: page.requestConnection(modelData)", qml)
+        self.assertIn('text: "online"', qml)
+        self.assertIn('color: "#4caf50"', qml)
+        self.assertNotIn('text: modelData.encrypted === true ? "encrypted" : "wifi"', qml)
+        self.assertNotIn('"  •  Second display"', qml)
+
     def test_qml_api_remains_exposed(self):
         with patch("monitorize.desktop.backend.get_local_ip", return_value="127.0.0.1"):
             backend = MonitorizeBackend("kde")
