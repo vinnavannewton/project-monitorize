@@ -253,8 +253,8 @@ jobs:
           gst-inspect-1.0 avdec_h264 >/dev/null
           test -x linux/venv/bin/monitorize-kde-virtual-output
           ! ldd linux/venv/bin/monitorize-kde-virtual-output | grep -q 'not found'
-          desktop-file-validate /root/.local/share/applications/monitorize.desktop
-          desktop-file-validate /root/.local/share/applications/monitorize-kde-virtual-output.desktop
+          desktop-file-validate "$HOME/.local/share/applications/monitorize.desktop"
+          desktop-file-validate "$HOME/.local/share/applications/monitorize-kde-virtual-output.desktop"
           PYTHONPATH=linux linux/venv/bin/python3 - <<'PY'
           from PyQt6.QtCore import QUrl
           from PyQt6.QtGui import QGuiApplication
