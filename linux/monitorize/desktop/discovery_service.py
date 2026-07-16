@@ -70,6 +70,11 @@ class DiscoveryService(QObject):
                     ip = service._ipv4(info.addresses)
                     if not ip or not valid_port(info.port):
                         return
+                    stream_fps = 0
+                    if b"fps" in props:
+                        stream_fps = sanitize_fps(
+                            service._decode(service._prop(props, b"fps"))
+                        )
                     values = (
                         service._decode(service._prop(props, b"name", b"Unknown")),
                         ip,
@@ -80,6 +85,7 @@ class DiscoveryService(QObject):
                         else service._prop(props, b"third_available") == b"1",
                         service._safe_port(service._prop(props, b"third_port", b"7114")),
                         name,
+                        stream_fps,
                     )
                     service._deviceResolved.emit(values)
 
@@ -101,7 +107,7 @@ class DiscoveryService(QObject):
 
     def add_device(
         self, name, ip, port, encrypted=False, fingerprint="",
-        third_available=False, third_port=7114, service_name=None,
+        third_available=False, third_port=7114, service_name=None, stream_fps=0,
     ):
         if not ip or not valid_port(port):
             return
@@ -122,6 +128,7 @@ class DiscoveryService(QObject):
             "fingerprint": fingerprint,
             "thirdAvailable": third_available,
             "thirdPort": third_port,
+            "fps": sanitize_fps(stream_fps) if stream_fps else 0,
         }
         existing = existing or next((
             device for device in self.devices

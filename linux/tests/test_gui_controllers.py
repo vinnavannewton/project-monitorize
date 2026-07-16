@@ -52,7 +52,7 @@ def process_mock():
 class DiscoveryServiceTest(unittest.TestCase):
     def test_worker_thread_resolution_reaches_qt_owner_thread(self):
         service = DiscoveryService()
-        values = ("Host", "10.0.0.2", 7110, False, "", False, 7114, "svc")
+        values = ("Host", "10.0.0.2", 7110, False, "", False, 7114, "svc", 120)
         worker = threading.Thread(target=lambda: service._deviceResolved.emit(values))
         worker.start()
         worker.join()
@@ -61,6 +61,7 @@ class DiscoveryServiceTest(unittest.TestCase):
             app.processEvents()
 
         self.assertEqual(service.devices[0]["ip"], "10.0.0.2")
+        self.assertEqual(service.devices[0]["fps"], 120)
 
     def test_device_updates_do_not_duplicate_host(self):
         service = DiscoveryService()
@@ -70,6 +71,11 @@ class DiscoveryServiceTest(unittest.TestCase):
         self.assertEqual(service.devices[0]["name"], "New")
         self.assertTrue(service.devices[0]["encrypted"])
         self.assertTrue(service.devices[0]["thirdAvailable"])
+
+    def test_device_retains_advertised_fps(self):
+        service = DiscoveryService()
+        service.add_device("Host", "10.0.0.2", 7110, stream_fps=120)
+        self.assertEqual(service.devices[0]["fps"], 120)
 
     def test_advertisement_contains_encryption_and_third_display_state(self):
         registered = []
@@ -471,6 +477,7 @@ class ReceiverControllerTest(unittest.TestCase):
     def test_hardware_pipeline_preserves_compressed_frames_and_uses_dmabuf(self):
         controller = ReceiverController("kde", Mock())
         controller.decoder = "Hardware"
+        controller.stream_fps = 120
         controller.decoder_args = ["vah264dec"]
         controller.decoder_label = "VA-API vah264dec"
         controller.hardware_path = "dmabuf"
@@ -503,6 +510,8 @@ class ReceiverControllerTest(unittest.TestCase):
         )
         self.assertNotIn("videoconvert", args)
         self.assertNotIn("videoscale", args)
+        self.assertNotIn("avdec_h264", args)
+        self.assertNotIn("framerate=60/1", args)
         self.assertIn("sync=false", args)
         self.assertIn("async=false", args)
         self.assertIn("force-aspect-ratio=false", args)
@@ -828,6 +837,39 @@ class ReceiverControllerTest(unittest.TestCase):
         self.assertIn("discard-corrupted-frames=true", args)
         self.assertIn("automatic-request-sync-points=true", args)
         self.assertIn("max-threads=2", args)
+
+    def test_software_decoder_uses_more_threads_above_60_fps(self):
+        controller = ReceiverController("kde", Mock())
+        controller.stream_fps = 120
+        with patch(
+            "monitorize.desktop.receiver_controller._gst_has_property",
+            return_value=True,
+        ):
+            args = controller._software_decoder_args()
+        self.assertIn("max-threads=4", args)
+
+    def test_high_fps_display_warning_does_not_change_connection(self):
+        controller = ReceiverController("kde", Mock())
+        screen = Mock()
+        screen.refreshRate.return_value = 60.0
+        app = Mock()
+        app.primaryScreen.return_value = screen
+        emitted = []
+        controller.logAppended.connect(emitted.append)
+        with (
+            patch(
+                "monitorize.desktop.receiver_controller.QGuiApplication.instance",
+                return_value=app,
+            ),
+            patch.object(controller, "_start_attempt") as start,
+        ):
+            controller.connect(
+                "10.0.0.2", 7110, False, "", "", "Software", 120
+            )
+        start.assert_called_once()
+        self.assertEqual(controller.stream_fps, 120)
+        self.assertIn("120 FPS stream", controller.status)
+        self.assertTrue(any("60 Hz display" in line for line in emitted))
 
     def test_sink_selection_prefers_gl_before_wayland_fallback(self):
         controller = ReceiverController("kde", Mock())

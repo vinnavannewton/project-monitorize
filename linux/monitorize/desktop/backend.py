@@ -308,7 +308,10 @@ class MonitorizeBackend(QObject):
         self.discovery.stop_browsing()
 
     @pyqtSlot(str, int, bool, str, str, str)
-    def connectToHost(self, host, port, encrypted, fingerprint, code, decoder):
+    @pyqtSlot(str, int, bool, str, str, str, int)
+    def connectToHost(
+        self, host, port, encrypted, fingerprint, code, decoder, stream_fps=0
+    ):
         host = normalize_host(host)
         if not valid_host(host) or not valid_port(port):
             self.receiver._set_status("Invalid host or port")
@@ -320,6 +323,7 @@ class MonitorizeBackend(QObject):
             fingerprint,
             code,
             sanitize_decoder(decoder),
+            stream_fps,
         )
 
     @pyqtSlot()
