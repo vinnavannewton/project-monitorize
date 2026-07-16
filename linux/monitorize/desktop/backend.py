@@ -28,7 +28,7 @@ from monitorize.config.settings import (
     save_wifi_settings,
 )
 from monitorize.desktop.streaming_controller import StreamingController
-from monitorize.desktop.usb_controller import UsbController
+from monitorize.desktop.usb_controller import UsbController, authorized_adb_serials
 from monitorize.platform.utils import get_local_ip, is_windows
 from monitorize.config.validation import (
     normalize_host,
@@ -561,9 +561,7 @@ class RecentDeviceStatusChecker(threading.Thread):
             try:
                 res = subprocess.run(["adb", "devices"], capture_output=True, text=True, timeout=3)
                 if res.returncode == 0:
-                    for line in res.stdout.splitlines():
-                        if line.endswith("device"):
-                            online_usb.append(line.split()[0])
+                    online_usb = authorized_adb_serials(res.stdout)
             except Exception:
                 pass
 

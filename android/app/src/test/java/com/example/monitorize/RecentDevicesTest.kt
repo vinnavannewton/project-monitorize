@@ -40,4 +40,21 @@ class RecentDevicesTest {
         assertEquals(listOf(7114, 7110), recent.map { it.port })
         assertEquals(listOf(second), removedRecentDevices(recent, first))
     }
+
+    @Test
+    fun recentWifiDeviceStatusMatchesOnlyTheSameDiscoveredWifiHost() {
+        val recent = DiscoveredDevice("PC", "192.168.1.2", 7110)
+
+        assertEquals(true, isRecentWifiDeviceOnline(recent, listOf(recent)))
+        assertEquals(false, isRecentWifiDeviceOnline(recent, emptyList()))
+        assertEquals(
+            false,
+            isRecentWifiDeviceOnline(recent, listOf(recent.copy(port = 7114)))
+        )
+        assertEquals(
+            false,
+            isRecentWifiDeviceOnline(recent, listOf(recent.copy(isUsb = true)))
+        )
+    }
+
 }

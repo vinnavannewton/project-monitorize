@@ -5,11 +5,37 @@ import QtQuick.Layouts
 Item {
     id: page
     property bool hasStartedScan: false
+    property bool autoScanStarted: false
     property bool isScanSuccessful: backend.usbStatusText === "Device ready!" || backend.usbStatusText.indexOf("Warning:") === 0
+
+    function startAutomaticScanIfReady() {
+        if (hasStartedScan || autoScanStarted || backend.usbBusy)
+            return
+        let onlineSerials = []
+        for (let index = 0; index < backend.recentUsbDevices.length; index++) {
+            let device = backend.recentUsbDevices[index]
+            if (device.online)
+                onlineSerials.push(device.serial)
+        }
+        if (onlineSerials.length !== 1)
+            return
+        autoScanStarted = true
+        hasStartedScan = true
+        backend.startUsbScan(onlineSerials[0])
+    }
 
     Component.onCompleted: {
         hasStartedScan = false;
+        autoScanStarted = false;
         backend.resetUsbStatus();
+        startAutomaticScanIfReady();
+    }
+
+    Connections {
+        target: backend
+        function onRecentUsbDevicesChanged() {
+            page.startAutomaticScanIfReady()
+        }
     }
 
     ColumnLayout {
@@ -137,8 +163,8 @@ Item {
                     Layout.fillWidth: true
                     height: 52
                     radius: theme.controlRadius
-                    color: itemMouse.containsMouse ? theme.surfaceAlt : theme.surface
-                    border.color: itemMouse.containsMouse ? theme.borderHover : theme.border
+                    color: theme.surface
+                    border.color: theme.border
                     border.width: 1
 
                     RowLayout {
@@ -175,22 +201,11 @@ Item {
                         }
 
                         Text {
-                            text: modelData.online ? "Connect" : "Offline"
+                            text: modelData.online ? "Online" : "Offline"
                             font.pixelSize: 12
                             font.weight: Font.Bold
                             color: modelData.online ? theme.accent : theme.textMuted
                             Layout.alignment: Qt.AlignVCenter
-                        }
-                    }
-
-                    MouseArea {
-                        id: itemMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        enabled: modelData.online
-                        onClicked: {
-                            page.hasStartedScan = true
-                            backend.startUsbScan(modelData.serial)
                         }
                     }
                 }
