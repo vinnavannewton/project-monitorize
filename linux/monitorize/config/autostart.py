@@ -3,7 +3,7 @@
 from pathlib import Path
 import os
 
-from monitorize.platform.utils import LINUX_DIR
+from monitorize.platform.utils import LINUX_DIR, is_windows
 
 APP_ID = "monitorize"
 DESKTOP_FILE = f"{APP_ID}.desktop"
@@ -78,6 +78,8 @@ def _tray_agent_exec(exec_value):
 
 
 def is_enabled():
+    if is_windows():
+        return False
     path = autostart_path()
     if not path.exists():
         return False
@@ -143,6 +145,8 @@ def disable():
 
 
 def set_enabled(enabled):
+    if is_windows():
+        return "Autostart is not available on Windows yet."
     try:
         if enabled:
             enable()

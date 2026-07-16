@@ -5,11 +5,8 @@ import os
 import sys
 
 from monitorize.streaming.pipeline_builder import get_encoder
+from monitorize.streaming.kde_native_streamer import run_native_streamer
 from monitorize.streaming.portal_streamer import run_portal_streamer
-from monitorize.platform.kde_virtual_monitor import (
-    active_kde_output_names,
-    configure_portal_virtual_output,
-)
 
 
 width = int(sys.argv[1]) if len(sys.argv) > 1 else 2560
@@ -33,16 +30,20 @@ port = int(os.environ.get(
     "MONITORIZE_PORT",
     port_override or (7110 if server_mode else 7112),
 ))
+virtual_slot = os.environ.get("MONITORIZE_KDE_VIRTUAL_SLOT", "").strip()
 
-baseline_names = active_kde_output_names() if source_type == 4 else set()
-prepare_stream = None
-if source_type == 4:
-    prepare_stream = lambda: configure_portal_virtual_output(
-        baseline_names,
+if virtual_slot:
+    sys.exit(run_native_streamer(
+        virtual_slot,
         width,
         height,
         fps,
-    )
+        bitrate,
+        mode,
+        port,
+        encoder,
+        host,
+    ))
 
 sys.exit(run_portal_streamer(
     "KDE",
@@ -56,5 +57,4 @@ sys.exit(run_portal_streamer(
     encoder,
     host,
     source_type=source_type,
-    prepare_stream=prepare_stream,
 ))
