@@ -175,7 +175,8 @@ jobs:
         run: |
           RPM=$(find dist -type f -name 'monitorize-[0-9]*.x86_64.rpm' -print -quit)
           test -n "$RPM"
-          dnf -y install "$RPM"
+          rpm -qp --requires "$RPM" | grep -Fx 'gstreamer1-plugin-libav'
+          dnf -y install "$RPM" gstreamer1-plugin-libav
 
       - name: Verify runtime and package integration
         env:
