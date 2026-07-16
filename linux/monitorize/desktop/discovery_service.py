@@ -2,13 +2,15 @@
 
 import socket
 
-from PyQt6.QtCore import QObject, QTimer, pyqtSignal
+from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 
 from monitorize.config.validation import sanitize_fps, sanitize_port, valid_port
 
 
 class DiscoveryService(QObject):
     devicesChanged = pyqtSignal()
+    _deviceResolved = pyqtSignal(object)
+    _serviceRemoved = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -19,6 +21,12 @@ class DiscoveryService(QObject):
         self.advertisements = []
         self.advertisement_state = None
         self.service_names = {}
+        self._deviceResolved.connect(self._add_resolved_device)
+        self._serviceRemoved.connect(self.remove_device)
+
+    @pyqtSlot(object)
+    def _add_resolved_device(self, values):
+        self.add_device(*values)
 
     @staticmethod
     def _prop(props, key, default=b""):
@@ -73,13 +81,13 @@ class DiscoveryService(QObject):
                         service._safe_port(service._prop(props, b"third_port", b"7114")),
                         name,
                     )
-                    QTimer.singleShot(0, lambda: service.add_device(*values))
+                    service._deviceResolved.emit(values)
 
                 def update_service(self, zc, type_, name):
                     self.add_service(zc, type_, name)
 
                 def remove_service(self, zc, type_, name):
-                    QTimer.singleShot(0, lambda: service.remove_device(name))
+                    service._serviceRemoved.emit(name)
 
             self.discovery_zc = Zeroconf()
             self.browser = ServiceBrowser(
@@ -127,6 +135,7 @@ class DiscoveryService(QObject):
             self.service_names[service_name] = (ip, port)
         self.devicesChanged.emit()
 
+    @pyqtSlot(str)
     def remove_device(self, service_name):
         target = self.service_names.pop(service_name, None)
         if not target:

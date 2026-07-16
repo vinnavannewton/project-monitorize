@@ -4,6 +4,8 @@ import signal
 import sys
 import socket
 import tempfile
+import threading
+import time
 import types
 import unittest
 from pathlib import Path
@@ -48,6 +50,18 @@ def process_mock():
 
 
 class DiscoveryServiceTest(unittest.TestCase):
+    def test_worker_thread_resolution_reaches_qt_owner_thread(self):
+        service = DiscoveryService()
+        values = ("Host", "10.0.0.2", 7110, False, "", False, 7114, "svc")
+        worker = threading.Thread(target=lambda: service._deviceResolved.emit(values))
+        worker.start()
+        worker.join()
+        deadline = time.monotonic() + 1
+        while not service.devices and time.monotonic() < deadline:
+            app.processEvents()
+
+        self.assertEqual(service.devices[0]["ip"], "10.0.0.2")
+
     def test_device_updates_do_not_duplicate_host(self):
         service = DiscoveryService()
         service.add_device("Old", "10.0.0.2", 7110, False)
@@ -184,10 +198,7 @@ class DiscoveryServiceTest(unittest.TestCase):
             ServiceListener=object,
         )
         service = DiscoveryService()
-        with (
-            patch.dict(sys.modules, {"zeroconf": fake_module}),
-            patch("monitorize.desktop.discovery_service.QTimer.singleShot", side_effect=lambda _ms, fn: fn()),
-        ):
+        with patch.dict(sys.modules, {"zeroconf": fake_module}):
             service.start()
         self.assertEqual(service.devices, [])
 
@@ -217,10 +228,7 @@ class DiscoveryServiceTest(unittest.TestCase):
             ServiceListener=object,
         )
         service = DiscoveryService()
-        with (
-            patch.dict(sys.modules, {"zeroconf": fake_module}),
-            patch("monitorize.desktop.discovery_service.QTimer.singleShot", side_effect=lambda _ms, fn: fn()),
-        ):
+        with patch.dict(sys.modules, {"zeroconf": fake_module}):
             service.start()
         self.assertEqual(service.devices[0]["thirdPort"], 7114)
 
