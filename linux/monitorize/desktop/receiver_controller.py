@@ -132,6 +132,7 @@ class ReceiverController(QObject):
     hostChanged = pyqtSignal(str)
     logAppended = pyqtSignal(str)
     pairingRequired = pyqtSignal(str, int, str)
+    streamStable = pyqtSignal()
 
     def __init__(self, de, discovery, parent=None):
         super().__init__(parent)
@@ -938,6 +939,7 @@ class ReceiverController(QObject):
             self._set_receiving(True)
             self._set_status(f"Receiving from {self.host}:{self.port}")
             self.logAppended.emit("Stream connected in fullscreen receiver.")
+            self.streamStable.emit()
 
     def _poll_gst_bus(self):
         if self.gst_pipeline is None or self.gst_bus is None:

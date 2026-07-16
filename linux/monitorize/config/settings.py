@@ -20,6 +20,8 @@ from monitorize.config.validation import (
     sanitize_port,
     sanitize_resolution,
     sanitize_stream_type,
+    valid_host,
+    valid_port,
 )
 
 CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".config", "monitorize")
@@ -445,6 +447,75 @@ def clear_receiver_credentials(host: str) -> None:
     key = hashlib.sha256(credential_host_key(host).encode()).hexdigest()
     s.remove(f"receiver_trust/{key}")
     s.sync()
+
+
+def _receiver_host_entry(device: dict) -> dict | None:
+    if not isinstance(device, dict):
+        return None
+    ip = normalize_host(device.get("ip"))
+    port = device.get("port", 7110)
+    if not valid_host(ip) or not valid_port(port):
+        return None
+    try:
+        fps = int(str(device.get("fps", 0)).strip())
+    except (TypeError, ValueError):
+        fps = 0
+    return {
+        "name": str(device.get("name") or ip).strip() or ip,
+        "ip": ip,
+        "port": sanitize_port(port),
+        "encrypted": bool(device.get("encrypted", False)),
+        "fingerprint": str(device.get("fingerprint") or "").strip(),
+        "fps": sanitize_fps(fps) if fps else 0,
+    }
+
+
+def _receiver_host_key(device: dict) -> tuple[str, int]:
+    return credential_host_key(device["ip"]), device["port"]
+
+
+def load_recent_receiver_hosts() -> list[dict]:
+    s = _get_settings()
+    try:
+        raw = json.loads(s.value("recent/receiver_hosts", "[]"))
+    except Exception:
+        return []
+    if not isinstance(raw, list):
+        return []
+    hosts, seen = [], set()
+    for device in raw:
+        entry = _receiver_host_entry(device)
+        if entry is None or _receiver_host_key(entry) in seen:
+            continue
+        seen.add(_receiver_host_key(entry))
+        hosts.append(entry)
+    return hosts[:5]
+
+
+def add_recent_receiver_host(device: dict) -> None:
+    entry = _receiver_host_entry(device)
+    if entry is None:
+        return
+    key = _receiver_host_key(entry)
+    hosts = [host for host in load_recent_receiver_hosts()
+             if _receiver_host_key(host) != key]
+    hosts.insert(0, entry)
+    s = _get_settings()
+    s.setValue("recent/receiver_hosts", json.dumps(hosts[:5]))
+    s.sync()
+    os.chmod(CONFIG_FILE, 0o600)
+
+
+def remove_recent_receiver_host(host: str, port: int) -> None:
+    if not valid_host(host) or not valid_port(port):
+        return
+    key = credential_host_key(host), sanitize_port(port)
+    hosts = [entry for entry in load_recent_receiver_hosts()
+             if _receiver_host_key(entry) != key]
+    s = _get_settings()
+    s.setValue("recent/receiver_hosts", json.dumps(hosts))
+    s.sync()
+    os.chmod(CONFIG_FILE, 0o600)
 
 
 
