@@ -468,7 +468,7 @@ class PlatformDetectionTest(unittest.TestCase):
 
 
 class ReceiverControllerTest(unittest.TestCase):
-    def test_pipeline_drops_stale_compressed_frames_before_decode(self):
+    def test_pipeline_preserves_compressed_frames_before_decode(self):
         controller = ReceiverController("kde", Mock())
         controller.decoder_args = ["vah264dec"]
         controller.decoder_label = "VA-API"
@@ -491,8 +491,8 @@ class ReceiverControllerTest(unittest.TestCase):
         decoder_index = args.index("vah264dec")
         first_queue_index = args.index("queue")
         self.assertLess(first_queue_index, decoder_index)
-        self.assertIn("max-size-buffers=1", args[first_queue_index:decoder_index])
-        self.assertIn("leaky=downstream", args[first_queue_index:decoder_index])
+        self.assertIn("max-size-buffers=3", args[first_queue_index:decoder_index])
+        self.assertNotIn("leaky=downstream", args[first_queue_index:decoder_index])
         self.assertIn("leaky=downstream", args[decoder_index:])
         self.assertIn("sync=false", args)
         self.assertIn("async=false", args)
@@ -524,8 +524,8 @@ class ReceiverControllerTest(unittest.TestCase):
         decoder_index = parts.index("avdec_h264")
         first_queue_index = parts.index("queue")
         self.assertLess(first_queue_index, decoder_index)
-        self.assertIn("max-size-buffers=1", parts[first_queue_index:decoder_index])
-        self.assertIn("leaky=downstream", parts[first_queue_index:decoder_index])
+        self.assertIn("max-size-buffers=3", parts[first_queue_index:decoder_index])
+        self.assertNotIn("leaky=downstream", parts[first_queue_index:decoder_index])
         self.assertIn("leaky=downstream", parts[decoder_index:])
 
     def test_embedded_sink_prefers_wayland_on_wayland(self):
