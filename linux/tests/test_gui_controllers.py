@@ -832,6 +832,9 @@ class ReceiverControllerTest(unittest.TestCase):
     def test_software_decoder_discards_corrupt_output_when_supported(self):
         controller = ReceiverController("kde", Mock())
         with patch(
+            "monitorize.desktop.receiver_controller.gst_has_element",
+            return_value=True,
+        ), patch(
             "monitorize.desktop.receiver_controller._gst_has_property",
             return_value=True,
         ):
@@ -846,11 +849,28 @@ class ReceiverControllerTest(unittest.TestCase):
         controller = ReceiverController("kde", Mock())
         controller.stream_fps = 120
         with patch(
+            "monitorize.desktop.receiver_controller.gst_has_element",
+            return_value=True,
+        ), patch(
             "monitorize.desktop.receiver_controller._gst_has_property",
             return_value=True,
         ):
             args = controller._software_decoder_args()
         self.assertIn("max-threads=4", args)
+
+    def test_linux_software_decoder_falls_back_to_openh264(self):
+        controller = ReceiverController("kde", Mock())
+        with (
+            patch(
+                "monitorize.desktop.receiver_controller.gst_has_element",
+                side_effect=lambda name: name == "openh264dec",
+            ),
+            patch(
+                "monitorize.desktop.receiver_controller._gst_has_property",
+                return_value=False,
+            ),
+        ):
+            self.assertEqual(controller._software_decoder_args(), ["openh264dec"])
 
     def test_high_fps_display_warning_does_not_change_connection(self):
         controller = ReceiverController("kde", Mock())
@@ -3736,6 +3756,7 @@ class BackendFacadeTest(unittest.TestCase):
 
         for dependency in (
             "gstreamer1-plugin-libav",
+            "gstreamer1-plugin-openh264",
             "gstreamer1-plugins-ugly",
             "pipewire-gstreamer",
             "android-tools",
@@ -3743,7 +3764,6 @@ class BackendFacadeTest(unittest.TestCase):
             "qt6-qtwayland",
         ):
             self.assertIn(f"Requires:       {dependency}", spec)
-        self.assertNotIn("gstreamer1-plugin-openh264", spec)
         self.assertNotIn("Requires:       gstreamer1-plugins-ugly-free", spec)
         self.assertNotIn("groupadd", spec)
         self.assertIn('TAG+="uaccess"', rules)
