@@ -3922,6 +3922,8 @@ class BackendFacadeTest(unittest.TestCase):
         qml = qml_path.read_text(encoding="utf-8")
         self.assertIn("id: deviceCard", qml)
         self.assertIn("onClicked: page.requestConnection(modelData)", qml)
+        self.assertIn('"port": Number(device.port || 7110)', qml)
+        self.assertNotIn("function selectedPort", qml)
         self.assertIn('text: "online"', qml)
         self.assertIn('color: "#4caf50"', qml)
         self.assertNotIn('text: modelData.encrypted === true ? "encrypted" : "wifi"', qml)
