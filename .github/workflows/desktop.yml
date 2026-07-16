@@ -175,7 +175,9 @@ jobs:
         run: |
           RPM=$(find dist -type f -name 'monitorize-[0-9]*.x86_64.rpm' -print -quit)
           test -n "$RPM"
-          dnf -y install "$RPM"
+          rpm -qp --requires "$RPM" | grep -Fx 'gstreamer1-plugin-libav'
+          rpm -qp --requires "$RPM" | grep -Fx 'gstreamer1-plugin-openh264'
+          dnf -y install "$RPM" desktop-file-utils
 
       - name: Verify runtime and package integration
         env:
@@ -184,7 +186,7 @@ jobs:
           set -euo pipefail
           gst-inspect-1.0 pipewiresrc >/dev/null
           gst-inspect-1.0 x264enc >/dev/null
-          gst-inspect-1.0 avdec_h264 >/dev/null
+          gst-inspect-1.0 openh264dec >/dev/null
           test -x /usr/bin/monitorize-kde-virtual-output
           ! ldd /usr/bin/monitorize-kde-virtual-output | grep -q 'not found'
           desktop-file-validate /usr/share/applications/monitorize.desktop
@@ -253,8 +255,8 @@ jobs:
           gst-inspect-1.0 avdec_h264 >/dev/null
           test -x linux/venv/bin/monitorize-kde-virtual-output
           ! ldd linux/venv/bin/monitorize-kde-virtual-output | grep -q 'not found'
-          desktop-file-validate /root/.local/share/applications/monitorize.desktop
-          desktop-file-validate /root/.local/share/applications/monitorize-kde-virtual-output.desktop
+          desktop-file-validate "$HOME/.local/share/applications/monitorize.desktop"
+          desktop-file-validate "$HOME/.local/share/applications/monitorize-kde-virtual-output.desktop"
           PYTHONPATH=linux linux/venv/bin/python3 - <<'PY'
           from PyQt6.QtCore import QUrl
           from PyQt6.QtGui import QGuiApplication
