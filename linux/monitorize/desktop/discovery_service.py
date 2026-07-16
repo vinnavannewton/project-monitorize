@@ -2,13 +2,15 @@
 
 import socket
 
-from PyQt6.QtCore import QObject, QTimer, pyqtSignal
+from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 
 from monitorize.config.validation import sanitize_fps, sanitize_port, valid_port
 
 
 class DiscoveryService(QObject):
     devicesChanged = pyqtSignal()
+    _deviceResolved = pyqtSignal(object)
+    _serviceRemoved = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -16,9 +18,15 @@ class DiscoveryService(QObject):
         self.browser = None
         self.discovery_zc = None
         self.advertisement_zc = None
-        self.advertisement = None
+        self.advertisements = []
         self.advertisement_state = None
         self.service_names = {}
+        self._deviceResolved.connect(self._add_resolved_device)
+        self._serviceRemoved.connect(self.remove_device)
+
+    @pyqtSlot(object)
+    def _add_resolved_device(self, values):
+        self.add_device(*values)
 
     @staticmethod
     def _prop(props, key, default=b""):
@@ -62,6 +70,11 @@ class DiscoveryService(QObject):
                     ip = service._ipv4(info.addresses)
                     if not ip or not valid_port(info.port):
                         return
+                    stream_fps = 0
+                    if b"fps" in props:
+                        stream_fps = sanitize_fps(
+                            service._decode(service._prop(props, b"fps"))
+                        )
                     values = (
                         service._decode(service._prop(props, b"name", b"Unknown")),
                         ip,
@@ -72,14 +85,15 @@ class DiscoveryService(QObject):
                         else service._prop(props, b"third_available") == b"1",
                         service._safe_port(service._prop(props, b"third_port", b"7114")),
                         name,
+                        stream_fps,
                     )
-                    QTimer.singleShot(0, lambda: service.add_device(*values))
+                    service._deviceResolved.emit(values)
 
                 def update_service(self, zc, type_, name):
                     self.add_service(zc, type_, name)
 
                 def remove_service(self, zc, type_, name):
-                    QTimer.singleShot(0, lambda: service.remove_device(name))
+                    service._serviceRemoved.emit(name)
 
             self.discovery_zc = Zeroconf()
             self.browser = ServiceBrowser(
@@ -93,7 +107,7 @@ class DiscoveryService(QObject):
 
     def add_device(
         self, name, ip, port, encrypted=False, fingerprint="",
-        third_available=False, third_port=7114, service_name=None,
+        third_available=False, third_port=7114, service_name=None, stream_fps=0,
     ):
         if not ip or not valid_port(port):
             return
@@ -114,6 +128,7 @@ class DiscoveryService(QObject):
             "fingerprint": fingerprint,
             "thirdAvailable": third_available,
             "thirdPort": third_port,
+            "fps": sanitize_fps(stream_fps) if stream_fps else 0,
         }
         existing = existing or next((
             device for device in self.devices
@@ -127,6 +142,7 @@ class DiscoveryService(QObject):
             self.service_names[service_name] = (ip, port)
         self.devicesChanged.emit()
 
+    @pyqtSlot(str)
     def remove_device(self, service_name):
         target = self.service_names.pop(service_name, None)
         if not target:
@@ -151,36 +167,71 @@ class DiscoveryService(QObject):
                 pass
             self.discovery_zc = None
 
-    def advertise(self, ip, encrypted, third_available, fps=60):
+    def advertise(self, ip, encrypted, third_available, fps=60, third_fps=None):
         try:
             from zeroconf import ServiceInfo, Zeroconf
             hostname = socket.gethostname()
-            properties = {
-                "name": hostname,
-                "port": 7110,
-                "fps": str(sanitize_fps(fps)),
+            fingerprint = ""
+            if encrypted:
+                from monitorize.security.tls_proxy import certificate_fingerprint
+                fingerprint = certificate_fingerprint()
+
+            def properties(name, port, stream_fps):
+                values = {
+                    "name": name,
+                    "port": port,
+                    "fps": str(sanitize_fps(stream_fps)),
+                    "encrypted": "1" if encrypted else "0",
+                }
+                if encrypted:
+                    values["fingerprint"] = fingerprint
+                    values["input_transport"] = "udp-aesgcm-v1"
+                return values
+
+            primary_properties = properties(
+                f"{hostname} — First Virtual Monitor", 7110, fps
+            )
+            primary_properties.update({
                 "encrypted": "1" if encrypted else "0",
                 "third_available": "1" if third_available else "0",
                 "third_port": "7114",
-            }
-            if encrypted:
-                from monitorize.security.tls_proxy import certificate_fingerprint
-                properties["fingerprint"] = certificate_fingerprint()
-                properties["input_transport"] = "udp-aesgcm-v1"
-            state = (ip, bool(encrypted), bool(third_available), tuple(sorted(properties.items())))
+            })
+            advertised = [
+                ("First Virtual Monitor", 7110, primary_properties),
+            ]
+            if third_available:
+                advertised.append((
+                    "Second Virtual Monitor",
+                    7114,
+                    properties(
+                        f"{hostname} — Second Virtual Monitor",
+                        7114,
+                        fps if third_fps is None else third_fps,
+                    ),
+                ))
+            state = (
+                ip,
+                tuple(
+                    (label, port, tuple(sorted(values.items())))
+                    for label, port, values in advertised
+                ),
+            )
             if self.advertisement_zc is not None and state == self.advertisement_state:
                 return
             self.stop_advertising()
             self.advertisement_zc = Zeroconf()
-            self.advertisement = ServiceInfo(
-                "_monitorize._tcp.local.",
-                f"{hostname}._monitorize._tcp.local.",
-                addresses=[socket.inet_aton(ip)],
-                port=7110,
-                properties=properties,
-                server=f"{hostname}.local.",
-            )
-            self.advertisement_zc.register_service(self.advertisement)
+            instance_host = hostname[:36]
+            for label, port, values in advertised:
+                info = ServiceInfo(
+                    "_monitorize._tcp.local.",
+                    f"{instance_host} {label}._monitorize._tcp.local.",
+                    addresses=[socket.inet_aton(ip)],
+                    port=port,
+                    properties=values,
+                    server=f"{hostname}.local.",
+                )
+                self.advertisement_zc.register_service(info)
+                self.advertisements.append(info)
             self.advertisement_state = state
         except Exception as exc:
             print("Zeroconf registration/update failed:", exc)
@@ -189,9 +240,9 @@ class DiscoveryService(QObject):
     def stop_advertising(self):
         if self.advertisement_zc is None:
             return
-        if self.advertisement is not None:
+        for advertisement in self.advertisements:
             try:
-                self.advertisement_zc.unregister_service(self.advertisement)
+                self.advertisement_zc.unregister_service(advertisement)
             except Exception:
                 pass
         try:
@@ -199,7 +250,7 @@ class DiscoveryService(QObject):
         except Exception:
             pass
         self.advertisement_zc = None
-        self.advertisement = None
+        self.advertisements = []
         self.advertisement_state = None
 
     def close(self):

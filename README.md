@@ -115,7 +115,7 @@ Please read the [Contribution Guide](https://github.com/vinnavannewton/project-m
 
 - [ ] Multi monitor setup.
 
-- [ ] Stable nvidia encoder (waiting for driver 610.x which implemented proper DMA BUF).
+- [x] NVIDIA NVENC with automatic DMA-BUF/GL, CUDA-upload, system-memory, and CPU fallback paths.
 
 - [ ] AppImage.
 

@@ -9,7 +9,7 @@ from pathlib import Path
 
 from PyQt6.QtCore import QProcess
 
-LINUX_DIR = str(Path(__file__).resolve().parents[1])
+LINUX_DIR = str(Path(__file__).resolve().parents[2])
 
 
 def gst_has_element(name):
@@ -25,9 +25,12 @@ def kill_patterns(*patterns):
     must also contain this checkout's linux directory, so unrelated GStreamer or
     Python processes are not killed.
     """
+    proc_dir = Path("/proc")
+    if not proc_dir.exists():
+        return
     compiled = [re.compile(pattern) for pattern in patterns]
     owned = []
-    for entry in Path("/proc").iterdir():
+    for entry in proc_dir.iterdir():
         if not entry.name.isdigit():
             continue
         pid = int(entry.name)
