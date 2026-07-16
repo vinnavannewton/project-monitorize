@@ -27,6 +27,9 @@ RAW_DROP_QUEUE = [
     "leaky=downstream",
 ]
 PARSED_H264_CAPS = "video/x-h264,stream-format=byte-stream,alignment=au"
+VA_MEMORY_CAPS = "video/x-raw(memory:VAMemory)"
+VA_SURFACE_CAPS = "video/x-raw(memory:VASurface)"
+DMABUF_CAPS = "video/x-raw(memory:DMABuf),format=DMA_DRM"
 MIN_EMBEDDED_SURFACE_SIZE = 128
 RESIZE_RESTART_THRESHOLD = 64
 SINK_PROPS = {
@@ -39,6 +42,7 @@ SINK_PROPS = {
 }
 SINK_EXTRA_PROPS = {
     "waylandsink": {"fullscreen": "true"},
+    "vaapisink": {"fullscreen": "true"},
     "xvimagesink": {"double-buffer": "true", "draw-borders": "true"},
 }
 EMBEDDED_X11_SINKS = ("xvimagesink", "ximagesink", "glimagesink")
@@ -50,6 +54,10 @@ SOFTWARE_DECODER_PROPS = {
     "output-corrupt": "false",
     "discard-corrupted-frames": "true",
     "automatic-request-sync-points": "true",
+}
+HARDWARE_DECODER_PROPS = {
+    "qos": "true",
+    "discard-corrupted-frames": "true",
 }
 
 _GST = None
@@ -160,6 +168,10 @@ class ReceiverController(QObject):
         self.embedded_sink = None
         self.sink_candidates = []
         self.sink_index = 0
+        self.hardware_profiles = []
+        self.hardware_profile_index = 0
+        self.hardware_path = ""
+        self.hardware_sink_props = {}
         self.windows_profiles = []
         self.windows_profile_index = 0
         self.stable_timer = QTimer(self)
@@ -222,6 +234,53 @@ class ReceiverController(QObject):
         self.decoder_label = decoder_label
         self.sink = sink
 
+    def _hardware_receiver_profiles(self):
+        elements = {
+            name: gst_has_element(name)
+            for name in (
+                "vah264dec", "vapostproc", "waylandsink", "glimagesink",
+                "vaapih264dec", "vaapisink",
+            )
+        }
+        session = os.environ.get("XDG_SESSION_TYPE", "").lower()
+        wayland = session == "wayland" or bool(os.environ.get("WAYLAND_DISPLAY"))
+        x11 = session == "x11" or bool(os.environ.get("DISPLAY"))
+        profiles = []
+
+        if elements["vah264dec"] and elements["vapostproc"]:
+            sinks = ("waylandsink", "glimagesink") if wayland else ("glimagesink",)
+            if wayland or x11:
+                for sink in sinks:
+                    if elements[sink]:
+                        profiles.append((
+                            self._hardware_decoder_args("vah264dec"),
+                            "VA-API vah264dec (VAMemory → DMABuf)",
+                            sink,
+                            "dmabuf",
+                            {},
+                        ))
+
+        display = "wayland" if wayland else "x11" if x11 else ""
+        if display and elements["vaapih264dec"] and elements["vaapisink"]:
+            profiles.append((
+                self._hardware_decoder_args("vaapih264dec"),
+                "VA-API vaapih264dec (VASurface)",
+                "vaapisink",
+                "vasurface",
+                {"display": display},
+            ))
+        return profiles
+
+    def _apply_hardware_receiver_profile(self):
+        decoder_args, decoder_label, sink, path, sink_props = self.hardware_profiles[
+            self.hardware_profile_index
+        ]
+        self.decoder_args = list(decoder_args)
+        self.decoder_label = decoder_label
+        self.sink = sink
+        self.hardware_path = path
+        self.hardware_sink_props = dict(sink_props)
+
     def _set_receiving(self, value):
         self.receiving = value
         self.receivingChanged.emit(value)
@@ -265,20 +324,19 @@ class ReceiverController(QObject):
                 return
             self._apply_windows_receiver_profile()
         elif decoder == "Hardware":
-            hardware = next((
-                name for name in ("vah264dec", "vaapih264dec")
-                if gst_has_element(name)
-            ), None)
-            if not hardware:
+            self.hardware_profiles = self._hardware_receiver_profiles()
+            self.hardware_profile_index = 0
+            if not self.hardware_profiles:
                 self._set_status(
-                    "Hardware decoder unavailable — install the GStreamer VA-API decoder"
+                    "Hardware zero-copy unavailable — install GStreamer VA/DMABuf plugins"
                 )
                 self.logAppended.emit(
-                    "ERROR: Hardware mode requires vah264dec or vaapih264dec."
+                    "ERROR: Hardware mode requires a complete zero-copy profile: "
+                    "vah264dec + vapostproc + waylandsink/glimagesink, or "
+                    "vaapih264dec + vaapisink."
                 )
                 return
-            self.decoder_args = [hardware]
-            self.decoder_label = f"VA-API {hardware}"
+            self._apply_hardware_receiver_profile()
         else:
             self.decoder_args = self._software_decoder_args()
             self.decoder_label = "Software avdec_h264"
@@ -421,10 +479,14 @@ class ReceiverController(QObject):
         self._launch_external_pipeline(host, port, generation)
 
     def _embedded_sink_available(self):
+        if self._uses_linux_hardware_profile() and getattr(self, "sink", ""):
+            return gst_has_element(self.sink)
         return self._embedded_sink_name() is not None
 
     def _active_embedded_sink_name(self):
-        return self.sink if self._is_windows() else self._embedded_sink_name()
+        if self._is_windows() or self._uses_linux_hardware_profile():
+            return self.sink
+        return self._embedded_sink_name()
 
     def _embedded_sink_name(self):
         if self.embedded_sink:
@@ -502,18 +564,13 @@ class ReceiverController(QObject):
         sink_args = self._sink_args(sink_name, include_extra=False)
         sink_args[0] = sink_name
         sink_args.append("name=receiver_sink")
-        width, height = self._receiver_surface_size()
         parts = [
             "tcpclientsrc", f"host={host}", f"port={port}", "!",
             "h264parse", "disable-passthrough=true", "config-interval=-1", "!",
             PARSED_H264_CAPS, "!",
             *COMPRESSED_QUEUE, "!",
             *self.decoder_args, "!",
-            *RAW_DROP_QUEUE, "!",
-            "videoconvert", "!",
-            "videoscale", "add-borders=false", "!",
-            f"video/x-raw,width={width},height={height},pixel-aspect-ratio=1/1", "!",
-            "videoconvert", "!",
+            *self._decoded_output_args(embedded=True), "!",
             *sink_args,
         ]
         return " ".join(parts)
@@ -640,8 +697,7 @@ class ReceiverController(QObject):
             PARSED_H264_CAPS, "!",
             *COMPRESSED_QUEUE, "!",
             *self.decoder_args, "!",
-            *RAW_DROP_QUEUE, "!",
-            "videoconvert", "!",
+            *self._decoded_output_args(), "!",
             *self._sink_args(self.sink),
         ]
         if self.video_item is not None and not self.should_use_embedded_window():
@@ -649,8 +705,42 @@ class ReceiverController(QObject):
                 "Using external fullscreen receiver sink on Wayland; "
                 "embedded receiver can render tiny or crash there."
             )
-        self.logAppended.emit(f"Decoder: {self.decoder_label}; sink: {self.sink}")
+        if self._uses_linux_hardware_profile():
+            self.logAppended.emit(
+                f"Decoder: {self.decoder_label}; zero-copy path: "
+                f"{self.hardware_path}; sink: {self.sink}"
+            )
+        else:
+            self.logAppended.emit(f"Decoder: {self.decoder_label}; sink: {self.sink}")
         self.process.start("gst-launch-1.0", args)
+
+    def _uses_linux_hardware_profile(self):
+        return not self._is_windows() and getattr(self, "decoder", "") == "Hardware"
+
+    def _decoded_output_args(self, embedded=False):
+        if self._uses_linux_hardware_profile():
+            if self.hardware_path == "dmabuf":
+                caps = DMABUF_CAPS
+                if embedded:
+                    width, height = self._receiver_surface_size()
+                    caps += (
+                        f",width={width},height={height},pixel-aspect-ratio=1/1"
+                    )
+                return [
+                    VA_MEMORY_CAPS, "!", *RAW_DROP_QUEUE, "!",
+                    "vapostproc", "!", caps,
+                ]
+            return [VA_SURFACE_CAPS, "!", *RAW_DROP_QUEUE]
+
+        output = [*RAW_DROP_QUEUE, "!", "videoconvert"]
+        if embedded:
+            width, height = self._receiver_surface_size()
+            output += [
+                "!", "videoscale", "add-borders=false", "!",
+                f"video/x-raw,width={width},height={height},pixel-aspect-ratio=1/1",
+                "!", "videoconvert",
+            ]
+        return output
 
     def _sink_candidates(self):
         if self._is_windows():
@@ -690,6 +780,8 @@ class ReceiverController(QObject):
         props = dict(SINK_PROPS)
         if include_extra:
             props.update(SINK_EXTRA_PROPS.get(sink, {}))
+        if self._uses_linux_hardware_profile() and sink == self.sink:
+            props.update(self.hardware_sink_props)
         args = [sink]
         for name, value in props.items():
             if _gst_has_property(sink, name):
@@ -700,6 +792,16 @@ class ReceiverController(QObject):
         args = ["avdec_h264"]
         for name, value in SOFTWARE_DECODER_PROPS.items():
             if _gst_has_property("avdec_h264", name):
+                args.append(f"{name}={value}")
+        return args
+
+    def _hardware_decoder_args(self, decoder):
+        props = dict(HARDWARE_DECODER_PROPS)
+        if decoder == "vaapih264dec":
+            props["low-latency"] = "true"
+        args = [decoder]
+        for name, value in props.items():
+            if _gst_has_property(decoder, name):
                 args.append(f"{name}={value}")
         return args
 
@@ -741,13 +843,13 @@ class ReceiverController(QObject):
         if self._is_windows():
             return self._retry_windows_embedded_fallback()
         if self.decoder == "Hardware":
-            if self.sink_index + 1 >= len(self.sink_candidates):
+            if self.hardware_profile_index + 1 >= len(self.hardware_profiles):
                 return False
-            self.sink_index += 1
-            self.sink = self.sink_candidates[self.sink_index]
+            self.hardware_profile_index += 1
+            self._apply_hardware_receiver_profile()
             self.logAppended.emit(
-                f"Hardware receiver pipeline failed; retrying with "
-                f"{self.decoder_label}; sink: {self.sink}"
+                f"Hardware zero-copy profile failed; retrying with "
+                f"{self.decoder_label}; path: {self.hardware_path}; sink: {self.sink}"
             )
             self.process = None
             self._launch_external_pipeline(
@@ -909,9 +1011,9 @@ class ReceiverController(QObject):
                 return
             if self.decoder == "Hardware":
                 self.logAppended.emit(
-                    "ERROR: Hardware receiver pipeline failed with every available sink."
+                    "ERROR: Hardware zero-copy receiver failed with every available profile."
                 )
-                self._set_status("Hardware receiver pipeline failed — see logs")
+                self._set_status("Hardware zero-copy receiver failed — see logs")
                 self._set_receiving(False)
                 return
         max_retries = 30 if self.stable else 10
