@@ -1,0 +1,336 @@
+name: Desktop
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "linux/**"
+      - "packaging/**"
+      - ".copr/**"
+      - "monitorize.spec"
+      - "pyproject.toml"
+      - "README.md"
+      - ".github/workflows/desktop.yml"
+  push:
+    branches:
+      - main
+    tags:
+      - "desktop-v*.*.*"
+    paths:
+      - "linux/**"
+      - "packaging/**"
+      - ".copr/**"
+      - "monitorize.spec"
+      - "pyproject.toml"
+      - "README.md"
+      - ".github/workflows/desktop.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: Desktop CI
+    runs-on: ubuntu-latest
+    container: fedora:44
+    env:
+      QT_QPA_PLATFORM: offscreen
+
+    steps:
+      - name: Install build dependencies
+        run: |
+          dnf -y install \
+            https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
+          dnf -y install \
+            desktop-file-utils \
+            dnf-plugins-core \
+            gcc \
+            git \
+            gstreamer1 \
+            gstreamer1-plugin-libav \
+            gstreamer1-plugins-bad-free \
+            gstreamer1-plugins-base \
+            gstreamer1-plugins-good \
+            gstreamer1-plugins-ugly \
+            iproute \
+            kmod \
+            make \
+            pipewire-gstreamer \
+            pipewire \
+            pkgconf-pkg-config \
+            pyproject-rpm-macros \
+            python3 \
+            python3-cryptography \
+            python3-dbus \
+            python3-devel \
+            python3-evdev \
+            python3-gobject \
+            python3-pip \
+            python3-pyqt6 \
+            python3-setuptools \
+            python3-wheel \
+            python3-zeroconf \
+            rpm-build \
+            systemd-rpm-macros \
+            systemd-udev \
+            util-linux \
+            wayland-devel \
+            xdg-desktop-portal
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Trust checkout directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Validate desktop version
+        run: |
+          set -euo pipefail
+          SPEC_VERSION="$(awk '/^Version:/ {print $2; exit}' monitorize.spec)"
+          PYPROJECT_VERSION="$(python3 -c 'import pathlib, tomllib; print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"])')"
+          MAKE_VERSION="$(make -s -f .copr/Makefile print-version)"
+
+          test -n "$SPEC_VERSION"
+          if [ "$SPEC_VERSION" != "$PYPROJECT_VERSION" ]; then
+            echo "monitorize.spec Version $SPEC_VERSION does not match pyproject.toml version $PYPROJECT_VERSION"
+            exit 1
+          fi
+          if [ "$SPEC_VERSION" != "$MAKE_VERSION" ]; then
+            echo ".copr/Makefile version $MAKE_VERSION does not match monitorize.spec Version $SPEC_VERSION"
+            exit 1
+          fi
+
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+            case "$GITHUB_REF_NAME" in
+              desktop-v*) TAG_VERSION="${GITHUB_REF_NAME#desktop-v}" ;;
+              *)
+                echo "Desktop release tags must use desktop-vMAJOR.MINOR.PATCH format, for example desktop-v0.2.7"
+                exit 1
+                ;;
+            esac
+
+            if ! printf '%s\n' "$TAG_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+              echo "Tag $GITHUB_REF_NAME must use desktop-vMAJOR.MINOR.PATCH format, for example desktop-v0.2.7"
+              exit 1
+            fi
+
+            if [ "$TAG_VERSION" != "$SPEC_VERSION" ]; then
+              echo "Tag desktop-v$TAG_VERSION does not match desktop package version $SPEC_VERSION"
+              exit 1
+            fi
+          fi
+
+      - name: Validate package files
+        run: |
+          set -euo pipefail
+          python3 -c 'import pathlib, tomllib; tomllib.loads(pathlib.Path("pyproject.toml").read_text())'
+          desktop-file-validate packaging/fedora/monitorize.desktop
+          desktop-file-validate packaging/fedora/monitorize-kde-virtual-output.desktop
+          python3 -c 'import xml.etree.ElementTree as ET; ET.parse("packaging/fedora/monitorize.xml")'
+          rpmspec -P monitorize.spec >/tmp/monitorize-rpmspec.out
+
+      - name: Run unit tests
+        run: env PYTHONPATH=linux python3 -m unittest discover linux/tests
+
+      - name: Build RPM and SRPM
+        run: |
+          set -euo pipefail
+          mkdir -p dist rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS,tmp}
+          make -f .copr/Makefile srpm outdir="$PWD/dist"
+          rpmbuild -ba monitorize.spec \
+            --define "_topdir $PWD/rpmbuild" \
+            --define "_sourcedir $PWD/dist" \
+            --define "_srcrpmdir $PWD/dist" \
+            --define "_rpmdir $PWD/dist/rpms" \
+            --define "_tmppath $PWD/rpmbuild/tmp"
+          find dist -type f -name '*.rpm' -print
+
+      - name: Upload RPM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: monitorize-desktop-rpms
+          path: dist/**/*.rpm
+          if-no-files-found: error
+
+  rpm-install-smoke:
+    name: Clean Fedora 44 RPM install
+    needs: ci
+    runs-on: ubuntu-latest
+    container: fedora:44
+
+    steps:
+      - name: Download RPM artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: monitorize-desktop-rpms
+          path: dist
+
+      - name: Enable RPM Fusion
+        run: |
+          dnf -y install \
+            https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
+
+      - name: Install Monitorize RPM
+        run: |
+          RPM=$(find dist -type f -name 'monitorize-[0-9]*.x86_64.rpm' -print -quit)
+          test -n "$RPM"
+          rpm -qp --requires "$RPM" | grep -Fx 'gstreamer1-plugin-libav'
+          rpm -qp --requires "$RPM" | grep -Fx 'gstreamer1-plugin-openh264'
+          dnf -y install "$RPM" desktop-file-utils
+
+      - name: Verify runtime and package integration
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          set -euo pipefail
+          gst-inspect-1.0 pipewiresrc >/dev/null
+          gst-inspect-1.0 x264enc >/dev/null
+          gst-inspect-1.0 openh264dec >/dev/null
+          test -x /usr/bin/monitorize-kde-virtual-output
+          ! ldd /usr/bin/monitorize-kde-virtual-output | grep -q 'not found'
+          desktop-file-validate /usr/share/applications/monitorize.desktop
+          desktop-file-validate /usr/share/applications/monitorize-kde-virtual-output.desktop
+          python3 - <<'PY'
+          from PyQt6.QtCore import QUrl
+          from PyQt6.QtGui import QGuiApplication
+          from PyQt6.QtQml import QQmlComponent, QQmlEngine
+          from monitorize.platform.utils import QML_DIR
+
+          app = QGuiApplication([])
+          engine = QQmlEngine()
+          component = QQmlComponent(engine, QUrl.fromLocalFile(f"{QML_DIR}/main.qml"))
+          assert not component.isError(), "\n".join(error.toString() for error in component.errors())
+          PY
+          zone=$(firewall-offline-cmd --get-default-zone)
+          firewall-offline-cmd --zone="$zone" --query-service=monitorize
+
+  arch-install-smoke:
+    name: Clean Arch Linux manual install
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    env:
+      QT_QPA_PLATFORM: offscreen
+
+    steps:
+      - name: Install Arch dependencies
+        run: |
+          pacman -Syu --noconfirm --needed \
+            android-tools \
+            desktop-file-utils \
+            gcc \
+            git \
+            gst-libav \
+            gst-plugin-pipewire \
+            gst-plugins-bad \
+            gst-plugins-base \
+            gst-plugins-good \
+            gst-plugins-ugly \
+            gstreamer \
+            pipewire \
+            pkgconf \
+            python \
+            python-cryptography \
+            python-dbus \
+            python-evdev \
+            python-gobject \
+            python-pip \
+            python-pyqt6 \
+            python-zeroconf \
+            qt6-declarative \
+            wayland \
+            wireplumber
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run the manual installer
+        run: linux/scripts/install.sh
+
+      - name: Verify Arch runtime and installer output
+        run: |
+          set -euo pipefail
+          gst-inspect-1.0 pipewiresrc >/dev/null
+          gst-inspect-1.0 x264enc >/dev/null
+          gst-inspect-1.0 avdec_h264 >/dev/null
+          test -x linux/venv/bin/monitorize-kde-virtual-output
+          ! ldd linux/venv/bin/monitorize-kde-virtual-output | grep -q 'not found'
+          desktop-file-validate "$HOME/.local/share/applications/monitorize.desktop"
+          desktop-file-validate "$HOME/.local/share/applications/monitorize-kde-virtual-output.desktop"
+          PYTHONPATH=linux linux/venv/bin/python3 - <<'PY'
+          from PyQt6.QtCore import QUrl
+          from PyQt6.QtGui import QGuiApplication
+          from PyQt6.QtQml import QQmlComponent, QQmlEngine
+          from monitorize.platform.utils import QML_DIR
+
+          app = QGuiApplication([])
+          engine = QQmlEngine()
+          component = QQmlComponent(engine, QUrl.fromLocalFile(f"{QML_DIR}/main.qml"))
+          assert not component.isError(), "\n".join(error.toString() for error in component.errors())
+          PY
+
+  release:
+    name: Desktop Release
+    needs: [ci, rpm-install-smoke, arch-install-smoke]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/desktop-v')
+    runs-on: ubuntu-latest
+    container: fedora:44
+    permissions:
+      contents: write
+
+    steps:
+      - name: Install release dependencies
+        run: dnf -y install copr-cli findutils gh
+
+      - name: Download RPM artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: monitorize-desktop-rpms
+          path: dist
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          NOTES=$'Monitorize desktop '"$GITHUB_REF_NAME"$'\n\nFedora RPM/SRPM build for GitHub Releases and Copr.'
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" \
+              --title "$GITHUB_REF_NAME" \
+              --notes "$NOTES" \
+              --draft=false \
+              --latest=false
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --title "$GITHUB_REF_NAME" \
+              --notes "$NOTES" \
+              --latest=false
+          fi
+
+      - name: Upload RPMs to GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mapfile -t assets < <(find dist -type f -name '*.rpm' ! -name '*buildreqs*' -print | sort)
+          test "${#assets[@]}" -gt 0
+          gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber
+
+      - name: Configure Copr
+        env:
+          COPR_CONFIG: ${{ secrets.COPR_CONFIG }}
+        run: |
+          set -euo pipefail
+          test -n "$COPR_CONFIG"
+          mkdir -p "$HOME/.config"
+          printf '%s' "$COPR_CONFIG" > "$HOME/.config/copr"
+          chmod 600 "$HOME/.config/copr"
+
+      - name: Submit SRPM to Copr
+        run: |
+          set -euo pipefail
+          SRPM="$(find dist -type f -name '*.src.rpm' ! -name '*buildreqs*' -print -quit)"
+          test -n "$SRPM"
+          copr-cli build vinnavannewton/monitorize "$SRPM"

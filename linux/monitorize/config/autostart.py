@@ -3,12 +3,13 @@
 from pathlib import Path
 import os
 
-from monitorize.platform.utils import LINUX_DIR
+from monitorize.platform.utils import LINUX_DIR, is_windows
 
 APP_ID = "monitorize"
 DESKTOP_FILE = f"{APP_ID}.desktop"
 START_IN_TRAY_ARG = "--start-in-tray"
 TRAY_AGENT_ARG = "--tray-agent"
+SYSTEM_APPLICATIONS_DIR = Path("/usr/share/applications")
 
 
 def _xdg_config_home():
@@ -24,7 +25,13 @@ def autostart_path():
 
 
 def installed_desktop_path():
-    return _xdg_data_home() / "applications" / DESKTOP_FILE
+    user_entry = _xdg_data_home() / "applications" / DESKTOP_FILE
+    if user_entry.exists():
+        return user_entry
+    system_entry = SYSTEM_APPLICATIONS_DIR / DESKTOP_FILE
+    if system_entry.exists():
+        return system_entry
+    return user_entry
 
 
 def _desktop_quote(value):
@@ -71,6 +78,8 @@ def _tray_agent_exec(exec_value):
 
 
 def is_enabled():
+    if is_windows():
+        return False
     path = autostart_path()
     if not path.exists():
         return False
@@ -136,6 +145,8 @@ def disable():
 
 
 def set_enabled(enabled):
+    if is_windows():
+        return "Autostart is not available on Windows yet."
     try:
         if enabled:
             enable()

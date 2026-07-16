@@ -5,11 +5,37 @@ import QtQuick.Layouts
 Item {
     id: page
     property bool hasStartedScan: false
+    property bool autoScanStarted: false
     property bool isScanSuccessful: backend.usbStatusText === "Device ready!" || backend.usbStatusText.indexOf("Warning:") === 0
+
+    function startAutomaticScanIfReady() {
+        if (hasStartedScan || autoScanStarted || backend.usbBusy)
+            return
+        let onlineSerials = []
+        for (let index = 0; index < backend.recentUsbDevices.length; index++) {
+            let device = backend.recentUsbDevices[index]
+            if (device.online)
+                onlineSerials.push(device.serial)
+        }
+        if (onlineSerials.length !== 1)
+            return
+        autoScanStarted = true
+        hasStartedScan = true
+        backend.startUsbScan(onlineSerials[0])
+    }
 
     Component.onCompleted: {
         hasStartedScan = false;
+        autoScanStarted = false;
         backend.resetUsbStatus();
+        startAutomaticScanIfReady();
+    }
+
+    Connections {
+        target: backend
+        function onRecentUsbDevicesChanged() {
+            page.startAutomaticScanIfReady()
+        }
     }
 
     ColumnLayout {
@@ -26,7 +52,7 @@ Item {
         }
 
         Text {
-            text: !hasStartedScan ? "Is the tablet connected via USB?" : (isScanSuccessful ? "Connection Established!" : "Scanning for Connected Android Device...")
+            text: !hasStartedScan ? "Is the Android Device connected via USB?" : (isScanSuccessful ? "Connection Established!" : "Scanning for Connected Android Device...")
             font.pixelSize: 18
             font.weight: Font.Bold
             color: theme.textPrimary
@@ -35,7 +61,7 @@ Item {
 
         Text {
             text: !hasStartedScan
-                ? "Please connect your Android tablet to this computer using a USB cable, and ensure that USB Debugging is enabled in Settings."
+                ? "Please connect your Android device to this computer using a USB cable, and ensure that USB Debugging is enabled in Settings."
                 : backend.usbStatusText
             font.pixelSize: 13
             color: !hasStartedScan ? theme.textSecondary : (isScanSuccessful ? "#2e7d32" : "#c62828")
@@ -111,6 +137,77 @@ Item {
                 implicitWidth: 120
                 onClicked: {
                     backend.startUsbScan()
+                }
+            }
+        }
+
+        // Recent USB Connections
+        ColumnLayout {
+            visible: !hasStartedScan && backend.recentUsbDevices.length > 0
+            Layout.fillWidth: true
+            Layout.topMargin: 16
+            spacing: 8
+
+            Text {
+                text: "Recent Connections"
+                font.pixelSize: 12
+                font.weight: Font.Bold
+                color: theme.textMuted
+                Layout.alignment: Qt.AlignLeft
+            }
+
+            Repeater {
+                model: backend.recentUsbDevices
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: 52
+                    radius: theme.controlRadius
+                    color: theme.surface
+                    border.color: theme.border
+                    border.width: 1
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 12
+                        anchors.rightMargin: 12
+                        spacing: 12
+
+                        Rectangle {
+                            width: 8
+                            height: 8
+                            radius: 4
+                            color: modelData.online ? "#4caf50" : theme.textMuted
+                            Layout.alignment: Qt.AlignVCenter
+                        }
+
+                        ColumnLayout {
+                            spacing: 1
+                            Layout.fillWidth: true
+                            Layout.alignment: Qt.AlignVCenter
+
+                            Text {
+                                text: modelData.name
+                                font.pixelSize: 13
+                                font.weight: Font.DemiBold
+                                color: theme.textPrimary
+                            }
+
+                            Text {
+                                text: "Serial: " + modelData.serial
+                                font.pixelSize: 11
+                                color: theme.textSecondary
+                            }
+                        }
+
+                        Text {
+                            text: modelData.online ? "Online" : "Offline"
+                            font.pixelSize: 12
+                            font.weight: Font.Bold
+                            color: modelData.online ? theme.accent : theme.textMuted
+                            Layout.alignment: Qt.AlignVCenter
+                        }
+                    }
                 }
             }
         }
