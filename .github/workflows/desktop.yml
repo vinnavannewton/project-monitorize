@@ -177,7 +177,7 @@ jobs:
           test -n "$RPM"
           rpm -qp --requires "$RPM" | grep -Fx 'gstreamer1-plugin-libav'
           rpm -qp --requires "$RPM" | grep -Fx 'gstreamer1-plugin-openh264'
-          dnf -y install "$RPM"
+          dnf -y install "$RPM" desktop-file-utils
 
       - name: Verify runtime and package integration
         env:
