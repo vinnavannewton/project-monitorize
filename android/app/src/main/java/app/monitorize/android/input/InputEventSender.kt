@@ -86,6 +86,51 @@ class InputEventSender(
 
     private data class FrameKey(val packetType: Byte, val tool: Byte, val contactId: Byte)
 
+    internal class EncryptedUdpSession(
+        key: ByteArray,
+        private val keyId: ByteArray,
+        noncePrefix: ByteArray,
+        address: InetAddress,
+        port: Int,
+    ) {
+        private val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        private val secretKey = SecretKeySpec(key, "AES")
+        private val nonce = ByteArray(12).also {
+            System.arraycopy(noncePrefix, 0, it, 0, noncePrefix.size)
+        }
+        private val buffer = ByteArray(UDP_HEADER_SIZE + PEN_EXT_FRAME_SIZE + 16)
+        private var counter = 1L
+        private val packet = DatagramPacket(buffer, buffer.size, address, port)
+
+        fun encrypt(frame: ByteArray): DatagramPacket {
+            writeInt(buffer, 0, UDP_MAGIC)
+            buffer[4] = UDP_VERSION
+            System.arraycopy(keyId, 0, buffer, 5, keyId.size)
+            System.arraycopy(nonce, 0, buffer, 9, 4)
+            writeLong(buffer, 13, counter++)
+            System.arraycopy(buffer, 9, nonce, 0, nonce.size)
+            cipher.init(Cipher.ENCRYPT_MODE, secretKey, GCMParameterSpec(128, nonce))
+            cipher.updateAAD(buffer, 0, UDP_HEADER_SIZE)
+            packet.length = UDP_HEADER_SIZE + cipher.doFinal(
+                frame, 0, frame.size, buffer, UDP_HEADER_SIZE
+            )
+            return packet
+        }
+
+        private fun writeInt(target: ByteArray, offset: Int, value: Int) {
+            target[offset] = ((value ushr 24) and 0xff).toByte()
+            target[offset + 1] = ((value ushr 16) and 0xff).toByte()
+            target[offset + 2] = ((value ushr 8) and 0xff).toByte()
+            target[offset + 3] = (value and 0xff).toByte()
+        }
+
+        private fun writeLong(target: ByteArray, offset: Int, value: Long) {
+            for (index in 0 until 8) {
+                target[offset + index] = ((value ushr (56 - index * 8)) and 0xffL).toByte()
+            }
+        }
+    }
+
     private fun frameKey(frame: ByteArray) = FrameKey(frame[4], frame[6], frame[7])
 
     private fun frameAction(frame: ByteArray) = frame[5].toInt()
@@ -309,7 +354,11 @@ class InputEventSender(
                         val keyId = udpKey?.let { udpKeyId(it) }
                         val noncePrefix = ByteArray(4)
                         if (udpKey != null) SecureRandom().nextBytes(noncePrefix)
-                        var counter = 1L
+                        val encryptedSession = if (udpKey != null && keyId != null) {
+                            EncryptedUdpSession(udpKey, keyId, noncePrefix, addr, portUdp)
+                        } else {
+                            null
+                        }
                         udpSocket = u
                         android.util.Log.i("InputEventSender", "UDP touch ready for $hostIp:$portUdp")
                         sendWake.trySend(Unit)
@@ -317,12 +366,11 @@ class InputEventSender(
                             try {
                                 val repeats = if (frame[5].toInt() == ACTION_UP_WIRE) UDP_UP_REPEATS else 1
                                 repeat(repeats) {
-                                    val payload = if (udpKey != null && keyId != null) {
-                                        encryptUdpFrame(frame, udpKey, keyId, noncePrefix, counter++)
+                                    val packet = if (encryptedSession != null) {
+                                        encryptedSession.encrypt(frame)
                                     } else {
-                                        frame
+                                        DatagramPacket(frame, frame.size, addr, portUdp)
                                     }
-                                    val packet = DatagramPacket(payload, payload.size, addr, portUdp)
                                     u.send(packet)
                                 }
                                 true
@@ -475,41 +523,8 @@ class InputEventSender(
         return sha256(UDP_KEY_ID_CONTEXT.toByteArray(Charsets.UTF_8) + key).copyOfRange(0, 4)
     }
 
-    private fun encryptUdpFrame(
-        frame: ByteArray,
-        key: ByteArray,
-        keyId: ByteArray,
-        noncePrefix: ByteArray,
-        counter: Long
-    ): ByteArray {
-        val header = ByteArray(UDP_HEADER_SIZE)
-        writeInt(header, 0, UDP_MAGIC)
-        header[4] = UDP_VERSION
-        System.arraycopy(keyId, 0, header, 5, 4)
-        System.arraycopy(noncePrefix, 0, header, 9, 4)
-        writeLong(header, 13, counter)
-        val nonce = noncePrefix + header.copyOfRange(13, 21)
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(128, nonce))
-        cipher.updateAAD(header)
-        return header + cipher.doFinal(frame)
-    }
-
     private fun sha256(data: ByteArray): ByteArray {
         return MessageDigest.getInstance("SHA-256").digest(data)
-    }
-
-    private fun writeInt(frame: ByteArray, offset: Int, value: Int) {
-        frame[offset] = ((value ushr 24) and 0xff).toByte()
-        frame[offset + 1] = ((value ushr 16) and 0xff).toByte()
-        frame[offset + 2] = ((value ushr 8) and 0xff).toByte()
-        frame[offset + 3] = (value and 0xff).toByte()
-    }
-
-    private fun writeLong(frame: ByteArray, offset: Int, value: Long) {
-        for (index in 0 until 8) {
-            frame[offset + index] = ((value ushr (56 - index * 8)) and 0xffL).toByte()
-        }
     }
 
     private fun penFlags(event: MotionEvent, forceCanceled: Boolean): Int {
