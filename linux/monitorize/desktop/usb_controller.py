@@ -3,6 +3,16 @@
 from PyQt6.QtCore import QObject, QProcess, pyqtSignal
 
 
+def authorized_adb_serials(output):
+    if isinstance(output, bytes):
+        output = output.decode("utf-8", "replace")
+    return [
+        fields[0]
+        for line in output.splitlines()
+        if len(fields := line.split()) >= 2 and fields[1] == "device"
+    ]
+
+
 class UsbController(QObject):
     statusChanged = pyqtSignal(str)
     busyChanged = pyqtSignal(bool)
@@ -46,8 +56,32 @@ class UsbController(QObject):
             self._set_busy(False)
             self.scanFinished.emit(False)
             return
+        serials = self._authorized_serials()
+        if self.serial:
+            if self.serial not in serials:
+                self._set_status("Error: Selected Android device is not authorized in ADB.")
+                self._set_busy(False)
+                self.scanFinished.emit(False)
+                return
+        elif len(serials) == 1:
+            self.serial = serials[0]
+        elif not serials:
+            self._set_status("Error: No authorized Android device found in ADB.")
+            self._set_busy(False)
+            self.scanFinished.emit(False)
+            return
+        else:
+            self._set_status("Error: Multiple authorized Android devices found; select one first.")
+            self._set_busy(False)
+            self.scanFinished.emit(False)
+            return
         self._set_status("Setting up reverse proxy tcp:7110 (video)…")
         self._run(["reverse", "tcp:7110", "tcp:7112"], self._video_done)
+
+    def _authorized_serials(self):
+        if self.process is None:
+            return []
+        return authorized_adb_serials(bytes(self.process.readAllStandardOutput()))
 
     def _video_done(self, code, _status):
         if code:

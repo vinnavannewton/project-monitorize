@@ -3447,6 +3447,7 @@ class UsbControllerTest(unittest.TestCase):
         controller = UsbController()
         calls = []
         controller._run = lambda args, callback: calls.append((args, callback))
+        controller._authorized_serials = lambda: ["test-device"]
         controller.start()
         self.assertEqual(calls[0][0], ["devices"])
         controller._devices_done(0, None)
