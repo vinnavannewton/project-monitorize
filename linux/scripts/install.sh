@@ -13,8 +13,8 @@
 
 set -euo pipefail
 
-APP_NAME="Monitorize UDP"
-APP_ID="monitorize-udp"
+APP_NAME="Monitorize"
+APP_ID="monitorize"
 DESKTOP_FILE="${APP_ID}.desktop"
 
 # Resolve paths relative to this script (linux/scripts directory)
@@ -32,6 +32,12 @@ DESKTOP_DIR="${HOME}/.local/share/applications"
 ICON_DIR="${HOME}/.local/share/icons/hicolor/192x192/apps"
 ICON_DEST="${ICON_DIR}/${APP_ID}.png"
 
+remove_legacy_udp_entries() {
+    rm -f "${DESKTOP_DIR}/monitorize-udp.desktop"
+    rm -f "${DESKTOP_DIR}/monitorize-udp-kde-virtual-output.desktop"
+    rm -f "${ICON_DIR}/monitorize-udp.png"
+}
+
 desktop_quote() {
     local value="${1//\\/\\\\}"
     value="${value//\"/\\\"}"
@@ -44,6 +50,7 @@ if [[ "${1:-}" == "remove" || "${1:-}" == "uninstall" ]]; then
     rm -f "${DESKTOP_DIR}/${DESKTOP_FILE}"
     rm -f "${DESKTOP_DIR}/${HELPER_DESKTOP_FILE}"
     rm -f "${ICON_DEST}"
+    remove_legacy_udp_entries
     rm -rf "${PROJECT_DIR}/venv"
     find "${PROJECT_DIR}" -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
     # Refresh desktop database if available
@@ -124,6 +131,7 @@ echo "✓ Icon installed to ${ICON_DEST}"
 
 # ── Create .desktop file ─────────────────────────────────────────────
 mkdir -p "${DESKTOP_DIR}"
+remove_legacy_udp_entries
 EXEC_PY="$(desktop_quote "${VENV_DIR}/bin/python3")"
 
 cat > "${DESKTOP_DIR}/${DESKTOP_FILE}" <<EOF
@@ -149,7 +157,7 @@ HELPER_EXEC="$(desktop_quote "${HELPER_PATH}")"
 cat > "${DESKTOP_DIR}/${HELPER_DESKTOP_FILE}" <<EOF
 [Desktop Entry]
 Type=Application
-Name=Monitorize UDP KDE Virtual Output
+Name=Monitorize KDE Virtual Output
 Exec=${HELPER_EXEC}
 NoDisplay=true
 Terminal=false
