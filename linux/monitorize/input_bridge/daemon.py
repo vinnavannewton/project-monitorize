@@ -40,6 +40,7 @@ class InputDaemon:
         signal.signal(signal.SIGTERM, self.close)
         if not self._setup_backend():
             return
+        log.info("READY input_slot=%s", self.geometry.input_slot)
         transport = run_udp_server if self.wifi else run_tcp_server
         args = (
             (self.dispatcher, self.shutdown, self.geometry, self.udp_host, self.udp_port)

@@ -5,8 +5,6 @@ import android.util.Log
 import android.view.InputDevice
 import android.view.MotionEvent
 import java.io.OutputStream
-import java.security.MessageDigest
-import java.security.SecureRandom
 import java.net.Socket
 import java.net.DatagramSocket
 import java.net.DatagramPacket
@@ -14,12 +12,8 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.util.ArrayDeque
 import java.util.LinkedHashMap
-import java.util.Locale
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
-import javax.crypto.Cipher
-import javax.crypto.spec.GCMParameterSpec
-import javax.crypto.spec.SecretKeySpec
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlin.math.cos
@@ -28,10 +22,7 @@ import kotlin.math.sin
 
 class InputEventSender(
     private val hostIp: String? = null,
-    private val hostPort: Int = 7110,
-    private val encrypted: Boolean = false,
-    private val fingerprint: String? = null,
-    private val authToken: String? = null
+    private val hostPort: Int = 7110
 ) {
     private val portTcp = hostPort + 1
     private val portUdp = hostPort + 3
@@ -57,13 +48,9 @@ class InputEventSender(
         private const val PEN_FLAG_HOVER_EXIT = 1 shl 1
         private const val PEN_FLAG_HOVER_ENTER = 1 shl 2
         private const val ANDROID_FLAG_CANCELED = 0x20
-        private const val MAX_PENDING_FRAMES = 8
+        private const val MAX_PENDING_FRAMES = 4
+        private const val RETRY_DELAY_MS = 250L
         private const val UDP_UP_REPEATS = 3
-        private const val UDP_MAGIC = 0x4D5A4955
-        private const val UDP_VERSION: Byte = 1
-        private const val UDP_HEADER_SIZE = 21
-        private const val UDP_KEY_CONTEXT = "Monitorize UDP input v1\u0000"
-        private const val UDP_KEY_ID_CONTEXT = "Monitorize UDP input key id v1\u0000"
         private const val TIMING_LOG_INTERVAL_MS = 1000L
     }
 
@@ -232,11 +219,6 @@ class InputEventSender(
 
     fun start() {
         if (!started.compareAndSet(false, true)) return
-        if (encrypted && (hostIp.isNullOrBlank() || fingerprint.isNullOrBlank() || authToken.isNullOrBlank())) {
-            android.util.Log.e("InputEventSender", "Encrypted input requires host, fingerprint, and token")
-            started.set(false)
-            return
-        }
         if (hostIp.isNullOrEmpty()) {
             scope.launch {
                 while (isActive) {
@@ -271,7 +253,7 @@ class InputEventSender(
                         out = null
                         socket = null
                         try { s?.close() } catch (_: Exception) {}
-                        delay(2000)
+                        delay(RETRY_DELAY_MS)
                     }
                 }
             }
@@ -305,11 +287,6 @@ class InputEventSender(
                         u.sendBufferSize = 4 * 1024
                         try { u.trafficClass = 0xB8 } catch (_: Exception) {}
                         val addr = InetAddress.getByName(hostIp)
-                        val udpKey = if (encrypted) deriveUdpKey(authToken!!, fingerprint!!) else null
-                        val keyId = udpKey?.let { udpKeyId(it) }
-                        val noncePrefix = ByteArray(4)
-                        if (udpKey != null) SecureRandom().nextBytes(noncePrefix)
-                        var counter = 1L
                         udpSocket = u
                         android.util.Log.i("InputEventSender", "UDP touch ready for $hostIp:$portUdp")
                         sendWake.trySend(Unit)
@@ -317,12 +294,7 @@ class InputEventSender(
                             try {
                                 val repeats = if (frame[5].toInt() == ACTION_UP_WIRE) UDP_UP_REPEATS else 1
                                 repeat(repeats) {
-                                    val payload = if (udpKey != null && keyId != null) {
-                                        encryptUdpFrame(frame, udpKey, keyId, noncePrefix, counter++)
-                                    } else {
-                                        frame
-                                    }
-                                    val packet = DatagramPacket(payload, payload.size, addr, portUdp)
+                                    val packet = DatagramPacket(frame, frame.size, addr, portUdp)
                                     u.send(packet)
                                 }
                                 true
@@ -337,7 +309,7 @@ class InputEventSender(
                         if (udpSocket === u) udpSocket = null
                         try { u?.close() } catch (_: Exception) {}
                     }
-                    delay(2000)
+                    delay(RETRY_DELAY_MS)
                 }
             }
         }
@@ -459,56 +431,6 @@ class InputEventSender(
             ACTION_MOVE_WIRE -> if (primaryDown) requestedAction else ACTION_HOVER_WIRE
             ACTION_UP_WIRE -> ACTION_UP_WIRE
             else -> ACTION_HOVER_WIRE
-        }
-    }
-
-    private fun deriveUdpKey(token: String, fingerprint: String): ByteArray {
-        val tokenBytes = token.trim().lowercase(Locale.US).toByteArray(Charsets.US_ASCII)
-        val fingerprintBytes = fingerprint.trim().uppercase(Locale.US).toByteArray(Charsets.US_ASCII)
-        return sha256(
-            UDP_KEY_CONTEXT.toByteArray(Charsets.UTF_8) +
-                tokenBytes + byteArrayOf(0) + fingerprintBytes
-        )
-    }
-
-    private fun udpKeyId(key: ByteArray): ByteArray {
-        return sha256(UDP_KEY_ID_CONTEXT.toByteArray(Charsets.UTF_8) + key).copyOfRange(0, 4)
-    }
-
-    private fun encryptUdpFrame(
-        frame: ByteArray,
-        key: ByteArray,
-        keyId: ByteArray,
-        noncePrefix: ByteArray,
-        counter: Long
-    ): ByteArray {
-        val header = ByteArray(UDP_HEADER_SIZE)
-        writeInt(header, 0, UDP_MAGIC)
-        header[4] = UDP_VERSION
-        System.arraycopy(keyId, 0, header, 5, 4)
-        System.arraycopy(noncePrefix, 0, header, 9, 4)
-        writeLong(header, 13, counter)
-        val nonce = noncePrefix + header.copyOfRange(13, 21)
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(128, nonce))
-        cipher.updateAAD(header)
-        return header + cipher.doFinal(frame)
-    }
-
-    private fun sha256(data: ByteArray): ByteArray {
-        return MessageDigest.getInstance("SHA-256").digest(data)
-    }
-
-    private fun writeInt(frame: ByteArray, offset: Int, value: Int) {
-        frame[offset] = ((value ushr 24) and 0xff).toByte()
-        frame[offset + 1] = ((value ushr 16) and 0xff).toByte()
-        frame[offset + 2] = ((value ushr 8) and 0xff).toByte()
-        frame[offset + 3] = (value and 0xff).toByte()
-    }
-
-    private fun writeLong(frame: ByteArray, offset: Int, value: Long) {
-        for (index in 0 until 8) {
-            frame[offset + index] = ((value ushr (56 - index * 8)) and 0xffL).toByte()
         }
     }
 

@@ -4,42 +4,26 @@ import QtQuick.Layouts
 
 Item {
     id: page
-    property var pendingDevice: null
-    property var forgetTarget: null
     property string setupMessage: ""
 
-    function connectDevice(device, code) {
-        backend.connectToHost(
-            device.ip,
-            device.port,
-            device.encrypted === true,
-            device.fingerprint || "",
-            code || "",
-            device.decoder || decoderCombo.currentText,
-            Number(device.fps || 0),
-            device.name || device.ip
-        )
+    function selectedPort(device) {
+        let port = portField.text.trim()
+        return port.length > 0 ? port : (device.port || 7110)
+    }
+
+    function connectDevice(device) {
+        backend.connectToHost(device.ip, device.port,
+                              device.decoder || decoderCombo.currentText)
     }
 
     function requestConnection(device) {
         let target = {
             "ip": device.ip,
-            "port": Number(device.port || 7110),
-            "encrypted": device.encrypted === true,
-            "fingerprint": device.fingerprint || "",
-            "decoder": decoderCombo.currentText,
-            "fps": Number(device.fps || 0),
-            "name": device.name || device.ip
+            "port": selectedPort(device),
+            "decoder": decoderCombo.currentText
         }
         setupMessage = ""
-        if (target.encrypted
-                && backend.receiverNeedsPairing(target.ip, target.fingerprint)) {
-            pendingDevice = target
-            pairingCodeField.text = ""
-            pairingPopup.open()
-        } else {
-            connectDevice(target, "")
-        }
+        connectDevice(target)
     }
 
     Component.onCompleted: {
@@ -47,9 +31,8 @@ Item {
         let rec = backend.loadReceiverSettings()
         if (rec) {
             manualIpField.text = rec["manual_ip"] || ""
-            portField.text = rec["manual_port"] || "7110"
+            portField.text = rec["port"] || "7110"
             decoderCombo.currentIndex = rec["decoder"] === "Hardware" ? 1 : 0
-            encryptionCheck.checked = rec["use_encryption"] !== false
         }
     }
 
@@ -63,22 +46,6 @@ Item {
             let devs = backend.discoveredDevices
             deviceRepeater.model = null
             deviceRepeater.model = devs
-        }
-        function onReceiverPairingRequired(host, port, fingerprint) {
-            page.setupMessage = "Saved authorization was rejected. Enter a new pairing code."
-            pendingDevice = {
-                "ip": host,
-                "port": port,
-                "encrypted": true,
-                "fingerprint": fingerprint,
-                "decoder": decoderCombo.currentText,
-                "fps": pendingDevice && pendingDevice.ip === host
-                    ? Number(pendingDevice.fps || 0) : 0,
-                "name": pendingDevice && pendingDevice.ip === host
-                    ? pendingDevice.name : host
-            }
-            pairingCodeField.text = ""
-            pairingPopup.open()
         }
     }
 
@@ -150,6 +117,16 @@ Item {
             color: theme.border
         }
 
+        // Discovered Devices Section
+        Text {
+            text: "DISCOVERED HOSTS"
+            font.pixelSize: 11
+            font.weight: Font.Bold
+            color: theme.textMuted
+            Layout.topMargin: 4
+        }
+
+        // Device list area
         ScrollView {
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -159,107 +136,6 @@ Item {
             ColumnLayout {
                 width: parent.width
                 spacing: 8
-
-                ColumnLayout {
-                    visible: backend.recentReceiverHosts.length > 0
-                    Layout.fillWidth: true
-                    spacing: 8
-
-                    Text {
-                        text: "FREQUENTLY CONNECTED"
-                        font.pixelSize: 11
-                        font.weight: Font.Bold
-                        color: theme.textMuted
-                    }
-
-                    Repeater {
-                        model: backend.recentReceiverHosts
-
-                        Button {
-                            id: recentHostCard
-                            Layout.fillWidth: true
-                            implicitHeight: 68
-                            leftPadding: 18
-                            rightPadding: 8
-                            topPadding: 12
-                            bottomPadding: 12
-                            hoverEnabled: true
-                            onClicked: page.requestConnection(modelData)
-
-                            background: Rectangle {
-                                radius: 12
-                                color: recentHostCard.down || recentHostCard.hovered
-                                    ? theme.surfaceAlt : theme.surface
-                                border.color: recentHostCard.hovered
-                                    ? theme.borderHover : theme.border
-                                border.width: 1
-                            }
-
-                            contentItem: RowLayout {
-                                spacing: 12
-
-                                ColumnLayout {
-                                    spacing: 2
-                                    Layout.fillWidth: true
-
-                                    Text {
-                                        text: modelData.name || modelData.ip
-                                        font.pixelSize: 16
-                                        font.weight: Font.Bold
-                                        color: theme.cardTextPrimary
-                                    }
-                                    Text {
-                                        text: (modelData.ip || "") + ":" + (modelData.port || 7110)
-                                            + (modelData.encrypted === true ? "  •  encrypted" : "")
-                                            + (modelData.fps ? "  •  " + modelData.fps + " FPS" : "")
-                                        font.pixelSize: 13
-                                        color: theme.cardTextMuted
-                                    }
-                                }
-
-                                Text {
-                                    text: modelData.online ? "online" : "offline"
-                                    font.pixelSize: 10
-                                    font.weight: Font.ExtraBold
-                                    color: modelData.online ? "#4caf50" : theme.textMuted
-                                }
-
-                                ToolButton {
-                                    id: recentHostMenuButton
-                                    text: "⋮"
-                                    font.pixelSize: 18
-                                    onClicked: recentHostMenu.open()
-
-                                    Menu {
-                                        id: recentHostMenu
-                                        y: recentHostMenuButton.height
-                                        MenuItem {
-                                            text: "Forget"
-                                            onTriggered: {
-                                                page.forgetTarget = modelData
-                                                forgetPopup.open()
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Rectangle {
-                        Layout.fillWidth: true
-                        height: 1
-                        color: theme.border
-                    }
-                }
-
-                Text {
-                    text: "DISCOVERED HOSTS"
-                    font.pixelSize: 11
-                    font.weight: Font.Bold
-                    color: theme.textMuted
-                    Layout.topMargin: 4
-                }
 
                 // Empty state
                 Text {
@@ -276,30 +152,20 @@ Item {
                     id: deviceRepeater
                     model: []
 
-                    Button {
-                        id: deviceCard
+                    Rectangle {
                         Layout.fillWidth: true
-                        implicitHeight: 68
-                        leftPadding: 18
-                        rightPadding: 18
-                        topPadding: 12
-                        bottomPadding: 12
-                        hoverEnabled: true
-                        text: modelData.name || "Unknown"
-                        onClicked: page.requestConnection(modelData)
+                        implicitHeight: 60
+                        radius: theme.cardRadius
+                        color: devMouseArea.containsMouse ? theme.surfaceAlt : theme.surface
+                        border.color: devMouseArea.containsMouse ? theme.borderHover : theme.border
+                        border.width: 1
+                        Behavior on color { ColorAnimation { duration: 150 } }
+                        Behavior on border.color { ColorAnimation { duration: 150 } }
 
-                        background: Rectangle {
-                            radius: 12
-                            color: deviceCard.down || deviceCard.hovered
-                                ? theme.surfaceAlt : theme.surface
-                            border.color: deviceCard.hovered
-                                ? theme.borderHover : theme.border
-                            border.width: 1
-                            Behavior on color { ColorAnimation { duration: 150 } }
-                            Behavior on border.color { ColorAnimation { duration: 150 } }
-                        }
-
-                        contentItem: RowLayout {
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 16
+                            anchors.rightMargin: 16
                             spacing: 12
 
                             ColumnLayout {
@@ -307,35 +173,46 @@ Item {
                                 Layout.fillWidth: true
 
                                 Text {
-                                    text: deviceCard.text
-                                    font.pixelSize: 16
+                                    text: modelData.name || "Unknown"
+                                    font.pixelSize: 15
                                     font.weight: Font.Bold
                                     color: theme.cardTextPrimary
                                 }
                                 Text {
-                                    text: (modelData.ip || "") + ":" + (modelData.port || 7110)
-                                        + (modelData.encrypted === true ? "  •  encrypted" : "")
-                                        + (modelData.fps ? "  •  " + modelData.fps + " FPS" : "")
-                                    font.pixelSize: 13
+                                    text: (modelData.ip || "")
+                                        + "  •  Second display"
+                                        + (modelData.thirdAvailable ? "  •  Third display available" : "")
+                                    font.pixelSize: 12
                                     color: theme.cardTextMuted
                                 }
                             }
 
+                            // Badge
                             Rectangle {
-                                implicitWidth: onlineText.implicitWidth + 20
+                                implicitWidth: badgeText.implicitWidth + 16
                                 implicitHeight: 22
-                                radius: 4
-                                color: "#4caf50"
-                                Layout.alignment: Qt.AlignVCenter
+                                radius: 6
+                                color: theme.accentAlpha20
+                                border.color: theme.accentAlpha40
+                                border.width: 1
 
                                 Text {
-                                    id: onlineText
+                                    id: badgeText
                                     anchors.centerIn: parent
-                                    text: "online"
+                                    text: "udp"
                                     font.pixelSize: 10
                                     font.weight: Font.ExtraBold
-                                    color: "#ffffff"
+                                    color: theme.accent
                                 }
+                            }
+                        }
+
+                        MouseArea {
+                            id: devMouseArea
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: {
+                                page.requestConnection(modelData)
                             }
                         }
                     }
@@ -376,7 +253,6 @@ Item {
                     backend.saveReceiverSettings(
                         manualIpField.text.trim(),
                         text.trim().length > 0 ? text.trim() : "7110",
-                        encryptionCheck.checked,
                         decoderCombo.currentText
                     )
                 }
@@ -401,7 +277,6 @@ Item {
                 onActivated: backend.saveReceiverSettings(
                     manualIpField.text.trim(),
                     portField.text.trim().length > 0 ? portField.text.trim() : "7110",
-                    encryptionCheck.checked,
                     currentText
                 )
             }
@@ -421,7 +296,6 @@ Item {
                     backend.saveReceiverSettings(
                         text.trim(),
                         portField.text.trim().length > 0 ? portField.text.trim() : "7110",
-                        encryptionCheck.checked,
                         decoderCombo.currentText
                     )
                 }
@@ -440,33 +314,24 @@ Item {
                         let ip = manualIpField.text.trim()
                         let p = portField.text.trim().length > 0 ? portField.text.trim() : "7110"
                         backend.saveReceiverSettings(
-                            ip, p, encryptionCheck.checked,
-                            decoderCombo.currentText
+                            ip, p, decoderCombo.currentText
                         )
                         page.requestConnection({
                             "ip": ip,
                             "port": p,
-                            "encrypted": encryptionCheck.checked,
-                            "fingerprint": "",
-                            "thirdAvailable": true,
-                            "fps": 0,
-                            "name": ip
+                            "thirdAvailable": true
                         })
                     }
                 }
             }
         }
 
-        CustomCheckBox {
-            id: encryptionCheck
-            text: "Use encryption"
-            checked: true
-            onCheckedChanged: backend.saveReceiverSettings(
-                manualIpField.text.trim(),
-                portField.text.trim().length > 0 ? portField.text.trim() : "7110",
-                checked,
-                decoderCombo.currentText
-            )
+        Text {
+            text: "Wi-Fi video is plaintext. Use Tailscale or WireGuard for encrypted networking."
+            color: theme.textMuted
+            font.pixelSize: 12
+            wrapMode: Text.Wrap
+            Layout.fillWidth: true
         }
 
         Text {
@@ -480,102 +345,4 @@ Item {
         }
     }
 
-    Popup {
-        id: forgetPopup
-        modal: true
-        anchors.centerIn: parent
-        width: 360
-        height: 160
-
-        background: Rectangle {
-            color: theme.surface
-            border.color: theme.border
-            radius: theme.cardRadius
-        }
-
-        ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: 20
-            spacing: 12
-
-            Text {
-                text: "Forget saved host?"
-                color: theme.cardTextPrimary
-                font.weight: Font.Bold
-            }
-            Text {
-                text: "This also removes its saved pairing credentials."
-                color: theme.cardTextSecondary
-                wrapMode: Text.Wrap
-                Layout.fillWidth: true
-            }
-            RowLayout {
-                Layout.alignment: Qt.AlignRight
-                Button { text: "Cancel"; onClicked: forgetPopup.close() }
-                CustomButton {
-                    text: "Forget"
-                    onClicked: {
-                        backend.forgetReceiverHost(
-                            page.forgetTarget.ip, page.forgetTarget.port
-                        )
-                        page.forgetTarget = null
-                        forgetPopup.close()
-                    }
-                }
-            }
-        }
-    }
-
-    Popup {
-        id: pairingPopup
-        modal: true
-        anchors.centerIn: parent
-        width: 360
-        height: 190
-
-        background: Rectangle {
-            color: theme.surface
-            border.color: theme.border
-            radius: theme.cardRadius
-        }
-
-        ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: 20
-            spacing: 12
-
-            Text {
-                text: "Enter the pairing code shown on the host"
-                color: theme.cardTextPrimary
-                font.weight: Font.Bold
-            }
-
-            CustomTextField {
-                id: pairingCodeField
-                placeholderText: "6-digit code"
-                maximumLength: 6
-                validator: IntValidator { bottom: 0; top: 999999 }
-                Layout.fillWidth: true
-            }
-
-            RowLayout {
-                Layout.alignment: Qt.AlignRight
-                Button {
-                    text: "Cancel"
-                    onClicked: {
-                        pairingPopup.close()
-                        page.pendingDevice = null
-                    }
-                }
-                CustomButton {
-                    text: "Pair"
-                    enabled: pairingCodeField.text.length === 6
-                    onClicked: {
-                        pairingPopup.close()
-                        page.connectDevice(page.pendingDevice, pairingCodeField.text)
-                    }
-                }
-            }
-        }
-    }
 }

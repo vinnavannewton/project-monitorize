@@ -20,6 +20,7 @@ from monitorize.input_bridge.protocol import (
     PKT_PEN,
     PKT_PEN_EXT,
     PKT_TOUCH,
+    PEN_FLAG_HOVER_EXIT,
     TOOL_MOUSE,
     parse_udp_packets,
     pop_framed_packets,
@@ -178,6 +179,38 @@ class DispatcherTest(unittest.TestCase):
             (ACTION_DOWN, 10008, 100, 200),
         )
 
+    def test_hover_exit_allows_touch_immediately(self):
+        backend = Mock()
+        backend.inject_pen.return_value = True
+        dispatcher = InputDispatcher(backend)
+        dispatcher.dispatch_pen(
+            ACTION_HOVER, 1, 3, 100, 200, 0, 0, 0, 0, 0,
+            PEN_FLAG_HOVER_EXIT,
+        )
+
+        dispatcher.dispatch_touch(ACTION_DOWN, 1, 300, 400)
+
+        backend.inject_touch.assert_called_once_with(
+            ACTION_DOWN, 1, 300, 400, True
+        )
+
+    def test_missing_hover_exit_has_short_fail_safe(self):
+        backend = Mock()
+        backend.inject_pen.return_value = True
+        dispatcher = InputDispatcher(backend)
+        with patch(
+            "monitorize.input_bridge.dispatcher.time.monotonic",
+            side_effect=[1.0, 1.3],
+        ):
+            dispatcher.dispatch_pen(
+                ACTION_HOVER, 1, 3, 100, 200, 0, 0, 0, 0, 0, 0
+            )
+            dispatcher.dispatch_touch(ACTION_DOWN, 1, 300, 400)
+
+        backend.inject_touch.assert_called_once_with(
+            ACTION_DOWN, 1, 300, 400, True
+        )
+
     def test_malformed_packet_is_rejected(self):
         dispatcher = InputDispatcher(Mock())
         self.assertFalse(dispatcher.dispatch_packet(PKT_TOUCH, b"x" * (PAYLOAD_SIZE - 1)))
@@ -280,6 +313,39 @@ class DaemonStartupTest(unittest.TestCase):
 
 
 class TransportTest(unittest.TestCase):
+    def test_udp_drain_stops_after_latency_budget(self):
+        shutdown = threading.Event()
+        payload = struct.pack(
+            PAYLOAD_FMT, ACTION_MOVE, 0, 1, 100, 200, 0, 0, 0
+        )
+
+        class FakeServer:
+            def __init__(self):
+                self.recv_count = 0
+
+            def setsockopt(self, *_args): pass
+            def bind(self, _addr): pass
+            def settimeout(self, _timeout): pass
+            def setblocking(self, _blocking): pass
+            def close(self): pass
+
+            def recvfrom(self, _size):
+                self.recv_count += 1
+                shutdown.set()
+                return framed(PKT_TOUCH, payload), ("10.0.0.2", 1234)
+
+        server = FakeServer()
+        with (
+            patch("monitorize.input_bridge.transport.socket.socket", return_value=server),
+            patch(
+                "monitorize.input_bridge.transport.time.perf_counter",
+                side_effect=[0.0, transport.UDP_DRAIN_BUDGET_SECONDS],
+            ),
+        ):
+            transport.run_udp_server(Mock(), shutdown, Mock())
+
+        self.assertEqual(server.recv_count, 1)
+
     def test_tcp_disconnect_releases_active_fingers(self):
         payload = struct.pack(
             PAYLOAD_FMT, ACTION_DOWN, 1, 2, 100, 200, 300, -4, 5
@@ -958,7 +1024,6 @@ class UInputCreationTest(unittest.TestCase):
             patch.object(uinput_backend, "ecodes", ecodes),
             patch.object(uinput_backend, "evdev", fake_evdev),
             patch.object(uinput_backend, "UInput", side_effect=devices) as uinput,
-            patch("monitorize.input_bridge.uinput_backend.time.sleep"),
         ):
             UInputBackend(geom, Mock()).setup(stylus_features=True)
 
@@ -1014,7 +1079,6 @@ class UInputCreationTest(unittest.TestCase):
                 "UInput",
                 return_value=types.SimpleNamespace(device=None),
             ),
-            patch("monitorize.input_bridge.uinput_backend.time.sleep"),
         ):
             with self.assertRaisesRegex(RuntimeError, "MONITORIZE_UINPUT_PERMISSION"):
                 UInputBackend(geom, Mock()).setup()

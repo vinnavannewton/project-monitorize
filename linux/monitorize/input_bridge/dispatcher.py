@@ -6,6 +6,7 @@ import time
 
 from .protocol import (
     ACTION_HOVER, ACTION_MOVE, ACTION_UP, PAYLOAD_SIZE, PEN_EXT_SIZE,
+    PEN_FLAG_CANCELED, PEN_FLAG_HOVER_EXIT,
     PKT_PEN, PKT_PEN_EXT, PKT_TOUCH, TOOL_MOUSE, unpack_packet,
 )
 
@@ -13,12 +14,13 @@ log = logging.getLogger("TouchDaemon")
 
 
 class InputDispatcher:
-    def __init__(self, backend, stylus_only=False, suppression_seconds=5.0):
+    def __init__(self, backend, stylus_only=False, proximity_timeout=0.25):
         self.backend = backend
         self.stylus_only = stylus_only
-        self.suppression_seconds = suppression_seconds
+        self.proximity_timeout = proximity_timeout
         self.active_fingers = {}
         self.last_stylus_input = 0.0
+        self.stylus_in_proximity = False
         self.logged_dropped_pen = False
         self.lock = threading.RLock()
 
@@ -28,8 +30,8 @@ class InputDispatcher:
 
     def _finger_suppressed(self):
         return self.stylus_only or (
-            self.last_stylus_input > 0
-            and time.monotonic() - self.last_stylus_input < self.suppression_seconds
+            self.stylus_in_proximity
+            and time.monotonic() - self.last_stylus_input < self.proximity_timeout
         )
 
     def _release_fingers_locked(self):
@@ -48,6 +50,7 @@ class InputDispatcher:
                 log.info("Releasing active input: %s", reason)
             self._release_fingers_locked()
             self.last_stylus_input = 0.0
+            self.stylus_in_proximity = False
             self.logged_dropped_pen = False
             release_backend = getattr(self.backend, "release_all", None)
             if callable(release_backend):
@@ -78,6 +81,9 @@ class InputDispatcher:
     ):
         with self.lock:
             self.last_stylus_input = time.monotonic()
+            self.stylus_in_proximity = not bool(
+                flags & (PEN_FLAG_CANCELED | PEN_FLAG_HOVER_EXIT)
+            )
             self._release_fingers_locked()
             if not self.backend.inject_pen(
                 action, tool, x, y, pressure, tilt_x, tilt_y,

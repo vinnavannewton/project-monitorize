@@ -4,8 +4,6 @@ import signal
 import sys
 import socket
 import tempfile
-import threading
-import time
 import types
 import unittest
 from pathlib import Path
@@ -21,14 +19,13 @@ from monitorize.platform import (
     gnome_virtual_monitor,
     kde_virtual_monitor,
     process_utils,
-    utils as platform_utils,
 )
 from monitorize.platform.display_controller import DisplayController
 from monitorize.desktop.discovery_service import DiscoveryService
 from monitorize.desktop.backend import MonitorizeBackend
 from monitorize.desktop.receiver_controller import ReceiverController
 from monitorize.desktop.streaming_controller import StreamingController
-from monitorize.desktop.usb_controller import UsbController, authorized_adb_serials
+from monitorize.desktop.usb_controller import UsbController
 from monitorize.config.validation import (
     DEFAULT_PRIMARY_RESOLUTION,
     sanitize_encoder_profile,
@@ -51,34 +48,15 @@ def process_mock():
 
 
 class DiscoveryServiceTest(unittest.TestCase):
-    def test_worker_thread_resolution_reaches_qt_owner_thread(self):
-        service = DiscoveryService()
-        values = ("Host", "10.0.0.2", 7110, False, "", False, 7114, "svc", 120)
-        worker = threading.Thread(target=lambda: service._deviceResolved.emit(values))
-        worker.start()
-        worker.join()
-        deadline = time.monotonic() + 1
-        while not service.devices and time.monotonic() < deadline:
-            app.processEvents()
-
-        self.assertEqual(service.devices[0]["ip"], "10.0.0.2")
-        self.assertEqual(service.devices[0]["fps"], 120)
-
     def test_device_updates_do_not_duplicate_host(self):
         service = DiscoveryService()
         service.add_device("Old", "10.0.0.2", 7110, False)
-        service.add_device("New", "10.0.0.2", 7110, True, "fingerprint", True)
+        service.add_device("New", "10.0.0.2", 7110, True)
         self.assertEqual(len(service.devices), 1)
         self.assertEqual(service.devices[0]["name"], "New")
-        self.assertTrue(service.devices[0]["encrypted"])
         self.assertTrue(service.devices[0]["thirdAvailable"])
 
-    def test_device_retains_advertised_fps(self):
-        service = DiscoveryService()
-        service.add_device("Host", "10.0.0.2", 7110, stream_fps=120)
-        self.assertEqual(service.devices[0]["fps"], 120)
-
-    def test_advertisement_contains_encryption_and_third_display_state(self):
+    def test_advertisement_contains_udp_and_third_display_state(self):
         registered = []
 
         class FakeZeroconf:
@@ -99,11 +77,13 @@ class DiscoveryServiceTest(unittest.TestCase):
         )
         service = DiscoveryService()
         with patch.dict(sys.modules, {"zeroconf": fake_module}):
-            service.advertise("127.0.0.1", False, True)
+            service.advertise("127.0.0.1", True)
         self.assertEqual(len(registered), 2)
         self.assertEqual(registered[0].port, 7110)
-        self.assertEqual(registered[0].properties["encrypted"], "0")
+        self.assertEqual(registered[0].properties["video_transport"], "rtp-udp-v1")
         self.assertEqual(registered[0].properties["fps"], "60")
+        self.assertEqual(registered[0].properties["width"], "1280")
+        self.assertEqual(registered[0].properties["height"], "800")
         self.assertEqual(registered[0].properties["third_available"], "1")
         self.assertEqual(registered[1].port, 7114)
         self.assertIn("Second Virtual Monitor", registered[1].name)
@@ -129,12 +109,19 @@ class DiscoveryServiceTest(unittest.TestCase):
         )
         service = DiscoveryService()
         with patch.dict(sys.modules, {"zeroconf": fake_module}):
-            service.advertise("127.0.0.1", False, True, 90, 75)
+            service.advertise(
+                "127.0.0.1", True, 90, 75,
+                2560, 1600, 1920, 1200,
+            )
         self.assertEqual(registered[0].properties["fps"], "90")
         self.assertEqual(registered[1].properties["fps"], "75")
+        self.assertEqual(registered[0].properties["width"], "2560")
+        self.assertEqual(registered[0].properties["height"], "1600")
+        self.assertEqual(registered[1].properties["width"], "1920")
+        self.assertEqual(registered[1].properties["height"], "1200")
 
 
-    def test_encrypted_advertisement_declares_udp_input_transport(self):
+    def test_advertisement_is_plain_udp(self):
         registered = []
 
         class FakeZeroconf:
@@ -151,19 +138,12 @@ class DiscoveryServiceTest(unittest.TestCase):
         fake_module = types.SimpleNamespace(
             ServiceInfo=FakeInfo, Zeroconf=FakeZeroconf
         )
-        fake_tls_proxy = types.SimpleNamespace(certificate_fingerprint=lambda: "FP")
         service = DiscoveryService()
-        with patch.dict(sys.modules, {
-            "zeroconf": fake_module,
-            "monitorize.security.tls_proxy": fake_tls_proxy,
-        }):
-            service.advertise("127.0.0.1", True, True)
+        with patch.dict(sys.modules, {"zeroconf": fake_module}):
+            service.advertise("127.0.0.1", True)
         self.assertEqual(len(registered), 2)
         for advertisement in registered:
-            self.assertEqual(
-                advertisement.properties["input_transport"], "udp-aesgcm-v1"
-            )
-            self.assertEqual(advertisement.properties["fingerprint"], "FP")
+            self.assertEqual(advertisement.properties["video_transport"], "rtp-udp-v1")
 
     def test_lost_service_removes_device(self):
         service = DiscoveryService()
@@ -205,7 +185,10 @@ class DiscoveryServiceTest(unittest.TestCase):
             ServiceListener=object,
         )
         service = DiscoveryService()
-        with patch.dict(sys.modules, {"zeroconf": fake_module}):
+        with (
+            patch.dict(sys.modules, {"zeroconf": fake_module}),
+            patch("monitorize.desktop.discovery_service.QTimer.singleShot", side_effect=lambda _ms, fn: fn()),
+        ):
             service.start()
         self.assertEqual(service.devices, [])
 
@@ -235,7 +218,10 @@ class DiscoveryServiceTest(unittest.TestCase):
             ServiceListener=object,
         )
         service = DiscoveryService()
-        with patch.dict(sys.modules, {"zeroconf": fake_module}):
+        with (
+            patch.dict(sys.modules, {"zeroconf": fake_module}),
+            patch("monitorize.desktop.discovery_service.QTimer.singleShot", side_effect=lambda _ms, fn: fn()),
+        ):
             service.start()
         self.assertEqual(service.devices[0]["thirdPort"], 7114)
 
@@ -261,8 +247,8 @@ class DiscoveryServiceTest(unittest.TestCase):
         )
         service = DiscoveryService()
         with patch.dict(sys.modules, {"zeroconf": fake_module}):
-            service.advertise("127.0.0.1", False, True)
-            service.advertise("127.0.0.1", False, True)
+            service.advertise("127.0.0.1", True)
+            service.advertise("127.0.0.1", True)
         self.assertEqual(len(registered), 2)
 
     def test_removing_third_advertisement_keeps_primary(self):
@@ -288,8 +274,8 @@ class DiscoveryServiceTest(unittest.TestCase):
         )
         service = DiscoveryService()
         with patch.dict(sys.modules, {"zeroconf": fake_module}):
-            service.advertise("127.0.0.1", False, True)
-            service.advertise("127.0.0.1", False, False)
+            service.advertise("127.0.0.1", True)
+            service.advertise("127.0.0.1", False)
 
         self.assertEqual([item.port for item in unregistered], [7110, 7114])
         self.assertEqual([item.port for item in service.advertisements], [7110])
@@ -454,35 +440,12 @@ class ValidationTest(unittest.TestCase):
         self.assertEqual(sanitize_encoder_profile("Bogus"), "Low Latency")
 
 
-class PlatformDetectionTest(unittest.TestCase):
-    def test_windows_detects_windows_desktop(self):
-        with patch("monitorize.platform.utils.sys.platform", "win32"):
-            self.assertEqual(platform_utils.detect_desktop_environment(), "windows")
-
-    def test_windows_detection_does_not_prompt_for_linux_desktop(self):
-        from monitorize.desktop.main_window import MonitorizeWindow
-
-        window = Mock()
-        window._ask_desktop_environment = Mock()
-        with patch(
-            "monitorize.desktop.main_window.detect_desktop_environment",
-            return_value="windows",
-        ):
-            self.assertEqual(
-                MonitorizeWindow._select_desktop_environment(window), "windows"
-            )
-        window._ask_desktop_environment.assert_not_called()
-
-
 class ReceiverControllerTest(unittest.TestCase):
-    def test_hardware_pipeline_preserves_compressed_frames_and_uses_dmabuf(self):
+    def test_pipeline_preserves_compressed_frames_and_drops_only_after_decode(self):
         controller = ReceiverController("kde", Mock())
-        controller.decoder = "Hardware"
-        controller.stream_fps = 120
         controller.decoder_args = ["vah264dec"]
-        controller.decoder_label = "VA-API vah264dec"
-        controller.hardware_path = "dmabuf"
-        controller.sink = "waylandsink"
+        controller.decoder_label = "VA-API"
+        controller.sink = "xvimagesink"
         process = process_mock()
         with (
             patch("monitorize.desktop.receiver_controller.QProcess", return_value=process),
@@ -501,72 +464,12 @@ class ReceiverControllerTest(unittest.TestCase):
         decoder_index = args.index("vah264dec")
         first_queue_index = args.index("queue")
         self.assertLess(first_queue_index, decoder_index)
-        self.assertIn("max-size-buffers=3", args[first_queue_index:decoder_index])
         self.assertNotIn("leaky=downstream", args[first_queue_index:decoder_index])
         self.assertIn("leaky=downstream", args[decoder_index:])
-        self.assertIn("video/x-raw(memory:VAMemory)", args[decoder_index:])
-        self.assertIn("vapostproc", args[decoder_index:])
-        self.assertIn(
-            "video/x-raw(memory:DMABuf),format=DMA_DRM", args[decoder_index:]
-        )
-        self.assertNotIn("videoconvert", args)
-        self.assertNotIn("videoscale", args)
-        self.assertNotIn("avdec_h264", args)
-        self.assertNotIn("framerate=60/1", args)
         self.assertIn("sync=false", args)
         self.assertIn("async=false", args)
         self.assertIn("force-aspect-ratio=false", args)
         self.assertIn("port=7114", args)
-
-    def test_embedded_hardware_pipeline_scales_in_dmabuf_memory(self):
-        controller = ReceiverController("kde", Mock())
-        controller.decoder = "Hardware"
-        controller.decoder_args = ["vah264dec"]
-        controller.decoder_label = "VA-API vah264dec"
-        controller.hardware_path = "dmabuf"
-        controller.sink = "glimagesink"
-        controller.receiver_surface_width = 1920
-        controller.receiver_surface_height = 1080
-        with patch(
-            "monitorize.desktop.receiver_controller._gst_has_property",
-            return_value=True,
-        ):
-            description = controller._embedded_pipeline_description(
-                "10.0.0.2", 7110, "glimagesink"
-            )
-        self.assertIn("video/x-raw(memory:VAMemory)", description)
-        self.assertIn("vapostproc", description)
-        self.assertIn(
-            "video/x-raw(memory:DMABuf),format=DMA_DRM,width=1920,height=1080,"
-            "pixel-aspect-ratio=1/1",
-            description,
-        )
-        self.assertNotIn("videoconvert", description)
-        self.assertNotIn("videoscale", description)
-
-    def test_legacy_hardware_pipeline_keeps_va_surfaces(self):
-        controller = ReceiverController("kde", Mock())
-        controller.decoder = "Hardware"
-        controller.decoder_args = ["vaapih264dec", "low-latency=true"]
-        controller.decoder_label = "VA-API vaapih264dec"
-        controller.hardware_path = "vasurface"
-        controller.hardware_sink_props = {"display": "wayland"}
-        controller.sink = "vaapisink"
-        process = process_mock()
-        with (
-            patch("monitorize.desktop.receiver_controller.QProcess", return_value=process),
-            patch(
-                "monitorize.desktop.receiver_controller._gst_has_property",
-                return_value=True,
-            ),
-        ):
-            controller._launch_pipeline("10.0.0.2", 7110)
-        _command, args = process.start.call_args.args
-        self.assertIn("low-latency=true", args)
-        self.assertIn("video/x-raw(memory:VASurface)", args)
-        self.assertIn("display=wayland", args)
-        self.assertNotIn("videoconvert", args)
-        self.assertNotIn("videoscale", args)
 
     def test_embedded_pipeline_uses_video_overlay_sink(self):
         controller = ReceiverController("kde", Mock())
@@ -593,7 +496,6 @@ class ReceiverControllerTest(unittest.TestCase):
         decoder_index = parts.index("avdec_h264")
         first_queue_index = parts.index("queue")
         self.assertLess(first_queue_index, decoder_index)
-        self.assertIn("max-size-buffers=3", parts[first_queue_index:decoder_index])
         self.assertNotIn("leaky=downstream", parts[first_queue_index:decoder_index])
         self.assertIn("leaky=downstream", parts[decoder_index:])
 
@@ -802,39 +704,33 @@ class ReceiverControllerTest(unittest.TestCase):
         controller.port = 7110
         pipeline = object()
         controller.gst_pipeline = pipeline
-        stable = []
-        controller.streamStable.connect(lambda: stable.append(True))
         with patch.object(controller, "_inhibit_sleep"):
             controller._mark_stable(6, pipeline)
         self.assertTrue(controller.stable)
         self.assertTrue(controller.receiving)
         self.assertEqual(controller.status, "Receiving from 10.0.0.2:7110")
-        self.assertEqual(stable, [True])
 
     def test_receiver_connect_marks_session_active_before_stable(self):
         controller = ReceiverController("kde", Mock())
         emitted = []
         controller.receivingChanged.connect(lambda value: emitted.append(value))
         with patch.object(controller, "_start_attempt") as start:
-            controller.connect("10.0.0.2", 7110, False, "", "", "Software")
+            controller.connect("10.0.0.2", 7110, "Software")
         start.assert_called_once()
         self.assertTrue(controller.receiving)
         self.assertFalse(controller.stable)
         self.assertIn(True, emitted)
 
-    def test_encrypted_receiver_waits_for_tls_ready_before_session_active(self):
+    def test_receiver_connect_uses_udp_for_wifi(self):
         controller = ReceiverController("kde", Mock())
         with patch.object(controller, "_start_attempt") as start:
-            controller.connect("10.0.0.2", 7110, True, "fingerprint", "", "Software")
+            controller.connect("10.0.0.2", 7110, "Software")
         start.assert_called_once()
-        self.assertFalse(controller.receiving)
+        self.assertTrue(controller.receiving)
 
     def test_software_decoder_discards_corrupt_output_when_supported(self):
         controller = ReceiverController("kde", Mock())
         with patch(
-            "monitorize.desktop.receiver_controller.gst_has_element",
-            return_value=True,
-        ), patch(
             "monitorize.desktop.receiver_controller._gst_has_property",
             return_value=True,
         ):
@@ -844,56 +740,6 @@ class ReceiverControllerTest(unittest.TestCase):
         self.assertIn("discard-corrupted-frames=true", args)
         self.assertIn("automatic-request-sync-points=true", args)
         self.assertIn("max-threads=2", args)
-
-    def test_software_decoder_uses_more_threads_above_60_fps(self):
-        controller = ReceiverController("kde", Mock())
-        controller.stream_fps = 120
-        with patch(
-            "monitorize.desktop.receiver_controller.gst_has_element",
-            return_value=True,
-        ), patch(
-            "monitorize.desktop.receiver_controller._gst_has_property",
-            return_value=True,
-        ):
-            args = controller._software_decoder_args()
-        self.assertIn("max-threads=4", args)
-
-    def test_linux_software_decoder_falls_back_to_openh264(self):
-        controller = ReceiverController("kde", Mock())
-        with (
-            patch(
-                "monitorize.desktop.receiver_controller.gst_has_element",
-                side_effect=lambda name: name == "openh264dec",
-            ),
-            patch(
-                "monitorize.desktop.receiver_controller._gst_has_property",
-                return_value=False,
-            ),
-        ):
-            self.assertEqual(controller._software_decoder_args(), ["openh264dec"])
-
-    def test_high_fps_display_warning_does_not_change_connection(self):
-        controller = ReceiverController("kde", Mock())
-        screen = Mock()
-        screen.refreshRate.return_value = 60.0
-        app = Mock()
-        app.primaryScreen.return_value = screen
-        emitted = []
-        controller.logAppended.connect(emitted.append)
-        with (
-            patch(
-                "monitorize.desktop.receiver_controller.QGuiApplication.instance",
-                return_value=app,
-            ),
-            patch.object(controller, "_start_attempt") as start,
-        ):
-            controller.connect(
-                "10.0.0.2", 7110, False, "", "", "Software", 120
-            )
-        start.assert_called_once()
-        self.assertEqual(controller.stream_fps, 120)
-        self.assertIn("120 FPS stream", controller.status)
-        self.assertTrue(any("60 Hz display" in line for line in emitted))
 
     def test_sink_selection_prefers_gl_before_wayland_fallback(self):
         controller = ReceiverController("kde", Mock())
@@ -923,153 +769,6 @@ class ReceiverControllerTest(unittest.TestCase):
                 ["glimagesink", "xvimagesink", "ximagesink", "autovideosink"],
             )
 
-    def test_wayland_hardware_profiles_are_complete_zero_copy_paths(self):
-        controller = ReceiverController("kde", Mock())
-        available = {
-            "vah264dec", "vapostproc", "waylandsink", "glimagesink",
-            "vaapih264dec", "vaapisink",
-        }
-        with (
-            patch.dict(
-                os.environ,
-                {"XDG_SESSION_TYPE": "wayland", "WAYLAND_DISPLAY": "wayland-0"},
-                clear=True,
-            ),
-            patch(
-                "monitorize.desktop.receiver_controller.gst_has_element",
-                side_effect=lambda name: name in available,
-            ),
-            patch(
-                "monitorize.desktop.receiver_controller._gst_has_property",
-                return_value=True,
-            ),
-        ):
-            profiles = controller._hardware_receiver_profiles()
-        self.assertEqual([profile[2] for profile in profiles], [
-            "waylandsink", "glimagesink", "vaapisink",
-        ])
-        self.assertEqual([profile[3] for profile in profiles], [
-            "dmabuf", "dmabuf", "vasurface",
-        ])
-        self.assertIn("low-latency=true", profiles[-1][0])
-        self.assertEqual(profiles[-1][4], {"display": "wayland"})
-
-    def test_hardware_profile_requires_complete_zero_copy_chain(self):
-        controller = ReceiverController("kde", Mock())
-        with (
-            patch.dict(
-                os.environ,
-                {"XDG_SESSION_TYPE": "wayland", "WAYLAND_DISPLAY": "wayland-0"},
-                clear=True,
-            ),
-            patch(
-                "monitorize.desktop.receiver_controller.gst_has_element",
-                side_effect=lambda name: name in {"vah264dec", "waylandsink"},
-            ),
-        ):
-            self.assertEqual(controller._hardware_receiver_profiles(), [])
-
-    def test_x11_hardware_profiles_use_gl_then_legacy_va_sink(self):
-        controller = ReceiverController("kde", Mock())
-        available = {
-            "vah264dec", "vapostproc", "glimagesink",
-            "vaapih264dec", "vaapisink",
-        }
-        with (
-            patch.dict(
-                os.environ,
-                {"XDG_SESSION_TYPE": "x11", "DISPLAY": ":0"},
-                clear=True,
-            ),
-            patch(
-                "monitorize.desktop.receiver_controller.gst_has_element",
-                side_effect=lambda name: name in available,
-            ),
-            patch(
-                "monitorize.desktop.receiver_controller._gst_has_property",
-                return_value=True,
-            ),
-        ):
-            profiles = controller._hardware_receiver_profiles()
-        self.assertEqual([profile[2] for profile in profiles], [
-            "glimagesink", "vaapisink",
-        ])
-        self.assertEqual(profiles[-1][4], {"display": "x11"})
-
-    def test_windows_receiver_profiles_prefer_d3d11_hardware_then_in_app_fallbacks(self):
-        controller = ReceiverController("windows", Mock())
-        with (
-            patch("monitorize.desktop.receiver_controller.sys.platform", "win32"),
-            patch(
-                "monitorize.desktop.receiver_controller.gst_has_element",
-                side_effect=lambda name: name in {
-                    "d3d11h264dec", "d3d11videosink",
-                },
-            ),
-            patch(
-                "monitorize.desktop.receiver_controller._gst_has_property",
-                return_value=False,
-            ),
-        ):
-            profiles = controller._windows_receiver_profiles("Hardware")
-        self.assertEqual(
-            profiles,
-            [
-                (["d3d11h264dec"], "D3D11 d3d11h264dec", "d3d11videosink"),
-                (["avdec_h264"], "Software avdec_h264", "d3d11videosink"),
-                (["avdec_h264"], "Software avdec_h264", "autovideosink"),
-            ],
-        )
-
-    def test_windows_receiver_launches_embedded_not_external_gstreamer(self):
-        controller = ReceiverController("windows", Mock())
-        controller.decoder_args = ["avdec_h264"]
-        controller.decoder_label = "Software avdec_h264"
-        controller.sink = "d3d11videosink"
-        item = Mock()
-        item.width.return_value = 1920
-        item.height.return_value = 1080
-        controller.video_item = item
-        with (
-            patch("monitorize.desktop.receiver_controller.sys.platform", "win32"),
-            patch.object(controller, "_embedded_sink_available", return_value=True),
-            patch.object(controller, "_launch_embedded_pipeline") as embedded,
-            patch.object(controller, "_launch_external_pipeline") as external,
-        ):
-            controller._launch_pipeline("10.0.0.2", 7110, generation=0)
-        embedded.assert_called_once_with("10.0.0.2", 7110, 0)
-        external.assert_not_called()
-
-    def test_windows_embedded_launch_uses_active_profile_sink(self):
-        controller = ReceiverController("windows", Mock())
-        controller.sink = "autovideosink"
-        with patch("monitorize.desktop.receiver_controller.sys.platform", "win32"):
-            self.assertEqual(controller._active_embedded_sink_name(), "autovideosink")
-
-    def test_windows_receiver_failure_does_not_launch_external_gstreamer(self):
-        controller = ReceiverController("windows", Mock())
-        controller.windows_profiles = [(["avdec_h264"], "Software avdec_h264", "d3d11videosink")]
-        controller.decoder_args = ["avdec_h264"]
-        controller.decoder_label = "Software avdec_h264"
-        controller.sink = "d3d11videosink"
-        item = Mock()
-        item.width.return_value = 1920
-        item.height.return_value = 1080
-        controller.video_item = item
-        with (
-            patch("monitorize.desktop.receiver_controller.sys.platform", "win32"),
-            patch.object(controller, "_embedded_sink_available", return_value=True),
-            patch.object(
-                controller, "_launch_embedded_pipeline",
-                side_effect=RuntimeError("missing sink"),
-            ),
-            patch.object(controller, "_launch_external_pipeline") as external,
-        ):
-            controller._launch_pipeline("10.0.0.2", 7110, generation=0)
-        external.assert_not_called()
-        self.assertFalse(controller.receiving)
-        self.assertEqual(controller.status, "Windows in-app receiver unavailable")
-
     def test_sink_args_only_include_supported_properties_and_stretch(self):
         controller = ReceiverController("kde", Mock())
         with patch(
@@ -1089,80 +788,29 @@ class ReceiverControllerTest(unittest.TestCase):
         self.assertIn("fullscreen=true", args)
         self.assertIn("force-aspect-ratio=false", args)
 
-    def test_hardware_failure_retries_next_zero_copy_profile(self):
+    def test_immediate_receiver_failure_retries_once_with_fallback_pipeline(self):
         controller = ReceiverController("kde", Mock())
         controller.generation = 4
-        controller.decoder = "Hardware"
         controller.host = "10.0.0.2"
         controller.port = 7110
         controller.receiver_host = "10.0.0.2"
         controller.receiver_port = 7110
-        controller.hardware_profiles = [
-            (["vah264dec"], "VA-API vah264dec", "glimagesink", "dmabuf", {}),
-            (
-                ["vaapih264dec", "low-latency=true"],
-                "VA-API vaapih264dec",
-                "vaapisink",
-                "vasurface",
-                {"display": "wayland"},
-            ),
-        ]
-        controller.hardware_profile_index = 0
+        controller.sink_candidates = ["glimagesink", "autovideosink"]
+        controller.sink_index = 0
         controller.sink = "glimagesink"
         controller.decoder_args = ["vah264dec"]
         controller.decoder_label = "VA-API"
-        controller.hardware_path = "dmabuf"
         controller.process = process_mock()
         controller.attempt_started = __import__("time").monotonic()
-        with patch.object(controller, "_launch_external_pipeline") as launch:
+        with (
+            patch.object(controller, "_launch_external_pipeline") as launch,
+            patch.object(controller, "_software_decoder_args", return_value=["avdec_h264"]),
+        ):
             controller._finished(1, None, controller.process, generation=4)
         launch.assert_called_once_with("10.0.0.2", 7110, 4)
-        self.assertEqual(controller.sink, "vaapisink")
-        self.assertEqual(
-            controller.decoder_args, ["vaapih264dec", "low-latency=true"]
-        )
-        self.assertEqual(controller.hardware_path, "vasurface")
-        self.assertNotIn("avdec_h264", controller.decoder_args)
-
-    def test_hardware_failure_with_no_remaining_profile_stops_without_software(self):
-        controller = ReceiverController("kde", Mock())
-        controller.generation = 4
-        controller.decoder = "Hardware"
-        controller.host = "10.0.0.2"
-        controller.port = 7110
-        controller.receiver_host = "10.0.0.2"
-        controller.receiver_port = 7110
-        controller.hardware_profiles = [
-            (["vah264dec"], "VA-API vah264dec", "glimagesink", "dmabuf", {}),
-        ]
-        controller.hardware_profile_index = 0
-        controller.sink = "glimagesink"
-        controller.decoder_args = ["vah264dec"]
-        controller.decoder_label = "VA-API"
-        controller.process = process_mock()
-        controller.attempt_started = __import__("time").monotonic()
-        controller._finished(1, None, controller.process, generation=4)
-        self.assertEqual(
-            controller.status, "Hardware zero-copy receiver failed — see logs"
-        )
-        self.assertFalse(controller.receiving)
-        self.assertEqual(controller.decoder_args, ["vah264dec"])
-
-    def test_hardware_mode_without_zero_copy_profile_does_not_start_software(self):
-        controller = ReceiverController("kde", Mock())
-        with (
-            patch(
-                "monitorize.desktop.receiver_controller.gst_has_element",
-                return_value=False,
-            ),
-            patch.object(controller, "_start_attempt") as start,
-        ):
-            controller.connect("10.0.0.2", 7110, False, "", "", "Hardware")
-        start.assert_not_called()
-        self.assertEqual(
-            controller.status,
-            "Hardware zero-copy unavailable — install GStreamer VA/DMABuf plugins",
-        )
+        self.assertEqual(controller.sink, "autovideosink")
+        self.assertEqual(controller.decoder_args, ["avdec_h264"])
+        self.assertTrue(controller.pipeline_fallback_used)
 
 
 class ReceiverVideoWindowTest(unittest.TestCase):
@@ -1240,58 +888,17 @@ class ReceiverVideoWindowTest(unittest.TestCase):
         MonitorizeWindow._sync_receiver_fullscreen(window, False)
         window.receiver_video_window.hide_receiver.assert_called_once()
 
-    def test_stale_credentials_request_pairing_again(self):
-        controller = ReceiverController("kde", Mock())
-        controller.host = "10.0.0.2"
-        controller.port = 7110
-        controller.process = None
-        emitted = []
-        controller.pairingRequired.connect(lambda *args: emitted.append(args))
-        controller.tls_process = Mock()
-        controller.tls_process.readAllStandardOutput.return_value = (
-            b"[TLS RECEIVER] AUTH_FAILED new-fingerprint\n"
-        )
-        with patch("monitorize.desktop.receiver_controller.clear_receiver_credentials") as clear:
-            controller._read_tls()
-        clear.assert_called_once_with("10.0.0.2")
-        self.assertEqual(emitted, [("10.0.0.2", 7110, "new-fingerprint")])
-
     def test_immediate_eos_schedules_retry(self):
         controller = ReceiverController("kde", Mock())
         controller.host = "10.0.0.2"
         controller.port = 7114
         controller.attempt_started = __import__("time").monotonic()
         controller.process = process_mock()
-        controller.tls_process = None
         controller._finished(0, None)
         self.assertTrue(controller.retry_pending)
         self.assertEqual(controller.retry_count, 1)
         self.assertTrue(controller.retry_timer.isActive())
         controller.retry_timer.stop()
-
-    def test_stale_tls_ready_does_not_launch_pipeline(self):
-        controller = ReceiverController("kde", Mock())
-        controller.generation = 2
-        controller.host = "10.0.0.2"
-        controller.port = 7110
-        old_tls = process_mock()
-        old_tls.readAllStandardOutput.return_value = b"[TLS RECEIVER] READY\n"
-        controller.tls_process = process_mock()
-        with patch.object(controller, "_launch_pipeline") as launch:
-            controller._read_tls(old_tls, generation=1)
-        launch.assert_not_called()
-
-    def test_tls_ready_enters_receiver_session_and_launches_pipeline(self):
-        controller = ReceiverController("kde", Mock())
-        controller.generation = 2
-        controller.host = "10.0.0.2"
-        controller.port = 7110
-        controller.tls_process = process_mock()
-        controller.tls_process.readAllStandardOutput.return_value = b"[TLS RECEIVER] READY\n"
-        with patch.object(controller, "_launch_pipeline") as launch:
-            controller._read_tls(controller.tls_process, generation=2)
-        launch.assert_called_once_with("127.0.0.1", 17110, 2)
-        self.assertTrue(controller.receiving)
 
     def test_stale_receiver_finish_does_not_retry(self):
         controller = ReceiverController("kde", Mock())
@@ -1307,7 +914,6 @@ class ReceiverVideoWindowTest(unittest.TestCase):
         controller = ReceiverController("kde", Mock())
         controller.generation = 5
         controller.stopping = False
-        controller.encrypted = False
         controller.host = "10.0.0.2"
         controller.port = 7110
         with patch.object(controller, "_launch_pipeline") as launch:
@@ -1317,51 +923,9 @@ class ReceiverVideoWindowTest(unittest.TestCase):
     def test_invalid_receiver_target_is_rejected(self):
         controller = ReceiverController("kde", Mock())
         with patch.object(controller, "_start_attempt") as start:
-            controller.connect("  ", 7110, False, "", "", "Software")
+            controller.connect("  ", 7110, "Software")
         start.assert_not_called()
         self.assertEqual(controller.status, "Invalid host or port")
-
-    def test_receiver_credentials_use_normalized_host_key(self):
-        old_dir, old_file = settings.CONFIG_DIR, settings.CONFIG_FILE
-        with tempfile.TemporaryDirectory() as directory:
-            try:
-                settings.CONFIG_DIR = directory
-                settings.CONFIG_FILE = str(Path(directory) / "settings.ini")
-                settings.save_receiver_credentials(" Host.Local ", "fingerprint", "token")
-                self.assertEqual(
-                    settings.load_receiver_credentials("host.local"),
-                    ("fingerprint", "token"),
-                )
-            finally:
-                settings.CONFIG_DIR, settings.CONFIG_FILE = old_dir, old_file
-
-    def test_recent_receiver_hosts_are_validated_mru_and_removable(self):
-        old_dir, old_file = settings.CONFIG_DIR, settings.CONFIG_FILE
-        with tempfile.TemporaryDirectory() as directory:
-            try:
-                settings.CONFIG_DIR = directory
-                settings.CONFIG_FILE = str(Path(directory) / "settings.ini")
-                settings._save_group("recent", {"receiver_hosts": json.dumps([
-                    {"name": "Bad", "ip": "", "port": 7110},
-                    {"name": "Old", "ip": "10.0.0.2", "port": 7110},
-                    {"name": "Duplicate", "ip": "10.0.0.2", "port": 7110},
-                ])})
-                self.assertEqual(settings.load_recent_receiver_hosts(), [{
-                    "name": "Old", "ip": "10.0.0.2", "port": 7110,
-                    "encrypted": False, "fingerprint": "", "fps": 0,
-                }])
-                for index in range(6):
-                    settings.add_recent_receiver_host({
-                        "name": f"Host {index}", "ip": f"10.0.0.{index + 3}",
-                        "port": 7110, "fps": 120,
-                    })
-                hosts = settings.load_recent_receiver_hosts()
-                self.assertEqual(len(hosts), 5)
-                self.assertEqual(hosts[0]["name"], "Host 5")
-                settings.remove_recent_receiver_host("10.0.0.8", 7110)
-                self.assertEqual(len(settings.load_recent_receiver_hosts()), 4)
-            finally:
-                settings.CONFIG_DIR, settings.CONFIG_FILE = old_dir, old_file
 
     def test_second_display_settings_load_sanitizes_numeric_values(self):
         old_dir, old_file = settings.CONFIG_DIR, settings.CONFIG_FILE
@@ -1429,7 +993,8 @@ class ReceiverVideoWindowTest(unittest.TestCase):
                 self.assertEqual(loaded["resolution"], "1920x1080")
                 self.assertEqual(loaded["bitrate"], "16000")
                 self.assertEqual(loaded["encoder"], "Software (CPU / x264enc)")
-                self.assertFalse(loaded["use_encryption"])
+                self.assertNotIn("use_encryption", loaded)
+                self.assertNotIn("stream_type", loaded)
             finally:
                 settings.CONFIG_DIR, settings.CONFIG_FILE = old_dir, old_file
 
@@ -1490,7 +1055,7 @@ class ReceiverVideoWindowTest(unittest.TestCase):
                 self.assertEqual(len(loaded), 4)
                 self.assertEqual(loaded[0]["name"], "Preset 0")
                 self.assertEqual(loaded[0]["primary"]["encoder_profile"], "Balanced")
-                self.assertTrue(loaded[0]["wifi"]["use_encryption"])
+                self.assertNotIn("wifi", loaded[0])
                 self.assertTrue(loaded[0]["general"]["minimize_to_tray"])
                 self.assertFalse(loaded[0]["third"]["enable_touch"])
                 self.assertFalse(loaded[0]["third"]["enable_stylus_features"])
@@ -1522,7 +1087,6 @@ class StreamingControllerTest(unittest.TestCase):
         controller.fps = 60
         controller.bitrate = 8000
         controller.wifi = True
-        controller.encrypted = False
         controller.streaming = True
         controller.display_type = "Extend"
         controller.env = Mock()
@@ -1536,7 +1100,6 @@ class StreamingControllerTest(unittest.TestCase):
         controller.fps = 60
         controller.bitrate = 8000
         controller.wifi = False
-        controller.encrypted = False
         controller.streaming = True
         controller.display_type = "Extend"
         controller.env = Mock()
@@ -1562,7 +1125,8 @@ class StreamingControllerTest(unittest.TestCase):
         self.assertEqual(args[-1], "HEADLESS-2")
         self.assertIn("wifi", args)
         discovery.advertise.assert_called_once_with(
-            "10.0.0.1", False, False, 60, 60
+            "10.0.0.1", False, 60, 60,
+            1920, 1200, None, None,
         )
 
     def test_gnome_streamer_command_uses_display_type_only(self):
@@ -1733,9 +1297,8 @@ class StreamingControllerTest(unittest.TestCase):
             controller._launch_input(generation=3)
         process.assert_not_called()
 
-    def test_encrypted_wifi_input_uses_local_udp(self):
+    def test_wifi_input_stays_on_the_public_udp_port(self):
         controller = self.kde_controller()
-        controller.encrypted = True
         process = process_mock()
         with (
             patch("monitorize.desktop.streaming_controller.QProcess", return_value=process),
@@ -1747,12 +1310,11 @@ class StreamingControllerTest(unittest.TestCase):
             controller._launch_input(generation=3)
         args = process.start.call_args.args[1]
         self.assertIn("--wifi", args)
-        self.assertIn("--local-udp", args)
+        self.assertNotIn("--local-udp", args)
 
     def test_gnome_plain_wifi_input_uses_public_udp(self):
         controller = self.gnome_controller()
         controller.wifi = True
-        controller.encrypted = False
         process = process_mock()
         with (
             patch("monitorize.desktop.streaming_controller.QProcess", return_value=process),
@@ -1767,10 +1329,9 @@ class StreamingControllerTest(unittest.TestCase):
         self.assertNotIn("--local-udp", args)
         self.assertNotIn("--gnome-primary", args)
 
-    def test_gnome_encrypted_wifi_input_uses_local_udp(self):
+    def test_gnome_wifi_input_stays_on_the_public_udp_port(self):
         controller = self.gnome_controller()
         controller.wifi = True
-        controller.encrypted = True
         process = process_mock()
         with (
             patch("monitorize.desktop.streaming_controller.QProcess", return_value=process),
@@ -1782,7 +1343,7 @@ class StreamingControllerTest(unittest.TestCase):
             controller._launch_input(generation=7)
         args = process.start.call_args.args[1]
         self.assertIn("--wifi", args)
-        self.assertIn("--local-udp", args)
+        self.assertNotIn("--local-udp", args)
 
     def test_gnome_mirror_input_targets_primary_monitor(self):
         controller = self.gnome_controller()
@@ -1836,6 +1397,18 @@ class StreamingControllerTest(unittest.TestCase):
         controller._read_input(generation=3, process=process)
         self.assertIn("Monitorize udev rule", controller.status)
 
+    def test_input_ready_marker_updates_status(self):
+        controller = self.kde_controller()
+        process = process_mock()
+        process.readAllStandardOutput.return_value = (
+            b"[TouchDaemon] INFO READY input_slot=primary\n"
+        )
+        controller.input_bridge = process
+
+        controller._read_input(generation=3, process=process)
+
+        self.assertEqual(controller.status, "Touch and stylus input ready")
+
     def test_runtime_general_settings_override_saved_defaults(self):
         controller = self.kde_controller()
         controller.runtime_general = {
@@ -1861,7 +1434,6 @@ class StreamingControllerTest(unittest.TestCase):
         controller = self.kde_controller()
         controller.encoder = "Intel/AMD VA-API (vah264enc)"
         controller.encoder_profile = "Balanced"
-        controller.env.value.return_value = "Speed"
         controller.runtime_general = {
             "minimize_to_tray": True,
             "enable_touch": True,
@@ -1870,7 +1442,7 @@ class StreamingControllerTest(unittest.TestCase):
         config = controller.active_configuration()
         self.assertEqual(config["primary"]["resolution"], "1920x1200")
         self.assertEqual(config["primary"]["encoder_profile"], "Balanced")
-        self.assertEqual(config["wifi"]["stream_type"], "Speed")
+        self.assertNotIn("wifi", config)
         self.assertEqual(config["third"], {"enabled": False})
         self.assertTrue(config["general"]["enable_stylus_features"])
 
@@ -1878,7 +1450,6 @@ class StreamingControllerTest(unittest.TestCase):
         controller = self.kde_controller()
         controller.encoder = "Intel/AMD VA-API (vah264enc)"
         controller.encoder_profile = "Balanced"
-        controller.env.value.return_value = "Speed"
         controller.third_streaming = True
         controller.third_width = 1920
         controller.third_height = 1080
@@ -1905,7 +1476,6 @@ class StreamingControllerTest(unittest.TestCase):
         controller = StreamingController("kde", "10.0.0.1", discovery)
         controller.streaming = True
         controller.wifi = True
-        controller.encrypted = False
         controller.primary_ready = True
         controller.fps = 60
         events = []
@@ -1929,7 +1499,8 @@ class StreamingControllerTest(unittest.TestCase):
         self.assertEqual(env.value("MONITORIZE_PORTAL_SOURCE_TYPE"), "")
         self.assertEqual(events, [True])
         discovery.advertise.assert_called_once_with(
-            "10.0.0.1", False, False, 60, 60
+            "10.0.0.1", True, 60, 60,
+            1920, 1080, 1920, 1080,
         )
 
     def test_third_custom_mode_uses_shared_resolution_and_fps_sanitizers(self):
@@ -1947,6 +1518,24 @@ class StreamingControllerTest(unittest.TestCase):
 
         args = process.start.call_args.args[1]
         self.assertEqual(args[2:6], ["3440", "1440", "75", "8000"])
+
+    def test_dual_wifi_caps_secondary_bitrate_to_shared_budget(self):
+        controller = self.kde_controller()
+        controller.primary_ready = True
+        controller.bitrate = 20250
+        logs = []
+        controller.logAppended.connect(lambda label, message: logs.append((label, message)))
+        process = process_mock()
+
+        with patch("monitorize.desktop.streaming_controller.QProcess", return_value=process):
+            controller.start_third(
+                "1920x1200", "60", "20500",
+                "NVIDIA NVENC (nvh264enc)", "Low Latency",
+            )
+
+        args = process.start.call_args.args[1]
+        self.assertEqual(args[5], "9750")
+        self.assertTrue(any("Bitrate limited" in message for _, message in logs))
 
     def test_hyprland_third_display_creates_headless_output_before_picker(self):
         controller = StreamingController("hyprland", "10.0.0.1", Mock())
@@ -2011,11 +1600,10 @@ class StreamingControllerTest(unittest.TestCase):
             controller.stop_third()
         remove.assert_called_once_with("additional")
 
-    def test_encrypted_third_display_uses_tls_backend_port(self):
+    def test_third_display_uses_the_udp_control_port(self):
         controller = StreamingController("kde", "10.0.0.1", Mock())
         controller.streaming = True
         controller.wifi = True
-        controller.encrypted = True
         controller.primary_ready = True
         process = process_mock()
 
@@ -2026,8 +1614,8 @@ class StreamingControllerTest(unittest.TestCase):
             )
 
         env = process.setProcessEnvironment.call_args.args[0]
-        self.assertEqual(env.value("MONITORIZE_PORT"), "7115")
-        self.assertEqual(env.value("MONITORIZE_HOST"), "127.0.0.1")
+        self.assertEqual(env.value("MONITORIZE_PORT"), "7114")
+        self.assertEqual(env.value("MONITORIZE_HOST"), "0.0.0.0")
 
     def test_third_touch_uses_its_wifi_port_only_when_enabled(self):
         controller = self.kde_controller()
@@ -2056,9 +1644,24 @@ class StreamingControllerTest(unittest.TestCase):
             controller._maybe_launch_third_input(5)
         disabled.assert_not_called()
 
-    def test_encrypted_third_touch_uses_tls_udp_backend_port(self):
+    def test_third_input_ready_marker_updates_status(self):
         controller = self.kde_controller()
-        controller.encrypted = True
+        controller.third_generation = 5
+        process = process_mock()
+        process.readAllStandardOutput.return_value = (
+            b"[TouchDaemon] INFO READY input_slot=additional\n"
+        )
+        controller.third_input_bridge = process
+
+        controller._read_third_input(5, process)
+
+        self.assertEqual(
+            controller.status,
+            "Additional-display touch and stylus ready",
+        )
+
+    def test_third_touch_uses_the_public_udp_port(self):
+        controller = self.kde_controller()
         controller.third_streaming = True
         controller.third_ready = True
         controller.third_generation = 5
@@ -2070,9 +1673,9 @@ class StreamingControllerTest(unittest.TestCase):
             controller._maybe_launch_third_input(5)
 
         args = process.start.call_args.args[1]
-        self.assertEqual(args[args.index("--port") + 1], "7118")
+        self.assertEqual(args[args.index("--port") + 1], "7117")
         self.assertIn("--wifi", args)
-        self.assertIn("--local-udp", args)
+        self.assertNotIn("--local-udp", args)
 
     def test_third_stylus_can_run_without_additional_touch(self):
         controller = self.kde_controller()
@@ -2146,7 +1749,7 @@ class StreamingControllerTest(unittest.TestCase):
         process = process_mock()
         process.readAllStandardOutput.return_value = (
             b"[Portal] Got PipeWire node=42 fd=9\n"
-            b"New clock: GstSystemClock\n"
+            b"[Pipeline] READY\n"
         )
         controller.third_streamer = process
 
@@ -2155,7 +1758,7 @@ class StreamingControllerTest(unittest.TestCase):
         self.assertTrue(controller.third_ready)
         self.assertEqual(
             discovery.advertise.call_args_list[-1].args,
-            ("10.0.0.1", False, True, 60, 60),
+            ("10.0.0.1", True, 60, 60, 1920, 1080, 1920, 1080),
         )
 
     def test_stale_third_streamer_output_is_ignored(self):
@@ -2478,6 +2081,34 @@ class StreamingControllerTest(unittest.TestCase):
             )
         self.assertEqual(controller.env.value("MONITORIZE_ENCODER_PROFILE"), "Balanced")
 
+    def test_udp_preserves_selected_settings_and_encoder(self):
+        controller = StreamingController("hyprland", "10.0.0.1", Mock())
+        with (
+            patch("monitorize.desktop.streaming_controller.stop_processes"),
+            patch("monitorize.desktop.streaming_controller.kill_patterns"),
+            patch("monitorize.desktop.streaming_controller.kill_tracked_pids"),
+            patch.object(controller.display, "cleanup"),
+            patch.object(controller, "_prepare_display"),
+        ):
+            controller.start(
+                "2337x1081", "90", "14000", "Extend",
+                "NVIDIA NVENC (nvh264enc)", "Quality", True,
+                options={},
+            )
+        self.assertEqual((controller.width, controller.height), (2336, 1080))
+        self.assertEqual((controller.fps, controller.bitrate), (90, 14000))
+        self.assertEqual(controller.encoder, "NVIDIA NVENC (nvh264enc)")
+        self.assertEqual(controller.encoder_profile, "Quality")
+        self.assertEqual(controller.env.value("MONITORIZE_ENCODER"), "nvidia")
+        self.assertEqual(controller.env.value("MONITORIZE_ENCODER_PROFILE"), "Quality")
+        self.assertEqual(controller.env.value("MONITORIZE_REQUIRE_HARDWARE_ENCODER"), "0")
+        self.assertEqual(controller.env.value("MONITORIZE_VIDEO_TRANSPORT"), "rtp-udp-v1")
+        controller._advertise()
+        controller.discovery.advertise.assert_called_with(
+            "10.0.0.1", False, 90, 60, 2336, 1080,
+            None, None,
+        )
+
     def test_kde_extend_start_uses_native_primary_slot(self):
         controller = StreamingController("kde", "10.0.0.1", Mock())
         events = []
@@ -2506,14 +2137,6 @@ class ProcessUtilsTest(unittest.TestCase):
         with patch("monitorize.platform.process_utils.subprocess.run") as run:
             process_utils.kill_patterns("definitely-no-monitorize-process")
         run.assert_not_called()
-
-    def test_kill_patterns_noops_when_proc_is_unavailable(self):
-        with (
-            patch("monitorize.platform.process_utils.Path.exists", return_value=False),
-            patch("monitorize.platform.process_utils.Path.iterdir") as iterdir,
-        ):
-            process_utils.kill_patterns("gst-launch-1.0")
-        iterdir.assert_not_called()
 
 
 class GnomeVirtualMonitorCompatTest(unittest.TestCase):
@@ -3316,7 +2939,7 @@ class StreamerGnomeTest(unittest.TestCase):
 
 class PipelineBuilderTest(unittest.TestCase):
     def _pipeline_text(self, **kwargs):
-        argv = pipeline_builder.build_pipeline(
+        options = dict(
             pw_fd=None,
             node_id=42,
             width=1280,
@@ -3324,8 +2947,9 @@ class PipelineBuilderTest(unittest.TestCase):
             fps=60,
             bitrate=8000,
             port=7110,
-            **kwargs,
         )
+        options.update(kwargs)
+        argv = pipeline_builder.build_pipeline(**options)
         return " ".join(argv)
 
     def test_native_pipewire_target_preserves_kwin_source_rate(self):
@@ -3335,6 +2959,78 @@ class PipelineBuilderTest(unittest.TestCase):
         self.assertIn("target-object=101", text)
         self.assertNotIn("videorate", text)
         self.assertNotIn("framerate=60/1", text)
+        self.assertIn("keepalive-time=17", text)
+
+    def test_cpu_wifi_clocks_keepalive_frames_at_target_rate(self):
+        text = self._pipeline_text(
+            target_object="101", preserve_source_rate=True, wifi_mode=True
+        )
+        self.assertIn("keepalive-time=17", text)
+        self.assertIn("videorate", text)
+        self.assertIn("framerate=60/1", text)
+
+    def test_cpu_udp_pipeline_uses_selected_cpu_rtp_settings(self):
+        text = self._pipeline_text(
+            width=2336, height=1080, fps=90, bitrate=14000,
+            wifi_mode=True,
+            rtp_endpoint=("192.0.2.1", 49152, 1, "constrained-baseline"),
+        )
+        self.assertIn("x264enc", text)
+        self.assertIn("width=2336,height=1080", text)
+        self.assertIn("framerate=90/1", text)
+        self.assertIn("bitrate=14000", text)
+        self.assertIn("key-int-max=22", text)
+        self.assertIn("rtph264pay", text)
+        self.assertIn("udpsink", text)
+        self.assertNotIn("rtpulpfec", text)
+        self.assertNotIn("nvh264enc", text)
+        self.assertNotIn("vah264enc", text)
+        self.assertNotIn("tls", text)
+
+    def test_udp_pipeline_uses_selected_hardware_encoder(self):
+        endpoint = ("192.0.2.1", 49152, 1, "constrained-baseline")
+        vaapi = self._pipeline_text(
+            width=1920, height=1080, fps=60, bitrate=12000,
+            hw_encoder="vah264enc", wifi_mode=True,
+            encoder_profile="Quality", rtp_endpoint=endpoint,
+        )
+        nvenc = self._pipeline_text(
+            width=1920, height=1080, fps=60, bitrate=12000,
+            hw_encoder="nvh264enc", nvidia_memory="system", wifi_mode=True,
+            encoder_profile="Quality", rtp_endpoint=endpoint,
+        )
+        for text in (vaapi, nvenc):
+            self.assertIn("framerate=60/1", text)
+            self.assertIn("bitrate=12000", text)
+            self.assertIn("rtph264pay", text)
+            self.assertIn("udpsink", text)
+            self.assertNotIn("rtpulpfec", text)
+            self.assertNotIn("tls", text)
+        self.assertIn("vah264enc", vaapi)
+        self.assertIn("vapostproc", vaapi)
+        self.assertNotIn("x264enc", vaapi)
+        self.assertIn("nvh264enc", nvenc)
+        self.assertIn("preset=p5", nvenc)
+        self.assertNotIn("x264enc", nvenc)
+
+    def test_hardware_wifi_clocks_frames_without_losing_memory_features(self):
+        for encoder in ("nvh264enc", "vah264enc"):
+            with self.subTest(encoder=encoder):
+                text = self._pipeline_text(
+                    hw_encoder=encoder, target_object="101",
+                    preserve_source_rate=True, wifi_mode=True,
+                )
+                self.assertIn("videorate", text)
+                self.assertIn("video/x-raw(ANY),framerate=60/1", text)
+
+    def test_hardware_wifi_emits_aud_and_uses_one_frame_rate_control_buffer(self):
+        nvenc = self._pipeline_text(hw_encoder="nvh264enc", wifi_mode=True)
+        vaapi = self._pipeline_text(hw_encoder="vah264enc", wifi_mode=True)
+        self.assertIn("aud=true", nvenc)
+        self.assertIn("vbv-buffer-size=134", nvenc)
+        self.assertIn("aud=true", vaapi)
+        self.assertIn("cpb-size=134", vaapi)
+        self.assertNotIn("cpb-size=2000", vaapi)
 
     def test_low_latency_encoder_profile_keeps_current_nvenc_settings(self):
         text = self._pipeline_text(
@@ -3348,13 +3044,69 @@ class PipelineBuilderTest(unittest.TestCase):
         self.assertIn("strict-gop=true", text)
         self.assertIn("repeat-sequence-header=true", text)
 
-    def test_stability_nvenc_uses_short_gop_without_unsupported_intra_refresh(self):
-        text = self._pipeline_text(
-            hw_encoder="nvh264enc", stream_type="Stability"
+    def test_cpu_uses_parallel_same_frame_threads(self):
+        text = self._pipeline_text()
+        self.assertIn("sliced-threads=true", text)
+        self.assertIn("threads=0", text)
+        self.assertNotIn("threads=1", text)
+
+    def test_tcp_client_backlog_is_bounded_for_low_latency(self):
+        text = self._pipeline_text()
+        self.assertIn("buffers-max=3", text)
+        self.assertIn("buffers-soft-max=2", text)
+
+    def test_rtp_video_uses_simple_interoperable_udp_packetization(self):
+        text = self._pipeline_text(rtp_endpoint=("10.0.0.8", 49152))
+        self.assertIn("rtph264pay", text)
+        self.assertIn("aggregate-mode=none", text)
+        self.assertIn("mtu=1200", text)
+        self.assertNotIn("rtpulpfecenc", text)
+        self.assertIn("udpsink host=10.0.0.8 port=49152", text)
+        self.assertNotIn("tcpserversink", text)
+
+    def test_fixed_cpu_rtp_gop_keeps_real_idrs_for_loss_recovery(self):
+        text = self._pipeline_text(rtp_endpoint=("10.0.0.8", 49152))
+        self.assertIn("key-int-max=15", text)
+        self.assertNotIn("intra-refresh", text)
+
+    def test_fixed_gop_cadence_applies_to_all_encoders(self):
+        cases = (
+            ({}, "key-int-max"),
+            ({"hw_encoder": "vah264enc", "wifi_mode": True}, "key-int-max"),
+            ({"hw_encoder": "nvh264enc"}, "gop-size"),
         )
+        for kwargs, property_name in cases:
+            with self.subTest(kwargs=kwargs):
+                self.assertIn(f"{property_name}=15", self._pipeline_text(**kwargs))
+                self.assertIn(
+                    f"{property_name}=30", self._pipeline_text(fps=120, **kwargs)
+                )
+
+    def test_nvidia_auto_prefers_cuda_over_unreliable_kde_gl_import(self):
+        pipeline_builder._gst_inspect.cache_clear()
+        encoder = "memory:GLMemory memory:CUDAMemory"
+        with patch.object(
+            pipeline_builder, "_gst_inspect",
+            side_effect=lambda element: encoder if element == "nvh264enc" else "ok",
+        ):
+            self.assertEqual(
+                pipeline_builder._nvidia_memory_candidates(),
+                ["cuda", "system"],
+            )
+
+    def test_nvenc_uses_fixed_short_gop_without_unsupported_intra_refresh(self):
+        text = self._pipeline_text(hw_encoder="nvh264enc")
         self.assertIn("gop-size=15", text)
         self.assertIn("repeat-sequence-header=true", text)
         self.assertNotIn("intra-refresh", text)
+
+    def test_encoder_probe_removes_unsupported_properties(self):
+        inspected = """Element Properties:\n  bitrate             : target bitrate\n  bframes             : B frames\n"""
+        with patch.object(pipeline_builder, "_gst_inspect", return_value=inspected):
+            value = pipeline_builder._probe_encoder_properties(
+                "nvh264enc bitrate=8000 bframes=0 not-installed=true"
+            )
+        self.assertEqual(value, "nvh264enc bitrate=8000 bframes=0")
 
     def test_nvenc_gl_path_preserves_dmabuf_and_uses_gl_memory(self):
         text = self._pipeline_text(
@@ -3438,6 +3190,7 @@ class PipelineBuilderTest(unittest.TestCase):
         failed.wait.return_value = 1
         cpu = Mock()
         cpu.pid = 2
+        cpu.wait.side_effect = TimeoutExpired("gst-launch-1.0", 1.0)
         with patch(
             "monitorize.streaming.pipeline_builder.subprocess.Popen",
             side_effect=[failed, cpu],
@@ -3451,6 +3204,31 @@ class PipelineBuilderTest(unittest.TestCase):
         second_argv = popen.call_args_list[1].args[0]
         self.assertIn("vah264enc", first_argv)
         self.assertIn("x264enc", second_argv)
+
+    def test_udp_hardware_failure_does_not_fall_back_to_cpu_when_required(self):
+        failed = Mock(pid=1, returncode=1)
+        failed.wait.return_value = 1
+        with (
+            patch.dict(os.environ, {
+                "MONITORIZE_VIDEO_TRANSPORT": "rtp-udp-v1",
+                "MONITORIZE_REQUIRE_HARDWARE_ENCODER": "1",
+            }),
+            patch(
+                "monitorize.streaming.pipeline_builder.subprocess.Popen",
+                return_value=failed,
+            ) as popen,
+            patch(
+                "monitorize.streaming.pipeline_builder._probe_encoder_properties",
+                side_effect=lambda encoder: encoder,
+            ),
+        ):
+            result = pipeline_builder.launch_with_fallback(
+                pw_fd=None, node_id=42, width=1280, height=800,
+                fps=60, bitrate=8000, port=7110, hw_encoder="vah264enc",
+            )
+        self.assertIs(result, failed)
+        self.assertEqual(popen.call_count, 1)
+        self.assertIn("vah264enc", popen.call_args.args[0])
 
     def test_nvenc_launch_falls_back_from_gl_to_cuda(self):
         failed = Mock(pid=1, returncode=1)
@@ -3669,11 +3447,10 @@ class UsbControllerTest(unittest.TestCase):
         controller = UsbController()
         calls = []
         controller._run = lambda args, callback: calls.append((args, callback))
-        controller._authorized_serials = Mock(return_value=["android-1"])
+        controller._authorized_serials = lambda: ["test-device"]
         controller.start()
         self.assertEqual(calls[0][0], ["devices"])
         controller._devices_done(0, None)
-        self.assertEqual(controller.serial, "android-1")
         self.assertEqual(
             calls[1][0], ["reverse", "tcp:7110", "tcp:7112"]
         )
@@ -3684,34 +3461,6 @@ class UsbControllerTest(unittest.TestCase):
         controller._touch_done(0, None)
         self.assertEqual(controller.status, "Device ready!")
         self.assertFalse(controller.busy)
-
-    def test_only_authorized_adb_devices_are_accepted(self):
-        output = "List of devices attached\nready\tdevice\nlocked\tunauthorized\ngone\toffline\n"
-
-        self.assertEqual(["ready"], authorized_adb_serials(output))
-
-    def test_unavailable_selected_device_does_not_configure_reverse_ports(self):
-        controller = UsbController()
-        calls = []
-        controller._run = lambda args, callback: calls.append((args, callback))
-        controller._authorized_serials = Mock(return_value=[])
-
-        controller.start("missing-device")
-        controller._devices_done(0, None)
-
-        self.assertEqual([["devices"]], [args for args, _ in calls])
-        self.assertIn("not authorized", controller.status)
-        self.assertFalse(controller.busy)
-
-    def test_usb_page_auto_scans_only_one_authorized_recent_device(self):
-        qml_path = Path(__file__).resolve().parents[1] / "monitorize" / "qml" / "UsbStep1Page.qml"
-        qml = qml_path.read_text(encoding="utf-8")
-
-        self.assertIn("function startAutomaticScanIfReady()", qml)
-        self.assertIn("if (onlineSerials.length !== 1)", qml)
-        self.assertIn("backend.startUsbScan(onlineSerials[0])", qml)
-        self.assertNotIn('text: modelData.online ? "Connect"', qml)
-        self.assertNotIn("MouseArea {", qml)
 
 
 class BackendFacadeTest(unittest.TestCase):
@@ -3734,7 +3483,7 @@ class BackendFacadeTest(unittest.TestCase):
             self.assertIn("native/kde_virtual_output/build.sh", packaging)
         for packaging in (installer, nix_package, rpm_permission):
             self.assertIn(permission, packaging)
-        self.assertIn('HELPER_DESKTOP_FILE="${HELPER_NAME}.desktop"', installer)
+        self.assertIn('HELPER_DESKTOP_FILE="${APP_ID}-kde-virtual-output.desktop"', installer)
         self.assertIn("monitorize-kde-virtual-output.desktop", nix_package)
         self.assertIn("monitorize-kde-virtual-output.desktop", rpm_spec)
         self.assertIn("Exec=/usr/bin/monitorize-kde-virtual-output", rpm_permission)
@@ -3756,7 +3505,6 @@ class BackendFacadeTest(unittest.TestCase):
 
         for dependency in (
             "gstreamer1-plugin-libav",
-            "gstreamer1-plugin-openh264",
             "gstreamer1-plugins-ugly",
             "pipewire-gstreamer",
             "android-tools",
@@ -3764,13 +3512,15 @@ class BackendFacadeTest(unittest.TestCase):
             "qt6-qtwayland",
         ):
             self.assertIn(f"Requires:       {dependency}", spec)
+        self.assertNotIn("gstreamer1-plugin-openh264", spec)
         self.assertNotIn("Requires:       gstreamer1-plugins-ugly-free", spec)
         self.assertNotIn("groupadd", spec)
         self.assertIn('TAG+="uaccess"', rules)
         self.assertIn("Monitorize-Touch-2", rules)
         self.assertIn("Monitorize-Stylus-2", rules)
         self.assertIn('<include service="mdns"/>', firewall)
-        for protocol, port in (("tcp", "7110"), ("tcp", "7114"),
+        for protocol, port in (("tcp", "7110"), ("udp", "7110"),
+                               ("tcp", "7114"), ("udp", "7114"),
                                ("udp", "7113"), ("udp", "7117")):
             self.assertIn(f'<port protocol="{protocol}" port="{port}"/>', firewall)
         self.assertIn("firewall-zones", spec)
@@ -3799,11 +3549,9 @@ class BackendFacadeTest(unittest.TestCase):
         qml = qml_path.read_text(encoding="utf-8")
         self.assertIn("readonly property int modeCardWidth: 220", qml)
         self.assertIn("readonly property int modeCardSpacing: 30", qml)
-        self.assertIn("readonly property int modeCardCount: backend.canHostStream ? 3 : 1", qml)
         self.assertIn("readonly property int modeCardsWidth", qml)
         self.assertIn("id: modeCardsRow", qml)
         self.assertEqual(qml.count("implicitWidth: page.modeCardWidth"), 3)
-        self.assertEqual(qml.count("visible: backend.canHostStream"), 2)
         self.assertEqual(qml.count("Layout.preferredWidth: modeCardsRow.implicitWidth"), 2)
         self.assertIn("width: modeCardsRow.implicitWidth", qml)
         self.assertIn("horizontalAlignment: Text.AlignLeft", qml)
@@ -3811,7 +3559,6 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn("width: 132", qml)
         self.assertIn("padding: 6", qml)
         self.assertIn("radius: theme.controlRadius", qml)
-        self.assertIn('if (backend.detectedDe === "windows") return "Windows"', qml)
         desktop_index = qml.index('text: "Desktop: "')
         desktop_block = qml[desktop_index: qml.index("Layout.alignment: Qt.AlignVCenter", desktop_index)]
         saved_index = qml.index('text: "Saved Presets"')
@@ -3905,7 +3652,6 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertNotIn('text: "⚙"', settings_block)
         self.assertIn('stroke="#ffffff"', icon)
         self.assertNotIn('stroke="#000000"', icon)
-        self.assertIn("visible: backend.canAutostart", qml)
 
     def test_streaming_config_pages_expose_return_source(self):
         qml_dir = Path(__file__).resolve().parents[1] / "monitorize" / "qml"
@@ -3915,8 +3661,8 @@ class BackendFacadeTest(unittest.TestCase):
             'readonly property string returnPageSource: page.isWifi ? "WifiPage.qml" : "UsbStep2Page.qml"',
             wifi_qml,
         )
-        self.assertIn('text: "Use encryption"', wifi_qml)
-        self.assertNotIn("Use encryption (recommended)", wifi_qml)
+        self.assertNotIn('text: "Use encryption"', wifi_qml)
+        self.assertIn("direct RTP/UDP", wifi_qml)
         self.assertIn("WifiPage {", usb_qml)
         self.assertIn("isWifi: false", usb_qml)
 
@@ -3957,7 +3703,7 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertNotIn("Encryption is off", qml)
         self.assertNotIn("MUST EXACTLY MATCH", qml)
         self.assertNotIn("WarningCard", qml)
-        self.assertEqual(qml.count("ChoiceChips {"), 4)
+        self.assertEqual(qml.count("ChoiceChips {"), 3)
         self.assertEqual(qml.count("CustomComboBox {"), 2)
         self.assertIn("RowLayout {", chips_qml)
         self.assertIn("property int chipWidth: 112", chips_qml)
@@ -3980,7 +3726,6 @@ class BackendFacadeTest(unittest.TestCase):
             "displayTypeCombo",
             "encoderCombo",
             "encoderProfileCombo",
-            "streamTypeCombo",
         ):
             self.assertIn(f"id: {control_id}", qml)
 
@@ -3989,9 +3734,9 @@ class BackendFacadeTest(unittest.TestCase):
         qml = (qml_dir / "WifiPage.qml").read_text(encoding="utf-8")
         toggle_qml = (qml_dir / "CustomToggle.qml").read_text(encoding="utf-8")
         checkbox_qml = (qml_dir / "CustomCheckBox.qml").read_text(encoding="utf-8")
-        self.assertEqual(qml.count("CustomToggle {"), 3)
+        self.assertEqual(qml.count("CustomToggle {"), 2)
         self.assertNotIn("CustomCheckBox {", qml)
-        self.assertIn('text: "Use encryption"', qml)
+        self.assertNotIn('text: "Use encryption"', qml)
         self.assertNotIn('text: "Use encryption (recommended)"', qml)
         self.assertIn("Switch {", toggle_qml)
         self.assertIn("theme.buttonBackgroundHover", toggle_qml)
@@ -4005,7 +3750,7 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn('text: "✓"', checkbox_qml)
         self.assertNotIn("width: 8", checkbox_qml)
         self.assertNotIn("height: 8", checkbox_qml)
-        for control_id in ("encryptionCheck", "touchCheck", "stylusCheck"):
+        for control_id in ("touchCheck", "stylusCheck"):
             self.assertIn(f"id: {control_id}", qml)
 
     def test_settings_popup_close_button_is_dark_card_style(self):
@@ -4165,7 +3910,7 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn("Enable touch for this display", qml)
         self.assertIn("id: s2StylusToggle", qml)
         self.assertIn("Enable stylus features for this display", qml)
-        self.assertIn("backend.thirdEncryptionStatus", qml)
+        self.assertNotIn("backend.thirdEncryptionStatus", qml)
         self.assertEqual(qml.count("ChoiceChips {"), 2)
         self.assertIn("width: Math.min(page.width - 40, 560)", qml)
         self.assertIn("Creates a second Hyprland HEADLESS display.", qml)
@@ -4183,41 +3928,13 @@ class BackendFacadeTest(unittest.TestCase):
         qml = qml_path.read_text(encoding="utf-8")
         self.assertIn("id: portField", qml)
         self.assertIn('text: "7110"', qml)
-        self.assertIn('portField.text = rec["manual_port"] || "7110"', qml)
+        self.assertIn('portField.text = rec["port"] || "7110"', qml)
         self.assertIn("validator: IntValidator { bottom: 1; top: 65535 }", qml)
         self.assertNotIn("id: displayCombo", qml)
         self.assertNotIn('model: ["Second display (7110)", "Third display (7114)"]', qml)
         self.assertIn("id: decoderCombo", qml)
         self.assertEqual(qml.count("ChoiceChips {"), 1)
         self.assertEqual(qml.count("CustomComboBox {"), 0)
-
-    def test_receiver_discovery_cards_are_clickable_and_show_online(self):
-        qml_path = (
-            Path(__file__).resolve().parents[1]
-            / "monitorize"
-            / "qml"
-            / "ReceiverSetupPage.qml"
-        )
-        qml = qml_path.read_text(encoding="utf-8")
-        self.assertIn("id: deviceCard", qml)
-        self.assertIn("onClicked: page.requestConnection(modelData)", qml)
-        self.assertIn('"port": Number(device.port || 7110)', qml)
-        self.assertNotIn("function selectedPort", qml)
-        self.assertIn('text: "online"', qml)
-        self.assertIn('color: "#4caf50"', qml)
-        self.assertNotIn('text: modelData.encrypted === true ? "encrypted" : "wifi"', qml)
-        self.assertNotIn('"  •  Second display"', qml)
-
-    def test_receiver_setup_has_frequently_connected_hosts_and_forget_menu(self):
-        qml_path = (
-            Path(__file__).resolve().parents[1]
-            / "monitorize" / "qml" / "ReceiverSetupPage.qml"
-        )
-        qml = qml_path.read_text(encoding="utf-8")
-        self.assertIn('text: "FREQUENTLY CONNECTED"', qml)
-        self.assertIn("model: backend.recentReceiverHosts", qml)
-        self.assertIn('text: "Forget"', qml)
-        self.assertIn("backend.forgetReceiverHost(", qml)
 
     def test_qml_api_remains_exposed(self):
         with patch("monitorize.desktop.backend.get_local_ip", return_value="127.0.0.1"):
@@ -4232,37 +3949,14 @@ class BackendFacadeTest(unittest.TestCase):
         }
         self.assertTrue({
             "detectedDe", "localIp", "isStreaming", "isReceiving",
-            "discoveredDevices", "pairingCode", "secondStreamActive",
-            "thirdEncryption", "thirdEncryptionStatus", "presets", "presetLaunchStatus",
-            "recentReceiverHosts",
+            "discoveredDevices", "secondStreamActive", "presets", "presetLaunchStatus",
         } <= properties)
         self.assertTrue({
             "startStreaming", "stopStreaming", "connectToHost",
-            "forgetReceiverHost",
             "startHostDiscovery", "startUsbScan", "startSecondStream",
             "saveCurrentPreset", "launchPreset", "renamePreset", "deletePreset",
             "isAutostartEnabled", "setAutostartEnabled",
         } <= methods)
-        backend.network_timer.stop()
-
-    def test_windows_backend_exposes_receiver_only_capabilities(self):
-        with (
-            patch("monitorize.desktop.backend.get_local_ip", return_value="127.0.0.1"),
-            patch("monitorize.platform.utils.sys.platform", "win32"),
-        ):
-            backend = MonitorizeBackend("windows")
-            self.assertFalse(backend.canAutostart)
-        self.assertFalse(backend.canHostStream)
-        with patch.object(backend.streaming, "start") as start:
-            backend.startStreaming(
-                "1920x1080", "60", "8000", "Extend",
-                "Software (CPU / x264enc)", "Low Latency", True,
-            )
-        start.assert_not_called()
-        self.assertEqual(
-            backend.streaming.status,
-            "Host streaming is not available on Windows yet.",
-        )
         backend.network_timer.stop()
 
     def test_second_stream_active_comes_from_streaming_controller(self):
@@ -4278,44 +3972,11 @@ class BackendFacadeTest(unittest.TestCase):
         with patch("monitorize.desktop.backend.get_local_ip", return_value="127.0.0.1"):
             backend = MonitorizeBackend("kde")
         with patch.object(backend.receiver, "connect") as connect:
-            backend.connectToHost("", 7110, False, "", "", "Software")
-            backend.connectToHost("host", 70000, False, "", "", "Software")
+            backend.connectToHost("", 7110, "Software")
+            backend.connectToHost("host", 70000, "Software")
         connect.assert_not_called()
         self.assertEqual(backend.receiver.status, "Invalid host or port")
         backend.network_timer.stop()
-
-    def test_receiver_stable_remembers_host_and_discovery_marks_it_online(self):
-        old_dir, old_file = settings.CONFIG_DIR, settings.CONFIG_FILE
-        with tempfile.TemporaryDirectory() as directory:
-            try:
-                settings.CONFIG_DIR = directory
-                settings.CONFIG_FILE = str(Path(directory) / "settings.ini")
-                with patch("monitorize.desktop.backend.get_local_ip", return_value="127.0.0.1"):
-                    backend = MonitorizeBackend("kde")
-                with patch.object(backend.receiver, "connect"):
-                    backend.connectToHost(
-                        "10.0.0.2", 7110, True, "fingerprint", "", "Hardware",
-                        120, "Desk Display",
-                    )
-                self.assertEqual(settings.load_recent_receiver_hosts(), [])
-                backend.receiver.streamStable.emit()
-                self.assertEqual(backend.recentReceiverHosts[0]["name"], "Desk Display")
-                self.assertTrue(backend.recentReceiverHosts[0]["encrypted"])
-                backend.discovery.add_device(
-                    "Live Desk", "10.0.0.2", 7110, True, "fingerprint",
-                    stream_fps=90,
-                )
-                self.assertTrue(backend.recentReceiverHosts[0]["online"])
-                self.assertEqual(backend.recentReceiverHosts[0]["name"], "Live Desk")
-                self.assertEqual(backend.discoveredDevices, [])
-                with patch("monitorize.desktop.backend.clear_receiver_credentials") as clear:
-                    backend.forgetReceiverHost("10.0.0.2", 7110)
-                self.assertEqual(settings.load_recent_receiver_hosts(), [])
-                clear.assert_called_once_with("10.0.0.2")
-                backend.network_timer.stop()
-                backend.status_checker.stop()
-            finally:
-                settings.CONFIG_DIR, settings.CONFIG_FILE = old_dir, old_file
 
     def test_usb_preset_scans_before_launching(self):
         preset = {
@@ -4367,7 +4028,6 @@ class BackendFacadeTest(unittest.TestCase):
                 "encoder": "Software (CPU / x264enc)",
                 "encoder_profile": "Balanced",
             },
-            "wifi": {"stream_type": "Speed", "use_encryption": True},
             "general": {
                 "minimize_to_tray": False,
                 "enable_touch": True,
@@ -4565,7 +4225,6 @@ class BackendFacadeTest(unittest.TestCase):
                 "display_type": "Extend",
                 "encoder": "Intel/AMD VA-API (vah264enc)",
             },
-            "wifi": {"stream_type": "Speed", "use_encryption": True},
             "general": {
                 "minimize_to_tray": True,
                 "enable_touch": True,

@@ -4,7 +4,6 @@ Monitorize GUI — Utility functions.
 """
 
 import os
-import sys
 import subprocess
 
 
@@ -14,19 +13,12 @@ ASSETS_DIR = os.path.join(PACKAGE_DIR, "assets")
 QML_DIR = os.path.join(PACKAGE_DIR, "qml")
 
 
-def is_windows() -> bool:
-    return sys.platform.startswith("win")
-
-
 def detect_desktop_environment() -> str:
     """
-    Return "windows", "kde", "gnome", "hyprland", or "" (unknown) based on
+    Return "kde", "gnome", "hyprland", or "" (unknown) based on
     environment variables.  Checks XDG_CURRENT_DESKTOP, DESKTOP_SESSION,
     and the Hyprland-specific var; case-insensitive.
     """
-    if is_windows():
-        return "windows"
-
     xdg   = os.environ.get("XDG_CURRENT_DESKTOP", "").lower()
     dsess = os.environ.get("DESKTOP_SESSION",      "").lower()
     

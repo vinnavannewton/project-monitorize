@@ -105,7 +105,7 @@ Please read the [Contribution Guide](https://github.com/vinnavannewton/project-m
 
 - [x] Stylus support with pressure.
 
-- [x] Encrypted Wi-Fi mode.
+- [ ] App-native encrypted Wi-Fi mode (use Tailscale or WireGuard today).
 
 - [x] Stable gnome.
 

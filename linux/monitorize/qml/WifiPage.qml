@@ -68,11 +68,7 @@ Item {
             encoderProfileCombo.currentText
         ]
         if (page.isWifi) {
-            backend.saveWifiSettings(
-                ...args,
-                streamTypeCombo.currentText.indexOf("Speed") === 0 ? "Speed" : "Stability",
-                encryptionCheck.checked
-            )
+            backend.saveWifiSettings(...args)
         } else {
             backend.saveUsbSettings(...args)
         }
@@ -125,12 +121,6 @@ Item {
             encoderProfileCombo.selectValue("Low Latency");
         }
         
-        if (page.isWifi) {
-            let savedStreamType = saved["stream_type"] || "Speed";
-            streamTypeCombo.selectValue(savedStreamType === "Speed" ? "Speed" : "Stability");
-            encryptionCheck.checked = saved["use_encryption"] === true;
-        }
-
         let gen = backend.loadGeneralSettings();
         let enableTouch = gen["enable_touch"] !== undefined ? gen["enable_touch"] : true;
         page.enableStylusFeatures = gen["enable_stylus_features"] !== undefined ? gen["enable_stylus_features"] : false;
@@ -352,28 +342,23 @@ Item {
                     onActivated: page.saveSettings()
                 }
 
-                Text { text: "Stream Type:"; visible: page.isWifi; color: theme.textSecondary; font.pixelSize: 14 }
-                ChoiceChips {
-                    id: streamTypeCombo
-                    visible: page.isWifi
-                    currentIndex: 0
-                    model: ["Speed", "Stability"]
-                    onActivated: page.saveSettings()
-                }
+            }
+
+            Text {
+                visible: page.isWifi
+                Layout.alignment: Qt.AlignHCenter
+                text: "Wi-Fi video uses direct RTP/UDP on your trusted LAN. It uses the selected resolution, FPS, bitrate, encoder, and encoder profile. Use Tailscale or WireGuard for encrypted networking."
+                color: theme.textMuted
+                font.pixelSize: 12
+                wrapMode: Text.WordWrap
+                horizontalAlignment: Text.AlignHCenter
+                Layout.maximumWidth: 500
             }
 
             // Checkbox Settings
             ColumnLayout {
                 spacing: 8
                 Layout.alignment: Qt.AlignHCenter
-
-                CustomToggle {
-                    id: encryptionCheck
-                    visible: page.isWifi
-                    text: "Use encryption"
-                    checked: true
-                    onCheckedChanged: page.saveSettings()
-                }
 
                 CustomToggle {
                     id: touchCheck

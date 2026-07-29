@@ -4,7 +4,6 @@ import errno
 import logging
 import os
 import threading
-import time
 
 from .protocol import (
     ACTION_DOWN, ACTION_HOVER, ACTION_MOVE, ACTION_UP,
@@ -89,7 +88,6 @@ class UInputBackend:
                 raise RuntimeError(f"{UINPUT_PERMISSION_HINT} ({exc})") from exc
             raise
         self._map_devices(stylus_features)
-        time.sleep(2)
         if self.geometry.de == "kde":
             mapped = self.geometry.map_kde_devices([self.touch, self.stylus])
             touch_event = self._event_name(self.touch, touch_name)

@@ -1,6 +1,8 @@
 """Desktop stream receiver lifecycle."""
 
 import os
+import json
+import socket
 import subprocess
 import sys
 import time
@@ -10,16 +12,8 @@ from PyQt6.QtCore import QObject, QProcess, QTimer, pyqtSignal
 from PyQt6.QtGui import QGuiApplication
 
 from monitorize.platform.process_utils import gst_has_element, kill_patterns, stop_processes
-from monitorize.config.settings import (
-    clear_receiver_credentials,
-    load_receiver_credentials,
-    save_receiver_credentials,
-)
 from monitorize.platform.utils import LINUX_DIR
-from monitorize.config.validation import (
-    normalize_host, sanitize_decoder, sanitize_fps, sanitize_port, valid_host,
-    valid_port,
-)
+from monitorize.config.validation import normalize_host, sanitize_decoder, sanitize_port, valid_host, valid_port
 
 
 COMPRESSED_QUEUE = [
@@ -30,9 +24,6 @@ RAW_DROP_QUEUE = [
     "leaky=downstream",
 ]
 PARSED_H264_CAPS = "video/x-h264,stream-format=byte-stream,alignment=au"
-VA_MEMORY_CAPS = "video/x-raw(memory:VAMemory)"
-VA_SURFACE_CAPS = "video/x-raw(memory:VASurface)"
-DMABUF_CAPS = "video/x-raw(memory:DMABuf),format=DMA_DRM"
 MIN_EMBEDDED_SURFACE_SIZE = 128
 RESIZE_RESTART_THRESHOLD = 64
 SINK_PROPS = {
@@ -45,12 +36,10 @@ SINK_PROPS = {
 }
 SINK_EXTRA_PROPS = {
     "waylandsink": {"fullscreen": "true"},
-    "vaapisink": {"fullscreen": "true"},
     "xvimagesink": {"double-buffer": "true", "draw-borders": "true"},
 }
 EMBEDDED_X11_SINKS = ("xvimagesink", "ximagesink", "glimagesink")
 EMBEDDED_WAYLAND_SINKS = ("waylandsink", "glimagesink")
-WINDOWS_EMBEDDED_SINKS = ("d3d11videosink", "autovideosink")
 SOFTWARE_DECODER_PROPS = {
     "max-threads": "2",
     "thread-type": "slice",
@@ -58,18 +47,15 @@ SOFTWARE_DECODER_PROPS = {
     "discard-corrupted-frames": "true",
     "automatic-request-sync-points": "true",
 }
-HARDWARE_DECODER_PROPS = {
-    "qos": "true",
-    "discard-corrupted-frames": "true",
-}
 
 _GST = None
 _GST_VIDEO = None
+_GIO = None
 _GST_IMPORT_ERROR = None
 
 
 def _load_gst():
-    global _GST, _GST_VIDEO, _GST_IMPORT_ERROR
+    global _GST, _GST_VIDEO, _GIO, _GST_IMPORT_ERROR
     if _GST is not None:
         return _GST
     if _GST_IMPORT_ERROR is not None:
@@ -78,12 +64,15 @@ def _load_gst():
         import gi
         gi.require_version("Gst", "1.0")
         gi.require_version("GstVideo", "1.0")
+        gi.require_version("Gio", "2.0")
         from gi.repository import Gst
         from gi.repository import GstVideo
+        from gi.repository import Gio
 
         Gst.init(None)
         _GST = Gst
         _GST_VIDEO = GstVideo
+        _GIO = Gio
         return Gst
     except Exception as exc:
         _GST_IMPORT_ERROR = exc
@@ -126,13 +115,41 @@ def _gst_has_property(element, prop):
     return prop in _gst_element_properties(element)
 
 
+def _negotiate_udp(host, control_port, udp_port):
+    hello = json.dumps({
+        "transport": "rtp-udp-v1", "port": udp_port,
+        "decoderProfiles": ["high", "constrained-baseline"],
+    }, separators=(",", ":")).encode()
+    with socket.create_connection((host, control_port), timeout=1.5) as control:
+        control.settimeout(1.5)
+        control.sendall(b"MZRP1 " + hello + b"\n")
+        response = b""
+        while b"\n" not in response and len(response) < 4096:
+            chunk = control.recv(4096 - len(response))
+            if not chunk:
+                break
+            response += chunk
+    if not response.startswith(b"MZRP1 "):
+        raise RuntimeError("invalid UDP control response")
+    try:
+        ready = json.loads(response.split(b"\n", 1)[0][6:].decode())
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise RuntimeError("invalid UDP control response") from exc
+    if (
+        ready.get("transport") != "rtp-udp-v1"
+        or ready.get("status") != "ready"
+        or ready.get("codec") != "h264"
+        or int(ready.get("rtpPt", 96)) != 96
+    ):
+        raise RuntimeError("UDP control response rejected")
+    return ready
+
+
 class ReceiverController(QObject):
     receivingChanged = pyqtSignal(bool)
     statusChanged = pyqtSignal(str)
     hostChanged = pyqtSignal(str)
     logAppended = pyqtSignal(str)
-    pairingRequired = pyqtSignal(str, int, str)
-    streamStable = pyqtSignal()
 
     def __init__(self, de, discovery, parent=None):
         super().__init__(parent)
@@ -142,9 +159,6 @@ class ReceiverController(QObject):
         self.status = ""
         self.host_label = ""
         self.process = None
-        self.tls_process = None
-        self.tls_buffer = ""
-        self.auth_failed = False
         self.stopping = False
         self.retry_count = 0
         self.retry_pending = False
@@ -156,7 +170,6 @@ class ReceiverController(QObject):
         self.retry_generation = None
         self.receiver_host = ""
         self.receiver_port = 0
-        self.stream_fps = 0
         self.pipeline_fallback_used = False
         self.stable = False
         self.video_item = None
@@ -170,15 +183,10 @@ class ReceiverController(QObject):
         self.receiver_surface_height = 0
         self.embedded_pipeline_size = None
         self.resize_restart_used = False
+        self.udp_transport = False
         self.embedded_sink = None
         self.sink_candidates = []
         self.sink_index = 0
-        self.hardware_profiles = []
-        self.hardware_profile_index = 0
-        self.hardware_path = ""
-        self.hardware_sink_props = {}
-        self.windows_profiles = []
-        self.windows_profile_index = 0
         self.stable_timer = QTimer(self)
         self.stable_timer.setSingleShot(True)
         self.stable_timer.timeout.connect(
@@ -199,94 +207,6 @@ class ReceiverController(QObject):
             lambda: self._restart_embedded_for_resize(self.generation)
         )
 
-    @staticmethod
-    def _is_windows():
-        return sys.platform.startswith("win")
-
-    def _windows_receiver_profiles(self, decoder):
-        profiles = []
-        d3d11_sink = "d3d11videosink" if gst_has_element("d3d11videosink") else ""
-        if (
-            decoder == "Hardware"
-            and d3d11_sink
-            and gst_has_element("d3d11h264dec")
-        ):
-            profiles.append((
-                ["d3d11h264dec"],
-                "D3D11 d3d11h264dec",
-                d3d11_sink,
-            ))
-        software = self._software_decoder_args()
-        software_label = f"Software {software[0]}"
-        if d3d11_sink:
-            profiles.append((software, software_label, d3d11_sink))
-        profiles.append((software, software_label, "autovideosink"))
-
-        unique = []
-        seen = set()
-        for decoder_args, decoder_label, sink in profiles:
-            key = (tuple(decoder_args), sink)
-            if key in seen:
-                continue
-            seen.add(key)
-            unique.append((decoder_args, decoder_label, sink))
-        return unique
-
-    def _apply_windows_receiver_profile(self):
-        decoder_args, decoder_label, sink = self.windows_profiles[
-            self.windows_profile_index
-        ]
-        self.decoder_args = list(decoder_args)
-        self.decoder_label = decoder_label
-        self.sink = sink
-
-    def _hardware_receiver_profiles(self):
-        elements = {
-            name: gst_has_element(name)
-            for name in (
-                "vah264dec", "vapostproc", "waylandsink", "glimagesink",
-                "vaapih264dec", "vaapisink",
-            )
-        }
-        session = os.environ.get("XDG_SESSION_TYPE", "").lower()
-        wayland = session == "wayland" or bool(os.environ.get("WAYLAND_DISPLAY"))
-        x11 = session == "x11" or bool(os.environ.get("DISPLAY"))
-        profiles = []
-
-        if elements["vah264dec"] and elements["vapostproc"]:
-            sinks = ("waylandsink", "glimagesink") if wayland else ("glimagesink",)
-            if wayland or x11:
-                for sink in sinks:
-                    if elements[sink]:
-                        profiles.append((
-                            self._hardware_decoder_args("vah264dec"),
-                            "VA-API vah264dec (VAMemory → DMABuf)",
-                            sink,
-                            "dmabuf",
-                            {},
-                        ))
-
-        display = "wayland" if wayland else "x11" if x11 else ""
-        if display and elements["vaapih264dec"] and elements["vaapisink"]:
-            profiles.append((
-                self._hardware_decoder_args("vaapih264dec"),
-                "VA-API vaapih264dec (VASurface)",
-                "vaapisink",
-                "vasurface",
-                {"display": display},
-            ))
-        return profiles
-
-    def _apply_hardware_receiver_profile(self):
-        decoder_args, decoder_label, sink, path, sink_props = self.hardware_profiles[
-            self.hardware_profile_index
-        ]
-        self.decoder_args = list(decoder_args)
-        self.decoder_label = decoder_label
-        self.sink = sink
-        self.hardware_path = path
-        self.hardware_sink_props = dict(sink_props)
-
     def _set_receiving(self, value):
         self.receiving = value
         self.receivingChanged.emit(value)
@@ -295,10 +215,7 @@ class ReceiverController(QObject):
         self.status = value
         self.statusChanged.emit(value)
 
-    def connect(
-        self, host, port, encrypted, fingerprint, pairing_code, decoder,
-        stream_fps=0,
-    ):
+    def connect(self, host, port, decoder):
         self.discovery.stop_browsing()
         self.stop()
         host = normalize_host(host)
@@ -314,55 +231,38 @@ class ReceiverController(QObject):
         self.stable = False
         self.host = host
         self.port = port
-        self.encrypted = encrypted
-        self.fingerprint = fingerprint
-        self.pairing_code = pairing_code
+        self.udp_transport = host != "127.0.0.1"
         self.decoder = decoder
-        self.stream_fps = sanitize_fps(stream_fps) if stream_fps else 0
         self.sink_candidates = self._sink_candidates()
         self.sink_index = 0
         self.sink = self.sink_candidates[0]
         self.pipeline_fallback_used = False
-        if self._is_windows():
-            self.windows_profiles = self._windows_receiver_profiles(decoder)
-            self.windows_profile_index = 0
-            if not self.windows_profiles:
-                self._fail_windows_embedded(
-                    "Missing GStreamer receiver plugins. Install the MSYS2 UCRT64 "
-                    "GStreamer base/good/bad/libav packages."
-                )
-                return
-            self._apply_windows_receiver_profile()
-        elif decoder == "Hardware":
-            self.hardware_profiles = self._hardware_receiver_profiles()
-            self.hardware_profile_index = 0
-            if not self.hardware_profiles:
+        if decoder == "Hardware":
+            hardware = next((
+                name for name in ("vah264dec", "vaapih264dec")
+                if gst_has_element(name)
+            ), None)
+            if not hardware:
                 self._set_status(
-                    "Hardware zero-copy unavailable — install GStreamer VA/DMABuf plugins"
+                    "Hardware decoder unavailable — install the GStreamer VA-API decoder"
                 )
                 self.logAppended.emit(
-                    "ERROR: Hardware mode requires a complete zero-copy profile: "
-                    "vah264dec + vapostproc + waylandsink/glimagesink, or "
-                    "vaapih264dec + vaapisink."
+                    "ERROR: Hardware mode requires vah264dec or vaapih264dec."
                 )
                 return
-            self._apply_hardware_receiver_profile()
+            self.decoder_args = [hardware]
+            self.decoder_label = f"VA-API {hardware}"
         else:
             self.decoder_args = self._software_decoder_args()
-            self.decoder_label = f"Software {self.decoder_args[0]}"
+            self.decoder_label = "Software avdec_h264"
         self.retry_count = 0
         self.retry_pending = False
-        self.auth_failed = False
         self.resize_restart_used = False
         self.host_label = f"{host}:{port}"
         self.hostChanged.emit(self.host_label)
-        if not encrypted:
-            self._set_receiving(True)
-        warning = self._display_fps_warning()
-        self._set_status(f"Connecting to {host}:{port}…{warning}")
+        self._set_receiving(True)
+        self._set_status(f"Connecting to {host}:{port}…")
         self.logAppended.emit(f"Connecting to {host} on port {port}…")
-        if warning:
-            self.logAppended.emit(f"WARNING: {warning.lstrip(' — ')}")
         self._start_attempt(generation)
 
     def set_video_item(self, item):
@@ -401,41 +301,11 @@ class ReceiverController(QObject):
         if self.stopping or generation != self.generation:
             return
         self.retry_pending = False
-        self.auth_failed = False
-        if not self.encrypted:
-            self._launch_pipeline(self.host, self.port, generation)
-            return
-        fingerprint, token = load_receiver_credentials(self.host)
-        if self.pairing_code:
-            fingerprint, token = self.fingerprint, ""
-        self.tls_process = QProcess(self)
-        process = self.tls_process
-        self.tls_process.setWorkingDirectory(LINUX_DIR)
-        self.tls_process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
-        self.tls_process.readyReadStandardOutput.connect(
-            lambda: self._read_tls(process, generation)
-        )
-        self.tls_process.finished.connect(
-            lambda code, status: self._tls_finished(code, status, process, generation)
-        )
-        args = ["-m", "monitorize.security.tls_receiver", self.host, str(self.port)]
-        if fingerprint:
-            args += ["--fingerprint", fingerprint]
-        if token:
-            args += ["--token", token]
-        elif self.pairing_code:
-            args += ["--code", self.pairing_code]
-        self.tls_process.start(sys.executable, args)
+        self._launch_pipeline(self.host, self.port, generation)
 
     def _launch_pipeline(self, host, port, generation=None):
         generation = self.generation if generation is None else generation
         if self.stopping or generation != self.generation:
-            return
-        if self._is_windows() and not self._embedded_sink_available():
-            self._fail_windows_embedded(
-                "Missing GStreamer in-app video sink. Install the MSYS2 UCRT64 "
-                "GStreamer plugins that provide d3d11videosink."
-            )
             return
         if self.video_item is not None and self.should_use_embedded_window():
             if not self._update_receiver_surface_size():
@@ -448,14 +318,6 @@ class ReceiverController(QObject):
                 self._launch_embedded_pipeline(host, port, generation)
                 return
             except Exception as exc:
-                if self._is_windows():
-                    self.logAppended.emit(
-                        f"Windows in-app receiver profile failed: {exc}"
-                    )
-                    if self._retry_windows_embedded_fallback():
-                        return
-                    self._fail_windows_embedded(exc)
-                    return
                 self.logAppended.emit(
                     f"Embedded receiver failed; falling back to player window: {exc}"
                 )
@@ -466,11 +328,6 @@ class ReceiverController(QObject):
             self.logAppended.emit("Preparing fullscreen receiver surface…")
             self.surface_timer.start(1500)
             return
-        if self._is_windows():
-            self._fail_windows_embedded(
-                "Windows receiver requires the app-owned fullscreen video surface."
-            )
-            return
         self._launch_external_pipeline(host, port, generation)
 
     def _surface_wait_expired(self):
@@ -480,26 +337,13 @@ class ReceiverController(QObject):
         self.pending_launch = None
         if self.stopping or generation != self.generation:
             return
-        if self._is_windows():
-            self._fail_windows_embedded(
-                "Fullscreen receiver surface was not ready; external fallback is "
-                "disabled on Windows."
-            )
-            return
         self.logAppended.emit(
             "Fullscreen receiver surface was not ready; using fallback player window."
         )
         self._launch_external_pipeline(host, port, generation)
 
     def _embedded_sink_available(self):
-        if self._uses_linux_hardware_profile() and getattr(self, "sink", ""):
-            return gst_has_element(self.sink)
         return self._embedded_sink_name() is not None
-
-    def _active_embedded_sink_name(self):
-        if self._is_windows() or self._uses_linux_hardware_profile():
-            return self.sink
-        return self._embedded_sink_name()
 
     def _embedded_sink_name(self):
         if self.embedded_sink:
@@ -511,8 +355,6 @@ class ReceiverController(QObject):
         return None
 
     def _embedded_sink_candidates(self):
-        if self._is_windows():
-            return WINDOWS_EMBEDDED_SINKS
         session = os.environ.get("XDG_SESSION_TYPE", "").lower()
         if session == "wayland" or os.environ.get("WAYLAND_DISPLAY"):
             return EMBEDDED_WAYLAND_SINKS
@@ -525,8 +367,6 @@ class ReceiverController(QObject):
         return isinstance(app, QGuiApplication) and self.should_use_embedded_window()
 
     def should_use_embedded_window(self):
-        if self._is_windows():
-            return self._embedded_sink_available()
         override = os.environ.get("MONITORIZE_RECEIVER_EMBEDDED", "").strip().lower()
         if override in {"1", "true", "yes", "on"}:
             return self._embedded_sink_available()
@@ -537,13 +377,15 @@ class ReceiverController(QObject):
         return self._embedded_sink_available()
 
     def _launch_embedded_pipeline(self, host, port, generation):
+        if self.udp_transport:
+            return self._launch_udp_pipeline(host, port, generation, self._embedded_sink_name(), True)
         self.receiver_host = host
         self.receiver_port = port
         self.attempt_started = time.monotonic()
         self._stop_gst_pipeline()
         self.bad_geometry_logged = False
         Gst = _load_gst()
-        sink_name = self._active_embedded_sink_name()
+        sink_name = self._embedded_sink_name()
         if not sink_name:
             raise RuntimeError("no embeddable GStreamer video sink is available")
         description = self._embedded_pipeline_description(host, port, sink_name)
@@ -577,28 +419,95 @@ class ReceiverController(QObject):
         sink_args = self._sink_args(sink_name, include_extra=False)
         sink_args[0] = sink_name
         sink_args.append("name=receiver_sink")
+        width, height = self._receiver_surface_size()
         parts = [
             "tcpclientsrc", f"host={host}", f"port={port}", "!",
             "h264parse", "disable-passthrough=true", "config-interval=-1", "!",
             PARSED_H264_CAPS, "!",
             *COMPRESSED_QUEUE, "!",
             *self.decoder_args, "!",
-            *self._decoded_output_args(embedded=True), "!",
+            *RAW_DROP_QUEUE, "!",
+            "videoconvert", "!",
+            "videoscale", "add-borders=false", "!",
+            f"video/x-raw,width={width},height={height},pixel-aspect-ratio=1/1", "!",
+            "videoconvert", "!",
             *sink_args,
         ]
         return " ".join(parts)
+
+    def _udp_pipeline_description(self, sink_name, embedded):
+        sink_args = self._sink_args(sink_name, include_extra=not embedded)
+        if embedded:
+            sink_args.append("name=receiver_sink")
+        parts = [
+            "udpsrc", "name=receiver_source",
+            'caps="application/x-rtp,media=video,encoding-name=H264,payload=96,clock-rate=90000"', "!",
+            "rtph264depay", "!", "h264parse", "disable-passthrough=true", "config-interval=-1", "!",
+            PARSED_H264_CAPS, "!", *COMPRESSED_QUEUE, "!", *self.decoder_args, "!",
+            *RAW_DROP_QUEUE, "!", "videoconvert", "!",
+        ]
+        if embedded:
+            width, height = self._receiver_surface_size()
+            parts += ["videoscale", "add-borders=false", "!",
+                      f"video/x-raw,width={width},height={height},pixel-aspect-ratio=1/1", "!",
+                      "videoconvert", "!"]
+        parts += sink_args
+        return " ".join(parts)
+
+    def _launch_udp_pipeline(self, host, port, generation, sink_name, embedded):
+        self.receiver_host = host
+        self.receiver_port = port
+        self.attempt_started = time.monotonic()
+        self._stop_gst_pipeline()
+        Gst = _load_gst()
+        raw = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        raw.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 524288)
+        raw.bind(("", 0))
+        udp_port = raw.getsockname()[1]
+        pipeline = None
+        try:
+            pipeline = Gst.parse_launch(self._udp_pipeline_description(sink_name, embedded))
+            source = pipeline.get_by_name("receiver_source")
+            if source is None:
+                raise RuntimeError("UDP receiver source was not created")
+            source.set_property("socket", _GIO.Socket.new_from_fd(raw.detach()))
+            source.set_property("close-socket", True)
+            sink = pipeline.get_by_name("receiver_sink") if embedded else None
+            if embedded:
+                if sink is None:
+                    raise RuntimeError("embedded receiver sink was not created")
+                self._bind_embedded_sink(sink)
+                self.gst_video_sink = sink
+            if pipeline.set_state(Gst.State.PLAYING) == Gst.StateChangeReturn.FAILURE:
+                raise RuntimeError("GStreamer refused to start UDP receiver pipeline")
+            ready = _negotiate_udp(host, port, udp_port)
+        except Exception:
+            try:
+                raw.close()
+            except OSError:
+                pass
+            if pipeline is not None:
+                try:
+                    pipeline.set_state(Gst.State.NULL)
+                except Exception:
+                    pass
+            raise
+        self.gst_pipeline = pipeline
+        self.gst_bus = pipeline.get_bus()
+        self.gst_generation = generation
+        self.embedded_pipeline_size = self._receiver_surface_size() if embedded else None
+        self.gst_bus_timer.start()
+        self.logAppended.emit(
+            f"UDP ready: {ready.get('width', '?')}x{ready.get('height', '?')}@{ready.get('fps', '?')}; "
+            f"decoder: {self.decoder_label}; sink: {sink_name}"
+        )
+        self._started(pipeline, generation)
 
     def _bind_embedded_sink(self, sink):
         if self.video_item is None:
             raise RuntimeError("receiver video surface is not available")
         handle = int(self.video_item.winId())
-        if hasattr(sink, "set_window_handle"):
-            sink.set_window_handle(handle)
-        else:
-            _load_gst()
-            if _GST_VIDEO is None:
-                raise RuntimeError("GstVideo overlay support is unavailable")
-            _GST_VIDEO.VideoOverlay.set_window_handle(sink, handle)
+        sink.set_window_handle(handle)
         if hasattr(sink, "handle_events"):
             sink.handle_events(True)
         self._sync_embedded_sink_geometry(sink)
@@ -688,6 +597,8 @@ class ReceiverController(QObject):
         generation = self.generation if generation is None else generation
         if self.stopping or generation != self.generation:
             return
+        if self.udp_transport:
+            return self._launch_udp_pipeline(host, port, generation, self.sink, False)
         self.receiver_host = host
         self.receiver_port = port
         self.attempt_started = time.monotonic()
@@ -710,7 +621,8 @@ class ReceiverController(QObject):
             PARSED_H264_CAPS, "!",
             *COMPRESSED_QUEUE, "!",
             *self.decoder_args, "!",
-            *self._decoded_output_args(), "!",
+            *RAW_DROP_QUEUE, "!",
+            "videoconvert", "!",
             *self._sink_args(self.sink),
         ]
         if self.video_item is not None and not self.should_use_embedded_window():
@@ -718,50 +630,10 @@ class ReceiverController(QObject):
                 "Using external fullscreen receiver sink on Wayland; "
                 "embedded receiver can render tiny or crash there."
             )
-        if self._uses_linux_hardware_profile():
-            self.logAppended.emit(
-                f"Decoder: {self.decoder_label}; zero-copy path: "
-                f"{self.hardware_path}; sink: {self.sink}"
-            )
-        else:
-            self.logAppended.emit(f"Decoder: {self.decoder_label}; sink: {self.sink}")
+        self.logAppended.emit(f"Decoder: {self.decoder_label}; sink: {self.sink}")
         self.process.start("gst-launch-1.0", args)
 
-    def _uses_linux_hardware_profile(self):
-        return not self._is_windows() and getattr(self, "decoder", "") == "Hardware"
-
-    def _decoded_output_args(self, embedded=False):
-        if self._uses_linux_hardware_profile():
-            if self.hardware_path == "dmabuf":
-                caps = DMABUF_CAPS
-                if embedded:
-                    width, height = self._receiver_surface_size()
-                    caps += (
-                        f",width={width},height={height},pixel-aspect-ratio=1/1"
-                    )
-                return [
-                    VA_MEMORY_CAPS, "!", *RAW_DROP_QUEUE, "!",
-                    "vapostproc", "!", caps,
-                ]
-            return [VA_SURFACE_CAPS, "!", *RAW_DROP_QUEUE]
-
-        output = [*RAW_DROP_QUEUE, "!", "videoconvert"]
-        if embedded:
-            width, height = self._receiver_surface_size()
-            output += [
-                "!", "videoscale", "add-borders=false", "!",
-                f"video/x-raw,width={width},height={height},pixel-aspect-ratio=1/1",
-                "!", "videoconvert",
-            ]
-        return output
-
     def _sink_candidates(self):
-        if self._is_windows():
-            available = [
-                sink for sink in WINDOWS_EMBEDDED_SINKS
-                if sink == "autovideosink" or gst_has_element(sink)
-            ]
-            return available or ["autovideosink"]
         candidates = []
         session = os.environ.get("XDG_SESSION_TYPE", "").lower()
         if session == "wayland" or os.environ.get("WAYLAND_DISPLAY"):
@@ -793,8 +665,6 @@ class ReceiverController(QObject):
         props = dict(SINK_PROPS)
         if include_extra:
             props.update(SINK_EXTRA_PROPS.get(sink, {}))
-        if self._uses_linux_hardware_profile() and sink == self.sink:
-            props.update(self.hardware_sink_props)
         args = [sink]
         for name, value in props.items():
             if _gst_has_property(sink, name):
@@ -802,103 +672,13 @@ class ReceiverController(QObject):
         return args
 
     def _software_decoder_args(self):
-        decoder = "avdec_h264"
-        if (
-            not self._is_windows()
-            and not gst_has_element(decoder)
-            and gst_has_element("openh264dec")
-        ):
-            decoder = "openh264dec"
-        props = dict(SOFTWARE_DECODER_PROPS)
-        if getattr(self, "stream_fps", 0) > 60:
-            props["max-threads"] = "4"
-        args = [decoder]
-        for name, value in props.items():
-            if _gst_has_property(decoder, name):
+        args = ["avdec_h264"]
+        for name, value in SOFTWARE_DECODER_PROPS.items():
+            if _gst_has_property("avdec_h264", name):
                 args.append(f"{name}={value}")
         return args
-
-    def _display_fps_warning(self):
-        if getattr(self, "stream_fps", 0) <= 0:
-            return ""
-        app = QGuiApplication.instance()
-        if app is None or not hasattr(app, "primaryScreen"):
-            return ""
-        screen = app.primaryScreen()
-        if screen is None:
-            return ""
-        try:
-            refresh = float(screen.refreshRate())
-        except (AttributeError, TypeError, ValueError):
-            return ""
-        if refresh <= 0 or self.stream_fps <= refresh + 0.5:
-            return ""
-        return (
-            f" — {self.stream_fps} FPS stream; this {round(refresh)} Hz display "
-            f"can show up to {round(refresh)} FPS"
-        )
-
-    def _hardware_decoder_args(self, decoder):
-        props = dict(HARDWARE_DECODER_PROPS)
-        if decoder == "vaapih264dec":
-            props["low-latency"] = "true"
-        args = [decoder]
-        for name, value in props.items():
-            if _gst_has_property(decoder, name):
-                args.append(f"{name}={value}")
-        return args
-
-    def _retry_windows_embedded_fallback(self):
-        if not self._is_windows():
-            return False
-        while self.windows_profile_index + 1 < len(self.windows_profiles):
-            self.windows_profile_index += 1
-            self._apply_windows_receiver_profile()
-            self.logAppended.emit(
-                f"Retrying Windows in-app receiver with "
-                f"{self.decoder_label}; sink: {self.sink}"
-            )
-            try:
-                self._launch_embedded_pipeline(
-                    self.receiver_host, self.receiver_port, self.generation
-                )
-                return True
-            except Exception as exc:
-                self.logAppended.emit(
-                    f"Windows in-app receiver profile failed: {exc}"
-                )
-                self._stop_gst_pipeline()
-        return False
-
-    def _fail_windows_embedded(self, error):
-        message = (
-            "Windows in-app receiver unavailable. Install the MSYS2 UCRT64 "
-            "GStreamer runtime and plugins, including d3d11videosink and "
-            "gst-libav. Last error: "
-            f"{error}"
-        )
-        self.logAppended.emit(f"ERROR: {message}")
-        self._set_status("Windows in-app receiver unavailable")
-        self._stop_gst_pipeline()
-        self._set_receiving(False)
 
     def _use_receiver_fallback(self):
-        if self._is_windows():
-            return self._retry_windows_embedded_fallback()
-        if self.decoder == "Hardware":
-            if self.hardware_profile_index + 1 >= len(self.hardware_profiles):
-                return False
-            self.hardware_profile_index += 1
-            self._apply_hardware_receiver_profile()
-            self.logAppended.emit(
-                f"Hardware zero-copy profile failed; retrying with "
-                f"{self.decoder_label}; path: {self.hardware_path}; sink: {self.sink}"
-            )
-            self.process = None
-            self._launch_external_pipeline(
-                self.receiver_host, self.receiver_port, self.generation
-            )
-            return True
         if self.pipeline_fallback_used:
             return False
         self.pipeline_fallback_used = True
@@ -906,7 +686,7 @@ class ReceiverController(QObject):
             self.sink_index += 1
             self.sink = self.sink_candidates[self.sink_index]
         self.decoder_args = self._software_decoder_args()
-        self.decoder_label = f"Software {self.decoder_args[0]}"
+        self.decoder_label = "Software avdec_h264"
         self.logAppended.emit(
             f"Receiver pipeline failed immediately; retrying with "
             f"{self.decoder_label}; sink: {self.sink}"
@@ -918,7 +698,10 @@ class ReceiverController(QObject):
     def _started(self, process=None, generation=None):
         process = self.process if process is None else process
         generation = self.generation if generation is None else generation
-        if generation != self.generation or process is not self.process:
+        if (
+            generation != self.generation
+            or (process is not self.process and process is not self.gst_pipeline)
+        ):
             return
         display = "Third" if self.port == 7114 else "Second"
         self._set_status(f"Waiting for {display} display stream…")
@@ -947,7 +730,6 @@ class ReceiverController(QObject):
             self._set_receiving(True)
             self._set_status(f"Receiving from {self.host}:{self.port}")
             self.logAppended.emit("Stream connected in fullscreen receiver.")
-            self.streamStable.emit()
 
     def _poll_gst_bus(self):
         if self.gst_pipeline is None or self.gst_bus is None:
@@ -979,47 +761,6 @@ class ReceiverController(QObject):
         self._finished(code, None, pipeline, generation)
         self._stop_gst_pipeline()
 
-    def _read_tls(self, process=None, generation=None):
-        process = self.tls_process if process is None else process
-        generation = self.generation if generation is None else generation
-        if generation != self.generation or process is not self.tls_process:
-            return
-        raw = bytes(process.readAllStandardOutput()).decode(
-            "utf-8", errors="replace"
-        )
-        self.tls_buffer += raw
-        lines = self.tls_buffer.split("\n")
-        self.tls_buffer = lines.pop() if not self.tls_buffer.endswith("\n") else ""
-        for line in lines:
-            if line == "[TLS RECEIVER] READY" and self.process is None:
-                self._set_receiving(True)
-                self._launch_pipeline("127.0.0.1", 17110, generation)
-            elif line.startswith("[TLS RECEIVER] CREDENTIALS "):
-                fingerprint, token = line.removeprefix(
-                    "[TLS RECEIVER] CREDENTIALS "
-                ).split()
-                save_receiver_credentials(self.host, fingerprint, token)
-                self.pairing_code = ""
-                self._set_status("Authenticated; starting encrypted stream…")
-            elif line.startswith("[TLS RECEIVER] AUTH_FAILED"):
-                self.auth_failed = True
-                fingerprint = line.removeprefix("[TLS RECEIVER] AUTH_FAILED").strip()
-                clear_receiver_credentials(self.host)
-                self._set_status("Pairing required")
-                self.pairingRequired.emit(self.host, self.port, fingerprint)
-            elif line.startswith("[TLS RECEIVER] ERROR "):
-                self._set_status(line.removeprefix("[TLS RECEIVER] ERROR "))
-            elif line:
-                self.logAppended.emit(line)
-
-    def _tls_finished(self, code, _status, process=None, generation=None):
-        process = self.tls_process if process is None else process
-        generation = self.generation if generation is None else generation
-        if generation != self.generation or process is not self.tls_process:
-            return
-        if code and not self.auth_failed and not self.receiving and not self.retry_pending:
-            self._set_status("Encrypted connection failed")
-
     def _read_pipeline(self, process=None, generation=None):
         process = self.process if process is None else process
         generation = self.generation if generation is None else generation
@@ -1050,16 +791,14 @@ class ReceiverController(QObject):
         self.logAppended.emit(f"Receiver process exited (code {code})")
         self.stable_timer.stop()
         elapsed = time.monotonic() - self.attempt_started
-        if code and not self.stopping and not self.stable and elapsed < 2:
-            if self._use_receiver_fallback():
-                return
-            if self.decoder == "Hardware":
-                self.logAppended.emit(
-                    "ERROR: Hardware zero-copy receiver failed with every available profile."
-                )
-                self._set_status("Hardware zero-copy receiver failed — see logs")
-                self._set_receiving(False)
-                return
+        if (
+            code
+            and not self.stopping
+            and not self.stable
+            and elapsed < 2
+            and self._use_receiver_fallback()
+        ):
+            return
         max_retries = 30 if self.stable else 10
         if (
             not self.stopping
@@ -1073,8 +812,7 @@ class ReceiverController(QObject):
                 f"Waiting for {display} display stream… "
                 f"({self.retry_count}/{max_retries})"
             )
-            stop_processes(self.tls_process)
-            self.process = self.tls_process = None
+            self.process = None
             self.retry_generation = generation
             self.retry_timer.start(1000)
             return
@@ -1094,10 +832,9 @@ class ReceiverController(QObject):
         self.surface_timer.stop()
         self.pending_launch = None
         self._stop_gst_pipeline()
-        stop_processes(self.process, self.tls_process)
-        self.process = self.tls_process = None
-        self.tls_buffer = ""
-        self.auth_failed = self.retry_pending = False
+        stop_processes(self.process)
+        self.process = None
+        self.retry_pending = False
         self.pipeline_fallback_used = False
         self.resize_restart_used = False
         self.receiver_surface_width = self.receiver_surface_height = 0

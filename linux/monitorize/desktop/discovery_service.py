@@ -2,15 +2,13 @@
 
 import socket
 
-from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 
 from monitorize.config.validation import sanitize_fps, sanitize_port, valid_port
 
 
 class DiscoveryService(QObject):
     devicesChanged = pyqtSignal()
-    _deviceResolved = pyqtSignal(object)
-    _serviceRemoved = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -21,12 +19,6 @@ class DiscoveryService(QObject):
         self.advertisements = []
         self.advertisement_state = None
         self.service_names = {}
-        self._deviceResolved.connect(self._add_resolved_device)
-        self._serviceRemoved.connect(self.remove_device)
-
-    @pyqtSlot(object)
-    def _add_resolved_device(self, values):
-        self.add_device(*values)
 
     @staticmethod
     def _prop(props, key, default=b""):
@@ -70,30 +62,22 @@ class DiscoveryService(QObject):
                     ip = service._ipv4(info.addresses)
                     if not ip or not valid_port(info.port):
                         return
-                    stream_fps = 0
-                    if b"fps" in props:
-                        stream_fps = sanitize_fps(
-                            service._decode(service._prop(props, b"fps"))
-                        )
                     values = (
                         service._decode(service._prop(props, b"name", b"Unknown")),
                         ip,
                         int(info.port),
-                        service._prop(props, b"encrypted", b"0") == b"1",
-                        service._decode(service._prop(props, b"fingerprint"), "ascii"),
                         None if b"third_available" not in props
                         else service._prop(props, b"third_available") == b"1",
                         service._safe_port(service._prop(props, b"third_port", b"7114")),
                         name,
-                        stream_fps,
                     )
-                    service._deviceResolved.emit(values)
+                    QTimer.singleShot(0, lambda: service.add_device(*values))
 
                 def update_service(self, zc, type_, name):
                     self.add_service(zc, type_, name)
 
                 def remove_service(self, zc, type_, name):
-                    service._serviceRemoved.emit(name)
+                    QTimer.singleShot(0, lambda: service.remove_device(name))
 
             self.discovery_zc = Zeroconf()
             self.browser = ServiceBrowser(
@@ -106,8 +90,8 @@ class DiscoveryService(QObject):
             self.stop_browsing()
 
     def add_device(
-        self, name, ip, port, encrypted=False, fingerprint="",
-        third_available=False, third_port=7114, service_name=None, stream_fps=0,
+        self, name, ip, port, third_available=False, third_port=7114,
+        service_name=None,
     ):
         if not ip or not valid_port(port):
             return
@@ -124,11 +108,8 @@ class DiscoveryService(QObject):
             "name": name,
             "ip": ip,
             "port": port,
-            "encrypted": encrypted,
-            "fingerprint": fingerprint,
             "thirdAvailable": third_available,
             "thirdPort": third_port,
-            "fps": sanitize_fps(stream_fps) if stream_fps else 0,
         }
         existing = existing or next((
             device for device in self.devices
@@ -142,7 +123,6 @@ class DiscoveryService(QObject):
             self.service_names[service_name] = (ip, port)
         self.devicesChanged.emit()
 
-    @pyqtSlot(str)
     def remove_device(self, service_name):
         target = self.service_names.pop(service_name, None)
         if not target:
@@ -167,32 +147,35 @@ class DiscoveryService(QObject):
                 pass
             self.discovery_zc = None
 
-    def advertise(self, ip, encrypted, third_available, fps=60, third_fps=None):
+    def advertise(
+        self, ip, third_available, fps=60, third_fps=None,
+        width=1280, height=800, third_width=None, third_height=None,
+        video_transport="rtp-udp-v1",
+    ):
         try:
             from zeroconf import ServiceInfo, Zeroconf
             hostname = socket.gethostname()
-            fingerprint = ""
-            if encrypted:
-                from monitorize.security.tls_proxy import certificate_fingerprint
-                fingerprint = certificate_fingerprint()
-
-            def properties(name, port, stream_fps):
+            def properties(name, port, stream_fps, stream_width, stream_height):
                 values = {
                     "name": name,
                     "port": port,
                     "fps": str(sanitize_fps(stream_fps)),
-                    "encrypted": "1" if encrypted else "0",
+                    "width": str(stream_width),
+                    "height": str(stream_height),
+                    "video_transport": video_transport,
+                    "video_protocol_version": "1",
+                    "video_codec": "h264",
+                    "video_control_port": str(port),
+                    "rtp_pt": "96",
+                    "fec_pt": "122",
+                    "mtu": "1200",
                 }
-                if encrypted:
-                    values["fingerprint"] = fingerprint
-                    values["input_transport"] = "udp-aesgcm-v1"
                 return values
 
             primary_properties = properties(
-                f"{hostname} — First Virtual Monitor", 7110, fps
+                f"{hostname} — First Virtual Monitor", 7110, fps, width, height
             )
             primary_properties.update({
-                "encrypted": "1" if encrypted else "0",
                 "third_available": "1" if third_available else "0",
                 "third_port": "7114",
             })
@@ -207,6 +190,8 @@ class DiscoveryService(QObject):
                         f"{hostname} — Second Virtual Monitor",
                         7114,
                         fps if third_fps is None else third_fps,
+                        width if third_width is None else third_width,
+                        height if third_height is None else third_height,
                     ),
                 ))
             state = (

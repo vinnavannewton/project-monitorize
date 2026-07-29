@@ -19,7 +19,6 @@ MAX_BITRATE = 100000
 
 VALID_DECODERS = {"Software", "Hardware"}
 VALID_DISPLAY_TYPES = {"Extend", "Mirror"}
-VALID_STREAM_TYPES = {"Speed", "Stability"}
 VALID_ENCODER_PROFILES = {"Low Latency", "Balanced", "Quality"}
 VALID_ENCODERS = {
     "NVIDIA NVENC (nvh264enc)",
@@ -68,10 +67,6 @@ def normalize_host(host):
     return str(host or "").strip()
 
 
-def credential_host_key(host):
-    return normalize_host(host).lower()
-
-
 def valid_host(host):
     return bool(normalize_host(host))
 
@@ -94,10 +89,6 @@ def sanitize_decoder(value):
 
 def sanitize_display_type(value):
     return value if value in VALID_DISPLAY_TYPES else "Extend"
-
-
-def sanitize_stream_type(value):
-    return value if value in VALID_STREAM_TYPES else "Speed"
 
 
 def sanitize_encoder_profile(value):

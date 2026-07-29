@@ -12,6 +12,7 @@ log = logging.getLogger("TouchDaemon")
 
 UDP_RCVBUF = 16 * 1024
 UDP_DRAIN_CAP = 32
+UDP_DRAIN_BUDGET_SECONDS = 0.001
 
 
 class TransportStats:
@@ -204,6 +205,8 @@ def run_udp_server(dispatcher, shutdown, geometry, host="0.0.0.0", port=7113):
             server.setblocking(False)
             try:
                 for _ in range(UDP_DRAIN_CAP):
+                    if time.perf_counter() - received_at >= UDP_DRAIN_BUDGET_SECONDS:
+                        break
                     extra, _addr = server.recvfrom(64)
                     append_udp_batch(batches, _addr, parse_udp_packets(extra))
             except BlockingIOError:

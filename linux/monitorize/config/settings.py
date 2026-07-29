@@ -3,13 +3,11 @@ Monitorize GUI — Persistent settings stored in ~/.config/monitorize/settings.i
 """
 
 import os
-import hashlib
 import json
 from PyQt6.QtCore import QSettings
 
 from monitorize.config.validation import (
     DEFAULT_SECONDARY_RESOLUTION,
-    credential_host_key,
     normalize_host,
     sanitize_bitrate,
     sanitize_decoder,
@@ -19,9 +17,6 @@ from monitorize.config.validation import (
     sanitize_fps,
     sanitize_port,
     sanitize_resolution,
-    sanitize_stream_type,
-    valid_host,
-    valid_port,
 )
 
 CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".config", "monitorize")
@@ -94,7 +89,6 @@ def _normalize_stream_settings(data: dict) -> dict:
     data["encoder_profile"] = sanitize_encoder_profile(
         data.get("encoder_profile", "Low Latency")
     )
-    data["stream_type"] = sanitize_stream_type(data.get("stream_type", "Speed"))
     data["fps"] = str(sanitize_fps(data["fps"]))
     data["custom_fps"] = (
         str(sanitize_fps(data["custom_fps"]))
@@ -111,13 +105,11 @@ def _normalize_stream_settings(data: dict) -> dict:
 
 def save_wifi_settings(*, resolution: str, custom_w: str, custom_h: str,
                        fps: str, custom_fps: str, bitrate: str,
-                       display_type: str, encoder: str, encoder_profile: str,
-                       stream_type: str, use_encryption: bool):
+                       display_type: str, encoder: str, encoder_profile: str):
     values = locals()
     values["display_type"] = sanitize_display_type(display_type)
     values["encoder"] = sanitize_encoder(encoder)
     values["encoder_profile"] = sanitize_encoder_profile(encoder_profile)
-    values["stream_type"] = sanitize_stream_type(stream_type)
     values["fps"] = str(sanitize_fps(fps))
     values["custom_fps"] = str(sanitize_fps(custom_fps)) if custom_fps else ""
     values["bitrate"] = str(sanitize_bitrate(bitrate))
@@ -177,11 +169,18 @@ STREAM_DEFAULTS = {
 
 
 def load_wifi_settings() -> dict:
-    return _normalize_stream_settings(_load_group(
+    values = _normalize_stream_settings(_load_group(
         "wifi",
-        {**STREAM_DEFAULTS, "stream_type": "Speed", "use_encryption": False},
-        ("use_encryption",),
+        STREAM_DEFAULTS,
     ))
+    settings = _get_settings()
+    settings.beginGroup("wifi")
+    settings.remove("use_encryption")
+    settings.remove("transport_mode")
+    settings.remove("stream_type")
+    settings.endGroup()
+    settings.sync()
+    return values
 
 
 def load_usb_settings() -> dict:
@@ -307,12 +306,6 @@ def _normalize_preset(raw: dict) -> dict | None:
         },
         "third": {"enabled": bool(third.get("enabled", False))},
     }
-    if mode == "wifi":
-        wifi = raw.get("wifi", {})
-        preset["wifi"] = {
-            "stream_type": sanitize_stream_type(wifi.get("stream_type", "Speed")),
-            "use_encryption": bool(wifi.get("use_encryption", True)),
-        }
     if preset["third"]["enabled"]:
         width, height = sanitize_resolution(
             third.get("resolution", ""), (1920, 1080)
@@ -362,12 +355,10 @@ def save_presets(presets: list[dict]) -> None:
     _save_group("presets", {"items": json.dumps(normalized, separators=(",", ":"))})
 
 
-def save_receiver_settings(*, ip: str, port: str, use_encryption: bool = True,
-                           decoder: str = "Software"):
+def save_receiver_settings(*, ip: str, port: str, decoder: str = "Software"):
     _save_group("receiver", {
         "manual_ip": normalize_host(ip),
         "manual_port": str(sanitize_port(port)),
-        "use_encryption": use_encryption,
         "decoder": sanitize_decoder(decoder),
     })
 
@@ -375,12 +366,17 @@ def load_receiver_settings() -> dict:
     data = _load_group("receiver", {
         "manual_ip": "",
         "manual_port": "7110",
-        "use_encryption": True,
         "decoder": "Software",
-    }, ("use_encryption",))
+    })
     data["manual_ip"] = normalize_host(data["manual_ip"])
     data["manual_port"] = str(sanitize_port(data["manual_port"]))
     data["decoder"] = sanitize_decoder(data["decoder"])
+    settings = _get_settings()
+    settings.beginGroup("receiver")
+    settings.remove("use_encryption")
+    settings.endGroup()
+    settings.remove("receiver_trust")
+    settings.sync()
     return data
 
 
@@ -422,102 +418,6 @@ def save_gnome_virtual_layout(slot: str, logical_monitors: list) -> None:
     _save_group(_gnome_virtual_group(), {
         "layout": json.dumps(stored, separators=(",", ":")),
     })
-
-
-def load_receiver_credentials(host: str) -> tuple[str, str]:
-    s = _get_settings()
-    key = hashlib.sha256(credential_host_key(host).encode()).hexdigest()
-    return (
-        s.value(f"receiver_trust/{key}/fingerprint", ""),
-        s.value(f"receiver_trust/{key}/token", ""),
-    )
-
-
-def save_receiver_credentials(host: str, fingerprint: str, token: str) -> None:
-    s = _get_settings()
-    key = hashlib.sha256(credential_host_key(host).encode()).hexdigest()
-    s.setValue(f"receiver_trust/{key}/fingerprint", str(fingerprint or "").strip())
-    s.setValue(f"receiver_trust/{key}/token", str(token or "").strip())
-    s.sync()
-    os.chmod(CONFIG_FILE, 0o600)
-
-
-def clear_receiver_credentials(host: str) -> None:
-    s = _get_settings()
-    key = hashlib.sha256(credential_host_key(host).encode()).hexdigest()
-    s.remove(f"receiver_trust/{key}")
-    s.sync()
-
-
-def _receiver_host_entry(device: dict) -> dict | None:
-    if not isinstance(device, dict):
-        return None
-    ip = normalize_host(device.get("ip"))
-    port = device.get("port", 7110)
-    if not valid_host(ip) or not valid_port(port):
-        return None
-    try:
-        fps = int(str(device.get("fps", 0)).strip())
-    except (TypeError, ValueError):
-        fps = 0
-    return {
-        "name": str(device.get("name") or ip).strip() or ip,
-        "ip": ip,
-        "port": sanitize_port(port),
-        "encrypted": bool(device.get("encrypted", False)),
-        "fingerprint": str(device.get("fingerprint") or "").strip(),
-        "fps": sanitize_fps(fps) if fps else 0,
-    }
-
-
-def _receiver_host_key(device: dict) -> tuple[str, int]:
-    return credential_host_key(device["ip"]), device["port"]
-
-
-def load_recent_receiver_hosts() -> list[dict]:
-    s = _get_settings()
-    try:
-        raw = json.loads(s.value("recent/receiver_hosts", "[]"))
-    except Exception:
-        return []
-    if not isinstance(raw, list):
-        return []
-    hosts, seen = [], set()
-    for device in raw:
-        entry = _receiver_host_entry(device)
-        if entry is None or _receiver_host_key(entry) in seen:
-            continue
-        seen.add(_receiver_host_key(entry))
-        hosts.append(entry)
-    return hosts[:5]
-
-
-def add_recent_receiver_host(device: dict) -> None:
-    entry = _receiver_host_entry(device)
-    if entry is None:
-        return
-    key = _receiver_host_key(entry)
-    hosts = [host for host in load_recent_receiver_hosts()
-             if _receiver_host_key(host) != key]
-    hosts.insert(0, entry)
-    s = _get_settings()
-    s.setValue("recent/receiver_hosts", json.dumps(hosts[:5]))
-    s.sync()
-    os.chmod(CONFIG_FILE, 0o600)
-
-
-def remove_recent_receiver_host(host: str, port: int) -> None:
-    if not valid_host(host) or not valid_port(port):
-        return
-    key = credential_host_key(host), sanitize_port(port)
-    hosts = [entry for entry in load_recent_receiver_hosts()
-             if _receiver_host_key(entry) != key]
-    s = _get_settings()
-    s.setValue("recent/receiver_hosts", json.dumps(hosts))
-    s.sync()
-    os.chmod(CONFIG_FILE, 0o600)
-
-
 
 
 def load_recent_usb_devices() -> list[dict]:

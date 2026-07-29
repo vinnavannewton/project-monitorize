@@ -1,4 +1,4 @@
-"""Primary stream, TLS proxy and input bridge lifecycle."""
+"""Primary stream and input bridge lifecycle."""
 
 import json
 import subprocess
@@ -25,10 +25,10 @@ from monitorize.platform.gnome_virtual_monitor import (
 from monitorize.platform.process_utils import kill_patterns, kill_tracked_pids, stop_processes
 from monitorize.config.settings import (
     load_general_settings,
-    load_wifi_settings,
 )
 from monitorize.platform.utils import LINUX_DIR
 from monitorize.config.validation import (
+    DEFAULT_BITRATE,
     DEFAULT_FPS,
     DEFAULT_PRIMARY_RESOLUTION,
     DEFAULT_SECONDARY_RESOLUTION,
@@ -43,6 +43,8 @@ from monitorize.input_bridge.uinput_backend import UINPUT_PERMISSION_HINT
 
 
 GNOME_LAYOUT_CHANGE_DEBOUNCE_MS = 750
+DUAL_WIFI_BITRATE_BUDGET_KBPS = 30000
+MIN_SECONDARY_BITRATE_KBPS = 4000
 THIRD_STREAM_PUBLIC_PORT = 7114
 THIRD_STREAM_BACKEND_PORT = 7115
 THIRD_INPUT_PUBLIC_PORT = 7117
@@ -51,13 +53,10 @@ GNOME_DISPLAY_CONFIG_SERVICE = "org.gnome.Mutter.DisplayConfig"
 GNOME_DISPLAY_CONFIG_PATH = "/org/gnome/Mutter/DisplayConfig"
 GNOME_DISPLAY_CONFIG_IFACE = "org.gnome.Mutter.DisplayConfig"
 GNOME_DISPLAY_CONFIG_SIGNAL = "MonitorsChanged"
-
-
 class StreamingController(QObject):
     streamingChanged = pyqtSignal(bool)
     statusChanged = pyqtSignal(str)
     countdownChanged = pyqtSignal(int)
-    pairingCodeChanged = pyqtSignal(str)
     secondStreamChanged = pyqtSignal(bool)
     primaryReadyChanged = pyqtSignal(bool)
     logAppended = pyqtSignal(str, str)
@@ -72,13 +71,12 @@ class StreamingController(QObject):
         self.streaming = False
         self.status = ""
         self.countdown = 0
-        self.pairing_code = ""
         self.wifi = False
-        self.encrypted = False
+        self.bitrate = DEFAULT_BITRATE
+        self.width, self.height = DEFAULT_PRIMARY_RESOLUTION
         self.fps = DEFAULT_FPS
-        self.streamer = self.input_bridge = self.tls_proxy = None
+        self.streamer = self.input_bridge = None
         self.gst_pids = set()
-        self.tls_buffer = ""
         self.input_launched = False
         self.generation = 0
         self.streamer_has_pipewire_node = False
@@ -89,6 +87,7 @@ class StreamingController(QObject):
         self.third_streamer = None
         self.third_streaming = False
         self.third_ready = False
+        self.third_width, self.third_height = DEFAULT_SECONDARY_RESOLUTION
         self.third_fps = DEFAULT_FPS
         self.third_generation = 0
         self.third_gst_pids = set()
@@ -147,13 +146,10 @@ class StreamingController(QObject):
             "Intel/AMD VA-API (vah264enc)": "vaapi",
         }.get(self.encoder, "cpu"))
         self.env.insert("MONITORIZE_ENCODER_PROFILE", self.encoder_profile)
-        settings = options.get("wifi") or (load_wifi_settings() if wifi else {})
-        self.encrypted = settings.get("use_encryption", True) if wifi else False
-        self.env.insert("MONITORIZE_STREAM_TYPE", settings.get("stream_type", "Speed"))
+        self.env.insert("MONITORIZE_REQUIRE_HARDWARE_ENCODER", "0")
+        if wifi:
+            self.env.insert("MONITORIZE_VIDEO_TRANSPORT", "rtp-udp-v1")
         self.runtime_general = options.get("general")
-        if self.encrypted:
-            self.env.insert("MONITORIZE_HOST", "127.0.0.1")
-            self.env.insert("MONITORIZE_PORT", "7112")
         if self.de in ("kde", "hyprland") and self.display_type == "Extend":
             self.env.insert("MONITORIZE_PRESERVE_SOURCE_SIZE", "1")
         if self.de == "gnome" and self.display_type == "Extend":
@@ -162,8 +158,6 @@ class StreamingController(QObject):
         if wifi:
             subprocess.run(["adb", "reverse", "--remove", "tcp:7110"], capture_output=True)
             subprocess.run(["adb", "reverse", "--remove", "tcp:7111"], capture_output=True)
-            if self.encrypted:
-                self._launch_tls()
         defer_streaming_ui = self.de == "kde" and self.display_type == "Extend"
         if not defer_streaming_ui:
             self._set_streaming(True)
@@ -291,48 +285,11 @@ class StreamingController(QObject):
         else:
             self.input_launched = False
             self.streamer_buffer = ""
-        self._set_status("Status: Streaming…")
-
-    def _launch_tls(self):
-        self.tls_proxy = self._new_process(use_env=False)
-        generation = self.generation
-        process = self.tls_proxy
-        self.tls_proxy.readyReadStandardOutput.connect(
-            lambda: self._read_tls(generation, process)
+        self._set_status(
+            "Waiting for Android receiver…"
+            if self.wifi
+            else "Status: Streaming…"
         )
-        self.tls_proxy.finished.connect(lambda code, _status: (
-            self.logAppended.emit("TLS", f"Proxy exited (code {code})")
-            if generation == self.generation and process is self.tls_proxy else None
-        ))
-        self.tls_proxy.errorOccurred.connect(
-            lambda _error: self._process_error("TLS", generation, process, self.tls_proxy)
-        )
-        self.tls_proxy.start(sys.executable, ["-m", "monitorize.security.tls_proxy"])
-
-    def _read_tls(self, generation=None, process=None):
-        generation = self.generation if generation is None else generation
-        process = self.tls_proxy if process is None else process
-        if generation != self.generation or process is not self.tls_proxy:
-            return
-        self.tls_buffer += bytes(process.readAllStandardOutput()).decode(
-            "utf-8", errors="replace"
-        )
-        lines = self.tls_buffer.split("\n")
-        self.tls_buffer = lines.pop() if not self.tls_buffer.endswith("\n") else ""
-        for line in lines:
-            if line.startswith("[TLS CONTROL] PAIRING_CODE "):
-                self.pairing_code = line.rsplit(" ", 1)[-1]
-                self.pairingCodeChanged.emit(self.pairing_code)
-            elif "Pairing accepted" in line or "Client authenticated" in line:
-                self._set_status("Status: Streaming securely")
-                client_ip = ""
-                client_name = "Android Device"
-                if "IP: " in line:
-                    client_ip = line.split("IP: ")[1].split(" ")[0].strip()
-                if "Name: " in line:
-                    client_name = line.split("Name: ")[1].strip()
-                if client_ip:
-                    self.clientConnected.emit(client_ip, client_name)
 
     def _launch_input(self, generation=None):
         generation = self.generation if generation is None else generation
@@ -370,8 +327,6 @@ class StreamingController(QObject):
         args = ["-m", "monitorize.input_bridge.touch_daemon", str(self.width), str(self.height)]
         if self.wifi:
             args.append("--wifi")
-            if self.encrypted:
-                args.append("--local-udp")
         if self.de == "gnome" and self.display_type == "Mirror":
             args.append("--gnome-primary")
         if stylus:
@@ -413,8 +368,9 @@ class StreamingController(QObject):
             lines = raw.splitlines()
         for line in lines:
             self._track_gst_pid(line)
-            if "Setting pipeline to PLAYING" in line or "New clock:" in line:
+            if line == "[Pipeline] READY":
                 self._set_primary_ready(True)
+                self._set_status("Status: Streaming…")
             if self.de == "kde":
                 self._handle_kde_streamer_line(line, generation)
             elif self.de == "gnome":
@@ -491,7 +447,6 @@ class StreamingController(QObject):
             )
         elif event.get("type") == "gnome_capture_ready" and slot == "primary":
             self.streamer_has_pipewire_node = True
-            self._set_primary_ready(True)
             if not self.input_launched:
                 self.input_launched = True
                 self._launch_input(generation)
@@ -527,6 +482,8 @@ class StreamingController(QObject):
         )
         if "MONITORIZE_UINPUT_PERMISSION:" in raw:
             self._set_status(UINPUT_PERMISSION_HINT.split(": ", 1)[1])
+        elif "[TouchDaemon] INFO READY" in raw:
+            self._set_status("Touch and stylus input ready")
         self.logAppended.emit(
             "INPUT",
             raw,
@@ -672,6 +629,18 @@ class StreamingController(QObject):
         third_encoder_profile = sanitize_encoder_profile(encoder_profile)
         third_touch_enabled = bool(enable_touch)
         third_stylus_enabled = bool(enable_stylus_features)
+        if self.wifi:
+            available = max(
+                MIN_SECONDARY_BITRATE_KBPS,
+                DUAL_WIFI_BITRATE_BUDGET_KBPS - self.bitrate,
+            )
+            if third_bitrate > available:
+                self.logAppended.emit(
+                    "STREAMER",
+                    f"[Third display] Bitrate limited from {third_bitrate} to "
+                    f"{available} kbps to keep dual Wi-Fi streams responsive.",
+                )
+                third_bitrate = available
 
         third_output = ""
         if self.de == "hyprland":
@@ -704,6 +673,8 @@ class StreamingController(QObject):
             "Intel/AMD VA-API (vah264enc)": "vaapi",
         }.get(third_encoder, "cpu"))
         env.insert("MONITORIZE_ENCODER_PROFILE", third_encoder_profile)
+        if self.wifi:
+            env.insert("MONITORIZE_VIDEO_TRANSPORT", "rtp-udp-v1")
         if self.de == "kde":
             env.insert("MONITORIZE_KDE_VIRTUAL_SLOT", "additional")
             env.insert("MONITORIZE_PRESERVE_SOURCE_SIZE", "1")
@@ -720,11 +691,11 @@ class StreamingController(QObject):
             )
         env.insert(
             "MONITORIZE_PORT",
-            str(THIRD_STREAM_BACKEND_PORT if self.encrypted else THIRD_STREAM_PUBLIC_PORT),
+            str(THIRD_STREAM_PUBLIC_PORT),
         )
         env.insert(
             "MONITORIZE_HOST",
-            "127.0.0.1" if (self.encrypted or not self.wifi) else "0.0.0.0",
+            "127.0.0.1" if not self.wifi else "0.0.0.0",
         )
         if third_output:
             env.insert("MONITORIZE_OUTPUT", third_output)
@@ -785,7 +756,7 @@ class StreamingController(QObject):
         self.logAppended.emit(
             "STREAMER",
             f"[Third display] {action} on port "
-            f"{THIRD_STREAM_PUBLIC_PORT if not self.encrypted else THIRD_STREAM_BACKEND_PORT}.",
+            f"{THIRD_STREAM_PUBLIC_PORT}.",
         )
 
     @staticmethod
@@ -839,11 +810,7 @@ class StreamingController(QObject):
         process.errorOccurred.connect(
             lambda _error: self._third_input_error(generation, process)
         )
-        port = (
-            THIRD_INPUT_BACKEND_PORT if self.wifi and self.encrypted
-            else THIRD_INPUT_PUBLIC_PORT if self.wifi
-            else THIRD_STREAM_BACKEND_PORT
-        )
+        port = THIRD_INPUT_PUBLIC_PORT if self.wifi else THIRD_STREAM_BACKEND_PORT
         args = [
             "-m", "monitorize.input_bridge.touch_daemon",
             str(self.third_width), str(self.third_height),
@@ -851,8 +818,6 @@ class StreamingController(QObject):
         ]
         if self.wifi:
             args.append("--wifi")
-            if self.encrypted:
-                args.append("--local-udp")
         if self.third_stylus_enabled:
             args.append("--stylus-features")
             if not self.third_touch_enabled:
@@ -872,6 +837,8 @@ class StreamingController(QObject):
         )
         if "MONITORIZE_UINPUT_PERMISSION:" in raw:
             self._set_status(UINPUT_PERMISSION_HINT.split(": ", 1)[1])
+        elif "[TouchDaemon] INFO READY" in raw:
+            self._set_status("Additional-display touch and stylus ready")
         self.logAppended.emit("INPUT", f"[Third display] {raw}")
 
     def _third_input_finished(self, code, _status, generation, process):
@@ -946,7 +913,7 @@ class StreamingController(QObject):
                 self._set_status("Third display selected; stream pipeline starting...")
             elif line.startswith("[ERROR]"):
                 self._set_status(line.removeprefix("[ERROR]").strip())
-            if "Setting pipeline to PLAYING" in line or "New clock:" in line:
+            if line == "[Pipeline] READY":
                 if not self.third_ready:
                     self.third_ready = True
                     self._advertise()
@@ -1008,11 +975,6 @@ class StreamingController(QObject):
             "general": general,
             "third": {"enabled": False},
         }
-        if self.wifi:
-            config["wifi"] = {
-                "stream_type": self.env.value("MONITORIZE_STREAM_TYPE"),
-                "use_encryption": self.encrypted,
-            }
         if self.third_streaming:
             config["third"] = {
                 "enabled": True,
@@ -1060,13 +1022,17 @@ class StreamingController(QObject):
 
     def _advertise(self, *_args):
         if self.streaming and self.wifi:
-            self.discovery.advertise(
+            args = (
                 self.local_ip,
-                self.encrypted,
-                self.third_ready,
+                self.third_streaming,
                 self.fps,
                 self.third_fps,
+                self.width,
+                self.height,
+                self.third_width if self.third_streaming else None,
+                self.third_height if self.third_streaming else None,
             )
+            self.discovery.advertise(*args)
 
     def stop(self):
         should_track_layout = self._should_track_gnome_virtual_layout()
@@ -1090,19 +1056,16 @@ class StreamingController(QObject):
             or self.third_input_bridge is not None
         ):
             self.stop_third()
-        stop_processes(self.streamer, self.input_bridge, self.tls_proxy)
-        self.streamer = self.input_bridge = self.tls_proxy = None
+        stop_processes(self.streamer, self.input_bridge)
+        self.streamer = self.input_bridge = None
         kill_tracked_pids(self.gst_pids)
         kill_patterns(
             "gst-launch-1.0.*port=7110", "gst-launch-1.0.*port=7112",
             "gst-launch-1.0.*port=7114", "gst-launch-1.0.*port=7115",
             "monitorize\\.streaming\\.Streamer_.*",
-            "monitorize\\.security\\.tls_proxy",
             "monitorize-kde-virtual-output",
         )
         self.display.cleanup()
         self.gnome_outputs.clear()
         self.discovery.stop_advertising()
-        self.pairing_code = ""
-        self.pairingCodeChanged.emit("")
         self._set_streaming(False)

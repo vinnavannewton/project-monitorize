@@ -120,7 +120,6 @@ class MainActivity : ComponentActivity() {
     @Volatile private var receiver: StreamReceiver? = null
     @Volatile private var inputSender: InputEventSender? = null
     @Volatile private var wifiLock: WifiManager.WifiLock? = null
-    @Volatile private var clearPairingUi: ((Boolean) -> Unit)? = null
     private val streamStateLock = Any()
     private val streamMutex = Mutex()
     private var activeStreamSession = 0L
@@ -188,38 +187,7 @@ class MainActivity : ComponentActivity() {
             var disconnectionMessage by remember { mutableStateOf<String?>(
                 if (intent.getBooleanExtra("SHOW_DISCONNECTED", false)) "Disconnected" else null
             ) }
-            var pairingSubmit by remember { mutableStateOf<((String) -> Unit)?>(null) }
-            var pairingCode by remember { mutableStateOf("") }
-            
             val coroutineScope = rememberCoroutineScope()
-            fun clearPairingState(invokeCancel: Boolean) {
-                if (invokeCancel) {
-                    pairingSubmit?.invoke("")
-                }
-                pairingSubmit = null
-                pairingCode = ""
-            }
-
-            SideEffect {
-                clearPairingUi = { invokeCancel ->
-                    clearPairingState(invokeCancel)
-                }
-            }
-            DisposableEffect(Unit) {
-                onDispose {
-                    if (clearPairingUi != null) {
-                        clearPairingUi = null
-                    }
-                }
-            }
-
-            fun cancelPairing() {
-                clearPairingState(invokeCancel = true)
-                selectedDevice = null
-                currentScreen = Screen.Home
-                status.value = ""
-                coroutineScope.launch { stopStream() }
-            }
 
             
             if (disconnectionMessage != null) {
@@ -239,8 +207,12 @@ class MainActivity : ComponentActivity() {
                                     recentDevices = recentDevices,
                                     onDeviceSelected = { device ->
                                         discovery.stopDiscovery()
-                                        decodedWidth = width
-                                        decodedHeight = height
+                                        if (device.width > 0 && device.height > 0) {
+                                            width = device.width
+                                            height = device.height
+                                        }
+                                        decodedWidth = device.width.takeIf { it > 0 } ?: width
+                                        decodedHeight = device.height.takeIf { it > 0 } ?: height
                                         selectedDevice = device
                                         currentScreen = Screen.Receive
                                         disconnectionMessage = null 
@@ -262,7 +234,6 @@ class MainActivity : ComponentActivity() {
                                     displayHeight = decodedHeight,
                                     status = status.value,
                                     onBack = {
-                                        clearPairingState(invokeCancel = true)
                                         restartApp()
                                     },
                                     onSurfaceCreated = { ip, surface, w, h, onFirstFrameRendered ->
@@ -273,12 +244,6 @@ class MainActivity : ComponentActivity() {
                                                 ip, port, surface, w, h,
                                                 surfaceGeneration = generation,
                                                 device = selectedDevice,
-                                                onPairingRequired = { submit ->
-                                                    runOnUiThread {
-                                                        pairingCode = ""
-                                                        pairingSubmit = submit
-                                                    }
-                                                },
                                                 onDecodedSize = { decodedW, decodedH ->
                                                     decodedWidth = decodedW
                                                     decodedHeight = decodedH
@@ -300,13 +265,14 @@ class MainActivity : ComponentActivity() {
                                         generation
                                     },
                                     onSurfaceDestroyed = { generation ->
-                                        clearPairingState(invokeCancel = false)
                                         coroutineScope.launch {
                                             stopStream(surfaceGeneration = generation)
                                         }
                                     },
                                     onSurfaceRenderTimeout = {
-                                        status.value = "Video surface did not render; try moving your mouse into the virtual display"
+                                        if (status.value.isBlank()) {
+                                            status.value = "Video surface did not render; check the desktop stream log"
+                                        }
                                     },
                                     onInputEvent = { event, viewW, viewH -> inputSender?.send(event, viewW, viewH) }
                                 )
@@ -361,42 +327,6 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        if (pairingSubmit != null) {
-                            AlertDialog(
-                                onDismissRequest = {
-                                    cancelPairing()
-                                },
-                                title = { Text("Pair encrypted connection") },
-                                text = {
-                                    Column {
-                                        Text("Enter the 6-digit code shown in the Linux app.")
-                                        Spacer(modifier = Modifier.height(12.dp))
-                                        OutlinedTextField(
-                                            value = pairingCode,
-                                            onValueChange = { pairingCode = it.filter(Char::isDigit).take(6) },
-                                            singleLine = true,
-                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                            label = { Text("Pairing code") }
-                                        )
-                                    }
-                                },
-                                confirmButton = {
-                                    TextButton(
-                                        enabled = pairingCode.length == 6,
-                                        onClick = {
-                                            pairingSubmit?.invoke(pairingCode)
-                                            pairingSubmit = null
-                                        }
-                                    ) { Text("Pair") }
-                                },
-                                dismissButton = {
-                                    TextButton(onClick = {
-                                        cancelPairing()
-                                    }) { Text("Cancel") }
-                                }
-                            )
-                        }
-
                         
                         AnimatedVisibility(
                             visible = disconnectionMessage != null,
@@ -445,14 +375,14 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         discovery.stopDiscovery()
-        clearPairingUi?.invoke(false)
-        closeStreamResourcesBlocking(snapshotAndClearStreamResources(invalidateSurface = true))
+        val resources = snapshotAndClearStreamResources(invalidateSurface = true)
+        Thread({ closeStreamResourcesBlocking(resources) }, "MonitorizeCleanup").start()
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        clearPairingUi?.invoke(false)
-        closeStreamResourcesBlocking(snapshotAndClearStreamResources(invalidateSurface = true))
+        val resources = snapshotAndClearStreamResources(invalidateSurface = true)
+        Thread({ closeStreamResourcesBlocking(resources) }, "MonitorizeCleanup").start()
     }
 
     private fun restartApp() {
@@ -501,8 +431,9 @@ class MainActivity : ComponentActivity() {
                                 name = entry.optString("name").ifBlank { "WiFi Device" },
                                 ip = host,
                                 port = port,
-                                encrypted = entry.optBoolean("encrypted", false),
-                                fingerprint = entry.optString("fingerprint").takeIf { it.isNotBlank() }
+                                width = entry.optInt("width", 0),
+                                height = entry.optInt("height", 0),
+                                fps = entry.optInt("fps", 60),
                             )
                         )
                     }
@@ -518,12 +449,7 @@ class MainActivity : ComponentActivity() {
 
     private fun rememberRecentDevice(device: DiscoveredDevice): List<DiscoveredDevice> {
         if (!isRememberableWifiDevice(device)) return loadRecentDevices()
-        val remembered = device.copy(
-            fingerprint = device.fingerprint ?: prefs.getString("tls_host_${device.ip}", null),
-            isUsb = false,
-            inputTransport = null,
-            serviceName = ""
-        )
+        val remembered = device.copy(isUsb = false, serviceName = "")
         val recentDevices = updatedRecentDevices(loadRecentDevices(), remembered)
         persistRecentDevices(recentDevices)
         return recentDevices
@@ -531,23 +457,9 @@ class MainActivity : ComponentActivity() {
 
     private fun forgetRecentDevice(device: DiscoveredDevice): List<DiscoveredDevice> {
         val savedDevices = loadRecentDevices()
-        val fingerprints = buildSet {
-            add(device.fingerprint)
-            add(prefs.getString("tls_host_${device.ip}", null))
-            savedDevices.filter { recentHostKey(it) == recentHostKey(device) }
-                .forEach { add(it.fingerprint) }
-        }.filterNotNull().filter { it.isNotBlank() }
         val recentDevices = removedRecentDevices(savedDevices, device)
 
         prefs.edit().apply {
-            remove("tls_host_${device.ip}")
-            prefs.all
-                .filter { (key, value) ->
-                    key.startsWith("tls_host_") && value is String && value in fingerprints
-                }
-                .keys
-                .forEach { remove(it) }
-            fingerprints.forEach { remove("tls_token_$it") }
             writeRecentDevices(this, recentDevices)
             apply()
         }
@@ -573,8 +485,9 @@ class MainActivity : ComponentActivity() {
                     .put("name", device.name)
                     .put("ip", device.ip)
                     .put("port", device.port)
-                    .put("encrypted", device.encrypted)
-                    .put("fingerprint", device.fingerprint ?: "")
+                    .put("width", device.width)
+                    .put("height", device.height)
+                    .put("fps", device.fps)
             )
         }
         editor.putString(RECENT_WIFI_DEVICES_KEY, entries.toString())
@@ -657,7 +570,6 @@ class MainActivity : ComponentActivity() {
         height: Int,
         surfaceGeneration: Long,
         device: DiscoveredDevice?,
-        onPairingRequired: ((String) -> Unit) -> Unit,
         onDecodedSize: (Int, Int) -> Unit,
         onFirstFrameRendered: () -> Unit,
         onDisconnect: () -> Unit
@@ -671,7 +583,11 @@ class MainActivity : ComponentActivity() {
             return@withLock
         }
 
-        val streamDimensions = sanitizeStreamDimensions(width, height)
+        val streamDimensions = sanitizeStreamDimensions(
+            device?.width?.takeIf { it > 0 } ?: width,
+            device?.height?.takeIf { it > 0 } ?: height,
+        )
+        val streamFps = device?.fps ?: DEFAULT_STREAM_FPS
         val sessionId = synchronized(streamStateLock) {
             activeStreamSession += 1
             activeStreamSession
@@ -698,17 +614,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
         )
-        val encrypted = device?.let { it.encrypted && !it.isUsb } == true
-        val advertisedFingerprint = device?.fingerprint
-        val savedFingerprint = advertisedFingerprint?.takeIf {
-            prefs.getString("tls_token_$it", null) != null
-        } ?: prefs.getString("tls_host_$hostIp", null)
-        val savedToken = savedFingerprint?.let { prefs.getString("tls_token_$it", null) }
         var inputStarted = false
 
         val streamReceiver = StreamReceiver(
-            d, streamDimensions.width, streamDimensions.height, hostIp.takeIf { it.isNotBlank() }, hostPort,
-            encrypted, savedFingerprint, savedToken
+            d, streamDimensions.width, streamDimensions.height, streamFps,
+            hostIp.takeIf { it.isNotBlank() }, hostPort
         )
         streamReceiver.apply {
             onStatusChange = { msg ->
@@ -725,52 +635,26 @@ class MainActivity : ComponentActivity() {
                     onDisconnect()
                 }
             }
-            this.onPairingRequired = { submit ->
-                if (isActiveStream(sessionId, streamReceiver)) {
-                    onPairingRequired { code ->
-                        if (isActiveStream(sessionId, streamReceiver)) {
-                            submit(code)
-                        } else {
-                            submit("")
-                        }
-                    }
-                } else {
-                    submit("")
+            onPlainTransportReady = plain@ {
+                if (!isActiveStream(sessionId, streamReceiver) || inputStarted) {
+                    return@plain
                 }
-            }
-            onCredentials = credentials@ { fingerprint, token ->
-                if (!isActiveStream(sessionId, streamReceiver)) {
-                    return@credentials
-                }
-                if (fingerprint.isEmpty() || token.isEmpty()) {
-                    prefs.edit().remove("tls_host_$hostIp").apply()
-                    return@credentials
-                }
-
-                prefs.edit()
-                    .putString("tls_host_$hostIp", fingerprint)
-                    .putString("tls_token_$fingerprint", token)
-                    .apply()
-                if (!inputStarted) {
-                    val sender = InputEventSender(hostIp, hostPort, true, fingerprint, token)
-                    val assigned = synchronized(streamStateLock) {
-                        if (activeStreamSession == sessionId && receiver === streamReceiver && inputSender == null) {
-                            inputStarted = true
-                            inputSender = sender
-                            sender.start()
-                            true
-                        } else {
-                            false
-                        }
-                    }
-                    if (!assigned) {
-                        sender.stop()
+                val sender = InputEventSender(hostIp.takeIf { it.isNotBlank() }, hostPort)
+                val assigned = synchronized(streamStateLock) {
+                    if (activeStreamSession == sessionId && receiver === streamReceiver && inputSender == null) {
+                        inputStarted = true
+                        inputSender = sender
+                        sender.start()
+                        true
+                    } else {
+                        false
                     }
                 }
+                if (!assigned) sender.stop()
             }
         }
 
-        val unencryptedInputSender = if (!encrypted) {
+        val usbInputSender = if (device?.isUsb == true) {
             InputEventSender(hostIp.takeIf { it.isNotBlank() }, hostPort)
         } else {
             null
@@ -780,9 +664,9 @@ class MainActivity : ComponentActivity() {
                 decoder = d
                 receiver = streamReceiver
                 wifiLock = newWifiLock
-                if (unencryptedInputSender != null) {
-                    inputSender = unencryptedInputSender
-                    unencryptedInputSender.start()
+                if (usbInputSender != null) {
+                    inputSender = usbInputSender
+                    usbInputSender.start()
                 }
                 streamReceiver.start()
                 true
@@ -791,7 +675,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         if (!registered) {
-            unencryptedInputSender?.stop()
+            usbInputSender?.stop()
             streamReceiver.stop()
             d.release()
             closeStreamResourcesBlocking(StreamResources(null, null, null, newWifiLock))
@@ -1046,8 +930,7 @@ fun HomeScreen(
                                         apply()
                                     }
                                     onDeviceSelected(DiscoveredDevice(
-                                        name = "Manual WiFi", ip = ip, port = port,
-                                        isUsb = false, encrypted = false
+                                        name = "Manual WiFi", ip = ip, port = port
                                     ))
                                 }
                             }
@@ -1071,7 +954,7 @@ fun HomeScreen(
                 onDismissRequest = { deviceToForget = null },
                 title = { Text("Forget saved device?") },
                 text = {
-                    Text("Remove ${device.name} from Frequently Connected and forget its saved credentials?")
+                    Text("Remove ${device.name} from Frequently Connected?")
                 },
                 confirmButton = {
                     TextButton(onClick = {
@@ -1398,27 +1281,6 @@ fun ReceiveScreen(
     onInputEvent: (android.view.MotionEvent, Float, Float) -> Unit
 ) {
     BackHandler(onBack = onBack)
-    var surfaceKey by remember(hostIp, width, height, fps) { mutableStateOf(0) }
-    var surfaceRecreateUsed by remember(hostIp, width, height, fps) { mutableStateOf(false) }
-
-    LaunchedEffect(hostIp, width, height, fps) {
-        delay(300)
-        if (!surfaceRecreateUsed) {
-            surfaceRecreateUsed = true
-            surfaceKey += 1
-            Log.w("ReceiveScreen", "Recreating SurfaceView once after initial attach")
-        }
-    }
-
-    fun handleSurfaceStartupFailure() {
-        if (!surfaceRecreateUsed) {
-            surfaceRecreateUsed = true
-            surfaceKey += 1
-            Log.w("ReceiveScreen", "Recreating SurfaceView once after startup failure")
-        } else {
-            onSurfaceRenderTimeout()
-        }
-    }
 
     Box(
         modifier = Modifier.fillMaxSize().background(Color.Black),
@@ -1427,19 +1289,17 @@ fun ReceiveScreen(
         
         
         Box(modifier = Modifier.aspectRatio(displayWidth.toFloat() / displayHeight.toFloat())) {
-            key(surfaceKey) {
-                StreamSurface(
-                    modifier = Modifier.fillMaxSize(),
-                    width = width,
-                    height = height,
-                    fps = fps,
-                    hostIp = hostIp,
-                    onSurfaceCreated = onSurfaceCreated,
-                    onSurfaceDestroyed = onSurfaceDestroyed,
-                    onSurfaceRenderTimeout = ::handleSurfaceStartupFailure,
-                    onInputEvent = onInputEvent
-                )
-            }
+            StreamSurface(
+                modifier = Modifier.fillMaxSize(),
+                width = width,
+                height = height,
+                fps = fps,
+                hostIp = hostIp,
+                onSurfaceCreated = onSurfaceCreated,
+                onSurfaceDestroyed = onSurfaceDestroyed,
+                onSurfaceRenderTimeout = onSurfaceRenderTimeout,
+                onInputEvent = onInputEvent
+            )
         }
 
         
@@ -1484,8 +1344,6 @@ fun StreamSurface(
                     private var hasSurfaceEvent = false
                     private var hasSizedSurfaceChange = false
                     private var firstFrameRendered = false
-                    private var watchdogRestartUsed = false
-                    private var pendingForceRestart = false
                     private var readinessRetryStartedAt = 0L
                     private var lastReadinessBlockedLogAt = 0L
                     private var readinessRetry: Runnable? = null
@@ -1497,7 +1355,6 @@ fun StreamSurface(
                         callbackSurfaceWidth = 0
                         callbackSurfaceHeight = 0
                         applyFrameRateHint(holder.surface)
-                        watchdogRestartUsed = false
                         scheduleSurfaceReadyChecks(reason = "surfaceCreated")
                     }
 
@@ -1507,7 +1364,7 @@ fun StreamSurface(
                         callbackSurfaceHeight = h
                         hasSizedSurfaceChange = w > 0 && h > 0
                         applyFrameRateHint(holder.surface)
-                        scheduleSurfaceReadyChecks(forceRestart = true, reason = "surfaceChanged")
+                        scheduleSurfaceReadyChecks(reason = "surfaceChanged")
                     }
 
                     override fun surfaceDestroyed(holder: SurfaceHolder) {
@@ -1518,16 +1375,14 @@ fun StreamSurface(
                         callbackSurfaceWidth = 0
                         callbackSurfaceHeight = 0
                         firstFrameRendered = false
-                        watchdogRestartUsed = false
                         lastReadinessBlockedLogAt = 0L
                         stopActiveStream()
                     }
 
-                    fun scheduleSurfaceReadyChecks(forceRestart: Boolean = false, reason: String = "layout") {
-                        if (surfaceGeneration != 0L && !forceRestart) {
+                    fun scheduleSurfaceReadyChecks(reason: String = "layout") {
+                        if (surfaceGeneration != 0L) {
                             return
                         }
-                        pendingForceRestart = pendingForceRestart || forceRestart
                         if (readinessRetry != null) {
                             return
                         }
@@ -1536,7 +1391,7 @@ fun StreamSurface(
                         Log.i("StreamSurface", "Surface readiness retry started: $reason")
                         val retry = object : Runnable {
                             override fun run() {
-                                if (maybeStartOrRestartStream(pendingForceRestart)) {
+                                if (maybeStartOrRestartStream()) {
                                     stopSurfaceReadyChecks()
                                     return
                                 }
@@ -1554,7 +1409,7 @@ fun StreamSurface(
                         post(retry)
                     }
 
-                    private fun maybeStartOrRestartStream(forceRestart: Boolean): Boolean {
+                    private fun maybeStartOrRestartStream(): Boolean {
                         val actualWidth = callbackSurfaceWidth
                         val actualHeight = callbackSurfaceHeight
                         val blockedReason = surfaceBlockedReason(actualWidth, actualHeight)
@@ -1564,13 +1419,8 @@ fun StreamSurface(
                         }
                         val surface = holder.surface
                         applyFrameRateHint(surface)
-                        if (surfaceGeneration != 0L && !forceRestart) {
-                            if (actualWidth == activeSurfaceWidth && actualHeight == activeSurfaceHeight) {
-                                return true
-                            }
-                        }
                         if (surfaceGeneration != 0L) {
-                            stopActiveStream()
+                            return true
                         }
                         activeSurfaceWidth = actualWidth
                         activeSurfaceHeight = actualHeight
@@ -1609,14 +1459,11 @@ fun StreamSurface(
                             if (generation != surfaceGeneration || firstFrameRendered) {
                                 return@Runnable
                             }
-                            if (!watchdogRestartUsed) {
-                                watchdogRestartUsed = true
-                                callbackSurfaceWidth = surfaceWidth
-                                callbackSurfaceHeight = surfaceHeight
-                                maybeStartOrRestartStream(forceRestart = true)
-                            } else {
-                                onSurfaceRenderTimeout()
-                            }
+                            Log.w(
+                                "StreamSurface",
+                                "No rendered frame after 2s on ${surfaceWidth}x${surfaceHeight}",
+                            )
+                            onSurfaceRenderTimeout()
                         }
                         firstFrameWatchdog = watchdog
                         postDelayed(watchdog, 2000L)
@@ -1625,7 +1472,6 @@ fun StreamSurface(
                     private fun stopSurfaceReadyChecks() {
                         readinessRetry?.let { removeCallbacks(it) }
                         readinessRetry = null
-                        pendingForceRestart = false
                         readinessRetryStartedAt = 0L
                     }
 

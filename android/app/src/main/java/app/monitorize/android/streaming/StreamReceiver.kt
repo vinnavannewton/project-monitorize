@@ -1,37 +1,72 @@
 package app.monitorize.android.streaming
 
 import android.util.Log
-import app.monitorize.android.security.connectTls
-import app.monitorize.android.security.readAsciiLine
+import java.io.ByteArrayOutputStream
 import java.net.Socket
 import java.net.InetSocketAddress
 import java.net.SocketTimeoutException
-import java.util.concurrent.ArrayBlockingQueue
-import java.util.concurrent.TimeUnit
+import java.net.DatagramPacket
+import java.net.DatagramSocket
+import java.net.InetAddress
 import java.util.concurrent.atomic.AtomicBoolean
+
+private const val RTP_TRANSPORT = "rtp-udp-v1"
+
+internal data class RtpStreamConfig(val width: Int, val height: Int, val fps: Int)
+
+internal fun parseRtpReady(response: String): RtpStreamConfig? {
+    if (!response.startsWith("MZRP1 ")) return null
+    val ready = response.removePrefix("MZRP1 ")
+    fun textField(name: String) = Regex("\\\"$name\\\"\\s*:\\s*\\\"([^\\\"]*)\\\"")
+        .find(ready)?.groupValues?.get(1)
+    fun integerField(name: String) = Regex("\\\"$name\\\"\\s*:\\s*(\\d+)")
+        .find(ready)?.groupValues?.get(1)?.toIntOrNull()
+    val width = integerField("width") ?: return null
+    val height = integerField("height") ?: return null
+    val fps = integerField("fps") ?: return null
+    return if (
+        textField("transport") != RTP_TRANSPORT ||
+        textField("status") != "ready" ||
+        width !in 320..7680 || height !in 240..4320 ||
+        width % 2 != 0 || height % 2 != 0 || fps !in 24..240
+    ) null else RtpStreamConfig(width, height, fps)
+}
+
+private fun readAsciiLine(socket: Socket, maxBytes: Int): String {
+    val line = ByteArrayOutputStream()
+    val input = socket.getInputStream()
+    while (line.size() < maxBytes) {
+        val value = input.read()
+        if (value < 0 || value == '\n'.code) break
+        line.write(value)
+    }
+    if (line.size() >= maxBytes) throw java.io.IOException("control response too large")
+    return line.toString(Charsets.UTF_8.name())
+}
 
 class StreamReceiver(
     private val decoder: H264Decoder,
     private val width: Int,
     private val height: Int,
+    private val fps: Int = 60,
     private val hostIp: String? = null,
-    private val hostPort: Int = 7110,
-    private val encrypted: Boolean = false,
-    private val trustedFingerprint: String? = null,
-    private val authToken: String? = null
+    private val hostPort: Int = 7110
 ) {
     private val running = AtomicBoolean(false)
     @Volatile private var worker: Thread? = null
     @Volatile
     private var controlSocket: Socket? = null
+    @Volatile
+    private var rtpSocket: DatagramSocket? = null
+    private val idrRequestInFlight = AtomicBoolean(false)
 
     var onStatusChange: ((String) -> Unit)? = null
     var onDisconnect: (() -> Unit)? = null
-    var onPairingRequired: (((String) -> Unit) -> Unit)? = null
-    var onCredentials: ((String, String) -> Unit)? = null
+    var onPlainTransportReady: (() -> Unit)? = null
 
     companion object {
         private const val TAG = "StreamReceiver"
+        private const val RTP_CONTROL_RESPONSE_LIMIT = 1024
         private const val MAX_STREAM_BUFFER = 4 * 1024 * 1024
         private const val MAX_ACCESS_UNIT = 2 * 1024 * 1024
         private const val CONNECT_TIMEOUT_MS = 2500
@@ -46,7 +81,12 @@ class StreamReceiver(
         worker = Thread({
             android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_DISPLAY)
             try {
-                receiveLoopWifi(hostIp.takeUnless { it.isNullOrEmpty() } ?: "127.0.0.1")
+                val target = hostIp.takeUnless { it.isNullOrEmpty() } ?: "127.0.0.1"
+                if (target != "127.0.0.1") {
+                    if (!receiveLoopRtp(target) && running.get()) onDisconnect?.invoke()
+                } else {
+                    receiveLoopWifi(target)
+                }
             } catch (e: Exception) {
                 if (running.get()) {
                     Log.e(TAG, "Receiver stopped unexpectedly", e)
@@ -60,57 +100,203 @@ class StreamReceiver(
         }, "MonitorizeReceiver").also { it.start() }
     }
 
+    private fun receiveLoopRtp(targetIp: String): Boolean {
+        val socket = DatagramSocket()
+        rtpSocket = socket
+        controlSocket = null
+        socket.receiveBufferSize = 512 * 1024
+        socket.soTimeout = 4
+        try { socket.trafficClass = 0xC0 } catch (_: Exception) {}
+        val host = InetAddress.getByName(targetIp)
+        val controlPort = hostPort
+        val hello = "MZRP1 {\"transport\":\"rtp-udp-v1\",\"port\":${socket.localPort}," +
+            "\"fps\":$fps,\"width\":$width,\"height\":$height," +
+            "\"decoderProfiles\":[\"high\",\"constrained-baseline\"]}"
+        val helloBytes = hello.toByteArray(Charsets.UTF_8)
+        Log.i(TAG, "RTP negotiation: UDP port ${socket.localPort}, target $targetIp:$controlPort")
+        onStatusChange?.invoke("Negotiating low-latency UDP video…")
+        val ready: RtpStreamConfig? = try {
+            Socket().use { control ->
+                control.connect(InetSocketAddress(targetIp, controlPort), 1500)
+                control.soTimeout = 1500
+                control.tcpNoDelay = true
+                control.getOutputStream().apply {
+                    write(helloBytes)
+                    write('\n'.code)
+                    flush()
+                }
+                val response = readAsciiLine(control, RTP_CONTROL_RESPONSE_LIMIT)
+                Log.i(TAG, "RTP server reply: $response")
+                parseRtpReady(response)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "RTP TCP handshake failed: ${e.message}", e)
+            null
+        }
+        if (ready == null) {
+            Log.w(TAG, "RTP handshake not ready")
+            socket.close()
+            return false
+        }
+        Log.i(TAG, "RTP handshake succeeded, starting receive loop")
+        socket.soTimeout = 4
+        onPlainTransportReady?.invoke()
+        decoder.init(ready.width, ready.height, ready.fps)
+        onStatusChange?.invoke("")
+        val assembler = RtpH264Assembler()
+        val fecRecovery = RtpUlpFecRecovery()
+        val buffer = ByteArray(2048)
+        var waitingForIdr = true
+        val frameDeadlineNanos = 1_500_000_000L / fps.coerceAtLeast(1)
+        var expectedSequence = -1
+        var lostPackets = 0
+        var recoveredPackets = 0
+        var incompleteFrames = 0
+        var receivedPackets = 0
+        var totalReceivedPackets = 0L
+        var totalFramesDecoded = 0L
+        var firstPacketLogged = false
+        var lastStats = android.os.SystemClock.uptimeMillis()
+        var noPacketDeadline = android.os.SystemClock.uptimeMillis() + 5000
+        while (running.get()) {
+            try {
+                val packet = DatagramPacket(buffer, buffer.size)
+                socket.receive(packet)
+                val rtp = RtpH264Assembler.parse(packet.data, packet.length) ?: continue
+                receivedPackets++
+                totalReceivedPackets++
+                noPacketDeadline = 0L
+                if (!firstPacketLogged) {
+                    firstPacketLogged = true
+                    val nalType = if (rtp.payload.isNotEmpty()) rtp.payload[0].toInt() and 0x1f else -1
+                    Log.i(TAG, "RTP first packet: seq=${rtp.sequence} ts=${rtp.timestamp} " +
+                        "pt=${rtp.payloadType} marker=${rtp.marker} " +
+                        "payloadSize=${rtp.payload.size} nalType=$nalType " +
+                        "from ${packet.address}:${packet.port}")
+                }
+                if (expectedSequence < 0) {
+                    expectedSequence = (rtp.sequence + 1) and 0xffff
+                } else {
+                    val gap = (rtp.sequence - expectedSequence) and 0xffff
+                    if (gap == 0) {
+                        expectedSequence = (expectedSequence + 1) and 0xffff
+                    } else if (gap in 1..1024) {
+                        lostPackets += gap
+                        expectedSequence = (rtp.sequence + 1) and 0xffff
+                    }
+                }
+                val mediaPacket = if (rtp.payloadType == 122) {
+                    fecRecovery.recover(rtp)?.also { recoveredPackets++ } ?: continue
+                } else {
+                    fecRecovery.remember(rtp)
+                    rtp
+                }
+                val frame = assembler.offer(mediaPacket)
+                if (assembler.droppedFrame) {
+                    requestIdrViaTcp(targetIp, controlPort, socket.localPort)
+                    waitingForIdr = true
+                    incompleteFrames++
+                }
+                if (frame != null) {
+                    val isIdr = containsIdr(frame)
+                    if (!waitingForIdr || isIdr) {
+                        val fed = decoder.feedChunk(frame, 0, frame.size, isIdr)
+                        if (fed) {
+                            totalFramesDecoded++
+                            if (totalFramesDecoded <= 3) {
+                                Log.i(TAG, "RTP frame #$totalFramesDecoded fed to decoder: " +
+                                    "size=${frame.size} idr=$isIdr")
+                            }
+                        } else {
+                            Log.w(TAG, "RTP decoder rejected frame: size=${frame.size} idr=$isIdr")
+                        }
+                        if (isIdr) waitingForIdr = false
+                    } else if (totalFramesDecoded == 0L) {
+                        Log.d(TAG, "RTP skipping non-IDR frame while waiting for keyframe")
+                    }
+                }
+            } catch (_: SocketTimeoutException) {
+                if (noPacketDeadline > 0 && android.os.SystemClock.uptimeMillis() > noPacketDeadline) {
+                    Log.w(TAG, "RTP no packets received within 5s — requesting IDR")
+                    requestIdrViaTcp(targetIp, controlPort, socket.localPort)
+                    noPacketDeadline = android.os.SystemClock.uptimeMillis() + 5000
+                }
+                if (assembler.expire(System.nanoTime(), frameDeadlineNanos)) {
+                    waitingForIdr = true
+                    incompleteFrames++
+                    requestIdrViaTcp(targetIp, controlPort, socket.localPort)
+                }
+            }
+            val statsNow = android.os.SystemClock.uptimeMillis()
+            if (statsNow - lastStats >= 250) {
+                val stats = decoder.takeStats()
+                if (totalReceivedPackets < 100 || receivedPackets > 0) {
+                    Log.d(TAG, "RTP stats: recv=$receivedPackets lost=$lostPackets " +
+                        "recovered=$recoveredPackets incomplete=$incompleteFrames " +
+                        "rendered=${stats.renderedFrames} totalFrames=$totalFramesDecoded")
+                }
+                receivedPackets = 0
+                lostPackets = 0
+                recoveredPackets = 0
+                incompleteFrames = 0
+                lastStats = statsNow
+            }
+        }
+        Log.i(TAG, "RTP receive loop ended: totalPackets=$totalReceivedPackets " +
+            "totalFrames=$totalFramesDecoded")
+        socket.close()
+        return true
+    }
+
+    private fun requestIdrViaTcp(hostIp: String, controlPort: Int, localUdpPort: Int) {
+        if (!running.get()) return
+        if (!idrRequestInFlight.compareAndSet(false, true)) return
+        Thread({
+            try {
+                Socket().use { control ->
+                    control.connect(InetSocketAddress(hostIp, controlPort), 1000)
+                    control.soTimeout = 1000
+                    control.tcpNoDelay = true
+                    val hello = "MZRP1 {\"transport\":\"rtp-udp-v1\",\"port\":$localUdpPort," +
+                        "\"fps\":$fps,\"width\":$width,\"height\":$height," +
+                        "\"decoderProfiles\":[\"high\",\"constrained-baseline\"]}"
+                    control.getOutputStream().apply {
+                        write(hello.toByteArray(Charsets.UTF_8))
+                        write('\n'.code)
+                        flush()
+                    }
+                    try { readAsciiLine(control, RTP_CONTROL_RESPONSE_LIMIT) } catch (_: Exception) {}
+                }
+            } catch (_: Exception) {
+            } finally {
+                idrRequestInFlight.set(false)
+            }
+        }, "MonitorizeIdrRequest").start()
+    }
+
+    private fun containsIdr(frame: ByteArray): Boolean {
+        for (index in 0 until frame.size - 4) {
+            if (frame[index].toInt() == 0 && frame[index + 1].toInt() == 0 &&
+                ((frame[index + 2].toInt() == 1) ||
+                    (frame[index + 2].toInt() == 0 && frame[index + 3].toInt() == 1))) {
+                val header = if (frame[index + 2].toInt() == 1) index + 3 else index + 4
+                if (header < frame.size && frame[header].toInt() and 0x1f == 5) return true
+            }
+        }
+        return false
+    }
+
     private fun receiveLoopWifi(targetIp: String) {
-        val streamType = if (targetIp == "127.0.0.1") "USB" else "WiFi"
-        var expectedFingerprint = trustedFingerprint
-        var token = authToken
+        val streamType = "USB"
         var hasConnected = false
         while (running.get()) {
             onStatusChange?.invoke(if (streamType == "USB") "Waiting for USB connection…" else "Connecting to $targetIp:$hostPort…")
             var socket: Socket? = null
             while (running.get() && socket == null) {
                 try {
-                    if (encrypted && streamType == "WiFi") {
-                        val secure = connectTls(targetIp, hostPort, expectedFingerprint)
-                        socket = secure.socket
-                        val output = secure.socket.outputStream
-                        if (token == null) {
-                            val submitted = ArrayBlockingQueue<String>(1)
-                            onPairingRequired?.invoke { submitted.offer(it) }
-                                ?: throw SecurityException("Pairing UI unavailable")
-                            val code = submitted.poll(30, TimeUnit.SECONDS)
-                                ?: throw SecurityException("Pairing timed out")
-                            if (code.isEmpty()) {
-                                running.set(false)
-                                socket.close()
-                                return
-                            }
-                            output.write("PAIR $code\n".toByteArray(Charsets.US_ASCII))
-                        } else {
-                            output.write("AUTH $token\n".toByteArray(Charsets.US_ASCII))
-                        }
-                        output.flush()
-                        val response = readAsciiLine(secure.socket)
-                        if (!response.startsWith("OK")) {
-                            token = null
-                            socket.close()
-                            socket = null
-                            continue
-                        }
-                        if (token == null) {
-                            token = response.substringAfter("OK ", "").takeIf { it.length == 64 }
-                                ?: throw SecurityException("Invalid pairing response")
-                        }
-                        expectedFingerprint = secure.fingerprint
-                        onCredentials?.invoke(secure.fingerprint, token!!)
-                    } else {
-                        socket = Socket()
-                        socket.connect(InetSocketAddress(targetIp, hostPort), CONNECT_TIMEOUT_MS)
-                    }
+                    socket = Socket()
+                    socket.connect(InetSocketAddress(targetIp, hostPort), CONNECT_TIMEOUT_MS)
                 } catch (e: SecurityException) {
-                    expectedFingerprint = null
-                    token = null
-                    onCredentials?.invoke("", "")
                     try { socket?.close() } catch (_: Exception) {}
                     socket = null
                     sleepBeforeRetry()
@@ -125,7 +311,7 @@ class StreamReceiver(
             socket.tcpNoDelay = true
             socket.keepAlive = true
             socket.soTimeout = STREAM_IDLE_TIMEOUT_MS
-            socket.receiveBufferSize = 1024 * 1024
+            socket.receiveBufferSize = 256 * 1024
             try {
                 
                 socket.trafficClass = 0xC0
@@ -135,7 +321,7 @@ class StreamReceiver(
             controlSocket = socket
 
             onStatusChange?.invoke(if (hasConnected) "Reconnected" else "Connected")
-            decoder.init(width, height)
+            decoder.init(width, height, fps)
             onStatusChange?.invoke("")
             hasConnected = true
 
@@ -438,6 +624,8 @@ class StreamReceiver(
     private fun cleanup() {
         try { controlSocket?.close() } catch (_: Exception) {}
         controlSocket = null
+        try { rtpSocket?.close() } catch (_: Exception) {}
+        rtpSocket = null
     }
 
     @Synchronized
@@ -447,7 +635,7 @@ class StreamReceiver(
         worker?.interrupt()
         if (Thread.currentThread() !== worker) {
             try {
-                worker?.join(2000)
+                worker?.join(500)
             } catch (_: InterruptedException) {
                 Thread.currentThread().interrupt()
             }

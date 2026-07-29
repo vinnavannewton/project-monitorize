@@ -139,10 +139,9 @@ class MonitorizeWindow(QMainWindow):
             "gst-launch-1.0.*port=7114",
             "gst-launch-1.0.*port=7115",
             "monitorize\\.streaming\\.Streamer_.*",
-            "monitorize\\.security\\.tls_proxy",
             "monitorize-kde-virtual-output",
         )
-        self.de = self._select_desktop_environment()
+        self.de = detect_desktop_environment() or self._ask_desktop_environment()
         self.backend = MonitorizeBackend(self.de, self)
         self.backend.configureDisplayRequested.connect(self._configure_display)
         self._setup_tray()
@@ -253,9 +252,6 @@ class MonitorizeWindow(QMainWindow):
             return
         self._quit_app()
         event.accept()
-
-    def _select_desktop_environment(self):
-        return detect_desktop_environment() or self._ask_desktop_environment()
 
     def _ask_desktop_environment(self):
         dialog = QDialog(self)

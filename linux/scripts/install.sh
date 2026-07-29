@@ -25,12 +25,18 @@ VENV_DIR="${PROJECT_DIR}/venv"
 HELPER_NAME="monitorize-kde-virtual-output"
 HELPER_BUILD="${PROJECT_DIR}/native/kde_virtual_output/build.sh"
 HELPER_PATH="${VENV_DIR}/bin/${HELPER_NAME}"
-HELPER_DESKTOP_FILE="${HELPER_NAME}.desktop"
+HELPER_DESKTOP_FILE="${APP_ID}-kde-virtual-output.desktop"
 
 # XDG standard locations
 DESKTOP_DIR="${HOME}/.local/share/applications"
 ICON_DIR="${HOME}/.local/share/icons/hicolor/192x192/apps"
 ICON_DEST="${ICON_DIR}/${APP_ID}.png"
+
+remove_legacy_udp_entries() {
+    rm -f "${DESKTOP_DIR}/monitorize-udp.desktop"
+    rm -f "${DESKTOP_DIR}/monitorize-udp-kde-virtual-output.desktop"
+    rm -f "${ICON_DIR}/monitorize-udp.png"
+}
 
 desktop_quote() {
     local value="${1//\\/\\\\}"
@@ -44,6 +50,7 @@ if [[ "${1:-}" == "remove" || "${1:-}" == "uninstall" ]]; then
     rm -f "${DESKTOP_DIR}/${DESKTOP_FILE}"
     rm -f "${DESKTOP_DIR}/${HELPER_DESKTOP_FILE}"
     rm -f "${ICON_DEST}"
+    remove_legacy_udp_entries
     rm -rf "${PROJECT_DIR}/venv"
     find "${PROJECT_DIR}" -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
     # Refresh desktop database if available
@@ -124,6 +131,7 @@ echo "✓ Icon installed to ${ICON_DEST}"
 
 # ── Create .desktop file ─────────────────────────────────────────────
 mkdir -p "${DESKTOP_DIR}"
+remove_legacy_udp_entries
 EXEC_PY="$(desktop_quote "${VENV_DIR}/bin/python3")"
 
 cat > "${DESKTOP_DIR}/${DESKTOP_FILE}" <<EOF
@@ -137,7 +145,6 @@ Terminal=false
 Categories=Utility;System;
 Keywords=monitor;display;tablet;android;screen;extend;mirror;streaming;
 StartupNotify=true
-StartupWMClass=monitorize
 Path=${PROJECT_DIR}
 EOF
 

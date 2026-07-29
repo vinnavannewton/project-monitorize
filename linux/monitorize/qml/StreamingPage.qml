@@ -11,7 +11,6 @@ Item {
     property bool secondTouchEnabled: true
     property bool secondStylusEnabled: false
     property bool loadingSettings: true
-    property bool showPairingCode: true
     property int duplicatePresetIndex: -1
     property bool syncingSecondBitrate: false
     readonly property int actionButtonWidth: 160
@@ -392,43 +391,6 @@ Item {
 
             Item { Layout.fillWidth: true }
 
-            Rectangle {
-                visible: backend.pairingCode !== ""
-                implicitWidth: pairingCodeRow.implicitWidth + 24
-                implicitHeight: 38
-                radius: 8
-                color: theme.surface
-                border.color: theme.accent
-
-                Row {
-                    id: pairingCodeRow
-                    anchors.centerIn: parent
-                    spacing: 8
-
-                    Text {
-                        id: pairingText
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "Pairing code: " + (page.showPairingCode ? backend.pairingCode : "••••••")
-                        color: theme.accent
-                        font.pixelSize: 13
-                        font.weight: Font.Bold
-                    }
-
-                    Button {
-                        anchors.verticalCenter: parent.verticalCenter
-                        flat: true
-                        onClicked: page.showPairingCode = !page.showPairingCode
-                        contentItem: Image {
-                            source: page.showPairingCode
-                                ? "../assets/svg/eye-open.svg"
-                                : "../assets/svg/eye-closed.svg"
-                            sourceSize.width: 20
-                            sourceSize.height: 20
-                            fillMode: Image.PreserveAspectFit
-                        }
-                    }
-                }
-            }
         }
     }
 
@@ -798,14 +760,6 @@ Item {
                     }
                 }
 
-                Text { text: "Encryption:"; color: theme.cardTextSecondary; font.pixelSize: 13 }
-                Text {
-                    text: backend.thirdEncryptionStatus
-                    color: theme.cardTextMuted
-                    font.pixelSize: 12
-                    wrapMode: Text.Wrap
-                    Layout.fillWidth: true
-                }
             }
 
             Item { Layout.preferredHeight: 6 }
