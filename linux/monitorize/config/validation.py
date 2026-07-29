@@ -19,7 +19,6 @@ MAX_BITRATE = 100000
 
 VALID_DECODERS = {"Software", "Hardware"}
 VALID_DISPLAY_TYPES = {"Extend", "Mirror"}
-VALID_STREAM_TYPES = {"Speed", "Stability"}
 VALID_ENCODER_PROFILES = {"Low Latency", "Balanced", "Quality"}
 VALID_ENCODERS = {
     "NVIDIA NVENC (nvh264enc)",
@@ -91,9 +90,6 @@ def sanitize_decoder(value):
 def sanitize_display_type(value):
     return value if value in VALID_DISPLAY_TYPES else "Extend"
 
-
-def sanitize_stream_type(value):
-    return value if value in VALID_STREAM_TYPES else "Speed"
 
 def sanitize_encoder_profile(value):
     return value if value in VALID_ENCODER_PROFILES else "Low Latency"

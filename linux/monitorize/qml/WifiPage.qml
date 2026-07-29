@@ -68,10 +68,7 @@ Item {
             encoderProfileCombo.currentText
         ]
         if (page.isWifi) {
-            backend.saveWifiSettings(
-                ...args,
-                streamTypeCombo.currentText.indexOf("Speed") === 0 ? "Speed" : "Stability"
-            )
+            backend.saveWifiSettings(...args)
         } else {
             backend.saveUsbSettings(...args)
         }
@@ -124,11 +121,6 @@ Item {
             encoderProfileCombo.selectValue("Low Latency");
         }
         
-        if (page.isWifi) {
-            let savedStreamType = saved["stream_type"] || "Speed";
-            streamTypeCombo.selectValue(savedStreamType === "Speed" ? "Speed" : "Stability");
-        }
-
         let gen = backend.loadGeneralSettings();
         let enableTouch = gen["enable_touch"] !== undefined ? gen["enable_touch"] : true;
         page.enableStylusFeatures = gen["enable_stylus_features"] !== undefined ? gen["enable_stylus_features"] : false;
@@ -350,14 +342,6 @@ Item {
                     onActivated: page.saveSettings()
                 }
 
-                Text { text: "Stream Type:"; visible: page.isWifi; color: theme.textSecondary; font.pixelSize: 14 }
-                ChoiceChips {
-                    id: streamTypeCombo
-                    visible: page.isWifi
-                    currentIndex: 0
-                    model: ["Speed", "Stability"]
-                    onActivated: page.saveSettings()
-                }
             }
 
             Text {

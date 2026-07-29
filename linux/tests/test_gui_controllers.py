@@ -994,6 +994,7 @@ class ReceiverVideoWindowTest(unittest.TestCase):
                 self.assertEqual(loaded["bitrate"], "16000")
                 self.assertEqual(loaded["encoder"], "Software (CPU / x264enc)")
                 self.assertNotIn("use_encryption", loaded)
+                self.assertNotIn("stream_type", loaded)
             finally:
                 settings.CONFIG_DIR, settings.CONFIG_FILE = old_dir, old_file
 
@@ -1054,7 +1055,7 @@ class ReceiverVideoWindowTest(unittest.TestCase):
                 self.assertEqual(len(loaded), 4)
                 self.assertEqual(loaded[0]["name"], "Preset 0")
                 self.assertEqual(loaded[0]["primary"]["encoder_profile"], "Balanced")
-                self.assertNotIn("use_encryption", loaded[0]["wifi"])
+                self.assertNotIn("wifi", loaded[0])
                 self.assertTrue(loaded[0]["general"]["minimize_to_tray"])
                 self.assertFalse(loaded[0]["third"]["enable_touch"])
                 self.assertFalse(loaded[0]["third"]["enable_stylus_features"])
@@ -1433,7 +1434,6 @@ class StreamingControllerTest(unittest.TestCase):
         controller = self.kde_controller()
         controller.encoder = "Intel/AMD VA-API (vah264enc)"
         controller.encoder_profile = "Balanced"
-        controller.env.value.return_value = "Speed"
         controller.runtime_general = {
             "minimize_to_tray": True,
             "enable_touch": True,
@@ -1442,7 +1442,7 @@ class StreamingControllerTest(unittest.TestCase):
         config = controller.active_configuration()
         self.assertEqual(config["primary"]["resolution"], "1920x1200")
         self.assertEqual(config["primary"]["encoder_profile"], "Balanced")
-        self.assertEqual(config["wifi"]["stream_type"], "Speed")
+        self.assertNotIn("wifi", config)
         self.assertEqual(config["third"], {"enabled": False})
         self.assertTrue(config["general"]["enable_stylus_features"])
 
@@ -1450,7 +1450,6 @@ class StreamingControllerTest(unittest.TestCase):
         controller = self.kde_controller()
         controller.encoder = "Intel/AMD VA-API (vah264enc)"
         controller.encoder_profile = "Balanced"
-        controller.env.value.return_value = "Speed"
         controller.third_streaming = True
         controller.third_width = 1920
         controller.third_height = 1080
@@ -2094,7 +2093,7 @@ class StreamingControllerTest(unittest.TestCase):
             controller.start(
                 "2337x1081", "90", "14000", "Extend",
                 "NVIDIA NVENC (nvh264enc)", "Quality", True,
-                options={"wifi": {"stream_type": "Speed"}},
+                options={},
             )
         self.assertEqual((controller.width, controller.height), (2336, 1080))
         self.assertEqual((controller.fps, controller.bitrate), (90, 14000))
@@ -2980,7 +2979,7 @@ class PipelineBuilderTest(unittest.TestCase):
         self.assertIn("width=2336,height=1080", text)
         self.assertIn("framerate=90/1", text)
         self.assertIn("bitrate=14000", text)
-        self.assertIn("key-int-max=30", text)
+        self.assertIn("key-int-max=22", text)
         self.assertIn("rtph264pay", text)
         self.assertIn("udpsink", text)
         self.assertNotIn("rtpulpfec", text)
@@ -3065,20 +3064,23 @@ class PipelineBuilderTest(unittest.TestCase):
         self.assertIn("udpsink host=10.0.0.8 port=49152", text)
         self.assertNotIn("tcpserversink", text)
 
-    def test_stability_cpu_rtp_keeps_real_idrs_for_loss_recovery(self):
-        text = self._pipeline_text(
-            stream_type="Stability", rtp_endpoint=("10.0.0.8", 49152)
-        )
+    def test_fixed_cpu_rtp_gop_keeps_real_idrs_for_loss_recovery(self):
+        text = self._pipeline_text(rtp_endpoint=("10.0.0.8", 49152))
         self.assertIn("key-int-max=15", text)
         self.assertNotIn("intra-refresh", text)
 
-    def test_wifi_gop_cadence_scales_for_120_fps(self):
-        speed = self._pipeline_text(fps=120, rtp_endpoint=("10.0.0.8", 49152))
-        stability = self._pipeline_text(
-            fps=120, stream_type="Stability", rtp_endpoint=("10.0.0.8", 49152)
+    def test_fixed_gop_cadence_applies_to_all_encoders(self):
+        cases = (
+            ({}, "key-int-max"),
+            ({"hw_encoder": "vah264enc", "wifi_mode": True}, "key-int-max"),
+            ({"hw_encoder": "nvh264enc"}, "gop-size"),
         )
-        self.assertIn("key-int-max=40", speed)
-        self.assertIn("key-int-max=30", stability)
+        for kwargs, property_name in cases:
+            with self.subTest(kwargs=kwargs):
+                self.assertIn(f"{property_name}=15", self._pipeline_text(**kwargs))
+                self.assertIn(
+                    f"{property_name}=30", self._pipeline_text(fps=120, **kwargs)
+                )
 
     def test_nvidia_auto_prefers_cuda_over_unreliable_kde_gl_import(self):
         pipeline_builder._gst_inspect.cache_clear()
@@ -3092,10 +3094,8 @@ class PipelineBuilderTest(unittest.TestCase):
                 ["cuda", "system"],
             )
 
-    def test_stability_nvenc_uses_short_gop_without_unsupported_intra_refresh(self):
-        text = self._pipeline_text(
-            hw_encoder="nvh264enc", stream_type="Stability"
-        )
+    def test_nvenc_uses_fixed_short_gop_without_unsupported_intra_refresh(self):
+        text = self._pipeline_text(hw_encoder="nvh264enc")
         self.assertIn("gop-size=15", text)
         self.assertIn("repeat-sequence-header=true", text)
         self.assertNotIn("intra-refresh", text)
@@ -3702,7 +3702,7 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertNotIn("Encryption is off", qml)
         self.assertNotIn("MUST EXACTLY MATCH", qml)
         self.assertNotIn("WarningCard", qml)
-        self.assertEqual(qml.count("ChoiceChips {"), 4)
+        self.assertEqual(qml.count("ChoiceChips {"), 3)
         self.assertEqual(qml.count("CustomComboBox {"), 2)
         self.assertIn("RowLayout {", chips_qml)
         self.assertIn("property int chipWidth: 112", chips_qml)
@@ -3725,7 +3725,6 @@ class BackendFacadeTest(unittest.TestCase):
             "displayTypeCombo",
             "encoderCombo",
             "encoderProfileCombo",
-            "streamTypeCombo",
         ):
             self.assertIn(f"id: {control_id}", qml)
 
@@ -4028,7 +4027,6 @@ class BackendFacadeTest(unittest.TestCase):
                 "encoder": "Software (CPU / x264enc)",
                 "encoder_profile": "Balanced",
             },
-            "wifi": {"stream_type": "Speed", "use_encryption": True},
             "general": {
                 "minimize_to_tray": False,
                 "enable_touch": True,
@@ -4226,7 +4224,6 @@ class BackendFacadeTest(unittest.TestCase):
                 "display_type": "Extend",
                 "encoder": "Intel/AMD VA-API (vah264enc)",
             },
-            "wifi": {"stream_type": "Speed", "use_encryption": True},
             "general": {
                 "minimize_to_tray": True,
                 "enable_touch": True,

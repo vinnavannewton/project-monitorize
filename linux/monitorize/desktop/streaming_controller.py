@@ -25,7 +25,6 @@ from monitorize.platform.gnome_virtual_monitor import (
 from monitorize.platform.process_utils import kill_patterns, kill_tracked_pids, stop_processes
 from monitorize.config.settings import (
     load_general_settings,
-    load_wifi_settings,
 )
 from monitorize.platform.utils import LINUX_DIR
 from monitorize.config.validation import (
@@ -148,10 +147,8 @@ class StreamingController(QObject):
         }.get(self.encoder, "cpu"))
         self.env.insert("MONITORIZE_ENCODER_PROFILE", self.encoder_profile)
         self.env.insert("MONITORIZE_REQUIRE_HARDWARE_ENCODER", "0")
-        settings = options.get("wifi") or (load_wifi_settings() if wifi else {})
         if wifi:
             self.env.insert("MONITORIZE_VIDEO_TRANSPORT", "rtp-udp-v1")
-        self.env.insert("MONITORIZE_STREAM_TYPE", settings.get("stream_type", "Speed"))
         self.runtime_general = options.get("general")
         if self.de in ("kde", "hyprland") and self.display_type == "Extend":
             self.env.insert("MONITORIZE_PRESERVE_SOURCE_SIZE", "1")
@@ -978,10 +975,6 @@ class StreamingController(QObject):
             "general": general,
             "third": {"enabled": False},
         }
-        if self.wifi:
-            config["wifi"] = {
-                "stream_type": self.env.value("MONITORIZE_STREAM_TYPE"),
-            }
         if self.third_streaming:
             config["third"] = {
                 "enabled": True,

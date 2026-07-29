@@ -149,7 +149,7 @@ def _cpu_encoder_params(
 
 
 def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
-                   hw_encoder=None, host="127.0.0.1", stream_type="Speed",
+                   hw_encoder=None, host="127.0.0.1",
                    wifi_mode=False, preserve_source_size=False,
                    preserve_source_rate=False, target_object=None,
                    encoder_profile="Low Latency", nvidia_memory="cuda",
@@ -192,12 +192,8 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
 
     
     
-    if stream_type == "Stability":
-        key_int = max(fps // 4, 15)
-        intra_refresh = not bool(rtp_endpoint)
-    else:
-        key_int = max(fps // 3, 15)
-        intra_refresh = False
+    key_int = max(fps // 4, 15)
+    intra_refresh = not bool(rtp_endpoint)
 
     if hw_encoder:
         rate_filter = (
@@ -350,7 +346,6 @@ def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
     Returns the subprocess.Popen object.
     """
     import os
-    stream_type = os.environ.get("MONITORIZE_STREAM_TYPE", "Speed")
     transport = os.environ.get("MONITORIZE_VIDEO_TRANSPORT", "")
     require_hardware = os.environ.get("MONITORIZE_REQUIRE_HARDWARE_ENCODER") == "1"
     encoder_profile = os.environ.get("MONITORIZE_ENCODER_PROFILE", "Low Latency")
@@ -375,7 +370,7 @@ def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
         pipeline = build_pipeline(
             pw_fd=pw_fd, node_id=node_id,
             width=width, height=height, fps=fps, bitrate=bitrate, port=port,
-            hw_encoder=hw_encoder, host=host, stream_type=stream_type,
+            hw_encoder=hw_encoder, host=host,
             wifi_mode=server_mode, preserve_source_size=preserve_source_size,
             preserve_source_rate=preserve_source_rate, target_object=target_object,
             encoder_profile=encoder_profile,
@@ -405,7 +400,7 @@ def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
     pipeline = build_pipeline(
         pw_fd=pw_fd, node_id=node_id,
         width=width, height=height, fps=fps, bitrate=bitrate, port=port,
-        hw_encoder=None, host=host, stream_type=stream_type,
+        hw_encoder=None, host=host,
         wifi_mode=server_mode, preserve_source_size=preserve_source_size,
         preserve_source_rate=preserve_source_rate, target_object=target_object,
         encoder_profile=encoder_profile,

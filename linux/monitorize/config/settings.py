@@ -17,7 +17,6 @@ from monitorize.config.validation import (
     sanitize_fps,
     sanitize_port,
     sanitize_resolution,
-    sanitize_stream_type,
 )
 
 CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".config", "monitorize")
@@ -90,7 +89,6 @@ def _normalize_stream_settings(data: dict) -> dict:
     data["encoder_profile"] = sanitize_encoder_profile(
         data.get("encoder_profile", "Low Latency")
     )
-    data["stream_type"] = sanitize_stream_type(data.get("stream_type", "Speed"))
     data["fps"] = str(sanitize_fps(data["fps"]))
     data["custom_fps"] = (
         str(sanitize_fps(data["custom_fps"]))
@@ -107,13 +105,11 @@ def _normalize_stream_settings(data: dict) -> dict:
 
 def save_wifi_settings(*, resolution: str, custom_w: str, custom_h: str,
                        fps: str, custom_fps: str, bitrate: str,
-                       display_type: str, encoder: str, encoder_profile: str,
-                       stream_type: str):
+                       display_type: str, encoder: str, encoder_profile: str):
     values = locals()
     values["display_type"] = sanitize_display_type(display_type)
     values["encoder"] = sanitize_encoder(encoder)
     values["encoder_profile"] = sanitize_encoder_profile(encoder_profile)
-    values["stream_type"] = sanitize_stream_type(stream_type)
     values["fps"] = str(sanitize_fps(fps))
     values["custom_fps"] = str(sanitize_fps(custom_fps)) if custom_fps else ""
     values["bitrate"] = str(sanitize_bitrate(bitrate))
@@ -175,12 +171,13 @@ STREAM_DEFAULTS = {
 def load_wifi_settings() -> dict:
     values = _normalize_stream_settings(_load_group(
         "wifi",
-        {**STREAM_DEFAULTS, "stream_type": "Speed"},
+        STREAM_DEFAULTS,
     ))
     settings = _get_settings()
     settings.beginGroup("wifi")
     settings.remove("use_encryption")
     settings.remove("transport_mode")
+    settings.remove("stream_type")
     settings.endGroup()
     settings.sync()
     return values
@@ -309,11 +306,6 @@ def _normalize_preset(raw: dict) -> dict | None:
         },
         "third": {"enabled": bool(third.get("enabled", False))},
     }
-    if mode == "wifi":
-        wifi = raw.get("wifi", {})
-        preset["wifi"] = {
-            "stream_type": sanitize_stream_type(wifi.get("stream_type", "Speed")),
-        }
     if preset["third"]["enabled"]:
         width, height = sanitize_resolution(
             third.get("resolution", ""), (1920, 1080)

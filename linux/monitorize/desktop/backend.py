@@ -219,16 +219,16 @@ class MonitorizeBackend(QObject):
             encoder_profile=encoder_profile,
         )
 
-    @pyqtSlot(str, str, str, str, str, str, str, str, str, str)
+    @pyqtSlot(str, str, str, str, str, str, str, str, str)
     def saveWifiSettings(
         self, resolution, custom_w, custom_h, fps, custom_fps, bitrate,
-        display_type, encoder, encoder_profile, stream_type,
+        display_type, encoder, encoder_profile,
     ):
         save_wifi_settings(
             resolution=resolution, custom_w=custom_w, custom_h=custom_h,
             fps=fps, custom_fps=custom_fps, bitrate=bitrate,
             display_type=display_type, encoder=encoder,
-            encoder_profile=encoder_profile, stream_type=stream_type,
+            encoder_profile=encoder_profile,
         )
 
     @pyqtSlot(result="QVariant")
@@ -412,7 +412,6 @@ class MonitorizeBackend(QObject):
             primary.get("encoder_profile", "Low Latency"),
             preset["mode"] == "wifi",
             {
-                "wifi": preset.get("wifi", {}),
                 "general": preset["general"],
                 "third": preset["third"] if preset["third"]["enabled"] else None,
             },
