@@ -2980,7 +2980,7 @@ class PipelineBuilderTest(unittest.TestCase):
         self.assertIn("width=2336,height=1080", text)
         self.assertIn("framerate=90/1", text)
         self.assertIn("bitrate=14000", text)
-        self.assertIn("key-int-max=45", text)
+        self.assertIn("key-int-max=30", text)
         self.assertIn("rtph264pay", text)
         self.assertIn("udpsink", text)
         self.assertNotIn("rtpulpfec", text)
@@ -3071,6 +3071,14 @@ class PipelineBuilderTest(unittest.TestCase):
         )
         self.assertIn("key-int-max=15", text)
         self.assertNotIn("intra-refresh", text)
+
+    def test_wifi_gop_cadence_scales_for_120_fps(self):
+        speed = self._pipeline_text(fps=120, rtp_endpoint=("10.0.0.8", 49152))
+        stability = self._pipeline_text(
+            fps=120, stream_type="Stability", rtp_endpoint=("10.0.0.8", 49152)
+        )
+        self.assertIn("key-int-max=40", speed)
+        self.assertIn("key-int-max=30", stability)
 
     def test_nvidia_auto_prefers_cuda_over_unreliable_kde_gl_import(self):
         pipeline_builder._gst_inspect.cache_clear()

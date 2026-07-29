@@ -193,10 +193,10 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
     
     
     if stream_type == "Stability":
-        key_int = 15
+        key_int = max(fps // 4, 15)
         intra_refresh = not bool(rtp_endpoint)
     else:
-        key_int = max(fps // 2, 15)
+        key_int = max(fps // 3, 15)
         intra_refresh = False
 
     if hw_encoder:
