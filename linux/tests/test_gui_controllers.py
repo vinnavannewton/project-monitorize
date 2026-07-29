@@ -1499,7 +1499,7 @@ class StreamingControllerTest(unittest.TestCase):
         self.assertEqual(env.value("MONITORIZE_PORTAL_SOURCE_TYPE"), "")
         self.assertEqual(events, [True])
         discovery.advertise.assert_called_once_with(
-            "10.0.0.1", False, 60, 60,
+            "10.0.0.1", True, 60, 60,
             1920, 1080, 1920, 1080,
         )
 

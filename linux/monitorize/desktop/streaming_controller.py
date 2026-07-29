@@ -1024,7 +1024,7 @@ class StreamingController(QObject):
         if self.streaming and self.wifi:
             args = (
                 self.local_ip,
-                self.third_ready,
+                self.third_streaming,
                 self.fps,
                 self.third_fps,
                 self.width,
