@@ -13,7 +13,7 @@ FEC_PAYLOAD_TYPE = 122
 INITIAL_FEC_PERCENT = 0
 
 
-def parse_hello(data):
+def parse_hello(data, transport=TRANSPORT):
     if not data.startswith(HELLO_PREFIX):
         return None
     try:
@@ -21,12 +21,13 @@ def parse_hello(data):
         port = int(message["port"])
     except (KeyError, TypeError, ValueError, UnicodeError, json.JSONDecodeError):
         return None
-    if message.get("transport") != TRANSPORT or not 1 <= port <= 65535:
+    if message.get("transport") != transport or not 1 <= port <= 65535:
         return None
     return port, message
 
 
-def wait_for_client(video_port, timeout=120, *, width=0, height=0, fps=0, bitrate=0):
+def wait_for_client(video_port, timeout=120, *, width=0, height=0, fps=0, bitrate=0,
+                    transport=TRANSPORT):
     control_port = video_port
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -49,7 +50,7 @@ def wait_for_client(video_port, timeout=120, *, width=0, height=0, fps=0, bitrat
                     if not chunk:
                         break
                     data += chunk
-                parsed = parse_hello(data.split(b"\n", 1)[0])
+                parsed = parse_hello(data.split(b"\n", 1)[0], transport)
             except (OSError, socket.timeout):
                 parsed = None
             if parsed is None:
@@ -61,7 +62,7 @@ def wait_for_client(video_port, timeout=120, *, width=0, height=0, fps=0, bitrat
             profiles = message.get("decoderProfiles", [])
             profile = "high" if "high" in profiles else "constrained-baseline"
             reply = json.dumps({
-                "transport": TRANSPORT, "status": "ready", "mtu": MTU,
+                "transport": transport, "status": "ready", "mtu": MTU,
                 "rtpPt": RTP_PAYLOAD_TYPE, "fecPt": FEC_PAYLOAD_TYPE,
                 "fecPercent": INITIAL_FEC_PERCENT,
                 "version": 1, "sessionId": session_id, "ssrc": ssrc,

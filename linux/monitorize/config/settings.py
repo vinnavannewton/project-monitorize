@@ -3,13 +3,11 @@ Monitorize GUI — Persistent settings stored in ~/.config/monitorize/settings.i
 """
 
 import os
-import hashlib
 import json
 from PyQt6.QtCore import QSettings
 
 from monitorize.config.validation import (
     DEFAULT_SECONDARY_RESOLUTION,
-    credential_host_key,
     normalize_host,
     sanitize_bitrate,
     sanitize_decoder,
@@ -110,7 +108,7 @@ def _normalize_stream_settings(data: dict) -> dict:
 def save_wifi_settings(*, resolution: str, custom_w: str, custom_h: str,
                        fps: str, custom_fps: str, bitrate: str,
                        display_type: str, encoder: str, encoder_profile: str,
-                       stream_type: str, use_encryption: bool):
+                       stream_type: str):
     values = locals()
     values["display_type"] = sanitize_display_type(display_type)
     values["encoder"] = sanitize_encoder(encoder)
@@ -175,11 +173,17 @@ STREAM_DEFAULTS = {
 
 
 def load_wifi_settings() -> dict:
-    return _normalize_stream_settings(_load_group(
+    values = _normalize_stream_settings(_load_group(
         "wifi",
-        {**STREAM_DEFAULTS, "stream_type": "Speed", "use_encryption": False},
-        ("use_encryption",),
+        {**STREAM_DEFAULTS, "stream_type": "Speed"},
     ))
+    settings = _get_settings()
+    settings.beginGroup("wifi")
+    settings.remove("use_encryption")
+    settings.remove("transport_mode")
+    settings.endGroup()
+    settings.sync()
+    return values
 
 
 def load_usb_settings() -> dict:
@@ -309,7 +313,6 @@ def _normalize_preset(raw: dict) -> dict | None:
         wifi = raw.get("wifi", {})
         preset["wifi"] = {
             "stream_type": sanitize_stream_type(wifi.get("stream_type", "Speed")),
-            "use_encryption": bool(wifi.get("use_encryption", True)),
         }
     if preset["third"]["enabled"]:
         width, height = sanitize_resolution(
@@ -360,12 +363,10 @@ def save_presets(presets: list[dict]) -> None:
     _save_group("presets", {"items": json.dumps(normalized, separators=(",", ":"))})
 
 
-def save_receiver_settings(*, ip: str, port: str, use_encryption: bool = True,
-                           decoder: str = "Software"):
+def save_receiver_settings(*, ip: str, port: str, decoder: str = "Software"):
     _save_group("receiver", {
         "manual_ip": normalize_host(ip),
         "manual_port": str(sanitize_port(port)),
-        "use_encryption": use_encryption,
         "decoder": sanitize_decoder(decoder),
     })
 
@@ -373,12 +374,17 @@ def load_receiver_settings() -> dict:
     data = _load_group("receiver", {
         "manual_ip": "",
         "manual_port": "7110",
-        "use_encryption": True,
         "decoder": "Software",
-    }, ("use_encryption",))
+    })
     data["manual_ip"] = normalize_host(data["manual_ip"])
     data["manual_port"] = str(sanitize_port(data["manual_port"]))
     data["decoder"] = sanitize_decoder(data["decoder"])
+    settings = _get_settings()
+    settings.beginGroup("receiver")
+    settings.remove("use_encryption")
+    settings.endGroup()
+    settings.remove("receiver_trust")
+    settings.sync()
     return data
 
 
@@ -420,33 +426,6 @@ def save_gnome_virtual_layout(slot: str, logical_monitors: list) -> None:
     _save_group(_gnome_virtual_group(), {
         "layout": json.dumps(stored, separators=(",", ":")),
     })
-
-
-def load_receiver_credentials(host: str) -> tuple[str, str]:
-    s = _get_settings()
-    key = hashlib.sha256(credential_host_key(host).encode()).hexdigest()
-    return (
-        s.value(f"receiver_trust/{key}/fingerprint", ""),
-        s.value(f"receiver_trust/{key}/token", ""),
-    )
-
-
-def save_receiver_credentials(host: str, fingerprint: str, token: str) -> None:
-    s = _get_settings()
-    key = hashlib.sha256(credential_host_key(host).encode()).hexdigest()
-    s.setValue(f"receiver_trust/{key}/fingerprint", str(fingerprint or "").strip())
-    s.setValue(f"receiver_trust/{key}/token", str(token or "").strip())
-    s.sync()
-    os.chmod(CONFIG_FILE, 0o600)
-
-
-def clear_receiver_credentials(host: str) -> None:
-    s = _get_settings()
-    key = hashlib.sha256(credential_host_key(host).encode()).hexdigest()
-    s.remove(f"receiver_trust/{key}")
-    s.sync()
-
-
 
 
 def load_recent_usb_devices() -> list[dict]:

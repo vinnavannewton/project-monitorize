@@ -16,5 +16,9 @@ class VideoTransportTest(unittest.TestCase):
         self.assertIsNone(parse_hello(b'MZRP1 {"transport":"rtp-udp-v1","port":0}'))
         self.assertIsNone(parse_hello(b"not-monitorize"))
 
+    def test_rejects_removed_baseline_transport(self):
+        hello = b'MZRP1 {"transport":"rtp-udp-baseline-v1","port":49152}'
+        self.assertIsNone(parse_hello(hello))
+
 if __name__ == "__main__":
     unittest.main()

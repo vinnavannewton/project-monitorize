@@ -15,7 +15,6 @@ from monitorize.config.settings import (
     MAX_PRESETS,
     load_general_settings,
     load_presets,
-    load_receiver_credentials,
     load_receiver_settings,
     load_second_display_settings,
     load_usb_settings,
@@ -47,14 +46,12 @@ class MonitorizeBackend(QObject):
     isStreamingChanged = pyqtSignal(bool)
     countdownChanged = pyqtSignal(int)
     streamingStatusChanged = pyqtSignal(str)
-    pairingCodeChanged = pyqtSignal(str)
     logAppended = pyqtSignal(str, str)
     isReceivingChanged = pyqtSignal(bool)
     receiverStatusChanged = pyqtSignal(str)
     receiverHostIpChanged = pyqtSignal(str)
     discoveredDevicesChanged = pyqtSignal()
     receiverLogAppended = pyqtSignal(str)
-    receiverPairingRequired = pyqtSignal(str, int, str)
     secondStreamActiveChanged = pyqtSignal(bool)
     configureDisplayRequested = pyqtSignal()
     presetsChanged = pyqtSignal()
@@ -100,11 +97,9 @@ class MonitorizeBackend(QObject):
             lambda message: app_log.write("RECEIVER", message)
         )
         self.receiver.logAppended.connect(self.receiverLogAppended)
-        self.receiver.pairingRequired.connect(self.receiverPairingRequired)
         self.streaming.streamingChanged.connect(self.isStreamingChanged)
         self.streaming.statusChanged.connect(self.streamingStatusChanged)
         self.streaming.countdownChanged.connect(self.countdownChanged)
-        self.streaming.pairingCodeChanged.connect(self.pairingCodeChanged)
         self.streaming.secondStreamChanged.connect(self.secondStreamActiveChanged)
         self.streaming.logAppended.connect(app_log.write)
         self.streaming.logAppended.connect(self.logAppended)
@@ -138,10 +133,6 @@ class MonitorizeBackend(QObject):
     def streamingStatus(self):
         return self.streaming.status
 
-    @pyqtProperty(str, notify=pairingCodeChanged)
-    def pairingCode(self):
-        return self.streaming.pairing_code
-
     @pyqtProperty(bool, notify=isReceivingChanged)
     def isReceiving(self):
         return self.receiver.receiving
@@ -161,21 +152,6 @@ class MonitorizeBackend(QObject):
     @pyqtProperty(bool, notify=secondStreamActiveChanged)
     def secondStreamActive(self):
         return self.streaming.third_active()
-
-    @pyqtProperty(bool, notify=isStreamingChanged)
-    def thirdEncryption(self):
-        """The additional Wi-Fi stream shares the primary stream's TLS setting."""
-        return self.streaming.wifi and self.streaming.encrypted
-
-    @pyqtProperty(str, notify=isStreamingChanged)
-    def thirdEncryptionStatus(self):
-        if not self.streaming.wifi:
-            return "Not used for USB streams"
-        return (
-            "Enabled — inherited from primary Wi-Fi stream"
-            if self.streaming.encrypted
-            else "Disabled — inherited from primary Wi-Fi stream"
-        )
 
     @pyqtProperty("QVariant", notify=presetsChanged)
     def presets(self):
@@ -243,17 +219,16 @@ class MonitorizeBackend(QObject):
             encoder_profile=encoder_profile,
         )
 
-    @pyqtSlot(str, str, str, str, str, str, str, str, str, str, bool)
+    @pyqtSlot(str, str, str, str, str, str, str, str, str, str)
     def saveWifiSettings(
         self, resolution, custom_w, custom_h, fps, custom_fps, bitrate,
-        display_type, encoder, encoder_profile, stream_type, encryption,
+        display_type, encoder, encoder_profile, stream_type,
     ):
         save_wifi_settings(
             resolution=resolution, custom_w=custom_w, custom_h=custom_h,
             fps=fps, custom_fps=custom_fps, bitrate=bitrate,
             display_type=display_type, encoder=encoder,
-            encoder_profile=encoder_profile,
-            stream_type=stream_type, use_encryption=encryption,
+            encoder_profile=encoder_profile, stream_type=stream_type,
         )
 
     @pyqtSlot(result="QVariant")
@@ -276,18 +251,9 @@ class MonitorizeBackend(QObject):
     def loadReceiverSettings(self):
         return load_receiver_settings()
 
-    @pyqtSlot(str, str, bool, str)
-    def saveReceiverSettings(self, ip, port, encryption, decoder):
-        save_receiver_settings(
-            ip=ip, port=port, use_encryption=encryption, decoder=decoder
-        )
-
-    @pyqtSlot(str, str, result=bool)
-    def receiverNeedsPairing(self, host, advertised_fingerprint):
-        fingerprint, token = load_receiver_credentials(host)
-        return not token or bool(
-            advertised_fingerprint and fingerprint != advertised_fingerprint
-        )
+    @pyqtSlot(str, str, str)
+    def saveReceiverSettings(self, ip, port, decoder):
+        save_receiver_settings(ip=ip, port=port, decoder=decoder)
 
     @pyqtSlot()
     def startHostDiscovery(self):
@@ -297,20 +263,13 @@ class MonitorizeBackend(QObject):
     def stopHostDiscovery(self):
         self.discovery.stop_browsing()
 
-    @pyqtSlot(str, int, bool, str, str, str)
-    def connectToHost(self, host, port, encrypted, fingerprint, code, decoder):
+    @pyqtSlot(str, int, str)
+    def connectToHost(self, host, port, decoder):
         host = normalize_host(host)
         if not valid_host(host) or not valid_port(port):
             self.receiver._set_status("Invalid host or port")
             return
-        self.receiver.connect(
-            host,
-            sanitize_port(port),
-            encrypted,
-            fingerprint,
-            code,
-            sanitize_decoder(decoder),
-        )
+        self.receiver.connect(host, sanitize_port(port), sanitize_decoder(decoder))
 
     @pyqtSlot()
     def stopReceiving(self):

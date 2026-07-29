@@ -24,7 +24,10 @@ selector_hint = os.environ.get(
     "MONITORIZE_PORTAL_SELECTOR_HINT",
     "Select 'TabletDisplay' in the picker.",
 )
-encoder = get_encoder(os.environ.get("MONITORIZE_ENCODER", "cpu"))
+encoder = get_encoder(
+    os.environ.get("MONITORIZE_ENCODER", "cpu"),
+    os.environ.get("MONITORIZE_REQUIRE_HARDWARE_ENCODER") == "1",
+)
 host = os.environ.get("MONITORIZE_HOST", "0.0.0.0" if server_mode else "127.0.0.1")
 port = int(os.environ.get(
     "MONITORIZE_PORT",

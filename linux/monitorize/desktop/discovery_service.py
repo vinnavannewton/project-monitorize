@@ -66,8 +66,6 @@ class DiscoveryService(QObject):
                         service._decode(service._prop(props, b"name", b"Unknown")),
                         ip,
                         int(info.port),
-                        service._prop(props, b"encrypted", b"0") == b"1",
-                        service._decode(service._prop(props, b"fingerprint"), "ascii"),
                         None if b"third_available" not in props
                         else service._prop(props, b"third_available") == b"1",
                         service._safe_port(service._prop(props, b"third_port", b"7114")),
@@ -92,8 +90,8 @@ class DiscoveryService(QObject):
             self.stop_browsing()
 
     def add_device(
-        self, name, ip, port, encrypted=False, fingerprint="",
-        third_available=False, third_port=7114, service_name=None,
+        self, name, ip, port, third_available=False, third_port=7114,
+        service_name=None,
     ):
         if not ip or not valid_port(port):
             return
@@ -110,8 +108,6 @@ class DiscoveryService(QObject):
             "name": name,
             "ip": ip,
             "port": port,
-            "encrypted": encrypted,
-            "fingerprint": fingerprint,
             "thirdAvailable": third_available,
             "thirdPort": third_port,
         }
@@ -152,17 +148,13 @@ class DiscoveryService(QObject):
             self.discovery_zc = None
 
     def advertise(
-        self, ip, encrypted, third_available, fps=60, third_fps=None,
+        self, ip, third_available, fps=60, third_fps=None,
         width=1280, height=800, third_width=None, third_height=None,
+        video_transport="rtp-udp-v1",
     ):
         try:
             from zeroconf import ServiceInfo, Zeroconf
             hostname = socket.gethostname()
-            fingerprint = ""
-            if encrypted:
-                from monitorize.security.tls_proxy import certificate_fingerprint
-                fingerprint = certificate_fingerprint()
-
             def properties(name, port, stream_fps, stream_width, stream_height):
                 values = {
                     "name": name,
@@ -170,28 +162,20 @@ class DiscoveryService(QObject):
                     "fps": str(sanitize_fps(stream_fps)),
                     "width": str(stream_width),
                     "height": str(stream_height),
-                    "encrypted": "1" if encrypted else "0",
+                    "video_transport": video_transport,
+                    "video_protocol_version": "1",
+                    "video_codec": "h264",
+                    "video_control_port": str(port),
+                    "rtp_pt": "96",
+                    "fec_pt": "122",
+                    "mtu": "1200",
                 }
-                if encrypted:
-                    values["fingerprint"] = fingerprint
-                    values["input_transport"] = "udp-aesgcm-v1"
-                else:
-                    values.update({
-                        "video_transport": "rtp-udp-v1",
-                        "video_protocol_version": "1",
-                        "video_codec": "h264",
-                        "video_control_port": str(port),
-                        "rtp_pt": "96",
-                        "fec_pt": "122",
-                        "mtu": "1200",
-                    })
                 return values
 
             primary_properties = properties(
                 f"{hostname} — First Virtual Monitor", 7110, fps, width, height
             )
             primary_properties.update({
-                "encrypted": "1" if encrypted else "0",
                 "third_available": "1" if third_available else "0",
                 "third_port": "7114",
             })

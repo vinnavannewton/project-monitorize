@@ -31,6 +31,9 @@ sys.exit(run_portal_streamer(
     bitrate,
     mode,
     int(os.environ.get("MONITORIZE_PORT", 7110 if server_mode else 7112)),
-    get_encoder(os.environ.get("MONITORIZE_ENCODER", "cpu")),
+    get_encoder(
+        os.environ.get("MONITORIZE_ENCODER", "cpu"),
+        os.environ.get("MONITORIZE_REQUIRE_HARDWARE_ENCODER") == "1",
+    ),
     os.environ.get("MONITORIZE_HOST", "0.0.0.0" if server_mode else "127.0.0.1"),
 ))

@@ -1,6 +1,8 @@
 """Desktop stream receiver lifecycle."""
 
 import os
+import json
+import socket
 import subprocess
 import sys
 import time
@@ -10,11 +12,6 @@ from PyQt6.QtCore import QObject, QProcess, QTimer, pyqtSignal
 from PyQt6.QtGui import QGuiApplication
 
 from monitorize.platform.process_utils import gst_has_element, kill_patterns, stop_processes
-from monitorize.config.settings import (
-    clear_receiver_credentials,
-    load_receiver_credentials,
-    save_receiver_credentials,
-)
 from monitorize.platform.utils import LINUX_DIR
 from monitorize.config.validation import normalize_host, sanitize_decoder, sanitize_port, valid_host, valid_port
 
@@ -53,11 +50,12 @@ SOFTWARE_DECODER_PROPS = {
 
 _GST = None
 _GST_VIDEO = None
+_GIO = None
 _GST_IMPORT_ERROR = None
 
 
 def _load_gst():
-    global _GST, _GST_VIDEO, _GST_IMPORT_ERROR
+    global _GST, _GST_VIDEO, _GIO, _GST_IMPORT_ERROR
     if _GST is not None:
         return _GST
     if _GST_IMPORT_ERROR is not None:
@@ -66,12 +64,15 @@ def _load_gst():
         import gi
         gi.require_version("Gst", "1.0")
         gi.require_version("GstVideo", "1.0")
+        gi.require_version("Gio", "2.0")
         from gi.repository import Gst
         from gi.repository import GstVideo
+        from gi.repository import Gio
 
         Gst.init(None)
         _GST = Gst
         _GST_VIDEO = GstVideo
+        _GIO = Gio
         return Gst
     except Exception as exc:
         _GST_IMPORT_ERROR = exc
@@ -114,12 +115,41 @@ def _gst_has_property(element, prop):
     return prop in _gst_element_properties(element)
 
 
+def _negotiate_udp(host, control_port, udp_port):
+    hello = json.dumps({
+        "transport": "rtp-udp-v1", "port": udp_port,
+        "decoderProfiles": ["high", "constrained-baseline"],
+    }, separators=(",", ":")).encode()
+    with socket.create_connection((host, control_port), timeout=1.5) as control:
+        control.settimeout(1.5)
+        control.sendall(b"MZRP1 " + hello + b"\n")
+        response = b""
+        while b"\n" not in response and len(response) < 4096:
+            chunk = control.recv(4096 - len(response))
+            if not chunk:
+                break
+            response += chunk
+    if not response.startswith(b"MZRP1 "):
+        raise RuntimeError("invalid UDP control response")
+    try:
+        ready = json.loads(response.split(b"\n", 1)[0][6:].decode())
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise RuntimeError("invalid UDP control response") from exc
+    if (
+        ready.get("transport") != "rtp-udp-v1"
+        or ready.get("status") != "ready"
+        or ready.get("codec") != "h264"
+        or int(ready.get("rtpPt", 96)) != 96
+    ):
+        raise RuntimeError("UDP control response rejected")
+    return ready
+
+
 class ReceiverController(QObject):
     receivingChanged = pyqtSignal(bool)
     statusChanged = pyqtSignal(str)
     hostChanged = pyqtSignal(str)
     logAppended = pyqtSignal(str)
-    pairingRequired = pyqtSignal(str, int, str)
 
     def __init__(self, de, discovery, parent=None):
         super().__init__(parent)
@@ -129,9 +159,6 @@ class ReceiverController(QObject):
         self.status = ""
         self.host_label = ""
         self.process = None
-        self.tls_process = None
-        self.tls_buffer = ""
-        self.auth_failed = False
         self.stopping = False
         self.retry_count = 0
         self.retry_pending = False
@@ -156,6 +183,7 @@ class ReceiverController(QObject):
         self.receiver_surface_height = 0
         self.embedded_pipeline_size = None
         self.resize_restart_used = False
+        self.udp_transport = False
         self.embedded_sink = None
         self.sink_candidates = []
         self.sink_index = 0
@@ -187,7 +215,7 @@ class ReceiverController(QObject):
         self.status = value
         self.statusChanged.emit(value)
 
-    def connect(self, host, port, encrypted, fingerprint, pairing_code, decoder):
+    def connect(self, host, port, decoder):
         self.discovery.stop_browsing()
         self.stop()
         host = normalize_host(host)
@@ -203,9 +231,7 @@ class ReceiverController(QObject):
         self.stable = False
         self.host = host
         self.port = port
-        self.encrypted = encrypted
-        self.fingerprint = fingerprint
-        self.pairing_code = pairing_code
+        self.udp_transport = host != "127.0.0.1"
         self.decoder = decoder
         self.sink_candidates = self._sink_candidates()
         self.sink_index = 0
@@ -231,12 +257,10 @@ class ReceiverController(QObject):
             self.decoder_label = "Software avdec_h264"
         self.retry_count = 0
         self.retry_pending = False
-        self.auth_failed = False
         self.resize_restart_used = False
         self.host_label = f"{host}:{port}"
         self.hostChanged.emit(self.host_label)
-        if not encrypted:
-            self._set_receiving(True)
+        self._set_receiving(True)
         self._set_status(f"Connecting to {host}:{port}…")
         self.logAppended.emit(f"Connecting to {host} on port {port}…")
         self._start_attempt(generation)
@@ -277,31 +301,7 @@ class ReceiverController(QObject):
         if self.stopping or generation != self.generation:
             return
         self.retry_pending = False
-        self.auth_failed = False
-        if not self.encrypted:
-            self._launch_pipeline(self.host, self.port, generation)
-            return
-        fingerprint, token = load_receiver_credentials(self.host)
-        if self.pairing_code:
-            fingerprint, token = self.fingerprint, ""
-        self.tls_process = QProcess(self)
-        process = self.tls_process
-        self.tls_process.setWorkingDirectory(LINUX_DIR)
-        self.tls_process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
-        self.tls_process.readyReadStandardOutput.connect(
-            lambda: self._read_tls(process, generation)
-        )
-        self.tls_process.finished.connect(
-            lambda code, status: self._tls_finished(code, status, process, generation)
-        )
-        args = ["-m", "monitorize.security.tls_receiver", self.host, str(self.port)]
-        if fingerprint:
-            args += ["--fingerprint", fingerprint]
-        if token:
-            args += ["--token", token]
-        elif self.pairing_code:
-            args += ["--code", self.pairing_code]
-        self.tls_process.start(sys.executable, args)
+        self._launch_pipeline(self.host, self.port, generation)
 
     def _launch_pipeline(self, host, port, generation=None):
         generation = self.generation if generation is None else generation
@@ -377,6 +377,8 @@ class ReceiverController(QObject):
         return self._embedded_sink_available()
 
     def _launch_embedded_pipeline(self, host, port, generation):
+        if self.udp_transport:
+            return self._launch_udp_pipeline(host, port, generation, self._embedded_sink_name(), True)
         self.receiver_host = host
         self.receiver_port = port
         self.attempt_started = time.monotonic()
@@ -432,6 +434,74 @@ class ReceiverController(QObject):
             *sink_args,
         ]
         return " ".join(parts)
+
+    def _udp_pipeline_description(self, sink_name, embedded):
+        sink_args = self._sink_args(sink_name, include_extra=not embedded)
+        if embedded:
+            sink_args.append("name=receiver_sink")
+        parts = [
+            "udpsrc", "name=receiver_source",
+            'caps="application/x-rtp,media=video,encoding-name=H264,payload=96,clock-rate=90000"', "!",
+            "rtph264depay", "!", "h264parse", "disable-passthrough=true", "config-interval=-1", "!",
+            PARSED_H264_CAPS, "!", *COMPRESSED_QUEUE, "!", *self.decoder_args, "!",
+            *RAW_DROP_QUEUE, "!", "videoconvert", "!",
+        ]
+        if embedded:
+            width, height = self._receiver_surface_size()
+            parts += ["videoscale", "add-borders=false", "!",
+                      f"video/x-raw,width={width},height={height},pixel-aspect-ratio=1/1", "!",
+                      "videoconvert", "!"]
+        parts += sink_args
+        return " ".join(parts)
+
+    def _launch_udp_pipeline(self, host, port, generation, sink_name, embedded):
+        self.receiver_host = host
+        self.receiver_port = port
+        self.attempt_started = time.monotonic()
+        self._stop_gst_pipeline()
+        Gst = _load_gst()
+        raw = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        raw.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 524288)
+        raw.bind(("", 0))
+        udp_port = raw.getsockname()[1]
+        pipeline = None
+        try:
+            pipeline = Gst.parse_launch(self._udp_pipeline_description(sink_name, embedded))
+            source = pipeline.get_by_name("receiver_source")
+            if source is None:
+                raise RuntimeError("UDP receiver source was not created")
+            source.set_property("socket", _GIO.Socket.new_from_fd(raw.detach()))
+            source.set_property("close-socket", True)
+            sink = pipeline.get_by_name("receiver_sink") if embedded else None
+            if embedded:
+                if sink is None:
+                    raise RuntimeError("embedded receiver sink was not created")
+                self._bind_embedded_sink(sink)
+                self.gst_video_sink = sink
+            if pipeline.set_state(Gst.State.PLAYING) == Gst.StateChangeReturn.FAILURE:
+                raise RuntimeError("GStreamer refused to start UDP receiver pipeline")
+            ready = _negotiate_udp(host, port, udp_port)
+        except Exception:
+            try:
+                raw.close()
+            except OSError:
+                pass
+            if pipeline is not None:
+                try:
+                    pipeline.set_state(Gst.State.NULL)
+                except Exception:
+                    pass
+            raise
+        self.gst_pipeline = pipeline
+        self.gst_bus = pipeline.get_bus()
+        self.gst_generation = generation
+        self.embedded_pipeline_size = self._receiver_surface_size() if embedded else None
+        self.gst_bus_timer.start()
+        self.logAppended.emit(
+            f"UDP ready: {ready.get('width', '?')}x{ready.get('height', '?')}@{ready.get('fps', '?')}; "
+            f"decoder: {self.decoder_label}; sink: {sink_name}"
+        )
+        self._started(pipeline, generation)
 
     def _bind_embedded_sink(self, sink):
         if self.video_item is None:
@@ -527,6 +597,8 @@ class ReceiverController(QObject):
         generation = self.generation if generation is None else generation
         if self.stopping or generation != self.generation:
             return
+        if self.udp_transport:
+            return self._launch_udp_pipeline(host, port, generation, self.sink, False)
         self.receiver_host = host
         self.receiver_port = port
         self.attempt_started = time.monotonic()
@@ -626,7 +698,10 @@ class ReceiverController(QObject):
     def _started(self, process=None, generation=None):
         process = self.process if process is None else process
         generation = self.generation if generation is None else generation
-        if generation != self.generation or process is not self.process:
+        if (
+            generation != self.generation
+            or (process is not self.process and process is not self.gst_pipeline)
+        ):
             return
         display = "Third" if self.port == 7114 else "Second"
         self._set_status(f"Waiting for {display} display stream…")
@@ -686,47 +761,6 @@ class ReceiverController(QObject):
         self._finished(code, None, pipeline, generation)
         self._stop_gst_pipeline()
 
-    def _read_tls(self, process=None, generation=None):
-        process = self.tls_process if process is None else process
-        generation = self.generation if generation is None else generation
-        if generation != self.generation or process is not self.tls_process:
-            return
-        raw = bytes(process.readAllStandardOutput()).decode(
-            "utf-8", errors="replace"
-        )
-        self.tls_buffer += raw
-        lines = self.tls_buffer.split("\n")
-        self.tls_buffer = lines.pop() if not self.tls_buffer.endswith("\n") else ""
-        for line in lines:
-            if line == "[TLS RECEIVER] READY" and self.process is None:
-                self._set_receiving(True)
-                self._launch_pipeline("127.0.0.1", 17110, generation)
-            elif line.startswith("[TLS RECEIVER] CREDENTIALS "):
-                fingerprint, token = line.removeprefix(
-                    "[TLS RECEIVER] CREDENTIALS "
-                ).split()
-                save_receiver_credentials(self.host, fingerprint, token)
-                self.pairing_code = ""
-                self._set_status("Authenticated; starting encrypted stream…")
-            elif line.startswith("[TLS RECEIVER] AUTH_FAILED"):
-                self.auth_failed = True
-                fingerprint = line.removeprefix("[TLS RECEIVER] AUTH_FAILED").strip()
-                clear_receiver_credentials(self.host)
-                self._set_status("Pairing required")
-                self.pairingRequired.emit(self.host, self.port, fingerprint)
-            elif line.startswith("[TLS RECEIVER] ERROR "):
-                self._set_status(line.removeprefix("[TLS RECEIVER] ERROR "))
-            elif line:
-                self.logAppended.emit(line)
-
-    def _tls_finished(self, code, _status, process=None, generation=None):
-        process = self.tls_process if process is None else process
-        generation = self.generation if generation is None else generation
-        if generation != self.generation or process is not self.tls_process:
-            return
-        if code and not self.auth_failed and not self.receiving and not self.retry_pending:
-            self._set_status("Encrypted connection failed")
-
     def _read_pipeline(self, process=None, generation=None):
         process = self.process if process is None else process
         generation = self.generation if generation is None else generation
@@ -778,8 +812,7 @@ class ReceiverController(QObject):
                 f"Waiting for {display} display stream… "
                 f"({self.retry_count}/{max_retries})"
             )
-            stop_processes(self.tls_process)
-            self.process = self.tls_process = None
+            self.process = None
             self.retry_generation = generation
             self.retry_timer.start(1000)
             return
@@ -799,10 +832,9 @@ class ReceiverController(QObject):
         self.surface_timer.stop()
         self.pending_launch = None
         self._stop_gst_pipeline()
-        stop_processes(self.process, self.tls_process)
-        self.process = self.tls_process = None
-        self.tls_buffer = ""
-        self.auth_failed = self.retry_pending = False
+        stop_processes(self.process)
+        self.process = None
+        self.retry_pending = False
         self.pipeline_fallback_used = False
         self.resize_restart_used = False
         self.receiver_surface_width = self.receiver_surface_height = 0

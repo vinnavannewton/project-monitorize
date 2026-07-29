@@ -70,8 +70,7 @@ Item {
         if (page.isWifi) {
             backend.saveWifiSettings(
                 ...args,
-                streamTypeCombo.currentText.indexOf("Speed") === 0 ? "Speed" : "Stability",
-                encryptionCheck.checked
+                streamTypeCombo.currentText.indexOf("Speed") === 0 ? "Speed" : "Stability"
             )
         } else {
             backend.saveUsbSettings(...args)
@@ -128,7 +127,6 @@ Item {
         if (page.isWifi) {
             let savedStreamType = saved["stream_type"] || "Speed";
             streamTypeCombo.selectValue(savedStreamType === "Speed" ? "Speed" : "Stability");
-            encryptionCheck.checked = saved["use_encryption"] === true;
         }
 
         let gen = backend.loadGeneralSettings();
@@ -362,18 +360,21 @@ Item {
                 }
             }
 
+            Text {
+                visible: page.isWifi
+                Layout.alignment: Qt.AlignHCenter
+                text: "Wi-Fi video uses direct RTP/UDP on your trusted LAN. It uses the selected resolution, FPS, bitrate, encoder, and encoder profile. Use Tailscale or WireGuard for encrypted networking."
+                color: theme.textMuted
+                font.pixelSize: 12
+                wrapMode: Text.WordWrap
+                horizontalAlignment: Text.AlignHCenter
+                Layout.maximumWidth: 500
+            }
+
             // Checkbox Settings
             ColumnLayout {
                 spacing: 8
                 Layout.alignment: Qt.AlignHCenter
-
-                CustomToggle {
-                    id: encryptionCheck
-                    visible: page.isWifi
-                    text: "Use encryption"
-                    checked: true
-                    onCheckedChanged: page.saveSettings()
-                }
 
                 CustomToggle {
                     id: touchCheck

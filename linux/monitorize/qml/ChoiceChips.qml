@@ -57,6 +57,8 @@ RowLayout {
         Button {
             id: chip
 
+            enabled: chips.enabled
+
             readonly property bool selected: index === chips.currentIndex
 
             text: chips.chipLabel(modelData)

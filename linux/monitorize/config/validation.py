@@ -68,10 +68,6 @@ def normalize_host(host):
     return str(host or "").strip()
 
 
-def credential_host_key(host):
-    return normalize_host(host).lower()
-
-
 def valid_host(host):
     return bool(normalize_host(host))
 
@@ -98,7 +94,6 @@ def sanitize_display_type(value):
 
 def sanitize_stream_type(value):
     return value if value in VALID_STREAM_TYPES else "Speed"
-
 
 def sanitize_encoder_profile(value):
     return value if value in VALID_ENCODER_PROFILES else "Low Latency"

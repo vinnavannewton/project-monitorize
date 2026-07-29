@@ -301,7 +301,10 @@ def main(argv=None):
     bus = dbus.SessionBus()
     host = os.environ.get("MONITORIZE_HOST", "0.0.0.0" if config.mode == "wifi" else "127.0.0.1")
     port = int(os.environ.get("MONITORIZE_PORT", 7110 if config.mode == "wifi" else 7112))
-    encoder = get_encoder(os.environ.get("MONITORIZE_ENCODER", "cpu"))
+    encoder = get_encoder(
+        os.environ.get("MONITORIZE_ENCODER", "cpu"),
+        os.environ.get("MONITORIZE_REQUIRE_HARDWARE_ENCODER") == "1",
+    )
 
     def launch(node_id):
         print(f"[Monitorize GNOME] Streaming ({config.mode})")

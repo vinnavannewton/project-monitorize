@@ -5,10 +5,7 @@ import subprocess
 import re
 from functools import lru_cache
 
-from .video_transport import (
-    FEC_PAYLOAD_TYPE, INITIAL_FEC_PERCENT, MTU, RTP_PAYLOAD_TYPE,
-    wait_for_client,
-)
+from .video_transport import MTU, RTP_PAYLOAD_TYPE, TRANSPORT, wait_for_client
 
 VALID_ENCODER_PROFILES = {"Low Latency", "Balanced", "Quality"}
 
@@ -25,7 +22,7 @@ def _gst_inspect(element):
     return result.stdout if result.returncode == 0 else ""
 
 
-def get_encoder(preference: str = "cpu") -> str | None:
+def get_encoder(preference: str = "cpu", require_hardware: bool = False) -> str | None:
     """
     Return the encoder name based on user preference.
     
@@ -33,11 +30,17 @@ def get_encoder(preference: str = "cpu") -> str | None:
     ----------
     preference : str
         One of: 'nvidia', 'vaapi', 'cpu'.
+    require_hardware : bool
+        Keep the requested NVIDIA element when it is unavailable so startup
+        fails instead of selecting CPU.
     """
     pref = preference.lower()
     
     if pref == "nvidia":
         if _gst_inspect("nvh264enc"):
+            return "nvh264enc"
+        if require_hardware:
+            print("[Pipeline] NVIDIA NVENC is unavailable; hardware encoder is required")
             return "nvh264enc"
         print("[Pipeline] NVIDIA NVENC is unavailable; using CPU x264enc")
         return None
@@ -288,7 +291,8 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
     return pipeline
 
 
-def _launch(argv, pass_fds=None, target_fps=60, target_bitrate=8000):
+def _launch(argv, pass_fds=None, target_fps=60, target_bitrate=8000,
+            target_width=0, target_height=0):
     if "rtph264pay" in argv:
         import sys
         gst_index = argv.index("gst-launch-1.0")
@@ -304,6 +308,7 @@ def _launch(argv, pass_fds=None, target_fps=60, target_bitrate=8000):
         runner[5:5] = [
             "--pacing-bitrate", str(target_bitrate),
             "--target-fps", str(target_fps),
+            "--width", str(target_width), "--height", str(target_height),
         ]
         argv = [*argv[:gst_index], *runner]
     kwargs = {"shell": False}
@@ -346,13 +351,16 @@ def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
     """
     import os
     stream_type = os.environ.get("MONITORIZE_STREAM_TYPE", "Speed")
+    transport = os.environ.get("MONITORIZE_VIDEO_TRANSPORT", "")
+    require_hardware = os.environ.get("MONITORIZE_REQUIRE_HARDWARE_ENCODER") == "1"
     encoder_profile = os.environ.get("MONITORIZE_ENCODER_PROFILE", "Low Latency")
     if preserve_source_size is None:
         preserve_source_size = os.environ.get("MONITORIZE_PRESERVE_SOURCE_SIZE") == "1"
     rtp_endpoint = None
-    if server_mode and os.environ.get("MONITORIZE_VIDEO_TRANSPORT") == "rtp-udp-v1":
+    if server_mode and transport == TRANSPORT:
         rtp_endpoint = wait_for_client(
-            port, width=width, height=height, fps=fps, bitrate=bitrate
+            port, width=width, height=height, fps=fps, bitrate=bitrate,
+            transport=transport,
         )
     modes = [None]
     if hw_encoder == "nvh264enc":
@@ -380,12 +388,16 @@ def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
         proc = _launch(
             pipeline, pass_fds=pass_fds,
             target_fps=fps, target_bitrate=bitrate,
+            target_width=width, target_height=height,
         )
         if not _failed_during_startup(proc):
             print("[Pipeline] READY", flush=True)
             return proc
         if not hw_encoder:
             print("[Pipeline] CPU encoder failed during startup", flush=True)
+            return proc
+        if require_hardware:
+            print("[Pipeline] Requested hardware encoder failed; CPU fallback is disabled", flush=True)
             return proc
         print(f"[Pipeline] {label} failed during startup; trying fallback")
 
@@ -403,6 +415,7 @@ def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
     proc = _launch(
         pipeline, pass_fds=pass_fds,
         target_fps=fps, target_bitrate=bitrate,
+        target_width=width, target_height=height,
     )
     if _failed_during_startup(proc):
         print("[Pipeline] CPU fallback failed during startup", flush=True)

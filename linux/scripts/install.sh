@@ -13,8 +13,8 @@
 
 set -euo pipefail
 
-APP_NAME="Monitorize"
-APP_ID="monitorize"
+APP_NAME="Monitorize UDP"
+APP_ID="monitorize-udp"
 DESKTOP_FILE="${APP_ID}.desktop"
 
 # Resolve paths relative to this script (linux/scripts directory)
@@ -25,7 +25,7 @@ VENV_DIR="${PROJECT_DIR}/venv"
 HELPER_NAME="monitorize-kde-virtual-output"
 HELPER_BUILD="${PROJECT_DIR}/native/kde_virtual_output/build.sh"
 HELPER_PATH="${VENV_DIR}/bin/${HELPER_NAME}"
-HELPER_DESKTOP_FILE="${HELPER_NAME}.desktop"
+HELPER_DESKTOP_FILE="${APP_ID}-kde-virtual-output.desktop"
 
 # XDG standard locations
 DESKTOP_DIR="${HOME}/.local/share/applications"
@@ -137,7 +137,6 @@ Terminal=false
 Categories=Utility;System;
 Keywords=monitor;display;tablet;android;screen;extend;mirror;streaming;
 StartupNotify=true
-StartupWMClass=monitorize
 Path=${PROJECT_DIR}
 EOF
 
@@ -150,7 +149,7 @@ HELPER_EXEC="$(desktop_quote "${HELPER_PATH}")"
 cat > "${DESKTOP_DIR}/${HELPER_DESKTOP_FILE}" <<EOF
 [Desktop Entry]
 Type=Application
-Name=Monitorize KDE Virtual Output
+Name=Monitorize UDP KDE Virtual Output
 Exec=${HELPER_EXEC}
 NoDisplay=true
 Terminal=false

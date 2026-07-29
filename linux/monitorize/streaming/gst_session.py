@@ -21,7 +21,7 @@ from .video_transport import (
 
 
 class Session:
-    def __init__(self, description, control_port, pacing_bitrate, target_fps):
+    def __init__(self, description, control_port, pacing_bitrate, target_fps, width, height):
         Gst.init(None)
         self.pipeline = Gst.parse_launch(description)
         self.control_port = control_port
@@ -32,6 +32,8 @@ class Session:
         self.last_unhealthy = 0.0
         self.healthy_since = time.monotonic()
         self.target_fps = target_fps
+        self.width = width
+        self.height = height
         self.original_bitrate = pacing_bitrate
         self.current_bitrate = pacing_bitrate
         self.render_window_started = time.monotonic()
@@ -174,6 +176,8 @@ class Session:
                         "fecPt": FEC_PAYLOAD_TYPE,
                         "fecPercent": INITIAL_FEC_PERCENT,
                         "ssrc": ssrc, "codec": "h264", "profile": profile,
+                        "width": self.width, "height": self.height,
+                        "fps": self.target_fps,
                     }, separators=(",", ":")).encode()
                     client.sendall(HELLO_PREFIX + reply + b"\n")
                     GLib.idle_add(self.update_client, addr[0], port)
@@ -228,10 +232,13 @@ def main():
     parser.add_argument("--control-port", type=int, required=True)
     parser.add_argument("--pacing-bitrate", type=int, required=True)
     parser.add_argument("--target-fps", type=int, required=True)
+    parser.add_argument("--width", type=int, required=True)
+    parser.add_argument("--height", type=int, required=True)
     parser.add_argument("description")
     args = parser.parse_args()
     session = Session(
-        args.description, args.control_port, args.pacing_bitrate, args.target_fps
+        args.description, args.control_port, args.pacing_bitrate, args.target_fps,
+        args.width, args.height,
     )
     signal.signal(signal.SIGTERM, lambda *_: session.loop.quit())
     signal.signal(signal.SIGINT, lambda *_: session.loop.quit())
