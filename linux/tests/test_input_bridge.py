@@ -482,6 +482,20 @@ class KdeGeometryTest(unittest.TestCase):
         ):
             self.assertIsNone(geom._rect_kde())
 
+    def test_kde_mirror_geometry_prefers_primary_over_leftover_virtual_output(self):
+        geom = geometry.Geometry("kde", 1920, 1200)
+        outputs = {"outputs": [
+            {"name": "Virtual-Monitorize-1", "enabled": True,
+             "pos": {"x": 1920, "y": 0}, "size": {"width": 1920, "height": 1200}},
+            {"name": "eDP-1", "primary": True, "enabled": True,
+             "pos": {"x": 0, "y": 0}, "size": {"width": 2560, "height": 1600}},
+        ]}
+        with (
+            patch.dict(geometry.os.environ, {}, clear=True),
+            patch("monitorize.input_bridge.geometry.json_command", return_value=outputs),
+        ):
+            self.assertEqual(geom._rect_kde(), (0.0, 0.0, 2560.0, 1600.0))
+
     def test_kde_rotation_is_delegated_to_kwin_output_mapping(self):
         geom = geometry.Geometry("kde", 1920, 1200)
         with patch("monitorize.input_bridge.geometry.json_command") as query:

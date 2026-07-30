@@ -15,6 +15,7 @@ import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.ConcurrentHashMap
 
 internal class PendingOutputQueue(private val capacity: Int) {
     private val values = java.util.ArrayDeque<Int>()
@@ -55,6 +56,8 @@ class H264Decoder(
     private val decodeMicrosSinceStats = AtomicLong(0)
     private val renderMicrosSinceStats = AtomicLong(0)
     private val droppedSinceStats = AtomicInteger(0)
+    private val presentationRtpTimestamps = ConcurrentHashMap<Long, Long>()
+    @Volatile private var onFrameRenderedTiming: ((Long, Long) -> Unit)? = null
 
     data class Stats(
         val renderedFrames: Int,
@@ -69,6 +72,7 @@ class H264Decoder(
         var size: Int = 0
         var isKeyFrame: Boolean = false
         var receivedAtUs: Long = 0
+        var rtpTimestamp: Long = -1
     }
 
     
@@ -208,10 +212,14 @@ class H264Decoder(
                     it.configure(format, surface, null, 0)
                 }
                 it.setOnFrameRenderedListener({ _, presentationTimeUs, _ ->
+                    val renderedAtNs = System.nanoTime()
                     renderedSinceStats.incrementAndGet()
                     renderMicrosSinceStats.addAndGet(
-                        (System.nanoTime() / 1000 - presentationTimeUs).coerceAtLeast(0)
+                        (renderedAtNs / 1000 - presentationTimeUs).coerceAtLeast(0)
                     )
+                    presentationRtpTimestamps.remove(presentationTimeUs)?.let {
+                        onFrameRenderedTiming?.invoke(it, renderedAtNs)
+                    }
                     if (isCurrent(generation) && firstFrameReported.compareAndSet(false, true)) {
                         onFirstFrameRendered()
                     }
@@ -297,6 +305,7 @@ class H264Decoder(
         chunk.size = 0
         chunk.isKeyFrame = false
         chunk.receivedAtUs = 0
+        chunk.rtpTimestamp = -1
         chunkPool.offer(chunk)
     }
 
@@ -342,6 +351,10 @@ class H264Decoder(
             val sz = chunk.size.coerceAtMost(buf.remaining())
             buf.put(chunk.data, 0, sz)
             mc.queueInputBuffer(idx, 0, sz, chunk.receivedAtUs, 0)
+            if (chunk.rtpTimestamp >= 0) {
+                presentationRtpTimestamps[chunk.receivedAtUs] = chunk.rtpTimestamp
+                if (presentationRtpTimestamps.size > 240) presentationRtpTimestamps.clear()
+            }
             true
         } catch (e: Exception) {
             Log.e(TAG, "Input queue failed", e)
@@ -373,7 +386,14 @@ class H264Decoder(
         )
     }
 
-    fun feedChunk(data: ByteArray, offset: Int, size: Int, isKeyFrame: Boolean = false): Boolean {
+    fun setFrameRenderedTimingCallback(callback: ((Long, Long) -> Unit)?) {
+        onFrameRenderedTiming = callback
+    }
+
+    fun feedChunk(
+        data: ByteArray, offset: Int, size: Int, isKeyFrame: Boolean = false,
+        rtpTimestamp: Long = -1,
+    ): Boolean {
         if (!initialized || fatalError.get()) return false
 
         val chunk = obtainChunk(isKeyFrame) ?: run {
@@ -386,6 +406,7 @@ class H264Decoder(
         chunk.size = actualSize
         chunk.isKeyFrame = isKeyFrame
         chunk.receivedAtUs = System.nanoTime() / 1000
+        chunk.rtpTimestamp = rtpTimestamp
 
         val pendingIdx = pendingInputBuffers.poll()
         if (pendingIdx != null) {
@@ -426,6 +447,7 @@ class H264Decoder(
         decodeMicrosSinceStats.set(0)
         renderMicrosSinceStats.set(0)
         droppedSinceStats.set(0)
+        presentationRtpTimestamps.clear()
         pendingOutputBuffers.drain().forEach { output ->
             try { codec?.releaseOutputBuffer(output, false) } catch (_: Exception) {}
         }

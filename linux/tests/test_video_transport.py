@@ -1,4 +1,5 @@
 import unittest
+from collections import deque
 from unittest.mock import Mock, patch
 
 from monitorize.streaming.video_transport import (
@@ -43,6 +44,47 @@ class VideoTransportTest(unittest.TestCase):
         session.report_client_stats.assert_called_once()
         session.update_client.assert_not_called()
         session.force_key_unit.assert_not_called()
+
+    def test_stats_reply_echoes_clock_exchange_and_matching_capture_time(self):
+        session = Session.__new__(Session)
+        session.capture_rtp_times = {1234: 9_876_543_210}
+        reply = session.stats_reply({"renderedRtpTimestamp": 1234}, 1_234_567)
+
+        self.assertEqual(1234, reply["rtpTimestamp"])
+        self.assertEqual(9_876_543_210, reply["captureNs"])
+        self.assertEqual(1_234_567, reply["hostRecvNs"])
+        self.assertIsInstance(reply["hostSendNs"], int)
+
+    def test_paced_frame_timestamp_replaces_pre_rate_timestamp(self):
+        session = Session.__new__(Session)
+        session.capture_pts = {42: 1}
+        session.record_capture_pts(42, 2)
+
+        self.assertEqual(2, session.capture_pts[42])
+
+    def test_rtp_timestamp_uses_ordered_encoder_capture_when_payloader_has_no_pts(self):
+        session = Session.__new__(Session)
+        session.capture_pts = {}
+        session.encoder_capture_times = deque([100])
+        session.capture_rtp_times = {}
+        session.encoded_capture_times = deque()
+        session.last_media_rtp_timestamp = None
+
+        session.record_encoded_capture(None)
+        session.record_rtp_capture(99, None)
+
+        self.assertEqual(100, session.capture_rtp_times[99])
+
+    def test_encoder_input_keeps_source_capture_time_when_pts_are_unavailable(self):
+        session = Session.__new__(Session)
+        frame = object()
+        session.capture_buffer_times = {}
+        session.encoder_capture_times = deque()
+
+        session.record_capture_buffer(frame, 100)
+        session.record_encoder_input_capture(frame)
+
+        self.assertEqual([100], list(session.encoder_capture_times))
 
     def test_idr_control_message_forces_key_without_switching_endpoint(self):
         session = Session.__new__(Session)

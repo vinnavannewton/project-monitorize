@@ -66,7 +66,49 @@ data class StreamStats(
     val fecRecovered: Int = 0,
     val fecUnrecoverable: Int = 0,
     val residualLost: Int = 0,
+    val endToEndMs: Float? = null,
+    val clockErrorMs: Float? = null,
 )
+
+internal data class RenderedRtpFrame(val timestamp: Long, val renderedAtNs: Long)
+
+internal class RtpClockSync {
+    private val lock = Any()
+    private var rendered: RenderedRtpFrame? = null
+    private var estimate: Pair<Float, Float>? = null
+
+    fun recordRendered(timestamp: Long, renderedAtNs: Long) = synchronized(lock) {
+        rendered = RenderedRtpFrame(timestamp, renderedAtNs)
+    }
+
+    fun renderedFrame(): RenderedRtpFrame? = synchronized(lock) { rendered }
+
+    fun latest(): Pair<Float, Float>? = synchronized(lock) { estimate }
+
+    fun applyResponse(
+        clientSentNs: Long, clientReceivedNs: Long, response: String,
+        frame: RenderedRtpFrame,
+    ) {
+        val hostReceivedNs = clockField(response, "hostRecvNs") ?: return
+        val hostSentNs = clockField(response, "hostSendNs") ?: return
+        val captureNs = clockField(response, "captureNs") ?: return
+        if (clockField(response, "rtpTimestamp") != frame.timestamp) return
+        val roundTripNs = clientReceivedNs - clientSentNs - (hostSentNs - hostReceivedNs)
+        if (roundTripNs < 0) return
+        val hostMinusClientNs = (
+            (hostReceivedNs - clientSentNs) + (hostSentNs - clientReceivedNs)
+        ) / 2
+        val endToEndNs = frame.renderedAtNs - captureNs + hostMinusClientNs
+        if (endToEndNs < 0) return
+        synchronized(lock) {
+            estimate = endToEndNs / 1_000_000f to roundTripNs / 2_000_000f
+        }
+    }
+}
+
+private fun clockField(message: String, name: String): Long? =
+    Regex("\\\"$name\\\"\\s*:\\s*(-?\\d+)").find(message)
+        ?.groupValues?.get(1)?.toLongOrNull()
 
 internal class RtpFeedbackAccumulator(private val periodMs: Long = 1_000) {
     private var elapsedMs = 0L
@@ -86,6 +128,8 @@ internal class RtpFeedbackAccumulator(private val periodMs: Long = 1_000) {
     private var fecRecovered = 0
     private var fecUnrecoverable = 0
     private var residualLost = 0
+    private var endToEndMs: Float? = null
+    private var clockErrorMs: Float? = null
 
     fun add(
         window: StreamStats,
@@ -102,6 +146,8 @@ internal class RtpFeedbackAccumulator(private val periodMs: Long = 1_000) {
         fecRecovered += window.fecRecovered
         fecUnrecoverable += window.fecUnrecoverable
         residualLost += window.residualLost
+        window.endToEndMs?.let { endToEndMs = it }
+        window.clockErrorMs?.let { clockErrorMs = it }
         incompleteFrames += window.incompleteFrames
         inputFrames += window.inputFrames
         decodedFrames += window.decodedFrames
@@ -135,6 +181,8 @@ internal class RtpFeedbackAccumulator(private val periodMs: Long = 1_000) {
             fecRecovered = fecRecovered,
             fecUnrecoverable = fecUnrecoverable,
             residualLost = residualLost,
+            endToEndMs = endToEndMs,
+            clockErrorMs = clockErrorMs,
         )
         reset()
         return result
@@ -158,6 +206,8 @@ internal class RtpFeedbackAccumulator(private val periodMs: Long = 1_000) {
         fecRecovered = 0
         fecUnrecoverable = 0
         residualLost = 0
+        endToEndMs = null
+        clockErrorMs = null
     }
 }
 
@@ -294,6 +344,8 @@ class StreamReceiver(
         decoder.init(ready.width, ready.height, ready.fps, balancedOutput = false)
         onStatusChange?.invoke("")
         val assembler = RtpH264Assembler()
+        val clockSync = RtpClockSync()
+        decoder.setFrameRenderedTimingCallback(clockSync::recordRendered)
         val fecRecovery = if (ready.fecPercent == 10) {
             RtpUlpFecRecovery(ready.fecPayloadType)
         } else null
@@ -326,7 +378,10 @@ class StreamReceiver(
         fun feedCompletedFrame(frame: ByteArray) {
             val isIdr = containsIdr(frame)
             if (!waitingForIdr || isIdr) {
-                val fed = decoder.feedChunk(frame, 0, frame.size, isIdr)
+                val fed = decoder.feedChunk(
+                    frame, 0, frame.size, isIdr,
+                    assembler.completedTimestamp ?: -1,
+                )
                 if (fed) {
                     totalFramesDecoded++
                     if (totalFramesDecoded <= 3) {
@@ -422,6 +477,7 @@ class StreamReceiver(
                 val renderedFps = stats.renderedFrames.toFloat() * 1_000f / elapsedMs
                 val lossPercent = lostPackets * 100f /
                     (mediaPackets + recoveredPackets + lostPackets).coerceAtLeast(1)
+                val latency = clockSync.latest()
                 val snapshot = StreamStats(
                     receivedKbps = receivedKbps,
                     packetsPerSecond = packetsPerSecond,
@@ -444,6 +500,8 @@ class StreamReceiver(
                     fecRecovered = recoveredPackets,
                     fecUnrecoverable = fecUnrecoverable,
                     residualLost = lostPackets,
+                    endToEndMs = latency?.first,
+                    clockErrorMs = latency?.second,
                 )
                 onStats?.invoke(snapshot)
                 if (totalReceivedPackets < 100 || receivedPackets > 0) {
@@ -457,7 +515,9 @@ class StreamReceiver(
                         "queue=${stats.queueDepth} dropped=${stats.droppedFrames} recovered=$recoveredPackets")
                 }
                 feedback.add(snapshot, receivedBytes, receivedPackets, lostPackets)?.let {
-                    sendStatsViaTcp(targetIp, controlPort, socket.localPort, it)
+                    sendStatsViaTcp(
+                        targetIp, controlPort, socket.localPort, it, clockSync,
+                    )
                 }
                 receivedPackets = 0
                 receivedBytes = 0
@@ -474,6 +534,7 @@ class StreamReceiver(
         Log.i(TAG, "RTP receive loop ended: totalPackets=$totalReceivedPackets " +
             "totalFrames=$totalFramesDecoded")
         socket.close()
+        decoder.setFrameRenderedTimingCallback(null)
         return true
     }
 
@@ -504,13 +565,17 @@ class StreamReceiver(
     }
 
     private fun sendStatsViaTcp(
-        hostIp: String, controlPort: Int, localUdpPort: Int, stats: StreamStats
+        hostIp: String, controlPort: Int, localUdpPort: Int, stats: StreamStats,
+        clockSync: RtpClockSync,
     ) {
         Thread({
             try {
                 Socket().use { control ->
                     control.connect(InetSocketAddress(hostIp, controlPort), 750)
+                    control.soTimeout = 750
                     control.tcpNoDelay = true
+                    val rendered = clockSync.renderedFrame()
+                    val sentNs = System.nanoTime()
                     val message = "MZRP1 {\"transport\":\"rtp-udp-v1\",\"port\":$localUdpPort," +
                         "\"type\":\"stats\",\"receivedKbps\":${stats.receivedKbps}," +
                         "\"packetsPerSecond\":${stats.packetsPerSecond}," +
@@ -524,11 +589,19 @@ class StreamReceiver(
                         "\"fecRecovered\":${stats.fecRecovered}," +
                         "\"fecUnrecoverable\":${stats.fecUnrecoverable}," +
                         "\"residualLost\":${stats.residualLost}," +
+                        "\"endToEndMs\":${stats.endToEndMs ?: -1}," +
+                        "\"clockErrorMs\":${stats.clockErrorMs ?: -1}," +
+                        "\"renderedRtpTimestamp\":${rendered?.timestamp ?: -1}," +
+                        "\"clockSendNs\":$sentNs," +
                         "\"intervalMs\":${stats.measurementMs}}"
                     control.getOutputStream().apply {
                         write(message.toByteArray(Charsets.UTF_8))
                         write('\n'.code)
                         flush()
+                    }
+                    val response = readAsciiLine(control, RTP_CONTROL_RESPONSE_LIMIT)
+                    if (rendered != null) {
+                        clockSync.applyResponse(sentNs, System.nanoTime(), response, rendered)
                     }
                 }
             } catch (_: Exception) {

@@ -278,16 +278,14 @@ class Geometry:
     def _rect_kde(self):
         try:
             outputs = json_command(["kscreen-doctor", "-j"]).get("outputs", [])
-            target = kde_virtual_output(
-                outputs, os.environ.get("MONITORIZE_OUTPUT", "")
-            )
-            if (
-                target is None
-                and not os.environ.get("MONITORIZE_KDE_VIRTUAL_SLOT")
-            ):
+            if os.environ.get("MONITORIZE_KDE_VIRTUAL_SLOT"):
+                target = kde_virtual_output(
+                    outputs, os.environ.get("MONITORIZE_OUTPUT", "")
+                )
+            else:
                 target = next(
-                    (item for item in outputs if item.get("primary") or item.get("enabled")),
-                    None,
+                    (item for item in outputs if item.get("primary")),
+                    next((item for item in outputs if item.get("enabled")), None),
                 )
             if target:
                 pos = target.get("pos", {})
@@ -476,11 +474,21 @@ class Geometry:
         } - {""}
         if not event_names:
             return set()
-        target_output = (
-            os.environ.get("MONITORIZE_OUTPUT")
-            or (kde_virtual_output(json_command(["kscreen-doctor", "-j"]).get("outputs", [])) or {}).get("name")
-            or "Virtual-Monitorize-1"
-        )
+        outputs = json_command(["kscreen-doctor", "-j"]).get("outputs", [])
+        if os.environ.get("MONITORIZE_KDE_VIRTUAL_SLOT"):
+            target_output = (
+                os.environ.get("MONITORIZE_OUTPUT")
+                or (kde_virtual_output(outputs) or {}).get("name")
+                or "Virtual-Monitorize-1"
+            )
+        else:
+            target_output = (next(
+                (item for item in outputs if item.get("primary")),
+                next((item for item in outputs if item.get("enabled")), {}),
+            ) or {}).get("name")
+            if not target_output:
+                log.warning("Failed to map KDE uinput devices: no active primary output")
+                return set()
         try:
             import dbus
             bus = dbus.SessionBus()

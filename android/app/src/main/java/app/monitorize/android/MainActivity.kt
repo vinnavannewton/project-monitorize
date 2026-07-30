@@ -1374,7 +1374,7 @@ private fun BoxScope.StreamingStatsOverlay(stats: StreamStats) {
         "Wi-Fi RTP/UDP\nRX %d kbps · %d pps · loss %.1f%%\n" +
             "frames in/dec/out %.1f / %.1f / %.1f fps\n" +
             "decode %.1f ms · display %.1f ms · q %d\n" +
-            "incomplete %d · decoder drops %d",
+            "glass-to-glass %s\nincomplete %d · decoder drops %d",
         stats.receivedKbps,
         stats.packetsPerSecond,
         stats.lossPercent,
@@ -1384,6 +1384,9 @@ private fun BoxScope.StreamingStatsOverlay(stats: StreamStats) {
         stats.decodeMs,
         stats.renderMs,
         stats.queueDepth,
+        if (stats.endToEndMs != null && stats.clockErrorMs != null) {
+            String.format(Locale.US, "%.1f ms ± %.1f ms", stats.endToEndMs, stats.clockErrorMs)
+        } else "— (syncing)",
         stats.incompleteFrames,
         stats.decoderDroppedFrames,
     )

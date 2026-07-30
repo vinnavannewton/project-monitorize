@@ -1,6 +1,7 @@
 """Runtime-controlled GStreamer RTP session for Monitorize video."""
 
 import argparse
+from collections import deque
 import json
 import signal
 import socket
@@ -43,6 +44,11 @@ class Session:
             "encode_latency_samples": 0,
         }
         self.capture_pts = {}
+        self.capture_buffer_times = {}
+        self.encoder_capture_times = deque(maxlen=240)
+        self.capture_rtp_times = {}
+        self.encoded_capture_times = deque(maxlen=240)
+        self.last_media_rtp_timestamp = None
         self.configure_udp_socket(self.current_bitrate)
         print(f"[RTP] Fixed bitrate {self.current_bitrate} kbps", flush=True)
 
@@ -96,6 +102,15 @@ class Session:
         if now - self.last_client_stats_log < 1:
             return
         self.last_client_stats_log = now
+        e2e = message.get("endToEndMs")
+        clock_error = message.get("clockErrorMs")
+        try:
+            latency = (
+                f" e2e={float(e2e):.1f}ms clockError={float(clock_error):.1f}ms"
+                if float(e2e) >= 0 and float(clock_error) >= 0 else ""
+            )
+        except (TypeError, ValueError):
+            latency = ""
         print(
             "[RTP][Client] "
             f"rx={message.get('receivedKbps', 0)}kbps "
@@ -111,7 +126,7 @@ class Session:
             f"fec={message.get('fecPackets', 0)} "
             f"recovered={message.get('fecRecovered', 0)} "
             f"unrecoverable={message.get('fecUnrecoverable', 0)} "
-            f"residual={message.get('residualLost', 0)}",
+            f"residual={message.get('residualLost', 0)}{latency}",
             flush=True,
         )
 
@@ -120,6 +135,70 @@ class Session:
             return False
         self.report_client_stats(message)
         return True
+
+    def stats_reply(self, message, received_ns):
+        try:
+            timestamp = int(message.get("renderedRtpTimestamp", -1))
+        except (TypeError, ValueError):
+            timestamp = -1
+        capture_ns = self.capture_rtp_times.get(timestamp)
+        return {
+            "transport": TRANSPORT,
+            "status": "stats",
+            "hostRecvNs": received_ns,
+            "hostSendNs": time.monotonic_ns(),
+            "rtpTimestamp": timestamp,
+            "captureNs": capture_ns,
+        }
+
+    def record_capture_pts(self, pts, captured_at=None):
+        self.capture_pts[pts] = time.monotonic_ns() if captured_at is None else captured_at
+        if len(self.capture_pts) > 240:
+            self.capture_pts.pop(next(iter(self.capture_pts)))
+
+    def record_capture_buffer(self, buffer, captured_at=None):
+        """Keep the source timestamp with this raw buffer until encoder input.
+
+        PipeWire/VA-API may discard buffer PTS.  Queues keep the same GstBuffer,
+        so its miniobject hash gives us a reliable primary association.  A frame
+        synthesized by videorate has no source entry and is stamped there instead.
+        """
+        key = hash(buffer)
+        if key not in self.capture_buffer_times:
+            self.capture_buffer_times[key] = (
+                time.monotonic_ns() if captured_at is None else captured_at
+            )
+        if len(self.capture_buffer_times) > 480:
+            self.capture_buffer_times.pop(next(iter(self.capture_buffer_times)))
+
+    def record_encoder_input_capture(self, buffer):
+        captured_at = self.capture_buffer_times.pop(hash(buffer), None)
+        self.encoder_capture_times.append(
+            time.monotonic_ns() if captured_at is None else captured_at
+        )
+
+    def record_encoded_capture(self, pts):
+        captured_at = (
+            self.encoder_capture_times.popleft()
+            if self.encoder_capture_times else self.capture_pts.get(pts)
+        )
+        if captured_at is not None:
+            self.encoded_capture_times.append(captured_at)
+        return captured_at
+
+    def record_rtp_capture(self, timestamp, pts):
+        if timestamp == self.last_media_rtp_timestamp:
+            return
+        self.last_media_rtp_timestamp = timestamp
+        ordered_capture = (
+            self.encoded_capture_times.popleft()
+            if self.encoded_capture_times else None
+        )
+        captured_at = self.capture_pts.get(pts, ordered_capture)
+        if captured_at is not None:
+            self.capture_rtp_times[timestamp] = captured_at
+            if len(self.capture_rtp_times) > 240:
+                self.capture_rtp_times.pop(next(iter(self.capture_rtp_times)))
 
     def handle_idr_message(self, message):
         if message.get("type") != "idr":
@@ -165,11 +244,16 @@ class Session:
                         if not chunk:
                             break
                         data += chunk
+                    received_ns = time.monotonic_ns()
                     parsed = parse_hello(data.split(b"\n", 1)[0])
                     if parsed is None:
                         continue
                     port, message = parsed
                     if self.handle_stats_message(message):
+                        reply = json.dumps(
+                            self.stats_reply(message, received_ns), separators=(",", ":")
+                        ).encode()
+                        client.sendall(HELLO_PREFIX + reply + b"\n")
                         continue
                     if self.handle_idr_message(message):
                         reply = json.dumps({
@@ -219,21 +303,34 @@ class Session:
                 buffer = info.get_buffer()
                 if buffer is None:
                     return Gst.PadProbeReturn.OK
-                self.metrics[kind] += 1
-                if kind == "source" and buffer.pts != Gst.CLOCK_TIME_NONE:
-                    self.capture_pts[buffer.pts] = time.monotonic()
-                    if len(self.capture_pts) > 240:
-                        self.capture_pts.pop(next(iter(self.capture_pts)))
-                elif kind == "encoded" and buffer.pts != Gst.CLOCK_TIME_NONE:
-                    captured_at = self.capture_pts.pop(buffer.pts, None)
+                if kind in self.metrics:
+                    self.metrics[kind] += 1
+                if kind in ("source", "paced"):
+                    self.record_capture_buffer(buffer)
+                    if buffer.pts != Gst.CLOCK_TIME_NONE:
+                        self.record_capture_pts(buffer.pts)
+                elif kind == "encoder_input":
+                    self.record_encoder_input_capture(buffer)
+                elif kind == "encoded":
+                    captured_at = self.record_encoded_capture(buffer.pts)
                     if captured_at is not None:
-                        self.metrics["encode_latency_total_ms"] += (time.monotonic() - captured_at) * 1000
+                        self.metrics["encode_latency_total_ms"] += (
+                            time.monotonic_ns() - captured_at
+                        ) / 1_000_000
                         self.metrics["encode_latency_samples"] += 1
                 elif kind == "rtp_packets":
                     self.metrics["rtp_bytes"] += buffer.get_size()
-                    data = buffer.extract_dup(0, min(2, buffer.get_size()))
+                    data = buffer.extract_dup(0, min(12, buffer.get_size()))
                     if len(data) >= 2 and data[1] & 0x7f == FEC_PAYLOAD_TYPE:
                         self.metrics["fec_packets"] += 1
+                    elif (
+                        len(data) >= 8
+                        and data[1] & 0x7f == RTP_PAYLOAD_TYPE
+                        and buffer.pts != Gst.CLOCK_TIME_NONE
+                    ):
+                        self.record_rtp_capture(
+                            int.from_bytes(data[4:8], "big"), buffer.pts,
+                        )
                 return Gst.PadProbeReturn.OK
             return probe
 
@@ -247,6 +344,15 @@ class Session:
             pad = element.get_static_pad("src") if element else None
             if pad is not None:
                 pad.add_probe(Gst.PadProbeType.BUFFER, buffer_probe(kind))
+        encoder = self._element(
+            "nvh264enc0", "vah264enc0", "vah264lpenc0", "vaapih264enc0",
+            "x264enc0", "monitorize_encoder",
+        )
+        encoder_sink = encoder.get_static_pad("sink") if encoder else None
+        if encoder_sink is not None:
+            encoder_sink.add_probe(
+                Gst.PadProbeType.BUFFER, buffer_probe("encoder_input"),
+            )
         GLib.timeout_add_seconds(1, self.log_runtime_diagnostics)
 
     def log_runtime_diagnostics(self):

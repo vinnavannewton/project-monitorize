@@ -921,7 +921,7 @@ Item {
             text: "Wi-Fi RTP/UDP\n" +
                 "host capture/pace/enc " + page.telemetryNumber(page.telemetry.hostCaptureFps, 1) +
                 " / " + page.telemetryNumber(page.telemetry.hostPacedFps, 1) +
-                " / " + page.telemetryNumber(page.telemetry.hostEncodedFps, 1) + " fps · path " +
+                " / " + page.telemetryNumber(page.telemetry.hostEncodedFps, 1) + " fps · encode path " +
                 page.telemetryText(page.telemetry.encodePath) + "\n" +
                 "TX " + page.telemetryNumber(page.telemetry.hostTxKbps, 0) + " kbps · " +
                 page.telemetryNumber(page.telemetry.hostRtpPps, 0) + " pps · pace " +

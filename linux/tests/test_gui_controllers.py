@@ -3748,6 +3748,7 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn("anchors.bottom: parent.bottom", qml)
         self.assertIn("lineHeightMode: Text.FixedHeight", qml)
         self.assertIn('text: "Wi-Fi RTP/UDP\\n"', qml)
+        self.assertIn('" fps · encode path "', qml)
         self.assertIn("page.telemetry.bitrateKbps", qml)
         self.assertNotIn("page.telemetry.hostActivity", qml)
         self.assertNotIn("page.telemetry.controllerReason", qml)
