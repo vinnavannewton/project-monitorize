@@ -12,7 +12,154 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 private const val RTP_TRANSPORT = "rtp-udp-v1"
 
-internal data class RtpStreamConfig(val width: Int, val height: Int, val fps: Int)
+internal data class RtpStreamConfig(
+    val width: Int,
+    val height: Int,
+    val fps: Int,
+    val fecPayloadType: Int = 122,
+    val fecPercent: Int = 0,
+)
+
+internal fun rtpFrameDeadlineNanos(fps: Int): Long {
+    return (3_000_000_000L / fps.coerceAtLeast(1))
+        .coerceIn(50_000_000L, 125_000_000L)
+}
+
+internal fun recoveryIdrAllowed(lastRequestMs: Long, nowMs: Long): Boolean {
+    return nowMs - lastRequestMs >= 500L
+}
+
+internal fun buildRtpControlMessage(
+    localUdpPort: Int,
+    fps: Int,
+    width: Int,
+    height: Int,
+    requestIdr: Boolean = false,
+): String {
+    val type = if (requestIdr) "idr" else "start"
+    return "MZRP1 {\"transport\":\"$RTP_TRANSPORT\",\"port\":$localUdpPort," +
+        "\"type\":\"$type\"," +
+        "\"fps\":$fps,\"width\":$width,\"height\":$height," +
+        "\"decoderProfiles\":[\"high\",\"constrained-baseline\"]," +
+        "\"fecModes\":[\"ulp-rfc5109\"]}"
+}
+
+data class StreamStats(
+    val receivedKbps: Int = 0,
+    val packetsPerSecond: Int = 0,
+    val lossPercent: Float = 0f,
+    val incompleteFrames: Int = 0,
+    val inputFps: Float = 0f,
+    val decodedFps: Float = 0f,
+    val renderedFps: Float = 0f,
+    val decodeMs: Float = 0f,
+    val renderMs: Float = 0f,
+    val queueDepth: Int = 0,
+    val decoderDroppedFrames: Int = 0,
+    val lostPackets: Int = 0,
+    val inputFrames: Int = 0,
+    val decodedFrames: Int = 0,
+    val renderedFrames: Int = 0,
+    val measurementMs: Long = 0,
+    val mediaPackets: Int = 0,
+    val fecPackets: Int = 0,
+    val fecRecovered: Int = 0,
+    val fecUnrecoverable: Int = 0,
+    val residualLost: Int = 0,
+)
+
+internal class RtpFeedbackAccumulator(private val periodMs: Long = 1_000) {
+    private var elapsedMs = 0L
+    private var receivedBytes = 0L
+    private var receivedPackets = 0
+    private var lostPackets = 0
+    private var incompleteFrames = 0
+    private var inputFrames = 0
+    private var decodedFrames = 0
+    private var renderedFrames = 0
+    private var decodeMicros = 0L
+    private var renderMicros = 0L
+    private var decoderDroppedFrames = 0
+    private var queueDepth = 0
+    private var mediaPackets = 0
+    private var fecPackets = 0
+    private var fecRecovered = 0
+    private var fecUnrecoverable = 0
+    private var residualLost = 0
+
+    fun add(
+        window: StreamStats,
+        windowReceivedBytes: Long,
+        windowReceivedPackets: Int,
+        windowLostPackets: Int,
+    ): StreamStats? {
+        elapsedMs += window.measurementMs
+        receivedBytes += windowReceivedBytes
+        receivedPackets += windowReceivedPackets
+        lostPackets += windowLostPackets
+        mediaPackets += window.mediaPackets
+        fecPackets += window.fecPackets
+        fecRecovered += window.fecRecovered
+        fecUnrecoverable += window.fecUnrecoverable
+        residualLost += window.residualLost
+        incompleteFrames += window.incompleteFrames
+        inputFrames += window.inputFrames
+        decodedFrames += window.decodedFrames
+        renderedFrames += window.renderedFrames
+        decodeMicros += (window.decodeMs * 1_000 * window.decodedFrames).toLong()
+        renderMicros += (window.renderMs * 1_000 * window.renderedFrames).toLong()
+        decoderDroppedFrames += window.decoderDroppedFrames
+        queueDepth = maxOf(queueDepth, window.queueDepth)
+        if (elapsedMs < periodMs) return null
+
+        val result = StreamStats(
+            receivedKbps = ((receivedBytes * 8) / elapsedMs).toInt(),
+            packetsPerSecond = ((receivedPackets * 1_000L) / elapsedMs).toInt(),
+            lossPercent = residualLost * 100f /
+                (mediaPackets + fecRecovered + residualLost).coerceAtLeast(1),
+            incompleteFrames = incompleteFrames,
+            inputFps = inputFrames * 1_000f / elapsedMs,
+            decodedFps = decodedFrames * 1_000f / elapsedMs,
+            renderedFps = renderedFrames * 1_000f / elapsedMs,
+            decodeMs = if (decodedFrames == 0) 0f else decodeMicros / decodedFrames / 1_000f,
+            renderMs = if (renderedFrames == 0) 0f else renderMicros / renderedFrames / 1_000f,
+            queueDepth = queueDepth,
+            decoderDroppedFrames = decoderDroppedFrames,
+            lostPackets = lostPackets,
+            inputFrames = inputFrames,
+            decodedFrames = decodedFrames,
+            renderedFrames = renderedFrames,
+            measurementMs = elapsedMs,
+            mediaPackets = mediaPackets,
+            fecPackets = fecPackets,
+            fecRecovered = fecRecovered,
+            fecUnrecoverable = fecUnrecoverable,
+            residualLost = residualLost,
+        )
+        reset()
+        return result
+    }
+
+    private fun reset() {
+        elapsedMs = 0
+        receivedBytes = 0
+        receivedPackets = 0
+        lostPackets = 0
+        incompleteFrames = 0
+        inputFrames = 0
+        decodedFrames = 0
+        renderedFrames = 0
+        decodeMicros = 0
+        renderMicros = 0
+        decoderDroppedFrames = 0
+        queueDepth = 0
+        mediaPackets = 0
+        fecPackets = 0
+        fecRecovered = 0
+        fecUnrecoverable = 0
+        residualLost = 0
+    }
+}
 
 internal fun parseRtpReady(response: String): RtpStreamConfig? {
     if (!response.startsWith("MZRP1 ")) return null
@@ -24,12 +171,15 @@ internal fun parseRtpReady(response: String): RtpStreamConfig? {
     val width = integerField("width") ?: return null
     val height = integerField("height") ?: return null
     val fps = integerField("fps") ?: return null
+    val fecPercent = integerField("fecPercent") ?: 0
+    val fecPayloadType = integerField("fecPt") ?: 122
     return if (
         textField("transport") != RTP_TRANSPORT ||
         textField("status") != "ready" ||
         width !in 320..7680 || height !in 240..4320 ||
-        width % 2 != 0 || height % 2 != 0 || fps !in 24..240
-    ) null else RtpStreamConfig(width, height, fps)
+        width % 2 != 0 || height % 2 != 0 || fps !in 24..240 ||
+        fecPercent !in setOf(0, 10) || fecPayloadType !in 0..127
+    ) null else RtpStreamConfig(width, height, fps, fecPayloadType, fecPercent)
 }
 
 private fun readAsciiLine(socket: Socket, maxBytes: Int): String {
@@ -63,6 +213,7 @@ class StreamReceiver(
     var onStatusChange: ((String) -> Unit)? = null
     var onDisconnect: (() -> Unit)? = null
     var onPlainTransportReady: (() -> Unit)? = null
+    var onStats: ((StreamStats) -> Unit)? = null
 
     companion object {
         private const val TAG = "StreamReceiver"
@@ -73,6 +224,7 @@ class StreamReceiver(
         private const val STREAM_IDLE_TIMEOUT_MS = 5000
         private const val MAX_IDLE_READS = 6
         private const val RETRY_DELAY_MS = 750L
+        private const val IDR_REQUEST_COOLDOWN_MS = 500L
     }
 
     @Synchronized
@@ -109,9 +261,7 @@ class StreamReceiver(
         try { socket.trafficClass = 0xC0 } catch (_: Exception) {}
         val host = InetAddress.getByName(targetIp)
         val controlPort = hostPort
-        val hello = "MZRP1 {\"transport\":\"rtp-udp-v1\",\"port\":${socket.localPort}," +
-            "\"fps\":$fps,\"width\":$width,\"height\":$height," +
-            "\"decoderProfiles\":[\"high\",\"constrained-baseline\"]}"
+        val hello = buildRtpControlMessage(socket.localPort, fps, width, height)
         val helloBytes = hello.toByteArray(Charsets.UTF_8)
         Log.i(TAG, "RTP negotiation: UDP port ${socket.localPort}, target $targetIp:$controlPort")
         onStatusChange?.invoke("Negotiating low-latency UDP video…")
@@ -141,29 +291,72 @@ class StreamReceiver(
         Log.i(TAG, "RTP handshake succeeded, starting receive loop")
         socket.soTimeout = 4
         onPlainTransportReady?.invoke()
-        decoder.init(ready.width, ready.height, ready.fps)
+        decoder.init(ready.width, ready.height, ready.fps, balancedOutput = false)
         onStatusChange?.invoke("")
         val assembler = RtpH264Assembler()
-        val fecRecovery = RtpUlpFecRecovery()
+        val fecRecovery = if (ready.fecPercent == 10) {
+            RtpUlpFecRecovery(ready.fecPayloadType)
+        } else null
         val buffer = ByteArray(2048)
         var waitingForIdr = true
-        val frameDeadlineNanos = 1_500_000_000L / fps.coerceAtLeast(1)
-        var expectedSequence = -1
+        val frameDeadlineNanos = rtpFrameDeadlineNanos(ready.fps)
         var lostPackets = 0
         var recoveredPackets = 0
+        var mediaPackets = 0
+        var fecPackets = 0
+        var fecUnrecoverable = 0
         var incompleteFrames = 0
         var receivedPackets = 0
         var totalReceivedPackets = 0L
         var totalFramesDecoded = 0L
         var firstPacketLogged = false
         var lastStats = android.os.SystemClock.uptimeMillis()
+        var receivedBytes = 0L
+        val feedback = RtpFeedbackAccumulator()
         var noPacketDeadline = android.os.SystemClock.uptimeMillis() + 5000
+        var lastIdrRequestMs = -IDR_REQUEST_COOLDOWN_MS
+
+        fun requestRecoveryIdr() {
+            val now = android.os.SystemClock.uptimeMillis()
+            if (!recoveryIdrAllowed(lastIdrRequestMs, now)) return
+            lastIdrRequestMs = now
+            requestIdrViaTcp(targetIp, controlPort, socket.localPort)
+        }
+
+        fun feedCompletedFrame(frame: ByteArray) {
+            val isIdr = containsIdr(frame)
+            if (!waitingForIdr || isIdr) {
+                val fed = decoder.feedChunk(frame, 0, frame.size, isIdr)
+                if (fed) {
+                    totalFramesDecoded++
+                    if (totalFramesDecoded <= 3) {
+                        Log.i(TAG, "RTP frame #$totalFramesDecoded fed to decoder: " +
+                            "size=${frame.size} idr=$isIdr")
+                    }
+                } else {
+                    Log.w(TAG, "RTP decoder rejected frame: size=${frame.size} idr=$isIdr")
+                }
+                if (isIdr) waitingForIdr = false
+            } else if (totalFramesDecoded == 0L) {
+                Log.d(TAG, "RTP skipping non-IDR frame while waiting for keyframe")
+            }
+        }
+
+        fun drainCompletedFrames(first: ByteArray?) {
+            var frame = first
+            while (frame != null) {
+                feedCompletedFrame(frame)
+                frame = assembler.pollCompleted()
+            }
+        }
+
         while (running.get()) {
             try {
                 val packet = DatagramPacket(buffer, buffer.size)
                 socket.receive(packet)
                 val rtp = RtpH264Assembler.parse(packet.data, packet.length) ?: continue
                 receivedPackets++
+                receivedBytes += packet.length
                 totalReceivedPackets++
                 noPacketDeadline = 0L
                 if (!firstPacketLogged) {
@@ -174,71 +367,107 @@ class StreamReceiver(
                         "payloadSize=${rtp.payload.size} nalType=$nalType " +
                         "from ${packet.address}:${packet.port}")
                 }
-                if (expectedSequence < 0) {
-                    expectedSequence = (rtp.sequence + 1) and 0xffff
-                } else {
-                    val gap = (rtp.sequence - expectedSequence) and 0xffff
-                    if (gap == 0) {
-                        expectedSequence = (expectedSequence + 1) and 0xffff
-                    } else if (gap in 1..1024) {
-                        lostPackets += gap
-                        expectedSequence = (rtp.sequence + 1) and 0xffff
+                val mediaPacket = if (
+                    fecRecovery != null && rtp.payloadType == ready.fecPayloadType
+                ) {
+                    fecPackets++
+                    val result = fecRecovery.recover(rtp)
+                    when (result.status) {
+                        FecRecoveryStatus.RECOVERED -> {
+                            recoveredPackets++
+                            result.packet ?: continue
+                        }
+                        FecRecoveryStatus.UNRECOVERABLE,
+                        FecRecoveryStatus.MALFORMED -> {
+                            fecUnrecoverable++
+                            continue
+                        }
+                        FecRecoveryStatus.NOT_NEEDED -> continue
                     }
-                }
-                val mediaPacket = if (rtp.payloadType == 122) {
-                    fecRecovery.recover(rtp)?.also { recoveredPackets++ } ?: continue
-                } else {
-                    fecRecovery.remember(rtp)
+                } else if (rtp.payloadType == 96) {
+                    mediaPackets++
+                    fecRecovery?.remember(rtp)
                     rtp
-                }
+                } else continue
                 val frame = assembler.offer(mediaPacket)
+                lostPackets += assembler.lostPackets
                 if (assembler.droppedFrame) {
-                    requestIdrViaTcp(targetIp, controlPort, socket.localPort)
+                    requestRecoveryIdr()
                     waitingForIdr = true
                     incompleteFrames++
                 }
-                if (frame != null) {
-                    val isIdr = containsIdr(frame)
-                    if (!waitingForIdr || isIdr) {
-                        val fed = decoder.feedChunk(frame, 0, frame.size, isIdr)
-                        if (fed) {
-                            totalFramesDecoded++
-                            if (totalFramesDecoded <= 3) {
-                                Log.i(TAG, "RTP frame #$totalFramesDecoded fed to decoder: " +
-                                    "size=${frame.size} idr=$isIdr")
-                            }
-                        } else {
-                            Log.w(TAG, "RTP decoder rejected frame: size=${frame.size} idr=$isIdr")
-                        }
-                        if (isIdr) waitingForIdr = false
-                    } else if (totalFramesDecoded == 0L) {
-                        Log.d(TAG, "RTP skipping non-IDR frame while waiting for keyframe")
-                    }
-                }
+                drainCompletedFrames(frame)
             } catch (_: SocketTimeoutException) {
                 if (noPacketDeadline > 0 && android.os.SystemClock.uptimeMillis() > noPacketDeadline) {
                     Log.w(TAG, "RTP no packets received within 5s — requesting IDR")
-                    requestIdrViaTcp(targetIp, controlPort, socket.localPort)
+                    requestRecoveryIdr()
                     noPacketDeadline = android.os.SystemClock.uptimeMillis() + 5000
                 }
                 if (assembler.expire(System.nanoTime(), frameDeadlineNanos)) {
+                    lostPackets += assembler.lostPackets
                     waitingForIdr = true
                     incompleteFrames++
-                    requestIdrViaTcp(targetIp, controlPort, socket.localPort)
+                    requestRecoveryIdr()
+                    drainCompletedFrames(assembler.pollCompleted())
                 }
             }
             val statsNow = android.os.SystemClock.uptimeMillis()
             if (statsNow - lastStats >= 250) {
                 val stats = decoder.takeStats()
+                val elapsedMs = (statsNow - lastStats).coerceAtLeast(1)
+                val receivedKbps = ((receivedBytes * 8L) / elapsedMs).toInt()
+                val packetsPerSecond = ((receivedPackets * 1_000L) / elapsedMs).toInt()
+                val inputFps = totalFramesDecoded.toFloat() * 1_000f / elapsedMs
+                val decodedFps = stats.decodedFrames.toFloat() * 1_000f / elapsedMs
+                val renderedFps = stats.renderedFrames.toFloat() * 1_000f / elapsedMs
+                val lossPercent = lostPackets * 100f /
+                    (mediaPackets + recoveredPackets + lostPackets).coerceAtLeast(1)
+                val snapshot = StreamStats(
+                    receivedKbps = receivedKbps,
+                    packetsPerSecond = packetsPerSecond,
+                    lossPercent = lossPercent,
+                    incompleteFrames = incompleteFrames,
+                    inputFps = inputFps,
+                    decodedFps = decodedFps,
+                    renderedFps = renderedFps,
+                    decodeMs = stats.decodeMicros / 1_000f,
+                    renderMs = stats.renderMicros / 1_000f,
+                    queueDepth = stats.queueDepth,
+                    decoderDroppedFrames = stats.droppedFrames,
+                    lostPackets = lostPackets,
+                    inputFrames = totalFramesDecoded.toInt(),
+                    decodedFrames = stats.decodedFrames,
+                    renderedFrames = stats.renderedFrames,
+                    measurementMs = elapsedMs,
+                    mediaPackets = mediaPackets,
+                    fecPackets = fecPackets,
+                    fecRecovered = recoveredPackets,
+                    fecUnrecoverable = fecUnrecoverable,
+                    residualLost = lostPackets,
+                )
+                onStats?.invoke(snapshot)
                 if (totalReceivedPackets < 100 || receivedPackets > 0) {
-                    Log.d(TAG, "RTP stats: recv=$receivedPackets lost=$lostPackets " +
-                        "recovered=$recoveredPackets incomplete=$incompleteFrames " +
-                        "rendered=${stats.renderedFrames} totalFrames=$totalFramesDecoded")
+                    Log.d(TAG, "RTP stats: rx=${receivedKbps}kbps pps=$packetsPerSecond " +
+                        "loss=${String.format(java.util.Locale.US, "%.1f", lossPercent)}% " +
+                        "incomplete=$incompleteFrames input=${String.format(java.util.Locale.US, "%.1f", inputFps)} " +
+                        "decode=${String.format(java.util.Locale.US, "%.1f", decodedFps)} " +
+                        "render=${String.format(java.util.Locale.US, "%.1f", renderedFps)} " +
+                        "decodeMs=${String.format(java.util.Locale.US, "%.1f", snapshot.decodeMs)} " +
+                        "renderMs=${String.format(java.util.Locale.US, "%.1f", snapshot.renderMs)} " +
+                        "queue=${stats.queueDepth} dropped=${stats.droppedFrames} recovered=$recoveredPackets")
+                }
+                feedback.add(snapshot, receivedBytes, receivedPackets, lostPackets)?.let {
+                    sendStatsViaTcp(targetIp, controlPort, socket.localPort, it)
                 }
                 receivedPackets = 0
+                receivedBytes = 0
                 lostPackets = 0
                 recoveredPackets = 0
+                mediaPackets = 0
+                fecPackets = 0
+                fecUnrecoverable = 0
                 incompleteFrames = 0
+                totalFramesDecoded = 0
                 lastStats = statsNow
             }
         }
@@ -257,9 +486,9 @@ class StreamReceiver(
                     control.connect(InetSocketAddress(hostIp, controlPort), 1000)
                     control.soTimeout = 1000
                     control.tcpNoDelay = true
-                    val hello = "MZRP1 {\"transport\":\"rtp-udp-v1\",\"port\":$localUdpPort," +
-                        "\"fps\":$fps,\"width\":$width,\"height\":$height," +
-                        "\"decoderProfiles\":[\"high\",\"constrained-baseline\"]}"
+                    val hello = buildRtpControlMessage(
+                        localUdpPort, fps, width, height, requestIdr = true
+                    )
                     control.getOutputStream().apply {
                         write(hello.toByteArray(Charsets.UTF_8))
                         write('\n'.code)
@@ -272,6 +501,39 @@ class StreamReceiver(
                 idrRequestInFlight.set(false)
             }
         }, "MonitorizeIdrRequest").start()
+    }
+
+    private fun sendStatsViaTcp(
+        hostIp: String, controlPort: Int, localUdpPort: Int, stats: StreamStats
+    ) {
+        Thread({
+            try {
+                Socket().use { control ->
+                    control.connect(InetSocketAddress(hostIp, controlPort), 750)
+                    control.tcpNoDelay = true
+                    val message = "MZRP1 {\"transport\":\"rtp-udp-v1\",\"port\":$localUdpPort," +
+                        "\"type\":\"stats\",\"receivedKbps\":${stats.receivedKbps}," +
+                        "\"packetsPerSecond\":${stats.packetsPerSecond}," +
+                        "\"lossPercent\":${stats.lossPercent},\"incomplete\":${stats.incompleteFrames}," +
+                        "\"lost\":${stats.lostPackets}," +
+                        "\"renderedFrames\":${stats.renderedFrames},\"queueDepth\":${stats.queueDepth}," +
+                        "\"decodeMs\":${stats.decodeMs},\"renderMs\":${stats.renderMs}," +
+                        "\"decoderDropped\":${stats.decoderDroppedFrames}," +
+                        "\"mediaPackets\":${stats.mediaPackets}," +
+                        "\"fecPackets\":${stats.fecPackets}," +
+                        "\"fecRecovered\":${stats.fecRecovered}," +
+                        "\"fecUnrecoverable\":${stats.fecUnrecoverable}," +
+                        "\"residualLost\":${stats.residualLost}," +
+                        "\"intervalMs\":${stats.measurementMs}}"
+                    control.getOutputStream().apply {
+                        write(message.toByteArray(Charsets.UTF_8))
+                        write('\n'.code)
+                        flush()
+                    }
+                }
+            } catch (_: Exception) {
+            }
+        }, "MonitorizeStats").start()
     }
 
     private fun containsIdr(frame: ByteArray): Boolean {

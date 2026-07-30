@@ -53,6 +53,7 @@ import app.monitorize.android.discovery.DeviceDiscovery
 import app.monitorize.android.discovery.DiscoveredDevice
 import app.monitorize.android.input.InputEventSender
 import app.monitorize.android.streaming.H264Decoder
+import app.monitorize.android.streaming.StreamStats
 import app.monitorize.android.streaming.StreamReceiver
 import app.monitorize.android.ui.theme.BreezeAccent as AccentIndigo
 import app.monitorize.android.ui.theme.BreezeBackground as BackgroundDark
@@ -182,6 +183,8 @@ class MainActivity : ComponentActivity() {
             var height by remember { mutableIntStateOf(initialDimensions.height) }
             var decodedWidth by remember { mutableIntStateOf(width) }
             var decodedHeight by remember { mutableIntStateOf(height) }
+            var showStreamingStats by remember { mutableStateOf(prefs.getBoolean("show_streaming_stats", false)) }
+            var streamStats by remember { mutableStateOf(StreamStats()) }
             var selectedDevice by remember { mutableStateOf<DiscoveredDevice?>(null) }
             var recentDevices by remember { mutableStateOf(loadRecentDevices()) }
             var disconnectionMessage by remember { mutableStateOf<String?>(
@@ -214,6 +217,7 @@ class MainActivity : ComponentActivity() {
                                         decodedWidth = device.width.takeIf { it > 0 } ?: width
                                         decodedHeight = device.height.takeIf { it > 0 } ?: height
                                         selectedDevice = device
+                                        streamStats = StreamStats()
                                         currentScreen = Screen.Receive
                                         disconnectionMessage = null 
                                     },
@@ -233,6 +237,8 @@ class MainActivity : ComponentActivity() {
                                     displayWidth = decodedWidth,
                                     displayHeight = decodedHeight,
                                     status = status.value,
+                                    streamStats = streamStats,
+                                    showStreamingStats = showStreamingStats,
                                     onBack = {
                                         restartApp()
                                     },
@@ -254,6 +260,7 @@ class MainActivity : ComponentActivity() {
                                                     }
                                                     onFirstFrameRendered()
                                                 },
+                                                onStatsUpdated = { streamStats = it },
                                                 onDisconnect = {
                                                     runOnUiThread {
                                                         disconnectionMessage = "Connection stopped"
@@ -296,6 +303,11 @@ class MainActivity : ComponentActivity() {
                                 SettingsPanel(
                                     initialWidth = width,
                                     initialHeight = height,
+                                    showStreamingStats = showStreamingStats,
+                                    onShowStreamingStatsChanged = { enabled ->
+                                        showStreamingStats = enabled
+                                        prefs.edit().putBoolean("show_streaming_stats", enabled).apply()
+                                    },
                                     onSave = { w, h ->
                                         val sanitized = sanitizeStreamDimensions(w, h)
                                         if (sanitized.width != width || sanitized.height != height) {
@@ -572,6 +584,7 @@ class MainActivity : ComponentActivity() {
         device: DiscoveredDevice?,
         onDecodedSize: (Int, Int) -> Unit,
         onFirstFrameRendered: () -> Unit,
+        onStatsUpdated: (StreamStats) -> Unit,
         onDisconnect: () -> Unit
     ) = streamMutex.withLock {
         if (!isSurfaceCurrent(surfaceGeneration)) {
@@ -651,6 +664,15 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 if (!assigned) sender.stop()
+            }
+            this.onStats = { telemetry ->
+                if (isActiveStream(sessionId, streamReceiver)) {
+                    runOnUiThread {
+                        if (isActiveStream(sessionId, streamReceiver)) {
+                            onStatsUpdated(telemetry)
+                        }
+                    }
+                }
             }
         }
 
@@ -1116,6 +1138,8 @@ private data class SettingsMetrics(
 fun SettingsPanel(
     initialWidth: Int,
     initialHeight: Int,
+    showStreamingStats: Boolean,
+    onShowStreamingStatsChanged: (Boolean) -> Unit,
     onSave: (Int, Int) -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -1239,6 +1263,24 @@ fun SettingsPanel(
         }
 
         Spacer(modifier = Modifier.height(spacingHeight))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Streaming stats overlay", color = Color.White, fontWeight = FontWeight.Medium)
+                Text(
+                    "Show Wi-Fi receiver, loss, decoder, and render timing on video.",
+                    color = TextMuted,
+                    fontSize = 12.sp,
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Switch(checked = showStreamingStats, onCheckedChange = onShowStreamingStatsChanged)
+        }
+
+        Spacer(modifier = Modifier.height(spacingHeight))
 
         Button(
             onClick = {
@@ -1274,6 +1316,8 @@ fun ReceiveScreen(
     displayWidth: Int,
     displayHeight: Int,
     status: String,
+    streamStats: StreamStats,
+    showStreamingStats: Boolean,
     onBack: () -> Unit,
     onSurfaceCreated: (String, Surface, Int, Int, () -> Unit) -> Long,
     onSurfaceDestroyed: (Long) -> Unit,
@@ -1303,10 +1347,14 @@ fun ReceiveScreen(
         }
 
         
+        if (showStreamingStats && hostIp.isNotBlank()) {
+            StreamingStatsOverlay(streamStats)
+        }
+
         if (status.isNotEmpty()) {
             Box(
                 modifier = Modifier
-                    .align(Alignment.TopStart)
+                    .align(Alignment.TopEnd)
                     .padding(24.dp)
                     .zIndex(1f)
                     .background(Color(0x88000000), RoundedCornerShape(6.dp))
@@ -1316,6 +1364,38 @@ fun ReceiveScreen(
                 Text(text = status, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
         }
+    }
+}
+
+@Composable
+private fun BoxScope.StreamingStatsOverlay(stats: StreamStats) {
+    val text = String.format(
+        Locale.US,
+        "Wi-Fi RTP/UDP\nRX %d kbps · %d pps · loss %.1f%%\n" +
+            "frames in/dec/out %.1f / %.1f / %.1f fps\n" +
+            "decode %.1f ms · display %.1f ms · q %d\n" +
+            "incomplete %d · decoder drops %d",
+        stats.receivedKbps,
+        stats.packetsPerSecond,
+        stats.lossPercent,
+        stats.inputFps,
+        stats.decodedFps,
+        stats.renderedFps,
+        stats.decodeMs,
+        stats.renderMs,
+        stats.queueDepth,
+        stats.incompleteFrames,
+        stats.decoderDroppedFrames,
+    )
+    Box(
+        modifier = Modifier
+            .align(Alignment.TopStart)
+            .padding(12.dp)
+            .zIndex(2f)
+            .background(Color(0xAA000000), RoundedCornerShape(6.dp))
+            .padding(horizontal = 8.dp, vertical = 6.dp)
+    ) {
+        Text(text = text, color = Color.White, fontSize = 10.sp, lineHeight = 12.sp)
     }
 }
 

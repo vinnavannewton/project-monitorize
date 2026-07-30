@@ -85,6 +85,7 @@ def main():
     hello = json.dumps({
         "transport": "rtp-udp-v1",
         "port": local_port,
+        "type": "start",
         "fps": 60,
         "width": 2560,
         "height": 1600,

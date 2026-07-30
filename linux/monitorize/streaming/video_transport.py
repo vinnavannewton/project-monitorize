@@ -10,7 +10,17 @@ HELLO_PREFIX = b"MZRP1 "
 MTU = 1200
 RTP_PAYLOAD_TYPE = 96
 FEC_PAYLOAD_TYPE = 122
-INITIAL_FEC_PERCENT = 0
+ULPFEC_MODE = "ulp-rfc5109"
+
+
+def udp_send_buffer_bytes(bitrate_kbps):
+    """Hold about 200 ms of traffic without allowing an unbounded backlog."""
+    return min(2_097_152, max(262_144, int(bitrate_kbps) * 25))
+
+
+def negotiate_fec_percent(message, requested_percent):
+    modes = message.get("fecModes", [])
+    return 10 if requested_percent == 10 and ULPFEC_MODE in modes else 0
 
 
 def parse_hello(data, transport=TRANSPORT):
@@ -26,8 +36,12 @@ def parse_hello(data, transport=TRANSPORT):
     return port, message
 
 
+def is_start_message(message):
+    return message.get("type") == "start"
+
+
 def wait_for_client(video_port, timeout=120, *, width=0, height=0, fps=0, bitrate=0,
-                    transport=TRANSPORT):
+                    transport=TRANSPORT, requested_fec_percent=0):
     control_port = video_port
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -57,14 +71,18 @@ def wait_for_client(video_port, timeout=120, *, width=0, height=0, fps=0, bitrat
                 client.close()
                 continue
             port, message = parsed
+            if not is_start_message(message):
+                client.close()
+                continue
             session_id = secrets.token_hex(8)
             ssrc = secrets.randbits(32)
             profiles = message.get("decoderProfiles", [])
             profile = "high" if "high" in profiles else "constrained-baseline"
+            fec_percent = negotiate_fec_percent(message, requested_fec_percent)
             reply = json.dumps({
                 "transport": transport, "status": "ready", "mtu": MTU,
                 "rtpPt": RTP_PAYLOAD_TYPE, "fecPt": FEC_PAYLOAD_TYPE,
-                "fecPercent": INITIAL_FEC_PERCENT,
+                "fecPercent": fec_percent,
                 "version": 1, "sessionId": session_id, "ssrc": ssrc,
                 "codec": "h264", "profile": profile,
                 "width": width, "height": height, "fps": fps,
@@ -73,7 +91,13 @@ def wait_for_client(video_port, timeout=120, *, width=0, height=0, fps=0, bitrat
             client.sendall(HELLO_PREFIX + reply + b"\n")
             client.close()
             print(f"[RTP] Client {addr[0]}:{port} connected", flush=True)
-            return addr[0], port, ssrc, profile
+            if requested_fec_percent and not fec_percent:
+                print(
+                    "[RTP] WARNING: ULPFEC 10% requested, but the receiver did not "
+                    "advertise RFC 5109 support; continuing with FEC Off.",
+                    flush=True,
+                )
+            return addr[0], port, ssrc, profile, fec_percent
     finally:
         sock.close()
     raise TimeoutError(f"No RTP client on UDP {control_port}")

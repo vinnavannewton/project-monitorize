@@ -16,6 +16,26 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 
+internal class PendingOutputQueue(private val capacity: Int) {
+    private val values = java.util.ArrayDeque<Int>()
+
+    @Synchronized
+    fun offer(value: Int): Int? {
+        val dropped = if (values.size >= capacity) values.removeFirst() else null
+        values.addLast(value)
+        return dropped
+    }
+
+    @Synchronized fun poll(): Int? = values.pollFirst()
+    @Synchronized fun size(): Int = values.size
+
+    @Synchronized
+    fun drain(): List<Int> {
+        val result = values.toList()
+        values.clear()
+        return result
+    }
+}
 
 class H264Decoder(
     private val surface: Surface,
@@ -29,16 +49,26 @@ class H264Decoder(
     private var callbackThread: HandlerThread? = null
     private val decoderGeneration = AtomicInteger(0)
     private val fatalError = AtomicBoolean(false)
-    private val pendingOutputBuffer = AtomicInteger(-1)
+    private var pendingOutputBuffers = PendingOutputQueue(1)
     private val renderedSinceStats = AtomicInteger(0)
     private val decodedSinceStats = AtomicInteger(0)
     private val decodeMicrosSinceStats = AtomicLong(0)
+    private val renderMicrosSinceStats = AtomicLong(0)
+    private val droppedSinceStats = AtomicInteger(0)
 
-    data class Stats(val renderedFrames: Int, val queueDepth: Int, val decodeMicros: Long)
+    data class Stats(
+        val renderedFrames: Int,
+        val decodedFrames: Int,
+        val queueDepth: Int,
+        val decodeMicros: Long,
+        val renderMicros: Long,
+        val droppedFrames: Int,
+    )
 
     class FrameChunk(val data: ByteArray) {
         var size: Int = 0
         var isKeyFrame: Boolean = false
+        var receivedAtUs: Long = 0
     }
 
     
@@ -59,8 +89,9 @@ class H264Decoder(
     }
 
     @Synchronized
-    fun init(width: Int, height: Int, fps: Int = 60) {
+    fun init(width: Int, height: Int, fps: Int = 60, balancedOutput: Boolean = false) {
         release()
+        pendingOutputBuffers = PendingOutputQueue(if (balancedOutput) 2 else 1)
         val generation = decoderGeneration.incrementAndGet()
         fatalError.set(false)
         val firstFrameReported = AtomicBoolean(false)
@@ -119,8 +150,17 @@ class H264Decoder(
                         decodeMicrosSinceStats.addAndGet(
                             (System.nanoTime() / 1000 - info.presentationTimeUs).coerceAtLeast(0)
                         )
-                        val old = pendingOutputBuffer.getAndSet(outputBufferId)
-                        if (old >= 0) try { mc.releaseOutputBuffer(old, false) } catch (_: Exception) {}
+                        if (!balancedOutput) {
+                            try {
+                                mc.releaseOutputBuffer(outputBufferId, System.nanoTime())
+                                frameCount++
+                            } catch (_: Exception) {}
+                            return
+                        }
+                        pendingOutputBuffers.offer(outputBufferId)?.let { old ->
+                            droppedSinceStats.incrementAndGet()
+                            try { mc.releaseOutputBuffer(old, false) } catch (_: Exception) {}
+                        }
                     }
 
                     override fun onError(mc: MediaCodec, e: MediaCodec.CodecException) {
@@ -167,30 +207,35 @@ class H264Decoder(
                     format.removeKey("vendor.qti-ext-dec-low-latency.enable")
                     it.configure(format, surface, null, 0)
                 }
-                it.setOnFrameRenderedListener({ _, _, _ ->
+                it.setOnFrameRenderedListener({ _, presentationTimeUs, _ ->
                     renderedSinceStats.incrementAndGet()
+                    renderMicrosSinceStats.addAndGet(
+                        (System.nanoTime() / 1000 - presentationTimeUs).coerceAtLeast(0)
+                    )
                     if (isCurrent(generation) && firstFrameReported.compareAndSet(false, true)) {
                         onFirstFrameRendered()
                     }
                 }, handler)
                 initialized = true
                 it.start()
-                handler.post {
-                    val choreographer = Choreographer.getInstance()
-                    val callback = object : Choreographer.FrameCallback {
-                        override fun doFrame(frameTimeNanos: Long) {
-                            if (!isCurrent(generation)) return
-                            val output = pendingOutputBuffer.getAndSet(-1)
-                            if (output >= 0) {
-                                try {
-                                    it.releaseOutputBuffer(output, frameTimeNanos)
-                                    frameCount++
-                                } catch (_: Exception) {}
+                if (balancedOutput) {
+                    handler.post {
+                        val choreographer = Choreographer.getInstance()
+                        val callback = object : Choreographer.FrameCallback {
+                            override fun doFrame(frameTimeNanos: Long) {
+                                if (!isCurrent(generation)) return
+                                val output = pendingOutputBuffers.poll()
+                                if (output != null) {
+                                    try {
+                                        it.releaseOutputBuffer(output, frameTimeNanos)
+                                        frameCount++
+                                    } catch (_: Exception) {}
+                                }
+                                choreographer.postFrameCallback(this)
                             }
-                            choreographer.postFrameCallback(this)
                         }
+                        choreographer.postFrameCallback(callback)
                     }
-                    choreographer.postFrameCallback(callback)
                 }
             }
             frameCount = 0
@@ -251,6 +296,7 @@ class H264Decoder(
     private fun recycleChunk(chunk: FrameChunk) {
         chunk.size = 0
         chunk.isKeyFrame = false
+        chunk.receivedAtUs = 0
         chunkPool.offer(chunk)
     }
 
@@ -295,8 +341,7 @@ class H264Decoder(
             buf.clear()
             val sz = chunk.size.coerceAtMost(buf.remaining())
             buf.put(chunk.data, 0, sz)
-            val pts = System.nanoTime() / 1000
-            mc.queueInputBuffer(idx, 0, sz, pts, 0)
+            mc.queueInputBuffer(idx, 0, sz, chunk.receivedAtUs, 0)
             true
         } catch (e: Exception) {
             Log.e(TAG, "Input queue failed", e)
@@ -316,22 +361,31 @@ class H264Decoder(
     fun takeStats(): Stats {
         val decoded = decodedSinceStats.getAndSet(0)
         val totalMicros = decodeMicrosSinceStats.getAndSet(0)
+        val rendered = renderedSinceStats.getAndSet(0)
+        val renderMicros = renderMicrosSinceStats.getAndSet(0)
         return Stats(
-            renderedFrames = renderedSinceStats.getAndSet(0),
-            queueDepth = chunkQueue.size + if (pendingOutputBuffer.get() >= 0) 1 else 0,
+            renderedFrames = rendered,
+            decodedFrames = decoded,
+            queueDepth = chunkQueue.size + pendingOutputBuffers.size(),
             decodeMicros = if (decoded == 0) 0 else totalMicros / decoded,
+            renderMicros = if (rendered == 0) 0 else renderMicros / rendered,
+            droppedFrames = droppedSinceStats.getAndSet(0),
         )
     }
 
     fun feedChunk(data: ByteArray, offset: Int, size: Int, isKeyFrame: Boolean = false): Boolean {
         if (!initialized || fatalError.get()) return false
 
-        val chunk = obtainChunk(isKeyFrame) ?: return true
+        val chunk = obtainChunk(isKeyFrame) ?: run {
+            droppedSinceStats.incrementAndGet()
+            return true
+        }
 
         val actualSize = size.coerceAtMost(chunk.data.size)
         System.arraycopy(data, offset, chunk.data, 0, actualSize)
         chunk.size = actualSize
         chunk.isKeyFrame = isKeyFrame
+        chunk.receivedAtUs = System.nanoTime() / 1000
 
         val pendingIdx = pendingInputBuffers.poll()
         if (pendingIdx != null) {
@@ -353,6 +407,7 @@ class H264Decoder(
             }
 
             if (!chunkQueue.offer(chunk)) {
+                droppedSinceStats.incrementAndGet()
                 recycleChunk(chunk)
             }
         }
@@ -369,8 +424,11 @@ class H264Decoder(
         renderedSinceStats.set(0)
         decodedSinceStats.set(0)
         decodeMicrosSinceStats.set(0)
-        val pendingOutput = pendingOutputBuffer.getAndSet(-1)
-        if (pendingOutput >= 0) try { codec?.releaseOutputBuffer(pendingOutput, false) } catch (_: Exception) {}
+        renderMicrosSinceStats.set(0)
+        droppedSinceStats.set(0)
+        pendingOutputBuffers.drain().forEach { output ->
+            try { codec?.releaseOutputBuffer(output, false) } catch (_: Exception) {}
+        }
         try { codec?.stop(); codec?.release() } catch (_: Exception) {}
         codec = null
         try {

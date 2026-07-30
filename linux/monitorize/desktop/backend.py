@@ -2,6 +2,7 @@
 
 from PyQt6.QtCore import QObject, QTimer, pyqtProperty, pyqtSignal, pyqtSlot
 
+import math
 import threading, time, subprocess
 
 from monitorize.config import app_log, autostart
@@ -37,6 +38,32 @@ from monitorize.config.validation import (
     valid_port,
 )
 
+def recommended_wifi_bitrate_kbps(width, height, fps):
+    """Return Moonlight's resolution/FPS-derived default bitrate."""
+    width = max(1, int(width))
+    height = max(1, int(height))
+    fps = max(1, int(fps))
+    pixel_values = (640 * 360, 854 * 480, 1280 * 720, 1920 * 1080,
+                    2560 * 1440, 3840 * 2160)
+    factor_values = (1, 2, 5, 10, 20, 40)
+    pixels = width * height
+    resolution_factor = factor_values[-1]
+    for index, upper_pixels in enumerate(pixel_values):
+        if pixels <= upper_pixels:
+            if index == 0:
+                resolution_factor = factor_values[0]
+            else:
+                lower_pixels = pixel_values[index - 1]
+                position = (pixels - lower_pixels) / (upper_pixels - lower_pixels)
+                resolution_factor = (
+                    factor_values[index - 1]
+                    + position * (factor_values[index] - factor_values[index - 1])
+                )
+            break
+    scaled_fps = fps if fps <= 60 else math.sqrt(fps / 60) * 60
+    bitrate = int(resolution_factor * scaled_fps / 30 + 0.5) * 1_000
+    return max(1_000, min(100_000, bitrate))
+
 
 class MonitorizeBackend(QObject):
     detectedDeChanged = pyqtSignal(str)
@@ -46,6 +73,7 @@ class MonitorizeBackend(QObject):
     isStreamingChanged = pyqtSignal(bool)
     countdownChanged = pyqtSignal(int)
     streamingStatusChanged = pyqtSignal(str)
+    streamingTelemetryChanged = pyqtSignal()
     logAppended = pyqtSignal(str, str)
     isReceivingChanged = pyqtSignal(bool)
     receiverStatusChanged = pyqtSignal(str)
@@ -99,6 +127,7 @@ class MonitorizeBackend(QObject):
         self.receiver.logAppended.connect(self.receiverLogAppended)
         self.streaming.streamingChanged.connect(self.isStreamingChanged)
         self.streaming.statusChanged.connect(self.streamingStatusChanged)
+        self.streaming.telemetryChanged.connect(self.streamingTelemetryChanged)
         self.streaming.countdownChanged.connect(self.countdownChanged)
         self.streaming.secondStreamChanged.connect(self.secondStreamActiveChanged)
         self.streaming.logAppended.connect(app_log.write)
@@ -125,6 +154,10 @@ class MonitorizeBackend(QObject):
     def isStreaming(self):
         return self.streaming.streaming
 
+    @pyqtProperty(bool, notify=isStreamingChanged)
+    def isWifiStreaming(self):
+        return self.streaming.streaming and self.streaming.wifi
+
     @pyqtProperty(int, notify=countdownChanged)
     def countdown(self):
         return self.streaming.countdown
@@ -132,6 +165,10 @@ class MonitorizeBackend(QObject):
     @pyqtProperty(str, notify=streamingStatusChanged)
     def streamingStatus(self):
         return self.streaming.status
+
+    @pyqtProperty("QVariant", notify=streamingTelemetryChanged)
+    def streamingTelemetry(self):
+        return dict(self.streaming.telemetry)
 
     @pyqtProperty(bool, notify=isReceivingChanged)
     def isReceiving(self):
@@ -219,31 +256,36 @@ class MonitorizeBackend(QObject):
             encoder_profile=encoder_profile,
         )
 
-    @pyqtSlot(str, str, str, str, str, str, str, str, str)
+    @pyqtSlot(str, str, str, str, str, str, str, str, str, str)
     def saveWifiSettings(
         self, resolution, custom_w, custom_h, fps, custom_fps, bitrate,
-        display_type, encoder, encoder_profile,
+        display_type, encoder, encoder_profile, fec_mode,
     ):
         save_wifi_settings(
             resolution=resolution, custom_w=custom_w, custom_h=custom_h,
             fps=fps, custom_fps=custom_fps, bitrate=bitrate,
             display_type=display_type, encoder=encoder,
-            encoder_profile=encoder_profile,
+            encoder_profile=encoder_profile, fec_mode=fec_mode,
         )
+
+    @pyqtSlot(int, int, int, result=int)
+    def recommendedWifiBitrateKbps(self, width, height, fps):
+        return recommended_wifi_bitrate_kbps(width, height, fps)
 
     @pyqtSlot(result="QVariant")
     def loadSecondDisplaySettings(self):
         return load_second_display_settings()
 
-    @pyqtSlot(str, str, str, str, str, str, str, str, bool, bool)
+    @pyqtSlot(str, str, str, str, str, str, str, str, str, bool, bool)
     def saveSecondDisplaySettings(
         self, resolution, custom_w, custom_h, fps, custom_fps, bitrate,
-        encoder, encoder_profile, enable_touch, enable_stylus_features,
+        encoder, encoder_profile, fec_mode, enable_touch, enable_stylus_features,
     ):
         save_second_display_settings(
             resolution=resolution, custom_w=custom_w, custom_h=custom_h,
             fps=fps, custom_fps=custom_fps, bitrate=bitrate, encoder=encoder,
-            encoder_profile=encoder_profile, enable_touch=enable_touch,
+            encoder_profile=encoder_profile, fec_mode=fec_mode,
+            enable_touch=enable_touch,
             enable_stylus_features=enable_stylus_features,
         )
 
@@ -279,13 +321,15 @@ class MonitorizeBackend(QObject):
     def setReceiverVideoItem(self, item):
         self.receiver.set_video_item(item)
 
-    @pyqtSlot(str, str, str, str, str, str, bool)
+    @pyqtSlot(str, str, str, str, str, str, bool, str)
     def startStreaming(
-        self, res, fps, bitrate, display_type, encoder, encoder_profile, wifi
+        self, res, fps, bitrate, display_type, encoder, encoder_profile, wifi,
+        fec_mode,
     ):
         self._pending_usb_preset = None
         self.streaming.start(
-            res, fps, bitrate, display_type, encoder, encoder_profile, wifi
+            res, fps, bitrate, display_type, encoder, encoder_profile, wifi,
+            fec_mode=fec_mode,
         )
 
     @pyqtSlot()
@@ -293,14 +337,14 @@ class MonitorizeBackend(QObject):
         self._pending_usb_preset = None
         self.streaming.stop()
 
-    @pyqtSlot(str, str, str, str, str, bool, bool)
+    @pyqtSlot(str, str, str, str, str, str, bool, bool)
     def startSecondStream(
-        self, res, fps, bitrate, encoder, encoder_profile, enable_touch,
+        self, res, fps, bitrate, encoder, encoder_profile, fec_mode, enable_touch,
         enable_stylus_features,
     ):
         self.streaming.start_third(
             res, fps, bitrate, encoder, encoder_profile, enable_touch,
-            enable_stylus_features,
+            enable_stylus_features, fec_mode=fec_mode,
         )
 
     @pyqtSlot()
@@ -415,6 +459,7 @@ class MonitorizeBackend(QObject):
                 "general": preset["general"],
                 "third": preset["third"] if preset["third"]["enabled"] else None,
             },
+            fec_mode=primary.get("fec_mode", "Off"),
         )
 
     def should_minimize_to_tray(self):

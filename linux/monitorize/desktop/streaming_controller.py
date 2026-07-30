@@ -1,6 +1,7 @@
 """Primary stream and input bridge lifecycle."""
 
 import json
+import re
 import subprocess
 import sys
 
@@ -36,6 +37,7 @@ from monitorize.config.validation import (
     sanitize_display_type,
     sanitize_encoder,
     sanitize_encoder_profile,
+    sanitize_fec_mode,
     sanitize_fps,
     sanitize_resolution,
 )
@@ -60,6 +62,7 @@ class StreamingController(QObject):
     secondStreamChanged = pyqtSignal(bool)
     primaryReadyChanged = pyqtSignal(bool)
     logAppended = pyqtSignal(str, str)
+    telemetryChanged = pyqtSignal()
     clientConnected = pyqtSignal(str, str)
 
     def __init__(self, de, local_ip, discovery, parent=None):
@@ -72,6 +75,7 @@ class StreamingController(QObject):
         self.status = ""
         self.countdown = 0
         self.wifi = False
+        self.telemetry = self._empty_telemetry()
         self.bitrate = DEFAULT_BITRATE
         self.width, self.height = DEFAULT_PRIMARY_RESOLUTION
         self.fps = DEFAULT_FPS
@@ -96,9 +100,11 @@ class StreamingController(QObject):
         self.third_input_launched = False
         self.third_touch_enabled = True
         self.third_stylus_enabled = False
+        self.third_fec_mode = "Off"
         self.third_output = ""
         self.third_env = None
         self.encoder_profile = "Low Latency"
+        self.fec_mode = "Off"
         self.runtime_general = None
         self.countdown_timer = QTimer(self)
         self.countdown_timer.setInterval(1000)
@@ -110,6 +116,74 @@ class StreamingController(QObject):
         self.gnome_display_config_bus = None
         self.gnome_display_config_connected = False
         self._gnome_monitors_changed_slot = self._on_gnome_monitors_changed
+
+    @staticmethod
+    def _empty_telemetry():
+        return {"available": False}
+
+    def _reset_telemetry(self):
+        self.telemetry = self._empty_telemetry()
+        self.telemetryChanged.emit()
+
+    @staticmethod
+    def _metric_values(line):
+        return dict(re.findall(r"([A-Za-z]+)=([^\s]+)", line))
+
+    @staticmethod
+    def _metric_number(values, name, suffix=""):
+        value = values.get(name)
+        if value is None or value == "None":
+            return None
+        try:
+            return float(value.removesuffix(suffix))
+        except ValueError:
+            return None
+
+    def _update_rtp_telemetry(self, line):
+        if not line.startswith(("[RTP][Host]", "[RTP][Client]")):
+            return False
+        values = self._metric_values(line)
+        update = {"available": True}
+        if line.startswith("[RTP][Host]"):
+            update.update({
+                "hostCaptureFps": self._metric_number(values, "capture", "fps"),
+                "hostPacedFps": self._metric_number(values, "paced", "fps"),
+                "hostEncodedFps": self._metric_number(values, "encoded", "fps"),
+                "hostRtpPps": self._metric_number(values, "rtp", "pps"),
+                "hostTxKbps": self._metric_number(values, "tx", "kbps"),
+                "bitrateKbps": self._metric_number(values, "bitrate", "kbps"),
+                "videoBitrateKbps": self._metric_number(
+                    values, "videoBitrate", "kbps"
+                ),
+                "effectiveFecPercent": self._metric_number(values, "fec", "%"),
+                "hostFecPps": self._metric_number(values, "fecPps"),
+                "pacingKbps": self._metric_number(values, "pacing", "kbps"),
+                "encodePath": values.get("encodePath"),
+                "recoveryIdr": self._metric_number(values, "recoveryIdr"),
+            })
+        elif line.startswith("[RTP][Client]"):
+            update.update({
+                "clientRxKbps": self._metric_number(values, "rx", "kbps"),
+                "clientPps": self._metric_number(values, "pps"),
+                "clientLossPercent": self._metric_number(values, "loss", "%"),
+                "clientIncomplete": self._metric_number(values, "incomplete"),
+                "clientRenderFps": self._metric_number(values, "render", "fps"),
+                "clientQueue": self._metric_number(values, "queue"),
+                "clientDecodeMs": self._metric_number(values, "decode", "ms"),
+                "clientDisplayMs": self._metric_number(values, "renderLatency", "ms"),
+                "clientDropped": self._metric_number(values, "dropped"),
+                "clientMediaPackets": self._metric_number(values, "media"),
+                "clientFecPackets": self._metric_number(values, "fec"),
+                "clientFecRecovered": self._metric_number(values, "recovered"),
+                "clientFecUnrecoverable": self._metric_number(
+                    values, "unrecoverable"
+                ),
+                "clientResidualLost": self._metric_number(values, "residual"),
+            })
+        self.telemetry.update({key: value for key, value in update.items() if value is not None})
+        self.telemetry["available"] = True
+        self.telemetryChanged.emit()
+        return True
 
     def _set_streaming(self, value):
         if self.streaming == value:
@@ -127,10 +201,11 @@ class StreamingController(QObject):
 
     def start(
         self, res, fps, bitrate, display_type, encoder, encoder_profile, wifi,
-        options=None,
+        options=None, fec_mode="Off",
     ):
         self.stop()
         self.generation += 1
+        self._reset_telemetry()
         options = options or {}
         self.wifi = wifi
         width, height = sanitize_resolution(res, DEFAULT_PRIMARY_RESOLUTION)
@@ -139,6 +214,7 @@ class StreamingController(QObject):
         self.display_type = sanitize_display_type(display_type)
         self.encoder = sanitize_encoder(encoder)
         self.encoder_profile = sanitize_encoder_profile(encoder_profile)
+        self.fec_mode = sanitize_fec_mode(fec_mode) if wifi else "Off"
         self.env = QProcessEnvironment.systemEnvironment()
         self.env.insert("PYTHONUNBUFFERED", "1")
         self.env.insert("MONITORIZE_ENCODER", {
@@ -149,6 +225,10 @@ class StreamingController(QObject):
         self.env.insert("MONITORIZE_REQUIRE_HARDWARE_ENCODER", "0")
         if wifi:
             self.env.insert("MONITORIZE_VIDEO_TRANSPORT", "rtp-udp-v1")
+            self.env.insert(
+                "MONITORIZE_FEC_PERCENT",
+                "10" if self.fec_mode == "ULPFEC 10%" else "0",
+            )
         self.runtime_general = options.get("general")
         if self.de in ("kde", "hyprland") and self.display_type == "Extend":
             self.env.insert("MONITORIZE_PRESERVE_SOURCE_SIZE", "1")
@@ -354,7 +434,12 @@ class StreamingController(QObject):
         raw = bytes(process.readAllStandardOutput()).decode(
             "utf-8", errors="replace"
         )
-        self.logAppended.emit("STREAMER", raw)
+        visible_lines = [
+            line for line in raw.splitlines()
+            if not self._update_rtp_telemetry(line)
+        ]
+        if visible_lines:
+            self.logAppended.emit("STREAMER", "\n".join(visible_lines) + "\n")
         if self.de in ("kde", "gnome"):
             if self.de == "kde":
                 self.kde_event_buffer += raw
@@ -593,7 +678,7 @@ class StreamingController(QObject):
 
     def start_third(
         self, res, fps, bitrate, encoder, encoder_profile, enable_touch=True,
-        enable_stylus_features=False,
+        enable_stylus_features=False, fec_mode="Off",
     ):
         if self.de not in ("kde", "gnome", "hyprland"):
             self.logAppended.emit(
@@ -627,6 +712,7 @@ class StreamingController(QObject):
         third_bitrate = sanitize_bitrate(bitrate)
         third_encoder = sanitize_encoder(encoder)
         third_encoder_profile = sanitize_encoder_profile(encoder_profile)
+        third_fec_mode = sanitize_fec_mode(fec_mode) if self.wifi else "Off"
         third_touch_enabled = bool(enable_touch)
         third_stylus_enabled = bool(enable_stylus_features)
         if self.wifi:
@@ -675,6 +761,10 @@ class StreamingController(QObject):
         env.insert("MONITORIZE_ENCODER_PROFILE", third_encoder_profile)
         if self.wifi:
             env.insert("MONITORIZE_VIDEO_TRANSPORT", "rtp-udp-v1")
+            env.insert(
+                "MONITORIZE_FEC_PERCENT",
+                "10" if third_fec_mode == "ULPFEC 10%" else "0",
+            )
         if self.de == "kde":
             env.insert("MONITORIZE_KDE_VIRTUAL_SLOT", "additional")
             env.insert("MONITORIZE_PRESERVE_SOURCE_SIZE", "1")
@@ -712,6 +802,7 @@ class StreamingController(QObject):
         self.third_bitrate = third_bitrate
         self.third_encoder = third_encoder
         self.third_encoder_profile = third_encoder_profile
+        self.third_fec_mode = third_fec_mode
         self.third_touch_enabled = third_touch_enabled
         self.third_stylus_enabled = third_stylus_enabled
         self.third_output = third_output
@@ -971,6 +1062,7 @@ class StreamingController(QObject):
                 "display_type": self.display_type,
                 "encoder": self.encoder,
                 "encoder_profile": self.encoder_profile,
+                "fec_mode": self.fec_mode,
             },
             "general": general,
             "third": {"enabled": False},
@@ -983,6 +1075,7 @@ class StreamingController(QObject):
                 "bitrate": str(self.third_bitrate),
                 "encoder": self.third_encoder,
                 "encoder_profile": self.third_encoder_profile,
+                "fec_mode": self.third_fec_mode,
                 "enable_touch": self.third_touch_enabled,
                 "enable_stylus_features": self.third_stylus_enabled,
             }
@@ -1010,6 +1103,7 @@ class StreamingController(QObject):
         self.third_env = None
         self.third_touch_enabled = True
         self.third_stylus_enabled = False
+        self.third_fec_mode = "Off"
         if not self.wifi:
             self._run_adb_reverse("--remove", f"tcp:{THIRD_STREAM_PUBLIC_PORT}")
             self._run_adb_reverse("--remove", f"tcp:{THIRD_STREAM_BACKEND_PORT}")
@@ -1048,6 +1142,7 @@ class StreamingController(QObject):
         self.streamer_has_pipewire_node = False
         self.kde_event_buffer = ""
         self.gnome_event_buffer = ""
+        self._reset_telemetry()
         self._set_primary_ready(False)
         self.runtime_general = None
         if (

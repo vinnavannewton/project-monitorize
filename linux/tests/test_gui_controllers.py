@@ -22,7 +22,10 @@ from monitorize.platform import (
 )
 from monitorize.platform.display_controller import DisplayController
 from monitorize.desktop.discovery_service import DiscoveryService
-from monitorize.desktop.backend import MonitorizeBackend
+from monitorize.desktop.backend import (
+    MonitorizeBackend,
+    recommended_wifi_bitrate_kbps,
+)
 from monitorize.desktop.receiver_controller import ReceiverController
 from monitorize.desktop.streaming_controller import StreamingController
 from monitorize.desktop.usb_controller import UsbController
@@ -944,6 +947,7 @@ class ReceiverVideoWindowTest(unittest.TestCase):
                 self.assertEqual(loaded["fps"], "60")
                 self.assertEqual(loaded["bitrate"], "250")
                 self.assertEqual(loaded["encoder"], "Software (CPU / x264enc)")
+                self.assertEqual(loaded["fec_mode"], "Off")
                 self.assertEqual(loaded["encoder_profile"], "Low Latency")
                 self.assertTrue(loaded["enable_touch"])
                 self.assertFalse(loaded["enable_stylus_features"])
@@ -983,7 +987,7 @@ class ReceiverVideoWindowTest(unittest.TestCase):
             finally:
                 settings.CONFIG_DIR, settings.CONFIG_FILE = old_dir, old_file
 
-    def test_first_run_wifi_defaults_are_plain_cpu_1080p_16mbps(self):
+    def test_first_run_wifi_defaults_follow_moonlight_1080p60_curve(self):
         old_dir, old_file = settings.CONFIG_DIR, settings.CONFIG_FILE
         with tempfile.TemporaryDirectory() as directory:
             try:
@@ -991,10 +995,37 @@ class ReceiverVideoWindowTest(unittest.TestCase):
                 settings.CONFIG_FILE = str(Path(directory) / "settings.ini")
                 loaded = settings.load_wifi_settings()
                 self.assertEqual(loaded["resolution"], "1920x1080")
-                self.assertEqual(loaded["bitrate"], "16000")
+                self.assertEqual(loaded["bitrate"], "20000")
                 self.assertEqual(loaded["encoder"], "Software (CPU / x264enc)")
                 self.assertNotIn("use_encryption", loaded)
                 self.assertNotIn("stream_type", loaded)
+            finally:
+                settings.CONFIG_DIR, settings.CONFIG_FILE = old_dir, old_file
+
+    def test_primary_and_additional_wifi_fec_choices_save_independently(self):
+        old_dir, old_file = settings.CONFIG_DIR, settings.CONFIG_FILE
+        with tempfile.TemporaryDirectory() as directory:
+            try:
+                settings.CONFIG_DIR = directory
+                settings.CONFIG_FILE = str(Path(directory) / "settings.ini")
+                settings.save_wifi_settings(
+                    resolution="1920x1080", custom_w="", custom_h="",
+                    fps="60", custom_fps="", bitrate="20000",
+                    display_type="Extend",
+                    encoder="Software (CPU / x264enc)",
+                    encoder_profile="Low Latency", fec_mode="ULPFEC 10%",
+                )
+                settings.save_second_display_settings(
+                    resolution="1280x720", fps="60", bitrate="8000",
+                    encoder="Software (CPU / x264enc)",
+                    encoder_profile="Low Latency", fec_mode="Off",
+                )
+                self.assertEqual(
+                    settings.load_wifi_settings()["fec_mode"], "ULPFEC 10%"
+                )
+                self.assertEqual(
+                    settings.load_second_display_settings()["fec_mode"], "Off"
+                )
             finally:
                 settings.CONFIG_DIR, settings.CONFIG_FILE = old_dir, old_file
 
@@ -1105,6 +1136,62 @@ class StreamingControllerTest(unittest.TestCase):
         controller.env = Mock()
         controller.generation = 7
         return controller
+
+    def test_rtp_telemetry_parses_fixed_bitrate_host_and_client_lines(self):
+        controller = self.kde_controller()
+
+        self.assertTrue(controller._update_rtp_telemetry(
+            "[RTP][Host] capture=59.0fps paced=60.0fps encoded=58.0fps "
+            "rtp=132.0pps tx=7500kbps bitrate=8000kbps "
+            "videoBitrate=7200kbps fec=10% fecPps=12.0 "
+            "pacing=16000kbps encodePath=7.2ms recoveryIdr=2"
+        ))
+        self.assertTrue(controller._update_rtp_telemetry(
+            "[RTP][Client] rx=7200kbps pps=120 loss=0.2% incomplete=0 "
+            "render=57.0fps queue=1 decode=11.0ms renderLatency=22.0ms dropped=0 "
+            "media=108 fec=12 recovered=2 unrecoverable=1 residual=1"
+        ))
+        self.assertTrue(controller.telemetry["available"])
+        self.assertEqual(59.0, controller.telemetry["hostCaptureFps"])
+        self.assertEqual(7200.0, controller.telemetry["clientRxKbps"])
+        self.assertEqual(8000.0, controller.telemetry["bitrateKbps"])
+        self.assertEqual(7200.0, controller.telemetry["videoBitrateKbps"])
+        self.assertEqual(10.0, controller.telemetry["effectiveFecPercent"])
+        self.assertEqual(2.0, controller.telemetry["clientFecRecovered"])
+        self.assertEqual(2.0, controller.telemetry["recoveryIdr"])
+
+    def test_invalid_rtp_line_keeps_existing_telemetry(self):
+        controller = self.kde_controller()
+        controller.telemetry = {"available": True, "hostCaptureFps": 60.0}
+
+        self.assertTrue(controller._update_rtp_telemetry("[RTP][Host] capture=oops"))
+
+        self.assertEqual({"available": True, "hostCaptureFps": 60.0}, controller.telemetry)
+
+    def test_rtp_telemetry_reset_marks_overlay_unavailable(self):
+        controller = self.kde_controller()
+        controller.telemetry = {"available": True, "clientRenderFps": 60.0}
+
+        controller._reset_telemetry()
+
+        self.assertEqual({"available": False}, controller.telemetry)
+
+    def test_periodic_rtp_metrics_do_not_reach_generic_log(self):
+        controller = self.kde_controller()
+        process = Mock()
+        process.readAllStandardOutput.return_value = (
+            b"[RTP][Host] capture=60.0fps paced=60.0fps encoded=60.0fps "
+            b"rtp=120.0pps tx=8000kbps bitrate=8000kbps "
+            b"pacing=10000kbps encodePath=7.0ms\n[Pipeline] READY\n"
+        )
+        controller.streamer = process
+        emitted = []
+        controller.logAppended.connect(lambda kind, message: emitted.append((kind, message)))
+
+        controller._read_streamer(controller.generation, process)
+
+        self.assertTrue(controller.telemetry["available"])
+        self.assertEqual([("STREAMER", "[Pipeline] READY\n")], emitted)
 
     def test_streamer_command_preserves_wlroots_output(self):
         discovery = Mock()
@@ -1467,6 +1554,7 @@ class StreamingControllerTest(unittest.TestCase):
             "bitrate": "12000",
             "encoder": "Software (CPU / x264enc)",
             "encoder_profile": "Quality",
+            "fec_mode": "Off",
             "enable_touch": True,
             "enable_stylus_features": False,
         })
@@ -1476,6 +1564,7 @@ class StreamingControllerTest(unittest.TestCase):
         controller = StreamingController("kde", "10.0.0.1", discovery)
         controller.streaming = True
         controller.wifi = True
+        controller.streaming = True
         controller.primary_ready = True
         controller.fps = 60
         events = []
@@ -2108,6 +2197,38 @@ class StreamingControllerTest(unittest.TestCase):
             "10.0.0.1", False, 90, 60, 2336, 1080,
             None, None,
         )
+
+    def test_wifi_fec_setting_is_scoped_to_each_stream_environment(self):
+        controller = StreamingController("kde", "10.0.0.1", Mock())
+        with (
+            patch("monitorize.desktop.streaming_controller.stop_processes"),
+            patch("monitorize.desktop.streaming_controller.kill_patterns"),
+            patch("monitorize.desktop.streaming_controller.kill_tracked_pids"),
+            patch.object(controller.display, "cleanup"),
+            patch.object(controller, "_prepare_display"),
+        ):
+            controller.start(
+                "1920x1200", "60", "20000", "Extend",
+                "Software (CPU / x264enc)", "Low Latency", True,
+                fec_mode="ULPFEC 10%",
+            )
+        self.assertEqual(controller.fec_mode, "ULPFEC 10%")
+        self.assertEqual(controller.env.value("MONITORIZE_FEC_PERCENT"), "10")
+
+        controller.streaming = True
+        controller.primary_ready = True
+        process = process_mock()
+        with patch(
+            "monitorize.desktop.streaming_controller.QProcess",
+            return_value=process,
+        ):
+            controller.start_third(
+                "1280x720", "60", "8000",
+                "Software (CPU / x264enc)", "Low Latency",
+                fec_mode="Off",
+            )
+        third_env = process.setProcessEnvironment.call_args.args[0]
+        self.assertEqual(third_env.value("MONITORIZE_FEC_PERCENT"), "0")
 
     def test_kde_extend_start_uses_native_primary_slot(self):
         controller = StreamingController("kde", "10.0.0.1", Mock())
@@ -2960,14 +3081,15 @@ class PipelineBuilderTest(unittest.TestCase):
         self.assertNotIn("videorate", text)
         self.assertNotIn("framerate=60/1", text)
         self.assertIn("keepalive-time=17", text)
+        self.assertIn("max-buffers=4", text)
 
-    def test_cpu_wifi_clocks_keepalive_frames_at_target_rate(self):
+    def test_cpu_wifi_preserves_native_kwin_source_rate(self):
         text = self._pipeline_text(
             target_object="101", preserve_source_rate=True, wifi_mode=True
         )
         self.assertIn("keepalive-time=17", text)
-        self.assertIn("videorate", text)
-        self.assertIn("framerate=60/1", text)
+        self.assertNotIn("videorate", text)
+        self.assertNotIn("framerate=60/1", text)
 
     def test_cpu_udp_pipeline_uses_selected_cpu_rtp_settings(self):
         text = self._pipeline_text(
@@ -2979,13 +3101,22 @@ class PipelineBuilderTest(unittest.TestCase):
         self.assertIn("width=2336,height=1080", text)
         self.assertIn("framerate=90/1", text)
         self.assertIn("bitrate=14000", text)
-        self.assertIn("key-int-max=22", text)
+        self.assertIn("key-int-max=450", text)
         self.assertIn("rtph264pay", text)
         self.assertIn("udpsink", text)
         self.assertNotIn("rtpulpfec", text)
         self.assertNotIn("nvh264enc", text)
         self.assertNotIn("vah264enc", text)
         self.assertNotIn("tls", text)
+
+    def test_udp_pipeline_has_no_activity_branch(self):
+        text = self._pipeline_text(
+            wifi_mode=True,
+            rtp_endpoint=("192.0.2.1", 49152, 1, "constrained-baseline"),
+        )
+
+        self.assertNotIn("monitorize_activity_tee", text)
+        self.assertNotIn("monitorize_activity_sink", text)
 
     def test_udp_pipeline_uses_selected_hardware_encoder(self):
         endpoint = ("192.0.2.1", 49152, 1, "constrained-baseline")
@@ -3013,15 +3144,31 @@ class PipelineBuilderTest(unittest.TestCase):
         self.assertIn("preset=p5", nvenc)
         self.assertNotIn("x264enc", nvenc)
 
-    def test_hardware_wifi_clocks_frames_without_losing_memory_features(self):
+    def test_hardware_wifi_preserves_native_kwin_source_rate(self):
         for encoder in ("nvh264enc", "vah264enc"):
             with self.subTest(encoder=encoder):
                 text = self._pipeline_text(
                     hw_encoder=encoder, target_object="101",
                     preserve_source_rate=True, wifi_mode=True,
                 )
-                self.assertIn("videorate", text)
-                self.assertIn("video/x-raw(ANY),framerate=60/1", text)
+                self.assertNotIn("videorate", text)
+                self.assertNotIn("framerate=60/1", text)
+
+    def test_native_kwin_vaapi_wifi_releases_compositor_buffers_before_upload(self):
+        text = self._pipeline_text(
+            hw_encoder="vah264enc", target_object="101",
+            preserve_source_rate=True, wifi_mode=True,
+        )
+        self.assertIn("always-copy=false", text)
+        self.assertIn("videoconvert n-threads=4", text)
+        self.assertIn("video/x-raw,format=NV12", text)
+        self.assertIn("vapostproc", text)
+        self.assertLess(text.index("videoconvert"), text.index("vapostproc"))
+
+    def test_non_native_vaapi_does_not_insert_kwin_copy_boundary(self):
+        text = self._pipeline_text(hw_encoder="vah264enc", wifi_mode=True)
+        self.assertNotIn("videoconvert n-threads=4", text)
+        self.assertNotIn("max-buffers=4", text)
 
     def test_hardware_wifi_emits_aud_and_uses_one_frame_rate_control_buffer(self):
         nvenc = self._pipeline_text(hw_encoder="nvh264enc", wifi_mode=True)
@@ -3030,6 +3177,7 @@ class PipelineBuilderTest(unittest.TestCase):
         self.assertIn("vbv-buffer-size=134", nvenc)
         self.assertIn("aud=true", vaapi)
         self.assertIn("cpb-size=134", vaapi)
+        self.assertIn("async-depth=3", vaapi)
         self.assertNotIn("cpb-size=2000", vaapi)
 
     def test_low_latency_encoder_profile_keeps_current_nvenc_settings(self):
@@ -3064,12 +3212,12 @@ class PipelineBuilderTest(unittest.TestCase):
         self.assertIn("udpsink host=10.0.0.8 port=49152", text)
         self.assertNotIn("tcpserversink", text)
 
-    def test_fixed_cpu_rtp_gop_keeps_real_idrs_for_loss_recovery(self):
+    def test_fixed_cpu_rtp_gop_uses_five_second_cadence(self):
         text = self._pipeline_text(rtp_endpoint=("10.0.0.8", 49152))
-        self.assertIn("key-int-max=15", text)
+        self.assertIn("key-int-max=300", text)
         self.assertNotIn("intra-refresh", text)
 
-    def test_fixed_gop_cadence_applies_to_all_encoders(self):
+    def test_five_second_gop_applies_to_all_rtp_encoders(self):
         cases = (
             ({}, "key-int-max"),
             ({"hw_encoder": "vah264enc", "wifi_mode": True}, "key-int-max"),
@@ -3077,10 +3225,27 @@ class PipelineBuilderTest(unittest.TestCase):
         )
         for kwargs, property_name in cases:
             with self.subTest(kwargs=kwargs):
-                self.assertIn(f"{property_name}=15", self._pipeline_text(**kwargs))
+                endpoint = {"rtp_endpoint": ("10.0.0.8", 49152)}
                 self.assertIn(
-                    f"{property_name}=30", self._pipeline_text(fps=120, **kwargs)
+                    f"{property_name}=300", self._pipeline_text(**endpoint, **kwargs)
                 )
+                self.assertIn(
+                    f"{property_name}=600",
+                    self._pipeline_text(fps=120, **endpoint, **kwargs),
+                )
+
+    def test_tcp_gop_cadence_is_unchanged(self):
+        self.assertIn("key-int-max=15", self._pipeline_text())
+        self.assertIn("key-int-max=30", self._pipeline_text(fps=120))
+
+    def test_wifi_bitrate_recommendation_matches_moonlight_curve(self):
+        self.assertEqual(10_000, recommended_wifi_bitrate_kbps(1280, 720, 60))
+        self.assertEqual(20_000, recommended_wifi_bitrate_kbps(1920, 1080, 60))
+        self.assertEqual(23_000, recommended_wifi_bitrate_kbps(1920, 1200, 60))
+        self.assertEqual(28_000, recommended_wifi_bitrate_kbps(1920, 1080, 120))
+        self.assertEqual(80_000, recommended_wifi_bitrate_kbps(3840, 2160, 60))
+        self.assertEqual(1_000, recommended_wifi_bitrate_kbps(320, 240, 24))
+        self.assertEqual(100_000, recommended_wifi_bitrate_kbps(7680, 4320, 240))
 
     def test_nvidia_auto_prefers_cuda_over_unreliable_kde_gl_import(self):
         pipeline_builder._gst_inspect.cache_clear()
@@ -3182,6 +3347,35 @@ class PipelineBuilderTest(unittest.TestCase):
         ]
         self.assertEqual(["config-interval=1"], config_interval_args)
         self.assertFalse(popen.call_args.kwargs["shell"])
+
+    def test_missing_gstreamer_fec_element_falls_back_to_off(self):
+        proc = Mock(pid=123)
+        proc.wait.side_effect = TimeoutExpired("gst-launch-1.0", 1.0)
+        endpoint = ("192.0.2.1", 49152, 1, "constrained-baseline", 0)
+        with (
+            patch.dict(os.environ, {
+                "MONITORIZE_VIDEO_TRANSPORT": "rtp-udp-v1",
+                "MONITORIZE_FEC_PERCENT": "10",
+            }),
+            patch(
+                "monitorize.streaming.pipeline_builder._gst_inspect",
+                return_value="",
+            ),
+            patch(
+                "monitorize.streaming.pipeline_builder.wait_for_client",
+                return_value=endpoint,
+            ) as wait,
+            patch(
+                "monitorize.streaming.pipeline_builder.subprocess.Popen",
+                return_value=proc,
+            ) as popen,
+        ):
+            pipeline_builder.launch_with_fallback(
+                pw_fd=None, node_id=42, width=1280, height=800,
+                fps=60, bitrate=8000, port=7110, server_mode=True,
+            )
+        self.assertEqual(wait.call_args.kwargs["requested_fec_percent"], 0)
+        self.assertNotIn("rtpulpfecenc", " ".join(popen.call_args.args[0]))
 
     def test_hardware_launch_falls_back_to_cpu_on_immediate_failure(self):
         failed = Mock()
@@ -3539,6 +3733,37 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertNotIn("page.detectedDe", qml)
         self.assertIn("backend.detectedDe", qml)
 
+    def test_streaming_page_has_a_lower_right_rtp_telemetry_overlay(self):
+        qml_path = (
+            Path(__file__).resolve().parents[1]
+            / "monitorize"
+            / "qml"
+            / "StreamingPage.qml"
+        )
+        qml = qml_path.read_text(encoding="utf-8")
+
+        self.assertIn("readonly property var telemetry: backend.streamingTelemetry", qml)
+        self.assertIn("visible: page.telemetry.available === true", qml)
+        self.assertIn("anchors.right: parent.right", qml)
+        self.assertIn("anchors.bottom: parent.bottom", qml)
+        self.assertIn("lineHeightMode: Text.FixedHeight", qml)
+        self.assertIn('text: "Wi-Fi RTP/UDP\\n"', qml)
+        self.assertIn("page.telemetry.bitrateKbps", qml)
+        self.assertNotIn("page.telemetry.hostActivity", qml)
+        self.assertNotIn("page.telemetry.controllerReason", qml)
+
+    def test_wifi_pages_offer_non_destructive_bitrate_recommendations(self):
+        qml_dir = Path(__file__).resolve().parents[1] / "monitorize" / "qml"
+        wifi = (qml_dir / "WifiPage.qml").read_text(encoding="utf-8")
+        streaming = (qml_dir / "StreamingPage.qml").read_text(encoding="utf-8")
+        for qml in (wifi, streaming):
+            self.assertIn("recommendedWifiBitrateKbps", qml)
+            self.assertIn('text: "Use auto"', qml)
+            self.assertIn('text: "Auto bitrate: " +', qml)
+        self.assertIn("resolutionOrFpsChanged", wifi)
+        self.assertIn("secondResolutionOrFpsChanged", streaming)
+        self.assertIn("visible: backend.isWifiStreaming", streaming)
+
     def test_main_menu_presets_align_to_mode_cards(self):
         qml_path = (
             Path(__file__).resolve().parents[1]
@@ -3703,7 +3928,7 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertNotIn("Encryption is off", qml)
         self.assertNotIn("MUST EXACTLY MATCH", qml)
         self.assertNotIn("WarningCard", qml)
-        self.assertEqual(qml.count("ChoiceChips {"), 3)
+        self.assertEqual(qml.count("ChoiceChips {"), 4)
         self.assertEqual(qml.count("CustomComboBox {"), 2)
         self.assertIn("RowLayout {", chips_qml)
         self.assertIn("property int chipWidth: 112", chips_qml)
@@ -3911,7 +4136,7 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn("id: s2StylusToggle", qml)
         self.assertIn("Enable stylus features for this display", qml)
         self.assertNotIn("backend.thirdEncryptionStatus", qml)
-        self.assertEqual(qml.count("ChoiceChips {"), 2)
+        self.assertEqual(qml.count("ChoiceChips {"), 3)
         self.assertIn("width: Math.min(page.width - 40, 560)", qml)
         self.assertIn("Creates a second Hyprland HEADLESS display.", qml)
         self.assertIn("Creates Monitorize Display 2 in KDE.", qml)

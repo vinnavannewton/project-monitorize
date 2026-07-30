@@ -15,31 +15,36 @@ gi.require_version("Gio", "2.0")
 from gi.repository import Gio, GLib, Gst, GstVideo
 
 from .video_transport import (
-    FEC_PAYLOAD_TYPE, HELLO_PREFIX, INITIAL_FEC_PERCENT, MTU,
-    RTP_PAYLOAD_TYPE, TRANSPORT, parse_hello,
+    FEC_PAYLOAD_TYPE, HELLO_PREFIX, MTU,
+    RTP_PAYLOAD_TYPE, TRANSPORT, is_start_message, parse_hello,
+    udp_send_buffer_bytes,
 )
 
 
 class Session:
-    def __init__(self, description, control_port, pacing_bitrate, target_fps, width, height):
+    def __init__(self, description, control_port, bitrate, target_fps, width, height):
         Gst.init(None)
         self.pipeline = Gst.parse_launch(description)
         self.control_port = control_port
         self.loop = GLib.MainLoop()
         self.running = True
         self.force_key_count = 0
-        self.unhealthy_windows = 0
-        self.last_unhealthy = 0.0
-        self.healthy_since = time.monotonic()
         self.target_fps = target_fps
         self.width = width
         self.height = height
-        self.original_bitrate = pacing_bitrate
-        self.current_bitrate = pacing_bitrate
-        self.render_window_started = time.monotonic()
-        self.rendered_in_window = 0
-        self.overload_windows = 0
-        self.configure_udp_socket(pacing_bitrate)
+        self.current_bitrate = max(1, int(bitrate))
+        self.last_client_stats_log = 0.0
+        self.pacing_bytes_per_second = 0
+        self.pacing_fd = None
+        self.last_metric_report = time.monotonic()
+        self.metrics = {
+            "source": 0, "paced": 0, "encoded": 0, "rtp_packets": 0,
+            "rtp_bytes": 0, "fec_packets": 0, "encode_latency_total_ms": 0.0,
+            "encode_latency_samples": 0,
+        }
+        self.capture_pts = {}
+        self.configure_udp_socket(self.current_bitrate)
+        print(f"[RTP] Fixed bitrate {self.current_bitrate} kbps", flush=True)
 
     def configure_udp_socket(self, bitrate_kbps):
         sink = self.pipeline.get_by_name("udpsink0")
@@ -47,18 +52,30 @@ class Session:
             return
         raw = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         raw.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        raw.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 262_144)
+        raw.setsockopt(
+            socket.SOL_SOCKET, socket.SO_SNDBUF,
+            udp_send_buffer_bytes(bitrate_kbps),
+        )
         raw.bind(("0.0.0.0", int(sink.get_property("bind-port"))))
-        try:
-            
-            rate = max(1, int(bitrate_kbps * 1000 * 1.25 / 8))
-            raw.setsockopt(socket.SOL_SOCKET, 47, rate)
-            print(f"[RTP] Kernel pacing enabled at {rate} B/s", flush=True)
-        except OSError:
-            print("[RTP] Kernel pacing unavailable; using bounded UDP sends", flush=True)
-        gio_socket = Gio.Socket.new_from_fd(raw.detach())
+        self._set_kernel_pacing(raw, bitrate_kbps)
+        self.pacing_fd = raw.detach()
+        gio_socket = Gio.Socket.new_from_fd(self.pacing_fd)
         sink.set_property("socket", gio_socket)
         sink.set_property("close-socket", True)
+
+    @staticmethod
+    def _pacing_rate(bitrate_kbps):
+        return max(1, int(bitrate_kbps * 1000 * 2 / 8))
+
+    def _set_kernel_pacing(self, udp_socket, bitrate_kbps):
+        rate = self._pacing_rate(bitrate_kbps)
+        try:
+            udp_socket.setsockopt(socket.SOL_SOCKET, 47, rate)
+        except OSError:
+            return False
+        self.pacing_bytes_per_second = rate
+        print(f"[RTP] Kernel pacing enabled at {rate} B/s", flush=True)
+        return True
 
     def force_key_unit(self):
         self.force_key_count += 1
@@ -74,58 +91,41 @@ class Session:
                 print("[RTP] Forced IDR from receiver feedback", flush=True)
             return
 
-    def update_fec(self, message):
-        fec = self.pipeline.get_by_name("rtpulpfecenc0")
-        if fec is None:
-            return
+    def report_client_stats(self, message):
         now = time.monotonic()
-        unhealthy = int(message.get("lost", 0)) > 0 or int(message.get("incomplete", 0)) > 0
-        current = int(fec.get_property("percentage"))
-        if unhealthy:
-            self.unhealthy_windows += 1
-            self.last_unhealthy = now
-            self.healthy_since = now
-            if self.unhealthy_windows >= 2 and current < 20:
-                current = min(20, current + 5)
-                fec.set_property("percentage", current)
-                self.unhealthy_windows = 0
-                print(f"[RTP] FEC increased to {current}%", flush=True)
-        else:
-            self.unhealthy_windows = 0
-            if now - self.healthy_since >= 10 and current > 5:
-                current = max(5, current - 5)
-                fec.set_property("percentage", current)
-                self.healthy_since = now
-                print(f"[RTP] FEC reduced to {current}%", flush=True)
-        self.update_overload(message, now)
-
-    def update_overload(self, message, now):
-        self.rendered_in_window += int(message.get("renderedFrames", 0))
-        if now - self.render_window_started < 1:
+        if now - self.last_client_stats_log < 1:
             return
-        healthy = (
-            self.rendered_in_window >= self.target_fps * 0.95
-            and int(message.get("queueDepth", 0)) <= 1
+        self.last_client_stats_log = now
+        print(
+            "[RTP][Client] "
+            f"rx={message.get('receivedKbps', 0)}kbps "
+            f"pps={message.get('packetsPerSecond', 0)} "
+            f"loss={float(message.get('lossPercent', 0)):.1f}% "
+            f"incomplete={message.get('incomplete', 0)} "
+            f"render={int(message.get('renderedFrames', 0)) * 1000 / max(1, int(message.get('intervalMs', 1))):.1f}fps "
+            f"queue={message.get('queueDepth', 0)} "
+            f"decode={float(message.get('decodeMs', 0)):.1f}ms "
+            f"renderLatency={float(message.get('renderMs', 0)):.1f}ms "
+            f"dropped={message.get('decoderDropped', 0)} "
+            f"media={message.get('mediaPackets', 0)} "
+            f"fec={message.get('fecPackets', 0)} "
+            f"recovered={message.get('fecRecovered', 0)} "
+            f"unrecoverable={message.get('fecUnrecoverable', 0)} "
+            f"residual={message.get('residualLost', 0)}",
+            flush=True,
         )
-        self.render_window_started = now
-        self.rendered_in_window = 0
-        self.overload_windows = 0 if healthy else self.overload_windows + 1
-        if self.overload_windows >= 2:
-            self.set_bitrate(max(1000, int(self.current_bitrate * 0.85)))
-            self.overload_windows = 0
-        elif healthy and now - self.last_unhealthy >= 10 and self.current_bitrate < self.original_bitrate:
-            self.set_bitrate(min(self.original_bitrate, int(self.current_bitrate / 0.85)))
 
-    def set_bitrate(self, bitrate):
-        if bitrate == self.current_bitrate:
-            return
-        for name in ("nvh264enc0", "vah264enc0", "vah264lpenc0", "x264enc0"):
-            encoder = self.pipeline.get_by_name(name)
-            if encoder is not None and encoder.find_property("bitrate"):
-                encoder.set_property("bitrate", bitrate)
-                self.current_bitrate = bitrate
-                print(f"[RTP] Bitrate adapted to {bitrate} kbps", flush=True)
-                return
+    def handle_stats_message(self, message):
+        if message.get("type") != "stats":
+            return False
+        self.report_client_stats(message)
+        return True
+
+    def handle_idr_message(self, message):
+        if message.get("type") != "idr":
+            return False
+        GLib.idle_add(self.force_key_unit)
+        return True
 
     def update_client(self, host, port):
         sink = self.pipeline.get_by_name("udpsink0")
@@ -133,6 +133,9 @@ class Session:
             return False
         old_host = sink.get_property("host")
         old_port = sink.get_property("port")
+        if old_host == host and int(old_port) == int(port):
+            print(f"[RTP] Receiver unchanged at {host}:{port}", flush=True)
+            return False
         sink.set_property("host", host)
         sink.set_property("port", port)
         print(
@@ -166,15 +169,27 @@ class Session:
                     if parsed is None:
                         continue
                     port, message = parsed
+                    if self.handle_stats_message(message):
+                        continue
+                    if self.handle_idr_message(message):
+                        reply = json.dumps({
+                            "transport": TRANSPORT, "status": "idr-requested",
+                            "version": 1,
+                        }, separators=(",", ":")).encode()
+                        client.sendall(HELLO_PREFIX + reply + b"\n")
+                        continue
+                    if not is_start_message(message):
+                        continue
                     profiles = message.get("decoderProfiles", [])
                     profile = "high" if "high" in profiles else "constrained-baseline"
                     payloader = self.pipeline.get_by_name("rtph264pay0")
+                    fec = self.pipeline.get_by_name("rtpulpfecenc0")
                     ssrc = int(payloader.get_property("ssrc")) if payloader else 0
                     reply = json.dumps({
                         "transport": TRANSPORT, "status": "ready", "version": 1,
                         "mtu": MTU, "rtpPt": RTP_PAYLOAD_TYPE,
                         "fecPt": FEC_PAYLOAD_TYPE,
-                        "fecPercent": INITIAL_FEC_PERCENT,
+                        "fecPercent": int(fec.get_property("percentage")) if fec else 0,
                         "ssrc": ssrc, "codec": "h264", "profile": profile,
                         "width": self.width, "height": self.height,
                         "fps": self.target_fps,
@@ -191,6 +206,83 @@ class Session:
         finally:
             sock.close()
 
+    def _element(self, *names):
+        for name in names:
+            element = self.pipeline.get_by_name(name)
+            if element is not None:
+                return element
+        return None
+
+    def install_diagnostics(self):
+        def buffer_probe(kind):
+            def probe(_pad, info):
+                buffer = info.get_buffer()
+                if buffer is None:
+                    return Gst.PadProbeReturn.OK
+                self.metrics[kind] += 1
+                if kind == "source" and buffer.pts != Gst.CLOCK_TIME_NONE:
+                    self.capture_pts[buffer.pts] = time.monotonic()
+                    if len(self.capture_pts) > 240:
+                        self.capture_pts.pop(next(iter(self.capture_pts)))
+                elif kind == "encoded" and buffer.pts != Gst.CLOCK_TIME_NONE:
+                    captured_at = self.capture_pts.pop(buffer.pts, None)
+                    if captured_at is not None:
+                        self.metrics["encode_latency_total_ms"] += (time.monotonic() - captured_at) * 1000
+                        self.metrics["encode_latency_samples"] += 1
+                elif kind == "rtp_packets":
+                    self.metrics["rtp_bytes"] += buffer.get_size()
+                    data = buffer.extract_dup(0, min(2, buffer.get_size()))
+                    if len(data) >= 2 and data[1] & 0x7f == FEC_PAYLOAD_TYPE:
+                        self.metrics["fec_packets"] += 1
+                return Gst.PadProbeReturn.OK
+            return probe
+
+        for names, kind in (
+            (("pipewiresrc0", "monitorize_source"), "source"),
+            (("videorate0", "monitorize_rate"), "paced"),
+            (("nvh264enc0", "vah264enc0", "vah264lpenc0", "vaapih264enc0", "x264enc0", "monitorize_encoder"), "encoded"),
+            (("rtpulpfecenc0", "rtph264pay0", "monitorize_payloader"), "rtp_packets"),
+        ):
+            element = self._element(*names)
+            pad = element.get_static_pad("src") if element else None
+            if pad is not None:
+                pad.add_probe(Gst.PadProbeType.BUFFER, buffer_probe(kind))
+        GLib.timeout_add_seconds(1, self.log_runtime_diagnostics)
+
+    def log_runtime_diagnostics(self):
+        now = time.monotonic()
+        elapsed = max(0.001, now - self.last_metric_report)
+        self.last_metric_report = now
+        metrics, self.metrics = self.metrics, {
+            "source": 0, "paced": 0, "encoded": 0, "rtp_packets": 0,
+            "rtp_bytes": 0, "fec_packets": 0, "encode_latency_total_ms": 0.0,
+            "encode_latency_samples": 0,
+        }
+        samples = metrics["encode_latency_samples"]
+        encode_path = (
+            f"{metrics['encode_latency_total_ms'] / samples:.1f}ms"
+            if samples else "unavailable"
+        )
+        actual_kbps = metrics["rtp_bytes"] * 8 / elapsed / 1000
+        pacing_kbps = self.pacing_bytes_per_second * 8 / 1000
+        capture_fps = metrics["source"] / elapsed
+        encoded_fps = metrics["encoded"] / elapsed
+        fec = self.pipeline.get_by_name("rtpulpfecenc0")
+        fec_percent = int(fec.get_property("percentage")) if fec else 0
+        video_bitrate = round(self.current_bitrate * (100 - fec_percent) / 100)
+        print(
+            "[RTP][Host] "
+            f"capture={capture_fps:.1f}fps paced={metrics['paced'] / elapsed:.1f}fps "
+            f"encoded={encoded_fps:.1f}fps rtp={metrics['rtp_packets'] / elapsed:.1f}pps "
+            f"tx={actual_kbps:.0f}kbps bitrate={self.current_bitrate}kbps "
+            f"videoBitrate={video_bitrate}kbps fec={fec_percent}% "
+            f"fecPps={metrics['fec_packets'] / elapsed:.1f} "
+            f"pacing={pacing_kbps:.0f}kbps encodePath={encode_path} "
+            f"recoveryIdr={self.force_key_count}",
+            flush=True,
+        )
+        return self.running
+
     def bus_message(self, _bus, message):
         if message.type == Gst.MessageType.ERROR:
             error, debug = message.parse_error()
@@ -204,6 +296,7 @@ class Session:
         bus.add_signal_watch()
         bus.connect("message", self.bus_message)
         threading.Thread(target=self.control_loop, daemon=True).start()
+        self.install_diagnostics()
         if self.pipeline.set_state(Gst.State.PLAYING) == Gst.StateChangeReturn.FAILURE:
             print("[GStreamer] ERROR: pipeline failed to enter PLAYING", flush=True)
             return 1
@@ -230,14 +323,14 @@ class Session:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--control-port", type=int, required=True)
-    parser.add_argument("--pacing-bitrate", type=int, required=True)
+    parser.add_argument("--bitrate", type=int, required=True)
     parser.add_argument("--target-fps", type=int, required=True)
     parser.add_argument("--width", type=int, required=True)
     parser.add_argument("--height", type=int, required=True)
     parser.add_argument("description")
     args = parser.parse_args()
     session = Session(
-        args.description, args.control_port, args.pacing_bitrate, args.target_fps,
+        args.description, args.control_port, args.bitrate, args.target_fps,
         args.width, args.height,
     )
     signal.signal(signal.SIGTERM, lambda *_: session.loop.quit())

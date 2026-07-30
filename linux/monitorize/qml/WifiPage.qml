@@ -44,6 +44,35 @@ Item {
         return String(Math.round(page.clampMbps(parseFloat(bitrateField.text)) * 1000))
     }
 
+    function selectedWidth() {
+        return Number(resCombo.currentText === "Custom..."
+            ? customW.text : resCombo.currentText.split("x")[0])
+    }
+
+    function selectedHeight() {
+        return Number(resCombo.currentText === "Custom..."
+            ? customH.text : resCombo.currentText.split("x")[1].split(" ")[0])
+    }
+
+    function selectedFps() {
+        return Number(fpsCombo.currentText === "Custom..." ? customFps.text : fpsCombo.currentText)
+    }
+
+    function recommendedBitrateKbps() {
+        return backend.recommendedWifiBitrateKbps(
+            page.selectedWidth(), page.selectedHeight(), page.selectedFps()
+        )
+    }
+
+    function resolutionOrFpsChanged() {
+        if (page.isWifi && page.selectedWidth() > 0 &&
+                page.selectedHeight() > 0 && page.selectedFps() > 0) {
+            page.setBitrateMbps(page.recommendedBitrateKbps() / 1000, true)
+        } else {
+            page.saveSettings()
+        }
+    }
+
     function setBitrateMbps(value, save) {
         page.syncingBitrate = true
         let mbps = page.clampMbps(value)
@@ -68,7 +97,7 @@ Item {
             encoderProfileCombo.currentText
         ]
         if (page.isWifi) {
-            backend.saveWifiSettings(...args)
+            backend.saveWifiSettings(...args, fecCombo.currentText)
         } else {
             backend.saveUsbSettings(...args)
         }
@@ -119,6 +148,9 @@ Item {
 
         if (!encoderProfileCombo.selectValue(saved["encoder_profile"] || "Low Latency", true)) {
             encoderProfileCombo.selectValue("Low Latency");
+        }
+        if (!fecCombo.selectValue(saved["fec_mode"] || "Off", true)) {
+            fecCombo.selectValue("Off");
         }
         
         let gen = backend.loadGeneralSettings();
@@ -233,7 +265,7 @@ Item {
                 CustomComboBox {
                     id: resCombo
                     model: ["1280x720 (16:9)", "1280x800 (16:10)", "1920x1080 (16:9)", "1920x1200 (16:10)", "2560x1440 (16:9)", "2560x1600 (16:10)", "3840x2160 (16:9)", "Custom..."]
-                    onActivated: page.saveSettings()
+                    onActivated: page.resolutionOrFpsChanged()
                 }
 
                 // Custom Res fields row
@@ -242,9 +274,9 @@ Item {
                     spacing: 8
                     visible: resCombo.currentText === "Custom..."
 
-                    CustomTextField { id: customW; placeholderText: "Width"; maximumLength: 4; onTextEdited: page.saveSettings() }
+                    CustomTextField { id: customW; placeholderText: "Width"; maximumLength: 4; onTextEdited: page.resolutionOrFpsChanged() }
                     Text { text: "×"; color: theme.textSecondary; font.pixelSize: 18; font.weight: Font.Bold }
-                    CustomTextField { id: customH; placeholderText: "Height"; maximumLength: 4; onTextEdited: page.saveSettings() }
+                    CustomTextField { id: customH; placeholderText: "Height"; maximumLength: 4; onTextEdited: page.resolutionOrFpsChanged() }
                     Text { text: "(500 - 4000)"; color: theme.textMuted; font.pixelSize: 11; font.italic: true }
                 }
 
@@ -252,7 +284,7 @@ Item {
                 CustomComboBox {
                     id: fpsCombo
                     model: ["30", "60", "90", "120", "Custom..."]
-                    onActivated: page.saveSettings()
+                    onActivated: page.resolutionOrFpsChanged()
                 }
 
                 // Custom FPS field row
@@ -261,7 +293,7 @@ Item {
                     spacing: 8
                     visible: fpsCombo.currentText === "Custom..."
 
-                    CustomTextField { id: customFps; placeholderText: "FPS"; maximumLength: 3; onTextEdited: page.saveSettings() }
+                    CustomTextField { id: customFps; placeholderText: "FPS"; maximumLength: 3; onTextEdited: page.resolutionOrFpsChanged() }
                     Text { text: "(24 - 240)"; color: theme.textMuted; font.pixelSize: 11; font.italic: true }
                 }
 
@@ -305,6 +337,54 @@ Item {
                         text: "Mbps"
                         color: theme.textMuted
                         font.pixelSize: 12
+                    }
+                }
+
+                Text {
+                    text: ""
+                    visible: page.isWifi
+                }
+                RowLayout {
+                    visible: page.isWifi
+                    spacing: 10
+
+                    Text {
+                        text: "Auto bitrate: " +
+                            page.formatMbps(page.recommendedBitrateKbps() / 1000) + " Mbps"
+                        color: theme.textMuted
+                        font.pixelSize: 12
+                    }
+
+                    CustomButton {
+                        text: "Use auto"
+                        implicitWidth: 132
+                        implicitHeight: 30
+                        onClicked: page.setBitrateMbps(
+                            page.recommendedBitrateKbps() / 1000, true
+                        )
+                    }
+                }
+
+                Text {
+                    text: "Packet-loss recovery:"
+                    color: theme.textSecondary
+                    font.pixelSize: 14
+                    visible: page.isWifi
+                }
+                ColumnLayout {
+                    visible: page.isWifi
+                    spacing: 4
+
+                    ChoiceChips {
+                        id: fecCombo
+                        model: ["Off", "ULPFEC 10%"]
+                        currentIndex: 0
+                        onActivated: page.saveSettings()
+                    }
+                    Text {
+                        text: "Reserves 10% of the selected bitrate for packet-loss recovery."
+                        color: theme.textMuted
+                        font.pixelSize: 11
                     }
                 }
 
@@ -407,7 +487,8 @@ Item {
                             displayTypeCombo.visible ? displayTypeCombo.currentText : "Extend",
                             encoderCombo.currentText,
                             encoderProfileCombo.currentText,
-                            page.isWifi
+                            page.isWifi,
+                            page.isWifi ? fecCombo.currentText : "Off"
                         );
                     }
                 }

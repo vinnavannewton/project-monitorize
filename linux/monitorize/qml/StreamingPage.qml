@@ -28,6 +28,16 @@ Item {
     readonly property int streamInfoRows: Math.max(
         1, Math.ceil(page.streamInfoItems.length / page.streamInfoColumns)
     )
+    readonly property var telemetry: backend.streamingTelemetry
+
+    function telemetryNumber(value, decimals) {
+        if (value === undefined || value === null || !isFinite(Number(value))) return "—"
+        return Number(value).toFixed(decimals)
+    }
+
+    function telemetryText(value) {
+        return value === undefined || value === null || value === "" ? "—" : String(value)
+    }
 
     function clampMbps(value) {
         let number = Number(value)
@@ -56,6 +66,25 @@ Item {
             ? s2CustomFps.text : s2FpsCombo.currentText
     }
 
+    function secondRecommendedBitrateKbps() {
+        let resolution = page.secondResolutionValue().split("x")
+        return backend.recommendedWifiBitrateKbps(
+            Number(resolution[0]), Number(resolution[1]), Number(page.secondFpsValue())
+        )
+    }
+
+    function secondResolutionOrFpsChanged() {
+        let resolution = page.secondResolutionValue().split("x")
+        if (backend.isWifiStreaming && Number(resolution[0]) > 0 &&
+                Number(resolution[1]) > 0 && Number(page.secondFpsValue()) > 0) {
+            page.setSecondBitrateMbps(
+                page.secondRecommendedBitrateKbps() / 1000, true
+            )
+        } else {
+            page.saveSecondDisplaySettings()
+        }
+    }
+
     function setSecondBitrateMbps(value, save) {
         page.syncingSecondBitrate = true
         let mbps = page.clampMbps(value)
@@ -76,6 +105,7 @@ Item {
             page.secondBitrateKbpsText(),
             s2EncoderCombo.currentText,
             s2EncoderProfileCombo.currentText,
+            s2FecCombo.currentText,
             page.secondTouchEnabled,
             page.secondStylusEnabled
         )
@@ -108,6 +138,9 @@ Item {
 
             let profileIdx = s2EncoderProfileCombo.find(s2["encoder_profile"] || "Low Latency");
             s2EncoderProfileCombo.currentIndex = profileIdx !== -1 ? profileIdx : 0;
+            if (!s2FecCombo.selectValue(s2["fec_mode"] || "Off", true)) {
+                s2FecCombo.selectValue("Off")
+            }
             page.secondTouchEnabled = s2["enable_touch"] !== undefined ? s2["enable_touch"] : true;
             page.secondStylusEnabled = s2["enable_stylus_features"] !== undefined
                 ? s2["enable_stylus_features"] : false;
@@ -606,7 +639,7 @@ Item {
                     id: s2ResCombo
                     model: ["1280x720 (16:9)", "1280x800 (16:10)", "1920x1080 (16:9)", "1920x1200 (16:10)", "2560x1440 (16:9)", "2560x1600 (16:10)", "Custom..."]
                     currentIndex: 2
-                    onActivated: page.saveSecondDisplaySettings()
+                    onActivated: page.secondResolutionOrFpsChanged()
                 }
 
                 Text {
@@ -624,7 +657,7 @@ Item {
                         maximumLength: 4
                         validator: IntValidator { bottom: 320; top: 7680 }
                         Layout.preferredWidth: 92
-                        onTextEdited: page.saveSecondDisplaySettings()
+                        onTextEdited: page.secondResolutionOrFpsChanged()
                     }
                     Text { text: "×"; color: theme.cardTextSecondary; font.pixelSize: 18 }
                     CustomTextField {
@@ -634,7 +667,7 @@ Item {
                         maximumLength: 4
                         validator: IntValidator { bottom: 240; top: 4320 }
                         Layout.preferredWidth: 92
-                        onTextEdited: page.saveSecondDisplaySettings()
+                        onTextEdited: page.secondResolutionOrFpsChanged()
                     }
                     Text {
                         text: "320–7680 × 240–4320"
@@ -648,7 +681,7 @@ Item {
                     id: s2FpsCombo
                     model: ["30", "60", "90", "120", "Custom..."]
                     currentIndex: 1
-                    onActivated: page.saveSecondDisplaySettings()
+                    onActivated: page.secondResolutionOrFpsChanged()
                 }
 
                 Text {
@@ -666,7 +699,7 @@ Item {
                         maximumLength: 3
                         validator: IntValidator { bottom: 24; top: 240 }
                         Layout.preferredWidth: 92
-                        onTextEdited: page.saveSecondDisplaySettings()
+                        onTextEdited: page.secondResolutionOrFpsChanged()
                     }
                     Text {
                         text: "24–240"
@@ -715,6 +748,51 @@ Item {
                         text: "Mbps"
                         color: theme.cardTextMuted
                         font.pixelSize: 12
+                    }
+                }
+
+                Text { text: ""; visible: backend.isWifiStreaming }
+                RowLayout {
+                    visible: backend.isWifiStreaming
+                    spacing: 10
+
+                    Text {
+                        text: "Auto bitrate: " +
+                            page.formatMbps(page.secondRecommendedBitrateKbps() / 1000) + " Mbps"
+                        color: theme.cardTextMuted
+                        font.pixelSize: 11
+                    }
+
+                    CustomButton {
+                        text: "Use auto"
+                        implicitWidth: 132
+                        implicitHeight: 30
+                        onClicked: page.setSecondBitrateMbps(
+                            page.secondRecommendedBitrateKbps() / 1000, true
+                        )
+                    }
+                }
+
+                Text {
+                    text: "Packet-loss recovery:"
+                    color: theme.cardTextSecondary
+                    font.pixelSize: 13
+                    visible: backend.isWifiStreaming
+                }
+                ColumnLayout {
+                    visible: backend.isWifiStreaming
+                    spacing: 4
+
+                    ChoiceChips {
+                        id: s2FecCombo
+                        model: ["Off", "ULPFEC 10%"]
+                        currentIndex: 0
+                        onActivated: page.saveSecondDisplaySettings()
+                    }
+                    Text {
+                        text: "Reserves 10% of this display's bitrate for recovery."
+                        color: theme.cardTextMuted
+                        font.pixelSize: 10
                     }
                 }
 
@@ -805,6 +883,7 @@ Item {
                             page.secondBitrateKbpsText(),
                             s2EncoderCombo.currentText,
                             s2EncoderProfileCombo.currentText,
+                            backend.isWifiStreaming ? s2FecCombo.currentText : "Off",
                             page.secondTouchEnabled,
                             page.secondStylusEnabled
                         )
@@ -813,6 +892,60 @@ Item {
                     }
                 }
             }
+        }
+    }
+
+    Rectangle {
+        visible: page.telemetry.available === true
+        z: 10
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.rightMargin: 18
+        anchors.bottomMargin: 18
+        width: 360
+        height: 124
+        radius: 6
+        color: "#cc000000"
+        border.color: "#4b5563"
+        border.width: 1
+
+        Text {
+            id: telemetryLabel
+            anchors.fill: parent
+            anchors.margins: 8
+            color: "#ffffff"
+            font.family: "Fira Code, JetBrains Mono, DejaVu Sans Mono, Consolas, monospace"
+            font.pixelSize: 10
+            lineHeightMode: Text.FixedHeight
+            lineHeight: 12
+            text: "Wi-Fi RTP/UDP\n" +
+                "host capture/pace/enc " + page.telemetryNumber(page.telemetry.hostCaptureFps, 1) +
+                " / " + page.telemetryNumber(page.telemetry.hostPacedFps, 1) +
+                " / " + page.telemetryNumber(page.telemetry.hostEncodedFps, 1) + " fps · path " +
+                page.telemetryText(page.telemetry.encodePath) + "\n" +
+                "TX " + page.telemetryNumber(page.telemetry.hostTxKbps, 0) + " kbps · " +
+                page.telemetryNumber(page.telemetry.hostRtpPps, 0) + " pps · pace " +
+                page.telemetryNumber(page.telemetry.pacingKbps, 0) + " kbps\n" +
+                "RX " + page.telemetryNumber(page.telemetry.clientRxKbps, 0) + " kbps · " +
+                page.telemetryNumber(page.telemetry.clientPps, 0) + " pps · loss " +
+                page.telemetryNumber(page.telemetry.clientLossPercent, 1) + "%\n" +
+                "render " + page.telemetryNumber(page.telemetry.clientRenderFps, 1) + " fps · q " +
+                page.telemetryNumber(page.telemetry.clientQueue, 0) + " · incomplete/drop " +
+                page.telemetryNumber(page.telemetry.clientIncomplete, 0) + "/" +
+                page.telemetryNumber(page.telemetry.clientDropped, 0) + "\n" +
+                "decode/display " +
+                page.telemetryNumber(page.telemetry.clientDecodeMs, 1) + "/" +
+                page.telemetryNumber(page.telemetry.clientDisplayMs, 1) + " ms · recovery IDR " +
+                page.telemetryNumber(page.telemetry.recoveryIdr, 0) + "\n" +
+                "budget/video " + page.telemetryNumber(page.telemetry.bitrateKbps, 0) + "/" +
+                page.telemetryNumber(page.telemetry.videoBitrateKbps, 0) + " kbps · FEC " +
+                page.telemetryNumber(page.telemetry.effectiveFecPercent, 0) + "% · " +
+                page.telemetryNumber(page.telemetry.hostFecPps, 0) + " pps\n" +
+                "FEC packets/recovered/unrecoverable " +
+                page.telemetryNumber(page.telemetry.clientFecPackets, 0) + "/" +
+                page.telemetryNumber(page.telemetry.clientFecRecovered, 0) + "/" +
+                page.telemetryNumber(page.telemetry.clientFecUnrecoverable, 0) +
+                " · residual " + page.telemetryNumber(page.telemetry.clientResidualLost, 0)
         }
     }
 }

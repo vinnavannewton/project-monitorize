@@ -1,7 +1,18 @@
 package app.monitorize.android.streaming
 
+internal enum class FecRecoveryStatus {
+    NOT_NEEDED,
+    RECOVERED,
+    UNRECOVERABLE,
+    MALFORMED,
+}
 
-internal class RtpUlpFecRecovery {
+internal data class FecRecoveryResult(
+    val status: FecRecoveryStatus,
+    val packet: RtpPacket? = null,
+)
+
+internal class RtpUlpFecRecovery(private val fecPayloadType: Int = 122) {
     private val media = LinkedHashMap<Int, RtpPacket>()
 
     fun remember(packet: RtpPacket) {
@@ -10,16 +21,22 @@ internal class RtpUlpFecRecovery {
         while (media.size > 256) media.remove(media.keys.first())
     }
 
-    fun recover(fec: RtpPacket): RtpPacket? {
+    fun recover(fec: RtpPacket): FecRecoveryResult {
         val data = fec.payload
-        if (fec.payloadType != 122 || data.size < 14) return null
+        if (fec.payloadType != fecPayloadType || data.size < 14) {
+            return FecRecoveryResult(FecRecoveryStatus.MALFORMED)
+        }
         val longMask = data[0].toInt() and 0x40 != 0
         val maskBytes = if (longMask) 6 else 2
-        if (data.size < 12 + maskBytes) return null
+        if (data.size < 12 + maskBytes) {
+            return FecRecoveryResult(FecRecoveryStatus.MALFORMED)
+        }
         val base = u16(data, 2)
         val protectionLength = u16(data, 10)
         val recoveryOffset = 12 + maskBytes
-        if (protectionLength <= 0 || recoveryOffset + protectionLength > data.size) return null
+        if (protectionLength <= 0 || recoveryOffset + protectionLength > data.size) {
+            return FecRecoveryResult(FecRecoveryStatus.MALFORMED)
+        }
 
         val protected = ArrayList<Int>()
         for (bit in 0 until maskBytes * 8) {
@@ -27,8 +44,16 @@ internal class RtpUlpFecRecovery {
                 protected += (base + bit) and 0xffff
             }
         }
+        if (protected.isEmpty()) {
+            return FecRecoveryResult(FecRecoveryStatus.MALFORMED)
+        }
         val missing = protected.filterNot(media::containsKey)
-        if (missing.size != 1) return null
+        if (missing.isEmpty()) {
+            return FecRecoveryResult(FecRecoveryStatus.NOT_NEEDED)
+        }
+        if (missing.size > 1) {
+            return FecRecoveryResult(FecRecoveryStatus.UNRECOVERABLE)
+        }
 
         var pXcc = data[0].toInt() and 0x3f
         var mPt = data[1].toInt() and 0xff
@@ -45,14 +70,17 @@ internal class RtpUlpFecRecovery {
                 payload[index] = (payload[index].toInt() xor packet.payload[index].toInt()).toByte()
             }
         }
-        if (pXcc != 0 || payloadLength !in 1..protectionLength) return null
-        return RtpPacket(
+        if (pXcc != 0 || payloadLength !in 1..protectionLength) {
+            return FecRecoveryResult(FecRecoveryStatus.MALFORMED)
+        }
+        val packet = RtpPacket(
             sequence = missing.single(),
             timestamp = timestamp and 0xffff_ffffL,
             marker = mPt and 0x80 != 0,
             payloadType = mPt and 0x7f,
             payload = payload.copyOf(payloadLength),
         ).also(::remember)
+        return FecRecoveryResult(FecRecoveryStatus.RECOVERED, packet)
     }
 
     private fun u16(data: ByteArray, offset: Int): Int =

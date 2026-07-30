@@ -2,9 +2,51 @@ package app.monitorize.android.streaming
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RtpStreamConfigTest {
+    @Test fun rtpFrameDeadlineAllowsThreeFramesWithinBounds() {
+        assertEquals(50_000_000L, rtpFrameDeadlineNanos(60))
+        assertEquals(100_000_000L, rtpFrameDeadlineNanos(30))
+        assertEquals(125_000_000L, rtpFrameDeadlineNanos(24))
+        assertEquals(50_000_000L, rtpFrameDeadlineNanos(240))
+    }
+
+    @Test fun recoveryIdrRequestsHaveHalfSecondCooldown() {
+        assertTrue(recoveryIdrAllowed(1_000, 1_500))
+        assertTrue(!recoveryIdrAllowed(1_000, 1_499))
+    }
+
+    @Test fun recoveryIdrUsesDedicatedControlMessage() {
+        val message = buildRtpControlMessage(49_152, 60, 1920, 1200, requestIdr = true)
+        assertTrue(message.contains("\"type\":\"idr\""))
+        assertTrue(message.contains("\"port\":49152"))
+    }
+
+    @Test fun negotiationUsesExplicitStartControlMessage() {
+        val message = buildRtpControlMessage(49_152, 60, 1920, 1200)
+        assertTrue(message.contains("\"type\":\"start\""))
+    }
+
+    @Test fun balancedOutputQueueKeepsNewestTwoBuffers() {
+        val queue = PendingOutputQueue(2)
+        assertNull(queue.offer(1))
+        assertNull(queue.offer(2))
+        assertEquals(1, queue.offer(3))
+        assertEquals(2, queue.poll())
+        assertEquals(3, queue.poll())
+        assertEquals(0, queue.size())
+    }
+
+    @Test fun lowLatencyOutputQueueKeepsOnlyNewestBuffer() {
+        val queue = PendingOutputQueue(1)
+        assertNull(queue.offer(1))
+        assertEquals(1, queue.offer(2))
+        assertEquals(2, queue.poll())
+        assertEquals(0, queue.size())
+    }
+
     @Test fun parsesHostConfirmedReadyMetadata() {
         val padding = "x".repeat(300)
         val config = parseRtpReady(
@@ -19,5 +61,90 @@ class RtpStreamConfigTest {
             "MZRP1 {\"transport\":\"rtp-udp-v1\",\"status\":\"ready\"," +
                 "\"width\":2337,\"height\":1080,\"fps\":90}"
         ))
+    }
+
+    @Test fun parsesEffectiveFecMetadataAndRejectsUnknownPercentage() {
+        assertEquals(
+            RtpStreamConfig(1920, 1200, 60, 122, 10),
+            parseRtpReady(
+                "MZRP1 {\"transport\":\"rtp-udp-v1\",\"status\":\"ready\"," +
+                    "\"width\":1920,\"height\":1200,\"fps\":60," +
+                    "\"fecPt\":122,\"fecPercent\":10}"
+            ),
+        )
+        assertNull(
+            parseRtpReady(
+                "MZRP1 {\"transport\":\"rtp-udp-v1\",\"status\":\"ready\"," +
+                    "\"width\":1920,\"height\":1200,\"fps\":60,\"fecPercent\":5}"
+            ),
+        )
+    }
+
+    @Test fun aggregatesFourQuarterSecondWindowsBeforeFeedback() {
+        val accumulator = RtpFeedbackAccumulator()
+        val quarter = StreamStats(
+            decodedFrames = 15,
+            renderedFrames = 15,
+            inputFrames = 15,
+            decodeMs = 10f,
+            renderMs = 20f,
+            queueDepth = 1,
+            mediaPackets = 100,
+            residualLost = 1,
+            measurementMs = 250,
+        )
+        repeat(3) {
+            assertNull(accumulator.add(quarter, 125_000, 100, 1))
+        }
+        val result = requireNotNull(accumulator.add(quarter, 125_000, 100, 1))
+        assertEquals(1_000, result.measurementMs)
+        assertEquals(4_000, result.receivedKbps)
+        assertEquals(400, result.packetsPerSecond)
+        assertEquals(4, result.lostPackets)
+        assertEquals(60, result.renderedFrames)
+        assertEquals(60f, result.renderedFps, 0.01f)
+        assertEquals(10f, result.decodeMs, 0.01f)
+        assertTrue(result.lossPercent > 0f)
+    }
+
+    @Test fun feedbackLossExcludesFecPacketsAndUsesResidualMediaLoss() {
+        val accumulator = RtpFeedbackAccumulator()
+        val result = requireNotNull(
+            accumulator.add(
+                StreamStats(
+                    mediaPackets = 90,
+                    fecPackets = 10,
+                    fecRecovered = 1,
+                    residualLost = 1,
+                    lostPackets = 1,
+                    measurementMs = 1_000,
+                ),
+                windowReceivedBytes = 120_000,
+                windowReceivedPackets = 100,
+                windowLostPackets = 1,
+            ),
+        )
+        assertEquals(90, result.mediaPackets)
+        assertEquals(10, result.fecPackets)
+        assertEquals(1, result.fecRecovered)
+        assertEquals(1, result.residualLost)
+        assertEquals(100f / 92f, result.lossPercent, 0.01f)
+    }
+
+    @Test fun feedbackBitrateUsesTotalBytesAcrossBurstyWindows() {
+        val accumulator = RtpFeedbackAccumulator()
+        val byteBursts = listOf(25_000L, 175_000L, 50_000L, 150_000L)
+        byteBursts.forEachIndexed { index, bytes ->
+            val result = accumulator.add(
+                StreamStats(renderedFrames = 15, measurementMs = 250),
+                bytes, 100, 0,
+            )
+            if (index < byteBursts.lastIndex) assertNull(result)
+            else {
+                requireNotNull(result)
+                assertEquals(3_200, result.receivedKbps)
+                assertEquals(60, result.renderedFrames)
+            }
+        }
     }
 }

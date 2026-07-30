@@ -14,6 +14,7 @@ from monitorize.config.validation import (
     sanitize_display_type,
     sanitize_encoder,
     sanitize_encoder_profile,
+    sanitize_fec_mode,
     sanitize_fps,
     sanitize_port,
     sanitize_resolution,
@@ -89,6 +90,8 @@ def _normalize_stream_settings(data: dict) -> dict:
     data["encoder_profile"] = sanitize_encoder_profile(
         data.get("encoder_profile", "Low Latency")
     )
+    if "fec_mode" in data:
+        data["fec_mode"] = sanitize_fec_mode(data.get("fec_mode"))
     data["fps"] = str(sanitize_fps(data["fps"]))
     data["custom_fps"] = (
         str(sanitize_fps(data["custom_fps"]))
@@ -105,11 +108,13 @@ def _normalize_stream_settings(data: dict) -> dict:
 
 def save_wifi_settings(*, resolution: str, custom_w: str, custom_h: str,
                        fps: str, custom_fps: str, bitrate: str,
-                       display_type: str, encoder: str, encoder_profile: str):
+                       display_type: str, encoder: str, encoder_profile: str,
+                       fec_mode: str = "Off"):
     values = locals()
     values["display_type"] = sanitize_display_type(display_type)
     values["encoder"] = sanitize_encoder(encoder)
     values["encoder_profile"] = sanitize_encoder_profile(encoder_profile)
+    values["fec_mode"] = sanitize_fec_mode(fec_mode)
     values["fps"] = str(sanitize_fps(fps))
     values["custom_fps"] = str(sanitize_fps(custom_fps)) if custom_fps else ""
     values["bitrate"] = str(sanitize_bitrate(bitrate))
@@ -166,12 +171,13 @@ STREAM_DEFAULTS = {
     "encoder": "Software (CPU / x264enc)",
     "encoder_profile": "Low Latency",
 }
+WIFI_DEFAULTS = {**STREAM_DEFAULTS, "bitrate": "20000", "fec_mode": "Off"}
 
 
 def load_wifi_settings() -> dict:
     values = _normalize_stream_settings(_load_group(
         "wifi",
-        STREAM_DEFAULTS,
+        WIFI_DEFAULTS,
     ))
     settings = _get_settings()
     settings.beginGroup("wifi")
@@ -208,6 +214,7 @@ def load_general_settings() -> dict:
 
 def save_second_display_settings(*, resolution: str, fps: str, bitrate: str,
                                  encoder: str, encoder_profile: str,
+                                 fec_mode: str = "Off",
                                  enable_touch: bool = True,
                                  enable_stylus_features: bool = False,
                                  custom_w: str = "", custom_h: str = "",
@@ -221,6 +228,7 @@ def save_second_display_settings(*, resolution: str, fps: str, bitrate: str,
         "bitrate": str(sanitize_bitrate(bitrate)),
         "encoder": sanitize_encoder(encoder),
         "encoder_profile": sanitize_encoder_profile(encoder_profile),
+        "fec_mode": sanitize_fec_mode(fec_mode),
         "enable_touch": bool(enable_touch),
         "enable_stylus_features": bool(enable_stylus_features),
     }
@@ -246,6 +254,7 @@ def load_second_display_settings() -> dict:
         "bitrate": "8000",
         "encoder": "Software (CPU / x264enc)",
         "encoder_profile": "Low Latency",
+        "fec_mode": "Off",
         "enable_touch": True,
         "enable_stylus_features": False,
     }, ("enable_touch", "enable_stylus_features"))
@@ -265,6 +274,7 @@ def load_second_display_settings() -> dict:
     data["bitrate"] = str(sanitize_bitrate(data["bitrate"]))
     data["encoder"] = sanitize_encoder(data["encoder"])
     data["encoder_profile"] = sanitize_encoder_profile(data["encoder_profile"])
+    data["fec_mode"] = sanitize_fec_mode(data.get("fec_mode"))
     return data
 
 
@@ -296,6 +306,7 @@ def _normalize_preset(raw: dict) -> dict | None:
             "encoder_profile": sanitize_encoder_profile(
                 primary.get("encoder_profile", "Low Latency")
             ),
+            "fec_mode": sanitize_fec_mode(primary.get("fec_mode")),
         },
         "general": {
             "minimize_to_tray": bool(general.get("minimize_to_tray", False)),
@@ -318,6 +329,7 @@ def _normalize_preset(raw: dict) -> dict | None:
             "encoder_profile": sanitize_encoder_profile(
                 third.get("encoder_profile", "Low Latency")
             ),
+            "fec_mode": sanitize_fec_mode(third.get("fec_mode")),
             "enable_touch": bool(third.get("enable_touch", True)),
             "enable_stylus_features": bool(
                 third.get("enable_stylus_features", False)

@@ -5,7 +5,10 @@ import subprocess
 import re
 from functools import lru_cache
 
-from .video_transport import MTU, RTP_PAYLOAD_TYPE, TRANSPORT, wait_for_client
+from .video_transport import (
+    FEC_PAYLOAD_TYPE, MTU, RTP_PAYLOAD_TYPE, TRANSPORT,
+    udp_send_buffer_bytes, wait_for_client,
+)
 
 VALID_ENCODER_PROFILES = {"Low Latency", "Balanced", "Quality"}
 
@@ -98,7 +101,7 @@ def _hw_encoder_params(
         return (
             f"{enc_name} rate-control=cbr bitrate={bitrate} cabac=false "
             f"cpb-size={one_frame_kbits} key-int-max={key_int} ref-frames=1 "
-            f"b-frames=0 target-usage=7 async-depth=1 aud=true"
+            f"b-frames=0 target-usage=7 async-depth=3 aud=true"
         )
     elif enc_name == "vaapih264enc" and encoder_profile == "Low Latency":
         return (
@@ -169,13 +172,18 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
         Element name from detect_igpu_encoder(), or None for CPU fallback.
     """
     
+    fec_percent = (
+        int(rtp_endpoint[4])
+        if rtp_endpoint and len(rtp_endpoint) > 4 else 0
+    )
+    video_bitrate = max(1, round(bitrate * (100 - fec_percent) / 100))
     zero_copy = hw_encoder != "nvh264enc" or nvidia_memory == "gl"
     always_copy = "false" if hw_encoder and zero_copy else "true"
     keepalive_ms = max(1, round(1000 / max(fps, 1)))
     if target_object is not None:
         src = (
             f"pipewiresrc target-object={target_object} do-timestamp=true "
-            f"always-copy={always_copy} keepalive-time={keepalive_ms}"
+            f"always-copy={always_copy} keepalive-time={keepalive_ms} max-buffers=4"
         )
     elif pw_fd is not None:
         src = (
@@ -192,14 +200,14 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
 
     
     
-    key_int = max(fps // 4, 15)
+    key_int = fps * 5 if rtp_endpoint else max(fps // 4, 15)
     intra_refresh = not bool(rtp_endpoint)
 
     if hw_encoder:
         rate_filter = (
             f"videorate skip-to-first=false ! "
             f"'video/x-raw(ANY),framerate={fps}/1'"
-            if wifi_mode else ""
+            if wifi_mode and not preserve_source_rate else ""
         )
         dimensions = "" if preserve_source_size else f",width={width},height={height}"
         if hw_encoder == "nvh264enc":
@@ -221,9 +229,15 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
                 )
         else:
             postproc = "vapostproc" if hw_encoder in ("vah264enc", "vah264lpenc") else "vaapipostproc"
-            convert = f"{postproc} ! 'video/x-raw(memory:VAMemory),format=NV12{dimensions}'"
+            if wifi_mode and target_object is not None:
+                convert = (
+                    f"videoconvert n-threads=4 ! video/x-raw,format=NV12{dimensions} ! "
+                    f"{postproc} ! 'video/x-raw(memory:VAMemory),format=NV12{dimensions}'"
+                )
+            else:
+                convert = f"{postproc} ! 'video/x-raw(memory:VAMemory),format=NV12{dimensions}'"
         encoder = _hw_encoder_params(
-            hw_encoder, bitrate, key_int, fps=fps,
+            hw_encoder, video_bitrate, key_int, fps=fps,
             intra_refresh=intra_refresh, wifi_mode=wifi_mode,
             encoder_profile=encoder_profile,
         )
@@ -231,13 +245,13 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
     else:
         rate_filter = (
             f"videorate skip-to-first=false ! video/x-raw,framerate={fps}/1"
-            if wifi_mode or not preserve_source_rate else ""
+            if not preserve_source_rate else ""
         )
         dimensions = "" if preserve_source_size else f",width={width},height={height}"
         scale = "" if preserve_source_size else " ! videoscale"
         convert = f"videoconvert n-threads=4{scale} ! video/x-raw,format=I420{dimensions}"
         encoder = _cpu_encoder_params(
-            bitrate, key_int, intra_refresh=intra_refresh,
+            video_bitrate, key_int, intra_refresh=intra_refresh,
             encoder_profile=encoder_profile,
         )
         encoder = _probe_encoder_properties(encoder)
@@ -261,8 +275,14 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
         sink = (
             f"rtph264pay aggregate-mode=none config-interval=-1 "
             f"mtu={MTU} pt={RTP_PAYLOAD_TYPE}{ssrc} ! "
+            + (
+                f"rtpulpfecenc pt={FEC_PAYLOAD_TYPE} percentage={fec_percent} "
+                "multipacket=true ! "
+                if fec_percent else ""
+            ) +
             f"udpsink host={client_host} port={client_port} bind-port={port} "
-            f"sync=false async=false buffer-size=262144 qos-dscp=48"
+            f"sync=false async=false buffer-size={udp_send_buffer_bytes(bitrate)} "
+            f"qos-dscp=48"
         )
     else:
         sink = f"tcpserversink host={host} port={port} sync=false sync-method=2 recover-policy=2 buffers-max=3 buffers-soft-max=2 qos-dscp=48"
@@ -287,7 +307,7 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
     return pipeline
 
 
-def _launch(argv, pass_fds=None, target_fps=60, target_bitrate=8000,
+def _launch(argv, pass_fds=None, target_fps=60, bitrate=8000,
             target_width=0, target_height=0):
     if "rtph264pay" in argv:
         import sys
@@ -302,7 +322,7 @@ def _launch(argv, pass_fds=None, target_fps=60, target_bitrate=8000,
             "--control-port", str(bind_port), " ".join(elements),
         ]
         runner[5:5] = [
-            "--pacing-bitrate", str(target_bitrate),
+            "--bitrate", str(bitrate),
             "--target-fps", str(target_fps),
             "--width", str(target_width), "--height", str(target_height),
         ]
@@ -353,9 +373,20 @@ def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
         preserve_source_size = os.environ.get("MONITORIZE_PRESERVE_SOURCE_SIZE") == "1"
     rtp_endpoint = None
     if server_mode and transport == TRANSPORT:
+        requested_fec_percent = (
+            10 if os.environ.get("MONITORIZE_FEC_PERCENT") == "10" else 0
+        )
+        if requested_fec_percent and not _gst_inspect("rtpulpfecenc"):
+            print(
+                "[RTP] WARNING: ULPFEC 10% requested, but GStreamer's "
+                "rtpulpfecenc is unavailable; install gst-plugins-good. "
+                "Continuing with FEC Off.",
+                flush=True,
+            )
+            requested_fec_percent = 0
         rtp_endpoint = wait_for_client(
             port, width=width, height=height, fps=fps, bitrate=bitrate,
-            transport=transport,
+            transport=transport, requested_fec_percent=requested_fec_percent,
         )
     modes = [None]
     if hw_encoder == "nvh264enc":
@@ -382,7 +413,7 @@ def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
         print(f"[GStreamer] {shlex.join(pipeline)}\n")
         proc = _launch(
             pipeline, pass_fds=pass_fds,
-            target_fps=fps, target_bitrate=bitrate,
+            target_fps=fps, bitrate=bitrate,
             target_width=width, target_height=height,
         )
         if not _failed_during_startup(proc):
@@ -409,7 +440,7 @@ def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
     print(f"[GStreamer] {shlex.join(pipeline)}\n")
     proc = _launch(
         pipeline, pass_fds=pass_fds,
-        target_fps=fps, target_bitrate=bitrate,
+        target_fps=fps, bitrate=bitrate,
         target_width=width, target_height=height,
     )
     if _failed_during_startup(proc):
