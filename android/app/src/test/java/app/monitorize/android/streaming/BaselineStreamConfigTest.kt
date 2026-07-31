@@ -6,6 +6,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RtpStreamConfigTest {
+    @Test fun assemblyPercentileUsesNearestRank() {
+        assertEquals(0f, percentile95(emptyList()), 0f)
+        assertEquals(19f, percentile95((1..20).map(Int::toFloat)), 0f)
+    }
+
     @Test fun rtpFrameDeadlineAllowsThreeFramesWithinBounds() {
         assertEquals(50_000_000L, rtpFrameDeadlineNanos(60))
         assertEquals(100_000_000L, rtpFrameDeadlineNanos(30))

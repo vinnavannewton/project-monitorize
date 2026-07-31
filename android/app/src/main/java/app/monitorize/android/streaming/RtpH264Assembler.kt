@@ -15,6 +15,8 @@ internal class RtpH264Assembler {
         private set
     var completedTimestamp: Long? = null
         private set
+    var completedAssemblyNanos: Long? = null
+        private set
     private val frames = java.util.ArrayDeque<Frame>()
     private var lastFinalizedTimestamp: Long? = null
 
@@ -22,6 +24,7 @@ internal class RtpH264Assembler {
         frames.clear()
         lastFinalizedTimestamp = null
         completedTimestamp = null
+        completedAssemblyNanos = null
         droppedFrame = false
         lostPackets = 0
     }
@@ -60,6 +63,7 @@ internal class RtpH264Assembler {
         frames.removeFirst()
         lastFinalizedTimestamp = oldest.timestamp
         completedTimestamp = oldest.timestamp
+        completedAssemblyNanos = (System.nanoTime() - oldest.firstPacketNanos).coerceAtLeast(0)
         return result
     }
 

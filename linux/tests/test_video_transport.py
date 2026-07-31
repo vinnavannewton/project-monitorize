@@ -120,8 +120,9 @@ class VideoTransportTest(unittest.TestCase):
         self.assertNotIn("appsink", description)
         self.assertIn("key-int-max=300", description)
 
-    def test_rtp_kernel_pacing_allows_twice_the_selected_bitrate(self):
-        self.assertEqual(2_000_000, Session._pacing_rate(8_000))
+    def test_rtp_sender_ceiling_is_independent_of_selected_bitrate(self):
+        from monitorize.streaming.gst_session import SENDER_CEILING_KBPS
+        self.assertEqual(200_000, SENDER_CEILING_KBPS)
 
     def test_udp_send_buffer_scales_to_two_tenths_of_a_second(self):
         self.assertEqual(262_144, udp_send_buffer_bytes(8_000))
@@ -146,17 +147,33 @@ class VideoTransportTest(unittest.TestCase):
         self.assertIn("buffer-size=500000", description)
 
     def test_identical_start_keeps_receiver_without_forcing_idr(self):
-        sink = Mock()
-        sink.get_property.side_effect = lambda name: {"host": "192.0.2.1", "port": 49152}[name]
         session = Session.__new__(Session)
-        session.pipeline = Mock()
-        session.pipeline.get_by_name.return_value = sink
+        session.client_host = "192.0.2.1"
+        session.client_port = 49152
+        session.sender_command = Mock()
         session.force_key_unit = Mock()
 
         self.assertFalse(session.update_client("192.0.2.1", 49152))
 
-        sink.set_property.assert_not_called()
+        session.sender_command.assert_not_called()
         session.force_key_unit.assert_not_called()
+
+    def test_endpoint_change_updates_native_sender_and_forces_idr(self):
+        session = Session.__new__(Session)
+        session.client_host = "192.0.2.1"
+        session.client_port = 49152
+        session.sender_command = Mock()
+        session.force_key_unit = Mock()
+
+        self.assertFalse(session.update_client("192.0.2.2", 49153))
+
+        session.sender_command.assert_called_once_with("DEST 192.0.2.2 49153")
+        session.force_key_unit.assert_called_once()
+        self.assertEqual(("192.0.2.2", 49153), (session.client_host, session.client_port))
+
+    def test_encoded_access_unit_detects_annex_b_idr(self):
+        self.assertTrue(Session.encoded_access_unit_has_idr(b"\x00\x00\x00\x01\x65x"))
+        self.assertFalse(Session.encoded_access_unit_has_idr(b"\x00\x00\x01\x41x"))
 
 if __name__ == "__main__":
     unittest.main()

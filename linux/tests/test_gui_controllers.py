@@ -1144,12 +1144,15 @@ class StreamingControllerTest(unittest.TestCase):
             "[RTP][Host] capture=59.0fps paced=60.0fps encoded=58.0fps "
             "rtp=132.0pps tx=7500kbps bitrate=8000kbps "
             "videoBitrate=7200kbps fec=10% fecPps=12.0 "
-            "pacing=16000kbps encodePath=7.2ms recoveryIdr=2"
+            "pacing=200000kbps encodePath=7.2ms senderQueue=1 "
+            "senderDelay=0.8ms senderDrops=0 sendErrors=0 recoveryIdr=2 "
+            "confirmedIdr=2 idrMs=12.5"
         ))
         self.assertTrue(controller._update_rtp_telemetry(
             "[RTP][Client] rx=7200kbps pps=120 loss=0.2% incomplete=0 "
             "render=57.0fps queue=1 decode=11.0ms renderLatency=22.0ms dropped=0 "
-            "media=108 fec=12 recovered=2 unrecoverable=1 residual=1"
+            "media=108 fec=12 recovered=2 unrecoverable=1 residual=1 "
+            "assemblyP95=3.5ms late=0"
         ))
         self.assertTrue(controller.telemetry["available"])
         self.assertEqual(59.0, controller.telemetry["hostCaptureFps"])
@@ -1159,6 +1162,9 @@ class StreamingControllerTest(unittest.TestCase):
         self.assertEqual(10.0, controller.telemetry["effectiveFecPercent"])
         self.assertEqual(2.0, controller.telemetry["clientFecRecovered"])
         self.assertEqual(2.0, controller.telemetry["recoveryIdr"])
+        self.assertEqual(0.8, controller.telemetry["senderDelayMs"])
+        self.assertEqual(3.5, controller.telemetry["clientAssemblyP95Ms"])
+        self.assertEqual(2.0, controller.telemetry["confirmedIdr"])
 
     def test_invalid_rtp_line_keeps_existing_telemetry(self):
         controller = self.kde_controller()
@@ -3683,6 +3689,17 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn("Exec=/usr/bin/monitorize-kde-virtual-output", rpm_permission)
         self.assertNotIn("BuildArch:      noarch", rpm_spec)
         self.assertIn("kbuildsycoca6", installer)
+
+    def test_native_rtp_sender_is_built_by_all_packages(self):
+        root = Path(__file__).resolve().parents[2]
+        packaging = [
+            (root / "linux/scripts/install.sh").read_text(encoding="utf-8"),
+            (root / "nix/package.nix").read_text(encoding="utf-8"),
+            (root / "monitorize.spec").read_text(encoding="utf-8"),
+        ]
+        for text in packaging:
+            self.assertIn("native/rtp_sender/build.sh", text)
+            self.assertIn("monitorize-rtp-sender", text)
 
     def test_fedora_rpm_covers_runtime_permissions_and_firewall(self):
         root = Path(__file__).resolve().parents[2]

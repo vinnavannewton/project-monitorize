@@ -72,6 +72,8 @@ desktop portals, GStreamer, and uinput.
 %pyproject_wheel
 RPM_OPT_FLAGS="%{build_cflags}" RPM_LD_FLAGS="%{build_ldflags}" \
     linux/native/kde_virtual_output/build.sh monitorize-kde-virtual-output
+RPM_OPT_FLAGS="%{build_cflags}" RPM_LD_FLAGS="%{build_ldflags}" \
+    linux/native/rtp_sender/build.sh monitorize-rtp-sender
 
 
 %install
@@ -86,6 +88,8 @@ install -Dpm 0644 packaging/fedora/70-monitorize-uinput.rules \
     %{buildroot}%{_udevrulesdir}/70-monitorize-uinput.rules
 install -Dpm 0755 monitorize-kde-virtual-output \
     %{buildroot}%{_bindir}/monitorize-kde-virtual-output
+install -Dpm 0755 monitorize-rtp-sender \
+    %{buildroot}%{_bindir}/monitorize-rtp-sender
 install -Dpm 0644 packaging/fedora/monitorize-kde-virtual-output.desktop \
     %{buildroot}%{_datadir}/applications/monitorize-kde-virtual-output.desktop
 install -Dpm 0644 packaging/fedora/monitorize.xml \
@@ -164,6 +168,7 @@ fi
 %doc README.md
 %{_bindir}/monitorize
 %{_bindir}/monitorize-kde-virtual-output
+%{_bindir}/monitorize-rtp-sender
 %{_datadir}/applications/monitorize.desktop
 %{_datadir}/applications/monitorize-kde-virtual-output.desktop
 %{_datadir}/icons/hicolor/192x192/apps/monitorize.png

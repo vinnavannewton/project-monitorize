@@ -29,6 +29,12 @@ internal fun recoveryIdrAllowed(lastRequestMs: Long, nowMs: Long): Boolean {
     return nowMs - lastRequestMs >= 500L
 }
 
+internal fun percentile95(values: List<Float>): Float {
+    if (values.isEmpty()) return 0f
+    val sorted = values.sorted()
+    return sorted[((sorted.size * 95 + 99) / 100 - 1).coerceIn(sorted.indices)]
+}
+
 internal fun buildRtpControlMessage(
     localUdpPort: Int,
     fps: Int,
@@ -66,6 +72,9 @@ data class StreamStats(
     val fecRecovered: Int = 0,
     val fecUnrecoverable: Int = 0,
     val residualLost: Int = 0,
+    val assemblyP95Ms: Float = 0f,
+    val lateFrames: Int = 0,
+    internal val assemblySamplesMs: List<Float> = emptyList(),
     val endToEndMs: Float? = null,
     val clockErrorMs: Float? = null,
 )
@@ -128,6 +137,8 @@ internal class RtpFeedbackAccumulator(private val periodMs: Long = 1_000) {
     private var fecRecovered = 0
     private var fecUnrecoverable = 0
     private var residualLost = 0
+    private val assemblySamplesMs = ArrayList<Float>()
+    private var lateFrames = 0
     private var endToEndMs: Float? = null
     private var clockErrorMs: Float? = null
 
@@ -146,6 +157,8 @@ internal class RtpFeedbackAccumulator(private val periodMs: Long = 1_000) {
         fecRecovered += window.fecRecovered
         fecUnrecoverable += window.fecUnrecoverable
         residualLost += window.residualLost
+        assemblySamplesMs.addAll(window.assemblySamplesMs)
+        lateFrames += window.lateFrames
         window.endToEndMs?.let { endToEndMs = it }
         window.clockErrorMs?.let { clockErrorMs = it }
         incompleteFrames += window.incompleteFrames
@@ -181,6 +194,9 @@ internal class RtpFeedbackAccumulator(private val periodMs: Long = 1_000) {
             fecRecovered = fecRecovered,
             fecUnrecoverable = fecUnrecoverable,
             residualLost = residualLost,
+            assemblyP95Ms = percentile95(assemblySamplesMs),
+            lateFrames = lateFrames,
+            assemblySamplesMs = assemblySamplesMs.toList(),
             endToEndMs = endToEndMs,
             clockErrorMs = clockErrorMs,
         )
@@ -206,6 +222,8 @@ internal class RtpFeedbackAccumulator(private val periodMs: Long = 1_000) {
         fecRecovered = 0
         fecUnrecoverable = 0
         residualLost = 0
+        assemblySamplesMs.clear()
+        lateFrames = 0
         endToEndMs = null
         clockErrorMs = null
     }
@@ -341,7 +359,11 @@ class StreamReceiver(
         Log.i(TAG, "RTP handshake succeeded, starting receive loop")
         socket.soTimeout = 4
         onPlainTransportReady?.invoke()
-        decoder.init(ready.width, ready.height, ready.fps, balancedOutput = false)
+        decoder.init(
+            ready.width, ready.height, ready.fps,
+            balancedOutput = false, inputFrameCapacity = 2,
+            replaceInputOnOverflow = false,
+        )
         onStatusChange?.invoke("")
         val assembler = RtpH264Assembler()
         val clockSync = RtpClockSync()
@@ -364,6 +386,8 @@ class StreamReceiver(
         var firstPacketLogged = false
         var lastStats = android.os.SystemClock.uptimeMillis()
         var receivedBytes = 0L
+        val assemblySamplesMs = ArrayList<Float>()
+        var lateFrames = 0
         val feedback = RtpFeedbackAccumulator()
         var noPacketDeadline = android.os.SystemClock.uptimeMillis() + 5000
         var lastIdrRequestMs = -IDR_REQUEST_COOLDOWN_MS
@@ -378,28 +402,45 @@ class StreamReceiver(
         fun feedCompletedFrame(frame: ByteArray) {
             val isIdr = containsIdr(frame)
             if (!waitingForIdr || isIdr) {
-                val fed = decoder.feedChunk(
+                val result = decoder.feedChunk(
                     frame, 0, frame.size, isIdr,
                     assembler.completedTimestamp ?: -1,
                 )
-                if (fed) {
-                    totalFramesDecoded++
-                    if (totalFramesDecoded <= 3) {
-                        Log.i(TAG, "RTP frame #$totalFramesDecoded fed to decoder: " +
-                            "size=${frame.size} idr=$isIdr")
+                when (result) {
+                    H264Decoder.SubmissionResult.ACCEPTED -> {
+                        totalFramesDecoded++
+                        if (totalFramesDecoded <= 3) {
+                            Log.i(TAG, "RTP frame #$totalFramesDecoded fed to decoder: " +
+                                "size=${frame.size} idr=$isIdr")
+                        }
+                        if (isIdr) waitingForIdr = false
                     }
-                } else {
-                    Log.w(TAG, "RTP decoder rejected frame: size=${frame.size} idr=$isIdr")
+                    H264Decoder.SubmissionResult.DROPPED -> {
+                        Log.w(TAG, "RTP decoder input full; requesting recovery IDR")
+                        waitingForIdr = true
+                        requestRecoveryIdr()
+                    }
+                    H264Decoder.SubmissionResult.FAILED -> {
+                        Log.w(TAG, "RTP decoder failed frame: size=${frame.size} idr=$isIdr")
+                    }
                 }
-                if (isIdr) waitingForIdr = false
-            } else if (totalFramesDecoded == 0L) {
-                Log.d(TAG, "RTP skipping non-IDR frame while waiting for keyframe")
+            } else {
+                requestRecoveryIdr()
+                if (totalFramesDecoded == 0L) {
+                    Log.d(TAG, "RTP skipping non-IDR frame while waiting for keyframe")
+                }
             }
         }
 
         fun drainCompletedFrames(first: ByteArray?) {
             var frame = first
             while (frame != null) {
+                assembler.completedAssemblyNanos?.let { duration ->
+                    assemblySamplesMs += duration / 1_000_000f
+                    if (duration > 1_000_000_000L / ready.fps.coerceAtLeast(1)) {
+                        lateFrames++
+                    }
+                }
                 feedCompletedFrame(frame)
                 frame = assembler.pollCompleted()
             }
@@ -500,6 +541,9 @@ class StreamReceiver(
                     fecRecovered = recoveredPackets,
                     fecUnrecoverable = fecUnrecoverable,
                     residualLost = lostPackets,
+                    assemblyP95Ms = percentile95(assemblySamplesMs),
+                    lateFrames = lateFrames,
+                    assemblySamplesMs = assemblySamplesMs.toList(),
                     endToEndMs = latency?.first,
                     clockErrorMs = latency?.second,
                 )
@@ -527,6 +571,8 @@ class StreamReceiver(
                 fecPackets = 0
                 fecUnrecoverable = 0
                 incompleteFrames = 0
+                assemblySamplesMs.clear()
+                lateFrames = 0
                 totalFramesDecoded = 0
                 lastStats = statsNow
             }
@@ -589,6 +635,8 @@ class StreamReceiver(
                         "\"fecRecovered\":${stats.fecRecovered}," +
                         "\"fecUnrecoverable\":${stats.fecUnrecoverable}," +
                         "\"residualLost\":${stats.residualLost}," +
+                        "\"assemblyP95Ms\":${stats.assemblyP95Ms}," +
+                        "\"lateFrames\":${stats.lateFrames}," +
                         "\"endToEndMs\":${stats.endToEndMs ?: -1}," +
                         "\"clockErrorMs\":${stats.clockErrorMs ?: -1}," +
                         "\"renderedRtpTimestamp\":${rendered?.timestamp ?: -1}," +
@@ -720,9 +768,14 @@ class StreamReceiver(
                     }
                 }
                 waitingForKeyFrame = false
-                if (!decoder.feedChunk(accessUnit, 0, accessUnitSize, accessUnitHasIdr)) {
-                    Log.w(TAG, "$streamType decoder rejected frame; reconnecting")
-                    decoderFailed = true
+                when (decoder.feedChunk(accessUnit, 0, accessUnitSize, accessUnitHasIdr)) {
+                    H264Decoder.SubmissionResult.FAILED -> {
+                        Log.w(TAG, "$streamType decoder rejected frame; reconnecting")
+                        decoderFailed = true
+                    }
+                    H264Decoder.SubmissionResult.DROPPED ->
+                        Log.w(TAG, "$streamType decoder input full; dropped frame")
+                    H264Decoder.SubmissionResult.ACCEPTED -> Unit
                 }
             }
             accessUnitSize = 0

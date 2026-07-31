@@ -903,7 +903,7 @@ Item {
         anchors.rightMargin: 18
         anchors.bottomMargin: 18
         width: 360
-        height: 124
+        height: 148
         radius: 6
         color: "#cc000000"
         border.color: "#4b5563"
@@ -924,8 +924,13 @@ Item {
                 " / " + page.telemetryNumber(page.telemetry.hostEncodedFps, 1) + " fps · encode path " +
                 page.telemetryText(page.telemetry.encodePath) + "\n" +
                 "TX " + page.telemetryNumber(page.telemetry.hostTxKbps, 0) + " kbps · " +
-                page.telemetryNumber(page.telemetry.hostRtpPps, 0) + " pps · pace " +
+                page.telemetryNumber(page.telemetry.hostRtpPps, 0) + " pps · ceiling " +
                 page.telemetryNumber(page.telemetry.pacingKbps, 0) + " kbps\n" +
+                "sender q/delay/drop/err " +
+                page.telemetryNumber(page.telemetry.senderQueue, 0) + "/" +
+                page.telemetryNumber(page.telemetry.senderDelayMs, 1) + "ms/" +
+                page.telemetryNumber(page.telemetry.senderDrops, 0) + "/" +
+                page.telemetryNumber(page.telemetry.senderErrors, 0) + "\n" +
                 "RX " + page.telemetryNumber(page.telemetry.clientRxKbps, 0) + " kbps · " +
                 page.telemetryNumber(page.telemetry.clientPps, 0) + " pps · loss " +
                 page.telemetryNumber(page.telemetry.clientLossPercent, 1) + "%\n" +
@@ -937,6 +942,10 @@ Item {
                 page.telemetryNumber(page.telemetry.clientDecodeMs, 1) + "/" +
                 page.telemetryNumber(page.telemetry.clientDisplayMs, 1) + " ms · recovery IDR " +
                 page.telemetryNumber(page.telemetry.recoveryIdr, 0) + "\n" +
+                "assembly p95/late " +
+                page.telemetryNumber(page.telemetry.clientAssemblyP95Ms, 1) + " ms/" +
+                page.telemetryNumber(page.telemetry.clientLateFrames, 0) + " · IDR confirmed " +
+                page.telemetryNumber(page.telemetry.confirmedIdr, 0) + "\n" +
                 "budget/video " + page.telemetryNumber(page.telemetry.bitrateKbps, 0) + "/" +
                 page.telemetryNumber(page.telemetry.videoBitrateKbps, 0) + " kbps · FEC " +
                 page.telemetryNumber(page.telemetry.effectiveFecPercent, 0) + "% · " +

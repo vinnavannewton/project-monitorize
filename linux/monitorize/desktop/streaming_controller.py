@@ -127,7 +127,7 @@ class StreamingController(QObject):
 
     @staticmethod
     def _metric_values(line):
-        return dict(re.findall(r"([A-Za-z]+)=([^\s]+)", line))
+        return dict(re.findall(r"([A-Za-z][A-Za-z0-9]*)=([^\s]+)", line))
 
     @staticmethod
     def _metric_number(values, name, suffix=""):
@@ -158,8 +158,14 @@ class StreamingController(QObject):
                 "effectiveFecPercent": self._metric_number(values, "fec", "%"),
                 "hostFecPps": self._metric_number(values, "fecPps"),
                 "pacingKbps": self._metric_number(values, "pacing", "kbps"),
+                "senderQueue": self._metric_number(values, "senderQueue"),
+                "senderDelayMs": self._metric_number(values, "senderDelay", "ms"),
+                "senderDrops": self._metric_number(values, "senderDrops"),
+                "senderErrors": self._metric_number(values, "sendErrors"),
                 "encodePath": values.get("encodePath"),
                 "recoveryIdr": self._metric_number(values, "recoveryIdr"),
+                "confirmedIdr": self._metric_number(values, "confirmedIdr"),
+                "idrMs": self._metric_number(values, "idrMs"),
             })
         elif line.startswith("[RTP][Client]"):
             update.update({
@@ -179,6 +185,8 @@ class StreamingController(QObject):
                     values, "unrecoverable"
                 ),
                 "clientResidualLost": self._metric_number(values, "residual"),
+                "clientAssemblyP95Ms": self._metric_number(values, "assemblyP95", "ms"),
+                "clientLateFrames": self._metric_number(values, "late"),
             })
         self.telemetry.update({key: value for key, value in update.items() if value is not None})
         self.telemetry["available"] = True

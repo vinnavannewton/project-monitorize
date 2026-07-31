@@ -87,6 +87,7 @@ python3Packages.buildPythonApplication rec {
     # this exact executable access to KWin's restricted screencast protocol.
     native/kde_virtual_output/build.sh \
       "$out/bin/monitorize-kde-virtual-output"
+    native/rtp_sender/build.sh "$out/bin/monitorize-rtp-sender"
 
     mkdir -p "$out/share/applications"
     cat > "$out/share/applications/monitorize-kde-virtual-output.desktop" <<EOF

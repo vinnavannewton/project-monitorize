@@ -43,6 +43,7 @@ class H264Decoder(
     private val onOutputSizeChanged: (Int, Int) -> Unit = { _, _ -> },
     private val onFirstFrameRendered: () -> Unit = {}
 ) {
+    enum class SubmissionResult { ACCEPTED, DROPPED, FAILED }
 
     private var codec: MediaCodec? = null
     private var frameCount = 0L
@@ -77,12 +78,13 @@ class H264Decoder(
 
     
     
-    private val POOL_SIZE = 1
-    private val chunkPool = ArrayBlockingQueue<FrameChunk>(POOL_SIZE)
-    private val chunkQueue = LinkedBlockingQueue<FrameChunk>(POOL_SIZE)
+    private var inputCapacity = 1
+    private var replaceQueuedOnOverflow = true
+    private var chunkPool = ArrayBlockingQueue<FrameChunk>(inputCapacity)
+    private var chunkQueue = LinkedBlockingQueue<FrameChunk>(inputCapacity)
     
     init {
-        for (i in 0 until POOL_SIZE) {
+        for (i in 0 until inputCapacity) {
             chunkPool.offer(FrameChunk(ByteArray(MAX_INPUT)))
         }
     }
@@ -93,8 +95,16 @@ class H264Decoder(
     }
 
     @Synchronized
-    fun init(width: Int, height: Int, fps: Int = 60, balancedOutput: Boolean = false) {
+    fun init(
+        width: Int, height: Int, fps: Int = 60, balancedOutput: Boolean = false,
+        inputFrameCapacity: Int = 1, replaceInputOnOverflow: Boolean = true,
+    ) {
         release()
+        inputCapacity = inputFrameCapacity.coerceIn(1, 2)
+        replaceQueuedOnOverflow = replaceInputOnOverflow
+        chunkPool = ArrayBlockingQueue(inputCapacity)
+        chunkQueue = LinkedBlockingQueue(inputCapacity)
+        repeat(inputCapacity) { chunkPool.offer(FrameChunk(ByteArray(MAX_INPUT))) }
         pendingOutputBuffers = PendingOutputQueue(if (balancedOutput) 2 else 1)
         val generation = decoderGeneration.incrementAndGet()
         fatalError.set(false)
@@ -309,22 +319,13 @@ class H264Decoder(
         chunkPool.offer(chunk)
     }
 
-    private fun dropOldestNonKeyFrame(): FrameChunk? {
-        val iterator = chunkQueue.iterator()
-        while (iterator.hasNext()) {
-            val chunk = iterator.next()
-            if (!chunk.isKeyFrame) {
-                iterator.remove()
-                return chunk
-            }
-        }
-        return null
-    }
-
-    private fun drainQueuedFrames(reusable: FrameChunk? = null): FrameChunk? {
+    private fun drainQueuedFrames(
+        reusable: FrameChunk? = null, countDrops: Boolean = false,
+    ): FrameChunk? {
         var candidate = reusable
         while (true) {
             val dropped = chunkQueue.poll() ?: break
+            if (countDrops) droppedSinceStats.incrementAndGet()
             if (candidate == null) {
                 candidate = dropped
             } else {
@@ -334,14 +335,17 @@ class H264Decoder(
         return candidate
     }
 
-    private fun obtainChunk(isKeyFrame: Boolean): FrameChunk? {
-        chunkPool.poll()?.let { return it }
-
-        if (isKeyFrame) {
-            return drainQueuedFrames()
+    private fun dropOldestNonKeyFrame(): FrameChunk? {
+        val iterator = chunkQueue.iterator()
+        while (iterator.hasNext()) {
+            val chunk = iterator.next()
+            if (!chunk.isKeyFrame) {
+                iterator.remove()
+                droppedSinceStats.incrementAndGet()
+                return chunk
+            }
         }
-
-        return dropOldestNonKeyFrame()
+        return null
     }
 
     private fun fillInputBuffer(mc: MediaCodec, idx: Int, chunk: FrameChunk): Boolean {
@@ -393,12 +397,17 @@ class H264Decoder(
     fun feedChunk(
         data: ByteArray, offset: Int, size: Int, isKeyFrame: Boolean = false,
         rtpTimestamp: Long = -1,
-    ): Boolean {
-        if (!initialized || fatalError.get()) return false
+    ): SubmissionResult {
+        if (!initialized || fatalError.get()) return SubmissionResult.FAILED
 
-        val chunk = obtainChunk(isKeyFrame) ?: run {
+        val chunk = chunkPool.poll() ?: if (isKeyFrame) {
+            drainQueuedFrames(countDrops = true)
+        } else if (replaceQueuedOnOverflow) {
+            dropOldestNonKeyFrame()
+        } else null
+        if (chunk == null) {
             droppedSinceStats.incrementAndGet()
-            return true
+            return SubmissionResult.DROPPED
         }
 
         val actualSize = size.coerceAtMost(chunk.data.size)
@@ -413,26 +422,19 @@ class H264Decoder(
             val mc = codec
             if (mc == null) {
                 recycleChunk(chunk)
-                return false
+                return SubmissionResult.FAILED
             }
             val queued = fillInputBuffer(mc, pendingIdx, chunk)
             recycleChunk(chunk)
-            return queued
+            return if (queued) SubmissionResult.ACCEPTED else SubmissionResult.FAILED
         }
 
         if (!chunkQueue.offer(chunk)) {
-            if (isKeyFrame) {
-                drainQueuedFrames()?.let { recycleChunk(it) }
-            } else {
-                dropOldestNonKeyFrame()?.let { recycleChunk(it) }
-            }
-
-            if (!chunkQueue.offer(chunk)) {
-                droppedSinceStats.incrementAndGet()
-                recycleChunk(chunk)
-            }
+            droppedSinceStats.incrementAndGet()
+            recycleChunk(chunk)
+            return SubmissionResult.DROPPED
         }
-        return !fatalError.get()
+        return if (fatalError.get()) SubmissionResult.FAILED else SubmissionResult.ACCEPTED
     }
 
     @Synchronized
@@ -463,7 +465,7 @@ class H264Decoder(
             Thread.currentThread().interrupt()
         }
         callbackThread = null
-        while (chunkPool.size < POOL_SIZE) {
+        while (chunkPool.size < inputCapacity) {
             if (!chunkPool.offer(FrameChunk(ByteArray(MAX_INPUT)))) break
         }
     }

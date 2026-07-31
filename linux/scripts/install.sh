@@ -26,6 +26,9 @@ HELPER_NAME="monitorize-kde-virtual-output"
 HELPER_BUILD="${PROJECT_DIR}/native/kde_virtual_output/build.sh"
 HELPER_PATH="${VENV_DIR}/bin/${HELPER_NAME}"
 HELPER_DESKTOP_FILE="${APP_ID}-kde-virtual-output.desktop"
+RTP_SENDER_NAME="monitorize-rtp-sender"
+RTP_SENDER_BUILD="${PROJECT_DIR}/native/rtp_sender/build.sh"
+RTP_SENDER_PATH="${VENV_DIR}/bin/${RTP_SENDER_NAME}"
 
 # XDG standard locations
 DESKTOP_DIR="${HOME}/.local/share/applications"
@@ -123,6 +126,13 @@ if ! "${HELPER_BUILD}" "${HELPER_PATH}"; then
     exit 1
 fi
 echo "✓ KDE virtual-output helper installed to ${HELPER_PATH}"
+
+if ! "${RTP_SENDER_BUILD}" "${RTP_SENDER_PATH}"; then
+    echo "Error: Could not build the deterministic RTP sender." >&2
+    echo "Install a C compiler (gcc or clang) and re-run the installer." >&2
+    exit 1
+fi
+echo "✓ Deterministic RTP sender installed to ${RTP_SENDER_PATH}"
 
 # ── Install icon ─────────────────────────────────────────────────────
 mkdir -p "${ICON_DIR}"

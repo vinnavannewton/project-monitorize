@@ -3,8 +3,15 @@
 import argparse
 from collections import deque
 import json
+import os
+from pathlib import Path
+import re
+import select
 import signal
+import shutil
 import socket
+import subprocess
+import sys
 import threading
 import time
 
@@ -12,14 +19,16 @@ import gi
 
 gi.require_version("Gst", "1.0")
 gi.require_version("GstVideo", "1.0")
-gi.require_version("Gio", "2.0")
-from gi.repository import Gio, GLib, Gst, GstVideo
+from gi.repository import GLib, Gst, GstVideo
 
 from .video_transport import (
     FEC_PAYLOAD_TYPE, HELLO_PREFIX, MTU,
     RTP_PAYLOAD_TYPE, TRANSPORT, is_start_message, parse_hello,
     udp_send_buffer_bytes,
 )
+
+SENDER_NAME = "monitorize-rtp-sender"
+SENDER_CEILING_KBPS = 200_000
 
 
 class Session:
@@ -30,13 +39,21 @@ class Session:
         self.loop = GLib.MainLoop()
         self.running = True
         self.force_key_count = 0
+        self.confirmed_idr_count = 0
+        self.pending_idr_since = None
+        self.last_idr_ms = None
         self.target_fps = target_fps
         self.width = width
         self.height = height
         self.current_bitrate = max(1, int(bitrate))
         self.last_client_stats_log = 0.0
-        self.pacing_bytes_per_second = 0
-        self.pacing_fd = None
+        self.pacing_bytes_per_second = SENDER_CEILING_KBPS * 1000 // 8
+        self.sender = None
+        self.sender_lock = threading.Lock()
+        self.sender_metrics = {
+            "txKbps": 0.0, "txPps": 0.0, "queuePackets": 0.0,
+            "queueDelayMs": 0.0, "droppedFrames": 0.0, "sendErrors": 0.0,
+        }
         self.last_metric_report = time.monotonic()
         self.metrics = {
             "source": 0, "paced": 0, "encoded": 0, "rtp_packets": 0,
@@ -49,39 +66,118 @@ class Session:
         self.capture_rtp_times = {}
         self.encoded_capture_times = deque(maxlen=240)
         self.last_media_rtp_timestamp = None
-        self.configure_udp_socket(self.current_bitrate)
+        self.start_sender()
         print(f"[RTP] Fixed bitrate {self.current_bitrate} kbps", flush=True)
 
-    def configure_udp_socket(self, bitrate_kbps):
-        sink = self.pipeline.get_by_name("udpsink0")
-        if sink is None:
-            return
-        raw = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        raw.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        raw.setsockopt(
-            socket.SOL_SOCKET, socket.SO_SNDBUF,
-            udp_send_buffer_bytes(bitrate_kbps),
-        )
-        raw.bind(("0.0.0.0", int(sink.get_property("bind-port"))))
-        self._set_kernel_pacing(raw, bitrate_kbps)
-        self.pacing_fd = raw.detach()
-        gio_socket = Gio.Socket.new_from_fd(self.pacing_fd)
-        sink.set_property("socket", gio_socket)
-        sink.set_property("close-socket", True)
+    @staticmethod
+    def find_sender():
+        override = os.environ.get("MONITORIZE_RTP_SENDER", "").strip()
+        candidates = [override, str(Path(sys.executable).with_name(SENDER_NAME))]
+        from_path = shutil.which(SENDER_NAME)
+        if from_path:
+            candidates.append(from_path)
+        candidates.append(str(
+            Path(__file__).resolve().parents[2] / "native" / "rtp_sender" / SENDER_NAME
+        ))
+        return next((path for path in candidates if path and os.path.isfile(path)
+                     and os.access(path, os.X_OK)), "")
 
     @staticmethod
-    def _pacing_rate(bitrate_kbps):
-        return max(1, int(bitrate_kbps * 1000 * 2 / 8))
+    def _sender_values(line):
+        return dict(re.findall(r"([A-Za-z]+)=([^\s]+)", line))
 
-    def _set_kernel_pacing(self, udp_socket, bitrate_kbps):
-        rate = self._pacing_rate(bitrate_kbps)
+    def start_sender(self):
+        sink = self.pipeline.get_by_name("udpsink0")
+        if sink is None:
+            raise RuntimeError("RTP pipeline has no UDP sink")
+        sender_path = self.find_sender()
+        if not sender_path:
+            raise RuntimeError(
+                "deterministic RTP sender is missing; re-run the Monitorize installer"
+            )
+        self.client_host = sink.get_property("host")
+        self.client_port = int(sink.get_property("port"))
+        bind_port = int(sink.get_property("bind-port"))
+        self.sender = subprocess.Popen(
+            [sender_path, str(bind_port), self.client_host, str(self.client_port),
+             str(self.target_fps), str(udp_send_buffer_bytes(self.current_bitrate))],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, bufsize=1,
+        )
+        deadline = time.monotonic() + 3
+        ready_line = ""
+        while time.monotonic() < deadline:
+            ready, _, _ = select.select(
+                [self.sender.stdout], [], [], max(0, deadline - time.monotonic())
+            )
+            if not ready:
+                break
+            ready_line = self.sender.stdout.readline().strip()
+            if ready_line.startswith(("READY ", "ERROR ")):
+                break
+        values = self._sender_values(ready_line)
         try:
-            udp_socket.setsockopt(socket.SOL_SOCKET, 47, rate)
-        except OSError:
-            return False
-        self.pacing_bytes_per_second = rate
-        print(f"[RTP] Kernel pacing enabled at {rate} B/s", flush=True)
-        return True
+            input_port = int(values["inputPort"])
+        except (KeyError, ValueError):
+            self.stop_sender()
+            raise RuntimeError(
+                f"deterministic RTP sender failed to start: {ready_line or 'no READY'}"
+            )
+        sink.set_property("host", "127.0.0.1")
+        sink.set_property("port", input_port)
+        sink.set_property("bind-port", 0)
+        print(
+            f"[RTP] Deterministic sender ready on loopback UDP {input_port}; "
+            f"network source port {bind_port}, ceiling {SENDER_CEILING_KBPS} kbps",
+            flush=True,
+        )
+        threading.Thread(target=self.sender_output_loop, daemon=True).start()
+
+    def sender_output_loop(self):
+        process = self.sender
+        if process is None or process.stdout is None:
+            return
+        for raw_line in process.stdout:
+            line = raw_line.strip()
+            if line.startswith("STAT "):
+                values = self._sender_values(line)
+                for key in self.sender_metrics:
+                    try:
+                        self.sender_metrics[key] = float(values[key])
+                    except (KeyError, ValueError):
+                        pass
+            elif line.startswith(("DROP ", "DEST ")):
+                print(f"[RTP][Sender] {line}", flush=True)
+            elif line.startswith("ERROR "):
+                print(f"[RTP] ERROR: deterministic sender: {line[6:]}", flush=True)
+                GLib.idle_add(self.loop.quit)
+        if self.running:
+            print("[RTP] ERROR: deterministic sender exited unexpectedly", flush=True)
+            GLib.idle_add(self.loop.quit)
+
+    def sender_command(self, command):
+        with self.sender_lock:
+            if self.sender is None or self.sender.poll() is not None or self.sender.stdin is None:
+                raise RuntimeError("deterministic RTP sender is not running")
+            self.sender.stdin.write(command + "\n")
+            self.sender.stdin.flush()
+
+    def stop_sender(self):
+        process, self.sender = self.sender, None
+        if process is None or process.poll() is not None:
+            return
+        try:
+            if process.stdin:
+                process.stdin.write("QUIT\n")
+                process.stdin.flush()
+            process.wait(timeout=2)
+        except (BrokenPipeError, OSError, subprocess.TimeoutExpired):
+            process.terminate()
+            try:
+                process.wait(timeout=1)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
 
     def force_key_unit(self):
         self.force_key_count += 1
@@ -94,8 +190,17 @@ class Session:
                 Gst.CLOCK_TIME_NONE, True, self.force_key_count
             )
             if pad and pad.send_event(event):
+                self.pending_idr_since = time.monotonic()
                 print("[RTP] Forced IDR from receiver feedback", flush=True)
             return
+
+    @staticmethod
+    def encoded_access_unit_has_idr(data):
+        for match in re.finditer(b"\x00\x00(?:\x00)?\x01", data):
+            header = match.end()
+            if header < len(data) and data[header] & 0x1f == 5:
+                return True
+        return False
 
     def report_client_stats(self, message):
         now = time.monotonic()
@@ -126,7 +231,9 @@ class Session:
             f"fec={message.get('fecPackets', 0)} "
             f"recovered={message.get('fecRecovered', 0)} "
             f"unrecoverable={message.get('fecUnrecoverable', 0)} "
-            f"residual={message.get('residualLost', 0)}{latency}",
+            f"residual={message.get('residualLost', 0)} "
+            f"assemblyP95={float(message.get('assemblyP95Ms', 0)):.1f}ms "
+            f"late={message.get('lateFrames', 0)}{latency}",
             flush=True,
         )
 
@@ -207,16 +314,17 @@ class Session:
         return True
 
     def update_client(self, host, port):
-        sink = self.pipeline.get_by_name("udpsink0")
-        if sink is None:
-            return False
-        old_host = sink.get_property("host")
-        old_port = sink.get_property("port")
-        if old_host == host and int(old_port) == int(port):
+        old_host, old_port = self.client_host, self.client_port
+        if old_host == host and old_port == int(port):
             print(f"[RTP] Receiver unchanged at {host}:{port}", flush=True)
             return False
-        sink.set_property("host", host)
-        sink.set_property("port", port)
+        try:
+            self.sender_command(f"DEST {host} {int(port)}")
+        except RuntimeError as exc:
+            print(f"[RTP] ERROR: {exc}", flush=True)
+            self.loop.quit()
+            return False
+        self.client_host, self.client_port = host, int(port)
         print(
             f"[RTP] Switched receiver {old_host}:{old_port} -> {host}:{port}",
             flush=True,
@@ -318,6 +426,18 @@ class Session:
                             time.monotonic_ns() - captured_at
                         ) / 1_000_000
                         self.metrics["encode_latency_samples"] += 1
+                    if self.pending_idr_since is not None:
+                        encoded = buffer.extract_dup(0, buffer.get_size())
+                        if self.encoded_access_unit_has_idr(encoded):
+                            self.confirmed_idr_count += 1
+                            self.last_idr_ms = (
+                                time.monotonic() - self.pending_idr_since
+                            ) * 1000
+                            self.pending_idr_since = None
+                            print(
+                                f"[RTP] Recovery IDR confirmed in {self.last_idr_ms:.1f} ms",
+                                flush=True,
+                            )
                 elif kind == "rtp_packets":
                     self.metrics["rtp_bytes"] += buffer.get_size()
                     data = buffer.extract_dup(0, min(12, buffer.get_size()))
@@ -376,15 +496,31 @@ class Session:
         fec = self.pipeline.get_by_name("rtpulpfecenc0")
         fec_percent = int(fec.get_property("percentage")) if fec else 0
         video_bitrate = round(self.current_bitrate * (100 - fec_percent) / 100)
+        if (self.pending_idr_since is not None and
+                now - self.pending_idr_since >= 0.5):
+            print(
+                "[RTP] WARNING: recovery IDR not observed within 500 ms; retrying",
+                flush=True,
+            )
+            self.force_key_unit()
+        sender = dict(self.sender_metrics)
         print(
             "[RTP][Host] "
             f"capture={capture_fps:.1f}fps paced={metrics['paced'] / elapsed:.1f}fps "
-            f"encoded={encoded_fps:.1f}fps rtp={metrics['rtp_packets'] / elapsed:.1f}pps "
-            f"tx={actual_kbps:.0f}kbps bitrate={self.current_bitrate}kbps "
+            f"encoded={encoded_fps:.1f}fps "
+            f"rtp={sender['txPps'] or metrics['rtp_packets'] / elapsed:.1f}pps "
+            f"tx={sender['txKbps'] or actual_kbps:.0f}kbps "
+            f"bitrate={self.current_bitrate}kbps "
             f"videoBitrate={video_bitrate}kbps fec={fec_percent}% "
             f"fecPps={metrics['fec_packets'] / elapsed:.1f} "
             f"pacing={pacing_kbps:.0f}kbps encodePath={encode_path} "
-            f"recoveryIdr={self.force_key_count}",
+            f"senderQueue={sender['queuePackets']:.0f} "
+            f"senderDelay={sender['queueDelayMs']:.2f}ms "
+            f"senderDrops={sender['droppedFrames']:.0f} "
+            f"sendErrors={sender['sendErrors']:.0f} "
+            f"recoveryIdr={self.force_key_count} "
+            f"confirmedIdr={self.confirmed_idr_count} "
+            f"idrMs={self.last_idr_ms if self.last_idr_ms is not None else 'unavailable'}",
             flush=True,
         )
         return self.running
@@ -405,6 +541,8 @@ class Session:
         self.install_diagnostics()
         if self.pipeline.set_state(Gst.State.PLAYING) == Gst.StateChangeReturn.FAILURE:
             print("[GStreamer] ERROR: pipeline failed to enter PLAYING", flush=True)
+            self.running = False
+            self.stop_sender()
             return 1
         sink = self.pipeline.get_by_name("udpsink0")
         if sink:
@@ -423,6 +561,7 @@ class Session:
             self.running = False
             self.pipeline.send_event(Gst.Event.new_eos())
             self.pipeline.set_state(Gst.State.NULL)
+            self.stop_sender()
         return 0
 
 
@@ -435,10 +574,14 @@ def main():
     parser.add_argument("--height", type=int, required=True)
     parser.add_argument("description")
     args = parser.parse_args()
-    session = Session(
-        args.description, args.control_port, args.bitrate, args.target_fps,
-        args.width, args.height,
-    )
+    try:
+        session = Session(
+            args.description, args.control_port, args.bitrate, args.target_fps,
+            args.width, args.height,
+        )
+    except RuntimeError as exc:
+        print(f"[RTP] ERROR: {exc}", flush=True)
+        raise SystemExit(1)
     signal.signal(signal.SIGTERM, lambda *_: session.loop.quit())
     signal.signal(signal.SIGINT, lambda *_: session.loop.quit())
     raise SystemExit(session.run())
