@@ -11,16 +11,16 @@ class RtpStreamConfigTest {
         assertEquals(19f, percentile95((1..20).map(Int::toFloat)), 0f)
     }
 
-    @Test fun rtpFrameDeadlineAllowsThreeFramesWithinBounds() {
-        assertEquals(50_000_000L, rtpFrameDeadlineNanos(60))
-        assertEquals(100_000_000L, rtpFrameDeadlineNanos(30))
-        assertEquals(125_000_000L, rtpFrameDeadlineNanos(24))
-        assertEquals(50_000_000L, rtpFrameDeadlineNanos(240))
+    @Test fun rtpFrameDeadlineAllowsSixFramesWithinBounds() {
+        assertEquals(100_000_000L, rtpFrameDeadlineNanos(60))
+        assertEquals(200_000_000L, rtpFrameDeadlineNanos(30))
+        assertEquals(250_000_000L, rtpFrameDeadlineNanos(24))
+        assertEquals(100_000_000L, rtpFrameDeadlineNanos(240))
     }
 
-    @Test fun recoveryIdrRequestsHaveHalfSecondCooldown() {
-        assertTrue(recoveryIdrAllowed(1_000, 1_500))
-        assertTrue(!recoveryIdrAllowed(1_000, 1_499))
+    @Test fun recoveryIdrRequestsHaveOneSecondCooldown() {
+        assertTrue(recoveryIdrAllowed(1_000, 2_000))
+        assertTrue(!recoveryIdrAllowed(1_000, 1_999))
     }
 
     @Test fun recoveryIdrUsesDedicatedControlMessage() {

@@ -40,19 +40,31 @@ class NativeRtpSenderTest(unittest.TestCase):
                 self.assertTrue(ready)
                 line = process.stdout.readline().strip()
                 self.assertTrue(line.startswith("READY inputPort="), line)
+                self.assertIn("ceilingKbps=200000", line)
                 input_port = int(line.split("inputPort=", 1)[1].split()[0])
                 producer = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                payload = bytes(1188)
-                for sequence in range(384):
+                frames = [(90_000, 384), (91_500, 20), (91_500, 20)]
+                packets = [
+                    (timestamp, offset == 0, offset == count - 1)
+                    for timestamp, count in frames
+                    for offset in range(count)
+                ]
+                for sequence, (timestamp, first, last) in enumerate(packets):
+                    nal = 0x09 if first else (0x65 if timestamp == 90_000 else 0x41)
+                    payload = bytes((nal,)) + bytes(1187)
                     header = bytes((
-                        0x80, 96, sequence >> 8, sequence & 0xff,
-                        0, 0, 0, 90, 0, 0, 0, 1,
+                        0x80, 96 | (0x80 if last else 0),
+                        sequence >> 8, sequence & 0xff,
+                        timestamp >> 24, (timestamp >> 16) & 0xff,
+                        (timestamp >> 8) & 0xff, timestamp & 0xff,
+                        0, 0, 0, 1,
                     ))
                     producer.sendto(header + payload, ("127.0.0.1", input_port))
 
                 sequences = []
+                access_unit_starts = []
                 first_at = last_at = 0.0
-                for _ in range(384):
+                for _ in packets:
                     packet, address = receiver.recvfrom(2048)
                     now = time.monotonic()
                     if not sequences:
@@ -60,7 +72,13 @@ class NativeRtpSenderTest(unittest.TestCase):
                         self.assertEqual(source_port, address[1])
                     last_at = now
                     sequences.append(int.from_bytes(packet[2:4], "big"))
-                self.assertEqual(list(range(384)), sequences)
+                    if packet[12] & 0x1f == 9:
+                        access_unit_starts.append(now)
+                self.assertEqual(list(range(len(packets))), sequences)
+                self.assertEqual(3, len(access_unit_starts))
+                self.assertGreater(
+                    access_unit_starts[2] - access_unit_starts[1], 0.012,
+                )
                 self.assertGreater(last_at - first_at, 0.010)
                 self.assertLess(last_at - first_at, 0.250)
             except PermissionError as exc:

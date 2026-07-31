@@ -179,15 +179,22 @@ def run_tcp_server(dispatcher, shutdown, port=7111):
     server.close()
 
 
-def run_udp_server(dispatcher, shutdown, geometry, host="0.0.0.0", port=7113):
+def run_udp_server(
+    dispatcher, shutdown, geometry, host="0.0.0.0", port=7113,
+    ready=None,
+):
     server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, UDP_RCVBUF)
     try:
         server.bind((host, port))
     except OSError as exc:
         log.error("Could not bind UDP %s:%d: %s", host, port, exc)
+        shutdown.set()
+        server.close()
         return
     server.settimeout(1)
+    if ready is not None:
+        ready.set()
     last_packet = 0.0
     idle_released = False
     stats = TransportStats()

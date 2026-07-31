@@ -8,7 +8,7 @@ internal data class RtpPacket(
     val payload: ByteArray
 )
 
-internal class RtpH264Assembler {
+internal class RtpH264Assembler(private val detectCrossFrameGaps: Boolean = true) {
     var droppedFrame = false
         private set
     var lostPackets = 0
@@ -17,14 +17,19 @@ internal class RtpH264Assembler {
         private set
     var completedAssemblyNanos: Long? = null
         private set
+    var completedSequenceGap: Int = 0
+        private set
     private val frames = java.util.ArrayDeque<Frame>()
     private var lastFinalizedTimestamp: Long? = null
+    private var lastCompletedEndSequence: Int? = null
 
     fun reset() {
         frames.clear()
         lastFinalizedTimestamp = null
         completedTimestamp = null
         completedAssemblyNanos = null
+        completedSequenceGap = 0
+        lastCompletedEndSequence = null
         droppedFrame = false
         lostPackets = 0
     }
@@ -44,7 +49,14 @@ internal class RtpH264Assembler {
         var frame = frames.firstOrNull { it.timestamp == packet.timestamp }
         if (frame == null) {
             val finalized = lastFinalizedTimestamp
-            if (finalized != null && !isNewerTimestamp(packet.timestamp, finalized)) return null
+            if (finalized != null && !isNewerTimestamp(packet.timestamp, finalized)) {
+                val nextSequence = lastCompletedEndSequence?.let { (it + 1) and 0xffff }
+                val sameTimestampNextAccessUnit =
+                    packet.timestamp == finalized &&
+                    packet.isAccessUnitDelimiter() &&
+                    packet.sequence == nextSequence
+                if (!sameTimestampNextAccessUnit) return null
+            }
             val newest = frames.peekLast()
             if (newest != null && !isNewerTimestamp(packet.timestamp, newest.timestamp)) {
                 return null
@@ -64,25 +76,37 @@ internal class RtpH264Assembler {
         lastFinalizedTimestamp = oldest.timestamp
         completedTimestamp = oldest.timestamp
         completedAssemblyNanos = (System.nanoTime() - oldest.firstPacketNanos).coerceAtLeast(0)
+        val start = requireNotNull(oldest.startSequence)
+        val end = requireNotNull(oldest.endSequence)
+        val expected = lastCompletedEndSequence?.let { (it + 1) and 0xffff }
+        completedSequenceGap = if (detectCrossFrameGaps && expected != null) {
+            val distance = (start - expected) and 0xffff
+            if (distance in 1..0x7fff) distance.coerceAtMost(MAX_PACKETS_PER_FRAME) else 0
+        } else 0
+        lastCompletedEndSequence = end
         return result
     }
 
     private fun beginOperation() {
         droppedFrame = false
         lostPackets = 0
+        completedSequenceGap = 0
     }
 
     private fun dropOldest() {
         val oldest = frames.pollFirst() ?: return
         lastFinalizedTimestamp = oldest.timestamp
+        lastCompletedEndSequence = null
         droppedFrame = true
         lostPackets = oldest.missingPacketCount()
     }
 
     private class Frame(val timestamp: Long, val firstPacketNanos: Long) {
         private val packets = HashMap<Int, RtpPacket>()
-        private var startSequence: Int? = null
-        private var endSequence: Int? = null
+        var startSequence: Int? = null
+            private set
+        var endSequence: Int? = null
+            private set
 
         fun offer(packet: RtpPacket) {
             packets[packet.sequence] = packet
@@ -135,7 +159,7 @@ internal class RtpH264Assembler {
     }
 
     companion object {
-        private const val MAX_FRAME_WINDOW = 2
+        private const val MAX_FRAME_WINDOW = 6
         private const val MAX_PACKETS_PER_FRAME = 4096
         private val START_CODE = byteArrayOf(0, 0, 0, 1)
 
@@ -143,6 +167,9 @@ internal class RtpH264Assembler {
             val distance = (candidate - reference) and 0xffffffffL
             return distance in 1..0x7fffffffL
         }
+
+        private fun RtpPacket.isAccessUnitDelimiter(): Boolean =
+            payload.isNotEmpty() && payload[0].toInt() and 0x1f == 9
 
         private fun appendPayload(
             output: java.io.ByteArrayOutputStream,

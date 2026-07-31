@@ -2,6 +2,7 @@ package app.monitorize.android.streaming
 
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -58,6 +59,55 @@ class RtpH264AssemblerTest {
         assertArrayEquals(byteArrayOf(0, 0, 0, 1, 0x65, 1, 2, 3, 4), assembler.offer(middle))
     }
 
+    @Test fun detectsWholeFrameSequenceGapAfterNormalReorderingCompletes() {
+        val assembler = RtpH264Assembler()
+        assertNull(assembler.offer(packet(10, 90, false, byteArrayOf(0x09, 0x10))))
+        assembler.offer(packet(11, 90, true, byteArrayOf(0x41, 1)))
+        assertEquals(0, assembler.completedSequenceGap)
+
+        assertNull(assembler.offer(packet(15, 180, true, byteArrayOf(0x41, 2))))
+        assembler.offer(packet(14, 180, false, byteArrayOf(0x09, 0x10)))
+
+        assertEquals(2, assembler.completedSequenceGap)
+    }
+
+    @Test fun contiguousFramesAcrossSequenceWrapHaveNoGap() {
+        val assembler = RtpH264Assembler()
+        assertNull(assembler.offer(packet(65534, 90, false, byteArrayOf(0x09, 0x10))))
+        assembler.offer(packet(65535, 90, true, byteArrayOf(0x41, 1)))
+        assertNull(assembler.offer(packet(0, 180, false, byteArrayOf(0x09, 0x10))))
+        assembler.offer(packet(1, 180, true, byteArrayOf(0x41, 2)))
+
+        assertEquals(0, assembler.completedSequenceGap)
+    }
+
+    @Test fun acceptsContiguousAccessUnitsWithTheSameRtpTimestamp() {
+        val assembler = RtpH264Assembler()
+        assertNull(assembler.offer(packet(10, 90, false, byteArrayOf(0x09, 0x10))))
+        assertArrayEquals(
+            byteArrayOf(0, 0, 0, 1, 0x09, 0x10, 0, 0, 0, 1, 0x41, 1),
+            assembler.offer(packet(11, 90, true, byteArrayOf(0x41, 1))),
+        )
+
+        assertNull(assembler.offer(packet(12, 90, false, byteArrayOf(0x09, 0x10))))
+        assertArrayEquals(
+            byteArrayOf(0, 0, 0, 1, 0x09, 0x10, 0, 0, 0, 1, 0x41, 2),
+            assembler.offer(packet(13, 90, true, byteArrayOf(0x41, 2))),
+        )
+
+        assertEquals(0, assembler.completedSequenceGap)
+    }
+
+    @Test fun fecModeCanDisableMediaOnlyCrossFrameGapDetection() {
+        val assembler = RtpH264Assembler(detectCrossFrameGaps = false)
+        assertNull(assembler.offer(packet(10, 90, false, byteArrayOf(0x09, 0x10))))
+        assembler.offer(packet(11, 90, true, byteArrayOf(0x41, 1)))
+        assertNull(assembler.offer(packet(20, 180, false, byteArrayOf(0x09, 0x10))))
+        assembler.offer(packet(21, 180, true, byteArrayOf(0x41, 2)))
+
+        assertEquals(0, assembler.completedSequenceGap)
+    }
+
     @Test fun handlesSequenceWrap() {
         val assembler = RtpH264Assembler()
         assertNull(assembler.offer(packet(65535, 90, false, byteArrayOf(0x7c, 0x85.toByte(), 1))))
@@ -100,12 +150,16 @@ class RtpH264AssemblerTest {
         assertFalse(assembler.droppedFrame)
     }
 
-    @Test fun thirdTimestampDropsOnlyOldestIncompleteFrame() {
+    @Test fun seventhTimestampDropsOnlyOldestIncompleteFrame() {
         val assembler = RtpH264Assembler()
         assertNull(assembler.offer(packet(1, 90, false, byteArrayOf(0x7c, 0x85.toByte(), 1))))
         assertNull(assembler.offer(packet(3, 90, true, byteArrayOf(0x7c, 0x45, 3))))
-        assertNull(assembler.offer(packet(4, 180, false, byteArrayOf(0x7c, 0x85.toByte(), 4))))
-        assertNull(assembler.offer(packet(5, 270, false, byteArrayOf(0x7c, 0x85.toByte(), 5))))
+        for (index in 2..6) {
+            assertNull(assembler.offer(packet(index + 2, index * 90, false,
+                byteArrayOf(0x7c, 0x85.toByte(), index.toByte()))))
+            assertFalse(assembler.droppedFrame)
+        }
+        assertNull(assembler.offer(packet(9, 630, false, byteArrayOf(0x7c, 0x85.toByte(), 7))))
         assertTrue(assembler.droppedFrame)
         assertTrue(assembler.lostPackets == 1)
     }

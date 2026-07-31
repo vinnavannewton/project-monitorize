@@ -2,8 +2,10 @@
 
 #include <arpa/inet.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <netdb.h>
 #include <poll.h>
+#include <pthread.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -15,7 +17,7 @@
 #include <unistd.h>
 
 #define MAX_PACKET 2048
-#define MAX_BATCH 16
+#define MAX_BATCH 4
 #define RTP_MEDIA_PT 96
 #define RTP_FEC_PT 122
 #define CEILING_BYTES_PER_SECOND 25000000ULL
@@ -27,6 +29,7 @@ struct packet {
     uint32_t timestamp;
     size_t length;
     int idr;
+    int access_unit_start;
     unsigned char data[MAX_PACKET];
 };
 
@@ -35,12 +38,16 @@ static struct packet *head;
 static struct packet *tail;
 static size_t queued_packets;
 static uint64_t next_send_ns;
+static uint64_t next_access_unit_ns;
+static uint64_t frame_interval_ns;
 static uint64_t interval_bytes;
 static uint64_t interval_packets;
 static uint64_t interval_drops;
 static uint64_t interval_errors;
 static uint32_t last_hard_drop_timestamp;
 static int have_hard_drop_timestamp;
+static pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
+static int notify_write_fd = -1;
 
 static uint64_t monotonic_ns(void) {
     struct timespec now;
@@ -51,10 +58,14 @@ static uint64_t monotonic_ns(void) {
 static void stop_signal(int unused) {
     (void)unused;
     running = 0;
+    if (notify_write_fd >= 0) {
+        const unsigned char byte = 1;
+        (void)write(notify_write_fd, &byte, 1);
+    }
 }
 
 static int parse_rtp(const unsigned char *data, size_t length, uint32_t *timestamp,
-                     int *idr) {
+                     int *idr, int *payload_type, int *marker) {
     if (length < 12 || (data[0] >> 6) != 2) return 0;
     size_t offset = 12 + (size_t)(data[0] & 0x0f) * 4;
     if (data[0] & 0x10) {
@@ -69,17 +80,18 @@ static int parse_rtp(const unsigned char *data, size_t length, uint32_t *timesta
     memcpy(timestamp, data + 4, sizeof(*timestamp));
     *timestamp = ntohl(*timestamp);
     *idr = 0;
-    int payload_type = data[1] & 0x7f;
-    if (payload_type == RTP_MEDIA_PT) {
+    *payload_type = data[1] & 0x7f;
+    *marker = (data[1] & 0x80) != 0;
+    if (*payload_type == RTP_MEDIA_PT) {
         int nal_type = data[offset] & 0x1f;
         if (nal_type == 5) *idr = 1;
         if (nal_type == 28 && offset + 1 < length && (data[offset + 1] & 0x1f) == 5)
             *idr = 1;
     }
-    return payload_type == RTP_MEDIA_PT || payload_type == RTP_FEC_PT;
+    return *payload_type == RTP_MEDIA_PT || *payload_type == RTP_FEC_PT;
 }
 
-static void flush_queue(void) {
+static void flush_queue_locked(void) {
     while (head) {
         struct packet *next = head->next;
         free(head);
@@ -87,58 +99,6 @@ static void flush_queue(void) {
     }
     tail = NULL;
     queued_packets = 0;
-}
-
-static int timestamp_is_idr(uint32_t timestamp) {
-    for (struct packet *packet = head; packet; packet = packet->next)
-        if (packet->timestamp == timestamp && packet->idr) return 1;
-    return 0;
-}
-
-static size_t distinct_timestamps(void) {
-    size_t count = 0;
-    uint32_t previous = 0;
-    int have_previous = 0;
-    for (struct packet *packet = head; packet; packet = packet->next) {
-        if (!have_previous || packet->timestamp != previous) {
-            count++;
-            previous = packet->timestamp;
-            have_previous = 1;
-        }
-    }
-    return count;
-}
-
-static int drop_oldest_frame(uint32_t protected_timestamp) {
-    uint32_t target = 0;
-    int found = 0;
-    for (struct packet *packet = head; packet; packet = packet->next) {
-        if (packet->timestamp != protected_timestamp && !timestamp_is_idr(packet->timestamp)) {
-            target = packet->timestamp;
-            found = 1;
-            break;
-        }
-    }
-    if (!found) return 0;
-
-    struct packet **link = &head;
-    while (*link) {
-        struct packet *packet = *link;
-        if (packet->timestamp == target) {
-            *link = packet->next;
-            if (tail == packet) tail = NULL;
-            free(packet);
-            queued_packets--;
-        } else {
-            if (!packet->next) tail = packet;
-            link = &packet->next;
-        }
-    }
-    if (!head) tail = NULL;
-    interval_drops++;
-    printf("DROP timestamp=%u reason=queue-overflow\n", target);
-    fflush(stdout);
-    return 1;
 }
 
 static int resolve_destination(int socket_fd, const char *host, const char *port) {
@@ -153,23 +113,37 @@ static int resolve_destination(int socket_fd, const char *host, const char *port
     return result;
 }
 
-static int send_due(int socket_fd, uint32_t *started_timestamp) {
-    if (!head) return 0;
+static int send_due(int socket_fd) {
+    pthread_mutex_lock(&queue_mutex);
+    if (!head) {
+        pthread_mutex_unlock(&queue_mutex);
+        return 0;
+    }
     uint64_t now = monotonic_ns();
-    if (next_send_ns > now) {
+    uint64_t deadline_ns = next_send_ns;
+    if (head->access_unit_start && next_access_unit_ns > deadline_ns)
+        deadline_ns = next_access_unit_ns;
+    pthread_mutex_unlock(&queue_mutex);
+    if (deadline_ns > now) {
         struct timespec deadline = {
-            .tv_sec = (time_t)(next_send_ns / 1000000000ULL),
-            .tv_nsec = (long)(next_send_ns % 1000000000ULL),
+            .tv_sec = (time_t)(deadline_ns / 1000000000ULL),
+            .tv_nsec = (long)(deadline_ns % 1000000000ULL),
         };
         while (clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &deadline, NULL) == EINTR) {}
         now = monotonic_ns();
     }
 
+    pthread_mutex_lock(&queue_mutex);
+    if (!head) {
+        pthread_mutex_unlock(&queue_mutex);
+        return 0;
+    }
     struct mmsghdr messages[MAX_BATCH] = {0};
     struct iovec vectors[MAX_BATCH] = {0};
     struct packet *packet = head;
     unsigned count = 0;
     while (packet && count < MAX_BATCH) {
+        if (count && packet->access_unit_start) break;
         vectors[count].iov_base = packet->data;
         vectors[count].iov_len = packet->length;
         messages[count].msg_hdr.msg_iov = &vectors[count];
@@ -184,13 +158,15 @@ static int send_due(int socket_fd, uint32_t *started_timestamp) {
             interval_errors++;
             fprintf(stderr, "ERROR send failed: %s\n", strerror(errno));
         }
+        pthread_mutex_unlock(&queue_mutex);
         return 0;
     }
     size_t sent_bytes = 0;
+    int started_access_unit = 0;
     for (int index = 0; index < sent; index++) {
         struct packet *done = head;
         head = done->next;
-        *started_timestamp = done->timestamp;
+        if (done->access_unit_start) started_access_unit = 1;
         sent_bytes += done->length + 28;
         interval_bytes += done->length + 28;
         interval_packets++;
@@ -198,12 +174,17 @@ static int send_due(int socket_fd, uint32_t *started_timestamp) {
         free(done);
     }
     if (!head) tail = NULL;
+    if (started_access_unit) {
+        next_access_unit_ns = (next_access_unit_ns > now
+            ? next_access_unit_ns : now) + frame_interval_ns;
+    }
     next_send_ns = (next_send_ns > now ? next_send_ns : now) +
         sent_bytes * 1000000000ULL / CEILING_BYTES_PER_SECOND;
+    pthread_mutex_unlock(&queue_mutex);
     return sent;
 }
 
-static int enqueue_packet(int input_fd, uint32_t protected_timestamp, uint64_t frame_ns) {
+static int enqueue_packet(int input_fd, int *next_media_starts_access_unit) {
     struct packet *packet = calloc(1, sizeof(*packet));
     if (!packet) return -1;
     ssize_t length = recv(input_fd, packet->data, sizeof(packet->data), 0);
@@ -211,12 +192,19 @@ static int enqueue_packet(int input_fd, uint32_t protected_timestamp, uint64_t f
         free(packet);
         return errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR ? 0 : -1;
     }
-    if (!parse_rtp(packet->data, (size_t)length, &packet->timestamp, &packet->idr)) {
+    int payload_type, marker;
+    if (!parse_rtp(packet->data, (size_t)length, &packet->timestamp, &packet->idr,
+                   &payload_type, &marker)) {
         free(packet);
         return 0;
     }
+    if (payload_type == RTP_MEDIA_PT) {
+        packet->access_unit_start = *next_media_starts_access_unit;
+        *next_media_starts_access_unit = marker;
+    }
     packet->length = (size_t)length;
     packet->received_ns = monotonic_ns();
+    pthread_mutex_lock(&queue_mutex);
     if (queued_packets >= MAX_QUEUED_PACKETS) {
         if (!have_hard_drop_timestamp || last_hard_drop_timestamp != packet->timestamp) {
             last_hard_drop_timestamp = packet->timestamp;
@@ -225,6 +213,7 @@ static int enqueue_packet(int input_fd, uint32_t protected_timestamp, uint64_t f
             printf("DROP timestamp=%u reason=hard-queue-limit\n", packet->timestamp);
             fflush(stdout);
         }
+        pthread_mutex_unlock(&queue_mutex);
         free(packet);
         return 1;
     }
@@ -232,17 +221,40 @@ static int enqueue_packet(int input_fd, uint32_t protected_timestamp, uint64_t f
     else head = packet;
     tail = packet;
     queued_packets++;
+    pthread_mutex_unlock(&queue_mutex);
 
-    while (head && (distinct_timestamps() > 2 ||
-           monotonic_ns() - head->received_ns > frame_ns * 2)) {
-        if (!drop_oldest_frame(protected_timestamp)) break;
+    if (notify_write_fd >= 0) {
+        const unsigned char byte = 1;
+        (void)write(notify_write_fd, &byte, 1);
     }
+
     return 1;
+}
+
+struct receiver_args {
+    int input_fd;
+};
+
+static void *receive_loop(void *opaque) {
+    const struct receiver_args *args = opaque;
+    int next_media_starts_access_unit = 1;
+    while (running) {
+        struct pollfd descriptor = {.fd = args->input_fd, .events = POLLIN};
+        int ready = poll(&descriptor, 1, 100);
+        if (ready < 0 && errno != EINTR) break;
+        if (descriptor.revents & POLLIN) {
+            while (enqueue_packet(
+                args->input_fd, &next_media_starts_access_unit
+            ) > 0) {}
+        }
+    }
+    return NULL;
 }
 
 static void report_stats(uint64_t now, uint64_t *last_report_ns) {
     uint64_t elapsed = now - *last_report_ns;
     if (elapsed < 1000000000ULL) return;
+    pthread_mutex_lock(&queue_mutex);
     double queue_delay_ms = head ? (double)(now - head->received_ns) / 1000000.0 : 0.0;
     printf("STAT txKbps=%.0f txPps=%.1f queuePackets=%zu queueDelayMs=%.2f "
            "droppedFrames=%llu sendErrors=%llu ceilingKbps=200000\n",
@@ -253,6 +265,7 @@ static void report_stats(uint64_t now, uint64_t *last_report_ns) {
            (unsigned long long)interval_errors);
     fflush(stdout);
     interval_bytes = interval_packets = interval_drops = interval_errors = 0;
+    pthread_mutex_unlock(&queue_mutex);
     *last_report_ns = now;
 }
 
@@ -266,6 +279,7 @@ int main(int argc, char **argv) {
     int send_buffer = atoi(argv[5]);
     if (bind_port < 1 || bind_port > 65535 || fps < 1 || fps > 240 ||
         send_buffer < 262144 || send_buffer > 2097152) return 2;
+    frame_interval_ns = 1000000000ULL / (uint64_t)fps;
 
     signal(SIGINT, stop_signal);
     signal(SIGTERM, stop_signal);
@@ -303,47 +317,71 @@ int main(int argc, char **argv) {
 
     socklen_t address_length = sizeof(input_address);
     getsockname(input_fd, (struct sockaddr *)&input_address, &address_length);
+    int notify_pipe[2];
+    if (pipe2(notify_pipe, O_CLOEXEC | O_NONBLOCK) < 0) {
+        fprintf(stderr, "ERROR notification pipe failed: %s\n", strerror(errno));
+        return 1;
+    }
+    notify_write_fd = notify_pipe[1];
+    struct receiver_args receiver_args = {.input_fd = input_fd};
+    pthread_t receiver_thread;
+    if (pthread_create(&receiver_thread, NULL, receive_loop, &receiver_args) != 0) {
+        fprintf(stderr, "ERROR receiver thread failed\n");
+        return 1;
+    }
     printf("READY inputPort=%u ceilingKbps=200000\n", ntohs(input_address.sin_port));
 
-    uint64_t frame_ns = 1000000000ULL / (uint64_t)fps;
     uint64_t last_report_ns = monotonic_ns();
-    uint32_t started_timestamp = UINT32_MAX;
     char command[512];
     while (running) {
         uint64_t now = monotonic_ns();
-        int timeout_ms = head && next_send_ns > now
-            ? (int)((next_send_ns - now + 999999ULL) / 1000000ULL) : 100;
-        if (head && next_send_ns <= now) timeout_ms = 0;
+        pthread_mutex_lock(&queue_mutex);
+        uint64_t deadline_ns = next_send_ns;
+        if (head && head->access_unit_start && next_access_unit_ns > deadline_ns)
+            deadline_ns = next_access_unit_ns;
+        int timeout_ms = head && deadline_ns > now
+            ? (int)((deadline_ns - now + 999999ULL) / 1000000ULL) : 100;
+        if (head && deadline_ns <= now) timeout_ms = 0;
+        pthread_mutex_unlock(&queue_mutex);
         struct pollfd descriptors[2] = {
-            {.fd = input_fd, .events = POLLIN},
             {.fd = STDIN_FILENO, .events = POLLIN},
+            {.fd = notify_pipe[0], .events = POLLIN},
         };
         int ready = poll(descriptors, 2, timeout_ms);
         if (ready < 0 && errno != EINTR) break;
-        if (descriptors[1].revents & POLLIN) {
+        if (descriptors[0].revents & POLLIN) {
             if (!fgets(command, sizeof(command), stdin)) running = 0;
             else if (!strncmp(command, "DEST ", 5)) {
                 char host[256], port[16];
                 if (sscanf(command + 5, "%255s %15s", host, port) == 2 &&
                     resolve_destination(output_fd, host, port) == 0) {
-                    flush_queue();
+                    pthread_mutex_lock(&queue_mutex);
+                    flush_queue_locked();
                     next_send_ns = monotonic_ns();
-                    started_timestamp = UINT32_MAX;
+                    next_access_unit_ns = 0;
+                    pthread_mutex_unlock(&queue_mutex);
                     printf("DEST host=%s port=%s\n", host, port);
                 } else {
                     printf("ERROR invalid destination\n");
                 }
             } else if (!strncmp(command, "QUIT", 4)) running = 0;
         }
-        if (descriptors[0].revents & POLLIN) {
-            while (enqueue_packet(input_fd, started_timestamp, frame_ns) > 0) {}
+        if (descriptors[1].revents & POLLIN) {
+            unsigned char bytes[64];
+            while (read(notify_pipe[0], bytes, sizeof(bytes)) > 0) {}
         }
-        while (send_due(output_fd, &started_timestamp) > 0 &&
-               next_send_ns <= monotonic_ns()) {}
+        send_due(output_fd);
         report_stats(monotonic_ns(), &last_report_ns);
     }
 
-    flush_queue();
+    running = 0;
+    pthread_join(receiver_thread, NULL);
+    pthread_mutex_lock(&queue_mutex);
+    flush_queue_locked();
+    pthread_mutex_unlock(&queue_mutex);
+    notify_write_fd = -1;
+    close(notify_pipe[0]);
+    close(notify_pipe[1]);
     close(input_fd);
     close(output_fd);
     return 0;

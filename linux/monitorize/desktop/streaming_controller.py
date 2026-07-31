@@ -1166,6 +1166,7 @@ class StreamingController(QObject):
             "gst-launch-1.0.*port=7110", "gst-launch-1.0.*port=7112",
             "gst-launch-1.0.*port=7114", "gst-launch-1.0.*port=7115",
             "monitorize\\.streaming\\.Streamer_.*",
+            "monitorize\\.input_bridge\\.touch_daemon",
             "monitorize-kde-virtual-output",
         )
         self.display.cleanup()

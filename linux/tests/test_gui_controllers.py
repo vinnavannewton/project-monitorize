@@ -1365,6 +1365,7 @@ class StreamingControllerTest(unittest.TestCase):
         kill_pids.assert_called_once_with({12345})
         patterns = kill_patterns_mock.call_args.args
         self.assertIn("monitorize-kde-virtual-output", patterns)
+        self.assertIn("monitorize\\.input_bridge\\.touch_daemon", patterns)
         discovery.stop_advertising.assert_called_once()
 
     def test_kde_stop_still_cleans_tracked_pipeline_after_terminate_failure(self):
@@ -3091,10 +3092,12 @@ class PipelineBuilderTest(unittest.TestCase):
 
     def test_cpu_wifi_preserves_native_kwin_source_rate(self):
         text = self._pipeline_text(
-            target_object="101", preserve_source_rate=True, wifi_mode=True
+            target_object="101", preserve_source_rate=True, wifi_mode=True,
+            rtp_endpoint=("192.0.2.1", 49152, 1, "constrained-baseline"),
         )
         self.assertIn("keepalive-time=17", text)
-        self.assertNotIn("videorate", text)
+        self.assertIn("videorate drop-only=true max-rate=60", text)
+        self.assertNotIn("skip-to-first=false", text)
         self.assertNotIn("framerate=60/1", text)
 
     def test_cpu_udp_pipeline_uses_selected_cpu_rtp_settings(self):
@@ -3156,8 +3159,10 @@ class PipelineBuilderTest(unittest.TestCase):
                 text = self._pipeline_text(
                     hw_encoder=encoder, target_object="101",
                     preserve_source_rate=True, wifi_mode=True,
+                    rtp_endpoint=("192.0.2.1", 49152, 1, "high"),
                 )
-                self.assertNotIn("videorate", text)
+                self.assertIn("videorate drop-only=true max-rate=60", text)
+                self.assertNotIn("skip-to-first=false", text)
                 self.assertNotIn("framerate=60/1", text)
 
     def test_native_kwin_vaapi_wifi_releases_compositor_buffers_before_upload(self):
@@ -3177,8 +3182,11 @@ class PipelineBuilderTest(unittest.TestCase):
         self.assertNotIn("max-buffers=4", text)
 
     def test_hardware_wifi_emits_aud_and_uses_one_frame_rate_control_buffer(self):
-        nvenc = self._pipeline_text(hw_encoder="nvh264enc", wifi_mode=True)
-        vaapi = self._pipeline_text(hw_encoder="vah264enc", wifi_mode=True)
+        with patch.object(
+            pipeline_builder, "_probe_encoder_properties", side_effect=lambda value: value,
+        ):
+            nvenc = self._pipeline_text(hw_encoder="nvh264enc", wifi_mode=True)
+            vaapi = self._pipeline_text(hw_encoder="vah264enc", wifi_mode=True)
         self.assertIn("aud=true", nvenc)
         self.assertIn("vbv-buffer-size=134", nvenc)
         self.assertIn("aud=true", vaapi)
@@ -3187,9 +3195,12 @@ class PipelineBuilderTest(unittest.TestCase):
         self.assertNotIn("cpb-size=2000", vaapi)
 
     def test_low_latency_encoder_profile_keeps_current_nvenc_settings(self):
-        text = self._pipeline_text(
-            hw_encoder="nvh264enc", encoder_profile="Low Latency"
-        )
+        with patch.object(
+            pipeline_builder, "_probe_encoder_properties", side_effect=lambda value: value,
+        ):
+            text = self._pipeline_text(
+                hw_encoder="nvh264enc", encoder_profile="Low Latency"
+            )
         self.assertIn("preset=p1", text)
         self.assertIn("tune=ultra-low-latency", text)
         self.assertIn("rc-lookahead=0", text)
@@ -3266,7 +3277,10 @@ class PipelineBuilderTest(unittest.TestCase):
             )
 
     def test_nvenc_uses_fixed_short_gop_without_unsupported_intra_refresh(self):
-        text = self._pipeline_text(hw_encoder="nvh264enc")
+        with patch.object(
+            pipeline_builder, "_probe_encoder_properties", side_effect=lambda value: value,
+        ):
+            text = self._pipeline_text(hw_encoder="nvh264enc")
         self.assertIn("gop-size=15", text)
         self.assertIn("repeat-sequence-header=true", text)
         self.assertNotIn("intra-refresh", text)

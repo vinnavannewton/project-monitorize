@@ -11,6 +11,7 @@ import java.net.InetAddress
 import java.util.concurrent.atomic.AtomicBoolean
 
 private const val RTP_TRANSPORT = "rtp-udp-v1"
+private const val IDR_REQUEST_COOLDOWN_MS = 1_000L
 
 internal data class RtpStreamConfig(
     val width: Int,
@@ -21,12 +22,12 @@ internal data class RtpStreamConfig(
 )
 
 internal fun rtpFrameDeadlineNanos(fps: Int): Long {
-    return (3_000_000_000L / fps.coerceAtLeast(1))
-        .coerceIn(50_000_000L, 125_000_000L)
+    return (6_000_000_000L / fps.coerceAtLeast(1))
+        .coerceIn(100_000_000L, 250_000_000L)
 }
 
 internal fun recoveryIdrAllowed(lastRequestMs: Long, nowMs: Long): Boolean {
-    return nowMs - lastRequestMs >= 500L
+    return nowMs - lastRequestMs >= IDR_REQUEST_COOLDOWN_MS
 }
 
 internal fun percentile95(values: List<Float>): Float {
@@ -292,7 +293,6 @@ class StreamReceiver(
         private const val STREAM_IDLE_TIMEOUT_MS = 5000
         private const val MAX_IDLE_READS = 6
         private const val RETRY_DELAY_MS = 750L
-        private const val IDR_REQUEST_COOLDOWN_MS = 500L
     }
 
     @Synchronized
@@ -324,7 +324,8 @@ class StreamReceiver(
         val socket = DatagramSocket()
         rtpSocket = socket
         controlSocket = null
-        socket.receiveBufferSize = 512 * 1024
+        socket.receiveBufferSize = MAX_STREAM_BUFFER
+        Log.i(TAG, "RTP UDP receive buffer: ${socket.receiveBufferSize} bytes")
         socket.soTimeout = 4
         try { socket.trafficClass = 0xC0 } catch (_: Exception) {}
         val host = InetAddress.getByName(targetIp)
@@ -361,17 +362,18 @@ class StreamReceiver(
         onPlainTransportReady?.invoke()
         decoder.init(
             ready.width, ready.height, ready.fps,
-            balancedOutput = false, inputFrameCapacity = 2,
+            balancedOutput = false, inputFrameCapacity = 3,
             replaceInputOnOverflow = false,
         )
         onStatusChange?.invoke("")
-        val assembler = RtpH264Assembler()
+        val assembler = RtpH264Assembler(detectCrossFrameGaps = ready.fecPercent == 0)
         val clockSync = RtpClockSync()
         decoder.setFrameRenderedTimingCallback(clockSync::recordRendered)
         val fecRecovery = if (ready.fecPercent == 10) {
             RtpUlpFecRecovery(ready.fecPayloadType)
         } else null
         val buffer = ByteArray(2048)
+        val packet = DatagramPacket(buffer, buffer.size)
         var waitingForIdr = true
         val frameDeadlineNanos = rtpFrameDeadlineNanos(ready.fps)
         var lostPackets = 0
@@ -383,6 +385,7 @@ class StreamReceiver(
         var receivedPackets = 0
         var totalReceivedPackets = 0L
         var totalFramesDecoded = 0L
+        var startupFramesLogged = 0
         var firstPacketLogged = false
         var lastStats = android.os.SystemClock.uptimeMillis()
         var receivedBytes = 0L
@@ -399,8 +402,17 @@ class StreamReceiver(
             requestIdrViaTcp(targetIp, controlPort, socket.localPort)
         }
 
-        fun feedCompletedFrame(frame: ByteArray) {
+        fun feedCompletedFrame(frame: ByteArray, sequenceGap: Int) {
             val isIdr = containsIdr(frame)
+            if (sequenceGap > 0 && !isIdr) {
+                lostPackets += sequenceGap
+                incompleteFrames++
+                if (!waitingForIdr) {
+                    waitingForIdr = true
+                    Log.w(TAG, "RTP cross-frame sequence gap=$sequenceGap; requesting IDR")
+                    requestRecoveryIdr()
+                }
+            }
             if (!waitingForIdr || isIdr) {
                 val result = decoder.feedChunk(
                     frame, 0, frame.size, isIdr,
@@ -409,8 +421,9 @@ class StreamReceiver(
                 when (result) {
                     H264Decoder.SubmissionResult.ACCEPTED -> {
                         totalFramesDecoded++
-                        if (totalFramesDecoded <= 3) {
-                            Log.i(TAG, "RTP frame #$totalFramesDecoded fed to decoder: " +
+                        if (startupFramesLogged < 3) {
+                            startupFramesLogged++
+                            Log.i(TAG, "RTP startup frame #$startupFramesLogged fed to decoder: " +
                                 "size=${frame.size} idr=$isIdr")
                         }
                         if (isIdr) waitingForIdr = false
@@ -426,9 +439,6 @@ class StreamReceiver(
                 }
             } else {
                 requestRecoveryIdr()
-                if (totalFramesDecoded == 0L) {
-                    Log.d(TAG, "RTP skipping non-IDR frame while waiting for keyframe")
-                }
             }
         }
 
@@ -441,14 +451,14 @@ class StreamReceiver(
                         lateFrames++
                     }
                 }
-                feedCompletedFrame(frame)
+                feedCompletedFrame(frame, assembler.completedSequenceGap)
                 frame = assembler.pollCompleted()
             }
         }
 
         while (running.get()) {
             try {
-                val packet = DatagramPacket(buffer, buffer.size)
+                packet.length = buffer.size
                 socket.receive(packet)
                 val rtp = RtpH264Assembler.parse(packet.data, packet.length) ?: continue
                 receivedPackets++

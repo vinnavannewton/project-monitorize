@@ -313,6 +313,19 @@ class DaemonStartupTest(unittest.TestCase):
 
 
 class TransportTest(unittest.TestCase):
+    def test_udp_bind_failure_stops_daemon_without_claiming_ready(self):
+        shutdown = threading.Event()
+        ready = threading.Event()
+        server = Mock()
+        server.bind.side_effect = OSError(98, "Address already in use")
+
+        with patch("monitorize.input_bridge.transport.socket.socket", return_value=server):
+            transport.run_udp_server(Mock(), shutdown, Mock(), ready=ready)
+
+        self.assertTrue(shutdown.is_set())
+        self.assertFalse(ready.is_set())
+        server.close.assert_called_once()
+
     def test_udp_drain_stops_after_latency_budget(self):
         shutdown = threading.Event()
         payload = struct.pack(

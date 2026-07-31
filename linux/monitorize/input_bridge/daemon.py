@@ -40,13 +40,21 @@ class InputDaemon:
         signal.signal(signal.SIGTERM, self.close)
         if not self._setup_backend():
             return
-        log.info("READY input_slot=%s", self.geometry.input_slot)
         transport = run_udp_server if self.wifi else run_tcp_server
         args = (
             (self.dispatcher, self.shutdown, self.geometry, self.udp_host, self.udp_port)
             if self.wifi else (self.dispatcher, self.shutdown, self.tcp_port)
         )
+        if self.wifi:
+            ready = threading.Event()
+            args += (ready,)
         threading.Thread(target=transport, args=args, daemon=True).start()
+        if self.wifi:
+            while not ready.wait(0.1):
+                if self.shutdown.is_set():
+                    self.backend.close()
+                    return
+        log.info("READY input_slot=%s", self.geometry.input_slot)
         while not self.shutdown.is_set():
             time.sleep(0.5)
 

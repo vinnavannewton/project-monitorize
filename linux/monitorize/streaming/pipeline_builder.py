@@ -207,7 +207,9 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
         rate_filter = (
             f"videorate skip-to-first=false ! "
             f"'video/x-raw(ANY),framerate={fps}/1'"
-            if wifi_mode and not preserve_source_rate else ""
+            if wifi_mode and not preserve_source_rate else
+            f"videorate drop-only=true max-rate={fps} skip-to-first=true"
+            if wifi_mode and preserve_source_rate and rtp_endpoint else ""
         )
         dimensions = "" if preserve_source_size else f",width={width},height={height}"
         if hw_encoder == "nvh264enc":
@@ -245,7 +247,9 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
     else:
         rate_filter = (
             f"videorate skip-to-first=false ! video/x-raw,framerate={fps}/1"
-            if not preserve_source_rate else ""
+            if not preserve_source_rate else
+            f"videorate drop-only=true max-rate={fps} skip-to-first=true"
+            if wifi_mode and rtp_endpoint else ""
         )
         dimensions = "" if preserve_source_size else f",width={width},height={height}"
         scale = "" if preserve_source_size else " ! videoscale"
