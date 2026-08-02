@@ -179,10 +179,17 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
     video_bitrate = max(1, round(bitrate * (100 - fec_percent) / 100))
     zero_copy = hw_encoder != "nvh264enc" or nvidia_memory == "gl"
     always_copy = "false" if hw_encoder and zero_copy else "true"
-    keepalive_ms = max(1, round(1000 / max(fps, 1)))
+    keepalive_ms = (
+        1000 if target_object is not None and preserve_source_rate and rtp_endpoint
+        else max(1, round(1000 / max(fps, 1)))
+    )
     if target_object is not None:
+        source_name = (
+            " name=monitorize_kwin_source"
+            if preserve_source_rate and rtp_endpoint else ""
+        )
         src = (
-            f"pipewiresrc target-object={target_object} do-timestamp=true "
+            f"pipewiresrc{source_name} target-object={target_object} do-timestamp=true "
             f"always-copy={always_copy} keepalive-time={keepalive_ms} max-buffers=4"
         )
     elif pw_fd is not None:
@@ -203,13 +210,12 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
     key_int = fps * 5 if rtp_endpoint else max(fps // 4, 15)
     intra_refresh = not bool(rtp_endpoint)
 
+    early_convert = ""
     if hw_encoder:
         rate_filter = (
             f"videorate skip-to-first=false ! "
             f"'video/x-raw(ANY),framerate={fps}/1'"
-            if wifi_mode and not preserve_source_rate else
-            f"videorate drop-only=true max-rate={fps} skip-to-first=true"
-            if wifi_mode and preserve_source_rate and rtp_endpoint else ""
+            if wifi_mode and not preserve_source_rate else ""
         )
         dimensions = "" if preserve_source_size else f",width={width},height={height}"
         if hw_encoder == "nvh264enc":
@@ -231,10 +237,20 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
                 )
         else:
             postproc = "vapostproc" if hw_encoder in ("vah264enc", "vah264lpenc") else "vaapipostproc"
-            if wifi_mode and target_object is not None:
+            if wifi_mode and target_object is not None and rtp_endpoint:
+                early_convert = (
+                    "videoconvert name=monitorize_kwin_copy n-threads=4 ! "
+                    f"video/x-raw,format=NV12{dimensions}"
+                )
                 convert = (
-                    f"videoconvert n-threads=4 ! video/x-raw,format=NV12{dimensions} ! "
-                    f"{postproc} ! 'video/x-raw(memory:VAMemory),format=NV12{dimensions}'"
+                    f"{postproc} ! "
+                    f"'video/x-raw(memory:VAMemory),format=NV12{dimensions}'"
+                )
+            elif wifi_mode and target_object is not None:
+                convert = (
+                    f"videoconvert n-threads=4 ! "
+                    f"video/x-raw,format=NV12{dimensions} ! {postproc} ! "
+                    f"'video/x-raw(memory:VAMemory),format=NV12{dimensions}'"
                 )
             else:
                 convert = f"{postproc} ! 'video/x-raw(memory:VAMemory),format=NV12{dimensions}'"
@@ -247,9 +263,7 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
     else:
         rate_filter = (
             f"videorate skip-to-first=false ! video/x-raw,framerate={fps}/1"
-            if not preserve_source_rate else
-            f"videorate drop-only=true max-rate={fps} skip-to-first=true"
-            if wifi_mode and rtp_endpoint else ""
+            if not preserve_source_rate else ""
         )
         dimensions = "" if preserve_source_size else f",width={width},height={height}"
         scale = "" if preserve_source_size else " ! videoscale"
@@ -299,6 +313,8 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
             taskset_prefix = ["taskset", "-c", f"1-{cores - 1}"]
 
     elements = [src]
+    if early_convert:
+        elements.append(early_convert)
     if rate_filter:
         elements.append(rate_filter)
     elements.extend([queue, convert, encoder, parse, caps_out, sink])
@@ -359,11 +375,34 @@ def _nvidia_memory_candidates():
     return candidates
 
 
+def prepare_rtp_endpoint(*, width, height, fps, bitrate, port, server_mode):
+    """Negotiate RTP before opening compositor capture resources."""
+    import os
+
+    if not server_mode or os.environ.get("MONITORIZE_VIDEO_TRANSPORT", "") != TRANSPORT:
+        return None
+    requested_fec_percent = (
+        10 if os.environ.get("MONITORIZE_FEC_PERCENT") == "10" else 0
+    )
+    if requested_fec_percent and not _gst_inspect("rtpulpfecenc"):
+        print(
+            "[RTP] WARNING: ULPFEC 10% requested, but GStreamer's "
+            "rtpulpfecenc is unavailable; install gst-plugins-good. "
+            "Continuing with FEC Off.",
+            flush=True,
+        )
+        requested_fec_percent = 0
+    return wait_for_client(
+        port, width=width, height=height, fps=fps, bitrate=bitrate,
+        transport=TRANSPORT, requested_fec_percent=requested_fec_percent,
+    )
+
+
 def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
                          hw_encoder=None, pass_fds=None,
                          host="127.0.0.1", server_mode=False,
                          target_object=None, preserve_source_size=None,
-                         preserve_source_rate=False):
+                         preserve_source_rate=False, rtp_endpoint=None):
     """
     Launch the streaming pipeline.
 
@@ -375,22 +414,10 @@ def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
     encoder_profile = os.environ.get("MONITORIZE_ENCODER_PROFILE", "Low Latency")
     if preserve_source_size is None:
         preserve_source_size = os.environ.get("MONITORIZE_PRESERVE_SOURCE_SIZE") == "1"
-    rtp_endpoint = None
-    if server_mode and transport == TRANSPORT:
-        requested_fec_percent = (
-            10 if os.environ.get("MONITORIZE_FEC_PERCENT") == "10" else 0
-        )
-        if requested_fec_percent and not _gst_inspect("rtpulpfecenc"):
-            print(
-                "[RTP] WARNING: ULPFEC 10% requested, but GStreamer's "
-                "rtpulpfecenc is unavailable; install gst-plugins-good. "
-                "Continuing with FEC Off.",
-                flush=True,
-            )
-            requested_fec_percent = 0
-        rtp_endpoint = wait_for_client(
-            port, width=width, height=height, fps=fps, bitrate=bitrate,
-            transport=transport, requested_fec_percent=requested_fec_percent,
+    if server_mode and transport == TRANSPORT and rtp_endpoint is None:
+        rtp_endpoint = prepare_rtp_endpoint(
+            width=width, height=height, fps=fps, bitrate=bitrate, port=port,
+            server_mode=True,
         )
     modes = [None]
     if hw_encoder == "nvh264enc":

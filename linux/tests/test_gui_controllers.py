@@ -2858,9 +2858,11 @@ class KdeVirtualMonitorCompatTest(unittest.TestCase):
 
 
 class KdeNativeStreamerTest(unittest.TestCase):
-    def test_native_stream_uses_second_stream_serial_after_mode_configuration(self):
+    def test_rtp_wakes_output_before_post_mode_capture(self):
+        events = []
         helper = Mock()
         helper.stdin = Mock()
+        helper.stdin.write.side_effect = lambda _value: events.append("capture")
         helper.stdout = Mock()
         helper.poll.return_value = 0
         gst = Mock()
@@ -2904,6 +2906,19 @@ class KdeNativeStreamerTest(unittest.TestCase):
             ),
             patch.object(
                 kde_native_streamer,
+                "prepare_rtp_endpoint",
+                side_effect=lambda **_kwargs: (
+                    events.append("negotiate") or
+                    ("192.0.2.1", 49152, 1, "high", 0)
+                ),
+            ),
+            patch.object(
+                kde_native_streamer,
+                "_start_capture_wakeup",
+                side_effect=lambda _output: events.append("wakeup"),
+            ),
+            patch.object(
+                kde_native_streamer,
                 "launch_with_fallback",
                 return_value=gst,
             ) as launch,
@@ -2915,8 +2930,13 @@ class KdeNativeStreamerTest(unittest.TestCase):
             )
 
         self.assertEqual(result, 0)
+        self.assertEqual(["negotiate", "wakeup", "capture"], events)
         helper.stdin.write.assert_called_once_with("capture\n")
         self.assertEqual(launch.call_args.kwargs["target_object"], "101")
+        self.assertEqual(
+            ("192.0.2.1", 49152, 1, "high", 0),
+            launch.call_args.kwargs["rtp_endpoint"],
+        )
         self.assertTrue(launch.call_args.kwargs["preserve_source_size"])
         self.assertTrue(launch.call_args.kwargs["preserve_source_rate"])
 
@@ -2931,7 +2951,6 @@ class KdeNativeStreamerTest(unittest.TestCase):
             )
         self.assertEqual(result, 1)
         popen.assert_not_called()
-
 
 class StreamerGnomeTest(unittest.TestCase):
     class FakeStruct(tuple):
@@ -3095,8 +3114,9 @@ class PipelineBuilderTest(unittest.TestCase):
             target_object="101", preserve_source_rate=True, wifi_mode=True,
             rtp_endpoint=("192.0.2.1", 49152, 1, "constrained-baseline"),
         )
-        self.assertIn("keepalive-time=17", text)
-        self.assertIn("videorate drop-only=true max-rate=60", text)
+        self.assertIn("keepalive-time=1000", text)
+        self.assertIn("name=monitorize_kwin_source", text)
+        self.assertNotIn("videorate", text)
         self.assertNotIn("skip-to-first=false", text)
         self.assertNotIn("framerate=60/1", text)
 
@@ -3161,7 +3181,8 @@ class PipelineBuilderTest(unittest.TestCase):
                     preserve_source_rate=True, wifi_mode=True,
                     rtp_endpoint=("192.0.2.1", 49152, 1, "high"),
                 )
-                self.assertIn("videorate drop-only=true max-rate=60", text)
+                self.assertIn("keepalive-time=1000", text)
+                self.assertNotIn("videorate", text)
                 self.assertNotIn("skip-to-first=false", text)
                 self.assertNotIn("framerate=60/1", text)
 
@@ -3169,17 +3190,38 @@ class PipelineBuilderTest(unittest.TestCase):
         text = self._pipeline_text(
             hw_encoder="vah264enc", target_object="101",
             preserve_source_rate=True, wifi_mode=True,
+            rtp_endpoint=("192.0.2.1", 49152, 1, "high"),
         )
         self.assertIn("always-copy=false", text)
-        self.assertIn("videoconvert n-threads=4", text)
+        self.assertIn("videoconvert name=monitorize_kwin_copy n-threads=4", text)
         self.assertIn("video/x-raw,format=NV12", text)
         self.assertIn("vapostproc", text)
-        self.assertLess(text.index("videoconvert"), text.index("vapostproc"))
+        self.assertLess(text.index("monitorize_kwin_copy"), text.index("queue"))
+        self.assertLess(text.index("monitorize_kwin_copy"), text.index("vapostproc"))
 
     def test_non_native_vaapi_does_not_insert_kwin_copy_boundary(self):
         text = self._pipeline_text(hw_encoder="vah264enc", wifi_mode=True)
-        self.assertNotIn("videoconvert n-threads=4", text)
+        self.assertNotIn("monitorize_kwin_copy", text)
         self.assertNotIn("max-buffers=4", text)
+
+    def test_native_kwin_vaapi_non_rtp_keeps_copy_after_queue(self):
+        text = self._pipeline_text(
+            hw_encoder="vah264enc", target_object="101",
+            preserve_source_rate=True, wifi_mode=True,
+        )
+        self.assertNotIn("monitorize_kwin_copy", text)
+        self.assertLess(text.index("queue"), text.index("videoconvert"))
+
+    def test_native_kwin_non_vaapi_does_not_insert_va_copy_boundary(self):
+        endpoint = ("192.0.2.1", 49152, 1, "high")
+        for encoder in (None, "nvh264enc"):
+            with self.subTest(encoder=encoder):
+                text = self._pipeline_text(
+                    hw_encoder=encoder, target_object="101",
+                    preserve_source_rate=True, wifi_mode=True,
+                    rtp_endpoint=endpoint,
+                )
+                self.assertNotIn("monitorize_kwin_copy", text)
 
     def test_hardware_wifi_emits_aud_and_uses_one_frame_rate_control_buffer(self):
         with patch.object(

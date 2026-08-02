@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 class NativeRtpSenderTest(unittest.TestCase):
-    def test_preserves_order_and_spaces_a_large_rtp_burst(self):
+    def test_preserves_order_and_byte_paces_a_large_rtp_burst(self):
         if shutil.which("cc") is None:
             self.skipTest("C compiler unavailable")
         root = Path(__file__).resolve().parents[2]
@@ -42,6 +42,11 @@ class NativeRtpSenderTest(unittest.TestCase):
                 self.assertTrue(line.startswith("READY inputPort="), line)
                 self.assertIn("ceilingKbps=200000", line)
                 input_port = int(line.split("inputPort=", 1)[1].split()[0])
+                process.stdin.write("FLUSH\n")
+                process.stdin.flush()
+                ready, _, _ = select.select([process.stdout], [], [], 1)
+                self.assertTrue(ready)
+                self.assertEqual("FLUSH", process.stdout.readline().strip())
                 producer = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 frames = [(90_000, 384), (91_500, 20), (91_500, 20)]
                 packets = [
@@ -62,7 +67,6 @@ class NativeRtpSenderTest(unittest.TestCase):
                     producer.sendto(header + payload, ("127.0.0.1", input_port))
 
                 sequences = []
-                access_unit_starts = []
                 first_at = last_at = 0.0
                 for _ in packets:
                     packet, address = receiver.recvfrom(2048)
@@ -72,13 +76,7 @@ class NativeRtpSenderTest(unittest.TestCase):
                         self.assertEqual(source_port, address[1])
                     last_at = now
                     sequences.append(int.from_bytes(packet[2:4], "big"))
-                    if packet[12] & 0x1f == 9:
-                        access_unit_starts.append(now)
                 self.assertEqual(list(range(len(packets))), sequences)
-                self.assertEqual(3, len(access_unit_starts))
-                self.assertGreater(
-                    access_unit_starts[2] - access_unit_starts[1], 0.012,
-                )
                 self.assertGreater(last_at - first_at, 0.010)
                 self.assertLess(last_at - first_at, 0.250)
             except PermissionError as exc:

@@ -28,8 +28,6 @@ struct packet {
     uint64_t received_ns;
     uint32_t timestamp;
     size_t length;
-    int idr;
-    int access_unit_start;
     unsigned char data[MAX_PACKET];
 };
 
@@ -38,8 +36,6 @@ static struct packet *head;
 static struct packet *tail;
 static size_t queued_packets;
 static uint64_t next_send_ns;
-static uint64_t next_access_unit_ns;
-static uint64_t frame_interval_ns;
 static uint64_t interval_bytes;
 static uint64_t interval_packets;
 static uint64_t interval_drops;
@@ -64,8 +60,7 @@ static void stop_signal(int unused) {
     }
 }
 
-static int parse_rtp(const unsigned char *data, size_t length, uint32_t *timestamp,
-                     int *idr, int *payload_type, int *marker) {
+static int parse_rtp(const unsigned char *data, size_t length, uint32_t *timestamp) {
     if (length < 12 || (data[0] >> 6) != 2) return 0;
     size_t offset = 12 + (size_t)(data[0] & 0x0f) * 4;
     if (data[0] & 0x10) {
@@ -79,16 +74,8 @@ static int parse_rtp(const unsigned char *data, size_t length, uint32_t *timesta
     if (offset >= length) return 0;
     memcpy(timestamp, data + 4, sizeof(*timestamp));
     *timestamp = ntohl(*timestamp);
-    *idr = 0;
-    *payload_type = data[1] & 0x7f;
-    *marker = (data[1] & 0x80) != 0;
-    if (*payload_type == RTP_MEDIA_PT) {
-        int nal_type = data[offset] & 0x1f;
-        if (nal_type == 5) *idr = 1;
-        if (nal_type == 28 && offset + 1 < length && (data[offset + 1] & 0x1f) == 5)
-            *idr = 1;
-    }
-    return *payload_type == RTP_MEDIA_PT || *payload_type == RTP_FEC_PT;
+    int payload_type = data[1] & 0x7f;
+    return payload_type == RTP_MEDIA_PT || payload_type == RTP_FEC_PT;
 }
 
 static void flush_queue_locked(void) {
@@ -121,8 +108,6 @@ static int send_due(int socket_fd) {
     }
     uint64_t now = monotonic_ns();
     uint64_t deadline_ns = next_send_ns;
-    if (head->access_unit_start && next_access_unit_ns > deadline_ns)
-        deadline_ns = next_access_unit_ns;
     pthread_mutex_unlock(&queue_mutex);
     if (deadline_ns > now) {
         struct timespec deadline = {
@@ -143,7 +128,6 @@ static int send_due(int socket_fd) {
     struct packet *packet = head;
     unsigned count = 0;
     while (packet && count < MAX_BATCH) {
-        if (count && packet->access_unit_start) break;
         vectors[count].iov_base = packet->data;
         vectors[count].iov_len = packet->length;
         messages[count].msg_hdr.msg_iov = &vectors[count];
@@ -162,11 +146,9 @@ static int send_due(int socket_fd) {
         return 0;
     }
     size_t sent_bytes = 0;
-    int started_access_unit = 0;
     for (int index = 0; index < sent; index++) {
         struct packet *done = head;
         head = done->next;
-        if (done->access_unit_start) started_access_unit = 1;
         sent_bytes += done->length + 28;
         interval_bytes += done->length + 28;
         interval_packets++;
@@ -174,17 +156,13 @@ static int send_due(int socket_fd) {
         free(done);
     }
     if (!head) tail = NULL;
-    if (started_access_unit) {
-        next_access_unit_ns = (next_access_unit_ns > now
-            ? next_access_unit_ns : now) + frame_interval_ns;
-    }
     next_send_ns = (next_send_ns > now ? next_send_ns : now) +
         sent_bytes * 1000000000ULL / CEILING_BYTES_PER_SECOND;
     pthread_mutex_unlock(&queue_mutex);
     return sent;
 }
 
-static int enqueue_packet(int input_fd, int *next_media_starts_access_unit) {
+static int enqueue_packet(int input_fd) {
     struct packet *packet = calloc(1, sizeof(*packet));
     if (!packet) return -1;
     ssize_t length = recv(input_fd, packet->data, sizeof(packet->data), 0);
@@ -192,15 +170,9 @@ static int enqueue_packet(int input_fd, int *next_media_starts_access_unit) {
         free(packet);
         return errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR ? 0 : -1;
     }
-    int payload_type, marker;
-    if (!parse_rtp(packet->data, (size_t)length, &packet->timestamp, &packet->idr,
-                   &payload_type, &marker)) {
+    if (!parse_rtp(packet->data, (size_t)length, &packet->timestamp)) {
         free(packet);
         return 0;
-    }
-    if (payload_type == RTP_MEDIA_PT) {
-        packet->access_unit_start = *next_media_starts_access_unit;
-        *next_media_starts_access_unit = marker;
     }
     packet->length = (size_t)length;
     packet->received_ns = monotonic_ns();
@@ -237,15 +209,12 @@ struct receiver_args {
 
 static void *receive_loop(void *opaque) {
     const struct receiver_args *args = opaque;
-    int next_media_starts_access_unit = 1;
     while (running) {
         struct pollfd descriptor = {.fd = args->input_fd, .events = POLLIN};
         int ready = poll(&descriptor, 1, 100);
         if (ready < 0 && errno != EINTR) break;
         if (descriptor.revents & POLLIN) {
-            while (enqueue_packet(
-                args->input_fd, &next_media_starts_access_unit
-            ) > 0) {}
+            while (enqueue_packet(args->input_fd) > 0) {}
         }
     }
     return NULL;
@@ -279,8 +248,6 @@ int main(int argc, char **argv) {
     int send_buffer = atoi(argv[5]);
     if (bind_port < 1 || bind_port > 65535 || fps < 1 || fps > 240 ||
         send_buffer < 262144 || send_buffer > 2097152) return 2;
-    frame_interval_ns = 1000000000ULL / (uint64_t)fps;
-
     signal(SIGINT, stop_signal);
     signal(SIGTERM, stop_signal);
     if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0 || getppid() == 1) return 1;
@@ -337,8 +304,6 @@ int main(int argc, char **argv) {
         uint64_t now = monotonic_ns();
         pthread_mutex_lock(&queue_mutex);
         uint64_t deadline_ns = next_send_ns;
-        if (head && head->access_unit_start && next_access_unit_ns > deadline_ns)
-            deadline_ns = next_access_unit_ns;
         int timeout_ms = head && deadline_ns > now
             ? (int)((deadline_ns - now + 999999ULL) / 1000000ULL) : 100;
         if (head && deadline_ns <= now) timeout_ms = 0;
@@ -358,13 +323,19 @@ int main(int argc, char **argv) {
                     pthread_mutex_lock(&queue_mutex);
                     flush_queue_locked();
                     next_send_ns = monotonic_ns();
-                    next_access_unit_ns = 0;
                     pthread_mutex_unlock(&queue_mutex);
                     printf("DEST host=%s port=%s\n", host, port);
                 } else {
                     printf("ERROR invalid destination\n");
                 }
             } else if (!strncmp(command, "QUIT", 4)) running = 0;
+            else if (!strncmp(command, "FLUSH", 5)) {
+                pthread_mutex_lock(&queue_mutex);
+                flush_queue_locked();
+                next_send_ns = monotonic_ns();
+                pthread_mutex_unlock(&queue_mutex);
+                printf("FLUSH\n");
+            }
         }
         if (descriptors[1].revents & POLLIN) {
             unsigned char bytes[64];

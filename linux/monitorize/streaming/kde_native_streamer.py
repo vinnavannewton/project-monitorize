@@ -15,7 +15,10 @@ from monitorize.platform.kde_virtual_monitor import (
     virtual_slot,
     wait_for_output_absent,
 )
-from monitorize.streaming.pipeline_builder import launch_with_fallback
+from monitorize.streaming.pipeline_builder import (
+    launch_with_fallback,
+    prepare_rtp_endpoint,
+)
 
 
 HELPER_NAME = "monitorize-kde-virtual-output"
@@ -85,6 +88,27 @@ def _controller_event(event):
     print(f"MONITORIZE_EVENT {json.dumps(event, separators=(',', ':'))}", flush=True)
 
 
+def _start_capture_wakeup(output_name):
+    process = subprocess.Popen(
+        [
+            sys.executable, "-m", "monitorize.streaming.kde_capture_wakeup",
+            output_name,
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
+    try:
+        _read_helper_event(process, "ready", timeout=3)
+    except RuntimeError as exc:
+        _stop_process(process)
+        print(f"[KDE Native] WARNING: capture wake-up unavailable: {exc}", flush=True)
+        return None
+    print(f"[KDE Native] Capture wake-up active on {output_name}", flush=True)
+    return process
+
+
 def run_native_streamer(
     slot,
     width,
@@ -128,9 +152,11 @@ def run_native_streamer(
         bufsize=1,
     )
     gst = None
+    wakeup = None
 
     def cleanup(*_args):
         _stop_process(gst)
+        _stop_process(wakeup)
         _stop_helper(helper)
 
     signal.signal(signal.SIGINT, cleanup)
@@ -156,11 +182,21 @@ def run_native_streamer(
             "requested_fps": fps,
         })
 
+        rtp_endpoint = prepare_rtp_endpoint(
+            width=actual["width"], height=actual["height"], fps=fps,
+            bitrate=bitrate, port=port, server_mode=mode == "wifi",
+        )
+
+        if rtp_endpoint is not None:
+            wakeup = _start_capture_wakeup(output_name)
+
         helper.stdin.write("capture\n")
         helper.stdin.flush()
         capture = _read_helper_event(helper, "capture_ready")
         if capture.get("name") != output_name:
-            raise RuntimeError(f"KWin captured unexpected output {capture.get('name')}")
+            raise RuntimeError(
+                f"KWin captured unexpected output {capture.get('name')}"
+            )
         node_id = int(capture.get("node_id") or 0)
         target_object = capture.get("target_object")
         if not node_id and not target_object:
@@ -187,6 +223,7 @@ def run_native_streamer(
             server_mode=mode == "wifi",
             preserve_source_size=True,
             preserve_source_rate=True,
+            rtp_endpoint=rtp_endpoint,
         )
         while gst.poll() is None:
             if helper.poll() is not None:

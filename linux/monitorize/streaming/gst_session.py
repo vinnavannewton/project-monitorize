@@ -66,6 +66,7 @@ class Session:
         self.capture_rtp_times = {}
         self.encoded_capture_times = deque(maxlen=240)
         self.last_media_rtp_timestamp = None
+        self.has_rate_filter = self._element("videorate0", "monitorize_rate") is not None
         self.start_sender()
         print(f"[RTP] Fixed bitrate {self.current_bitrate} kbps", flush=True)
 
@@ -455,7 +456,7 @@ class Session:
             return probe
 
         for names, kind in (
-            (("pipewiresrc0", "monitorize_source"), "source"),
+            (("monitorize_kwin_source", "pipewiresrc0", "monitorize_source"), "source"),
             (("videorate0", "monitorize_rate"), "paced"),
             (("nvh264enc0", "vah264enc0", "vah264lpenc0", "vaapih264enc0", "x264enc0", "monitorize_encoder"), "encoded"),
             (("rtpulpfecenc0", "rtph264pay0", "monitorize_payloader"), "rtp_packets"),
@@ -504,9 +505,10 @@ class Session:
             )
             self.force_key_unit()
         sender = dict(self.sender_metrics)
+        paced_frames = metrics["paced"] if self.has_rate_filter else metrics["source"]
         print(
             "[RTP][Host] "
-            f"capture={capture_fps:.1f}fps paced={metrics['paced'] / elapsed:.1f}fps "
+            f"capture={capture_fps:.1f}fps paced={paced_frames / elapsed:.1f}fps "
             f"encoded={encoded_fps:.1f}fps "
             f"rtp={sender['txPps'] or metrics['rtp_packets'] / elapsed:.1f}pps "
             f"tx={sender['txKbps'] or actual_kbps:.0f}kbps "
