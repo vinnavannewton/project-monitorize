@@ -22,6 +22,7 @@ class NativeRtpSenderTest(unittest.TestCase):
             receiver = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             receiver.bind(("127.0.0.1", 0))
             receiver.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2_097_152)
+            receiver.setsockopt(socket.IPPROTO_IP, socket.IP_RECVTOS, 1)
             receiver.settimeout(1)
             source = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             source.bind(("127.0.0.1", 0))
@@ -67,16 +68,23 @@ class NativeRtpSenderTest(unittest.TestCase):
                     producer.sendto(header + payload, ("127.0.0.1", input_port))
 
                 sequences = []
+                received_tos = None
                 first_at = last_at = 0.0
                 for _ in packets:
-                    packet, address = receiver.recvfrom(2048)
+                    packet, ancillary, _, address = receiver.recvmsg(
+                        2048, socket.CMSG_SPACE(1)
+                    )
                     now = time.monotonic()
                     if not sequences:
                         first_at = now
                         self.assertEqual(source_port, address[1])
+                    for level, kind, data in ancillary:
+                        if level == socket.IPPROTO_IP and kind == socket.IP_TOS:
+                            received_tos = data[0]
                     last_at = now
                     sequences.append(int.from_bytes(packet[2:4], "big"))
                 self.assertEqual(list(range(len(packets))), sequences)
+                self.assertEqual(40, received_tos >> 2)
                 self.assertGreater(last_at - first_at, 0.010)
                 self.assertLess(last_at - first_at, 0.075)
             except PermissionError as exc:

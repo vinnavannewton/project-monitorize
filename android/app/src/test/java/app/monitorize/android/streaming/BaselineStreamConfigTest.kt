@@ -23,6 +23,11 @@ class RtpStreamConfigTest {
         assertTrue(!recoveryIdrAllowed(1_000, 1_999))
     }
 
+    @Test fun hardRecoveryCanRetryAfterQuarterSecond() {
+        assertTrue(recoveryIdrAllowed(1_000, 1_250, 250))
+        assertTrue(!recoveryIdrAllowed(1_000, 1_249, 250))
+    }
+
     @Test fun recoveryIdrUsesDedicatedControlMessage() {
         val message = buildRtpControlMessage(49_152, 60, 1920, 1200, requestIdr = true)
         assertTrue(message.contains("\"type\":\"idr\""))

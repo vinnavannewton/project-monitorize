@@ -12,6 +12,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 private const val RTP_TRANSPORT = "rtp-udp-v1"
 private const val IDR_REQUEST_COOLDOWN_MS = 1_000L
+private const val HARD_IDR_RETRY_MS = 250L
 
 internal data class RtpStreamConfig(
     val width: Int,
@@ -26,8 +27,12 @@ internal fun rtpFrameDeadlineNanos(fps: Int): Long {
         .coerceIn(100_000_000L, 250_000_000L)
 }
 
-internal fun recoveryIdrAllowed(lastRequestMs: Long, nowMs: Long): Boolean {
-    return nowMs - lastRequestMs >= IDR_REQUEST_COOLDOWN_MS
+internal fun recoveryIdrAllowed(
+    lastRequestMs: Long,
+    nowMs: Long,
+    cooldownMs: Long = IDR_REQUEST_COOLDOWN_MS,
+): Boolean {
+    return nowMs - lastRequestMs >= cooldownMs
 }
 
 internal fun percentile95(values: List<Float>): Float {
@@ -395,9 +400,9 @@ class StreamReceiver(
         var noPacketDeadline = android.os.SystemClock.uptimeMillis() + 5000
         var lastIdrRequestMs = -IDR_REQUEST_COOLDOWN_MS
 
-        fun requestRecoveryIdr() {
+        fun requestRecoveryIdr(cooldownMs: Long = IDR_REQUEST_COOLDOWN_MS) {
             val now = android.os.SystemClock.uptimeMillis()
-            if (!recoveryIdrAllowed(lastIdrRequestMs, now)) return
+            if (!recoveryIdrAllowed(lastIdrRequestMs, now, cooldownMs)) return
             lastIdrRequestMs = now
             requestIdrViaTcp(targetIp, controlPort, socket.localPort)
         }
@@ -430,14 +435,14 @@ class StreamReceiver(
                     H264Decoder.SubmissionResult.DROPPED -> {
                         Log.w(TAG, "RTP decoder input full; requesting recovery IDR")
                         waitingForIdr = true
-                        requestRecoveryIdr()
+                        requestRecoveryIdr(HARD_IDR_RETRY_MS)
                     }
                     H264Decoder.SubmissionResult.FAILED -> {
                         Log.w(TAG, "RTP decoder failed frame: size=${frame.size} idr=$isIdr")
                     }
                 }
             } else {
-                requestRecoveryIdr()
+                requestRecoveryIdr(HARD_IDR_RETRY_MS)
             }
         }
 
@@ -497,9 +502,9 @@ class StreamReceiver(
                 val frame = assembler.offer(mediaPacket)
                 lostPackets += assembler.lostPackets
                 if (assembler.droppedFrame) {
-                    requestRecoveryIdr()
                     waitingForIdr = true
                     incompleteFrames++
+                    requestRecoveryIdr(HARD_IDR_RETRY_MS)
                 }
                 drainCompletedFrames(frame)
             } catch (_: SocketTimeoutException) {
@@ -512,7 +517,7 @@ class StreamReceiver(
                     lostPackets += assembler.lostPackets
                     waitingForIdr = true
                     incompleteFrames++
-                    requestRecoveryIdr()
+                    requestRecoveryIdr(HARD_IDR_RETRY_MS)
                     drainCompletedFrames(assembler.pollCompleted())
                 }
             }

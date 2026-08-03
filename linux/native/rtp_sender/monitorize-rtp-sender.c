@@ -259,7 +259,8 @@ int main(int argc, char **argv) {
         fprintf(stderr, "ERROR socket creation failed: %s\n", strerror(errno));
         return 1;
     }
-    int traffic_class = 0xc0;
+    /* Match Sunshine's video class (DSCP 40); DSCP 48 is its audio class. */
+    int traffic_class = 40 << 2;
     setsockopt(output_fd, IPPROTO_IP, IP_TOS, &traffic_class, sizeof(traffic_class));
     int receive_buffer = 2 * 1024 * 1024;
     setsockopt(input_fd, SOL_SOCKET, SO_RCVBUF, &receive_buffer, sizeof(receive_buffer));

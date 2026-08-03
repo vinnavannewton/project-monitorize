@@ -300,7 +300,7 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
             ) +
             f"udpsink host={client_host} port={client_port} bind-port={port} "
             f"sync=false async=false buffer-size={udp_send_buffer_bytes(bitrate)} "
-            f"qos-dscp=48"
+            f"qos-dscp=40"
         )
     else:
         sink = f"tcpserversink host={host} port={port} sync=false sync-method=2 recover-policy=2 buffers-max=3 buffers-soft-max=2 qos-dscp=48"

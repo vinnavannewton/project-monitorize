@@ -144,6 +144,7 @@ class VideoTransportTest(unittest.TestCase):
             "rtpulpfecenc pt=122 percentage=10 multipacket=true", description
         )
         self.assertIn("udpsink host=192.0.2.1", description)
+        self.assertIn("qos-dscp=40", description)
         self.assertIn("buffer-size=500000", description)
 
     def test_identical_start_keeps_receiver_without_forcing_idr(self):
