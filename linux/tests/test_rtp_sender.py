@@ -78,7 +78,7 @@ class NativeRtpSenderTest(unittest.TestCase):
                     sequences.append(int.from_bytes(packet[2:4], "big"))
                 self.assertEqual(list(range(len(packets))), sequences)
                 self.assertGreater(last_at - first_at, 0.010)
-                self.assertLess(last_at - first_at, 0.250)
+                self.assertLess(last_at - first_at, 0.075)
             except PermissionError as exc:
                 self.skipTest(f"UDP sockets unavailable: {exc}")
             finally:

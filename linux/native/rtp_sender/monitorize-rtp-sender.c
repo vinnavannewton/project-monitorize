@@ -301,12 +301,8 @@ int main(int argc, char **argv) {
     uint64_t last_report_ns = monotonic_ns();
     char command[512];
     while (running) {
-        uint64_t now = monotonic_ns();
         pthread_mutex_lock(&queue_mutex);
-        uint64_t deadline_ns = next_send_ns;
-        int timeout_ms = head && deadline_ns > now
-            ? (int)((deadline_ns - now + 999999ULL) / 1000000ULL) : 100;
-        if (head && deadline_ns <= now) timeout_ms = 0;
+        int timeout_ms = head ? 0 : 100;
         pthread_mutex_unlock(&queue_mutex);
         struct pollfd descriptors[2] = {
             {.fd = STDIN_FILENO, .events = POLLIN},

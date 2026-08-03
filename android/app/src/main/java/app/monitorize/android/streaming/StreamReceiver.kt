@@ -408,8 +408,7 @@ class StreamReceiver(
                 lostPackets += sequenceGap
                 incompleteFrames++
                 if (!waitingForIdr) {
-                    waitingForIdr = true
-                    Log.w(TAG, "RTP cross-frame sequence gap=$sequenceGap; requesting IDR")
+                    Log.w(TAG, "RTP cross-frame sequence gap=$sequenceGap; requesting soft recovery IDR")
                     requestRecoveryIdr()
                 }
             }
