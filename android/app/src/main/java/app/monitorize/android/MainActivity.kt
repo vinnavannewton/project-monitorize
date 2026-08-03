@@ -1374,7 +1374,7 @@ private fun BoxScope.StreamingStatsOverlay(stats: StreamStats) {
         "Wi-Fi RTP/UDP\nRX %d kbps · %d pps · loss %.1f%%\n" +
             "frames in/dec/out %.1f / %.1f / %.1f fps\n" +
             "decode %.1f ms · display %.1f ms · q %d\n" +
-            "glass-to-glass %s\nincomplete %d · decoder drops %d",
+            "capture-to-render estimate %s\nincomplete %d · decoder drops %d",
         stats.receivedKbps,
         stats.packetsPerSecond,
         stats.lossPercent,

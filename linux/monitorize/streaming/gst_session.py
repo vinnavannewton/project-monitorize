@@ -65,7 +65,6 @@ class Session:
         self.encoder_capture_times = deque(maxlen=240)
         self.capture_rtp_times = {}
         self.encoded_capture_times = deque(maxlen=240)
-        self.last_media_rtp_timestamp = None
         self.has_rate_filter = self._element("videorate0", "monitorize_rate") is not None
         self.start_sender()
         print(f"[RTP] Fixed bitrate {self.current_bitrate} kbps", flush=True)
@@ -295,14 +294,13 @@ class Session:
         return captured_at
 
     def record_rtp_capture(self, timestamp, pts):
-        if timestamp == self.last_media_rtp_timestamp:
-            return
-        self.last_media_rtp_timestamp = timestamp
         ordered_capture = (
             self.encoded_capture_times.popleft()
             if self.encoded_capture_times else None
         )
-        captured_at = self.capture_pts.get(pts, ordered_capture)
+        captured_at = (
+            ordered_capture if ordered_capture is not None else self.capture_pts.get(pts)
+        )
         if captured_at is not None:
             self.capture_rtp_times[timestamp] = captured_at
             if len(self.capture_rtp_times) > 240:
@@ -447,7 +445,7 @@ class Session:
                     elif (
                         len(data) >= 8
                         and data[1] & 0x7f == RTP_PAYLOAD_TYPE
-                        and buffer.pts != Gst.CLOCK_TIME_NONE
+                        and data[1] & 0x80
                     ):
                         self.record_rtp_capture(
                             int.from_bytes(data[4:8], "big"), buffer.pts,

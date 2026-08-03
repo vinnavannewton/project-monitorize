@@ -68,12 +68,23 @@ class VideoTransportTest(unittest.TestCase):
         session.encoder_capture_times = deque([100])
         session.capture_rtp_times = {}
         session.encoded_capture_times = deque()
-        session.last_media_rtp_timestamp = None
 
         session.record_encoded_capture(None)
         session.record_rtp_capture(99, None)
 
         self.assertEqual(100, session.capture_rtp_times[99])
+
+    def test_equal_rtp_timestamps_consume_each_access_unit_capture(self):
+        session = Session.__new__(Session)
+        session.capture_pts = {42: 1}
+        session.capture_rtp_times = {}
+        session.encoded_capture_times = deque([100, 200])
+
+        session.record_rtp_capture(99, 42)
+        session.record_rtp_capture(99, 42)
+
+        self.assertEqual(200, session.capture_rtp_times[99])
+        self.assertEqual([], list(session.encoded_capture_times))
 
     def test_encoder_input_keeps_source_capture_time_when_pts_are_unavailable(self):
         session = Session.__new__(Session)
