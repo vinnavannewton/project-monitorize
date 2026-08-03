@@ -925,12 +925,18 @@ class GnomeGeometryTest(unittest.TestCase):
 
     def test_gnome_verify_devices_ignores_dbus_unavailable(self):
         geom = geometry.Geometry("gnome", 1920, 1200)
+        device = types.SimpleNamespace(
+            device=types.SimpleNamespace(path="/dev/input/event10")
+        )
 
         with patch.dict("sys.modules", {"dbus": None}):
-            self.assertEqual(geom.verify_gnome_devices([]), set())
+            self.assertIsNone(geom.verify_gnome_devices([device]))
 
     def test_gnome_verify_devices_ignores_dbus_session_failure(self):
         geom = geometry.Geometry("gnome", 1920, 1200)
+        device = types.SimpleNamespace(
+            device=types.SimpleNamespace(path="/dev/input/event10")
+        )
 
         class FakeDBusException(Exception):
             pass
@@ -941,10 +947,13 @@ class GnomeGeometryTest(unittest.TestCase):
         )
 
         with patch.dict("sys.modules", {"dbus": dbus}):
-            self.assertEqual(geom.verify_gnome_devices([]), set())
+            self.assertIsNone(geom.verify_gnome_devices([device]))
 
     def test_gnome_verify_devices_does_not_hide_unexpected_session_errors(self):
         geom = geometry.Geometry("gnome", 1920, 1200)
+        device = types.SimpleNamespace(
+            device=types.SimpleNamespace(path="/dev/input/event10")
+        )
 
         class FakeDBusException(Exception):
             pass
@@ -956,7 +965,7 @@ class GnomeGeometryTest(unittest.TestCase):
 
         with patch.dict("sys.modules", {"dbus": dbus}):
             with self.assertRaises(ValueError):
-                geom.verify_gnome_devices([])
+                geom.verify_gnome_devices([device])
 
     def test_gnome_verify_devices_returns_mapped_event_names(self):
         geom = geometry.Geometry("gnome", 1920, 1200)
@@ -979,9 +988,44 @@ class GnomeGeometryTest(unittest.TestCase):
             ),
         ):
             self.assertEqual(
-                geom.verify_gnome_devices([touch, stylus]),
+                geom.verify_gnome_devices([touch, stylus], timeout=0),
                 {"event11"},
             )
+
+    def test_gnome_verify_devices_retries_until_mutter_registers_nodes(self):
+        geom = geometry.Geometry("gnome", 1920, 1200)
+        touch = types.SimpleNamespace(
+            device=types.SimpleNamespace(path="/dev/input/event10")
+        )
+        stylus = types.SimpleNamespace(
+            device=types.SimpleNamespace(path="/dev/input/event11")
+        )
+        dbus = types.SimpleNamespace(
+            SessionBus=Mock(return_value=Mock()),
+            exceptions=types.SimpleNamespace(DBusException=RuntimeError),
+        )
+        attempts = {"event10": 0, "event11": 0}
+
+        def registered_after_delay(path, **_kwargs):
+            event_name = os.path.basename(path)
+            attempts[event_name] += 1
+            return event_name == "event10" or attempts[event_name] >= 2
+
+        with (
+            patch.dict("sys.modules", {"dbus": dbus}),
+            patch(
+                "monitorize.input_bridge.geometry.gnome_input_node_is_mapped",
+                side_effect=registered_after_delay,
+            ),
+        ):
+            self.assertEqual(
+                geom.verify_gnome_devices(
+                    [touch, stylus], timeout=1.0, interval=0.0
+                ),
+                {"event10", "event11"},
+            )
+
+        self.assertEqual(attempts, {"event10": 1, "event11": 2})
 
 
 class UInputCreationTest(unittest.TestCase):

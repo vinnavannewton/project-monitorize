@@ -15,6 +15,8 @@ MONITORIZE_ADDITIONAL_TOUCH_PRODUCT_ID = 0x1003
 MONITORIZE_ADDITIONAL_STYLUS_PRODUCT_ID = 0x1004
 GNOME_INPUT_MAPPING_TIMEOUT = 5.0
 GNOME_INPUT_MAPPING_INTERVAL = 0.1
+GNOME_DEVICE_VERIFY_TIMEOUT = 2.0
+GNOME_DEVICE_VERIFY_INTERVAL = 0.1
 GNOME_TOUCHSCREEN_SCHEMA = "org.gnome.desktop.peripherals.touchscreen"
 GNOME_TABLET_SCHEMA = "org.gnome.desktop.peripherals.tablet"
 GNOME_INPUT_MAPPING_SERVICE = "org.gnome.Mutter.InputMapping"
@@ -428,26 +430,50 @@ class Geometry:
             return int(round(bw)), int(round(bh)), rx - bx, ry - by, rw, rh
         return int(round(rw)), int(round(rh)), 0.0, 0.0, rw, rh
 
-    def verify_gnome_devices(self, devices: list) -> set[str]:
+    def verify_gnome_devices(
+        self,
+        devices: list,
+        timeout=GNOME_DEVICE_VERIFY_TIMEOUT,
+        interval=GNOME_DEVICE_VERIFY_INTERVAL,
+    ) -> set[str] | None:
         if self.de != "gnome":
+            return set()
+        event_paths = {
+            os.path.basename(path): path
+            for device in devices
+            if device
+            for path in [getattr(getattr(device, "device", None), "path", "")]
+            if path
+        }
+        if not event_paths:
             return set()
         try:
             import dbus
         except ImportError as exc:
             log.debug("GNOME input mapping verification unavailable: %s", exc)
-            return set()
+            return None
         try:
             bus = dbus.SessionBus()
         except dbus.exceptions.DBusException as exc:
             log.debug("GNOME input mapping verification unavailable: %s", exc)
-            return set()
+            return None
+
         mapped = set()
-        for device in devices:
-            path = getattr(getattr(device, "device", None), "path", "")
-            if gnome_input_node_is_mapped(
-                path, bus=bus, dbus=dbus, log_failure=False
-            ):
-                mapped.add(os.path.basename(path))
+        pending = dict(event_paths)
+        deadline = time.monotonic() + max(0.0, timeout)
+        while pending:
+            for event_name, path in list(pending.items()):
+                if gnome_input_node_is_mapped(
+                    path, bus=bus, dbus=dbus, log_failure=False
+                ):
+                    mapped.add(event_name)
+                    pending.pop(event_name)
+            if not pending:
+                break
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            time.sleep(min(max(0.0, interval), remaining))
         return mapped
 
     def hyprland_output_name(self):

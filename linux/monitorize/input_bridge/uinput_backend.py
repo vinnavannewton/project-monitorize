@@ -103,16 +103,17 @@ class UInputBackend:
             verify = getattr(self.geometry, "verify_gnome_devices", None)
             if callable(verify) and getattr(self.geometry, "_gnome_devices_mapped", True):
                 try:
-                    mapped = set(verify([self.touch, self.stylus]) or ())
+                    verified = verify([self.touch, self.stylus])
+                    mapped = None if verified is None else set(verified)
                 except Exception as exc:
                     log.warning("Failed to verify GNOME uinput mapping: %s", exc)
-                    mapped = set()
-                if self.stylus:
+                    mapped = None
+                if self.stylus and mapped is not None:
                     stylus_event = os.path.basename(self.stylus.device.path)
                     if stylus_event not in mapped:
                         log.warning(
-                            "GNOME did not confirm %s output mapping; "
-                            "stylus pressure may fall back to touch emulation",
+                            "GNOME did not expose a mapping for %s after waiting; "
+                            "stylus events may target the wrong output",
                             stylus_name,
                         )
 
