@@ -13,6 +13,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 private const val RTP_TRANSPORT = "rtp-udp-v1"
 private const val IDR_REQUEST_COOLDOWN_MS = 1_000L
 private const val HARD_IDR_RETRY_MS = 250L
+private const val MAX_CAPTURE_TO_RENDER_NS = 1_000_000_000L
 
 internal data class RtpStreamConfig(
     val width: Int,
@@ -114,7 +115,7 @@ internal class RtpClockSync {
             (hostReceivedNs - clientSentNs) + (hostSentNs - clientReceivedNs)
         ) / 2
         val endToEndNs = frame.renderedAtNs - captureNs + hostMinusClientNs
-        if (endToEndNs < 0) return
+        if (endToEndNs !in 0..MAX_CAPTURE_TO_RENDER_NS) return
         synchronized(lock) {
             estimate = endToEndNs / 1_000_000f to roundTripNs / 2_000_000f
         }
@@ -367,7 +368,7 @@ class StreamReceiver(
         onPlainTransportReady?.invoke()
         decoder.init(
             ready.width, ready.height, ready.fps,
-            balancedOutput = false, inputFrameCapacity = 3,
+            balancedOutput = false, inputFrameCapacity = 5,
             replaceInputOnOverflow = false,
         )
         onStatusChange?.invoke("")
@@ -433,9 +434,14 @@ class StreamReceiver(
                         if (isIdr) waitingForIdr = false
                     }
                     H264Decoder.SubmissionResult.DROPPED -> {
-                        Log.w(TAG, "RTP decoder input full; requesting recovery IDR")
-                        waitingForIdr = true
-                        requestRecoveryIdr(HARD_IDR_RETRY_MS)
+                        if (isIdr) {
+                            Log.w(TAG, "RTP decoder dropped IDR; waiting for recovery IDR")
+                            waitingForIdr = true
+                            requestRecoveryIdr(HARD_IDR_RETRY_MS)
+                        } else {
+                            Log.w(TAG, "RTP decoder input burst full; requesting soft recovery IDR")
+                            requestRecoveryIdr()
+                        }
                     }
                     H264Decoder.SubmissionResult.FAILED -> {
                         Log.w(TAG, "RTP decoder failed frame: size=${frame.size} idr=$isIdr")

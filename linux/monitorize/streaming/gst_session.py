@@ -29,6 +29,8 @@ from .video_transport import (
 
 SENDER_NAME = "monitorize-rtp-sender"
 SENDER_CEILING_KBPS = 200_000
+MAX_CAPTURE_TO_STATS_NS = 1_000_000_000
+RTP_CLOCK_RATE = 90_000
 
 
 class Session:
@@ -62,7 +64,7 @@ class Session:
         }
         self.capture_pts = {}
         self.capture_buffer_times = {}
-        self.encoder_capture_times = deque(maxlen=240)
+        self.latest_encoder_capture_time = None
         self.capture_rtp_times = {}
         self.encoded_capture_times = deque(maxlen=240)
         self.has_rate_filter = self._element("videorate0", "monitorize_rate") is not None
@@ -249,6 +251,26 @@ class Session:
         except (TypeError, ValueError):
             timestamp = -1
         capture_ns = self.capture_rtp_times.get(timestamp)
+        if capture_ns is None and timestamp >= 0 and self.capture_rtp_times:
+            nearest_timestamp, nearest_capture = min(
+                self.capture_rtp_times.items(),
+                key=lambda item: abs(self.rtp_timestamp_delta(timestamp, item[0])),
+            )
+            timestamp_delta = self.rtp_timestamp_delta(timestamp, nearest_timestamp)
+            if abs(timestamp_delta) <= RTP_CLOCK_RATE:
+                capture_ns = nearest_capture + (
+                    timestamp_delta * 1_000_000_000 // RTP_CLOCK_RATE
+                )
+        if capture_ns is None:
+            latest_capture = getattr(self, "latest_encoder_capture_time", None)
+            if latest_capture is not None:
+                capture_ns = latest_capture - (
+                    1_000_000_000 // max(1, self.target_fps)
+                )
+        if capture_ns is not None and not (
+            0 <= received_ns - capture_ns <= MAX_CAPTURE_TO_STATS_NS
+        ):
+            capture_ns = None
         return {
             "transport": TRANSPORT,
             "status": "stats",
@@ -257,6 +279,10 @@ class Session:
             "rtpTimestamp": timestamp,
             "captureNs": capture_ns,
         }
+
+    @staticmethod
+    def rtp_timestamp_delta(timestamp, reference):
+        return ((timestamp - reference + 0x80000000) & 0xffffffff) - 0x80000000
 
     def record_capture_pts(self, pts, captured_at=None):
         self.capture_pts[pts] = time.monotonic_ns() if captured_at is None else captured_at
@@ -280,15 +306,22 @@ class Session:
 
     def record_encoder_input_capture(self, buffer):
         captured_at = self.capture_buffer_times.pop(hash(buffer), None)
-        self.encoder_capture_times.append(
+        pts = getattr(buffer, "pts", Gst.CLOCK_TIME_NONE)
+        if pts != Gst.CLOCK_TIME_NONE:
+            if captured_at is None:
+                captured_at = self.capture_pts.get(pts)
+            self.record_capture_pts(pts, captured_at)
+        self.latest_encoder_capture_time = (
             time.monotonic_ns() if captured_at is None else captured_at
         )
 
     def record_encoded_capture(self, pts):
         captured_at = (
-            self.encoder_capture_times.popleft()
-            if self.encoder_capture_times else self.capture_pts.get(pts)
+            self.capture_pts.get(pts)
+            if pts != Gst.CLOCK_TIME_NONE else None
         )
+        if captured_at is None:
+            captured_at = self.latest_encoder_capture_time
         if captured_at is not None:
             self.encoded_capture_times.append(captured_at)
         return captured_at
@@ -456,7 +489,7 @@ class Session:
         for names, kind in (
             (("monitorize_kwin_source", "pipewiresrc0", "monitorize_source"), "source"),
             (("videorate0", "monitorize_rate"), "paced"),
-            (("nvh264enc0", "vah264enc0", "vah264lpenc0", "vaapih264enc0", "x264enc0", "monitorize_encoder"), "encoded"),
+            (("h264parse0", "monitorize_parser"), "encoded"),
             (("rtpulpfecenc0", "rtph264pay0", "monitorize_payloader"), "rtp_packets"),
         ):
             element = self._element(*names)

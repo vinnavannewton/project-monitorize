@@ -274,7 +274,7 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
         )
         encoder = _probe_encoder_properties(encoder)
 
-    parse = "h264parse config-interval=1"
+    parse = "h264parse name=monitorize_parser config-interval=1"
     negotiated_profile = (
         rtp_endpoint[3] if rtp_endpoint and len(rtp_endpoint) > 3 else None
     )

@@ -47,13 +47,47 @@ class VideoTransportTest(unittest.TestCase):
 
     def test_stats_reply_echoes_clock_exchange_and_matching_capture_time(self):
         session = Session.__new__(Session)
-        session.capture_rtp_times = {1234: 9_876_543_210}
+        session.capture_rtp_times = {1234: 1_000_000}
         reply = session.stats_reply({"renderedRtpTimestamp": 1234}, 1_234_567)
 
         self.assertEqual(1234, reply["rtpTimestamp"])
-        self.assertEqual(9_876_543_210, reply["captureNs"])
+        self.assertEqual(1_000_000, reply["captureNs"])
         self.assertEqual(1_234_567, reply["hostRecvNs"])
         self.assertIsInstance(reply["hostSendNs"], int)
+
+    def test_stats_reply_rejects_stale_capture_time(self):
+        session = Session.__new__(Session)
+        session.capture_rtp_times = {1234: 1}
+
+        reply = session.stats_reply({"renderedRtpTimestamp": 1234}, 2_000_000_000)
+
+        self.assertIsNone(reply["captureNs"])
+
+    def test_stats_reply_derives_capture_from_nearest_rtp_timestamp(self):
+        session = Session.__new__(Session)
+        session.capture_rtp_times = {90_000: 1_000_000_000}
+
+        reply = session.stats_reply(
+            {"renderedRtpTimestamp": 94_500}, 1_100_000_000,
+        )
+
+        self.assertEqual(1_050_000_000, reply["captureNs"])
+
+    def test_rtp_timestamp_delta_handles_wrap(self):
+        self.assertEqual(32, Session.rtp_timestamp_delta(16, 0xfffffff0))
+        self.assertEqual(-32, Session.rtp_timestamp_delta(0xfffffff0, 16))
+
+    def test_stats_reply_falls_back_to_recent_encoder_capture(self):
+        session = Session.__new__(Session)
+        session.capture_rtp_times = {}
+        session.latest_encoder_capture_time = 100_000_000
+        session.target_fps = 50
+
+        reply = session.stats_reply(
+            {"renderedRtpTimestamp": 1234}, 150_000_000,
+        )
+
+        self.assertEqual(80_000_000, reply["captureNs"])
 
     def test_paced_frame_timestamp_replaces_pre_rate_timestamp(self):
         session = Session.__new__(Session)
@@ -65,7 +99,7 @@ class VideoTransportTest(unittest.TestCase):
     def test_rtp_timestamp_uses_ordered_encoder_capture_when_payloader_has_no_pts(self):
         session = Session.__new__(Session)
         session.capture_pts = {}
-        session.encoder_capture_times = deque([100])
+        session.latest_encoder_capture_time = 100
         session.capture_rtp_times = {}
         session.encoded_capture_times = deque()
 
@@ -90,12 +124,45 @@ class VideoTransportTest(unittest.TestCase):
         session = Session.__new__(Session)
         frame = object()
         session.capture_buffer_times = {}
-        session.encoder_capture_times = deque()
+        session.latest_encoder_capture_time = None
 
         session.record_capture_buffer(frame, 100)
         session.record_encoder_input_capture(frame)
 
-        self.assertEqual([100], list(session.encoder_capture_times))
+        self.assertEqual(100, session.latest_encoder_capture_time)
+
+    def test_encoder_input_recovers_source_time_after_buffer_conversion(self):
+        session = Session.__new__(Session)
+        frame = Mock(pts=42)
+        session.capture_buffer_times = {}
+        session.capture_pts = {42: 100}
+        session.latest_encoder_capture_time = None
+
+        session.record_encoder_input_capture(frame)
+
+        self.assertEqual(100, session.capture_pts[42])
+        self.assertEqual(100, session.latest_encoder_capture_time)
+
+    def test_encoded_pts_skips_an_encoder_input_that_was_not_output(self):
+        session = Session.__new__(Session)
+        session.capture_pts = {41: 100, 42: 200}
+        session.latest_encoder_capture_time = 300
+        session.encoded_capture_times = deque()
+
+        captured_at = session.record_encoded_capture(42)
+
+        self.assertEqual(200, captured_at)
+        self.assertEqual([200], list(session.encoded_capture_times))
+
+    def test_encoded_frame_without_matching_pts_uses_latest_encoder_input(self):
+        session = Session.__new__(Session)
+        session.capture_pts = {41: 100}
+        session.latest_encoder_capture_time = 200
+        session.encoded_capture_times = deque()
+
+        captured_at = session.record_encoded_capture(42)
+
+        self.assertEqual(200, captured_at)
 
     def test_idr_control_message_forces_key_without_switching_endpoint(self):
         session = Session.__new__(Session)
@@ -130,6 +197,7 @@ class VideoTransportTest(unittest.TestCase):
         self.assertNotIn("monitorize_activity", description)
         self.assertNotIn("appsink", description)
         self.assertIn("key-int-max=300", description)
+        self.assertIn("h264parse name=monitorize_parser", description)
 
     def test_rtp_sender_ceiling_is_independent_of_selected_bitrate(self):
         from monitorize.streaming.gst_session import SENDER_CEILING_KBPS

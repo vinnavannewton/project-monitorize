@@ -100,7 +100,7 @@ class H264Decoder(
         inputFrameCapacity: Int = 1, replaceInputOnOverflow: Boolean = true,
     ) {
         release()
-        inputCapacity = inputFrameCapacity.coerceIn(1, 3)
+        inputCapacity = inputFrameCapacity.coerceIn(1, 5)
         replaceQueuedOnOverflow = replaceInputOnOverflow
         chunkPool = ArrayBlockingQueue(inputCapacity)
         chunkQueue = LinkedBlockingQueue(inputCapacity)

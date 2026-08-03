@@ -173,4 +173,27 @@ class RtpStreamConfigTest {
         assertEquals(60f, estimate.first, 0.01f)
         assertEquals(9f, estimate.second, 0.01f)
     }
+
+    @Test fun clockSyncRejectsStaleCaptureAndKeepsPreviousValidEstimate() {
+        val sync = RtpClockSync()
+        val frame = RenderedRtpFrame(timestamp = 99, renderedAtNs = 1_160_000_000)
+        sync.applyResponse(
+            clientSentNs = 1_100_000_000,
+            clientReceivedNs = 1_120_000_000,
+            response = "{\"hostRecvNs\":2110000000,\"hostSendNs\":2112000000," +
+                "\"rtpTimestamp\":99,\"captureNs\":2101000000}",
+            frame = frame,
+        )
+        val validEstimate = requireNotNull(sync.latest())
+
+        sync.applyResponse(
+            clientSentNs = 2_100_000_000,
+            clientReceivedNs = 2_120_000_000,
+            response = "{\"hostRecvNs\":3110000000,\"hostSendNs\":3112000000," +
+                "\"rtpTimestamp\":99,\"captureNs\":1000000}",
+            frame = RenderedRtpFrame(timestamp = 99, renderedAtNs = 2_160_000_000),
+        )
+
+        assertEquals(validEstimate, sync.latest())
+    }
 }
