@@ -286,9 +286,9 @@ class ReceiverController(QObject):
         except Exception:
             raw.close()
             raise
-        # Close the Python socket so gst-launch-1.0 can bind to the same port.
-        # The streamer is already sending to this port, so packets queue in
-        # the kernel until gst-launch-1.0 re-binds.
+        
+        
+        
         raw.close()
         self.process = QProcess(self)
         process = self.process
