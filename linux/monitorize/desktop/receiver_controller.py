@@ -255,59 +255,60 @@ class ReceiverController(QObject):
             return
         self._launch_external_pipeline(host, port, generation)
 
-    def _udp_pipeline_description(self, sink_name):
+    def _udp_pipeline_args(self, sink_name, udp_port):
         sink_args = self._sink_args(sink_name)
-        parts = [
-            "udpsrc", "name=receiver_source",
-            'caps="application/x-rtp,media=video,encoding-name=H264,payload=96,clock-rate=90000"', "!",
+        args = [
+            "-e",
+            "udpsrc", f"port={udp_port}", "buffer-size=524288",
+            'caps=application/x-rtp,media=video,encoding-name=H264,payload=96,clock-rate=90000', "!",
             "rtph264depay", "!", "h264parse", "disable-passthrough=true", "config-interval=-1", "!",
-            PARSED_H264_CAPS, "!", *COMPRESSED_QUEUE, "!", *self.decoder_args, "!",
-            *RAW_DROP_QUEUE, "!", "videoconvert", "!",
+            PARSED_H264_CAPS, "!",
+            *COMPRESSED_QUEUE, "!",
+            *self.decoder_args, "!",
+            *RAW_DROP_QUEUE, "!",
+            "videoconvert", "!",
+            *sink_args,
         ]
-        parts += sink_args
-        return " ".join(parts)
+        return args
 
     def _launch_udp_pipeline(self, host, port, generation, sink_name):
         self.receiver_host = host
         self.receiver_port = port
         self.attempt_started = time.monotonic()
         self._stop_gst_pipeline()
-        Gst = _load_gst()
         raw = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         raw.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 524288)
+        raw.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         raw.bind(("", 0))
         udp_port = raw.getsockname()[1]
-        pipeline = None
         try:
-            pipeline = Gst.parse_launch(self._udp_pipeline_description(sink_name))
-            source = pipeline.get_by_name("receiver_source")
-            if source is None:
-                raise RuntimeError("UDP receiver source was not created")
-            source.set_property("socket", _GIO.Socket.new_from_fd(raw.detach()))
-            source.set_property("close-socket", True)
-            if pipeline.set_state(Gst.State.PLAYING) == Gst.StateChangeReturn.FAILURE:
-                raise RuntimeError("GStreamer refused to start UDP receiver pipeline")
             ready = _negotiate_udp(host, port, udp_port)
         except Exception:
-            try:
-                raw.close()
-            except OSError:
-                pass
-            if pipeline is not None:
-                try:
-                    pipeline.set_state(Gst.State.NULL)
-                except Exception:
-                    pass
+            raw.close()
             raise
-        self.gst_pipeline = pipeline
-        self.gst_bus = pipeline.get_bus()
-        self.gst_generation = generation
-        self.gst_bus_timer.start()
+        # Close the Python socket so gst-launch-1.0 can bind to the same port.
+        # The streamer is already sending to this port, so packets queue in
+        # the kernel until gst-launch-1.0 re-binds.
+        raw.close()
+        self.process = QProcess(self)
+        process = self.process
+        process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+        process.started.connect(lambda: self._started(process, generation))
+        process.readyReadStandardOutput.connect(
+            lambda: self._read_pipeline(process, generation)
+        )
+        process.finished.connect(
+            lambda code, status: self._finished(code, status, process, generation)
+        )
+        process.errorOccurred.connect(
+            lambda _error: self._pipeline_error(process, generation)
+        )
+        args = self._udp_pipeline_args(sink_name, udp_port)
         self.logAppended.emit(
             f"UDP ready: {ready.get('width', '?')}x{ready.get('height', '?')}@{ready.get('fps', '?')}; "
             f"decoder: {self.decoder_label}; sink: {sink_name}"
         )
-        self._started(pipeline, generation)
+        self.process.start("gst-launch-1.0", args)
 
     def _launch_external_pipeline(self, host, port, generation=None):
         generation = self.generation if generation is None else generation
@@ -545,7 +546,7 @@ class ReceiverController(QObject):
         self.retry_pending = False
         self.pipeline_fallback_used = False
         self.stable_generation = self.stable_process = self.retry_generation = None
-        kill_patterns("gst-launch-1.0.*tcpclientsrc")
+        kill_patterns("gst-launch-1.0.*tcpclientsrc", "gst-launch-1.0.*udpsrc")
         self._uninhibit_sleep()
         self._set_receiving(False)
 
