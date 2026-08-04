@@ -41,6 +41,15 @@ SOFTWARE_DECODER_PROPS = {
     "discard-corrupted-frames": "true",
     "automatic-request-sync-points": "true",
 }
+HARDWARE_DECODERS = ("vah264dec", "vaapih264dec")
+HARDWARE_DECODER_PROPS = {
+    "discard-corrupted-frames": "true",
+    "automatic-request-sync-points": "true",
+    "automatic-request-sync-point-flags": "corrupt-output+discard-input",
+    "min-force-key-unit-interval": "250000000",
+    "qos": "true",
+    "max-errors": "-1",
+}
 
 _GST = None
 _GST_VIDEO = None
@@ -171,6 +180,11 @@ class ReceiverController(QObject):
         self.gst_bus = None
         self.gst_generation = None
         self.udp_transport = False
+        self.decoder = "Software"
+        self.decoder_args = self._software_decoder_args()
+        self.decoder_label = "Software avdec_h264"
+        self.hardware_decoder_candidates = []
+        self.hardware_decoder_index = 0
         self.sink_candidates = []
         self.sink_index = 0
         self.stable_timer = QTimer(self)
@@ -216,11 +230,11 @@ class ReceiverController(QObject):
         self.sink = self.sink_candidates[0]
         self.pipeline_fallback_used = False
         if decoder == "Hardware":
-            hardware = next((
-                name for name in ("vah264dec", "vaapih264dec")
-                if gst_has_element(name)
-            ), None)
-            if not hardware:
+            self.hardware_decoder_candidates = [
+                name for name in HARDWARE_DECODERS if gst_has_element(name)
+            ]
+            self.hardware_decoder_index = 0
+            if not self.hardware_decoder_candidates:
                 self._set_status(
                     "Hardware decoder unavailable — install the GStreamer VA-API decoder"
                 )
@@ -228,9 +242,10 @@ class ReceiverController(QObject):
                     "ERROR: Hardware mode requires vah264dec or vaapih264dec."
                 )
                 return
-            self.decoder_args = [hardware]
-            self.decoder_label = f"VA-API {hardware}"
+            self._select_hardware_decoder(0)
         else:
+            self.hardware_decoder_candidates = []
+            self.hardware_decoder_index = 0
             self.decoder_args = self._software_decoder_args()
             self.decoder_label = "Software avdec_h264"
         self.retry_count = 0
@@ -256,7 +271,6 @@ class ReceiverController(QObject):
         self._launch_external_pipeline(host, port, generation)
 
     def _udp_pipeline_args(self, sink_name, udp_port):
-        sink_args = self._sink_args(sink_name)
         args = [
             "-e",
             "udpsrc", f"port={udp_port}", "buffer-size=524288",
@@ -265,11 +279,12 @@ class ReceiverController(QObject):
             PARSED_H264_CAPS, "!",
             *COMPRESSED_QUEUE, "!",
             *self.decoder_args, "!",
-            *RAW_DROP_QUEUE, "!",
-            "videoconvert", "!",
-            *sink_args,
+            *self._display_chain_args(sink_name),
         ]
         return args
+
+    def _udp_pipeline_description(self, sink_name, udp_port=0):
+        return " ".join(self._udp_pipeline_args(sink_name, udp_port))
 
     def _launch_udp_pipeline(self, host, port, generation, sink_name):
         self.receiver_host = host
@@ -286,9 +301,6 @@ class ReceiverController(QObject):
         except Exception:
             raw.close()
             raise
-        
-        
-        
         raw.close()
         self.process = QProcess(self)
         process = self.process
@@ -338,9 +350,7 @@ class ReceiverController(QObject):
             PARSED_H264_CAPS, "!",
             *COMPRESSED_QUEUE, "!",
             *self.decoder_args, "!",
-            *RAW_DROP_QUEUE, "!",
-            "videoconvert", "!",
-            *self._sink_args(self.sink),
+            *self._display_chain_args(self.sink),
         ]
         self.logAppended.emit(
             f"Decoder: {self.decoder_label}; standalone sink: {self.sink}"
@@ -384,13 +394,69 @@ class ReceiverController(QObject):
                 args.append(f"{name}={value}")
         return args
 
+    def _hardware_decoder_args(self, decoder):
+        args = [decoder]
+        for name, value in HARDWARE_DECODER_PROPS.items():
+            if _gst_has_property(decoder, name):
+                args.append(f"{name}={value}")
+        return args
+
+    def _select_hardware_decoder(self, index):
+        self.hardware_decoder_index = index
+        decoder = self.hardware_decoder_candidates[index]
+        self.decoder_args = self._hardware_decoder_args(decoder)
+        self.decoder_label = f"VA-API {decoder}"
+
+    def _hardware_post_decode_args(self):
+        decoder = self.decoder_args[0] if self.decoder_args else ""
+        preferred = (
+            ("vaapipostproc", "vapostproc")
+            if decoder == "vaapih264dec" else ("vapostproc", "vaapipostproc")
+        )
+        postproc = next((name for name in preferred if gst_has_element(name)), None)
+        if postproc:
+            return [postproc, "!", "video/x-raw,format=NV12", "!"]
+        return ["videoconvert", "!", "video/x-raw,format=NV12", "!"]
+
+    def _display_chain_args(self, sink_name):
+        args = []
+        if self.decoder == "Hardware":
+            args.extend(self._hardware_post_decode_args())
+        args.extend([*RAW_DROP_QUEUE, "!", "videoconvert", "!", *self._sink_args(sink_name)])
+        return args
+
+    def _try_next_hardware_pipeline(self):
+        if self.decoder != "Hardware" or not self.hardware_decoder_candidates:
+            return False
+        if self.sink_index + 1 < len(self.sink_candidates):
+            self.sink_index += 1
+        elif self.hardware_decoder_index + 1 < len(self.hardware_decoder_candidates):
+            self.hardware_decoder_index += 1
+            self.sink_index = 0
+        else:
+            return False
+        self.sink = self.sink_candidates[self.sink_index]
+        self._select_hardware_decoder(self.hardware_decoder_index)
+        self.logAppended.emit(
+            f"Hardware receiver failed immediately; retrying with "
+            f"{self.decoder_label}; sink: {self.sink}"
+        )
+        self.process = None
+        self._launch_external_pipeline(self.receiver_host, self.receiver_port, self.generation)
+        return True
+
     def _use_receiver_fallback(self):
+        if self._try_next_hardware_pipeline():
+            return True
         if self.pipeline_fallback_used:
             return False
         self.pipeline_fallback_used = True
-        if self.sink_index + 1 < len(self.sink_candidates):
+        if self.decoder != "Hardware" and self.sink_index + 1 < len(self.sink_candidates):
             self.sink_index += 1
             self.sink = self.sink_candidates[self.sink_index]
+        self.decoder = "Software"
+        self.hardware_decoder_candidates = []
+        self.hardware_decoder_index = 0
         self.decoder_args = self._software_decoder_args()
         self.decoder_label = "Software avdec_h264"
         self.logAppended.emit(
