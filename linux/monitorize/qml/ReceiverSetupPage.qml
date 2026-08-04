@@ -306,10 +306,14 @@ Item {
 
             CustomButton {
                 id: connectButton
-                text: "▶  Connect"
+                text: backend.isReceiving ? "Disconnect" : "▶  Connect"
                 implicitWidth: 130
                 implicitHeight: 38
                 onClicked: {
+                    if (backend.isReceiving) {
+                        backend.stopReceiving()
+                        return
+                    }
                     if (manualIpField.text.trim() !== "") {
                         let ip = manualIpField.text.trim()
                         let p = portField.text.trim().length > 0 ? portField.text.trim() : "7110"

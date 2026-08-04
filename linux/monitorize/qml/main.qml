@@ -79,30 +79,16 @@ Rectangle {
         }
     }
 
-    // --- Navigate between pages when receiver state changes ---
-    Connections {
-        target: backend
-        function onIsReceivingChanged(receiving) {
-            if (receiving) {
-                stack.lastReceiverSetupPage = "ReceiverSetupPage.qml"
-                stack.replace("ReceiverStreamingPage.qml")
-            } else {
-                stack.replace(stack.lastReceiverSetupPage, StackView.PopTransition)
-            }
-        }
-    }
-
     // --- Main StackView for page navigation ---
     StackView {
         id: stack
         objectName: "mainStack"
         property string lastStreamingSetupPage: "MainMenuPage.qml"
-        property string lastReceiverSetupPage: "ReceiverSetupPage.qml"
         anchors.fill: parent
-        anchors.leftMargin: backend.isReceiving ? 0 : 20
-        anchors.rightMargin: backend.isReceiving ? 0 : 20
-        anchors.topMargin: backend.isReceiving ? 0 : 56
-        anchors.bottomMargin: backend.isReceiving ? 0 : 20
+        anchors.leftMargin: 20
+        anchors.rightMargin: 20
+        anchors.topMargin: 56
+        anchors.bottomMargin: 20
         initialItem: "MainMenuPage.qml"
 
         pushEnter: Transition {

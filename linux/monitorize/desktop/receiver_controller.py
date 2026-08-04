@@ -9,8 +9,6 @@ import time
 from functools import lru_cache
 
 from PyQt6.QtCore import QObject, QProcess, QTimer, pyqtSignal
-from PyQt6.QtGui import QGuiApplication
-
 from monitorize.platform.process_utils import gst_has_element, kill_patterns, stop_processes
 from monitorize.platform.utils import LINUX_DIR
 from monitorize.config.validation import normalize_host, sanitize_decoder, sanitize_port, valid_host, valid_port
@@ -24,8 +22,6 @@ RAW_DROP_QUEUE = [
     "leaky=downstream",
 ]
 PARSED_H264_CAPS = "video/x-h264,stream-format=byte-stream,alignment=au"
-MIN_EMBEDDED_SURFACE_SIZE = 128
-RESIZE_RESTART_THRESHOLD = 64
 SINK_PROPS = {
     "sync": "false",
     "async": "false",
@@ -38,8 +34,6 @@ SINK_EXTRA_PROPS = {
     "waylandsink": {"fullscreen": "true"},
     "xvimagesink": {"double-buffer": "true", "draw-borders": "true"},
 }
-EMBEDDED_X11_SINKS = ("xvimagesink", "ximagesink", "glimagesink")
-EMBEDDED_WAYLAND_SINKS = ("waylandsink", "glimagesink")
 SOFTWARE_DECODER_PROPS = {
     "max-threads": "2",
     "thread-type": "slice",
@@ -173,19 +167,10 @@ class ReceiverController(QObject):
         self.receiver_port = 0
         self.pipeline_fallback_used = False
         self.stable = False
-        self.video_item = None
-        self.pending_launch = None
         self.gst_pipeline = None
         self.gst_bus = None
         self.gst_generation = None
-        self.gst_video_sink = None
-        self.bad_geometry_logged = False
-        self.receiver_surface_width = 0
-        self.receiver_surface_height = 0
-        self.embedded_pipeline_size = None
-        self.resize_restart_used = False
         self.udp_transport = False
-        self.embedded_sink = None
         self.sink_candidates = []
         self.sink_index = 0
         self.stable_timer = QTimer(self)
@@ -196,17 +181,9 @@ class ReceiverController(QObject):
         self.retry_timer = QTimer(self)
         self.retry_timer.setSingleShot(True)
         self.retry_timer.timeout.connect(lambda: self._start_attempt(self.retry_generation))
-        self.surface_timer = QTimer(self)
-        self.surface_timer.setSingleShot(True)
-        self.surface_timer.timeout.connect(self._surface_wait_expired)
         self.gst_bus_timer = QTimer(self)
         self.gst_bus_timer.setInterval(50)
         self.gst_bus_timer.timeout.connect(self._poll_gst_bus)
-        self.resize_restart_timer = QTimer(self)
-        self.resize_restart_timer.setSingleShot(True)
-        self.resize_restart_timer.timeout.connect(
-            lambda: self._restart_embedded_for_resize(self.generation)
-        )
 
     def _set_receiving(self, value):
         self.receiving = value
@@ -258,44 +235,12 @@ class ReceiverController(QObject):
             self.decoder_label = "Software avdec_h264"
         self.retry_count = 0
         self.retry_pending = False
-        self.resize_restart_used = False
         self.host_label = f"{host}:{port}"
         self.hostChanged.emit(self.host_label)
         self._set_receiving(True)
         self._set_status(f"Connecting to {host}:{port}…")
         self.logAppended.emit(f"Connecting to {host} on port {port}…")
         self._start_attempt(generation)
-
-    def set_video_item(self, item):
-        self.video_item = item
-        if item is None:
-            self.gst_video_sink = None
-            self.receiver_surface_width = 0
-            self.receiver_surface_height = 0
-            self.resize_restart_timer.stop()
-            return
-        ready = self._update_receiver_surface_size()
-        self.sync_video_geometry()
-        if self.pending_launch is None:
-            return
-        if ready and self._launch_pending_if_surface_ready():
-            return
-        if not self.surface_timer.isActive():
-            self.surface_timer.start(1500)
-
-    def _launch_pending_if_surface_ready(self):
-        if self.pending_launch is None or not self._receiver_surface_ready():
-            return False
-        host, port, generation = self.pending_launch
-        self.pending_launch = None
-        self.surface_timer.stop()
-        self._launch_pipeline(host, port, generation)
-        return True
-
-    def _wait_for_pending_surface_size(self):
-        if self.pending_launch is not None:
-            if not self.surface_timer.isActive():
-                self.surface_timer.start(1500)
 
     def _start_attempt(self, generation=None):
         generation = self.generation if generation is None else generation
@@ -308,138 +253,10 @@ class ReceiverController(QObject):
         generation = self.generation if generation is None else generation
         if self.stopping or generation != self.generation:
             return
-        if self.video_item is not None and self.should_use_embedded_window():
-            if not self._update_receiver_surface_size():
-                self.pending_launch = (host, port, generation)
-                self._set_status("Preparing fullscreen receiver…")
-                self.logAppended.emit("Waiting for fullscreen receiver surface size…")
-                self.surface_timer.start(1500)
-                return
-            try:
-                self._launch_embedded_pipeline(host, port, generation)
-                return
-            except Exception as exc:
-                self.logAppended.emit(
-                    f"Embedded receiver failed; falling back to player window: {exc}"
-                )
-                self._stop_gst_pipeline()
-        if self.video_item is None and self._should_wait_for_embedded_surface():
-            self.pending_launch = (host, port, generation)
-            self._set_status("Preparing fullscreen receiver…")
-            self.logAppended.emit("Preparing fullscreen receiver surface…")
-            self.surface_timer.start(1500)
-            return
         self._launch_external_pipeline(host, port, generation)
 
-    def _surface_wait_expired(self):
-        if self.pending_launch is None:
-            return
-        host, port, generation = self.pending_launch
-        self.pending_launch = None
-        if self.stopping or generation != self.generation:
-            return
-        self.logAppended.emit(
-            "Fullscreen receiver surface was not ready; using fallback player window."
-        )
-        self._launch_external_pipeline(host, port, generation)
-
-    def _embedded_sink_available(self):
-        return self._embedded_sink_name() is not None
-
-    def _embedded_sink_name(self):
-        if self.embedded_sink:
-            return self.embedded_sink
-        for name in self._embedded_sink_candidates():
-            if gst_has_element(name):
-                self.embedded_sink = name
-                return name
-        return None
-
-    def _embedded_sink_candidates(self):
-        session = os.environ.get("XDG_SESSION_TYPE", "").lower()
-        if session == "wayland" or os.environ.get("WAYLAND_DISPLAY"):
-            return EMBEDDED_WAYLAND_SINKS
-        if session == "x11" or os.environ.get("DISPLAY"):
-            return EMBEDDED_X11_SINKS
-        return ("glimagesink",)
-
-    def _should_wait_for_embedded_surface(self):
-        app = QGuiApplication.instance()
-        return isinstance(app, QGuiApplication) and self.should_use_embedded_window()
-
-    def should_use_embedded_window(self):
-        override = os.environ.get("MONITORIZE_RECEIVER_EMBEDDED", "").strip().lower()
-        if override in {"1", "true", "yes", "on"}:
-            return self._embedded_sink_available()
-        session = os.environ.get("XDG_SESSION_TYPE", "").lower()
-        wayland = session == "wayland" or bool(os.environ.get("WAYLAND_DISPLAY"))
-        if wayland:
-            return False
-        return self._embedded_sink_available()
-
-    def _launch_embedded_pipeline(self, host, port, generation):
-        if self.udp_transport:
-            return self._launch_udp_pipeline(host, port, generation, self._embedded_sink_name(), True)
-        self.receiver_host = host
-        self.receiver_port = port
-        self.attempt_started = time.monotonic()
-        self._stop_gst_pipeline()
-        self.bad_geometry_logged = False
-        Gst = _load_gst()
-        sink_name = self._embedded_sink_name()
-        if not sink_name:
-            raise RuntimeError("no embeddable GStreamer video sink is available")
-        description = self._embedded_pipeline_description(host, port, sink_name)
-        pipeline = Gst.parse_launch(description)
-        sink = pipeline.get_by_name("receiver_sink")
-        if sink is None:
-            raise RuntimeError("embedded receiver sink was not created")
-        self._bind_embedded_sink(sink)
-        self.gst_video_sink = sink
-        bus = pipeline.get_bus()
-        result = pipeline.set_state(Gst.State.PLAYING)
-        if result == Gst.StateChangeReturn.FAILURE:
-            pipeline.set_state(Gst.State.NULL)
-            raise RuntimeError("GStreamer refused to start embedded receiver pipeline")
-        self.gst_pipeline = pipeline
-        self.gst_bus = bus
-        self.gst_generation = generation
-        self.embedded_pipeline_size = (
-            self.receiver_surface_width,
-            self.receiver_surface_height,
-        )
-        self.gst_bus_timer.start()
-        self.logAppended.emit(
-            f"Decoder: {self.decoder_label}; embedded sink: {sink_name}; "
-            f"scaled to {self.receiver_surface_width}x{self.receiver_surface_height}"
-        )
-        self._started(pipeline, generation)
-
-    def _embedded_pipeline_description(self, host, port, sink_name=None):
-        sink_name = sink_name or self._embedded_sink_name() or "glimagesink"
-        sink_args = self._sink_args(sink_name, include_extra=False)
-        sink_args[0] = sink_name
-        sink_args.append("name=receiver_sink")
-        width, height = self._receiver_surface_size()
-        parts = [
-            "tcpclientsrc", f"host={host}", f"port={port}", "!",
-            "h264parse", "disable-passthrough=true", "config-interval=-1", "!",
-            PARSED_H264_CAPS, "!",
-            *COMPRESSED_QUEUE, "!",
-            *self.decoder_args, "!",
-            *RAW_DROP_QUEUE, "!",
-            "videoconvert", "!",
-            "videoscale", "add-borders=false", "!",
-            f"video/x-raw,width={width},height={height},pixel-aspect-ratio=1/1", "!",
-            "videoconvert", "!",
-            *sink_args,
-        ]
-        return " ".join(parts)
-
-    def _udp_pipeline_description(self, sink_name, embedded):
-        sink_args = self._sink_args(sink_name, include_extra=not embedded)
-        if embedded:
-            sink_args.append("name=receiver_sink")
+    def _udp_pipeline_description(self, sink_name):
+        sink_args = self._sink_args(sink_name)
         parts = [
             "udpsrc", "name=receiver_source",
             'caps="application/x-rtp,media=video,encoding-name=H264,payload=96,clock-rate=90000"', "!",
@@ -447,15 +264,10 @@ class ReceiverController(QObject):
             PARSED_H264_CAPS, "!", *COMPRESSED_QUEUE, "!", *self.decoder_args, "!",
             *RAW_DROP_QUEUE, "!", "videoconvert", "!",
         ]
-        if embedded:
-            width, height = self._receiver_surface_size()
-            parts += ["videoscale", "add-borders=false", "!",
-                      f"video/x-raw,width={width},height={height},pixel-aspect-ratio=1/1", "!",
-                      "videoconvert", "!"]
         parts += sink_args
         return " ".join(parts)
 
-    def _launch_udp_pipeline(self, host, port, generation, sink_name, embedded):
+    def _launch_udp_pipeline(self, host, port, generation, sink_name):
         self.receiver_host = host
         self.receiver_port = port
         self.attempt_started = time.monotonic()
@@ -467,18 +279,12 @@ class ReceiverController(QObject):
         udp_port = raw.getsockname()[1]
         pipeline = None
         try:
-            pipeline = Gst.parse_launch(self._udp_pipeline_description(sink_name, embedded))
+            pipeline = Gst.parse_launch(self._udp_pipeline_description(sink_name))
             source = pipeline.get_by_name("receiver_source")
             if source is None:
                 raise RuntimeError("UDP receiver source was not created")
             source.set_property("socket", _GIO.Socket.new_from_fd(raw.detach()))
             source.set_property("close-socket", True)
-            sink = pipeline.get_by_name("receiver_sink") if embedded else None
-            if embedded:
-                if sink is None:
-                    raise RuntimeError("embedded receiver sink was not created")
-                self._bind_embedded_sink(sink)
-                self.gst_video_sink = sink
             if pipeline.set_state(Gst.State.PLAYING) == Gst.StateChangeReturn.FAILURE:
                 raise RuntimeError("GStreamer refused to start UDP receiver pipeline")
             ready = _negotiate_udp(host, port, udp_port)
@@ -496,7 +302,6 @@ class ReceiverController(QObject):
         self.gst_pipeline = pipeline
         self.gst_bus = pipeline.get_bus()
         self.gst_generation = generation
-        self.embedded_pipeline_size = self._receiver_surface_size() if embedded else None
         self.gst_bus_timer.start()
         self.logAppended.emit(
             f"UDP ready: {ready.get('width', '?')}x{ready.get('height', '?')}@{ready.get('fps', '?')}; "
@@ -504,102 +309,12 @@ class ReceiverController(QObject):
         )
         self._started(pipeline, generation)
 
-    def _bind_embedded_sink(self, sink):
-        if self.video_item is None:
-            raise RuntimeError("receiver video surface is not available")
-        handle = int(self.video_item.winId())
-        sink.set_window_handle(handle)
-        if hasattr(sink, "handle_events"):
-            sink.handle_events(True)
-        self._sync_embedded_sink_geometry(sink)
-
-    def sync_video_geometry(self):
-        self._update_receiver_surface_size()
-        self._sync_embedded_sink_geometry(self.gst_video_sink)
-        self._schedule_embedded_resize_restart()
-        if not self._launch_pending_if_surface_ready():
-            self._wait_for_pending_surface_size()
-
-    def _sync_embedded_sink_geometry(self, sink):
-        if sink is None or self.video_item is None:
-            return
-        self._update_receiver_surface_size()
-        width, height = self._receiver_surface_size()
-        if (width <= 64 or height <= 64) and not self.bad_geometry_logged:
-            self.bad_geometry_logged = True
-            self.logAppended.emit(
-                f"Receiver video surface is not fullscreen-sized yet: {width}x{height}"
-            )
-        if hasattr(sink, "set_render_rectangle"):
-            sink.set_render_rectangle(0, 0, width, height)
-        if hasattr(sink, "expose"):
-            sink.expose()
-
-    def _receiver_surface_size(self):
-        return (
-            max(1, int(self.receiver_surface_width)),
-            max(1, int(self.receiver_surface_height)),
-        )
-
-    def _update_receiver_surface_size(self):
-        if self.video_item is None:
-            return False
-        try:
-            width = max(1, int(self.video_item.width()))
-            height = max(1, int(self.video_item.height()))
-        except (TypeError, ValueError):
-            width = height = 0
-        self.receiver_surface_width = width
-        self.receiver_surface_height = height
-        return self._receiver_surface_ready(width, height)
-
-    def _receiver_surface_ready(self, width=None, height=None):
-        width = self.receiver_surface_width if width is None else width
-        height = self.receiver_surface_height if height is None else height
-        return width >= MIN_EMBEDDED_SURFACE_SIZE and height >= MIN_EMBEDDED_SURFACE_SIZE
-
-    def _schedule_embedded_resize_restart(self):
-        if (
-            self.gst_pipeline is None
-            or self.video_item is None
-            or self.embedded_pipeline_size is None
-            or self.resize_restart_used
-            or self.stopping
-            or not self._receiver_surface_ready()
-        ):
-            return
-        width, height = self._receiver_surface_size()
-        old_width, old_height = self.embedded_pipeline_size
-        changed = (
-            abs(width - old_width) >= RESIZE_RESTART_THRESHOLD
-            or abs(height - old_height) >= RESIZE_RESTART_THRESHOLD
-        )
-        if changed and not self.resize_restart_timer.isActive():
-            self.resize_restart_timer.start(150)
-
-    def _restart_embedded_for_resize(self, generation=None):
-        generation = self.generation if generation is None else generation
-        if (
-            generation != self.generation
-            or self.stopping
-            or self.gst_pipeline is None
-            or self.video_item is None
-            or self.resize_restart_used
-            or not self._receiver_surface_ready()
-        ):
-            return
-        self.resize_restart_used = True
-        self.logAppended.emit(
-            "Receiver surface size changed; restarting embedded receiver pipeline."
-        )
-        self._launch_embedded_pipeline(self.receiver_host, self.receiver_port, generation)
-
     def _launch_external_pipeline(self, host, port, generation=None):
         generation = self.generation if generation is None else generation
         if self.stopping or generation != self.generation:
             return
         if self.udp_transport:
-            return self._launch_udp_pipeline(host, port, generation, self.sink, False)
+            return self._launch_udp_pipeline(host, port, generation, self.sink)
         self.receiver_host = host
         self.receiver_port = port
         self.attempt_started = time.monotonic()
@@ -626,23 +341,17 @@ class ReceiverController(QObject):
             "videoconvert", "!",
             *self._sink_args(self.sink),
         ]
-        if self.video_item is not None and not self.should_use_embedded_window():
-            self.logAppended.emit(
-                "Using external fullscreen receiver sink on Wayland; "
-                "embedded receiver can render tiny or crash there."
-            )
-        self.logAppended.emit(f"Decoder: {self.decoder_label}; sink: {self.sink}")
+        self.logAppended.emit(
+            f"Decoder: {self.decoder_label}; standalone sink: {self.sink}"
+        )
         self.process.start("gst-launch-1.0", args)
 
     def _sink_candidates(self):
         candidates = []
         session = os.environ.get("XDG_SESSION_TYPE", "").lower()
         if session == "wayland" or os.environ.get("WAYLAND_DISPLAY"):
-            if self._prefer_windowless_external_sink():
-                candidates.append("waylandsink")
+            candidates.append("waylandsink")
             candidates.append("glimagesink")
-            if not self._prefer_windowless_external_sink():
-                candidates.append("waylandsink")
         else:
             candidates.append("glimagesink")
         if session == "x11" or os.environ.get("DISPLAY"):
@@ -658,14 +367,9 @@ class ReceiverController(QObject):
                 available.append(sink)
         return available or ["autovideosink"]
 
-    def _prefer_windowless_external_sink(self):
-        app = QGuiApplication.instance()
-        return isinstance(app, QGuiApplication)
-
-    def _sink_args(self, sink, include_extra=True):
+    def _sink_args(self, sink):
         props = dict(SINK_PROPS)
-        if include_extra:
-            props.update(SINK_EXTRA_PROPS.get(sink, {}))
+        props.update(SINK_EXTRA_PROPS.get(sink, {}))
         args = [sink]
         for name, value in props.items():
             if _gst_has_property(sink, name):
@@ -749,18 +453,20 @@ class ReceiverController(QObject):
                 self.logAppended.emit(f"Receiver pipeline error: {error.message}")
                 if debug:
                     self.logAppended.emit(debug)
-                self._embedded_finished(1, generation)
+                self._gst_finished(1, generation)
                 break
             if message.type == Gst.MessageType.EOS:
-                self._embedded_finished(0, generation)
+                self._gst_finished(0, generation)
                 break
             if message.type == Gst.MessageType.NEW_CLOCK and not self.stable:
                 self._mark_stable(generation, self.gst_pipeline)
 
-    def _embedded_finished(self, code, generation):
+    def _gst_finished(self, code, generation):
         pipeline = self.gst_pipeline
-        self._finished(code, None, pipeline, generation)
+        if pipeline is None or generation != self.generation:
+            return
         self._stop_gst_pipeline()
+        self._handle_finished(code, generation)
 
     def _read_pipeline(self, process=None, generation=None):
         process = self.process if process is None else process
@@ -789,6 +495,9 @@ class ReceiverController(QObject):
             or (process is not self.process and process is not self.gst_pipeline)
         ):
             return
+        self._handle_finished(code, generation)
+
+    def _handle_finished(self, code, generation):
         self.logAppended.emit(f"Receiver process exited (code {code})")
         self.stable_timer.stop()
         elapsed = time.monotonic() - self.attempt_started
@@ -830,16 +539,11 @@ class ReceiverController(QObject):
         self.stable = False
         self.stable_timer.stop()
         self.retry_timer.stop()
-        self.surface_timer.stop()
-        self.pending_launch = None
         self._stop_gst_pipeline()
         stop_processes(self.process)
         self.process = None
         self.retry_pending = False
         self.pipeline_fallback_used = False
-        self.resize_restart_used = False
-        self.receiver_surface_width = self.receiver_surface_height = 0
-        self.embedded_pipeline_size = None
         self.stable_generation = self.stable_process = self.retry_generation = None
         kill_patterns("gst-launch-1.0.*tcpclientsrc")
         self._uninhibit_sleep()
@@ -851,8 +555,6 @@ class ReceiverController(QObject):
         self.gst_pipeline = None
         self.gst_bus = None
         self.gst_generation = None
-        self.gst_video_sink = None
-        self.embedded_pipeline_size = None
         if pipeline is None:
             return
         try:

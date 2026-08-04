@@ -474,244 +474,24 @@ class ReceiverControllerTest(unittest.TestCase):
         self.assertIn("force-aspect-ratio=false", args)
         self.assertIn("port=7114", args)
 
-    def test_embedded_pipeline_uses_video_overlay_sink(self):
+    def test_udp_pipeline_uses_standalone_fullscreen_wayland_sink(self):
         controller = ReceiverController("kde", Mock())
         controller.decoder_args = ["avdec_h264"]
-        controller.receiver_surface_width = 1920
-        controller.receiver_surface_height = 1080
         with patch(
             "monitorize.desktop.receiver_controller._gst_has_property",
             return_value=True,
         ):
-            description = controller._embedded_pipeline_description(
-                "10.0.0.2", 7110, "glimagesink"
-            )
-        self.assertIn("glimagesink", description)
-        self.assertIn("name=receiver_sink", description)
-        self.assertIn("videoconvert", description)
-        self.assertIn("videoscale add-borders=false", description)
-        self.assertIn(
-            "video/x-raw,width=1920,height=1080,pixel-aspect-ratio=1/1",
-            description,
-        )
-        self.assertIn("force-aspect-ratio=false", description)
-        parts = description.split()
-        decoder_index = parts.index("avdec_h264")
-        first_queue_index = parts.index("queue")
-        self.assertLess(first_queue_index, decoder_index)
-        self.assertNotIn("leaky=downstream", parts[first_queue_index:decoder_index])
-        self.assertIn("leaky=downstream", parts[decoder_index:])
-
-    def test_embedded_sink_prefers_wayland_on_wayland(self):
-        controller = ReceiverController("kde", Mock())
-        with (
-            patch.dict(os.environ, {"XDG_SESSION_TYPE": "wayland", "WAYLAND_DISPLAY": "wayland-0"}, clear=True),
-            patch(
-                "monitorize.desktop.receiver_controller.gst_has_element",
-                side_effect=lambda name: name in {"waylandsink", "glimagesink"},
-            ),
-        ):
-            self.assertEqual(controller._embedded_sink_name(), "waylandsink")
-
-    def test_wayland_receivers_default_to_external_sink(self):
-        for de in ("kde", "gnome", "hyprland"):
-            controller = ReceiverController(de, Mock())
-            with (
-                patch.dict(os.environ, {"XDG_SESSION_TYPE": "wayland", "WAYLAND_DISPLAY": "wayland-0"}, clear=True),
-                patch(
-                    "monitorize.desktop.receiver_controller.gst_has_element",
-                    side_effect=lambda name: name in {"waylandsink", "glimagesink"},
-                ),
-            ):
-                self.assertFalse(controller.should_use_embedded_window(), de)
-
-    def test_wayland_receiver_can_force_embedded_for_debugging(self):
-        controller = ReceiverController("gnome", Mock())
-        with (
-            patch.dict(os.environ, {
-                "XDG_SESSION_TYPE": "wayland",
-                "WAYLAND_DISPLAY": "wayland-0",
-                "MONITORIZE_RECEIVER_EMBEDDED": "1",
-            }, clear=True),
-            patch(
-                "monitorize.desktop.receiver_controller.gst_has_element",
-                side_effect=lambda name: name in {"waylandsink", "glimagesink"},
-            ),
-        ):
-            self.assertTrue(controller.should_use_embedded_window())
-
-    def test_wayland_receiver_launches_external_even_with_video_item(self):
-        controller = ReceiverController("gnome", Mock())
-        controller.decoder_args = ["avdec_h264"]
-        controller.decoder_label = "Software"
-        controller.video_item = Mock()
-        controller.video_item.width.return_value = 1920
-        controller.video_item.height.return_value = 1080
-        with (
-            patch.dict(os.environ, {"XDG_SESSION_TYPE": "wayland", "WAYLAND_DISPLAY": "wayland-0"}, clear=True),
-            patch(
-                "monitorize.desktop.receiver_controller.gst_has_element",
-                side_effect=lambda name: name in {"waylandsink", "glimagesink"},
-            ),
-            patch.object(controller, "_launch_external_pipeline") as external,
-            patch.object(controller, "_launch_embedded_pipeline") as embedded,
-        ):
-            controller._launch_pipeline("10.0.0.2", 7110, generation=0)
-        embedded.assert_not_called()
-        external.assert_called_once_with("10.0.0.2", 7110, 0)
-
-    def test_embedded_wayland_sink_does_not_request_standalone_fullscreen(self):
-        controller = ReceiverController("kde", Mock())
-        controller.decoder_args = ["avdec_h264"]
-        controller.receiver_surface_width = 1920
-        controller.receiver_surface_height = 1080
-        with patch(
-            "monitorize.desktop.receiver_controller._gst_has_property",
-            return_value=True,
-        ):
-            description = controller._embedded_pipeline_description(
-                "10.0.0.2", 7110, "waylandsink"
-            )
+            description = controller._udp_pipeline_description("waylandsink")
         self.assertIn("waylandsink", description)
-        self.assertNotIn("fullscreen=true", description)
-        self.assertIn("force-aspect-ratio=false", description)
+        self.assertIn("fullscreen=true", description)
+        self.assertNotIn("receiver_sink", description)
+        self.assertNotIn("videoscale", description)
 
-    def test_receiver_waits_for_embedded_video_surface(self):
-        controller = ReceiverController("kde", Mock())
-        controller.decoder_args = ["avdec_h264"]
-        controller.decoder_label = "Software"
-        with (
-            patch.object(controller, "_should_wait_for_embedded_surface", return_value=True),
-            patch.object(controller, "_launch_external_pipeline") as external,
-        ):
+    def test_receiver_always_launches_standalone_pipeline(self):
+        controller = ReceiverController("gnome", Mock())
+        with patch.object(controller, "_launch_external_pipeline") as launch:
             controller._launch_pipeline("10.0.0.2", 7110, generation=0)
-        external.assert_not_called()
-        self.assertEqual(controller.pending_launch, ("10.0.0.2", 7110, 0))
-        self.assertTrue(controller.surface_timer.isActive())
-        controller.surface_timer.stop()
-
-    def test_receiver_video_item_starts_pending_pipeline(self):
-        controller = ReceiverController("kde", Mock())
-        controller.pending_launch = ("10.0.0.2", 7110, 3)
-        controller.surface_timer.start(1000)
-        item = Mock()
-        item.width.return_value = 1920
-        item.height.return_value = 1080
-        with patch.object(controller, "_launch_pipeline") as launch:
-            controller.set_video_item(item)
-        launch.assert_called_once_with("10.0.0.2", 7110, 3)
-        self.assertEqual(controller.receiver_surface_width, 1920)
-        self.assertEqual(controller.receiver_surface_height, 1080)
-        self.assertIsNone(controller.pending_launch)
-        self.assertFalse(controller.surface_timer.isActive())
-
-    def test_receiver_video_item_waits_when_surface_is_tiny(self):
-        controller = ReceiverController("kde", Mock())
-        controller.pending_launch = ("10.0.0.2", 7110, 3)
-        item = Mock()
-        item.width.return_value = 1
-        item.height.return_value = 1080
-        with patch.object(controller, "_launch_pipeline") as launch:
-            controller.set_video_item(item)
-        launch.assert_not_called()
-        self.assertEqual(controller.pending_launch, ("10.0.0.2", 7110, 3))
-        self.assertTrue(controller.surface_timer.isActive())
-        controller.surface_timer.stop()
-
-    def test_embedded_pipeline_uses_same_scaling_for_primary_and_third_ports(self):
-        controller = ReceiverController("kde", Mock())
-        controller.decoder_args = ["avdec_h264"]
-        controller.receiver_surface_width = 1366
-        controller.receiver_surface_height = 768
-        primary = controller._embedded_pipeline_description(
-            "10.0.0.2", 7110, "waylandsink"
-        )
-        third = controller._embedded_pipeline_description(
-            "10.0.0.2", 7114, "waylandsink"
-        )
-        scaled_caps = "video/x-raw,width=1366,height=768,pixel-aspect-ratio=1/1"
-        self.assertIn("port=7110", primary)
-        self.assertIn("port=7114", third)
-        self.assertIn(scaled_caps, primary)
-        self.assertIn(scaled_caps, third)
-
-    def test_embedded_video_geometry_syncs_render_rectangle(self):
-        controller = ReceiverController("kde", Mock())
-        video_item = Mock()
-        video_item.width.return_value = 1920
-        video_item.height.return_value = 1080
-        sink = Mock()
-        controller.video_item = video_item
-        controller.gst_video_sink = sink
-        controller.sync_video_geometry()
-        sink.set_render_rectangle.assert_called_once_with(0, 0, 1920, 1080)
-        sink.expose.assert_called_once()
-
-    def test_embedded_video_geometry_clamps_zero_size(self):
-        controller = ReceiverController("kde", Mock())
-        video_item = Mock()
-        video_item.width.return_value = 0
-        video_item.height.return_value = 0
-        sink = Mock()
-        controller.video_item = video_item
-        controller._sync_embedded_sink_geometry(sink)
-        sink.set_render_rectangle.assert_called_once_with(0, 0, 1, 1)
-
-    def test_embedded_video_geometry_logs_tiny_surface_once(self):
-        controller = ReceiverController("kde", Mock())
-        video_item = Mock()
-        video_item.width.return_value = 32
-        video_item.height.return_value = 24
-        sink = Mock()
-        emitted = []
-        controller.video_item = video_item
-        controller.logAppended.connect(emitted.append)
-        controller._sync_embedded_sink_geometry(sink)
-        controller._sync_embedded_sink_geometry(sink)
-        self.assertEqual(len(emitted), 1)
-        self.assertIn("32x24", emitted[0])
-
-    def test_receiver_resize_schedules_one_embedded_pipeline_restart(self):
-        controller = ReceiverController("kde", Mock())
-        video_item = Mock()
-        video_item.width.return_value = 1920
-        video_item.height.return_value = 1080
-        sink = Mock()
-        controller.video_item = video_item
-        controller.gst_video_sink = sink
-        controller.gst_pipeline = object()
-        controller.embedded_pipeline_size = (1280, 720)
-        controller.resize_restart_timer.start = Mock()
-        controller.sync_video_geometry()
-        controller.resize_restart_timer.start.assert_called_once_with(150)
-
-    def test_receiver_resize_restart_relaunches_embedded_pipeline_once(self):
-        controller = ReceiverController("kde", Mock())
-        controller.generation = 5
-        controller.receiver_host = "10.0.0.2"
-        controller.receiver_port = 7110
-        controller.video_item = Mock()
-        controller.receiver_surface_width = 1920
-        controller.receiver_surface_height = 1080
-        controller.gst_pipeline = object()
-        with patch.object(controller, "_launch_embedded_pipeline") as launch:
-            controller._restart_embedded_for_resize(5)
-            controller._restart_embedded_for_resize(5)
-        launch.assert_called_once_with("10.0.0.2", 7110, 5)
-        self.assertTrue(controller.resize_restart_used)
-
-    def test_embedded_pipeline_can_mark_receiver_stable(self):
-        controller = ReceiverController("kde", Mock())
-        controller.generation = 6
-        controller.host = "10.0.0.2"
-        controller.port = 7110
-        pipeline = object()
-        controller.gst_pipeline = pipeline
-        with patch.object(controller, "_inhibit_sleep"):
-            controller._mark_stable(6, pipeline)
-        self.assertTrue(controller.stable)
-        self.assertTrue(controller.receiving)
-        self.assertEqual(controller.status, "Receiving from 10.0.0.2:7110")
+        launch.assert_called_once_with("10.0.0.2", 7110, 0)
 
     def test_receiver_connect_marks_session_active_before_stable(self):
         controller = ReceiverController("kde", Mock())
@@ -744,7 +524,7 @@ class ReceiverControllerTest(unittest.TestCase):
         self.assertIn("automatic-request-sync-points=true", args)
         self.assertIn("max-threads=2", args)
 
-    def test_sink_selection_prefers_gl_before_wayland_fallback(self):
+    def test_sink_selection_prefers_fullscreen_wayland_sink(self):
         controller = ReceiverController("kde", Mock())
         with (
             patch.dict(os.environ, {"XDG_SESSION_TYPE": "wayland", "WAYLAND_DISPLAY": "wayland-0"}, clear=True),
@@ -755,7 +535,7 @@ class ReceiverControllerTest(unittest.TestCase):
         ):
             self.assertEqual(
                 controller._sink_candidates(),
-                ["glimagesink", "waylandsink", "autovideosink"],
+                ["waylandsink", "glimagesink", "autovideosink"],
             )
 
     def test_sink_selection_prefers_gl_before_x11_fallbacks(self):
@@ -816,80 +596,7 @@ class ReceiverControllerTest(unittest.TestCase):
         self.assertTrue(controller.pipeline_fallback_used)
 
 
-class ReceiverVideoWindowTest(unittest.TestCase):
-    def test_receiver_video_window_fills_native_surface_from_window_size(self):
-        from monitorize.desktop.main_window import ReceiverVideoWindow
-
-        backend = Mock()
-        window = Mock()
-        window.backend = backend
-        window.width.return_value = 1920
-        window.height.return_value = 1080
-        window.video_surface = Mock()
-        ReceiverVideoWindow.sync_video_geometry(window)
-        window.video_surface.setGeometry.assert_called_once_with(0, 0, 1920, 1080)
-        backend.receiver.sync_video_geometry.assert_called_once()
-
-    def test_receiver_video_window_waits_for_valid_surface_before_binding(self):
-        from monitorize.desktop.main_window import ReceiverVideoWindow
-
-        backend = Mock()
-        backend.isReceiving = True
-        window = Mock()
-        window.backend = backend
-        window.SYNC_DELAYS_MS = ReceiverVideoWindow.SYNC_DELAYS_MS
-        window.isVisible.return_value = True
-        window.video_surface = Mock()
-        window.video_surface.width.return_value = 1
-        window.video_surface.height.return_value = 1080
-        window.sync_video_geometry = Mock()
-        with patch("monitorize.desktop.main_window.QTimer.singleShot") as single_shot:
-            ReceiverVideoWindow._bind_receiver_video_surface(window)
-        backend.setReceiverVideoItem.assert_not_called()
-        single_shot.assert_called_once()
-
-    def test_receiver_video_window_binds_and_schedules_geometry_resyncs(self):
-        from monitorize.desktop.main_window import ReceiverVideoWindow
-
-        backend = Mock()
-        backend.isReceiving = True
-        window = Mock()
-        window.backend = backend
-        window.SYNC_DELAYS_MS = ReceiverVideoWindow.SYNC_DELAYS_MS
-        window.isVisible.return_value = True
-        window.video_surface = Mock()
-        window.video_surface.width.return_value = 1920
-        window.video_surface.height.return_value = 1080
-        window.sync_video_geometry = Mock()
-        with patch("monitorize.desktop.main_window.QTimer.singleShot") as single_shot:
-            ReceiverVideoWindow._bind_receiver_video_surface(window)
-        backend.setReceiverVideoItem.assert_called_once_with(window.video_surface)
-        self.assertEqual(single_shot.call_count, len(ReceiverVideoWindow.SYNC_DELAYS_MS))
-
-    def test_monitorize_window_uses_dedicated_receiver_window(self):
-        from monitorize.desktop.main_window import MonitorizeWindow
-
-        window = Mock()
-        window.backend.receiver.should_use_embedded_window.return_value = True
-        MonitorizeWindow._sync_receiver_fullscreen(window, True)
-        window.receiver_video_window.show_receiver.assert_called_once()
-        window.showFullScreen.assert_not_called()
-        window.content_stack.setCurrentWidget.assert_not_called()
-
-    def test_monitorize_window_does_not_cover_external_receiver_sink(self):
-        from monitorize.desktop.main_window import MonitorizeWindow
-
-        window = Mock()
-        window.backend.receiver.should_use_embedded_window.return_value = False
-        MonitorizeWindow._sync_receiver_fullscreen(window, True)
-        window.receiver_video_window.show_receiver.assert_not_called()
-
-    def test_monitorize_window_hides_dedicated_receiver_window_on_stop(self):
-        from monitorize.desktop.main_window import MonitorizeWindow
-
-        window = Mock()
-        MonitorizeWindow._sync_receiver_fullscreen(window, False)
-        window.receiver_video_window.hide_receiver.assert_called_once()
+class ReceiverLifecycleTest(unittest.TestCase):
 
     def test_immediate_eos_schedules_retry(self):
         controller = ReceiverController("kde", Mock())
@@ -3902,27 +3609,14 @@ class BackendFacadeTest(unittest.TestCase):
             qml,
         )
 
-    def test_receiver_disconnect_returns_to_receiver_setup_page(self):
-        qml_path = (
-            Path(__file__).resolve().parents[1]
-            / "monitorize"
-            / "qml"
-            / "main.qml"
-        )
-        qml = qml_path.read_text(encoding="utf-8")
-        self.assertIn(
-            'property string lastReceiverSetupPage: "ReceiverSetupPage.qml"',
-            qml,
-        )
-        self.assertIn('stack.lastReceiverSetupPage = "ReceiverSetupPage.qml"', qml)
-        self.assertIn(
-            "stack.replace(stack.lastReceiverSetupPage, StackView.PopTransition)",
-            qml,
-        )
-        self.assertNotIn(
-            'stack.replace("MainMenuPage.qml", StackView.PopTransition)',
-            qml,
-        )
+    def test_receiver_stays_on_setup_page_with_disconnect_control(self):
+        qml_dir = Path(__file__).resolve().parents[1] / "monitorize" / "qml"
+        main_qml = (qml_dir / "main.qml").read_text(encoding="utf-8")
+        setup_qml = (qml_dir / "ReceiverSetupPage.qml").read_text(encoding="utf-8")
+        self.assertNotIn("ReceiverStreamingPage.qml", main_qml)
+        self.assertIn('backend.isReceiving ? "Disconnect"', setup_qml)
+        self.assertIn("backend.stopReceiving()", setup_qml)
+        self.assertFalse((qml_dir / "ReceiverStreamingPage.qml").exists())
 
     def test_settings_button_uses_svg_icon(self):
         qml_dir = Path(__file__).resolve().parents[1] / "monitorize" / "qml"
