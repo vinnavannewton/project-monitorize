@@ -446,6 +446,7 @@ class ValidationTest(unittest.TestCase):
 class ReceiverControllerTest(unittest.TestCase):
     def test_pipeline_preserves_compressed_frames_and_drops_only_after_decode(self):
         controller = ReceiverController("kde", Mock())
+        controller.decoder = "Hardware"
         controller.decoder_args = ["vah264dec"]
         controller.decoder_label = "VA-API"
         controller.sink = "xvimagesink"
@@ -456,11 +457,17 @@ class ReceiverControllerTest(unittest.TestCase):
                 "monitorize.desktop.receiver_controller._gst_has_property",
                 return_value=True,
             ),
+            patch(
+                "monitorize.desktop.receiver_controller.gst_has_element",
+                side_effect=lambda name: name == "vapostproc",
+            ),
         ):
             controller._launch_pipeline("10.0.0.2", 7114)
         command, args = process.start.call_args.args
         self.assertEqual(command, "gst-launch-1.0")
         self.assertIn("vah264dec", args)
+        self.assertIn("vapostproc", args)
+        self.assertIn("video/x-raw,format=NV12", args)
         self.assertIn("disable-passthrough=true", args)
         self.assertIn("config-interval=-1", args)
         self.assertIn("video/x-h264,stream-format=byte-stream,alignment=au", args)
@@ -524,6 +531,41 @@ class ReceiverControllerTest(unittest.TestCase):
         self.assertIn("automatic-request-sync-points=true", args)
         self.assertIn("max-threads=2", args)
 
+    def test_hardware_decoder_enables_recovery_when_supported(self):
+        controller = ReceiverController("kde", Mock())
+        supported = {
+            "discard-corrupted-frames",
+            "automatic-request-sync-points",
+            "automatic-request-sync-point-flags",
+            "min-force-key-unit-interval",
+            "qos",
+            "max-errors",
+        }
+        with patch(
+            "monitorize.desktop.receiver_controller._gst_has_property",
+            side_effect=lambda _element, prop: prop in supported,
+        ):
+            args = controller._hardware_decoder_args("vah264dec")
+        self.assertEqual(args[0], "vah264dec")
+        self.assertIn("discard-corrupted-frames=true", args)
+        self.assertIn("automatic-request-sync-points=true", args)
+        self.assertIn(
+            "automatic-request-sync-point-flags=corrupt-output+discard-input",
+            args,
+        )
+        self.assertIn("min-force-key-unit-interval=250000000", args)
+        self.assertIn("qos=true", args)
+        self.assertIn("max-errors=-1", args)
+
+    def test_hardware_decoder_skips_unsupported_recovery_properties(self):
+        controller = ReceiverController("kde", Mock())
+        with patch(
+            "monitorize.desktop.receiver_controller._gst_has_property",
+            side_effect=lambda _element, prop: prop == "qos",
+        ):
+            args = controller._hardware_decoder_args("vaapih264dec")
+        self.assertEqual(args, ["vaapih264dec", "qos=true"])
+
     def test_sink_selection_prefers_fullscreen_wayland_sink(self):
         controller = ReceiverController("kde", Mock())
         with (
@@ -571,9 +613,10 @@ class ReceiverControllerTest(unittest.TestCase):
         self.assertIn("fullscreen=true", args)
         self.assertIn("force-aspect-ratio=false", args)
 
-    def test_immediate_receiver_failure_retries_once_with_fallback_pipeline(self):
+    def test_immediate_hardware_failure_retries_next_sink_before_software(self):
         controller = ReceiverController("kde", Mock())
         controller.generation = 4
+        controller.decoder = "Hardware"
         controller.host = "10.0.0.2"
         controller.port = 7110
         controller.receiver_host = "10.0.0.2"
@@ -581,8 +624,67 @@ class ReceiverControllerTest(unittest.TestCase):
         controller.sink_candidates = ["glimagesink", "autovideosink"]
         controller.sink_index = 0
         controller.sink = "glimagesink"
+        controller.hardware_decoder_candidates = ["vah264dec"]
+        controller.hardware_decoder_index = 0
         controller.decoder_args = ["vah264dec"]
         controller.decoder_label = "VA-API"
+        controller.process = process_mock()
+        controller.attempt_started = __import__("time").monotonic()
+        with (
+            patch.object(controller, "_launch_external_pipeline") as launch,
+            patch.object(controller, "_software_decoder_args", return_value=["avdec_h264"]) as software,
+        ):
+            controller._finished(1, None, controller.process, generation=4)
+        launch.assert_called_once_with("10.0.0.2", 7110, 4)
+        self.assertEqual(controller.sink, "autovideosink")
+        self.assertEqual(controller.decoder_args[0], "vah264dec")
+        self.assertFalse(controller.pipeline_fallback_used)
+        software.assert_not_called()
+
+    def test_hardware_failure_tries_alternate_decoder_before_software(self):
+        controller = ReceiverController("kde", Mock())
+        controller.generation = 4
+        controller.decoder = "Hardware"
+        controller.host = "10.0.0.2"
+        controller.port = 7110
+        controller.receiver_host = "10.0.0.2"
+        controller.receiver_port = 7110
+        controller.sink_candidates = ["glimagesink"]
+        controller.sink_index = 0
+        controller.sink = "glimagesink"
+        controller.hardware_decoder_candidates = ["vah264dec", "vaapih264dec"]
+        controller.hardware_decoder_index = 0
+        controller.decoder_args = ["vah264dec"]
+        controller.decoder_label = "VA-API vah264dec"
+        controller.process = process_mock()
+        controller.attempt_started = __import__("time").monotonic()
+        with (
+            patch.object(controller, "_launch_external_pipeline") as launch,
+            patch.object(controller, "_software_decoder_args", return_value=["avdec_h264"]) as software,
+        ):
+            controller._finished(1, None, controller.process, generation=4)
+        launch.assert_called_once_with("10.0.0.2", 7110, 4)
+        self.assertEqual(controller.sink, "glimagesink")
+        self.assertEqual(controller.decoder_args[0], "vaapih264dec")
+        self.assertEqual(controller.decoder_label, "VA-API vaapih264dec")
+        self.assertFalse(controller.pipeline_fallback_used)
+        software.assert_not_called()
+
+    def test_hardware_failure_uses_software_after_va_paths_are_exhausted(self):
+        controller = ReceiverController("kde", Mock())
+        controller.generation = 4
+        controller.decoder = "Hardware"
+        controller.host = "10.0.0.2"
+        controller.port = 7110
+        controller.receiver_host = "10.0.0.2"
+        controller.receiver_port = 7110
+        controller.sink_candidates = ["glimagesink"]
+        controller.sink_index = 0
+        controller.sink = "glimagesink"
+        controller.hardware_decoder_candidates = ["vah264dec"]
+        controller.hardware_decoder_index = 0
+        controller.decoder_args = ["vah264dec"]
+        controller.decoder_label = "VA-API vah264dec"
         controller.process = process_mock()
         controller.attempt_started = __import__("time").monotonic()
         with (
@@ -591,7 +693,7 @@ class ReceiverControllerTest(unittest.TestCase):
         ):
             controller._finished(1, None, controller.process, generation=4)
         launch.assert_called_once_with("10.0.0.2", 7110, 4)
-        self.assertEqual(controller.sink, "autovideosink")
+        self.assertEqual(controller.decoder, "Software")
         self.assertEqual(controller.decoder_args, ["avdec_h264"])
         self.assertTrue(controller.pipeline_fallback_used)
 
