@@ -13,6 +13,8 @@ Item {
     property bool loadingSettings: true
     property int duplicatePresetIndex: -1
     property bool syncingSecondBitrate: false
+    property bool secondAutoBitrate: true
+    readonly property int optionChipWidth: 150
     readonly property int actionButtonWidth: 160
     readonly property int actionButtonHeight: 38
     readonly property int streamInfoColumns: 3
@@ -78,14 +80,15 @@ Item {
         if (backend.isWifiStreaming && Number(resolution[0]) > 0 &&
                 Number(resolution[1]) > 0 && Number(page.secondFpsValue()) > 0) {
             page.setSecondBitrateMbps(
-                page.secondRecommendedBitrateKbps() / 1000, true
+                page.secondRecommendedBitrateKbps() / 1000, true, true
             )
         } else {
             page.saveSecondDisplaySettings()
         }
     }
 
-    function setSecondBitrateMbps(value, save) {
+    function setSecondBitrateMbps(value, save, autoSelected) {
+        if (autoSelected !== undefined) page.secondAutoBitrate = autoSelected
         page.syncingSecondBitrate = true
         let mbps = page.clampMbps(value)
         s2BitrateSlider.value = Math.min(50, mbps)
@@ -131,7 +134,11 @@ Item {
                 s2CustomFps.text = s2["custom_fps"] || "60";
             }
 
-            page.setSecondBitrateMbps(Number(s2["bitrate"] || "8000") / 1000, false);
+            let savedMbps = Number(s2["bitrate"] || "8000") / 1000;
+            page.setSecondBitrateMbps(
+                savedMbps, false,
+                Math.abs(savedMbps - page.secondRecommendedBitrateKbps() / 1000) < 0.001
+            );
 
             let encIdx = s2EncoderCombo.find(s2["encoder"] || "Software (CPU / x264enc)");
             s2EncoderCombo.currentIndex = encIdx !== -1 ? encIdx : 2;
@@ -584,7 +591,7 @@ Item {
         modal: true
         x: (page.width - width) / 2
         y: (page.height - height) / 2
-        width: Math.min(page.width - 40, 560)
+        width: Math.min(page.width - 40, 720)
         height: popupContent.implicitHeight + 60
         padding: 0
 
@@ -637,6 +644,7 @@ Item {
                 Text { text: "Resolution:"; color: theme.cardTextSecondary; font.pixelSize: 13 }
                 CustomComboBox {
                     id: s2ResCombo
+                    Layout.preferredWidth: page.optionChipWidth
                     model: ["1280x720 (16:9)", "1280x800 (16:10)", "1920x1080 (16:9)", "1920x1200 (16:10)", "2560x1440 (16:9)", "2560x1600 (16:10)", "Custom..."]
                     currentIndex: 2
                     onActivated: page.secondResolutionOrFpsChanged()
@@ -679,6 +687,7 @@ Item {
                 Text { text: "FPS:"; color: theme.cardTextSecondary; font.pixelSize: 13 }
                 CustomComboBox {
                     id: s2FpsCombo
+                    Layout.preferredWidth: page.optionChipWidth
                     model: ["30", "60", "90", "120", "Custom..."]
                     currentIndex: 1
                     onActivated: page.secondResolutionOrFpsChanged()
@@ -720,7 +729,7 @@ Item {
                         value: 8
                         snapMode: Slider.SnapAlways
                         Layout.preferredWidth: 180
-                        onMoved: page.setSecondBitrateMbps(value, true)
+                        onMoved: page.setSecondBitrateMbps(value, true, false)
                     }
 
                     CustomTextField {
@@ -735,40 +744,32 @@ Item {
                         }
                         onTextEdited: {
                             if (page.syncingSecondBitrate) return
+                            page.secondAutoBitrate = false
                             let mbps = parseFloat(text)
                             if (!isNaN(mbps)) {
                                 s2BitrateSlider.value = Math.min(50, page.clampMbps(mbps))
                                 page.saveSecondDisplaySettings()
                             }
                         }
-                        onEditingFinished: page.setSecondBitrateMbps(parseFloat(text), true)
+                        onEditingFinished: page.setSecondBitrateMbps(parseFloat(text), true, false)
                     }
 
                     Text {
                         text: "Mbps"
                         color: theme.cardTextMuted
                         font.pixelSize: 12
-                    }
-                }
-
-                Text { text: ""; visible: backend.isWifiStreaming }
-                RowLayout {
-                    visible: backend.isWifiStreaming
-                    spacing: 10
-
-                    Text {
-                        text: "Auto bitrate: " +
-                            page.formatMbps(page.secondRecommendedBitrateKbps() / 1000) + " Mbps"
-                        color: theme.cardTextMuted
-                        font.pixelSize: 11
+                        visible: !backend.isWifiStreaming
                     }
 
                     CustomButton {
                         text: "Use auto"
-                        implicitWidth: 132
+                        visible: backend.isWifiStreaming
+                        primary: page.secondAutoBitrate
+                        implicitWidth: page.optionChipWidth
                         implicitHeight: 30
+                        Layout.preferredWidth: page.optionChipWidth
                         onClicked: page.setSecondBitrateMbps(
-                            page.secondRecommendedBitrateKbps() / 1000, true
+                            page.secondRecommendedBitrateKbps() / 1000, true, true
                         )
                     }
                 }
@@ -779,26 +780,19 @@ Item {
                     font.pixelSize: 13
                     visible: backend.isWifiStreaming
                 }
-                ColumnLayout {
+                ChoiceChips {
+                    id: s2FecCombo
                     visible: backend.isWifiStreaming
-                    spacing: 4
-
-                    ChoiceChips {
-                        id: s2FecCombo
-                        model: ["Off", "ULPFEC 10%"]
-                        currentIndex: 0
-                        onActivated: page.saveSecondDisplaySettings()
-                    }
-                    Text {
-                        text: "Reserves 10% of this display's bitrate for recovery."
-                        color: theme.cardTextMuted
-                        font.pixelSize: 10
-                    }
+                    chipWidth: page.optionChipWidth
+                    model: ["Off", "ULPFEC 10%"]
+                    currentIndex: 0
+                    onActivated: page.saveSecondDisplaySettings()
                 }
 
                 Text { text: "Encoder:"; color: theme.cardTextSecondary; font.pixelSize: 13 }
                 ChoiceChips {
                     id: s2EncoderCombo
+                    chipWidth: page.optionChipWidth
                     currentIndex: 2
                     model: [
                         "NVIDIA NVENC (nvh264enc)",
@@ -811,6 +805,7 @@ Item {
                 Text { text: "Encoder Profile:"; color: theme.cardTextSecondary; font.pixelSize: 13 }
                 ChoiceChips {
                     id: s2EncoderProfileCombo
+                    chipWidth: page.optionChipWidth
                     currentIndex: 0
                     model: ["Low Latency", "Balanced", "Quality"]
                     onActivated: page.saveSecondDisplaySettings()
@@ -820,6 +815,7 @@ Item {
                 CustomToggle {
                     id: s2TouchToggle
                     text: "Enable touch for this display"
+                    Layout.alignment: Qt.AlignLeft
                     checked: page.secondTouchEnabled
                     onToggled: {
                         page.secondTouchEnabled = checked
@@ -831,6 +827,7 @@ Item {
                 CustomToggle {
                     id: s2StylusToggle
                     text: "Enable stylus features for this display"
+                    Layout.alignment: Qt.AlignLeft
                     checked: page.secondStylusEnabled
                     onToggled: {
                         page.secondStylusEnabled = checked

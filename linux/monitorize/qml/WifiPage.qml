@@ -9,6 +9,8 @@ Item {
     property bool enableStylusFeatures: false
     property bool loadingSettings: true
     property bool syncingBitrate: false
+    property bool autoBitrate: true
+    readonly property int optionChipWidth: 150
     readonly property string returnPageSource: page.isWifi ? "WifiPage.qml" : "UsbStep2Page.qml"
     readonly property bool stylusControlsVisible: (
         backend.detectedDe === "kde"
@@ -67,13 +69,14 @@ Item {
     function resolutionOrFpsChanged() {
         if (page.isWifi && page.selectedWidth() > 0 &&
                 page.selectedHeight() > 0 && page.selectedFps() > 0) {
-            page.setBitrateMbps(page.recommendedBitrateKbps() / 1000, true)
+            page.setBitrateMbps(page.recommendedBitrateKbps() / 1000, true, true)
         } else {
             page.saveSettings()
         }
     }
 
-    function setBitrateMbps(value, save) {
+    function setBitrateMbps(value, save, autoSelected) {
+        if (autoSelected !== undefined) page.autoBitrate = autoSelected
         page.syncingBitrate = true
         let mbps = page.clampMbps(value)
         bitrateSlider.value = Math.min(50, mbps)
@@ -130,7 +133,11 @@ Item {
             customFps.text = saved["custom_fps"] || "";
         }
         
-        page.setBitrateMbps(Number(saved["bitrate"] || "16000") / 1000, false);
+        let savedMbps = Number(saved["bitrate"] || "16000") / 1000;
+        page.setBitrateMbps(
+            savedMbps, false,
+            page.isWifi && Math.abs(savedMbps - page.recommendedBitrateKbps() / 1000) < 0.001
+        );
         
         if (displayTypeCombo) {
             if (!displayTypeCombo.selectValue(saved["display_type"], true)) {
@@ -264,6 +271,7 @@ Item {
                 Text { text: "Resolution:"; color: theme.textSecondary; font.pixelSize: 14 }
                 CustomComboBox {
                     id: resCombo
+                    Layout.preferredWidth: page.optionChipWidth
                     model: ["1280x720 (16:9)", "1280x800 (16:10)", "1920x1080 (16:9)", "1920x1200 (16:10)", "2560x1440 (16:9)", "2560x1600 (16:10)", "3840x2160 (16:9)", "Custom..."]
                     onActivated: page.resolutionOrFpsChanged()
                 }
@@ -283,6 +291,7 @@ Item {
                 Text { text: "FPS:"; color: theme.textSecondary; font.pixelSize: 14 }
                 CustomComboBox {
                     id: fpsCombo
+                    Layout.preferredWidth: page.optionChipWidth
                     model: ["30", "60", "90", "120", "Custom..."]
                     onActivated: page.resolutionOrFpsChanged()
                 }
@@ -309,7 +318,7 @@ Item {
                         value: 8
                         snapMode: Slider.SnapAlways
                         Layout.preferredWidth: 240
-                        onMoved: page.setBitrateMbps(value, true)
+                        onMoved: page.setBitrateMbps(value, true, false)
                     }
 
                     CustomTextField {
@@ -324,43 +333,32 @@ Item {
                         }
                         onTextEdited: {
                             if (page.syncingBitrate) return
+                            page.autoBitrate = false
                             let mbps = parseFloat(text)
                             if (!isNaN(mbps)) {
                                 bitrateSlider.value = Math.min(50, page.clampMbps(mbps))
                                 page.saveSettings()
                             }
                         }
-                        onEditingFinished: page.setBitrateMbps(parseFloat(text), true)
+                        onEditingFinished: page.setBitrateMbps(parseFloat(text), true, false)
                     }
 
                     Text {
                         text: "Mbps"
                         color: theme.textMuted
                         font.pixelSize: 12
-                    }
-                }
-
-                Text {
-                    text: ""
-                    visible: page.isWifi
-                }
-                RowLayout {
-                    visible: page.isWifi
-                    spacing: 10
-
-                    Text {
-                        text: "Auto bitrate: " +
-                            page.formatMbps(page.recommendedBitrateKbps() / 1000) + " Mbps"
-                        color: theme.textMuted
-                        font.pixelSize: 12
+                        visible: !page.isWifi
                     }
 
                     CustomButton {
                         text: "Use auto"
-                        implicitWidth: 132
+                        visible: page.isWifi
+                        primary: page.autoBitrate
+                        implicitWidth: page.optionChipWidth
                         implicitHeight: 30
+                        Layout.preferredWidth: page.optionChipWidth
                         onClicked: page.setBitrateMbps(
-                            page.recommendedBitrateKbps() / 1000, true
+                            page.recommendedBitrateKbps() / 1000, true, true
                         )
                     }
                 }
@@ -371,21 +369,13 @@ Item {
                     font.pixelSize: 14
                     visible: page.isWifi
                 }
-                ColumnLayout {
+                ChoiceChips {
+                    id: fecCombo
                     visible: page.isWifi
-                    spacing: 4
-
-                    ChoiceChips {
-                        id: fecCombo
-                        model: ["Off", "ULPFEC 10%"]
-                        currentIndex: 0
-                        onActivated: page.saveSettings()
-                    }
-                    Text {
-                        text: "Reserves 10% of the selected bitrate for packet-loss recovery."
-                        color: theme.textMuted
-                        font.pixelSize: 11
-                    }
+                    chipWidth: page.optionChipWidth
+                    model: ["Off", "ULPFEC 10%"]
+                    currentIndex: 0
+                    onActivated: page.saveSettings()
                 }
 
                 // Display Type (only on KDE/GNOME/Hyprland)
@@ -398,6 +388,7 @@ Item {
                 ChoiceChips {
                     id: displayTypeCombo
                     visible: backend.detectedDe === "kde" || backend.detectedDe === "gnome" || backend.detectedDe === "hyprland"
+                    chipWidth: page.optionChipWidth
                     model: ["Extend", "Mirror"]
                     onActivated: page.saveSettings()
                 }
@@ -405,6 +396,7 @@ Item {
                 Text { text: "Encoder:"; color: theme.textSecondary; font.pixelSize: 14 }
                 ChoiceChips {
                     id: encoderCombo
+                    chipWidth: page.optionChipWidth
                     currentIndex: 2
                     model: [
                         "NVIDIA NVENC (nvh264enc)",
@@ -417,45 +409,37 @@ Item {
                 Text { text: "Encoder Profile:"; color: theme.textSecondary; font.pixelSize: 14 }
                 ChoiceChips {
                     id: encoderProfileCombo
+                    chipWidth: page.optionChipWidth
                     model: ["Low Latency", "Balanced", "Quality"]
                     currentIndex: 0
                     onActivated: page.saveSettings()
                 }
 
-            }
+                // Checkbox Settings, kept in the same grid column as the cards.
+                Text { text: "" }
+                ColumnLayout {
+                    spacing: 8
+                    Layout.alignment: Qt.AlignLeft
 
-            Text {
-                visible: page.isWifi
-                Layout.alignment: Qt.AlignHCenter
-                text: "Wi-Fi video uses direct RTP/UDP on your trusted LAN. It uses the selected resolution, FPS, bitrate, encoder, and encoder profile. Use Tailscale or WireGuard for encrypted networking."
-                color: theme.textMuted
-                font.pixelSize: 12
-                wrapMode: Text.WordWrap
-                horizontalAlignment: Text.AlignHCenter
-                Layout.maximumWidth: 500
-            }
-
-            // Checkbox Settings
-            ColumnLayout {
-                spacing: 8
-                Layout.alignment: Qt.AlignHCenter
-
-                CustomToggle {
-                    id: touchCheck
-                    text: "Enable Touch Input"
-                    onCheckedChanged: {
-                        page.enableStylusFeatures = stylusCheck.checked
-                        page.saveGeneralSettings()
+                    CustomToggle {
+                        id: touchCheck
+                        text: "Enable Touch Input"
+                        Layout.alignment: Qt.AlignLeft
+                        onCheckedChanged: {
+                            page.enableStylusFeatures = stylusCheck.checked
+                            page.saveGeneralSettings()
+                        }
                     }
-                }
 
-                CustomToggle {
-                    id: stylusCheck
-                    text: "Enable Stylus Features"
-                    visible: page.stylusControlsVisible
-                    onCheckedChanged: {
-                        page.enableStylusFeatures = checked
-                        page.saveGeneralSettings()
+                    CustomToggle {
+                        id: stylusCheck
+                        text: "Enable Stylus Features"
+                        visible: page.stylusControlsVisible
+                        Layout.alignment: Qt.AlignLeft
+                        onCheckedChanged: {
+                            page.enableStylusFeatures = checked
+                            page.saveGeneralSettings()
+                        }
                     }
                 }
             }

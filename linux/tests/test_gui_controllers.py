@@ -3642,10 +3642,30 @@ class BackendFacadeTest(unittest.TestCase):
         for qml in (wifi, streaming):
             self.assertIn("recommendedWifiBitrateKbps", qml)
             self.assertIn('text: "Use auto"', qml)
-            self.assertIn('text: "Auto bitrate: " +', qml)
+            self.assertNotIn('text: "Auto bitrate: " +', qml)
+            self.assertIn("autoSelected", qml)
+            self.assertIn("readonly property int optionChipWidth: 150", qml)
+            self.assertGreaterEqual(
+                qml.count("Layout.preferredWidth: page.optionChipWidth"), 3
+            )
+            self.assertNotIn(
+                "page.optionChipWidth * 2 + page.optionGridSpacing", qml
+            )
+            self.assertNotIn("Reserves 10%", qml)
         self.assertIn("resolutionOrFpsChanged", wifi)
+        self.assertIn("property bool autoBitrate: true", wifi)
+        self.assertIn("primary: page.autoBitrate", wifi)
+        self.assertIn("visible: page.isWifi", wifi)
+        self.assertIn("page.autoBitrate = false", wifi)
+        self.assertIn("Layout.fillWidth: true", wifi)
+        self.assertIn("// Checkbox Settings, kept in the same grid column as the cards.", wifi)
         self.assertIn("secondResolutionOrFpsChanged", streaming)
+        self.assertIn("property bool secondAutoBitrate: true", streaming)
+        self.assertIn("primary: page.secondAutoBitrate", streaming)
         self.assertIn("visible: backend.isWifiStreaming", streaming)
+        self.assertIn("page.secondAutoBitrate = false", streaming)
+        self.assertIn("visible: backend.isWifiStreaming", streaming)
+        self.assertIn("width: Math.min(page.width - 40, 720)", streaming)
 
     def test_main_menu_presets_align_to_mode_cards(self):
         qml_path = (
@@ -3757,7 +3777,7 @@ class BackendFacadeTest(unittest.TestCase):
             wifi_qml,
         )
         self.assertNotIn('text: "Use encryption"', wifi_qml)
-        self.assertIn("direct RTP/UDP", wifi_qml)
+        self.assertNotIn("direct RTP/UDP", wifi_qml)
         self.assertIn("WifiPage {", usb_qml)
         self.assertIn("isWifi: false", usb_qml)
 
@@ -3796,9 +3816,11 @@ class BackendFacadeTest(unittest.TestCase):
         chips_qml = (qml_dir / "ChoiceChips.qml").read_text(encoding="utf-8")
         self.assertNotIn("Encrypted mode requires the 6-digit pairing code", qml)
         self.assertNotIn("Encryption is off", qml)
+        self.assertNotIn("Wi-Fi video uses direct RTP/UDP", qml)
         self.assertNotIn("MUST EXACTLY MATCH", qml)
         self.assertNotIn("WarningCard", qml)
         self.assertEqual(qml.count("ChoiceChips {"), 4)
+        self.assertEqual(qml.count("chipWidth: page.optionChipWidth"), 4)
         self.assertEqual(qml.count("CustomComboBox {"), 2)
         self.assertIn("RowLayout {", chips_qml)
         self.assertIn("property int chipWidth: 112", chips_qml)
@@ -3806,7 +3828,9 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn("theme.buttonBackgroundHover", chips_qml)
         self.assertIn("theme.buttonBackground", chips_qml)
         self.assertIn("function find(val)", chips_qml)
-        self.assertIn('return "NVIDIA NVENC"', chips_qml)
+        self.assertIn('return "NVIDIA NVENC (Beta)"', chips_qml)
+        self.assertIn('return "VA-API (Recommended)"', chips_qml)
+        self.assertIn('return "ULPFEC 10% (Beta)"', chips_qml)
         self.assertNotIn("chipText.implicitWidth + 24", chips_qml)
         self.assertNotIn("rowSpacing", chips_qml)
         self.assertIn("contentItem: Text", chips_qml)
@@ -4007,7 +4031,7 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn("Enable stylus features for this display", qml)
         self.assertNotIn("backend.thirdEncryptionStatus", qml)
         self.assertEqual(qml.count("ChoiceChips {"), 3)
-        self.assertIn("width: Math.min(page.width - 40, 560)", qml)
+        self.assertIn("width: Math.min(page.width - 40, 720)", qml)
         self.assertIn("Creates a second Hyprland HEADLESS display.", qml)
         self.assertIn("Creates Monitorize Display 2 in KDE.", qml)
         self.assertIn("▶  Create Virtual Display", qml)
