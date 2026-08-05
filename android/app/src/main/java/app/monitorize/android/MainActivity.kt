@@ -187,18 +187,7 @@ class MainActivity : ComponentActivity() {
             var streamStats by remember { mutableStateOf(StreamStats()) }
             var selectedDevice by remember { mutableStateOf<DiscoveredDevice?>(null) }
             var recentDevices by remember { mutableStateOf(loadRecentDevices()) }
-            var disconnectionMessage by remember { mutableStateOf<String?>(
-                if (intent.getBooleanExtra("SHOW_DISCONNECTED", false)) "Disconnected" else null
-            ) }
             val coroutineScope = rememberCoroutineScope()
-
-            
-            if (disconnectionMessage != null) {
-                LaunchedEffect(disconnectionMessage) {
-                    delay(5000)
-                    disconnectionMessage = null
-                }
-            }
 
             MonitorizeTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = BackgroundDark) {
@@ -219,7 +208,6 @@ class MainActivity : ComponentActivity() {
                                         selectedDevice = device
                                         streamStats = StreamStats()
                                         currentScreen = Screen.Receive
-                                        disconnectionMessage = null 
                                     },
                                     onForgetDevice = { device ->
                                         recentDevices = forgetRecentDevice(device)
@@ -261,12 +249,6 @@ class MainActivity : ComponentActivity() {
                                                     onFirstFrameRendered()
                                                 },
                                                 onStatsUpdated = { streamStats = it },
-                                                onDisconnect = {
-                                                    runOnUiThread {
-                                                        disconnectionMessage = "Connection stopped"
-                                                        status.value = "Unable to keep the connection alive"
-                                                    }
-                                                }
                                             )
                                         }
                                         generation
@@ -337,39 +319,6 @@ class MainActivity : ComponentActivity() {
                                     .clickable { isSettingsOpen = false }
                                     .zIndex(9f)
                             )
-                        }
-
-                        
-                        AnimatedVisibility(
-                            visible = disconnectionMessage != null,
-                            enter = fadeIn() + expandVertically(expandFrom = Alignment.Bottom),
-                            exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Bottom),
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .padding(bottom = 48.dp)
-                                .zIndex(20f)
-                        ) {
-                            Surface(
-                                color = CardDark,
-                                shape = RoundedCornerShape(12.dp),
-                                border = BorderStroke(1.dp, BorderDark),
-                                shadowElevation = 8.dp
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 14.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    Box(modifier = Modifier.size(8.dp).background(Color.Red, CircleShape))
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Text(
-                                        text = disconnectionMessage ?: "",
-                                        color = Color.White,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                }
-                            }
                         }
                     }
                 }
@@ -585,7 +534,6 @@ class MainActivity : ComponentActivity() {
         onDecodedSize: (Int, Int) -> Unit,
         onFirstFrameRendered: () -> Unit,
         onStatsUpdated: (StreamStats) -> Unit,
-        onDisconnect: () -> Unit
     ) = streamMutex.withLock {
         if (!isSurfaceCurrent(surfaceGeneration)) {
             return@withLock
@@ -621,6 +569,7 @@ class MainActivity : ComponentActivity() {
                 if (isActiveStream(sessionId)) {
                     runOnUiThread {
                         if (isActiveStream(sessionId)) {
+                            status.value = ""
                             onFirstFrameRendered()
                         }
                     }
@@ -641,11 +590,6 @@ class MainActivity : ComponentActivity() {
                             status.value = msg
                         }
                     }
-                }
-            }
-            this.onDisconnect = {
-                if (isActiveStream(sessionId, streamReceiver)) {
-                    onDisconnect()
                 }
             }
             onPlainTransportReady = plain@ {

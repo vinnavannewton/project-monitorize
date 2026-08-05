@@ -37,6 +37,7 @@ class Session:
     def __init__(self, description, control_port, bitrate, target_fps, width, height):
         Gst.init(None)
         self.pipeline = Gst.parse_launch(description)
+        self.exit_code = 0
         self.control_port = control_port
         self.loop = GLib.MainLoop()
         self.running = True
@@ -561,6 +562,7 @@ class Session:
     def bus_message(self, _bus, message):
         if message.type == Gst.MessageType.ERROR:
             error, debug = message.parse_error()
+            self.exit_code = 1
             print(f"[GStreamer] ERROR: {error}: {debug or ''}", flush=True)
             self.loop.quit()
         elif message.type == Gst.MessageType.EOS:
@@ -587,7 +589,6 @@ class Session:
                 f"(bind {bind_port})",
                 flush=True,
             )
-        print("[Pipeline] READY", flush=True)
         try:
             self.loop.run()
         finally:
@@ -595,7 +596,7 @@ class Session:
             self.pipeline.send_event(Gst.Event.new_eos())
             self.pipeline.set_state(Gst.State.NULL)
             self.stop_sender()
-        return 0
+        return self.exit_code
 
 
 def main():

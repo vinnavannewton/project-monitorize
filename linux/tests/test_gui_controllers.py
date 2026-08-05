@@ -12,7 +12,7 @@ from subprocess import TimeoutExpired
 
 from PyQt6.QtCore import QCoreApplication, QProcess
 
-from monitorize.streaming import Streamer_gnome, pipeline_builder
+from monitorize.streaming import Streamer_gnome, gst_session, pipeline_builder
 from monitorize.streaming import kde_native_streamer, portal_streamer
 from monitorize.config import app_log, autostart, settings
 from monitorize.platform import (
@@ -26,7 +26,11 @@ from monitorize.desktop.backend import (
     MonitorizeBackend,
     recommended_wifi_bitrate_kbps,
 )
-from monitorize.desktop.receiver_controller import ReceiverController
+from monitorize.desktop.receiver_controller import (
+    ReceiverController,
+    RtpLossTracker,
+    _load_gst,
+)
 from monitorize.desktop.streaming_controller import StreamingController
 from monitorize.desktop.usb_controller import UsbController
 from monitorize.config.validation import (
@@ -450,21 +454,17 @@ class ReceiverControllerTest(unittest.TestCase):
         controller.decoder_args = ["vah264dec"]
         controller.decoder_label = "VA-API"
         controller.sink = "xvimagesink"
-        process = process_mock()
         with (
-            patch("monitorize.desktop.receiver_controller.QProcess", return_value=process),
             patch(
                 "monitorize.desktop.receiver_controller._gst_has_property",
                 return_value=True,
             ),
             patch(
                 "monitorize.desktop.receiver_controller.gst_has_element",
-                side_effect=lambda name: name == "vapostproc",
+                side_effect=lambda name: name in {"vapostproc", "cairooverlay"},
             ),
         ):
-            controller._launch_pipeline("10.0.0.2", 7114)
-        command, args = process.start.call_args.args
-        self.assertEqual(command, "gst-launch-1.0")
+            args = controller._udp_pipeline_args("xvimagesink", 7114)
         self.assertIn("vah264dec", args)
         self.assertIn("vapostproc", args)
         self.assertIn("video/x-raw,format=NV12", args)
@@ -472,7 +472,7 @@ class ReceiverControllerTest(unittest.TestCase):
         self.assertIn("config-interval=-1", args)
         self.assertIn("video/x-h264,stream-format=byte-stream,alignment=au", args)
         decoder_index = args.index("vah264dec")
-        first_queue_index = args.index("queue")
+        first_queue_index = args.index("name=receiver_compressed_queue")
         self.assertLess(first_queue_index, decoder_index)
         self.assertNotIn("leaky=downstream", args[first_queue_index:decoder_index])
         self.assertIn("leaky=downstream", args[decoder_index:])
@@ -480,6 +480,7 @@ class ReceiverControllerTest(unittest.TestCase):
         self.assertIn("async=false", args)
         self.assertIn("force-aspect-ratio=false", args)
         self.assertIn("port=7114", args)
+        self.assertIn("name=receiver_stats_overlay", args)
 
     def test_udp_pipeline_uses_standalone_fullscreen_wayland_sink(self):
         controller = ReceiverController("kde", Mock())
@@ -491,8 +492,100 @@ class ReceiverControllerTest(unittest.TestCase):
             description = controller._udp_pipeline_description("waylandsink")
         self.assertIn("waylandsink", description)
         self.assertIn("fullscreen=true", description)
-        self.assertNotIn("receiver_sink", description)
+        self.assertIn("cairooverlay name=receiver_stats_overlay", description)
+        self.assertIn("waylandsink name=receiver_sink", description)
         self.assertNotIn("videoscale", description)
+
+    def test_rtp_loss_tracker_handles_reordering_wrap_and_duplicates(self):
+        tracker = RtpLossTracker(reorder_window=2)
+        self.assertEqual(tracker.add(65534), 0)
+        self.assertEqual(tracker.add(0), 0)
+        self.assertEqual(tracker.add(65535), 0)
+        self.assertEqual(tracker.add(65535), 0)
+        self.assertEqual(tracker.add(2), 0)
+        self.assertEqual(tracker.add(3), 1)
+
+    def test_stats_card_can_be_enabled_and_disabled_live(self):
+        controller = ReceiverController("kde", Mock())
+        controller.overlay_supported = True
+        controller.last_snapshot = {
+            "transport": "Wi-Fi RTP/UDP", "rx_kbps": 8000.0,
+            "pps": 1000.0, "loss": 0.1, "input_fps": 60.0,
+            "decoded_fps": 60.0, "display_fps": 59.0,
+            "display_label": "display", "decode_ms": 2.0,
+            "compressed_q": 1, "raw_q": 0, "raw_drops": 0,
+            "sink_drops": 0, "decoder": "Software avdec_h264",
+            "sink": "fakesink",
+        }
+        controller.gst_pipeline = Mock()
+        controller.set_stats_visible(True)
+        self.assertIsNotNone(controller.overlay_surface)
+        controller.set_stats_visible(False)
+        self.assertIsNone(controller.overlay_surface)
+
+    def test_cairo_overlay_headless_pipeline_draws_and_finishes(self):
+        Gst = _load_gst()
+        pipeline = Gst.parse_launch(
+            "videotestsrc num-buffers=2 ! videoconvert ! "
+            "video/x-raw,format=BGRx ! cairooverlay name=overlay ! fakesink"
+        )
+        draws = []
+
+        def draw(_overlay, context, _timestamp, _duration):
+            draws.append(True)
+            context.set_source_rgba(0, 0, 0, 0.7)
+            context.rectangle(2, 2, 20, 10)
+            context.fill()
+
+        pipeline.get_by_name("overlay").connect("draw", draw)
+        pipeline.set_state(Gst.State.PLAYING)
+        message = pipeline.get_bus().timed_pop_filtered(
+            3 * Gst.SECOND, Gst.MessageType.EOS | Gst.MessageType.ERROR
+        )
+        pipeline.set_state(Gst.State.NULL)
+        self.assertIsNotNone(message)
+        self.assertEqual(message.type, Gst.MessageType.EOS)
+        self.assertEqual(len(draws), 2)
+
+    def test_stats_snapshot_reports_rates_queues_and_honest_tcp_unknowns(self):
+        controller = ReceiverController("kde", Mock())
+        controller._reset_stats()
+        controller.sink = "fakesink"
+        controller.last_stats_time = 10.0
+        controller.stats_counts.update({
+            "bytes": 1_000_000, "packets": 90, "lost": 10,
+            "input": 60, "decoded": 59, "sink_input": 58,
+            "raw_drops": 2, "decode_ns": 12_000_000, "decode_samples": 2,
+        })
+        queue = Mock()
+        queue.find_property.return_value = object()
+        queue.get_property.return_value = 1
+        sink = Mock()
+        sink.find_property.return_value = None
+        controller.stats_elements = {
+            "receiver_sink": sink,
+            "receiver_compressed_queue": queue,
+            "receiver_raw_queue": queue,
+        }
+        controller.udp_transport = True
+        with patch("monitorize.desktop.receiver_controller.time.monotonic", return_value=11.0):
+            snapshot = controller._stats_snapshot()
+        self.assertEqual(snapshot["rx_kbps"], 8000)
+        self.assertEqual(snapshot["pps"], 90)
+        self.assertEqual(snapshot["loss"], 10)
+        self.assertEqual(snapshot["display_label"], "output")
+        self.assertEqual(snapshot["display_fps"], 58)
+        self.assertEqual(snapshot["decode_ms"], 6)
+        self.assertEqual(snapshot["compressed_q"], 1)
+        self.assertEqual(snapshot["raw_drops"], 2)
+
+        controller.stats_counts["bytes"] = 100
+        controller.last_stats_time = 11.0
+        controller.udp_transport = False
+        with patch("monitorize.desktop.receiver_controller.time.monotonic", return_value=12.0):
+            snapshot = controller._stats_snapshot()
+        self.assertIsNone(snapshot["pps"])
+        self.assertIsNone(snapshot["loss"])
 
     def test_receiver_always_launches_standalone_pipeline(self):
         controller = ReceiverController("gnome", Mock())
@@ -738,6 +831,22 @@ class ReceiverLifecycleTest(unittest.TestCase):
             controller.connect("  ", 7110, "Software")
         start.assert_not_called()
         self.assertEqual(controller.status, "Invalid host or port")
+
+    def test_receiver_stats_setting_defaults_off_and_round_trips(self):
+        old_dir, old_file = settings.CONFIG_DIR, settings.CONFIG_FILE
+        with tempfile.TemporaryDirectory() as directory:
+            try:
+                settings.CONFIG_DIR = directory
+                settings.CONFIG_FILE = str(Path(directory) / "settings.ini")
+                self.assertFalse(settings.load_receiver_settings()["show_stats"])
+                settings.save_receiver_stats_visible(True)
+                self.assertTrue(settings.load_receiver_settings()["show_stats"])
+                settings.save_receiver_settings(
+                    ip="10.0.0.2", port="7110", decoder="Hardware"
+                )
+                self.assertTrue(settings.load_receiver_settings()["show_stats"])
+            finally:
+                settings.CONFIG_DIR, settings.CONFIG_FILE = old_dir, old_file
 
     def test_second_display_settings_load_sanitizes_numeric_values(self):
         old_dir, old_file = settings.CONFIG_DIR, settings.CONFIG_FILE
@@ -1719,6 +1828,70 @@ class StreamingControllerTest(unittest.TestCase):
         controller.streamer = process_mock()
         controller._streamer_finished(1, None, 6, old_process)
         self.assertTrue(controller.streaming)
+
+    def test_ready_wifi_streamer_exit_schedules_restart(self):
+        controller = StreamingController("kde", "10.0.0.1", Mock())
+        controller.streaming = True
+        controller.wifi = True
+        controller.generation = 7
+        controller.streamer_was_ready = True
+        controller.primary_ready = True
+        controller.gst_pids = {123}
+        process = process_mock()
+        controller.streamer = process
+        with (
+            patch("monitorize.desktop.streaming_controller.kill_tracked_pids") as kill,
+            patch("monitorize.desktop.streaming_controller.QTimer.singleShot") as retry,
+        ):
+            controller._streamer_finished(1, None, 7, process)
+
+        self.assertTrue(controller.streaming)
+        self.assertFalse(controller.primary_ready)
+        self.assertIsNone(controller.streamer)
+        self.assertEqual(controller.status, "Stream interrupted; restarting…")
+        self.assertEqual(controller.gst_pids, set())
+        kill.assert_called_once_with({123})
+        self.assertEqual(retry.call_args.args[0], 1000)
+
+    def test_wifi_runtime_retry_stays_enabled_before_next_ready(self):
+        controller = StreamingController("kde", "10.0.0.1", Mock())
+        controller.streaming = True
+        controller.wifi = True
+        controller.generation = 7
+        controller.streamer_was_ready = True
+        process = process_mock()
+        controller.streamer = process
+        with patch(
+            "monitorize.desktop.streaming_controller.QTimer.singleShot"
+        ) as retry:
+            controller._streamer_finished(1, None, 7, process)
+        self.assertTrue(controller.streamer_was_ready)
+        retry.assert_called_once()
+
+    def test_stale_wifi_restart_callback_is_ignored(self):
+        controller = StreamingController("kde", "10.0.0.1", Mock())
+        controller.streaming = True
+        controller.wifi = True
+        controller.generation = 8
+        controller.streamer = None
+        with patch.object(controller, "_launch_streamer") as launch:
+            controller._restart_wifi_streamer(7)
+        launch.assert_not_called()
+
+    def test_usb_streamer_exit_never_schedules_wifi_retry(self):
+        controller = StreamingController("kde", "10.0.0.1", Mock())
+        controller.streaming = True
+        controller.wifi = False
+        controller.streamer_was_ready = True
+        process = process_mock()
+        controller.streamer = process
+        with (
+            patch.object(controller, "stop") as stop,
+            patch("monitorize.desktop.streaming_controller.QTimer.singleShot") as retry,
+        ):
+            controller._streamer_finished(1, None, controller.generation, process)
+        stop.assert_called_once()
+        retry.assert_not_called()
 
     def legacy_restart_gnome_saves_virtual_layout_before_relaunch(self):
         controller = StreamingController("gnome", "10.0.0.1", Mock())
@@ -3115,17 +3288,78 @@ class PipelineBuilderTest(unittest.TestCase):
         self.assertEqual(1_000, recommended_wifi_bitrate_kbps(320, 240, 24))
         self.assertEqual(100_000, recommended_wifi_bitrate_kbps(7680, 4320, 240))
 
-    def test_nvidia_auto_prefers_cuda_over_unreliable_kde_gl_import(self):
-        pipeline_builder._gst_inspect.cache_clear()
+    def test_nvidia_auto_prefers_same_gpu_gl_then_cuda_then_system(self):
         encoder = "memory:GLMemory memory:CUDAMemory"
-        with patch.object(
-            pipeline_builder, "_gst_inspect",
-            side_effect=lambda element: encoder if element == "nvh264enc" else "ok",
+        with (
+            patch.object(
+                pipeline_builder, "_gst_inspect",
+                side_effect=lambda element: encoder if element == "nvh264enc" else "ok",
+            ),
+            patch.object(
+                pipeline_builder, "_same_nvidia_kwin_gpu",
+                return_value=(True, "NVIDIA GPU at 0000:01:00.0"),
+            ),
         ):
             self.assertEqual(
                 pipeline_builder._nvidia_memory_candidates(),
-                ["cuda", "system"],
+                ["gl", "cuda", "system"],
             )
+
+    def test_nvidia_auto_skips_gl_when_gpu_identity_or_elements_fail(self):
+        encoder = "memory:GLMemory memory:CUDAMemory"
+        cases = (
+            ((False, "KWin renders on AMD"), lambda _element: "ok"),
+            ((True, "NVIDIA GPU"), lambda element: "" if element == "glupload" else "ok"),
+        )
+        for identity, inspect_gl in cases:
+            with self.subTest(identity=identity):
+                with (
+                    patch.object(
+                        pipeline_builder, "_gst_inspect",
+                        side_effect=lambda element: (
+                            encoder if element == "nvh264enc" else inspect_gl(element)
+                        ),
+                    ),
+                    patch.object(
+                        pipeline_builder, "_same_nvidia_kwin_gpu",
+                        return_value=identity,
+                    ),
+                ):
+                    self.assertEqual(
+                        pipeline_builder._nvidia_memory_candidates(),
+                        ["cuda", "system"],
+                    )
+
+    def test_same_nvidia_kwin_gpu_gate_is_fail_closed(self):
+        cases = (
+            (("NVIDIA Corporation", "NVIDIA GeForce RTX 4060 Laptop GPU"),
+             [("NVIDIA GeForce RTX 4060 Laptop GPU", "0000:01:00.0", "Enabled")], True),
+            (("AMD", "AMD Radeon 780M"),
+             [("NVIDIA GeForce RTX 4060 Laptop GPU", "0000:01:00.0", "Enabled")], False),
+            (("NVIDIA Corporation", "NVIDIA GeForce RTX 4060 Laptop GPU"),
+             [("NVIDIA GeForce RTX 4060 Laptop GPU", "0000:01:00.0", "Disabled")], False),
+            (("NVIDIA Corporation", "NVIDIA GeForce RTX 4060 Laptop GPU"), [], False),
+            (("NVIDIA Corporation", "NVIDIA GeForce RTX 4060 Laptop GPU"),
+             [("NVIDIA GeForce RTX 4070", "0000:01:00.0", "Enabled")], False),
+            (("NVIDIA Corporation", "NVIDIA GeForce RTX 4060 Laptop GPU"), [
+                ("NVIDIA GeForce RTX 4060 Laptop GPU", "0000:01:00.0", "Enabled"),
+                ("NVIDIA GeForce RTX 4070", "0000:02:00.0", "Disabled"),
+            ], False),
+        )
+        for renderer, gpus, expected in cases:
+            with self.subTest(renderer=renderer, gpus=gpus):
+                pipeline_builder._same_nvidia_kwin_gpu.cache_clear()
+                with (
+                    patch.object(pipeline_builder, "_kwin_renderer", return_value=renderer),
+                    patch.object(pipeline_builder, "_nvidia_display_gpus", return_value=gpus),
+                ):
+                    self.assertEqual(
+                        pipeline_builder._same_nvidia_kwin_gpu()[0], expected
+                    )
+
+    def test_explicit_nvidia_selection_never_becomes_cpu(self):
+        with patch.object(pipeline_builder, "_gst_inspect", return_value=""):
+            self.assertEqual(pipeline_builder.get_encoder("nvidia"), "nvh264enc")
 
     def test_nvenc_uses_fixed_short_gop_without_unsupported_intra_refresh(self):
         with patch.object(
@@ -3149,6 +3383,8 @@ class PipelineBuilderTest(unittest.TestCase):
             hw_encoder="nvh264enc", nvidia_memory="gl"
         )
         self.assertIn("always-copy=false", text)
+        self.assertIn("memory:DMABuf", text)
+        self.assertIn("format=DMA_DRM", text)
         self.assertIn("glupload", text)
         self.assertIn("glcolorconvert", text)
         self.assertIn("glcolorscale", text)
@@ -3319,7 +3555,86 @@ class PipelineBuilderTest(unittest.TestCase):
         cuda_argv = popen.call_args_list[1].args[0]
         self.assertIn("glupload", gl_argv)
         self.assertIn("cudaupload", cuda_argv)
+        failed.wait.assert_called_once_with(timeout=3.0)
+        cuda.wait.assert_called_once_with(timeout=1.0)
         self.assertEqual(2, popen.call_count)
+
+    def test_nvenc_exhausts_three_modes_without_cpu_fallback(self):
+        failed = [Mock(pid=index, returncode=1) for index in range(1, 4)]
+        for process in failed:
+            process.wait.return_value = 1
+        with (
+            patch.dict(os.environ, {"MONITORIZE_NVIDIA_MEMORY": "auto"}),
+            patch.object(
+                pipeline_builder, "_nvidia_memory_candidates",
+                return_value=["gl", "cuda", "system"],
+            ),
+            patch(
+                "monitorize.streaming.pipeline_builder.subprocess.Popen",
+                side_effect=failed,
+            ) as popen,
+        ):
+            result = pipeline_builder.launch_with_fallback(
+                pw_fd=None, node_id=42, width=1280, height=800,
+                fps=60, bitrate=8000, port=7110, hw_encoder="nvh264enc",
+            )
+        self.assertIs(result, failed[-1])
+        self.assertEqual(popen.call_count, 3)
+        self.assertFalse(any("x264enc" in call.args[0] for call in popen.call_args_list))
+
+    def test_nvenc_memory_override_forces_one_path(self):
+        failed = Mock(pid=1, returncode=1)
+        failed.wait.return_value = 1
+        with (
+            patch.dict(os.environ, {"MONITORIZE_NVIDIA_MEMORY": "system"}),
+            patch(
+                "monitorize.streaming.pipeline_builder.subprocess.Popen",
+                return_value=failed,
+            ) as popen,
+        ):
+            result = pipeline_builder.launch_with_fallback(
+                pw_fd=None, node_id=42, width=1280, height=800,
+                fps=60, bitrate=8000, port=7110, hw_encoder="nvh264enc",
+            )
+        self.assertIs(result, failed)
+        self.assertEqual(popen.call_count, 1)
+        argv = popen.call_args.args[0]
+        self.assertIn("nvh264enc", argv)
+        self.assertNotIn("glupload", argv)
+        self.assertNotIn("cudaupload", argv)
+
+
+class GstSessionReadinessTest(unittest.TestCase):
+    def test_bus_error_sets_nonzero_exit_status(self):
+        session = gst_session.Session.__new__(gst_session.Session)
+        session.exit_code = 0
+        session.loop = Mock()
+        message = Mock(type=gst_session.Gst.MessageType.ERROR)
+        message.parse_error.return_value = (RuntimeError("failed"), "debug")
+        session.bus_message(None, message)
+        self.assertEqual(session.exit_code, 1)
+        session.loop.quit.assert_called_once_with()
+
+    def test_session_does_not_publish_ready_before_outer_probation(self):
+        session = gst_session.Session.__new__(gst_session.Session)
+        session.pipeline = Mock()
+        session.pipeline.set_state.return_value = gst_session.Gst.StateChangeReturn.SUCCESS
+        session.pipeline.get_by_name.return_value = None
+        session.loop = Mock()
+        session.running = True
+        session.exit_code = 0
+        session.control_loop = Mock()
+        session.install_diagnostics = Mock()
+        session.stop_sender = Mock()
+        with (
+            patch.object(gst_session.threading, "Thread", return_value=Mock()),
+            patch("builtins.print") as output,
+        ):
+            self.assertEqual(session.run(), 0)
+        self.assertFalse(any(
+            call.args and call.args[0] == "[Pipeline] READY"
+            for call in output.call_args_list
+        ))
 
 
 class PortalStreamerTest(unittest.TestCase):
@@ -4054,6 +4369,9 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn("id: decoderCombo", qml)
         self.assertEqual(qml.count("ChoiceChips {"), 1)
         self.assertEqual(qml.count("CustomComboBox {"), 0)
+        self.assertIn('text: "Streaming stats overlay"', qml)
+        self.assertIn('statsToggle.checked = rec["show_stats"] === true', qml)
+        self.assertIn("backend.setReceiverStatsVisible(checked)", qml)
 
     def test_qml_api_remains_exposed(self):
         with patch("monitorize.desktop.backend.get_local_ip", return_value="127.0.0.1"):
@@ -4074,7 +4392,7 @@ class BackendFacadeTest(unittest.TestCase):
             "startStreaming", "stopStreaming", "connectToHost",
             "startHostDiscovery", "startUsbScan", "startSecondStream",
             "saveCurrentPreset", "launchPreset", "renamePreset", "deletePreset",
-            "isAutostartEnabled", "setAutostartEnabled",
+            "isAutostartEnabled", "setAutostartEnabled", "setReceiverStatsVisible",
         } <= methods)
         backend.network_timer.stop()
 
@@ -4095,6 +4413,18 @@ class BackendFacadeTest(unittest.TestCase):
             backend.connectToHost("host", 70000, "Software")
         connect.assert_not_called()
         self.assertEqual(backend.receiver.status, "Invalid host or port")
+        backend.network_timer.stop()
+
+    def test_backend_persists_and_applies_receiver_stats_live(self):
+        with patch("monitorize.desktop.backend.get_local_ip", return_value="127.0.0.1"):
+            backend = MonitorizeBackend("kde")
+        with (
+            patch("monitorize.desktop.backend.save_receiver_stats_visible") as save,
+            patch.object(backend.receiver, "set_stats_visible") as apply_live,
+        ):
+            backend.setReceiverStatsVisible(True)
+        save.assert_called_once_with(True)
+        apply_live.assert_called_once_with(True)
         backend.network_timer.stop()
 
     def test_usb_preset_scans_before_launching(self):

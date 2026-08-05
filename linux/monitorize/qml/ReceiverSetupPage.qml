@@ -33,6 +33,7 @@ Item {
             manualIpField.text = rec["manual_ip"] || ""
             portField.text = rec["port"] || "7110"
             decoderCombo.currentIndex = rec["decoder"] === "Hardware" ? 1 : 0
+            statsToggle.checked = rec["show_stats"] === true
         }
     }
 
@@ -259,6 +260,13 @@ Item {
             }
 
             Item { Layout.fillWidth: true }
+        }
+
+        CustomToggle {
+            id: statsToggle
+            text: "Streaming stats overlay"
+            Layout.alignment: Qt.AlignLeft
+            onToggled: backend.setReceiverStatsVisible(checked)
         }
 
         RowLayout {

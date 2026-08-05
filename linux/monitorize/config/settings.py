@@ -379,7 +379,8 @@ def load_receiver_settings() -> dict:
         "manual_ip": "",
         "manual_port": "7110",
         "decoder": "Software",
-    })
+        "show_stats": False,
+    }, bool_keys=("show_stats",))
     data["manual_ip"] = normalize_host(data["manual_ip"])
     data["manual_port"] = str(sanitize_port(data["manual_port"]))
     data["decoder"] = sanitize_decoder(data["decoder"])
@@ -390,6 +391,10 @@ def load_receiver_settings() -> dict:
     settings.remove("receiver_trust")
     settings.sync()
     return data
+
+
+def save_receiver_stats_visible(enabled: bool) -> None:
+    _save_group("receiver", {"show_stats": bool(enabled)})
 
 
 def _gnome_virtual_group(slot: str = "primary") -> str:

@@ -28,6 +28,12 @@ class RtpStreamConfigTest {
         assertTrue(!recoveryIdrAllowed(1_000, 1_249, 250))
     }
 
+    @Test fun rtpSessionBecomesInactiveAfterFiveSecondsWithoutPackets() {
+        assertTrue(!rtpSessionInactive(1_000, 5_999))
+        assertTrue(rtpSessionInactive(1_000, 6_000))
+        assertTrue(!rtpSessionInactive(5_500, 6_000))
+    }
+
     @Test fun recoveryIdrUsesDedicatedControlMessage() {
         val message = buildRtpControlMessage(49_152, 60, 1920, 1200, requestIdr = true)
         assertTrue(message.contains("\"type\":\"idr\""))

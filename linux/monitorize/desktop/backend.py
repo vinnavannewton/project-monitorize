@@ -23,6 +23,7 @@ from monitorize.config.settings import (
     save_general_settings,
     save_presets,
     save_receiver_settings,
+    save_receiver_stats_visible,
     save_second_display_settings,
     save_usb_settings,
     save_wifi_settings,
@@ -297,6 +298,11 @@ class MonitorizeBackend(QObject):
     def saveReceiverSettings(self, ip, port, decoder):
         save_receiver_settings(ip=ip, port=port, decoder=decoder)
 
+    @pyqtSlot(bool)
+    def setReceiverStatsVisible(self, enabled):
+        save_receiver_stats_visible(enabled)
+        self.receiver.set_stats_visible(enabled)
+
     @pyqtSlot()
     def startHostDiscovery(self):
         self.discovery.start()
@@ -311,7 +317,10 @@ class MonitorizeBackend(QObject):
         if not valid_host(host) or not valid_port(port):
             self.receiver._set_status("Invalid host or port")
             return
-        self.receiver.connect(host, sanitize_port(port), sanitize_decoder(decoder))
+        show_stats = bool(load_receiver_settings().get("show_stats", False))
+        self.receiver.connect(
+            host, sanitize_port(port), sanitize_decoder(decoder), show_stats
+        )
 
     @pyqtSlot()
     def stopReceiving(self):

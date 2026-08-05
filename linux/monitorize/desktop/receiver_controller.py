@@ -4,7 +4,7 @@ import os
 import json
 import socket
 import subprocess
-import sys
+import threading
 import time
 from functools import lru_cache
 
@@ -52,13 +52,58 @@ HARDWARE_DECODER_PROPS = {
 }
 
 _GST = None
-_GST_VIDEO = None
 _GIO = None
 _GST_IMPORT_ERROR = None
 
 
+class RtpLossTracker:
+    """Count finalized RTP sequence gaps without delaying the stream."""
+
+    def __init__(self, reorder_window=64):
+        self.reorder_window = reorder_window
+        self.highest = None
+        self.finalized = None
+        self.seen = set()
+
+    def add(self, sequence):
+        if self.highest is None:
+            extended = int(sequence)
+            self.highest = extended
+            self.finalized = extended - 1
+        else:
+            base = self.highest & ~0xFFFF
+            extended = base | int(sequence)
+            if extended - self.highest > 0x8000:
+                extended -= 0x10000
+            elif self.highest - extended > 0x8000:
+                extended += 0x10000
+            if extended - self.highest > 4096:
+                self.highest = extended
+                self.finalized = extended - 1
+                self.seen.clear()
+                self.seen.add(extended)
+                return 0
+            self.highest = max(self.highest, extended)
+        if extended <= self.finalized:
+            return 0
+        self.seen.add(extended)
+        lost = 0
+        cutoff = self.highest - self.reorder_window
+        while self.finalized < cutoff:
+            self.finalized += 1
+            if self.finalized in self.seen:
+                self.seen.remove(self.finalized)
+            else:
+                lost += 1
+        return lost
+
+
+class ReceiverNegotiationError(RuntimeError):
+    pass
+
+
 def _load_gst():
-    global _GST, _GST_VIDEO, _GIO, _GST_IMPORT_ERROR
+    global _GST, _GIO, _GST_IMPORT_ERROR
     if _GST is not None:
         return _GST
     if _GST_IMPORT_ERROR is not None:
@@ -66,15 +111,12 @@ def _load_gst():
     try:
         import gi
         gi.require_version("Gst", "1.0")
-        gi.require_version("GstVideo", "1.0")
         gi.require_version("Gio", "2.0")
         from gi.repository import Gst
-        from gi.repository import GstVideo
         from gi.repository import Gio
 
         Gst.init(None)
         _GST = Gst
-        _GST_VIDEO = GstVideo
         _GIO = Gio
         return Gst
     except Exception as exc:
@@ -179,7 +221,22 @@ class ReceiverController(QObject):
         self.gst_pipeline = None
         self.gst_bus = None
         self.gst_generation = None
+        self.gst_socket = None
         self.udp_transport = False
+        self.show_stats = False
+        self.overlay_supported = False
+        self.overlay_width = 1920
+        self.overlay_height = 1080
+        self.overlay_surface = None
+        self.stats_elements = {}
+        self.stats_lock = threading.Lock()
+        self.stats_counts = {}
+        self.decode_started = {}
+        self.loss_tracker = RtpLossTracker()
+        self.last_stats_time = time.monotonic()
+        self.last_sink_rendered = 0
+        self.last_sink_dropped = 0
+        self.last_snapshot = {}
         self.decoder = "Software"
         self.decoder_args = self._software_decoder_args()
         self.decoder_label = "Software avdec_h264"
@@ -198,6 +255,9 @@ class ReceiverController(QObject):
         self.gst_bus_timer = QTimer(self)
         self.gst_bus_timer.setInterval(50)
         self.gst_bus_timer.timeout.connect(self._poll_gst_bus)
+        self.stats_timer = QTimer(self)
+        self.stats_timer.setInterval(250)
+        self.stats_timer.timeout.connect(self._update_stats)
 
     def _set_receiving(self, value):
         self.receiving = value
@@ -207,7 +267,7 @@ class ReceiverController(QObject):
         self.status = value
         self.statusChanged.emit(value)
 
-    def connect(self, host, port, decoder):
+    def connect(self, host, port, decoder, show_stats=False):
         self.discovery.stop_browsing()
         self.stop()
         host = normalize_host(host)
@@ -224,6 +284,7 @@ class ReceiverController(QObject):
         self.host = host
         self.port = port
         self.udp_transport = host != "127.0.0.1"
+        self.show_stats = bool(show_stats)
         self.decoder = decoder
         self.sink_candidates = self._sink_candidates()
         self.sink_index = 0
@@ -257,12 +318,30 @@ class ReceiverController(QObject):
         self.logAppended.emit(f"Connecting to {host} on port {port}…")
         self._start_attempt(generation)
 
+    def set_stats_visible(self, enabled):
+        self.show_stats = bool(enabled)
+        if not self.show_stats:
+            self.overlay_surface = None
+        elif self.gst_pipeline is not None:
+            self._render_stats_surface(self.last_snapshot)
+            if not self.overlay_supported:
+                self.logAppended.emit(
+                    "Stats overlay unavailable — install GStreamer cairooverlay and Python Cairo."
+                )
+
     def _start_attempt(self, generation=None):
         generation = self.generation if generation is None else generation
         if self.stopping or generation != self.generation:
             return
         self.retry_pending = False
-        self._launch_pipeline(self.host, self.port, generation)
+        try:
+            self._launch_pipeline(self.host, self.port, generation)
+        except Exception as exc:
+            self.logAppended.emit(f"Receiver pipeline error: {exc}")
+            self._handle_finished(
+                0 if isinstance(exc, ReceiverNegotiationError) else 1,
+                generation,
+            )
 
     def _launch_pipeline(self, host, port, generation=None):
         generation = self.generation if generation is None else generation
@@ -272,13 +351,13 @@ class ReceiverController(QObject):
 
     def _udp_pipeline_args(self, sink_name, udp_port):
         args = [
-            "-e",
-            "udpsrc", f"port={udp_port}", "buffer-size=524288",
+            "udpsrc", "name=receiver_source", f"port={udp_port}", "buffer-size=524288",
             'caps=application/x-rtp,media=video,encoding-name=H264,payload=96,clock-rate=90000', "!",
-            "rtph264depay", "!", "h264parse", "disable-passthrough=true", "config-interval=-1", "!",
+            "rtph264depay", "name=receiver_depay", "!",
+            "h264parse", "name=receiver_parser", "disable-passthrough=true", "config-interval=-1", "!",
             PARSED_H264_CAPS, "!",
-            *COMPRESSED_QUEUE, "!",
-            *self.decoder_args, "!",
+            "queue", "name=receiver_compressed_queue", *COMPRESSED_QUEUE[1:], "!",
+            *self._named_decoder_args(), "!",
             *self._display_chain_args(sink_name),
         ]
         return args
@@ -290,7 +369,6 @@ class ReceiverController(QObject):
         self.receiver_host = host
         self.receiver_port = port
         self.attempt_started = time.monotonic()
-        self._stop_gst_pipeline()
         raw = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         raw.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 524288)
         raw.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -298,29 +376,16 @@ class ReceiverController(QObject):
         udp_port = raw.getsockname()[1]
         try:
             ready = _negotiate_udp(host, port, udp_port)
-        except Exception:
+        except Exception as exc:
             raw.close()
-            raise
-        raw.close()
-        self.process = QProcess(self)
-        process = self.process
-        process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
-        process.started.connect(lambda: self._started(process, generation))
-        process.readyReadStandardOutput.connect(
-            lambda: self._read_pipeline(process, generation)
-        )
-        process.finished.connect(
-            lambda code, status: self._finished(code, status, process, generation)
-        )
-        process.errorOccurred.connect(
-            lambda _error: self._pipeline_error(process, generation)
-        )
-        args = self._udp_pipeline_args(sink_name, udp_port)
+            raise ReceiverNegotiationError(str(exc)) from exc
         self.logAppended.emit(
             f"UDP ready: {ready.get('width', '?')}x{ready.get('height', '?')}@{ready.get('fps', '?')}; "
             f"decoder: {self.decoder_label}; sink: {sink_name}"
         )
-        self.process.start("gst-launch-1.0", args)
+        self._launch_gst_pipeline(
+            self._udp_pipeline_description(sink_name, udp_port), generation, raw
+        )
 
     def _launch_external_pipeline(self, host, port, generation=None):
         generation = self.generation if generation is None else generation
@@ -331,31 +396,315 @@ class ReceiverController(QObject):
         self.receiver_host = host
         self.receiver_port = port
         self.attempt_started = time.monotonic()
-        self.process = QProcess(self)
-        process = self.process
-        self.process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
-        self.process.started.connect(lambda: self._started(process, generation))
-        self.process.readyReadStandardOutput.connect(
-            lambda: self._read_pipeline(process, generation)
-        )
-        self.process.finished.connect(
-            lambda code, status: self._finished(code, status, process, generation)
-        )
-        self.process.errorOccurred.connect(
-            lambda _error: self._pipeline_error(process, generation)
-        )
         args = [
-            "-e", "tcpclientsrc", f"host={host}", f"port={port}", "!",
-            "h264parse", "disable-passthrough=true", "config-interval=-1", "!",
+            "tcpclientsrc", "name=receiver_source", f"host={json.dumps(host)}", f"port={port}", "!",
+            "h264parse", "name=receiver_parser", "disable-passthrough=true", "config-interval=-1", "!",
             PARSED_H264_CAPS, "!",
-            *COMPRESSED_QUEUE, "!",
-            *self.decoder_args, "!",
+            "queue", "name=receiver_compressed_queue", *COMPRESSED_QUEUE[1:], "!",
+            *self._named_decoder_args(), "!",
             *self._display_chain_args(self.sink),
         ]
         self.logAppended.emit(
             f"Decoder: {self.decoder_label}; standalone sink: {self.sink}"
         )
-        self.process.start("gst-launch-1.0", args)
+        self._launch_gst_pipeline(" ".join(args), generation)
+
+    def _launch_gst_pipeline(self, description, generation, raw_socket=None):
+        Gst = _load_gst()
+        self._stop_gst_pipeline()
+        pipeline = None
+        try:
+            pipeline = Gst.parse_launch(description)
+            if raw_socket is not None:
+                source = pipeline.get_by_name("receiver_source")
+                if source is None:
+                    raise RuntimeError("receiver UDP source is missing")
+                self.gst_socket = _GIO.Socket.new_from_fd(os.dup(raw_socket.fileno()))
+                source.set_property("socket", self.gst_socket)
+                source.set_property("close-socket", True)
+            self.gst_pipeline = pipeline
+            self.gst_generation = generation
+            self.gst_bus = pipeline.get_bus()
+            self._setup_stats()
+            self.gst_bus_timer.start()
+            result = pipeline.set_state(Gst.State.PLAYING)
+            if result == Gst.StateChangeReturn.FAILURE:
+                raise RuntimeError("GStreamer rejected the receiver pipeline")
+            self.process = None
+            self._started(pipeline, generation)
+        except Exception:
+            if pipeline is not None:
+                pipeline.set_state(Gst.State.NULL)
+            self.gst_pipeline = None
+            self.gst_bus = None
+            self.gst_generation = None
+            self.gst_socket = None
+            self.gst_bus_timer.stop()
+            self.stats_timer.stop()
+            raise
+        finally:
+            if raw_socket is not None:
+                raw_socket.close()
+
+    def _reset_stats(self):
+        with self.stats_lock:
+            self.stats_counts = {
+                "bytes": 0,
+                "packets": 0,
+                "lost": 0,
+                "input": 0,
+                "decoded": 0,
+                "sink_input": 0,
+                "raw_drops": 0,
+                "decode_ns": 0,
+                "decode_samples": 0,
+            }
+            self.decode_started = {}
+            self.loss_tracker = RtpLossTracker()
+        self.last_stats_time = time.monotonic()
+        self.last_sink_rendered = 0
+        self.last_sink_dropped = 0
+        self.last_snapshot = {}
+        self.overlay_surface = None
+
+    def _setup_stats(self):
+        Gst = _load_gst()
+        pipeline = self.gst_pipeline
+        self._reset_stats()
+        names = (
+            "receiver_source", "receiver_parser", "receiver_decoder",
+            "receiver_compressed_queue", "receiver_raw_queue",
+            "receiver_stats_overlay", "receiver_sink",
+        )
+        self.stats_elements = {name: pipeline.get_by_name(name) for name in names}
+        probes = (
+            ("receiver_source", "src", self._source_probe),
+            ("receiver_parser", "src", self._input_probe),
+            ("receiver_decoder", "sink", self._decode_input_probe),
+            ("receiver_decoder", "src", self._decode_output_probe),
+            ("receiver_sink", "sink", self._sink_input_probe),
+        )
+        for name, pad_name, callback in probes:
+            element = self.stats_elements.get(name)
+            pad = element.get_static_pad(pad_name) if element is not None else None
+            if pad is not None:
+                pad.add_probe(Gst.PadProbeType.BUFFER, callback)
+        raw_queue = self.stats_elements.get("receiver_raw_queue")
+        if raw_queue is not None:
+            raw_queue.connect("overrun", self._raw_queue_overrun)
+        overlay = self.stats_elements.get("receiver_stats_overlay")
+        self.overlay_supported = overlay is not None
+        if overlay is not None:
+            try:
+                import cairo
+                overlay.connect("caps-changed", self._overlay_caps_changed)
+                overlay.connect("draw", self._draw_overlay)
+            except Exception as exc:
+                self.overlay_supported = False
+                self.logAppended.emit(f"Stats overlay disabled: {exc}")
+        elif self.show_stats:
+            self.logAppended.emit(
+                "Stats overlay unavailable — install GStreamer cairooverlay."
+            )
+        sink = self.stats_elements.get("receiver_sink")
+        rendered, dropped = self._sink_totals(sink)
+        self.last_sink_rendered = rendered
+        self.last_sink_dropped = dropped
+        self.stats_timer.start()
+
+    def _source_probe(self, _pad, info):
+        Gst = _load_gst()
+        buffer = info.get_buffer()
+        if buffer is None:
+            return Gst.PadProbeReturn.OK
+        size = buffer.get_size()
+        lost = 0
+        packet = 0
+        if self.udp_transport:
+            success, mapped = buffer.map(Gst.MapFlags.READ)
+            try:
+                data = mapped.data if success else b""
+                if len(data) >= 12 and data[0] >> 6 == 2:
+                    packet = 1
+                    sequence = int.from_bytes(data[2:4], "big")
+            finally:
+                if success:
+                    buffer.unmap(mapped)
+        with self.stats_lock:
+            if packet:
+                lost = self.loss_tracker.add(sequence)
+            self.stats_counts["bytes"] += size
+            self.stats_counts["packets"] += packet
+            self.stats_counts["lost"] += lost
+        return Gst.PadProbeReturn.OK
+
+    def _input_probe(self, _pad, info):
+        with self.stats_lock:
+            self.stats_counts["input"] += int(info.get_buffer() is not None)
+        return _GST.PadProbeReturn.OK
+
+    def _decode_input_probe(self, _pad, info):
+        buffer = info.get_buffer()
+        if buffer is not None and buffer.pts != _GST.CLOCK_TIME_NONE:
+            with self.stats_lock:
+                self.decode_started[int(buffer.pts)] = time.monotonic_ns()
+                if len(self.decode_started) > 120:
+                    self.decode_started.pop(next(iter(self.decode_started)))
+        return _GST.PadProbeReturn.OK
+
+    def _decode_output_probe(self, _pad, info):
+        buffer = info.get_buffer()
+        now = time.monotonic_ns()
+        with self.stats_lock:
+            self.stats_counts["decoded"] += int(buffer is not None)
+            if buffer is not None and buffer.pts != _GST.CLOCK_TIME_NONE:
+                started = self.decode_started.pop(int(buffer.pts), None)
+                if started is not None:
+                    self.stats_counts["decode_ns"] += now - started
+                    self.stats_counts["decode_samples"] += 1
+        return _GST.PadProbeReturn.OK
+
+    def _sink_input_probe(self, _pad, info):
+        with self.stats_lock:
+            self.stats_counts["sink_input"] += int(info.get_buffer() is not None)
+        return _GST.PadProbeReturn.OK
+
+    def _raw_queue_overrun(self, _queue):
+        with self.stats_lock:
+            self.stats_counts["raw_drops"] += 1
+
+    def _overlay_caps_changed(self, _overlay, caps):
+        structure = caps.get_structure(0) if caps and caps.get_size() else None
+        if structure is None:
+            return
+        width = structure.get_value("width")
+        height = structure.get_value("height")
+        if isinstance(width, int) and isinstance(height, int):
+            self.overlay_width, self.overlay_height = width, height
+
+    def _draw_overlay(self, _overlay, context, _timestamp, _duration):
+        surface = self.overlay_surface if self.show_stats else None
+        if surface is None:
+            return
+        scale = max(0.75, min(2.0, self.overlay_height / 1080))
+        context.set_source_surface(surface, 12 * scale, 12 * scale)
+        context.paint()
+
+    @staticmethod
+    def _element_level(element):
+        if element is None or element.find_property("current-level-buffers") is None:
+            return 0
+        return int(element.get_property("current-level-buffers"))
+
+    @staticmethod
+    def _sink_totals(sink):
+        if sink is None or sink.find_property("stats") is None:
+            return 0, 0
+        stats = sink.get_property("stats")
+        if stats is None:
+            return 0, 0
+        return int(stats.get_value("rendered") or 0), int(stats.get_value("dropped") or 0)
+
+    def _stats_snapshot(self):
+        now = time.monotonic()
+        elapsed = max(0.001, now - self.last_stats_time)
+        self.last_stats_time = now
+        with self.stats_lock:
+            counts = dict(self.stats_counts)
+            for key in self.stats_counts:
+                self.stats_counts[key] = 0
+        sink = self.stats_elements.get("receiver_sink")
+        has_sink_stats = sink is not None and sink.find_property("stats") is not None
+        rendered_total, dropped_total = self._sink_totals(sink)
+        rendered = max(0, rendered_total - self.last_sink_rendered)
+        sink_drops = max(0, dropped_total - self.last_sink_dropped)
+        self.last_sink_rendered = rendered_total
+        self.last_sink_dropped = dropped_total
+        displayed = rendered if has_sink_stats else counts["sink_input"]
+        packets = counts["packets"]
+        lost = counts["lost"]
+        return {
+            "transport": "Wi-Fi RTP/UDP" if self.udp_transport else "Local TCP",
+            "rx_kbps": counts["bytes"] * 8 / elapsed / 1000,
+            "pps": packets / elapsed if self.udp_transport else None,
+            "loss": lost * 100 / max(1, packets + lost) if self.udp_transport else None,
+            "input_fps": counts["input"] / elapsed,
+            "decoded_fps": counts["decoded"] / elapsed,
+            "display_fps": displayed / elapsed,
+            "display_label": "display" if has_sink_stats else "output",
+            "decode_ms": (
+                counts["decode_ns"] / counts["decode_samples"] / 1_000_000
+                if counts["decode_samples"] else None
+            ),
+            "compressed_q": self._element_level(
+                self.stats_elements.get("receiver_compressed_queue")
+            ),
+            "raw_q": self._element_level(self.stats_elements.get("receiver_raw_queue")),
+            "raw_drops": counts["raw_drops"],
+            "sink_drops": sink_drops,
+            "decoder": self.decoder_label,
+            "sink": self.sink,
+        }
+
+    @staticmethod
+    def _stat(value, pattern):
+        return "—" if value is None else pattern.format(value)
+
+    def _render_stats_surface(self, snapshot):
+        if not self.show_stats or not self.overlay_supported or not snapshot:
+            self.overlay_surface = None
+            return
+        import cairo
+
+        scale = max(0.75, min(2.0, self.overlay_height / 1080))
+        lines = [
+            snapshot["transport"],
+            "RX {} kbps · {} pps · loss {}".format(
+                self._stat(snapshot["rx_kbps"], "{:.0f}"),
+                self._stat(snapshot["pps"], "{:.0f}"),
+                self._stat(snapshot["loss"], "{:.1f}%"),
+            ),
+            "frames in/dec/{} {:.1f} / {:.1f} / {:.1f} fps".format(
+                snapshot["display_label"], snapshot["input_fps"],
+                snapshot["decoded_fps"], snapshot["display_fps"],
+            ),
+            "decode {} · q compressed/raw {}/{}".format(
+                self._stat(snapshot["decode_ms"], "{:.1f} ms"),
+                snapshot["compressed_q"], snapshot["raw_q"],
+            ),
+            "drops raw/sink {}/{}".format(
+                snapshot["raw_drops"], snapshot["sink_drops"]
+            ),
+            "{} · {}".format(snapshot["decoder"], snapshot["sink"]),
+        ]
+        width, height = int(450 * scale), int(132 * scale)
+        surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
+        context = cairo.Context(surface)
+        context.scale(scale, scale)
+        radius = 7
+        card_w, card_h = width / scale, height / scale
+        context.new_sub_path()
+        context.arc(card_w - radius, radius, radius, -1.5708, 0)
+        context.arc(card_w - radius, card_h - radius, radius, 0, 1.5708)
+        context.arc(radius, card_h - radius, radius, 1.5708, 3.1416)
+        context.arc(radius, radius, radius, 3.1416, 4.7124)
+        context.close_path()
+        context.set_source_rgba(0, 0, 0, 0.70)
+        context.fill()
+        context.select_font_face("monospace", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+        context.set_font_size(12)
+        context.set_source_rgba(1, 1, 1, 1)
+        for index, line in enumerate(lines):
+            context.move_to(10, 19 + index * 20)
+            context.show_text(line)
+        self.overlay_surface = surface
+
+    def _update_stats(self):
+        if self.gst_pipeline is None:
+            self.stats_timer.stop()
+            return
+        self.last_snapshot = self._stats_snapshot()
+        self._render_stats_surface(self.last_snapshot)
 
     def _sink_candidates(self):
         candidates = []
@@ -418,11 +767,21 @@ class ReceiverController(QObject):
             return [postproc, "!", "video/x-raw,format=NV12", "!"]
         return ["videoconvert", "!", "video/x-raw,format=NV12", "!"]
 
+    def _named_decoder_args(self):
+        return [self.decoder_args[0], "name=receiver_decoder", *self.decoder_args[1:]]
+
     def _display_chain_args(self, sink_name):
         args = []
         if self.decoder == "Hardware":
             args.extend(self._hardware_post_decode_args())
-        args.extend([*RAW_DROP_QUEUE, "!", "videoconvert", "!", *self._sink_args(sink_name)])
+        args.extend([
+            "queue", "name=receiver_raw_queue", *RAW_DROP_QUEUE[1:], "!",
+            "videoconvert", "!", "video/x-raw,format=BGRx", "!",
+        ])
+        if gst_has_element("cairooverlay"):
+            args.extend(["cairooverlay", "name=receiver_stats_overlay", "!"])
+        sink_args = self._sink_args(sink_name)
+        args.extend([sink_args[0], "name=receiver_sink", *sink_args[1:]])
         return args
 
     def _try_next_hardware_pipeline(self):
@@ -525,8 +884,6 @@ class ReceiverController(QObject):
             if message.type == Gst.MessageType.EOS:
                 self._gst_finished(0, generation)
                 break
-            if message.type == Gst.MessageType.NEW_CLOCK and not self.stable:
-                self._mark_stable(generation, self.gst_pipeline)
 
     def _gst_finished(self, code, generation):
         pipeline = self.gst_pipeline
@@ -618,10 +975,15 @@ class ReceiverController(QObject):
 
     def _stop_gst_pipeline(self):
         self.gst_bus_timer.stop()
+        self.stats_timer.stop()
         pipeline = self.gst_pipeline
         self.gst_pipeline = None
         self.gst_bus = None
         self.gst_generation = None
+        self.gst_socket = None
+        self.stats_elements = {}
+        self.overlay_surface = None
+        self.overlay_supported = False
         if pipeline is None:
             return
         try:

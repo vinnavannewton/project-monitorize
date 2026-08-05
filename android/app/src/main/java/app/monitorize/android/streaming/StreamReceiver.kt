@@ -14,6 +14,7 @@ private const val RTP_TRANSPORT = "rtp-udp-v1"
 private const val IDR_REQUEST_COOLDOWN_MS = 1_000L
 private const val HARD_IDR_RETRY_MS = 250L
 private const val MAX_CAPTURE_TO_RENDER_NS = 1_000_000_000L
+private const val RTP_PACKET_TIMEOUT_MS = 5_000L
 
 internal data class RtpStreamConfig(
     val width: Int,
@@ -35,6 +36,12 @@ internal fun recoveryIdrAllowed(
 ): Boolean {
     return nowMs - lastRequestMs >= cooldownMs
 }
+
+internal fun rtpSessionInactive(
+    lastPacketMs: Long,
+    nowMs: Long,
+    timeoutMs: Long = RTP_PACKET_TIMEOUT_MS,
+): Boolean = nowMs - lastPacketMs >= timeoutMs
 
 internal fun percentile95(values: List<Float>): Float {
     if (values.isEmpty()) return 0f
@@ -286,7 +293,6 @@ class StreamReceiver(
     private val idrRequestInFlight = AtomicBoolean(false)
 
     var onStatusChange: ((String) -> Unit)? = null
-    var onDisconnect: (() -> Unit)? = null
     var onPlainTransportReady: (() -> Unit)? = null
     var onStats: ((StreamStats) -> Unit)? = null
 
@@ -309,14 +315,13 @@ class StreamReceiver(
             try {
                 val target = hostIp.takeUnless { it.isNullOrEmpty() } ?: "127.0.0.1"
                 if (target != "127.0.0.1") {
-                    if (!receiveLoopRtp(target) && running.get()) onDisconnect?.invoke()
+                    receiveLoopRtpWithRetry(target)
                 } else {
                     receiveLoopWifi(target)
                 }
             } catch (e: Exception) {
                 if (running.get()) {
                     Log.e(TAG, "Receiver stopped unexpectedly", e)
-                    onDisconnect?.invoke()
                 }
             } finally {
                 running.set(false)
@@ -324,6 +329,42 @@ class StreamReceiver(
                 worker = null
             }
         }, "MonitorizeReceiver").also { it.start() }
+    }
+
+    private fun receiveLoopRtpWithRetry(targetIp: String) {
+        var reachedDesktop = false
+        var attempt = 0
+        while (running.get()) {
+            attempt++
+            onStatusChange?.invoke(
+                if (reachedDesktop) "Desktop stream interrupted. Retrying…"
+                else "Waiting for desktop stream…"
+            )
+            val reachedReady = try {
+                receiveLoopRtp(targetIp)
+            } catch (e: Exception) {
+                if (running.get()) {
+                    if (attempt == 1 || attempt % 10 == 0) {
+                        Log.w(TAG, "RTP connection unavailable (attempt $attempt): ${e.message}")
+                    } else {
+                        Log.d(TAG, "RTP connection unavailable (attempt $attempt): ${e.message}")
+                    }
+                }
+                false
+            } finally {
+                decoder.setFrameRenderedTimingCallback(null)
+                cleanup()
+                decoder.release()
+            }
+            reachedDesktop = reachedDesktop || reachedReady
+            if (!running.get()) break
+            onStats?.invoke(StreamStats())
+            onStatusChange?.invoke(
+                if (reachedDesktop) "Desktop stream interrupted. Retrying…"
+                else "Waiting for desktop stream…"
+            )
+            sleepBeforeRetry()
+        }
     }
 
     private fun receiveLoopRtp(targetIp: String): Boolean {
@@ -339,7 +380,6 @@ class StreamReceiver(
         val hello = buildRtpControlMessage(socket.localPort, fps, width, height)
         val helloBytes = hello.toByteArray(Charsets.UTF_8)
         Log.i(TAG, "RTP negotiation: UDP port ${socket.localPort}, target $targetIp:$controlPort")
-        onStatusChange?.invoke("Negotiating low-latency UDP video…")
         val ready: RtpStreamConfig? = try {
             Socket().use { control ->
                 control.connect(InetSocketAddress(targetIp, controlPort), 1500)
@@ -355,8 +395,7 @@ class StreamReceiver(
                 parseRtpReady(response)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "RTP TCP handshake failed: ${e.message}", e)
-            null
+            throw java.io.IOException("RTP handshake failed: ${e.message}", e)
         }
         if (ready == null) {
             Log.w(TAG, "RTP handshake not ready")
@@ -366,12 +405,15 @@ class StreamReceiver(
         Log.i(TAG, "RTP handshake succeeded, starting receive loop")
         socket.soTimeout = 4
         onPlainTransportReady?.invoke()
-        decoder.init(
+        if (!decoder.init(
             ready.width, ready.height, ready.fps,
             balancedOutput = false, inputFrameCapacity = 5,
             replaceInputOnOverflow = false,
-        )
-        onStatusChange?.invoke("")
+        )) {
+            Log.w(TAG, "RTP decoder initialization failed; renegotiating")
+            return true
+        }
+        onStatusChange?.invoke("Waiting for video…")
         val assembler = RtpH264Assembler(detectCrossFrameGaps = ready.fecPercent == 0)
         val clockSync = RtpClockSync()
         decoder.setFrameRenderedTimingCallback(clockSync::recordRendered)
@@ -398,8 +440,9 @@ class StreamReceiver(
         val assemblySamplesMs = ArrayList<Float>()
         var lateFrames = 0
         val feedback = RtpFeedbackAccumulator()
-        var noPacketDeadline = android.os.SystemClock.uptimeMillis() + 5000
+        var lastPacketAt = android.os.SystemClock.uptimeMillis()
         var lastIdrRequestMs = -IDR_REQUEST_COOLDOWN_MS
+        var decoderFailed = false
 
         fun requestRecoveryIdr(cooldownMs: Long = IDR_REQUEST_COOLDOWN_MS) {
             val now = android.os.SystemClock.uptimeMillis()
@@ -445,6 +488,7 @@ class StreamReceiver(
                     }
                     H264Decoder.SubmissionResult.FAILED -> {
                         Log.w(TAG, "RTP decoder failed frame: size=${frame.size} idr=$isIdr")
+                        decoderFailed = true
                     }
                 }
             } else {
@@ -454,7 +498,7 @@ class StreamReceiver(
 
         fun drainCompletedFrames(first: ByteArray?) {
             var frame = first
-            while (frame != null) {
+            while (frame != null && !decoderFailed) {
                 assembler.completedAssemblyNanos?.let { duration ->
                     assemblySamplesMs += duration / 1_000_000f
                     if (duration > 1_000_000_000L / ready.fps.coerceAtLeast(1)) {
@@ -466,15 +510,17 @@ class StreamReceiver(
             }
         }
 
+        requestRecoveryIdr(HARD_IDR_RETRY_MS)
+
         while (running.get()) {
             try {
                 packet.length = buffer.size
                 socket.receive(packet)
+                lastPacketAt = android.os.SystemClock.uptimeMillis()
                 val rtp = RtpH264Assembler.parse(packet.data, packet.length) ?: continue
                 receivedPackets++
                 receivedBytes += packet.length
                 totalReceivedPackets++
-                noPacketDeadline = 0L
                 if (!firstPacketLogged) {
                     firstPacketLogged = true
                     val nalType = if (rtp.payload.isNotEmpty()) rtp.payload[0].toInt() and 0x1f else -1
@@ -514,10 +560,10 @@ class StreamReceiver(
                 }
                 drainCompletedFrames(frame)
             } catch (_: SocketTimeoutException) {
-                if (noPacketDeadline > 0 && android.os.SystemClock.uptimeMillis() > noPacketDeadline) {
-                    Log.w(TAG, "RTP no packets received within 5s — requesting IDR")
-                    requestRecoveryIdr()
-                    noPacketDeadline = android.os.SystemClock.uptimeMillis() + 5000
+                val now = android.os.SystemClock.uptimeMillis()
+                if (rtpSessionInactive(lastPacketAt, now)) {
+                    Log.w(TAG, "RTP stream inactive for ${RTP_PACKET_TIMEOUT_MS}ms; renegotiating")
+                    break
                 }
                 if (assembler.expire(System.nanoTime(), frameDeadlineNanos)) {
                     lostPackets += assembler.lostPackets
@@ -526,6 +572,10 @@ class StreamReceiver(
                     requestRecoveryIdr(HARD_IDR_RETRY_MS)
                     drainCompletedFrames(assembler.pollCompleted())
                 }
+            }
+            if (decoderFailed) {
+                Log.w(TAG, "RTP decoder failed; renegotiating")
+                break
             }
             val statsNow = android.os.SystemClock.uptimeMillis()
             if (statsNow - lastStats >= 250) {

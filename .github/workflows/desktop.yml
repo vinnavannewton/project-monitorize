@@ -62,6 +62,7 @@ jobs:
             pyproject-rpm-macros \
             python3 \
             python3-cryptography \
+            python3-cairo \
             python3-dbus \
             python3-devel \
             python3-evdev \
@@ -185,6 +186,11 @@ jobs:
           gst-inspect-1.0 pipewiresrc >/dev/null
           gst-inspect-1.0 x264enc >/dev/null
           gst-inspect-1.0 avdec_h264 >/dev/null
+          gst-inspect-1.0 cairooverlay >/dev/null
+          gst-inspect-1.0 glupload >/dev/null
+          gst-inspect-1.0 glcolorconvert >/dev/null
+          gst-inspect-1.0 glcolorscale >/dev/null
+          python3 -c 'import cairo'
           test -x /usr/bin/monitorize-kde-virtual-output
           ! ldd /usr/bin/monitorize-kde-virtual-output | grep -q 'not found'
           desktop-file-validate /usr/share/applications/monitorize.desktop
@@ -229,6 +235,7 @@ jobs:
             pkgconf \
             python \
             python-cryptography \
+            python-cairo \
             python-dbus \
             python-evdev \
             python-gobject \
@@ -251,6 +258,11 @@ jobs:
           gst-inspect-1.0 pipewiresrc >/dev/null
           gst-inspect-1.0 x264enc >/dev/null
           gst-inspect-1.0 avdec_h264 >/dev/null
+          gst-inspect-1.0 cairooverlay >/dev/null
+          gst-inspect-1.0 glupload >/dev/null
+          gst-inspect-1.0 glcolorconvert >/dev/null
+          gst-inspect-1.0 glcolorscale >/dev/null
+          python3 -c 'import cairo'
           test -x linux/venv/bin/monitorize-kde-virtual-output
           ! ldd linux/venv/bin/monitorize-kde-virtual-output | grep -q 'not found'
           desktop-file-validate /root/.local/share/applications/monitorize.desktop

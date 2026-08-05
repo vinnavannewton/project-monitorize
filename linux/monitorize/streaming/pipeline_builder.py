@@ -42,11 +42,8 @@ def get_encoder(preference: str = "cpu", require_hardware: bool = False) -> str 
     if pref == "nvidia":
         if _gst_inspect("nvh264enc"):
             return "nvh264enc"
-        if require_hardware:
-            print("[Pipeline] NVIDIA NVENC is unavailable; hardware encoder is required")
-            return "nvh264enc"
-        print("[Pipeline] NVIDIA NVENC is unavailable; using CPU x264enc")
-        return None
+        print("[Pipeline] NVIDIA NVENC is unavailable; startup will fail without CPU fallback")
+        return "nvh264enc"
         
     elif pref == "vaapi":
         for enc in ("vah264enc", "vah264lpenc", "vaapih264enc"):
@@ -221,6 +218,7 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
         if hw_encoder == "nvh264enc":
             if nvidia_memory == "gl":
                 convert = (
+                    "'video/x-raw(memory:DMABuf),format=DMA_DRM' ! "
                     "glupload ! glcolorconvert ! glcolorscale ! "
                     f"'video/x-raw(memory:GLMemory),format=RGBA{dimensions}'"
                 )
@@ -363,9 +361,80 @@ def _failed_during_startup(proc, timeout=1.0):
     return True
 
 
+def _kwin_renderer():
+    try:
+        import dbus
+
+        interface = dbus.Interface(
+            dbus.SessionBus().get_object("org.kde.KWin", "/KWin"),
+            "org.kde.KWin",
+        )
+        support = str(interface.supportInformation())
+    except Exception:
+        return "", ""
+
+    def field(name):
+        match = re.search(rf"^{re.escape(name)}:\s*(.+)$", support, re.MULTILINE)
+        return match.group(1).strip() if match else ""
+
+    return field("OpenGL vendor string"), field("OpenGL renderer string")
+
+
+def _nvidia_display_gpus():
+    try:
+        result = subprocess.run(
+            [
+                "nvidia-smi",
+                "--query-gpu=name,pci.bus_id,display_active",
+                "--format=csv,noheader,nounits",
+            ],
+            capture_output=True, text=True, timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    if result.returncode != 0:
+        return []
+    return [
+        tuple(part.strip() for part in line.split(",", 2))
+        for line in result.stdout.splitlines()
+        if len(line.split(",", 2)) == 3
+    ]
+
+
+@lru_cache(maxsize=1)
+def _same_nvidia_kwin_gpu():
+    vendor, renderer = _kwin_renderer()
+    if not vendor or not renderer:
+        return False, "KWin renderer information is unavailable"
+    if "nvidia" not in vendor.lower():
+        return False, f"KWin renders on {renderer}"
+
+    gpus = _nvidia_display_gpus()
+    if len(gpus) != 1:
+        return False, f"expected one NVIDIA GPU, found {len(gpus)}"
+    name, pci_id, display_active = gpus[0]
+    if display_active.lower() != "enabled":
+        return False, f"NVIDIA display is {display_active or 'inactive'}"
+    if name.lower() not in renderer.lower():
+        return False, f"KWin renderer {renderer} does not match CUDA GPU {name}"
+    return True, f"{name} at {pci_id}"
+
+
 def _nvidia_memory_candidates():
     encoder = _gst_inspect("nvh264enc")
     candidates = []
+    gl_elements = ("glupload", "glcolorconvert", "glcolorscale")
+    same_gpu, reason = _same_nvidia_kwin_gpu()
+    if (
+        same_gpu
+        and "memory:GLMemory" in encoder
+        and all(_gst_inspect(element) for element in gl_elements)
+    ):
+        candidates.append("gl")
+        print(f"[Pipeline] NVIDIA DMA-BUF/GL enabled: KWin and CUDA use {reason}")
+    else:
+        detail = reason if not same_gpu else "required GLMemory elements are unavailable"
+        print(f"[Pipeline] NVIDIA DMA-BUF/GL skipped: {detail}")
     if "memory:CUDAMemory" in encoder and all(
         _gst_inspect(element)
         for element in ("cudaupload", "cudaconvertscale")
@@ -428,7 +497,8 @@ def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
             else _nvidia_memory_candidates()
         )
 
-    for mode in modes:
+    last_proc = None
+    for mode_index, mode in enumerate(modes):
         pipeline = build_pipeline(
             pw_fd=pw_fd, node_id=node_id,
             width=width, height=height, fps=fps, bitrate=bitrate, port=port,
@@ -447,16 +517,29 @@ def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
             target_fps=fps, bitrate=bitrate,
             target_width=width, target_height=height,
         )
-        if not _failed_during_startup(proc):
+        last_proc = proc
+        if not _failed_during_startup(proc, timeout=3.0 if mode == "gl" else 1.0):
             print("[Pipeline] READY", flush=True)
             return proc
         if not hw_encoder:
             print("[Pipeline] CPU encoder failed during startup", flush=True)
             return proc
-        if require_hardware:
+        if require_hardware and hw_encoder != "nvh264enc":
             print("[Pipeline] Requested hardware encoder failed; CPU fallback is disabled", flush=True)
             return proc
-        print(f"[Pipeline] {label} failed during startup; trying fallback")
+        if (
+            mode_index + 1 < len(modes)
+            or (hw_encoder != "nvh264enc" and not require_hardware)
+        ):
+            print(f"[Pipeline] {label} failed during startup; trying fallback")
+
+    if hw_encoder == "nvh264enc":
+        print(
+            "[ERROR] NVIDIA NVENC failed in all permitted memory modes; "
+            "CPU fallback is disabled",
+            flush=True,
+        )
+        return last_proc
 
     print("[Pipeline] Hardware encoder paths failed; retrying CPU x264enc")
     pipeline = build_pipeline(

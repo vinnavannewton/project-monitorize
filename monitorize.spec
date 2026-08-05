@@ -36,6 +36,7 @@ Requires:       python3-cryptography
 Requires:       python3-dbus
 Requires:       python3-evdev
 Requires:       python3-gobject
+Requires:       python3-cairo
 Requires:       python3-pyqt6
 Requires:       python3-zeroconf
 Requires:       qt6-qtdeclarative

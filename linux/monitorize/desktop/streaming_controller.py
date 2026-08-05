@@ -45,6 +45,7 @@ from monitorize.input_bridge.uinput_backend import UINPUT_PERMISSION_HINT
 
 
 GNOME_LAYOUT_CHANGE_DEBOUNCE_MS = 750
+WIFI_STREAM_RESTART_DELAY_MS = 1000
 DUAL_WIFI_BITRATE_BUDGET_KBPS = 30000
 MIN_SECONDARY_BITRATE_KBPS = 4000
 THIRD_STREAM_PUBLIC_PORT = 7114
@@ -88,6 +89,7 @@ class StreamingController(QObject):
         self.gnome_event_buffer = ""
         self.gnome_outputs = {}
         self.primary_ready = False
+        self.streamer_was_ready = False
         self.third_streamer = None
         self.third_streaming = False
         self.third_ready = False
@@ -213,6 +215,7 @@ class StreamingController(QObject):
     ):
         self.stop()
         self.generation += 1
+        self.streamer_was_ready = False
         self._reset_telemetry()
         options = options or {}
         self.wifi = wifi
@@ -462,6 +465,7 @@ class StreamingController(QObject):
         for line in lines:
             self._track_gst_pid(line)
             if line == "[Pipeline] READY":
+                self.streamer_was_ready = True
                 self._set_primary_ready(True)
                 self._set_status("Status: Streaming…")
             if self.de == "kde":
@@ -596,6 +600,22 @@ class StreamingController(QObject):
         ):
             return
         self.logAppended.emit("STREAMER", f"Process exited (code {code})")
+        self.streamer = None
+        self._set_primary_ready(False)
+        if self.wifi and self.streamer_was_ready and self.streaming:
+            if self.gst_pids:
+                kill_tracked_pids(set(self.gst_pids))
+                self.gst_pids.clear()
+            self._set_status("Stream interrupted; restarting…")
+            self.logAppended.emit(
+                "STREAMER",
+                "Wi-Fi streamer exited after READY; restarting in 1 s.",
+            )
+            QTimer.singleShot(
+                WIFI_STREAM_RESTART_DELAY_MS,
+                lambda: self._restart_wifi_streamer(generation),
+            )
+            return
         if self.de == "gnome" and code and self.streaming:
             message = self.status or "GNOME virtual display failed — see logs"
             self.stop()
@@ -604,6 +624,16 @@ class StreamingController(QObject):
             message = self.status or "KDE streaming setup failed — see logs"
             self.stop()
             self._set_status(message)
+
+    def _restart_wifi_streamer(self, generation):
+        if (
+            generation != self.generation
+            or not self.streaming
+            or not self.wifi
+            or self.streamer is not None
+        ):
+            return
+        self._launch_streamer(generation)
 
     def _input_finished(self, code, _status, generation=None, process=None):
         if (
@@ -1151,6 +1181,7 @@ class StreamingController(QObject):
         self.kde_event_buffer = ""
         self.gnome_event_buffer = ""
         self._reset_telemetry()
+        self.streamer_was_ready = False
         self._set_primary_ready(False)
         self.runtime_general = None
         if (
@@ -1161,7 +1192,8 @@ class StreamingController(QObject):
             self.stop_third()
         stop_processes(self.streamer, self.input_bridge)
         self.streamer = self.input_bridge = None
-        kill_tracked_pids(self.gst_pids)
+        kill_tracked_pids(set(self.gst_pids))
+        self.gst_pids.clear()
         kill_patterns(
             "gst-launch-1.0.*port=7110", "gst-launch-1.0.*port=7112",
             "gst-launch-1.0.*port=7114", "gst-launch-1.0.*port=7115",

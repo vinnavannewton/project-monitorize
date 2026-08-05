@@ -98,7 +98,7 @@ class H264Decoder(
     fun init(
         width: Int, height: Int, fps: Int = 60, balancedOutput: Boolean = false,
         inputFrameCapacity: Int = 1, replaceInputOnOverflow: Boolean = true,
-    ) {
+    ): Boolean {
         release()
         inputCapacity = inputFrameCapacity.coerceIn(1, 5)
         replaceQueuedOnOverflow = replaceInputOnOverflow
@@ -257,10 +257,12 @@ class H264Decoder(
                 }
             }
             frameCount = 0
+            return true
         } catch (e: Exception) {
             Log.e(TAG, "Init failed", e)
             fatalError.set(true)
             release()
+            return false
         }
     }
 
@@ -442,6 +444,8 @@ class H264Decoder(
         decoderGeneration.incrementAndGet()
         initialized = false
         fatalError.set(false)
+        val releasedCodec = codec
+        codec = null
         drainQueuedFrames()?.let { recycleChunk(it) }
         pendingInputBuffers.clear()
         renderedSinceStats.set(0)
@@ -451,10 +455,18 @@ class H264Decoder(
         droppedSinceStats.set(0)
         presentationRtpTimestamps.clear()
         pendingOutputBuffers.drain().forEach { output ->
-            try { codec?.releaseOutputBuffer(output, false) } catch (_: Exception) {}
+            try { releasedCodec?.releaseOutputBuffer(output, false) } catch (_: Exception) {}
         }
-        try { codec?.stop(); codec?.release() } catch (_: Exception) {}
-        codec = null
+        try {
+            releasedCodec?.stop()
+        } catch (e: Exception) {
+            Log.w(TAG, "Decoder stop failed during release", e)
+        }
+        try {
+            releasedCodec?.release()
+        } catch (e: Exception) {
+            Log.w(TAG, "Decoder release failed", e)
+        }
         try {
             val thread = callbackThread
             thread?.quitSafely()
