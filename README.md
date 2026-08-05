@@ -105,19 +105,15 @@ Please read the [Contribution Guide](https://github.com/vinnavannewton/project-m
 
 - [x] Stylus support with pressure.
 
-- [ ] App-native encrypted Wi-Fi mode (use Tailscale or WireGuard today).
-
 - [x] Stable gnome.
 
 - [x] Linux laptop as a viewer.
 
-- [ ] Windows laptop as a viewer.
-
-- [ ] Multi monitor setup.
+- [x] Multi monitor setup.
 
 - [x] NVIDIA NVENC with automatic DMA-BUF/GL, CUDA-upload, system-memory, and CPU fallback paths.
 
-- [ ] AppImage.
+- [ ] 
 
 ---
 
