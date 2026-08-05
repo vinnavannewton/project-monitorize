@@ -165,8 +165,11 @@ class StreamingController(QObject):
                 "senderDrops": self._metric_number(values, "senderDrops"),
                 "senderErrors": self._metric_number(values, "sendErrors"),
                 "encodePath": values.get("encodePath"),
+                "scheduledIdr": self._metric_number(values, "scheduledIdr"),
                 "recoveryIdr": self._metric_number(values, "recoveryIdr"),
                 "confirmedIdr": self._metric_number(values, "confirmedIdr"),
+                "coalescedIdr": self._metric_number(values, "coalescedIdr"),
+                "idrKiB": self._metric_number(values, "idrKiB"),
                 "idrMs": self._metric_number(values, "idrMs"),
             })
         elif line.startswith("[RTP][Client]"):

@@ -43,8 +43,11 @@ class Session:
         self.running = True
         self.force_key_count = 0
         self.confirmed_idr_count = 0
+        self.scheduled_idr_count = 0
+        self.coalesced_idr_count = 0
         self.pending_idr_since = None
         self.last_idr_ms = None
+        self.last_idr_kib = None
         self.target_fps = target_fps
         self.width = width
         self.height = height
@@ -182,7 +185,11 @@ class Session:
                 process.kill()
                 process.wait()
 
-    def force_key_unit(self):
+    def force_key_unit(self, replace_pending=False):
+        if self.pending_idr_since is not None and not replace_pending:
+            self.coalesced_idr_count += 1
+            print("[RTP] Recovery IDR request coalesced; one is pending", flush=True)
+            return False
         self.force_key_count += 1
         for name in ("nvh264enc0", "vah264enc0", "vah264lpenc0", "vaapih264enc0", "x264enc0"):
             encoder = self.pipeline.get_by_name(name)
@@ -195,7 +202,8 @@ class Session:
             if pad and pad.send_event(event):
                 self.pending_idr_since = time.monotonic()
                 print("[RTP] Forced IDR from receiver feedback", flush=True)
-            return
+            return False
+        return False
 
     @staticmethod
     def encoded_access_unit_has_idr(data):
@@ -204,6 +212,21 @@ class Session:
             if header < len(data) and data[header] & 0x1f == 5:
                 return True
         return False
+
+    def record_encoded_idr(self, size, now=None):
+        now = time.monotonic() if now is None else now
+        self.last_idr_kib = size / 1024
+        if self.pending_idr_since is None:
+            self.scheduled_idr_count += 1
+            return
+        self.confirmed_idr_count += 1
+        self.last_idr_ms = (now - self.pending_idr_since) * 1000
+        self.pending_idr_since = None
+        print(
+            f"[RTP] Recovery IDR confirmed in {self.last_idr_ms:.1f} ms "
+            f"({self.last_idr_kib:.1f} KiB)",
+            flush=True,
+        )
 
     def report_client_stats(self, message):
         now = time.monotonic()
@@ -362,7 +385,7 @@ class Session:
             f"[RTP] Switched receiver {old_host}:{old_port} -> {host}:{port}",
             flush=True,
         )
-        self.force_key_unit()
+        self.force_key_unit(replace_pending=True)
         return False
 
     def control_loop(self):
@@ -459,18 +482,13 @@ class Session:
                             time.monotonic_ns() - captured_at
                         ) / 1_000_000
                         self.metrics["encode_latency_samples"] += 1
-                    if self.pending_idr_since is not None:
+                    if (
+                        self.pending_idr_since is not None
+                        or not buffer.has_flags(Gst.BufferFlags.DELTA_UNIT)
+                    ):
                         encoded = buffer.extract_dup(0, buffer.get_size())
                         if self.encoded_access_unit_has_idr(encoded):
-                            self.confirmed_idr_count += 1
-                            self.last_idr_ms = (
-                                time.monotonic() - self.pending_idr_since
-                            ) * 1000
-                            self.pending_idr_since = None
-                            print(
-                                f"[RTP] Recovery IDR confirmed in {self.last_idr_ms:.1f} ms",
-                                flush=True,
-                            )
+                            self.record_encoded_idr(buffer.get_size())
                 elif kind == "rtp_packets":
                     self.metrics["rtp_bytes"] += buffer.get_size()
                     data = buffer.extract_dup(0, min(12, buffer.get_size()))
@@ -535,7 +553,7 @@ class Session:
                 "[RTP] WARNING: recovery IDR not observed within 500 ms; retrying",
                 flush=True,
             )
-            self.force_key_unit()
+            self.force_key_unit(replace_pending=True)
         sender = dict(self.sender_metrics)
         paced_frames = metrics["paced"] if self.has_rate_filter else metrics["source"]
         print(
@@ -552,8 +570,11 @@ class Session:
             f"senderDelay={sender['queueDelayMs']:.2f}ms "
             f"senderDrops={sender['droppedFrames']:.0f} "
             f"sendErrors={sender['sendErrors']:.0f} "
+            f"scheduledIdr={self.scheduled_idr_count} "
             f"recoveryIdr={self.force_key_count} "
             f"confirmedIdr={self.confirmed_idr_count} "
+            f"coalescedIdr={self.coalesced_idr_count} "
+            f"idrKiB={self.last_idr_kib if self.last_idr_kib is not None else 'unavailable'} "
             f"idrMs={self.last_idr_ms if self.last_idr_ms is not None else 'unavailable'}",
             flush=True,
         )

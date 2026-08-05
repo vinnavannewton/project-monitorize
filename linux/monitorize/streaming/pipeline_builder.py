@@ -201,10 +201,15 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
         )
 
     queue = "queue max-size-buffers=1 max-size-time=0 max-size-bytes=0 leaky=downstream"
+    source_rate_cap = (
+        f"'video/x-raw(ANY),max-framerate={fps}/1'"
+        if target_object is not None and preserve_source_rate and rtp_endpoint
+        else ""
+    )
 
     
     
-    key_int = fps * 5 if rtp_endpoint else max(fps // 4, 15)
+    key_int = fps * 30 if rtp_endpoint else max(fps // 4, 15)
     intra_refresh = not bool(rtp_endpoint)
 
     early_convert = ""
@@ -217,10 +222,13 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
         dimensions = "" if preserve_source_size else f",width={width},height={height}"
         if hw_encoder == "nvh264enc":
             if nvidia_memory == "gl":
+                gl_scale = "" if preserve_source_size else " ! glcolorscale"
                 convert = (
                     "'video/x-raw(memory:DMABuf),format=DMA_DRM' ! "
-                    "glupload ! glcolorconvert ! glcolorscale ! "
-                    f"'video/x-raw(memory:GLMemory),format=RGBA{dimensions}'"
+                    f"glupload ! glcolorconvert{gl_scale} ! "
+                    f"'video/x-raw(memory:GLMemory),format=RGBA{dimensions}' ! "
+                    "cudaupload ! "
+                    f"'video/x-raw(memory:CUDAMemory),format=RGBA{dimensions}'"
                 )
             elif nvidia_memory == "system":
                 scale = "" if preserve_source_size else " ! videoscale"
@@ -311,6 +319,8 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
             taskset_prefix = ["taskset", "-c", f"1-{cores - 1}"]
 
     elements = [src]
+    if source_rate_cap:
+        elements.append(source_rate_cap)
     if early_convert:
         elements.append(early_convert)
     if rate_filter:
@@ -423,17 +433,18 @@ def _same_nvidia_kwin_gpu():
 def _nvidia_memory_candidates():
     encoder = _gst_inspect("nvh264enc")
     candidates = []
-    gl_elements = ("glupload", "glcolorconvert", "glcolorscale")
+    gl_elements = ("glupload", "glcolorconvert", "glcolorscale", "cudaupload")
     same_gpu, reason = _same_nvidia_kwin_gpu()
     if (
         same_gpu
         and "memory:GLMemory" in encoder
+        and "memory:CUDAMemory" in encoder
         and all(_gst_inspect(element) for element in gl_elements)
     ):
         candidates.append("gl")
         print(f"[Pipeline] NVIDIA DMA-BUF/GL enabled: KWin and CUDA use {reason}")
     else:
-        detail = reason if not same_gpu else "required GLMemory elements are unavailable"
+        detail = reason if not same_gpu else "required GL/CUDA interop is unavailable"
         print(f"[Pipeline] NVIDIA DMA-BUF/GL skipped: {detail}")
     if "memory:CUDAMemory" in encoder and all(
         _gst_inspect(element)

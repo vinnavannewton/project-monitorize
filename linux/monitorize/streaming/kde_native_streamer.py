@@ -190,17 +190,26 @@ def run_native_streamer(
         if rtp_endpoint is not None:
             wakeup = _start_capture_wakeup(output_name)
 
-        helper.stdin.write("capture\n")
-        helper.stdin.flush()
-        capture = _read_helper_event(helper, "capture_ready")
-        if capture.get("name") != output_name:
-            raise RuntimeError(
-                f"KWin captured unexpected output {capture.get('name')}"
-            )
+        capture_path = "owner"
+        capture = owner
+        if rtp_endpoint is None or fps > 60:
+            capture_path = "post-mode"
+            helper.stdin.write("capture\n")
+            helper.stdin.flush()
+            capture = _read_helper_event(helper, "capture_ready")
+            if capture.get("name") != output_name:
+                raise RuntimeError(
+                    f"KWin captured unexpected output {capture.get('name')}"
+                )
         node_id = int(capture.get("node_id") or 0)
         target_object = capture.get("target_object")
         if not node_id and not target_object:
             raise RuntimeError("KWin returned no usable PipeWire target")
+        print(
+            f"[KDE Native] Capture path={capture_path} "
+            f"node={node_id or 'none'} target={target_object or 'none'}",
+            flush=True,
+        )
         _controller_event({
             "type": "kde_capture_ready",
             "slot": slot,

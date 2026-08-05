@@ -179,6 +179,64 @@ class VideoTransportTest(unittest.TestCase):
         session.force_key_unit.assert_called_once()
         session.update_client.assert_not_called()
 
+    def test_pending_recovery_idr_coalesces_duplicate_request(self):
+        session = Session.__new__(Session)
+        session.pending_idr_since = 1.0
+        session.coalesced_idr_count = 0
+        session.force_key_count = 1
+        session.pipeline = Mock()
+
+        self.assertFalse(session.force_key_unit())
+
+        self.assertEqual(1, session.coalesced_idr_count)
+        self.assertEqual(1, session.force_key_count)
+        session.pipeline.get_by_name.assert_not_called()
+
+    def test_host_retry_can_replace_pending_recovery_idr(self):
+        session = Session.__new__(Session)
+        session.pending_idr_since = 1.0
+        session.coalesced_idr_count = 0
+        session.force_key_count = 1
+        pad = Mock()
+        pad.send_event.return_value = True
+        encoder = Mock()
+        encoder.get_static_pad.return_value = pad
+        session.pipeline = Mock()
+        session.pipeline.get_by_name.return_value = encoder
+
+        with (
+            patch("monitorize.streaming.gst_session.time.monotonic", return_value=2.0),
+            patch(
+                "monitorize.streaming.gst_session.GstVideo."
+                "video_event_new_upstream_force_key_unit",
+                return_value=object(),
+            ),
+        ):
+            self.assertFalse(session.force_key_unit(replace_pending=True))
+
+        self.assertEqual(2, session.force_key_count)
+        self.assertEqual(0, session.coalesced_idr_count)
+        self.assertEqual(2.0, session.pending_idr_since)
+        pad.send_event.assert_called_once()
+
+    def test_encoded_idr_is_classified_as_scheduled_or_recovery(self):
+        session = Session.__new__(Session)
+        session.pending_idr_since = None
+        session.scheduled_idr_count = 0
+        session.confirmed_idr_count = 0
+        session.last_idr_ms = None
+
+        session.record_encoded_idr(1024, now=10.0)
+        self.assertEqual(1, session.scheduled_idr_count)
+        self.assertEqual(1.0, session.last_idr_kib)
+
+        session.pending_idr_since = 10.0
+        session.record_encoded_idr(2048, now=10.025)
+        self.assertEqual(1, session.scheduled_idr_count)
+        self.assertEqual(1, session.confirmed_idr_count)
+        self.assertAlmostEqual(25.0, session.last_idr_ms)
+        self.assertEqual(2.0, session.last_idr_kib)
+
     def test_fec_requires_both_request_and_receiver_capability(self):
         capable = {"fecModes": ["ulp-rfc5109"]}
         self.assertEqual(negotiate_fec_percent(capable, 10), 10)
@@ -196,7 +254,7 @@ class VideoTransportTest(unittest.TestCase):
         self.assertIn("bitrate=8000", description)
         self.assertNotIn("monitorize_activity", description)
         self.assertNotIn("appsink", description)
-        self.assertIn("key-int-max=300", description)
+        self.assertIn("key-int-max=1800", description)
         self.assertIn("h264parse name=monitorize_parser", description)
 
     def test_rtp_sender_ceiling_is_independent_of_selected_bitrate(self):

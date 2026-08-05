@@ -937,12 +937,15 @@ Item {
                 page.telemetryNumber(page.telemetry.clientDropped, 0) + "\n" +
                 "decode/display " +
                 page.telemetryNumber(page.telemetry.clientDecodeMs, 1) + "/" +
-                page.telemetryNumber(page.telemetry.clientDisplayMs, 1) + " ms · recovery IDR " +
+                page.telemetryNumber(page.telemetry.clientDisplayMs, 1) + " ms · IDR scheduled/recovery " +
+                page.telemetryNumber(page.telemetry.scheduledIdr, 0) + "/" +
                 page.telemetryNumber(page.telemetry.recoveryIdr, 0) + "\n" +
                 "assembly p95/late " +
                 page.telemetryNumber(page.telemetry.clientAssemblyP95Ms, 1) + " ms/" +
-                page.telemetryNumber(page.telemetry.clientLateFrames, 0) + " · IDR confirmed " +
-                page.telemetryNumber(page.telemetry.confirmedIdr, 0) + "\n" +
+                page.telemetryNumber(page.telemetry.clientLateFrames, 0) + " · IDR confirmed/coalesced " +
+                page.telemetryNumber(page.telemetry.confirmedIdr, 0) + "/" +
+                page.telemetryNumber(page.telemetry.coalescedIdr, 0) + " · " +
+                page.telemetryNumber(page.telemetry.idrKiB, 1) + " KiB\n" +
                 "budget/video " + page.telemetryNumber(page.telemetry.bitrateKbps, 0) + "/" +
                 page.telemetryNumber(page.telemetry.videoBitrateKbps, 0) + " kbps · FEC " +
                 page.telemetryNumber(page.telemetry.effectiveFecPercent, 0) + "% · " +

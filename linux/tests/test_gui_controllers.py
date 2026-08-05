@@ -1063,8 +1063,8 @@ class StreamingControllerTest(unittest.TestCase):
             "rtp=132.0pps tx=7500kbps bitrate=8000kbps "
             "videoBitrate=7200kbps fec=10% fecPps=12.0 "
             "pacing=200000kbps encodePath=7.2ms senderQueue=1 "
-            "senderDelay=0.8ms senderDrops=0 sendErrors=0 recoveryIdr=2 "
-            "confirmedIdr=2 idrMs=12.5"
+            "senderDelay=0.8ms senderDrops=0 sendErrors=0 scheduledIdr=3 "
+            "recoveryIdr=2 confirmedIdr=2 coalescedIdr=1 idrKiB=84.5 idrMs=12.5"
         ))
         self.assertTrue(controller._update_rtp_telemetry(
             "[RTP][Client] rx=7200kbps pps=120 loss=0.2% incomplete=0 "
@@ -1079,7 +1079,10 @@ class StreamingControllerTest(unittest.TestCase):
         self.assertEqual(7200.0, controller.telemetry["videoBitrateKbps"])
         self.assertEqual(10.0, controller.telemetry["effectiveFecPercent"])
         self.assertEqual(2.0, controller.telemetry["clientFecRecovered"])
+        self.assertEqual(3.0, controller.telemetry["scheduledIdr"])
         self.assertEqual(2.0, controller.telemetry["recoveryIdr"])
+        self.assertEqual(1.0, controller.telemetry["coalescedIdr"])
+        self.assertEqual(84.5, controller.telemetry["idrKiB"])
         self.assertEqual(0.8, controller.telemetry["senderDelayMs"])
         self.assertEqual(3.5, controller.telemetry["clientAssemblyP95Ms"])
         self.assertEqual(2.0, controller.telemetry["confirmedIdr"])
@@ -2840,8 +2843,26 @@ class KdeVirtualMonitorCompatTest(unittest.TestCase):
 
 
 class KdeNativeStreamerTest(unittest.TestCase):
-    def test_rtp_wakes_output_before_post_mode_capture(self):
+    def test_virtual_output_owner_requests_embedded_cursor(self):
+        root = Path(__file__).resolve().parents[2]
+        source = (
+            root / "linux/native/kde_virtual_output/monitorize-kde-virtual-output.c"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn(
+            "app.width, app.height, wl_fixed_from_double(1.0), CURSOR_EMBEDDED",
+            source,
+        )
+        self.assertNotIn("CURSOR_HIDDEN", source)
+
+    def _run_case(
+        self,
+        fps,
+        slot="primary",
+        endpoint=("192.0.2.1", 49152, 1, "high", 0),
+    ):
         events = []
+        output_name = kde_virtual_monitor.virtual_slot(slot)["output_name"]
         helper = Mock()
         helper.stdin = Mock()
         helper.stdin.write.side_effect = lambda _value: events.append("capture")
@@ -2851,11 +2872,11 @@ class KdeNativeStreamerTest(unittest.TestCase):
         gst.poll.return_value = 0
         gst.returncode = 0
         actual = {
-            "name": "Virtual-Monitorize-1",
-            "uuid": "uuid-primary",
+            "name": output_name,
+            "uuid": f"uuid-{slot}",
             "width": 1920,
             "height": 1200,
-            "refresh_rate": 59.95,
+            "refresh_rate": float(fps),
             "mode_id": "2",
             "rounded": True,
         }
@@ -2869,13 +2890,13 @@ class KdeNativeStreamerTest(unittest.TestCase):
                 side_effect=[
                     {
                         "event": "owner_ready",
-                        "name": "Virtual-Monitorize-1",
+                        "name": output_name,
                         "node_id": 10,
                         "target_object": "100",
                     },
                     {
                         "event": "capture_ready",
-                        "name": "Virtual-Monitorize-1",
+                        "name": output_name,
                         "node_id": 11,
                         "target_object": "101",
                     },
@@ -2890,8 +2911,7 @@ class KdeNativeStreamerTest(unittest.TestCase):
                 kde_native_streamer,
                 "prepare_rtp_endpoint",
                 side_effect=lambda **_kwargs: (
-                    events.append("negotiate") or
-                    ("192.0.2.1", 49152, 1, "high", 0)
+                    events.append("negotiate") or endpoint
                 ),
             ),
             patch.object(
@@ -2904,23 +2924,55 @@ class KdeNativeStreamerTest(unittest.TestCase):
                 "launch_with_fallback",
                 return_value=gst,
             ) as launch,
+            patch("builtins.print") as output,
             patch.object(kde_native_streamer.signal, "signal"),
         ):
             result = kde_native_streamer.run_native_streamer(
-                "primary", 1920, 1200, 60, 8000, "wifi", 7110, None,
+                slot, 1920, 1200, fps, 8000,
+                "wifi" if endpoint is not None else "usb", 7110, None,
                 "0.0.0.0",
             )
 
+        return result, events, helper, launch, output
+
+    def test_rtp_60_uses_owner_after_wakeup(self):
+        result, events, helper, launch, output = self._run_case(60)
+
         self.assertEqual(result, 0)
-        self.assertEqual(["negotiate", "wakeup", "capture"], events)
-        helper.stdin.write.assert_called_once_with("capture\n")
-        self.assertEqual(launch.call_args.kwargs["target_object"], "101")
+        self.assertEqual(["negotiate", "wakeup"], events)
+        helper.stdin.write.assert_not_called()
+        self.assertEqual(launch.call_args.kwargs["target_object"], "100")
         self.assertEqual(
             ("192.0.2.1", 49152, 1, "high", 0),
             launch.call_args.kwargs["rtp_endpoint"],
         )
         self.assertTrue(launch.call_args.kwargs["preserve_source_size"])
         self.assertTrue(launch.call_args.kwargs["preserve_source_rate"])
+        output.assert_any_call(
+            "[KDE Native] Capture path=owner node=10 target=100", flush=True
+        )
+
+    def test_additional_rtp_above_60_uses_post_mode_capture(self):
+        result, events, helper, launch, output = self._run_case(
+            120, slot="additional"
+        )
+
+        self.assertEqual(result, 0)
+        self.assertEqual(["negotiate", "wakeup", "capture"], events)
+        helper.stdin.write.assert_called_once_with("capture\n")
+        self.assertEqual(launch.call_args.kwargs["target_object"], "101")
+        output.assert_any_call(
+            "[KDE Native] Capture path=post-mode node=11 target=101", flush=True
+        )
+
+    def test_usb_keeps_post_mode_capture(self):
+        result, events, helper, launch, _output = self._run_case(60, endpoint=None)
+
+        self.assertEqual(result, 0)
+        self.assertEqual(["negotiate", "capture"], events)
+        helper.stdin.write.assert_called_once_with("capture\n")
+        self.assertEqual(launch.call_args.kwargs["target_object"], "101")
+        self.assertIsNone(launch.call_args.kwargs["rtp_endpoint"])
 
     def test_native_stream_refuses_duplicate_slot_before_spawning_helper(self):
         with (
@@ -2933,6 +2985,7 @@ class KdeNativeStreamerTest(unittest.TestCase):
             )
         self.assertEqual(result, 1)
         popen.assert_not_called()
+
 
 class StreamerGnomeTest(unittest.TestCase):
     class FakeStruct(tuple):
@@ -3098,9 +3151,11 @@ class PipelineBuilderTest(unittest.TestCase):
         )
         self.assertIn("keepalive-time=1000", text)
         self.assertIn("name=monitorize_kwin_source", text)
+        self.assertIn("video/x-raw(ANY),max-framerate=60/1", text)
         self.assertNotIn("videorate", text)
+        self.assertNotIn("imagefreeze", text)
         self.assertNotIn("skip-to-first=false", text)
-        self.assertNotIn("framerate=60/1", text)
+        self.assertNotIn("video/x-raw(ANY),framerate=60/1", text)
 
     def test_cpu_udp_pipeline_uses_selected_cpu_rtp_settings(self):
         text = self._pipeline_text(
@@ -3112,7 +3167,7 @@ class PipelineBuilderTest(unittest.TestCase):
         self.assertIn("width=2336,height=1080", text)
         self.assertIn("framerate=90/1", text)
         self.assertIn("bitrate=14000", text)
-        self.assertIn("key-int-max=450", text)
+        self.assertIn("key-int-max=2700", text)
         self.assertIn("rtph264pay", text)
         self.assertIn("udpsink", text)
         self.assertNotIn("rtpulpfec", text)
@@ -3164,9 +3219,32 @@ class PipelineBuilderTest(unittest.TestCase):
                     rtp_endpoint=("192.0.2.1", 49152, 1, "high"),
                 )
                 self.assertIn("keepalive-time=1000", text)
+                self.assertIn("video/x-raw(ANY),max-framerate=60/1", text)
                 self.assertNotIn("videorate", text)
+                self.assertNotIn("imagefreeze", text)
                 self.assertNotIn("skip-to-first=false", text)
-                self.assertNotIn("framerate=60/1", text)
+                self.assertNotIn("video/x-raw(ANY),framerate=60/1", text)
+
+    def test_native_kwin_rate_cap_does_not_duplicate_for_any_encoder_path(self):
+        endpoint = ("192.0.2.1", 49152, 1, "high")
+        cases = (
+            (None, "cuda"),
+            ("vah264enc", "cuda"),
+            ("nvh264enc", "gl"),
+            ("nvh264enc", "cuda"),
+            ("nvh264enc", "system"),
+        )
+        for encoder, memory in cases:
+            with self.subTest(encoder=encoder, memory=memory):
+                text = self._pipeline_text(
+                    fps=30, hw_encoder=encoder, nvidia_memory=memory,
+                    target_object="101", preserve_source_rate=True,
+                    wifi_mode=True, rtp_endpoint=endpoint,
+                )
+                self.assertIn("video/x-raw(ANY),max-framerate=30/1", text)
+                self.assertNotIn("video/x-raw(ANY),framerate=30/1", text)
+                self.assertNotIn("videorate", text)
+                self.assertNotIn("imagefreeze", text)
 
     def test_native_kwin_vaapi_wifi_releases_compositor_buffers_before_upload(self):
         text = self._pipeline_text(
@@ -3253,12 +3331,12 @@ class PipelineBuilderTest(unittest.TestCase):
         self.assertIn("udpsink host=10.0.0.8 port=49152", text)
         self.assertNotIn("tcpserversink", text)
 
-    def test_fixed_cpu_rtp_gop_uses_five_second_cadence(self):
+    def test_fixed_cpu_rtp_gop_uses_thirty_second_cadence(self):
         text = self._pipeline_text(rtp_endpoint=("10.0.0.8", 49152))
-        self.assertIn("key-int-max=300", text)
+        self.assertIn("key-int-max=1800", text)
         self.assertNotIn("intra-refresh", text)
 
-    def test_five_second_gop_applies_to_all_rtp_encoders(self):
+    def test_thirty_second_gop_applies_to_all_rtp_encoders(self):
         cases = (
             ({}, "key-int-max"),
             ({"hw_encoder": "vah264enc", "wifi_mode": True}, "key-int-max"),
@@ -3268,10 +3346,10 @@ class PipelineBuilderTest(unittest.TestCase):
             with self.subTest(kwargs=kwargs):
                 endpoint = {"rtp_endpoint": ("10.0.0.8", 49152)}
                 self.assertIn(
-                    f"{property_name}=300", self._pipeline_text(**endpoint, **kwargs)
+                    f"{property_name}=1800", self._pipeline_text(**endpoint, **kwargs)
                 )
                 self.assertIn(
-                    f"{property_name}=600",
+                    f"{property_name}=3600",
                     self._pipeline_text(fps=120, **endpoint, **kwargs),
                 )
 
@@ -3378,7 +3456,7 @@ class PipelineBuilderTest(unittest.TestCase):
             )
         self.assertEqual(value, "nvh264enc bitrate=8000 bframes=0")
 
-    def test_nvenc_gl_path_preserves_dmabuf_and_uses_gl_memory(self):
+    def test_nvenc_gl_path_detaches_dmabuf_through_cuda_memory(self):
         text = self._pipeline_text(
             hw_encoder="nvh264enc", nvidia_memory="gl"
         )
@@ -3389,9 +3467,24 @@ class PipelineBuilderTest(unittest.TestCase):
         self.assertIn("glcolorconvert", text)
         self.assertIn("glcolorscale", text)
         self.assertIn("memory:GLMemory", text)
+        self.assertIn("cudaupload", text)
+        self.assertIn("memory:CUDAMemory", text)
         self.assertIn("format=RGBA", text)
         self.assertNotIn("format=NV12", text)
-        self.assertNotIn("cudaupload", text)
+        self.assertNotIn("cudaconvertscale", text)
+
+    def test_native_nvenc_gl_path_skips_scaling_but_keeps_gpu_copy(self):
+        text = self._pipeline_text(
+            hw_encoder="nvh264enc", nvidia_memory="gl",
+            target_object="101", preserve_source_size=True,
+            preserve_source_rate=True, wifi_mode=True,
+            rtp_endpoint=("192.0.2.1", 49152, 1, "high"),
+        )
+        self.assertNotIn("glcolorscale", text)
+        self.assertIn("memory:DMABuf", text)
+        self.assertIn("memory:GLMemory", text)
+        self.assertIn("cudaupload", text)
+        self.assertIn("memory:CUDAMemory", text)
 
     def test_nvenc_system_fallback_keeps_hardware_encoder(self):
         text = self._pipeline_text(
