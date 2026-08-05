@@ -308,7 +308,7 @@ Item {
 
                 Text { text: "Video Bitrate (Mbps):"; color: theme.textSecondary; font.pixelSize: 14 }
                 RowLayout {
-                    spacing: 10
+                    spacing: 8
 
                     CustomSlider {
                         id: bitrateSlider
@@ -317,7 +317,7 @@ Item {
                         stepSize: 0.25
                         value: 8
                         snapMode: Slider.SnapAlways
-                        Layout.preferredWidth: 240
+                        Layout.preferredWidth: page.optionChipWidth * 1.5
                         onMoved: page.setBitrateMbps(value, true, false)
                     }
 
@@ -325,6 +325,7 @@ Item {
                         id: bitrateField
                         text: "8"
                         maximumLength: 5
+                        Layout.preferredWidth: page.optionChipWidth * 0.5
                         validator: DoubleValidator {
                             bottom: 0.25
                             top: 100

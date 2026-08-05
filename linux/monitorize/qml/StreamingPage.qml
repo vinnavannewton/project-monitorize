@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Window
 
 
 Item {
@@ -382,7 +383,9 @@ Item {
                     if (backend.secondStreamActive) {
                         backend.stopSecondStream()
                     } else {
-                        addDisplayPopup.open()
+                        addDisplayWindow.show()
+                        addDisplayWindow.raise()
+                        addDisplayWindow.requestActivate()
                     }
                 }
                 background: Rectangle {
@@ -585,33 +588,27 @@ Item {
         }
     }
 
-    // Add Display Popup
-    Popup {
-        id: addDisplayPopup
-        modal: true
-        x: (page.width - width) / 2
-        y: (page.height - height) / 2
-        width: Math.min(page.width - 40, 720)
-        height: popupContent.implicitHeight + 60
-        padding: 0
+    // Native add-display dialog: independent from the QQuickWidget surface.
+    Window {
+        id: addDisplayWindow
+        title: "Add Another Display"
+        visible: false
+        width: 720
+        height: 640
+        minimumWidth: 520
+        minimumHeight: 420
+        flags: Qt.Dialog
+        modality: Qt.ApplicationModal
+        color: theme.surface
 
-        background: Rectangle {
-            color: theme.surface
-            border.color: theme.border
-            border.width: 1
-            radius: theme.cardRadius
-        }
-
-        // Dim overlay
-        Overlay.modal: Rectangle {
-            color: "#80000000"
-        }
-
-        ColumnLayout {
-            id: popupContent
+        Rectangle {
             anchors.fill: parent
-            anchors.margins: 24
-            spacing: 14
+            color: theme.surface
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 24
+                spacing: 14
 
             Text {
                 text: "Add Another Display"
@@ -632,14 +629,25 @@ Item {
                 Layout.fillWidth: true
             }
 
-            Rectangle { Layout.fillWidth: true; height: 1; color: theme.border }
+            Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: theme.border }
 
-            // Settings grid
-            GridLayout {
-                columns: 2
-                columnSpacing: 16
-                rowSpacing: 10
-                Layout.fillWidth: true
+                ScrollView {
+                    id: addDisplayScroll
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    clip: true
+                    contentWidth: Math.max(availableWidth, settingsGrid.implicitWidth)
+                    contentHeight: settingsGrid.implicitHeight
+                    ScrollBar.horizontal.policy: ScrollBar.AsNeeded
+                    ScrollBar.vertical.policy: ScrollBar.AsNeeded
+
+                    // Settings grid
+                    GridLayout {
+                        id: settingsGrid
+                        width: addDisplayScroll.contentWidth
+                        columns: 2
+                        columnSpacing: 16
+                        rowSpacing: 10
 
                 Text { text: "Resolution:"; color: theme.cardTextSecondary; font.pixelSize: 13 }
                 CustomComboBox {
@@ -719,7 +727,7 @@ Item {
 
                 Text { text: "Bitrate (Mbps):"; color: theme.cardTextSecondary; font.pixelSize: 13 }
                 RowLayout {
-                    spacing: 10
+                    spacing: 8
 
                     CustomSlider {
                         id: s2BitrateSlider
@@ -728,7 +736,7 @@ Item {
                         stepSize: 0.25
                         value: 8
                         snapMode: Slider.SnapAlways
-                        Layout.preferredWidth: 180
+                        Layout.preferredWidth: page.optionChipWidth * 1.5
                         onMoved: page.setSecondBitrateMbps(value, true, false)
                     }
 
@@ -736,6 +744,7 @@ Item {
                         id: s2BitrateField
                         text: "8"
                         maximumLength: 5
+                        Layout.preferredWidth: page.optionChipWidth * 0.5
                         validator: DoubleValidator {
                             bottom: 0.25
                             top: 100
@@ -835,7 +844,8 @@ Item {
                     }
                 }
 
-            }
+                    }
+                }
 
             Item { Layout.preferredHeight: 6 }
 
@@ -846,7 +856,7 @@ Item {
 
                 Button {
                     text: "Cancel"
-                    onClicked: addDisplayPopup.close()
+                    onClicked: addDisplayWindow.hide()
                     background: Rectangle {
                         implicitWidth: 90
                         implicitHeight: 36
@@ -885,9 +895,10 @@ Item {
                             page.secondStylusEnabled
                         )
                         page.saveSecondDisplaySettings()
-                        addDisplayPopup.close()
+                        addDisplayWindow.hide()
                     }
                 }
+            }
             }
         }
     }

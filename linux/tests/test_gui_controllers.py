@@ -4053,6 +4053,12 @@ class BackendFacadeTest(unittest.TestCase):
             self.assertNotIn('text: "Auto bitrate: " +', qml)
             self.assertIn("autoSelected", qml)
             self.assertIn("readonly property int optionChipWidth: 150", qml)
+            self.assertIn(
+                "Layout.preferredWidth: page.optionChipWidth * 1.5", qml
+            )
+            self.assertIn(
+                "Layout.preferredWidth: page.optionChipWidth * 0.5", qml
+            )
             self.assertGreaterEqual(
                 qml.count("Layout.preferredWidth: page.optionChipWidth"), 3
             )
@@ -4073,7 +4079,9 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn("visible: backend.isWifiStreaming", streaming)
         self.assertIn("page.secondAutoBitrate = false", streaming)
         self.assertIn("visible: backend.isWifiStreaming", streaming)
-        self.assertIn("width: Math.min(page.width - 40, 720)", streaming)
+        self.assertIn("id: addDisplayWindow", streaming)
+        self.assertIn("minimumWidth: 520", streaming)
+        self.assertIn("minimumHeight: 420", streaming)
 
     def test_main_menu_presets_align_to_mode_cards(self):
         qml_path = (
@@ -4083,7 +4091,9 @@ class BackendFacadeTest(unittest.TestCase):
             / "MainMenuPage.qml"
         )
         qml = qml_path.read_text(encoding="utf-8")
-        self.assertIn("readonly property int modeCardWidth: 220", qml)
+        self.assertIn("readonly property int modeCardWidth: Math.max(", qml)
+        self.assertIn("Math.min(320, Math.floor(", qml)
+        self.assertIn("(page.width - 40 - modeCardSpacing * 2) / 3", qml)
         self.assertIn("readonly property int modeCardSpacing: 30", qml)
         self.assertIn("readonly property int modeCardsWidth", qml)
         self.assertIn("id: modeCardsRow", qml)
@@ -4409,16 +4419,24 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertNotIn("Text.ElideRight", qml)
         self.assertNotIn("model: backend.secondStreamActive", qml)
         self.assertNotIn("Third Display Inactive", qml)
-        popup_index = qml.index("id: addDisplayPopup")
-        cancel_index = qml.index('text: "Cancel"', popup_index)
+        window_index = qml.index("id: addDisplayWindow")
+        cancel_index = qml.index('text: "Cancel"', window_index)
         start_index = qml.index(
             'text: backend.detectedDe === "kde"', cancel_index
         )
         cancel_block = qml[cancel_index:start_index]
-        self.assertIn("onClicked: addDisplayPopup.close()", cancel_block)
+        self.assertIn("onClicked: addDisplayWindow.hide()", cancel_block)
         self.assertIn("parent.hovered ? theme.borderHover : theme.surface", cancel_block)
         self.assertIn("border.color: parent.hovered ? theme.borderHover : theme.border", cancel_block)
         self.assertIn("Behavior on border.color", cancel_block)
+        window_block = qml[window_index:cancel_index]
+        self.assertIn("import QtQuick.Window", qml)
+        self.assertIn("flags: Qt.Dialog", window_block)
+        self.assertIn("modality: Qt.ApplicationModal", window_block)
+        self.assertIn("id: addDisplayScroll", window_block)
+        self.assertIn("Layout.fillHeight: true", window_block)
+        self.assertIn("ScrollBar.vertical.policy: ScrollBar.AsNeeded", window_block)
+        self.assertNotIn("id: addDisplayPopup", qml)
         self.assertNotIn("#16182a", qml)
         self.assertNotIn("#222540", qml)
         self.assertNotIn("#f472b6", qml)
@@ -4439,7 +4457,8 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn("Enable stylus features for this display", qml)
         self.assertNotIn("backend.thirdEncryptionStatus", qml)
         self.assertEqual(qml.count("ChoiceChips {"), 3)
-        self.assertIn("width: Math.min(page.width - 40, 720)", qml)
+        self.assertIn("width: 720", window_block)
+        self.assertIn("height: 640", window_block)
         self.assertIn("Creates a second Hyprland HEADLESS display.", qml)
         self.assertIn("Creates Monitorize Display 2 in KDE.", qml)
         self.assertIn("▶  Create Virtual Display", qml)

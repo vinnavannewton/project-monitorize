@@ -6,8 +6,10 @@ Item {
     id: page
     property int selectedPresetIndex: -1
     property string selectedPresetName: ""
-    readonly property int modeCardWidth: 220
     readonly property int modeCardSpacing: 30
+    readonly property int modeCardWidth: Math.max(180, Math.min(320, Math.floor(
+        (page.width - 40 - modeCardSpacing * 2) / 3
+    )))
     readonly property int modeCardsWidth: modeCardWidth * 3 + modeCardSpacing * 2
 
     ColumnLayout {
