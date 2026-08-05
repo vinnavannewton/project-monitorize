@@ -4,6 +4,7 @@ import signal
 import sys
 import socket
 import tempfile
+import threading
 import types
 import unittest
 from pathlib import Path
@@ -166,6 +167,17 @@ class DiscoveryServiceTest(unittest.TestCase):
         self.assertEqual(len(service.devices), 1)
         self.assertEqual(service.devices[0]["ip"], "10.0.0.3")
 
+    def test_worker_thread_discovery_signal_reaches_qt_owner(self):
+        service = DiscoveryService()
+        worker = threading.Thread(target=lambda: service.deviceResolved.emit(
+            "Host", "10.0.0.2", 7110, True, 7114, "svc"
+        ))
+        worker.start()
+        worker.join()
+        self.assertEqual(service.devices, [])
+        app.processEvents()
+        self.assertEqual(service.devices[0]["name"], "Host")
+
     def test_discovery_ignores_ipv6_only_service(self):
         class FakeInfo:
             addresses = [b"0123456789abcdef"]
@@ -192,10 +204,7 @@ class DiscoveryServiceTest(unittest.TestCase):
             ServiceListener=object,
         )
         service = DiscoveryService()
-        with (
-            patch.dict(sys.modules, {"zeroconf": fake_module}),
-            patch("monitorize.desktop.discovery_service.QTimer.singleShot", side_effect=lambda _ms, fn: fn()),
-        ):
+        with patch.dict(sys.modules, {"zeroconf": fake_module}):
             service.start()
         self.assertEqual(service.devices, [])
 
@@ -225,10 +234,7 @@ class DiscoveryServiceTest(unittest.TestCase):
             ServiceListener=object,
         )
         service = DiscoveryService()
-        with (
-            patch.dict(sys.modules, {"zeroconf": fake_module}),
-            patch("monitorize.desktop.discovery_service.QTimer.singleShot", side_effect=lambda _ms, fn: fn()),
-        ):
+        with patch.dict(sys.modules, {"zeroconf": fake_module}):
             service.start()
         self.assertEqual(service.devices[0]["thirdPort"], 7114)
 
@@ -705,6 +711,26 @@ class ReceiverControllerTest(unittest.TestCase):
             args = controller._sink_args("waylandsink")
         self.assertIn("fullscreen=true", args)
         self.assertIn("force-aspect-ratio=false", args)
+
+    def test_standalone_sink_explicitly_requests_its_own_window(self):
+        calls = []
+
+        class FakeOverlay:
+            @staticmethod
+            def set_window_handle(sink, handle):
+                calls.append((sink, handle))
+
+        class FakeSink(FakeOverlay):
+            pass
+
+        sink = FakeSink()
+        pipeline = Mock()
+        pipeline.get_by_name.return_value = sink
+        controller = ReceiverController("gnome", Mock())
+        video = types.SimpleNamespace(VideoOverlay=FakeOverlay)
+        with patch("monitorize.desktop.receiver_controller._GST_VIDEO", video):
+            controller._prepare_standalone_sink(pipeline)
+        self.assertEqual(calls, [(sink, 0)])
 
     def test_immediate_hardware_failure_retries_next_sink_before_software(self):
         controller = ReceiverController("kde", Mock())
@@ -4484,6 +4510,9 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn('text: "Streaming stats overlay"', qml)
         self.assertIn('statsToggle.checked = rec["show_stats"] === true', qml)
         self.assertIn("backend.setReceiverStatsVisible(checked)", qml)
+        self.assertIn("id: receiverScroll", qml)
+        self.assertIn("contentHeight: receiverContent.implicitHeight", qml)
+        self.assertIn("model: backend.discoveredDevices", qml)
 
     def test_qml_api_remains_exposed(self):
         with patch("monitorize.desktop.backend.get_local_ip", return_value="127.0.0.1"):

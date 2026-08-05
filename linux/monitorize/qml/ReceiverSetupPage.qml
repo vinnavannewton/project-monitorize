@@ -41,18 +41,17 @@ Item {
         backend.stopHostDiscovery()
     }
 
-    Connections {
-        target: backend
-        function onDiscoveredDevicesChanged() {
-            let devs = backend.discoveredDevices
-            deviceRepeater.model = null
-            deviceRepeater.model = devs
-        }
-    }
-
-    ColumnLayout {
+    ScrollView {
+        id: receiverScroll
         anchors.fill: parent
-        spacing: 16
+        clip: true
+        contentWidth: availableWidth
+        contentHeight: receiverContent.implicitHeight
+
+        ColumnLayout {
+            id: receiverContent
+            width: receiverScroll.availableWidth
+            spacing: 16
 
         // Header
         RowLayout {
@@ -114,7 +113,7 @@ Item {
 
         Rectangle {
             Layout.fillWidth: true
-            height: 1
+            implicitHeight: 1
             color: theme.border
         }
 
@@ -128,19 +127,14 @@ Item {
         }
 
         // Device list area
-        ScrollView {
+        ColumnLayout {
             Layout.fillWidth: true
-            Layout.fillHeight: true
             Layout.minimumHeight: 120
-            clip: true
-
-            ColumnLayout {
-                width: parent.width
-                spacing: 8
+            spacing: 8
 
                 // Empty state
                 Text {
-                    visible: !deviceRepeater.model || deviceRepeater.model.length === 0
+                    visible: deviceRepeater.count === 0
                     text: "Searching for Monitorize hosts on the network…\n(Make sure the other PC has Monitorize running)"
                     font.pixelSize: 13
                     color: theme.textMuted
@@ -151,7 +145,7 @@ Item {
 
                 Repeater {
                     id: deviceRepeater
-                    model: []
+                    model: backend.discoveredDevices
 
                     Rectangle {
                         Layout.fillWidth: true
@@ -218,12 +212,11 @@ Item {
                         }
                     }
                 }
-            }
         }
 
         Rectangle {
             Layout.fillWidth: true
-            height: 1
+            implicitHeight: 1
             color: theme.border
         }
 
@@ -355,6 +348,7 @@ Item {
             wrapMode: Text.Wrap
             Layout.fillWidth: true
         }
-    }
+        }
 
+    }
 }

@@ -2,13 +2,15 @@
 
 import socket
 
-from PyQt6.QtCore import QObject, QTimer, pyqtSignal
+from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 
 from monitorize.config.validation import sanitize_fps, sanitize_port, valid_port
 
 
 class DiscoveryService(QObject):
     devicesChanged = pyqtSignal()
+    deviceResolved = pyqtSignal(str, str, int, object, int, str)
+    serviceRemoved = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -19,6 +21,8 @@ class DiscoveryService(QObject):
         self.advertisements = []
         self.advertisement_state = None
         self.service_names = {}
+        self.deviceResolved.connect(self.add_device)
+        self.serviceRemoved.connect(self.remove_device)
 
     @staticmethod
     def _prop(props, key, default=b""):
@@ -71,13 +75,13 @@ class DiscoveryService(QObject):
                         service._safe_port(service._prop(props, b"third_port", b"7114")),
                         name,
                     )
-                    QTimer.singleShot(0, lambda: service.add_device(*values))
+                    service.deviceResolved.emit(*values)
 
                 def update_service(self, zc, type_, name):
                     self.add_service(zc, type_, name)
 
                 def remove_service(self, zc, type_, name):
-                    QTimer.singleShot(0, lambda: service.remove_device(name))
+                    service.serviceRemoved.emit(name)
 
             self.discovery_zc = Zeroconf()
             self.browser = ServiceBrowser(
@@ -89,9 +93,10 @@ class DiscoveryService(QObject):
             print(f"[Receiver] Discovery failed: {exc}")
             self.stop_browsing()
 
+    @pyqtSlot(str, str, int, object, int, str)
     def add_device(
         self, name, ip, port, third_available=False, third_port=7114,
-        service_name=None,
+        service_name="",
     ):
         if not ip or not valid_port(port):
             return
@@ -123,6 +128,7 @@ class DiscoveryService(QObject):
             self.service_names[service_name] = (ip, port)
         self.devicesChanged.emit()
 
+    @pyqtSlot(str)
     def remove_device(self, service_name):
         target = self.service_names.pop(service_name, None)
         if not target:

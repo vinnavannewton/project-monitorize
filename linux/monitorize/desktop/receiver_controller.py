@@ -53,6 +53,7 @@ HARDWARE_DECODER_PROPS = {
 
 _GST = None
 _GIO = None
+_GST_VIDEO = None
 _GST_IMPORT_ERROR = None
 
 
@@ -103,7 +104,7 @@ class ReceiverNegotiationError(RuntimeError):
 
 
 def _load_gst():
-    global _GST, _GIO, _GST_IMPORT_ERROR
+    global _GST, _GIO, _GST_VIDEO, _GST_IMPORT_ERROR
     if _GST is not None:
         return _GST
     if _GST_IMPORT_ERROR is not None:
@@ -112,12 +113,15 @@ def _load_gst():
         import gi
         gi.require_version("Gst", "1.0")
         gi.require_version("Gio", "2.0")
+        gi.require_version("GstVideo", "1.0")
         from gi.repository import Gst
         from gi.repository import Gio
+        from gi.repository import GstVideo
 
         Gst.init(None)
         _GST = Gst
         _GIO = Gio
+        _GST_VIDEO = GstVideo
         return Gst
     except Exception as exc:
         _GST_IMPORT_ERROR = exc
@@ -425,6 +429,7 @@ class ReceiverController(QObject):
             self.gst_pipeline = pipeline
             self.gst_generation = generation
             self.gst_bus = pipeline.get_bus()
+            self._prepare_standalone_sink(pipeline)
             self._setup_stats()
             self.gst_bus_timer.start()
             result = pipeline.set_state(Gst.State.PLAYING)
@@ -445,6 +450,13 @@ class ReceiverController(QObject):
         finally:
             if raw_socket is not None:
                 raw_socket.close()
+
+    def _prepare_standalone_sink(self, pipeline):
+        sink = pipeline.get_by_name("receiver_sink")
+        if sink is None or _GST_VIDEO is None:
+            return
+        if isinstance(sink, _GST_VIDEO.VideoOverlay):
+            _GST_VIDEO.VideoOverlay.set_window_handle(sink, 0)
 
     def _reset_stats(self):
         with self.stats_lock:
