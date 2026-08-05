@@ -134,3 +134,13 @@ Please read the [Contribution Guide](https://github.com/vinnavannewton/project-m
 <div align="center">
   <sub>Expanding your productivity, one monitor at a time.</sub>
 </div>
+
+---
+
+## Support Monitorize
+
+<div align="center">
+  <a href="https://ko-fi.com/vinnavan">
+    <img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Buy me a coffee on Ko-fi" />
+  </a>
+</div>
