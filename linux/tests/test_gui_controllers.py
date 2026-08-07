@@ -941,6 +941,7 @@ class ReceiverLifecycleTest(unittest.TestCase):
                 self.assertEqual(loaded["resolution"], "1920x1080")
                 self.assertEqual(loaded["bitrate"], "20000")
                 self.assertEqual(loaded["encoder"], "Software (CPU / x264enc)")
+                self.assertFalse(loaded["enable_audio"])
                 self.assertNotIn("use_encryption", loaded)
                 self.assertNotIn("stream_type", loaded)
             finally:
@@ -958,6 +959,7 @@ class ReceiverLifecycleTest(unittest.TestCase):
                     display_type="Extend",
                     encoder="Software (CPU / x264enc)",
                     encoder_profile="Low Latency", fec_mode="ULPFEC 10%",
+                    enable_audio=True,
                 )
                 settings.save_second_display_settings(
                     resolution="1280x720", fps="60", bitrate="8000",
@@ -967,6 +969,7 @@ class ReceiverLifecycleTest(unittest.TestCase):
                 self.assertEqual(
                     settings.load_wifi_settings()["fec_mode"], "ULPFEC 10%"
                 )
+                self.assertTrue(settings.load_wifi_settings()["enable_audio"])
                 self.assertEqual(
                     settings.load_second_display_settings()["fec_mode"], "Off"
                 )
@@ -983,6 +986,30 @@ class ReceiverLifecycleTest(unittest.TestCase):
                 self.assertEqual(loaded["resolution"], "1920x1080")
                 self.assertEqual(loaded["bitrate"], "16000")
                 self.assertEqual(loaded["encoder"], "Software (CPU / x264enc)")
+                self.assertFalse(loaded["enable_audio"])
+            finally:
+                settings.CONFIG_DIR, settings.CONFIG_FILE = old_dir, old_file
+
+    def test_wifi_and_usb_audio_settings_are_independent(self):
+        old_dir, old_file = settings.CONFIG_DIR, settings.CONFIG_FILE
+        with tempfile.TemporaryDirectory() as directory:
+            try:
+                settings.CONFIG_DIR = directory
+                settings.CONFIG_FILE = str(Path(directory) / "settings.ini")
+                settings.save_wifi_settings(
+                    resolution="1920x1080", custom_w="", custom_h="",
+                    fps="60", custom_fps="", bitrate="20000",
+                    display_type="Extend", encoder="Software (CPU / x264enc)",
+                    encoder_profile="Low Latency", enable_audio=True,
+                )
+                settings.save_usb_settings(
+                    resolution="1920x1080", custom_w="", custom_h="",
+                    fps="60", custom_fps="", bitrate="16000",
+                    display_type="Extend", encoder="Software (CPU / x264enc)",
+                    encoder_profile="Low Latency", enable_audio=False,
+                )
+                self.assertTrue(settings.load_wifi_settings()["enable_audio"])
+                self.assertFalse(settings.load_usb_settings()["enable_audio"])
             finally:
                 settings.CONFIG_DIR, settings.CONFIG_FILE = old_dir, old_file
 
@@ -1005,6 +1032,7 @@ class ReceiverLifecycleTest(unittest.TestCase):
                             "display_type": "Extend",
                             "encoder": "Intel/AMD VA-API (vah264enc)",
                             "encoder_profile": "Balanced",
+                            "enable_audio": True,
                         },
                         "wifi": {
                             "stream_type": "Speed",
@@ -1030,6 +1058,7 @@ class ReceiverLifecycleTest(unittest.TestCase):
                 self.assertEqual(len(loaded), 4)
                 self.assertEqual(loaded[0]["name"], "Preset 0")
                 self.assertEqual(loaded[0]["primary"]["encoder_profile"], "Balanced")
+                self.assertTrue(loaded[0]["primary"]["enable_audio"])
                 self.assertNotIn("wifi", loaded[0])
                 self.assertTrue(loaded[0]["general"]["minimize_to_tray"])
                 self.assertFalse(loaded[0]["third"]["enable_touch"])
@@ -1080,6 +1109,32 @@ class StreamingControllerTest(unittest.TestCase):
         controller.env = Mock()
         controller.generation = 7
         return controller
+
+    def test_enabled_audio_sender_launches_once_and_survives_video_relaunch(self):
+        controller = self.kde_controller()
+        controller.audio_enabled = True
+        process = process_mock()
+        with patch(
+            "monitorize.desktop.streaming_controller.QProcess", return_value=process
+        ) as process_type:
+            controller._launch_audio()
+            controller._launch_audio()
+
+        process.start.assert_called_once_with(
+            sys.executable,
+            ["-m", "monitorize.streaming.audio_sender", "wifi", "--port", "7120"],
+        )
+        self.assertEqual(process_type.call_count, 1)
+
+    def test_audio_sender_exit_is_non_fatal(self):
+        controller = self.kde_controller()
+        process = process_mock()
+        controller.audio_process = process
+
+        controller._audio_finished(1, None, controller.generation, process)
+
+        self.assertTrue(controller.streaming)
+        self.assertIsNone(controller.audio_process)
 
     def test_rtp_telemetry_parses_fixed_bitrate_host_and_client_lines(self):
         controller = self.kde_controller()
@@ -3958,8 +4013,23 @@ class UsbControllerTest(unittest.TestCase):
             calls[2][0], ["reverse", "tcp:7111", "tcp:7111"]
         )
         controller._touch_done(0, None)
+        self.assertEqual(
+            calls[3][0], ["reverse", "tcp:7120", "tcp:7120"]
+        )
+        controller._audio_done(0, None)
         self.assertEqual(controller.status, "Device ready!")
         self.assertFalse(controller.busy)
+
+    def test_audio_reverse_failure_does_not_fail_usb_video(self):
+        controller = UsbController()
+        controller.touch_reverse_failed = False
+        completed = []
+        controller.scanFinished.connect(completed.append)
+
+        controller._audio_done(1, None)
+
+        self.assertEqual(controller.status, "Warning: audio unavailable")
+        self.assertEqual(completed, [True])
 
 
 class BackendFacadeTest(unittest.TestCase):
@@ -4031,7 +4101,8 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn('<include service="mdns"/>', firewall)
         for protocol, port in (("tcp", "7110"), ("udp", "7110"),
                                ("tcp", "7114"), ("udp", "7114"),
-                               ("udp", "7113"), ("udp", "7117")):
+                               ("udp", "7113"), ("udp", "7117"),
+                               ("tcp", "7120"), ("udp", "7120")):
             self.assertIn(f'<port protocol="{protocol}" port="{port}"/>', firewall)
         self.assertIn("firewall-zones", spec)
         self.assertIn("--remove-service=monitorize", spec)
@@ -4297,7 +4368,10 @@ class BackendFacadeTest(unittest.TestCase):
         qml = (qml_dir / "WifiPage.qml").read_text(encoding="utf-8")
         toggle_qml = (qml_dir / "CustomToggle.qml").read_text(encoding="utf-8")
         checkbox_qml = (qml_dir / "CustomCheckBox.qml").read_text(encoding="utf-8")
-        self.assertEqual(qml.count("CustomToggle {"), 2)
+        self.assertEqual(qml.count("CustomToggle {"), 3)
+        self.assertIn('text: "Enable Audio"', qml)
+        self.assertIn('"Audio adds ≈0.13 Mbps;', qml)
+        self.assertIn('"Audio adds 0.77 Mbps PCM;', qml)
         self.assertNotIn("CustomCheckBox {", qml)
         self.assertNotIn('text: "Use encryption"', qml)
         self.assertNotIn('text: "Use encryption (recommended)"', qml)

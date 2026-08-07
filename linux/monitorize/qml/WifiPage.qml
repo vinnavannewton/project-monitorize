@@ -46,6 +46,18 @@ Item {
         return String(Math.round(page.clampMbps(parseFloat(bitrateField.text)) * 1000))
     }
 
+    function audioBandwidthMbps() {
+        return page.isWifi ? 0.13 : 0.77
+    }
+
+    function totalBandwidthText() {
+        let video = page.clampMbps(parseFloat(bitrateField.text))
+        let total = video + (audioCheck.checked ? page.audioBandwidthMbps() : 0)
+        let rounded = Math.round(total * 100) / 100
+        if (rounded % 1 === 0) return rounded.toFixed(0)
+        return (rounded * 10) % 1 === 0 ? rounded.toFixed(1) : rounded.toFixed(2)
+    }
+
     function selectedWidth() {
         return Number(resCombo.currentText === "Custom..."
             ? customW.text : resCombo.currentText.split("x")[0])
@@ -100,9 +112,9 @@ Item {
             encoderProfileCombo.currentText
         ]
         if (page.isWifi) {
-            backend.saveWifiSettings(...args, fecCombo.currentText)
+            backend.saveWifiSettings(...args, fecCombo.currentText, audioCheck.checked)
         } else {
-            backend.saveUsbSettings(...args)
+            backend.saveUsbSettings(...args, audioCheck.checked)
         }
     }
 
@@ -165,6 +177,7 @@ Item {
         page.enableStylusFeatures = gen["enable_stylus_features"] !== undefined ? gen["enable_stylus_features"] : false;
         stylusCheck.checked = page.enableStylusFeatures;
         touchCheck.checked = enableTouch;
+        audioCheck.checked = saved["enable_audio"] !== undefined ? saved["enable_audio"] : false;
         page.loadingSettings = false;
 
         wifiScroll.contentItem.rebound = fastRebound;
@@ -442,6 +455,22 @@ Item {
                             page.saveGeneralSettings()
                         }
                     }
+
+                    CustomToggle {
+                        id: audioCheck
+                        text: "Enable Audio"
+                        Layout.alignment: Qt.AlignLeft
+                        onCheckedChanged: page.saveSettings()
+                    }
+
+                    Text {
+                        visible: audioCheck.checked
+                        text: page.isWifi
+                            ? "Audio adds ≈0.13 Mbps; estimated total ≈" + page.totalBandwidthText() + " Mbps"
+                            : "Audio adds 0.77 Mbps PCM; estimated total ≈" + page.totalBandwidthText() + " Mbps"
+                        color: theme.textMuted
+                        font.pixelSize: 11
+                    }
                 }
             }
 
@@ -473,7 +502,8 @@ Item {
                             encoderCombo.currentText,
                             encoderProfileCombo.currentText,
                             page.isWifi,
-                            page.isWifi ? fecCombo.currentText : "Off"
+                            page.isWifi ? fecCombo.currentText : "Off",
+                            audioCheck.checked
                         );
                     }
                 }

@@ -36,6 +36,7 @@ val hasReleaseSigning = listOf(
 
 android {
     namespace = "app.monitorize.android"
+    ndkVersion = "27.0.12077973"
     compileSdk {
         version = release(36)
     }
@@ -46,6 +47,9 @@ android {
         targetSdk = 36
         versionCode = versionCodeFromSemver(appVersionName)
         versionName = appVersionName
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+        }
     }
 
     signingConfigs {
@@ -80,6 +84,11 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+    externalNativeBuild {
+        ndkBuild {
+            path = file("src/main/jni/Android.mk")
+        }
     }
 }
 

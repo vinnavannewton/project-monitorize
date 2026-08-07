@@ -31,7 +31,7 @@ class NativeRtpSenderTest(unittest.TestCase):
 
             process = subprocess.Popen(
                 [str(sender), str(source_port), "127.0.0.1",
-                 str(receiver.getsockname()[1]), "60", "262144"],
+                 str(receiver.getsockname()[1]), "60", "262144", "46000"],
                 stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT, text=True, bufsize=1,
             )
@@ -41,13 +41,20 @@ class NativeRtpSenderTest(unittest.TestCase):
                 self.assertTrue(ready)
                 line = process.stdout.readline().strip()
                 self.assertTrue(line.startswith("READY inputPort="), line)
-                self.assertIn("ceilingKbps=200000", line)
+                self.assertIn("pacingKbps=46000", line)
                 input_port = int(line.split("inputPort=", 1)[1].split()[0])
                 process.stdin.write("FLUSH\n")
                 process.stdin.flush()
                 ready, _, _ = select.select([process.stdout], [], [], 1)
                 self.assertTrue(ready)
                 self.assertEqual("FLUSH", process.stdout.readline().strip())
+                process.stdin.write("RATE 46000\n")
+                process.stdin.flush()
+                ready, _, _ = select.select([process.stdout], [], [], 1)
+                self.assertTrue(ready)
+                self.assertEqual(
+                    "RATE pacingKbps=46000", process.stdout.readline().strip()
+                )
                 producer = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 frames = [(90_000, 384), (91_500, 20), (91_500, 20)]
                 packets = [
@@ -85,8 +92,8 @@ class NativeRtpSenderTest(unittest.TestCase):
                     sequences.append(int.from_bytes(packet[2:4], "big"))
                 self.assertEqual(list(range(len(packets))), sequences)
                 self.assertEqual(40, received_tos >> 2)
-                self.assertGreater(last_at - first_at, 0.010)
-                self.assertLess(last_at - first_at, 0.075)
+                self.assertGreater(last_at - first_at, 0.060)
+                self.assertLess(last_at - first_at, 0.160)
             except PermissionError as exc:
                 self.skipTest(f"UDP sockets unavailable: {exc}")
             finally:

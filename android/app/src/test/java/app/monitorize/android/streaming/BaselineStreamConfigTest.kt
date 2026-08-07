@@ -1,31 +1,50 @@
 package app.monitorize.android.streaming
 
+import app.monitorize.android.preferredSurfaceFrameRate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RtpStreamConfigTest {
+    @Test fun balancedOutputRendersSixtyFpsOnEveryOther120HzCallback() {
+        assertTrue(balancedFrameDue(-1L, 0L, 60))
+        assertTrue(!balancedFrameDue(0L, 8_333_333L, 60))
+        assertTrue(balancedFrameDue(0L, 16_666_666L, 60))
+    }
+
+    @Test fun balancedOutputStillRendersEvery120HzCallbackFor120Fps() {
+        assertTrue(balancedFrameDue(0L, 8_333_333L, 120))
+    }
+
+    @Test fun surfaceFrameRateUsesHighestExactMultipleForLowLatency() {
+        assertEquals(
+            120.00001f,
+            preferredSurfaceFrameRate(60, listOf(60f, 120.00001f)),
+        )
+        assertEquals(60f, preferredSurfaceFrameRate(60, listOf(60f, 90f)))
+    }
+
+    @Test fun surfaceFrameRateFallsBackToHighestDisplayRate() {
+        assertEquals(120f, preferredSurfaceFrameRate(90, listOf(60f, 120f)))
+        assertEquals(60f, preferredSurfaceFrameRate(60, emptyList()))
+    }
+
     @Test fun assemblyPercentileUsesNearestRank() {
         assertEquals(0f, percentile95(emptyList()), 0f)
         assertEquals(19f, percentile95((1..20).map(Int::toFloat)), 0f)
     }
 
-    @Test fun rtpFrameDeadlineAllowsSixFramesWithinBounds() {
-        assertEquals(100_000_000L, rtpFrameDeadlineNanos(60))
-        assertEquals(200_000_000L, rtpFrameDeadlineNanos(30))
+    @Test fun rtpFrameDeadlineAllowsPacedRecoveryFramesWithinBounds() {
+        assertEquals(250_000_000L, rtpFrameDeadlineNanos(60))
+        assertEquals(250_000_000L, rtpFrameDeadlineNanos(30))
         assertEquals(250_000_000L, rtpFrameDeadlineNanos(24))
-        assertEquals(100_000_000L, rtpFrameDeadlineNanos(240))
+        assertEquals(150_000_000L, rtpFrameDeadlineNanos(240))
     }
 
     @Test fun recoveryIdrRequestsHaveOneSecondCooldown() {
         assertTrue(recoveryIdrAllowed(1_000, 2_000))
         assertTrue(!recoveryIdrAllowed(1_000, 1_999))
-    }
-
-    @Test fun hardRecoveryCanRetryAfterQuarterSecond() {
-        assertTrue(recoveryIdrAllowed(1_000, 1_250, 250))
-        assertTrue(!recoveryIdrAllowed(1_000, 1_249, 250))
     }
 
     @Test fun rtpSessionBecomesInactiveAfterFiveSecondsWithoutPackets() {

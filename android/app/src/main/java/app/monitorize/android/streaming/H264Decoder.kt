@@ -38,6 +38,13 @@ internal class PendingOutputQueue(private val capacity: Int) {
     }
 }
 
+internal fun balancedFrameDue(
+    lastRenderedFrameTimeNanos: Long,
+    frameTimeNanos: Long,
+    fps: Int,
+): Boolean = lastRenderedFrameTimeNanos < 0 ||
+    frameTimeNanos - lastRenderedFrameTimeNanos >= 800_000_000L / fps.coerceIn(24, 240)
+
 class H264Decoder(
     private val surface: Surface,
     private val onOutputSizeChanged: (Int, Int) -> Unit = { _, _ -> },
@@ -239,15 +246,21 @@ class H264Decoder(
                 if (balancedOutput) {
                     handler.post {
                         val choreographer = Choreographer.getInstance()
+                        var lastRenderedFrameTimeNanos = -1L
                         val callback = object : Choreographer.FrameCallback {
                             override fun doFrame(frameTimeNanos: Long) {
                                 if (!isCurrent(generation)) return
-                                val output = pendingOutputBuffers.poll()
-                                if (output != null) {
-                                    try {
-                                        it.releaseOutputBuffer(output, frameTimeNanos)
-                                        frameCount++
-                                    } catch (_: Exception) {}
+                                if (balancedFrameDue(
+                                        lastRenderedFrameTimeNanos, frameTimeNanos, fps
+                                    )) {
+                                    val output = pendingOutputBuffers.poll()
+                                    if (output != null) {
+                                        try {
+                                            it.releaseOutputBuffer(output, frameTimeNanos)
+                                            lastRenderedFrameTimeNanos = frameTimeNanos
+                                            frameCount++
+                                        } catch (_: Exception) {}
+                                    }
                                 }
                                 choreographer.postFrameCallback(this)
                             }

@@ -245,28 +245,30 @@ class MonitorizeBackend(QObject):
     def setAutostartEnabled(self, enabled):
         return autostart.set_enabled(enabled)
 
-    @pyqtSlot(str, str, str, str, str, str, str, str, str)
+    @pyqtSlot(str, str, str, str, str, str, str, str, str, bool)
     def saveUsbSettings(
         self, resolution, custom_w, custom_h, fps, custom_fps, bitrate,
-        display_type, encoder, encoder_profile,
+        display_type, encoder, encoder_profile, enable_audio,
     ):
         save_usb_settings(
             resolution=resolution, custom_w=custom_w, custom_h=custom_h,
             fps=fps, custom_fps=custom_fps, bitrate=bitrate,
             display_type=display_type, encoder=encoder,
             encoder_profile=encoder_profile,
+            enable_audio=enable_audio,
         )
 
-    @pyqtSlot(str, str, str, str, str, str, str, str, str, str)
+    @pyqtSlot(str, str, str, str, str, str, str, str, str, str, bool)
     def saveWifiSettings(
         self, resolution, custom_w, custom_h, fps, custom_fps, bitrate,
-        display_type, encoder, encoder_profile, fec_mode,
+        display_type, encoder, encoder_profile, fec_mode, enable_audio,
     ):
         save_wifi_settings(
             resolution=resolution, custom_w=custom_w, custom_h=custom_h,
             fps=fps, custom_fps=custom_fps, bitrate=bitrate,
             display_type=display_type, encoder=encoder,
             encoder_profile=encoder_profile, fec_mode=fec_mode,
+            enable_audio=enable_audio,
         )
 
     @pyqtSlot(int, int, int, result=int)
@@ -326,15 +328,15 @@ class MonitorizeBackend(QObject):
     def stopReceiving(self):
         self.receiver.stop()
 
-    @pyqtSlot(str, str, str, str, str, str, bool, str)
+    @pyqtSlot(str, str, str, str, str, str, bool, str, bool)
     def startStreaming(
         self, res, fps, bitrate, display_type, encoder, encoder_profile, wifi,
-        fec_mode,
+        fec_mode, enable_audio,
     ):
         self._pending_usb_preset = None
         self.streaming.start(
             res, fps, bitrate, display_type, encoder, encoder_profile, wifi,
-            fec_mode=fec_mode,
+            fec_mode=fec_mode, enable_audio=enable_audio,
         )
 
     @pyqtSlot()
@@ -465,6 +467,7 @@ class MonitorizeBackend(QObject):
                 "third": preset["third"] if preset["third"]["enabled"] else None,
             },
             fec_mode=primary.get("fec_mode", "Off"),
+            enable_audio=primary.get("enable_audio", False),
         )
 
     def should_minimize_to_tray(self):

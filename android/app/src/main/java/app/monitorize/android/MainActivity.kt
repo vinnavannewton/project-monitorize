@@ -53,6 +53,7 @@ import app.monitorize.android.discovery.DeviceDiscovery
 import app.monitorize.android.discovery.DiscoveredDevice
 import app.monitorize.android.input.InputEventSender
 import app.monitorize.android.streaming.H264Decoder
+import app.monitorize.android.streaming.AudioReceiver
 import app.monitorize.android.streaming.StreamStats
 import app.monitorize.android.streaming.StreamReceiver
 import app.monitorize.android.ui.theme.BreezeAccent as AccentIndigo
@@ -71,6 +72,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Locale
+import kotlin.math.roundToInt
 
 
 
@@ -86,6 +88,19 @@ private const val SURFACE_READY_RETRY_TIMEOUT_MS = 3000L
 private const val SURFACE_READY_BLOCKED_LOG_INTERVAL_MS = 500L
 
 private const val MAX_RECENT_WIFI_DEVICES = 5
+
+internal fun preferredSurfaceFrameRate(
+    streamFps: Int,
+    supportedRefreshRates: Iterable<Float>,
+): Float {
+    val fps = streamFps.coerceIn(MIN_STREAM_FPS, MAX_STREAM_FPS)
+    val supported = supportedRefreshRates.filter { it.isFinite() && it > 0f }
+    return supported
+        .filter { it >= fps && it.roundToInt() % fps <= 3 }
+        .maxOrNull()
+        ?: supported.maxOrNull()
+        ?: fps.toFloat()
+}
 
 internal fun recentHostKey(device: DiscoveredDevice): String =
     "${device.ip.trim().lowercase(Locale.ROOT)}:${device.port}"
@@ -120,6 +135,7 @@ class MainActivity : ComponentActivity() {
     @Volatile private var decoder: H264Decoder? = null
     @Volatile private var receiver: StreamReceiver? = null
     @Volatile private var inputSender: InputEventSender? = null
+    @Volatile private var audioReceiver: AudioReceiver? = null
     @Volatile private var wifiLock: WifiManager.WifiLock? = null
     private val streamStateLock = Any()
     private val streamMutex = Mutex()
@@ -137,6 +153,7 @@ class MainActivity : ComponentActivity() {
         val receiver: StreamReceiver?,
         val decoder: H264Decoder?,
         val inputSender: InputEventSender?,
+        val audioReceiver: AudioReceiver?,
         val wifiLock: WifiManager.WifiLock?
     )
 
@@ -475,10 +492,13 @@ class MainActivity : ComponentActivity() {
             if (invalidateSurface) {
                 surfaceGeneration += 1
             }
-            val resources = StreamResources(receiver, decoder, inputSender, wifiLock)
+            val resources = StreamResources(
+                receiver, decoder, inputSender, audioReceiver, wifiLock
+            )
             receiver = null
             decoder = null
             inputSender = null
+            audioReceiver = null
             wifiLock = null
             resources
         }
@@ -492,6 +512,7 @@ class MainActivity : ComponentActivity() {
     private fun closeStreamResourcesBlocking(resources: StreamResources) {
         resources.receiver?.stop()
         resources.inputSender?.stop()
+        resources.audioReceiver?.stop()
         resources.decoder?.release()
         try {
             if (resources.wifiLock?.isHeld == true) {
@@ -609,6 +630,19 @@ class MainActivity : ComponentActivity() {
                 }
                 if (!assigned) sender.stop()
             }
+            onTransportReady = transport@ {
+                if (!isActiveStream(sessionId, streamReceiver)) return@transport
+                val audio = synchronized(streamStateLock) {
+                    if (activeStreamSession != sessionId || receiver !== streamReceiver) {
+                        null
+                    } else {
+                        audioReceiver ?: AudioReceiver(
+                            hostIp.takeIf { it.isNotBlank() }
+                        ).also { audioReceiver = it }
+                    }
+                }
+                audio?.start()
+            }
             this.onStats = { telemetry ->
                 if (isActiveStream(sessionId, streamReceiver)) {
                     runOnUiThread {
@@ -644,7 +678,9 @@ class MainActivity : ComponentActivity() {
             usbInputSender?.stop()
             streamReceiver.stop()
             d.release()
-            closeStreamResourcesBlocking(StreamResources(null, null, null, newWifiLock))
+            closeStreamResourcesBlocking(
+                StreamResources(null, null, null, null, newWifiLock)
+            )
         }
     }
 
@@ -1362,6 +1398,7 @@ fun StreamSurface(
         factory = { ctx ->
             AccessibleSurfaceView(ctx).apply {
                 isClickable = true
+                val streamView = this
                 val streamCallback = object : SurfaceHolder.Callback {
                     private var surfaceGeneration = 0L
                     private var activeSurfaceWidth = 0
@@ -1530,7 +1567,19 @@ fun StreamSurface(
                         if (surface == null || !surface.isValid || Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
                             return
                         }
-                        val frameRate = fps.coerceIn(MIN_STREAM_FPS, MAX_STREAM_FPS).toFloat()
+                        val display = streamView.display
+                        val currentMode = display?.mode
+                        val supportedRates = display?.supportedModes
+                            ?.asSequence()
+                            ?.filter {
+                                currentMode == null ||
+                                    (it.physicalWidth == currentMode.physicalWidth &&
+                                        it.physicalHeight == currentMode.physicalHeight)
+                            }
+                            ?.map { it.refreshRate }
+                            ?.toList()
+                            .orEmpty()
+                        val frameRate = preferredSurfaceFrameRate(fps, supportedRates)
                         try {
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                                 surface.setFrameRate(
@@ -1541,6 +1590,10 @@ fun StreamSurface(
                             } else {
                                 surface.setFrameRate(frameRate, Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE)
                             }
+                            Log.i(
+                                "StreamSurface",
+                                "Fixed frame rate: stream=$fps requested=$frameRate supported=$supportedRates",
+                            )
                         } catch (e: Exception) {
                             Log.w("StreamSurface", "Frame rate hint failed: ${e.message}")
                         }

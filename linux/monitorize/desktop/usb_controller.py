@@ -24,6 +24,7 @@ class UsbController(QObject):
         self.busy = False
         self.process = None
         self.serial = None
+        self.touch_reverse_failed = False
 
     def _set_status(self, value):
         self.status = value
@@ -93,9 +94,19 @@ class UsbController(QObject):
         self._run(["reverse", "tcp:7111", "tcp:7111"], self._touch_done)
 
     def _touch_done(self, code, _status):
+        self.touch_reverse_failed = bool(code)
+        self._set_status("Setting up reverse proxy tcp:7120 (audio)…")
+        self._run(["reverse", "tcp:7120", "tcp:7120"], self._audio_done)
+
+    def _audio_done(self, code, _status):
+        unavailable = []
+        if self.touch_reverse_failed:
+            unavailable.append("touch")
+        if code:
+            unavailable.append("audio")
         self._set_status(
-            "Warning: tcp:7111 reverse failed — touch disabled"
-            if code else "Device ready!"
+            f"Warning: {', '.join(unavailable)} unavailable"
+            if unavailable else "Device ready!"
         )
         self._set_busy(False)
         self.scanFinished.emit(True)

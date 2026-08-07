@@ -192,11 +192,27 @@ class VideoTransportTest(unittest.TestCase):
         self.assertEqual(1, session.force_key_count)
         session.pipeline.get_by_name.assert_not_called()
 
+    def test_recent_completed_recovery_idr_rate_limits_new_request(self):
+        session = Session.__new__(Session)
+        session.pending_idr_since = None
+        session.last_forced_idr_at = 1.0
+        session.coalesced_idr_count = 0
+        session.force_key_count = 1
+        session.pipeline = Mock()
+
+        with patch("monitorize.streaming.gst_session.time.monotonic", return_value=1.5):
+            self.assertFalse(session.force_key_unit())
+
+        self.assertEqual(1, session.coalesced_idr_count)
+        self.assertEqual(1, session.force_key_count)
+        session.pipeline.get_by_name.assert_not_called()
+
     def test_host_retry_can_replace_pending_recovery_idr(self):
         session = Session.__new__(Session)
         session.pending_idr_since = 1.0
         session.coalesced_idr_count = 0
         session.force_key_count = 1
+        session.last_forced_idr_at = 1.0
         pad = Mock()
         pad.send_event.return_value = True
         encoder = Mock()
@@ -217,6 +233,7 @@ class VideoTransportTest(unittest.TestCase):
         self.assertEqual(2, session.force_key_count)
         self.assertEqual(0, session.coalesced_idr_count)
         self.assertEqual(2.0, session.pending_idr_since)
+        self.assertEqual(2.0, session.last_forced_idr_at)
         pad.send_event.assert_called_once()
 
     def test_encoded_idr_is_classified_as_scheduled_or_recovery(self):
@@ -257,9 +274,32 @@ class VideoTransportTest(unittest.TestCase):
         self.assertIn("key-int-max=1800", description)
         self.assertIn("h264parse name=monitorize_parser", description)
 
-    def test_rtp_sender_ceiling_is_independent_of_selected_bitrate(self):
-        from monitorize.streaming.gst_session import SENDER_CEILING_KBPS
-        self.assertEqual(200_000, SENDER_CEILING_KBPS)
+    def test_rtp_sender_pacing_tracks_selected_bitrate_with_headroom(self):
+        from monitorize.streaming.gst_session import (
+            congestion_bitrate_kbps,
+            sender_pacing_kbps,
+        )
+        self.assertEqual(10_000, sender_pacing_kbps(8_000))
+        self.assertEqual(28_750, sender_pacing_kbps(23_000))
+        self.assertEqual(23_000, congestion_bitrate_kbps(23_000, 4.9))
+        self.assertEqual(17_250, congestion_bitrate_kbps(23_000, 5.0))
+        self.assertEqual(4_000, congestion_bitrate_kbps(4_000, 50.0))
+
+    def test_congestion_reduces_encoder_and_sender_together(self):
+        session = Session.__new__(Session)
+        session.current_bitrate = 23_000
+        session.pacing_bytes_per_second = 0
+        encoder = Mock()
+        session._element = Mock(return_value=encoder)
+        session.sender_command = Mock()
+        session.force_key_unit = Mock()
+
+        self.assertFalse(session.reduce_bitrate_for_congestion(12.0))
+
+        encoder.set_property.assert_called_once_with("bitrate", 17_250)
+        session.sender_command.assert_called_once_with("RATE 21562")
+        session.force_key_unit.assert_called_once_with(replace_pending=True)
+        self.assertEqual(17_250, session.current_bitrate)
 
     def test_udp_send_buffer_scales_to_two_tenths_of_a_second(self):
         self.assertEqual(262_144, udp_send_buffer_bytes(8_000))

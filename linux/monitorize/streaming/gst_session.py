@@ -28,9 +28,23 @@ from .video_transport import (
 )
 
 SENDER_NAME = "monitorize-rtp-sender"
-SENDER_CEILING_KBPS = 200_000
+SENDER_PACING_HEADROOM_PERCENT = 25
 MAX_CAPTURE_TO_STATS_NS = 1_000_000_000
 RTP_CLOCK_RATE = 90_000
+MIN_RECOVERY_IDR_INTERVAL_SECONDS = 1.0
+BITRATE_REDUCTION_COOLDOWN_SECONDS = 1.0
+SEVERE_LOSS_PERCENT = 5.0
+MIN_ADAPTIVE_BITRATE_KBPS = 4_000
+
+
+def sender_pacing_kbps(bitrate):
+    return max(1_000, int(bitrate) * (100 + SENDER_PACING_HEADROOM_PERCENT) // 100)
+
+
+def congestion_bitrate_kbps(current_bitrate, loss_percent):
+    if float(loss_percent) < SEVERE_LOSS_PERCENT:
+        return int(current_bitrate)
+    return max(MIN_ADAPTIVE_BITRATE_KBPS, int(current_bitrate) * 3 // 4)
 
 
 class Session:
@@ -46,14 +60,17 @@ class Session:
         self.scheduled_idr_count = 0
         self.coalesced_idr_count = 0
         self.pending_idr_since = None
+        self.last_forced_idr_at = None
         self.last_idr_ms = None
         self.last_idr_kib = None
         self.target_fps = target_fps
         self.width = width
         self.height = height
         self.current_bitrate = max(1, int(bitrate))
+        self.last_congestion_check_at = time.monotonic()
+        self.peak_client_loss_percent = 0.0
         self.last_client_stats_log = 0.0
-        self.pacing_bytes_per_second = SENDER_CEILING_KBPS * 1000 // 8
+        self.pacing_bytes_per_second = sender_pacing_kbps(self.current_bitrate) * 1000 // 8
         self.sender = None
         self.sender_lock = threading.Lock()
         self.sender_metrics = {
@@ -106,7 +123,8 @@ class Session:
         bind_port = int(sink.get_property("bind-port"))
         self.sender = subprocess.Popen(
             [sender_path, str(bind_port), self.client_host, str(self.client_port),
-             str(self.target_fps), str(udp_send_buffer_bytes(self.current_bitrate))],
+             str(self.target_fps), str(udp_send_buffer_bytes(self.current_bitrate)),
+             str(sender_pacing_kbps(self.current_bitrate))],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             text=True, bufsize=1,
         )
@@ -134,7 +152,8 @@ class Session:
         sink.set_property("bind-port", 0)
         print(
             f"[RTP] Deterministic sender ready on loopback UDP {input_port}; "
-            f"network source port {bind_port}, ceiling {SENDER_CEILING_KBPS} kbps",
+            f"network source port {bind_port}, pacing "
+            f"{sender_pacing_kbps(self.current_bitrate)} kbps",
             flush=True,
         )
         threading.Thread(target=self.sender_output_loop, daemon=True).start()
@@ -168,6 +187,40 @@ class Session:
             self.sender.stdin.write(command + "\n")
             self.sender.stdin.flush()
 
+    def reduce_bitrate_for_congestion(self, loss_percent):
+        bitrate = congestion_bitrate_kbps(self.current_bitrate, loss_percent)
+        if bitrate >= self.current_bitrate:
+            return False
+        encoder = self._element(
+            "nvh264enc0", "vah264enc0", "vah264lpenc0", "vaapih264enc0", "x264enc0",
+        )
+        if encoder is None:
+            return False
+        encoder.set_property("bitrate", bitrate)
+        self.current_bitrate = bitrate
+        self.pacing_bytes_per_second = sender_pacing_kbps(bitrate) * 1000 // 8
+        self.sender_command(f"RATE {sender_pacing_kbps(bitrate)}")
+        print(
+            f"[RTP] Congestion: reduced bitrate to {bitrate} kbps "
+            f"(receiver loss {float(loss_percent):.1f}%)",
+            flush=True,
+        )
+        self.force_key_unit(replace_pending=True)
+        return False
+
+    def observe_client_congestion(self, loss_percent, now):
+        self.peak_client_loss_percent = max(
+            getattr(self, "peak_client_loss_percent", 0.0), float(loss_percent),
+        )
+        last_check = getattr(self, "last_congestion_check_at", now)
+        self.last_congestion_check_at = last_check
+        if now - last_check < BITRATE_REDUCTION_COOLDOWN_SECONDS:
+            return
+        peak_loss = self.peak_client_loss_percent
+        self.peak_client_loss_percent = 0.0
+        self.last_congestion_check_at = now
+        self.reduce_bitrate_for_congestion(peak_loss)
+
     def stop_sender(self):
         process, self.sender = self.sender, None
         if process is None or process.poll() is not None:
@@ -190,6 +243,13 @@ class Session:
             self.coalesced_idr_count += 1
             print("[RTP] Recovery IDR request coalesced; one is pending", flush=True)
             return False
+        now = time.monotonic()
+        last_forced = self.last_forced_idr_at
+        if (not replace_pending and last_forced is not None and
+                now - last_forced < MIN_RECOVERY_IDR_INTERVAL_SECONDS):
+            self.coalesced_idr_count += 1
+            print("[RTP] Recovery IDR request rate-limited", flush=True)
+            return False
         self.force_key_count += 1
         for name in ("nvh264enc0", "vah264enc0", "vah264lpenc0", "vaapih264enc0", "x264enc0"):
             encoder = self.pipeline.get_by_name(name)
@@ -200,7 +260,8 @@ class Session:
                 Gst.CLOCK_TIME_NONE, True, self.force_key_count
             )
             if pad and pad.send_event(event):
-                self.pending_idr_since = time.monotonic()
+                self.pending_idr_since = now
+                self.last_forced_idr_at = now
                 print("[RTP] Forced IDR from receiver feedback", flush=True)
             return False
         return False
@@ -266,6 +327,9 @@ class Session:
     def handle_stats_message(self, message):
         if message.get("type") != "stats":
             return False
+        self.observe_client_congestion(
+            message.get("lossPercent", 0), time.monotonic(),
+        )
         self.report_client_stats(message)
         return True
 

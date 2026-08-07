@@ -109,12 +109,13 @@ def _normalize_stream_settings(data: dict) -> dict:
 def save_wifi_settings(*, resolution: str, custom_w: str, custom_h: str,
                        fps: str, custom_fps: str, bitrate: str,
                        display_type: str, encoder: str, encoder_profile: str,
-                       fec_mode: str = "Off"):
+                       fec_mode: str = "Off", enable_audio: bool = False):
     values = locals()
     values["display_type"] = sanitize_display_type(display_type)
     values["encoder"] = sanitize_encoder(encoder)
     values["encoder_profile"] = sanitize_encoder_profile(encoder_profile)
     values["fec_mode"] = sanitize_fec_mode(fec_mode)
+    values["enable_audio"] = bool(enable_audio)
     values["fps"] = str(sanitize_fps(fps))
     values["custom_fps"] = str(sanitize_fps(custom_fps)) if custom_fps else ""
     values["bitrate"] = str(sanitize_bitrate(bitrate))
@@ -130,11 +131,13 @@ def save_wifi_settings(*, resolution: str, custom_w: str, custom_h: str,
 
 def save_usb_settings(*, resolution: str, custom_w: str, custom_h: str,
                       fps: str, custom_fps: str, bitrate: str,
-                      display_type: str, encoder: str, encoder_profile: str):
+                      display_type: str, encoder: str, encoder_profile: str,
+                      enable_audio: bool = False):
     values = locals()
     values["display_type"] = sanitize_display_type(display_type)
     values["encoder"] = sanitize_encoder(encoder)
     values["encoder_profile"] = sanitize_encoder_profile(encoder_profile)
+    values["enable_audio"] = bool(enable_audio)
     values["fps"] = str(sanitize_fps(fps))
     values["custom_fps"] = str(sanitize_fps(custom_fps)) if custom_fps else ""
     values["bitrate"] = str(sanitize_bitrate(bitrate))
@@ -170,6 +173,7 @@ STREAM_DEFAULTS = {
     "display_type": "Extend",
     "encoder": "Software (CPU / x264enc)",
     "encoder_profile": "Low Latency",
+    "enable_audio": False,
 }
 WIFI_DEFAULTS = {**STREAM_DEFAULTS, "bitrate": "20000", "fec_mode": "Off"}
 
@@ -178,6 +182,7 @@ def load_wifi_settings() -> dict:
     values = _normalize_stream_settings(_load_group(
         "wifi",
         WIFI_DEFAULTS,
+        ("enable_audio",),
     ))
     settings = _get_settings()
     settings.beginGroup("wifi")
@@ -190,7 +195,9 @@ def load_wifi_settings() -> dict:
 
 
 def load_usb_settings() -> dict:
-    return _normalize_stream_settings(_load_group("usb", STREAM_DEFAULTS))
+    return _normalize_stream_settings(_load_group(
+        "usb", STREAM_DEFAULTS, ("enable_audio",)
+    ))
 
 
 def load_general_settings() -> dict:
@@ -307,6 +314,7 @@ def _normalize_preset(raw: dict) -> dict | None:
                 primary.get("encoder_profile", "Low Latency")
             ),
             "fec_mode": sanitize_fec_mode(primary.get("fec_mode")),
+            "enable_audio": bool(primary.get("enable_audio", False)),
         },
         "general": {
             "minimize_to_tray": bool(general.get("minimize_to_tray", False)),

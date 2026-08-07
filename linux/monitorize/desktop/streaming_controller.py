@@ -52,6 +52,7 @@ THIRD_STREAM_PUBLIC_PORT = 7114
 THIRD_STREAM_BACKEND_PORT = 7115
 THIRD_INPUT_PUBLIC_PORT = 7117
 THIRD_INPUT_BACKEND_PORT = 7118
+AUDIO_PORT = 7120
 GNOME_DISPLAY_CONFIG_SERVICE = "org.gnome.Mutter.DisplayConfig"
 GNOME_DISPLAY_CONFIG_PATH = "/org/gnome/Mutter/DisplayConfig"
 GNOME_DISPLAY_CONFIG_IFACE = "org.gnome.Mutter.DisplayConfig"
@@ -80,7 +81,7 @@ class StreamingController(QObject):
         self.bitrate = DEFAULT_BITRATE
         self.width, self.height = DEFAULT_PRIMARY_RESOLUTION
         self.fps = DEFAULT_FPS
-        self.streamer = self.input_bridge = None
+        self.streamer = self.input_bridge = self.audio_process = None
         self.gst_pids = set()
         self.input_launched = False
         self.generation = 0
@@ -107,6 +108,7 @@ class StreamingController(QObject):
         self.third_env = None
         self.encoder_profile = "Low Latency"
         self.fec_mode = "Off"
+        self.audio_enabled = False
         self.runtime_general = None
         self.countdown_timer = QTimer(self)
         self.countdown_timer.setInterval(1000)
@@ -214,7 +216,7 @@ class StreamingController(QObject):
 
     def start(
         self, res, fps, bitrate, display_type, encoder, encoder_profile, wifi,
-        options=None, fec_mode="Off",
+        options=None, fec_mode="Off", enable_audio=False,
     ):
         self.stop()
         self.generation += 1
@@ -229,6 +231,7 @@ class StreamingController(QObject):
         self.encoder = sanitize_encoder(encoder)
         self.encoder_profile = sanitize_encoder_profile(encoder_profile)
         self.fec_mode = sanitize_fec_mode(fec_mode) if wifi else "Off"
+        self.audio_enabled = bool(enable_audio)
         self.env = QProcessEnvironment.systemEnvironment()
         self.env.insert("PYTHONUNBUFFERED", "1")
         self.env.insert("MONITORIZE_ENCODER", {
@@ -252,6 +255,7 @@ class StreamingController(QObject):
         if wifi:
             subprocess.run(["adb", "reverse", "--remove", "tcp:7110"], capture_output=True)
             subprocess.run(["adb", "reverse", "--remove", "tcp:7111"], capture_output=True)
+            subprocess.run(["adb", "reverse", "--remove", f"tcp:{AUDIO_PORT}"], capture_output=True)
         defer_streaming_ui = self.de == "kde" and self.display_type == "Extend"
         if not defer_streaming_ui:
             self._set_streaming(True)
@@ -336,6 +340,7 @@ class StreamingController(QObject):
         if not self.streaming or generation != self.generation:
             return
         self.streamer_has_pipewire_node = False
+        self._launch_audio(generation)
         self.kde_event_buffer = ""
         self.gnome_event_buffer = ""
         self.streamer = self._new_process()
@@ -383,6 +388,53 @@ class StreamingController(QObject):
             "Waiting for Android receiver…"
             if self.wifi
             else "Status: Streaming…"
+        )
+
+    def _launch_audio(self, generation=None):
+        generation = self.generation if generation is None else generation
+        if (
+            not self.streaming
+            or generation != self.generation
+            or not self.audio_enabled
+            or self.audio_process is not None
+        ):
+            return
+        self.audio_process = self._new_process()
+        process = self.audio_process
+        process.readyReadStandardOutput.connect(
+            lambda: self._read_audio(generation, process)
+        )
+        process.finished.connect(
+            lambda code, status: self._audio_finished(
+                code, status, generation, process
+            )
+        )
+        process.errorOccurred.connect(
+            lambda _error: self._process_error(
+                "AUDIO", generation, process, self.audio_process
+            )
+        )
+        process.start(sys.executable, [
+            "-m", "monitorize.streaming.audio_sender",
+            "wifi" if self.wifi else "usb",
+            "--port", str(AUDIO_PORT),
+        ])
+
+    def _read_audio(self, generation, process):
+        if generation != self.generation or process is not self.audio_process:
+            return
+        raw = bytes(process.readAllStandardOutput()).decode(
+            "utf-8", errors="replace"
+        )
+        if raw:
+            self.logAppended.emit("AUDIO", raw)
+
+    def _audio_finished(self, code, _status, generation, process):
+        if generation != self.generation or process is not self.audio_process:
+            return
+        self.audio_process = None
+        self.logAppended.emit(
+            "AUDIO", f"Audio sender exited (code {code}); video continues."
         )
 
     def _launch_input(self, generation=None):
@@ -1104,6 +1156,7 @@ class StreamingController(QObject):
                 "encoder": self.encoder,
                 "encoder_profile": self.encoder_profile,
                 "fec_mode": self.fec_mode,
+                "enable_audio": self.audio_enabled,
             },
             "general": general,
             "third": {"enabled": False},
@@ -1193,8 +1246,8 @@ class StreamingController(QObject):
             or self.third_input_bridge is not None
         ):
             self.stop_third()
-        stop_processes(self.streamer, self.input_bridge)
-        self.streamer = self.input_bridge = None
+        stop_processes(self.streamer, self.input_bridge, self.audio_process)
+        self.streamer = self.input_bridge = self.audio_process = None
         kill_tracked_pids(set(self.gst_pids))
         self.gst_pids.clear()
         kill_patterns(
@@ -1202,6 +1255,7 @@ class StreamingController(QObject):
             "gst-launch-1.0.*port=7114", "gst-launch-1.0.*port=7115",
             "monitorize\\.streaming\\.Streamer_.*",
             "monitorize\\.input_bridge\\.touch_daemon",
+            "monitorize\\.streaming\\.audio_sender",
             "monitorize-kde-virtual-output",
         )
         self.display.cleanup()

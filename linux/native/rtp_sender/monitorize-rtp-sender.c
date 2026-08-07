@@ -20,7 +20,6 @@
 #define MAX_BATCH 4
 #define RTP_MEDIA_PT 96
 #define RTP_FEC_PT 122
-#define CEILING_BYTES_PER_SECOND 25000000ULL
 #define MAX_QUEUED_PACKETS 4096
 
 struct packet {
@@ -36,12 +35,11 @@ static struct packet *head;
 static struct packet *tail;
 static size_t queued_packets;
 static uint64_t next_send_ns;
+static uint64_t pacing_bytes_per_second;
 static uint64_t interval_bytes;
 static uint64_t interval_packets;
 static uint64_t interval_drops;
 static uint64_t interval_errors;
-static uint32_t last_hard_drop_timestamp;
-static int have_hard_drop_timestamp;
 static pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
 static int notify_write_fd = -1;
 
@@ -157,7 +155,7 @@ static int send_due(int socket_fd) {
     }
     if (!head) tail = NULL;
     next_send_ns = (next_send_ns > now ? next_send_ns : now) +
-        sent_bytes * 1000000000ULL / CEILING_BYTES_PER_SECOND;
+        sent_bytes * 1000000000ULL / pacing_bytes_per_second;
     pthread_mutex_unlock(&queue_mutex);
     return sent;
 }
@@ -178,16 +176,11 @@ static int enqueue_packet(int input_fd) {
     packet->received_ns = monotonic_ns();
     pthread_mutex_lock(&queue_mutex);
     if (queued_packets >= MAX_QUEUED_PACKETS) {
-        if (!have_hard_drop_timestamp || last_hard_drop_timestamp != packet->timestamp) {
-            last_hard_drop_timestamp = packet->timestamp;
-            have_hard_drop_timestamp = 1;
-            interval_drops++;
-            printf("DROP timestamp=%u reason=hard-queue-limit\n", packet->timestamp);
-            fflush(stdout);
-        }
-        pthread_mutex_unlock(&queue_mutex);
-        free(packet);
-        return 1;
+        flush_queue_locked();
+        next_send_ns = monotonic_ns();
+        interval_drops++;
+        printf("DROP timestamp=%u reason=stale-queue-reset\n", packet->timestamp);
+        fflush(stdout);
     }
     if (tail) tail->next = packet;
     else head = packet;
@@ -226,12 +219,13 @@ static void report_stats(uint64_t now, uint64_t *last_report_ns) {
     pthread_mutex_lock(&queue_mutex);
     double queue_delay_ms = head ? (double)(now - head->received_ns) / 1000000.0 : 0.0;
     printf("STAT txKbps=%.0f txPps=%.1f queuePackets=%zu queueDelayMs=%.2f "
-           "droppedFrames=%llu sendErrors=%llu ceilingKbps=200000\n",
+           "droppedFrames=%llu sendErrors=%llu pacingKbps=%llu\n",
            (double)interval_bytes * 8.0 * 1000000.0 / (double)elapsed,
            (double)interval_packets * 1000000000.0 / (double)elapsed,
            queued_packets, queue_delay_ms,
            (unsigned long long)interval_drops,
-           (unsigned long long)interval_errors);
+           (unsigned long long)interval_errors,
+           (unsigned long long)(pacing_bytes_per_second * 8 / 1000));
     fflush(stdout);
     interval_bytes = interval_packets = interval_drops = interval_errors = 0;
     pthread_mutex_unlock(&queue_mutex);
@@ -239,15 +233,18 @@ static void report_stats(uint64_t now, uint64_t *last_report_ns) {
 }
 
 int main(int argc, char **argv) {
-    if (argc != 6) {
-        fprintf(stderr, "Usage: %s BIND_PORT DEST_HOST DEST_PORT FPS SEND_BUFFER\n", argv[0]);
+    if (argc != 7) {
+        fprintf(stderr, "Usage: %s BIND_PORT DEST_HOST DEST_PORT FPS SEND_BUFFER PACING_KBPS\n", argv[0]);
         return 2;
     }
     int bind_port = atoi(argv[1]);
     int fps = atoi(argv[4]);
     int send_buffer = atoi(argv[5]);
+    unsigned long long pacing_kbps = strtoull(argv[6], NULL, 10);
     if (bind_port < 1 || bind_port > 65535 || fps < 1 || fps > 240 ||
-        send_buffer < 262144 || send_buffer > 2097152) return 2;
+        send_buffer < 262144 || send_buffer > 2097152 ||
+        pacing_kbps < 1000 || pacing_kbps > 250000) return 2;
+    pacing_bytes_per_second = pacing_kbps * 1000 / 8;
     signal(SIGINT, stop_signal);
     signal(SIGTERM, stop_signal);
     if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0 || getppid() == 1) return 1;
@@ -297,7 +294,8 @@ int main(int argc, char **argv) {
         fprintf(stderr, "ERROR receiver thread failed\n");
         return 1;
     }
-    printf("READY inputPort=%u ceilingKbps=200000\n", ntohs(input_address.sin_port));
+    printf("READY inputPort=%u pacingKbps=%llu\n", ntohs(input_address.sin_port),
+           pacing_kbps);
 
     uint64_t last_report_ns = monotonic_ns();
     char command[512];
@@ -332,6 +330,19 @@ int main(int argc, char **argv) {
                 next_send_ns = monotonic_ns();
                 pthread_mutex_unlock(&queue_mutex);
                 printf("FLUSH\n");
+            } else if (!strncmp(command, "RATE ", 5)) {
+                unsigned long long pacing_kbps;
+                if (sscanf(command + 5, "%llu", &pacing_kbps) == 1 &&
+                    pacing_kbps >= 1000 && pacing_kbps <= 250000) {
+                    pthread_mutex_lock(&queue_mutex);
+                    flush_queue_locked();
+                    next_send_ns = monotonic_ns();
+                    pacing_bytes_per_second = pacing_kbps * 1000 / 8;
+                    pthread_mutex_unlock(&queue_mutex);
+                    printf("RATE pacingKbps=%llu\n", pacing_kbps);
+                } else {
+                    printf("ERROR invalid rate\n");
+                }
             }
         }
         if (descriptors[1].revents & POLLIN) {

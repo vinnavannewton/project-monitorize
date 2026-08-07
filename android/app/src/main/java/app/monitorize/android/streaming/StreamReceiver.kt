@@ -12,7 +12,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 private const val RTP_TRANSPORT = "rtp-udp-v1"
 private const val IDR_REQUEST_COOLDOWN_MS = 1_000L
-private const val HARD_IDR_RETRY_MS = 250L
 private const val MAX_CAPTURE_TO_RENDER_NS = 1_000_000_000L
 private const val RTP_PACKET_TIMEOUT_MS = 5_000L
 
@@ -25,8 +24,8 @@ internal data class RtpStreamConfig(
 )
 
 internal fun rtpFrameDeadlineNanos(fps: Int): Long {
-    return (6_000_000_000L / fps.coerceAtLeast(1))
-        .coerceIn(100_000_000L, 250_000_000L)
+    return (15_000_000_000L / fps.coerceAtLeast(1))
+        .coerceIn(150_000_000L, 250_000_000L)
 }
 
 internal fun recoveryIdrAllowed(
@@ -294,6 +293,7 @@ class StreamReceiver(
 
     var onStatusChange: ((String) -> Unit)? = null
     var onPlainTransportReady: (() -> Unit)? = null
+    var onTransportReady: (() -> Unit)? = null
     var onStats: ((StreamStats) -> Unit)? = null
 
     companion object {
@@ -404,6 +404,7 @@ class StreamReceiver(
         }
         Log.i(TAG, "RTP handshake succeeded, starting receive loop")
         socket.soTimeout = 4
+        onTransportReady?.invoke()
         onPlainTransportReady?.invoke()
         if (!decoder.init(
             ready.width, ready.height, ready.fps,
@@ -480,7 +481,7 @@ class StreamReceiver(
                         if (isIdr) {
                             Log.w(TAG, "RTP decoder dropped IDR; waiting for recovery IDR")
                             waitingForIdr = true
-                            requestRecoveryIdr(HARD_IDR_RETRY_MS)
+                            requestRecoveryIdr()
                         } else {
                             Log.w(TAG, "RTP decoder input burst full; requesting soft recovery IDR")
                             requestRecoveryIdr()
@@ -492,7 +493,7 @@ class StreamReceiver(
                     }
                 }
             } else {
-                requestRecoveryIdr(HARD_IDR_RETRY_MS)
+                requestRecoveryIdr()
             }
         }
 
@@ -510,7 +511,7 @@ class StreamReceiver(
             }
         }
 
-        requestRecoveryIdr(HARD_IDR_RETRY_MS)
+        requestRecoveryIdr()
 
         while (running.get()) {
             try {
@@ -556,7 +557,7 @@ class StreamReceiver(
                 if (assembler.droppedFrame) {
                     waitingForIdr = true
                     incompleteFrames++
-                    requestRecoveryIdr(HARD_IDR_RETRY_MS)
+                    requestRecoveryIdr()
                 }
                 drainCompletedFrames(frame)
             } catch (_: SocketTimeoutException) {
@@ -569,7 +570,7 @@ class StreamReceiver(
                     lostPackets += assembler.lostPackets
                     waitingForIdr = true
                     incompleteFrames++
-                    requestRecoveryIdr(HARD_IDR_RETRY_MS)
+                    requestRecoveryIdr()
                     drainCompletedFrames(assembler.pollCompleted())
                 }
             }
@@ -774,6 +775,7 @@ class StreamReceiver(
             controlSocket = socket
 
             onStatusChange?.invoke(if (hasConnected) "Reconnected" else "Connected")
+            onTransportReady?.invoke()
             decoder.init(width, height, fps)
             onStatusChange?.invoke("")
             hasConnected = true
