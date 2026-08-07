@@ -408,7 +408,7 @@ class StreamReceiver(
         onPlainTransportReady?.invoke()
         if (!decoder.init(
             ready.width, ready.height, ready.fps,
-            balancedOutput = false, inputFrameCapacity = 5,
+            balancedOutput = true, inputFrameCapacity = 5,
             replaceInputOnOverflow = false,
         )) {
             Log.w(TAG, "RTP decoder initialization failed; renegotiating")

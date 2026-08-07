@@ -66,19 +66,24 @@ class RtpStreamConfigTest {
 
     @Test fun balancedOutputQueueKeepsNewestTwoBuffers() {
         val queue = PendingOutputQueue(2)
-        assertNull(queue.offer(1))
-        assertNull(queue.offer(2))
-        assertEquals(1, queue.offer(3))
-        assertEquals(2, queue.poll())
-        assertEquals(3, queue.poll())
+        val first = PendingOutput(1, 10L)
+        val second = PendingOutput(2, 20L)
+        val third = PendingOutput(3, 30L)
+        assertNull(queue.offer(first))
+        assertNull(queue.offer(second))
+        assertEquals(first, queue.offer(third))
+        assertEquals(second, queue.poll())
+        assertEquals(third, queue.poll())
         assertEquals(0, queue.size())
     }
 
     @Test fun lowLatencyOutputQueueKeepsOnlyNewestBuffer() {
         val queue = PendingOutputQueue(1)
-        assertNull(queue.offer(1))
-        assertEquals(1, queue.offer(2))
-        assertEquals(2, queue.poll())
+        val first = PendingOutput(1, 10L)
+        val second = PendingOutput(2, 20L)
+        assertNull(queue.offer(first))
+        assertEquals(first, queue.offer(second))
+        assertEquals(second, queue.poll())
         assertEquals(0, queue.size())
     }
 

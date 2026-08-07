@@ -17,21 +17,26 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.ConcurrentHashMap
 
+internal data class PendingOutput(
+    val bufferId: Int,
+    val presentationTimeUs: Long,
+)
+
 internal class PendingOutputQueue(private val capacity: Int) {
-    private val values = java.util.ArrayDeque<Int>()
+    private val values = java.util.ArrayDeque<PendingOutput>()
 
     @Synchronized
-    fun offer(value: Int): Int? {
+    fun offer(value: PendingOutput): PendingOutput? {
         val dropped = if (values.size >= capacity) values.removeFirst() else null
         values.addLast(value)
         return dropped
     }
 
-    @Synchronized fun poll(): Int? = values.pollFirst()
+    @Synchronized fun poll(): PendingOutput? = values.pollFirst()
     @Synchronized fun size(): Int = values.size
 
     @Synchronized
-    fun drain(): List<Int> {
+    fun drain(): List<PendingOutput> {
         val result = values.toList()
         values.clear()
         return result
@@ -178,9 +183,12 @@ class H264Decoder(
                             } catch (_: Exception) {}
                             return
                         }
-                        pendingOutputBuffers.offer(outputBufferId)?.let { old ->
+                        pendingOutputBuffers.offer(
+                            PendingOutput(outputBufferId, info.presentationTimeUs)
+                        )?.let { old ->
                             droppedSinceStats.incrementAndGet()
-                            try { mc.releaseOutputBuffer(old, false) } catch (_: Exception) {}
+                            presentationRtpTimestamps.remove(old.presentationTimeUs)
+                            try { mc.releaseOutputBuffer(old.bufferId, false) } catch (_: Exception) {}
                         }
                     }
 
@@ -256,10 +264,13 @@ class H264Decoder(
                                     val output = pendingOutputBuffers.poll()
                                     if (output != null) {
                                         try {
-                                            it.releaseOutputBuffer(output, frameTimeNanos)
+                                            it.releaseOutputBuffer(output.bufferId, frameTimeNanos)
                                             lastRenderedFrameTimeNanos = frameTimeNanos
                                             frameCount++
-                                        } catch (_: Exception) {}
+                                        } catch (_: Exception) {
+                                            droppedSinceStats.incrementAndGet()
+                                            presentationRtpTimestamps.remove(output.presentationTimeUs)
+                                        }
                                     }
                                 }
                                 choreographer.postFrameCallback(this)
@@ -468,7 +479,9 @@ class H264Decoder(
         droppedSinceStats.set(0)
         presentationRtpTimestamps.clear()
         pendingOutputBuffers.drain().forEach { output ->
-            try { releasedCodec?.releaseOutputBuffer(output, false) } catch (_: Exception) {}
+            try {
+                releasedCodec?.releaseOutputBuffer(output.bufferId, false)
+            } catch (_: Exception) {}
         }
         try {
             releasedCodec?.stop()
