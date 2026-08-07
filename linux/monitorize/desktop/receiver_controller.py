@@ -12,6 +12,7 @@ from PyQt6.QtCore import QObject, QProcess, QTimer, pyqtSignal
 from monitorize.platform.process_utils import gst_has_element, kill_patterns, stop_processes
 from monitorize.platform.utils import LINUX_DIR
 from monitorize.config.validation import normalize_host, sanitize_decoder, sanitize_port, valid_host, valid_port
+from monitorize.streaming.audio_receiver import LinuxAudioReceiver
 
 
 COMPRESSED_QUEUE = [
@@ -42,6 +43,7 @@ SOFTWARE_DECODER_PROPS = {
     "automatic-request-sync-points": "true",
 }
 HARDWARE_DECODERS = ("vah264dec", "vaapih264dec")
+PRIMARY_STREAM_PORT = 7110
 HARDWARE_DECODER_PROPS = {
     "discard-corrupted-frames": "true",
     "automatic-request-sync-points": "true",
@@ -244,6 +246,7 @@ class ReceiverController(QObject):
         self.decoder = "Software"
         self.decoder_args = self._software_decoder_args()
         self.decoder_label = "Software avdec_h264"
+        self.audio_receiver = LinuxAudioReceiver(self.logAppended.emit)
         self.hardware_decoder_candidates = []
         self.hardware_decoder_index = 0
         self.sink_candidates = []
@@ -457,6 +460,17 @@ class ReceiverController(QObject):
             return
         if isinstance(sink, _GST_VIDEO.VideoOverlay):
             _GST_VIDEO.VideoOverlay.set_window_handle(sink, 0)
+
+    def _start_audio(self, generation):
+        if (
+            generation == self.generation
+            and self.udp_transport
+            and self.port == PRIMARY_STREAM_PORT
+        ):
+            try:
+                self.audio_receiver.start(self.host)
+            except Exception as exc:
+                self.logAppended.emit(f"Audio receiver unavailable: {exc}")
 
     def _reset_stats(self):
         with self.stats_lock:
@@ -886,6 +900,12 @@ class ReceiverController(QObject):
             generation = self.gst_generation
             if generation != self.generation:
                 continue
+            if message.type == Gst.MessageType.STATE_CHANGED:
+                if message.src == self.gst_pipeline:
+                    _old, new, _pending = message.parse_state_changed()
+                    if new == Gst.State.PLAYING:
+                        self._start_audio(generation)
+                continue
             if message.type == Gst.MessageType.ERROR:
                 error, debug = message.parse_error()
                 self.logAppended.emit(f"Receiver pipeline error: {error.message}")
@@ -967,6 +987,7 @@ class ReceiverController(QObject):
             self.logAppended.emit("Stream ended. Click Disconnect to return.")
         else:
             self._set_status("Unable to start stream after 10 attempts")
+            self.audio_receiver.stop()
             self._set_receiving(False)
 
     def stop(self):
@@ -975,6 +996,7 @@ class ReceiverController(QObject):
         self.stable = False
         self.stable_timer.stop()
         self.retry_timer.stop()
+        self.audio_receiver.stop()
         self._stop_gst_pipeline()
         stop_processes(self.process)
         self.process = None

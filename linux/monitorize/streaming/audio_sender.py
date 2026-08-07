@@ -1,4 +1,4 @@
-"""Mono system-audio sender for Android receivers."""
+"""Mono system-audio sender for Monitorize receivers."""
 
 import argparse
 import json

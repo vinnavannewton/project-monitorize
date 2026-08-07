@@ -454,6 +454,67 @@ class ValidationTest(unittest.TestCase):
 
 
 class ReceiverControllerTest(unittest.TestCase):
+    def test_audio_starts_only_for_current_primary_remote_receiver(self):
+        controller = ReceiverController("kde", Mock())
+        controller.audio_receiver = Mock()
+        controller.generation = 4
+        controller.host = "10.0.0.2"
+        controller.port = 7110
+        controller.udp_transport = True
+        controller._start_audio(4)
+        controller.audio_receiver.start.assert_called_once_with("10.0.0.2")
+
+        controller.audio_receiver.reset_mock()
+        for generation, udp_transport, port in (
+            (3, True, 7110), (4, False, 7110), (4, True, 7114),
+        ):
+            controller.udp_transport = udp_transport
+            controller.port = port
+            controller._start_audio(generation)
+        controller.audio_receiver.start.assert_not_called()
+
+    def test_audio_start_failure_does_not_fail_video_receiver(self):
+        controller = ReceiverController("kde", Mock())
+        controller.audio_receiver = Mock()
+        controller.audio_receiver.start.side_effect = RuntimeError("no sink")
+        controller.generation = 1
+        controller.host = "10.0.0.2"
+        controller.port = 7110
+        controller.udp_transport = True
+        logs = []
+        controller.logAppended.connect(logs.append)
+        controller._start_audio(1)
+        self.assertIn("Audio receiver unavailable: no sink", logs)
+
+    def test_audio_starts_when_the_video_pipeline_reaches_playing(self):
+        controller = ReceiverController("kde", Mock())
+        controller.audio_receiver = Mock()
+        controller.generation = 2
+        controller.gst_generation = 2
+        controller.host = "10.0.0.2"
+        controller.port = 7110
+        controller.udp_transport = True
+        controller.gst_pipeline = object()
+        message = Mock(type="state-changed", src=controller.gst_pipeline)
+        message.parse_state_changed.return_value = (
+            "paused", "playing", "void-pending"
+        )
+        controller.gst_bus = Mock()
+        controller.gst_bus.pop.side_effect = [message, None]
+        gst = Mock()
+        gst.MessageType.STATE_CHANGED = "state-changed"
+        gst.MessageType.ERROR = "error"
+        gst.MessageType.EOS = "eos"
+        gst.State.PLAYING = "playing"
+
+        with patch(
+            "monitorize.desktop.receiver_controller._load_gst",
+            return_value=gst,
+        ):
+            controller._poll_gst_bus()
+
+        controller.audio_receiver.start.assert_called_once_with("10.0.0.2")
+
     def test_pipeline_preserves_compressed_frames_and_drops_only_after_decode(self):
         controller = ReceiverController("kde", Mock())
         controller.decoder = "Hardware"
@@ -4108,6 +4169,13 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn("--remove-service=monitorize", spec)
         self.assertIn("rpmfusion-free-release", workflow)
         self.assertIn("Clean Fedora 44 RPM install", workflow)
+        for element in (
+            "rtpjitterbuffer", "rtpopusdepay", "opusdec",
+            "pulsesink", "autoaudiosink",
+        ):
+            self.assertGreaterEqual(
+                workflow.count(f"gst-inspect-1.0 {element}"), 2
+            )
 
     def test_main_menu_desktop_badge_uses_backend_detected_de(self):
         qml_path = (

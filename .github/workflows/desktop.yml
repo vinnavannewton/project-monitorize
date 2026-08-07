@@ -194,6 +194,11 @@ jobs:
           gst-inspect-1.0 audiobuffersplit >/dev/null
           gst-inspect-1.0 opusenc >/dev/null
           gst-inspect-1.0 rtpopuspay >/dev/null
+          gst-inspect-1.0 rtpjitterbuffer >/dev/null
+          gst-inspect-1.0 rtpopusdepay >/dev/null
+          gst-inspect-1.0 opusdec >/dev/null
+          gst-inspect-1.0 pulsesink >/dev/null
+          gst-inspect-1.0 autoaudiosink >/dev/null
           python3 -c 'import cairo'
           test -x /usr/bin/monitorize-kde-virtual-output
           ! ldd /usr/bin/monitorize-kde-virtual-output | grep -q 'not found'
@@ -270,6 +275,11 @@ jobs:
           gst-inspect-1.0 audiobuffersplit >/dev/null
           gst-inspect-1.0 opusenc >/dev/null
           gst-inspect-1.0 rtpopuspay >/dev/null
+          gst-inspect-1.0 rtpjitterbuffer >/dev/null
+          gst-inspect-1.0 rtpopusdepay >/dev/null
+          gst-inspect-1.0 opusdec >/dev/null
+          gst-inspect-1.0 pulsesink >/dev/null
+          gst-inspect-1.0 autoaudiosink >/dev/null
           python3 -c 'import cairo'
           test -x linux/venv/bin/monitorize-kde-virtual-output
           ! ldd linux/venv/bin/monitorize-kde-virtual-output | grep -q 'not found'
