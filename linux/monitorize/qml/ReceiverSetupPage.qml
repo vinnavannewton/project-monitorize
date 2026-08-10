@@ -67,30 +67,26 @@ Item {
 
             Item { Layout.fillWidth: true }
 
-            // Refresh button
+            // Refresh button (Android-style pill)
             Rectangle {
-                implicitWidth: refreshRow.implicitWidth + 20
-                implicitHeight: 30
-                radius: 8
-                color: refreshArea.containsMouse ? theme.surfaceAlt : theme.surface
-                border.color: theme.border
+                implicitWidth: refreshRow.implicitWidth + 24
+                implicitHeight: 28
+                radius: 6
+                color: refreshArea.containsMouse ? Qt.rgba(theme.accent.r, theme.accent.g, theme.accent.b, 0.25) : Qt.rgba(theme.accent.r, theme.accent.g, theme.accent.b, 0.15)
+                border.color: Qt.rgba(theme.accent.r, theme.accent.g, theme.accent.b, 0.4)
                 border.width: 1
                 Behavior on color { ColorAnimation { duration: 150 } }
 
                 RowLayout {
                     id: refreshRow
                     anchors.centerIn: parent
-                    spacing: 6
+                    spacing: 0
 
                     Text {
-                        text: "🔄"
-                        font.pixelSize: 12
-                    }
-                    Text {
-                        text: "Refresh"
+                        text: "REFRESH"
                         font.pixelSize: 11
                         font.weight: Font.Bold
-                        color: theme.cardTextSecondary
+                        color: theme.accent
                     }
                 }
 
@@ -98,17 +94,10 @@ Item {
                     id: refreshArea
                     anchors.fill: parent
                     hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
                     onClicked: backend.startHostDiscovery()
                 }
             }
-        }
-
-        Text {
-            text: "Connect this laptop to one of the host's virtual displays"
-            font.pixelSize: 13
-            color: theme.textSecondary
-            wrapMode: Text.Wrap
-            Layout.fillWidth: true
         }
 
         Rectangle {
@@ -135,7 +124,7 @@ Item {
                 // Empty state
                 Text {
                     visible: deviceRepeater.count === 0
-                    text: "Searching for Monitorize hosts on the network…\n(Make sure the other PC has Monitorize running)"
+                    text: "Searching for Monitorize hosts on the network…\nMake sure the other PC has Monitorize running"
                     font.pixelSize: 13
                     color: theme.textMuted
                     horizontalAlignment: Text.AlignHCenter
@@ -222,7 +211,7 @@ Item {
 
         CustomToggle {
             id: statsToggle
-            text: "Streaming stats overlay"
+            text: "Show stats"
             Layout.alignment: Qt.AlignLeft
             onToggled: backend.setReceiverStatsVisible(checked)
         }
@@ -321,7 +310,7 @@ Item {
         }
 
         Text {
-            text: "Wi-Fi video is plaintext. Use Tailscale or WireGuard for encrypted networking."
+            text: "Use Tailscale or WireGuard for encryption."
             color: theme.textMuted
             font.pixelSize: 12
             wrapMode: Text.Wrap

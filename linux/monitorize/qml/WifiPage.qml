@@ -464,10 +464,8 @@ Item {
                     }
 
                     Text {
-                        visible: audioCheck.checked
-                        text: page.isWifi
-                            ? "Audio adds ≈0.13 Mbps; estimated total ≈" + page.totalBandwidthText() + " Mbps"
-                            : "Audio adds 0.77 Mbps PCM; estimated total ≈" + page.totalBandwidthText() + " Mbps"
+                        visible: page.isWifi
+                        text: "Use Tailscale or WireGuard for encryption."
                         color: theme.textMuted
                         font.pixelSize: 11
                     }

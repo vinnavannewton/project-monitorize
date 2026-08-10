@@ -1249,14 +1249,7 @@ fun SettingsPanel(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Streaming stats overlay", color = Color.White, fontWeight = FontWeight.Medium)
-                Text(
-                    "Show Wi-Fi receiver, loss, decoder, and render timing on video.",
-                    color = TextMuted,
-                    fontSize = 12.sp,
-                )
-            }
+            Text("Show stats", color = Color.White, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
             Spacer(modifier = Modifier.width(12.dp))
             Switch(checked = showStreamingStats, onCheckedChange = onShowStreamingStatsChanged)
         }
