@@ -266,7 +266,7 @@ Item {
 
                         Text {
                             width: parent.width
-                            text: (presetCard.modelData["mode"] === "wifi" ? "UDP (trusted LAN)" : "Local")
+                            text: (presetCard.modelData["mode"] === "wifi" ? "UDP" : "Local")
                                 + (presetCard.modelData["third"]["enabled"] ? "  + extra display" : "")
                             color: theme.cardTextMuted
                             font.pixelSize: 10
