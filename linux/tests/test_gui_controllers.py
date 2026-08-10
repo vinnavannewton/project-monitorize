@@ -4632,7 +4632,7 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn("▶  Create Virtual Display", qml)
         self.assertNotIn("host-side display backend is currently disabled", qml)
 
-    def test_receiver_setup_uses_port_input_and_decoder_chips(self):
+    def test_receiver_setup_uses_side_by_side_manual_connection_inputs(self):
         qml_path = (
             Path(__file__).resolve().parents[1]
             / "monitorize"
@@ -4644,9 +4644,15 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn('text: "7110"', qml)
         self.assertIn('portField.text = rec["port"] || "7110"', qml)
         self.assertIn("validator: IntValidator { bottom: 1; top: 65535 }", qml)
+        self.assertIn('placeholderText: "Port"', qml)
+        self.assertIn("Layout.preferredWidth: 120", qml)
+        self.assertNotIn('text: "Port:"', qml)
         self.assertNotIn("id: displayCombo", qml)
         self.assertNotIn('model: ["Second display (7110)", "Third display (7114)"]', qml)
         self.assertIn("id: decoderCombo", qml)
+        self.assertLess(qml.index("id: decoderCombo"), qml.index('text: "MANUAL CONNECTION"'))
+        self.assertLess(qml.index("id: manualIpField"), qml.index("id: portField"))
+        self.assertLess(qml.index("id: portField"), qml.index("id: connectButton"))
         self.assertEqual(qml.count("ChoiceChips {"), 1)
         self.assertEqual(qml.count("CustomComboBox {"), 0)
         self.assertIn('text: "Streaming stats overlay"', qml)

@@ -220,41 +220,6 @@ Item {
             color: theme.border
         }
 
-        // Manual IP Connection
-        Text {
-            text: "MANUAL CONNECTION"
-            font.pixelSize: 11
-            font.weight: Font.Bold
-            color: theme.textMuted
-        }
-
-        RowLayout {
-            spacing: 12
-            Layout.fillWidth: true
-
-            Text {
-                text: "Port:"
-                color: theme.cardTextSecondary
-                font.pixelSize: 13
-            }
-
-            CustomTextField {
-                id: portField
-                text: "7110"
-                maximumLength: 5
-                validator: IntValidator { bottom: 1; top: 65535 }
-                onTextEdited: {
-                    backend.saveReceiverSettings(
-                        manualIpField.text.trim(),
-                        text.trim().length > 0 ? text.trim() : "7110",
-                        decoderCombo.currentText
-                    )
-                }
-            }
-
-            Item { Layout.fillWidth: true }
-        }
-
         CustomToggle {
             id: statsToggle
             text: "Streaming stats overlay"
@@ -285,6 +250,14 @@ Item {
             Item { Layout.fillWidth: true }
         }
 
+        // Manual IP Connection
+        Text {
+            text: "MANUAL CONNECTION"
+            font.pixelSize: 11
+            font.weight: Font.Bold
+            color: theme.textMuted
+        }
+
         RowLayout {
             spacing: 12
             Layout.fillWidth: true
@@ -302,6 +275,22 @@ Item {
                 }
                 onAccepted: {
                     connectButton.clicked()
+                }
+            }
+
+            CustomTextField {
+                id: portField
+                text: "7110"
+                placeholderText: "Port"
+                maximumLength: 5
+                validator: IntValidator { bottom: 1; top: 65535 }
+                Layout.preferredWidth: 120
+                onTextEdited: {
+                    backend.saveReceiverSettings(
+                        manualIpField.text.trim(),
+                        text.trim().length > 0 ? text.trim() : "7110",
+                        decoderCombo.currentText
+                    )
                 }
             }
 
