@@ -21,7 +21,7 @@
 
 ## 📖 Overview
 
-**Monitorize** turns your Android tablet, Laptop, PC into a secondary monitor for your Linux desktop.
+**Monitorize** turns your Android tablet, PC into a secondary monitor for your Linux desktop.
 
 **Supported desktop environments are KDE Plasma, Hyprland and GNOME.**
 
@@ -77,43 +77,13 @@ adb shell am start -n com.example.monitorize/.MainActivity
 
 1. After starting the stream in the desktop application make sure you go to your display settings and configure the newly created virtual display.
 
-2. When made changes to the virtual display's position and applied, then the stream crashes, it's normal just restart the stream and the virtual monitor will spawn in the previous applied position.
-
-### Notes:
-
-- Match the resolution and FPS set in the Android app's settings to the desktop app settings.
+2. When made changes to the virtual display's position, it might stop working, it's normal just restart the stream and the virtual monitor will spawn in the position it was set to.
 
 ---
 
 ## Contributing:
 
 Please read the [Contribution Guide](https://github.com/vinnavannewton/project-monitorize/wiki/Contributing).
-
----
-
-## 🗺️ Roadmap
-
-- [x] Stable CPU encoder (Software encoder).
-
-- [x] Stable vaapi encoder
-
-- [x] Fix stream corruption.
-
-- [x] desktop GUI.
-
-- [x] Touch screen.
-
-- [x] Stylus support with pressure.
-
-- [x] Stable gnome.
-
-- [x] Linux laptop as a viewer.
-
-- [x] Multi monitor setup.
-
-- [x] NVIDIA NVENC with automatic DMA-BUF/GL, CUDA-upload, system-memory, and CPU fallback paths.
-
-- [ ] 
 
 ---
 
@@ -127,10 +97,6 @@ Please read the [Contribution Guide](https://github.com/vinnavannewton/project-m
  </picture>
 </a>
 
-<div align="center">
-  <sub>Expanding your productivity, one monitor at a time.</sub>
-</div>
-
 ---
 
 ## Support Monitorize
@@ -139,4 +105,10 @@ Please read the [Contribution Guide](https://github.com/vinnavannewton/project-m
   <a href="https://ko-fi.com/vinnavan">
     <img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Buy me a coffee on Ko-fi" />
   </a>
+</div>
+
+---
+
+<div align="center">
+  <sub>Expanding your productivity, one monitor at a time.</sub>
 </div>
