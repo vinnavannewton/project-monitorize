@@ -1627,6 +1627,7 @@ class StreamingControllerTest(unittest.TestCase):
             "fec_mode": "Off",
             "enable_touch": True,
             "enable_stylus_features": False,
+            "enable_audio": False,
         })
 
     def test_kde_third_display_uses_distinct_native_virtual_slot(self):

@@ -53,6 +53,7 @@ THIRD_STREAM_BACKEND_PORT = 7115
 THIRD_INPUT_PUBLIC_PORT = 7117
 THIRD_INPUT_BACKEND_PORT = 7118
 AUDIO_PORT = 7120
+THIRD_AUDIO_PORT = 7121
 GNOME_DISPLAY_CONFIG_SERVICE = "org.gnome.Mutter.DisplayConfig"
 GNOME_DISPLAY_CONFIG_PATH = "/org/gnome/Mutter/DisplayConfig"
 GNOME_DISPLAY_CONFIG_IFACE = "org.gnome.Mutter.DisplayConfig"
@@ -100,10 +101,12 @@ class StreamingController(QObject):
         self.third_gst_pids = set()
         self.third_event_buffer = ""
         self.third_input_bridge = None
+        self.third_audio_process = None
         self.third_input_launched = False
         self.third_touch_enabled = True
         self.third_stylus_enabled = False
         self.third_fec_mode = "Off"
+        self.third_audio_enabled = False
         self.third_output = ""
         self.third_env = None
         self.encoder_profile = "Low Latency"
@@ -771,7 +774,7 @@ class StreamingController(QObject):
 
     def start_third(
         self, res, fps, bitrate, encoder, encoder_profile, enable_touch=True,
-        enable_stylus_features=False, fec_mode="Off",
+        enable_stylus_features=False, fec_mode="Off", enable_audio=False,
     ):
         if self.de not in ("kde", "gnome", "hyprland"):
             self.logAppended.emit(
@@ -808,6 +811,7 @@ class StreamingController(QObject):
         third_fec_mode = sanitize_fec_mode(fec_mode) if self.wifi else "Off"
         third_touch_enabled = bool(enable_touch)
         third_stylus_enabled = bool(enable_stylus_features)
+        third_audio_enabled = bool(enable_audio) and self.wifi
         if self.wifi:
             available = max(
                 MIN_SECONDARY_BITRATE_KBPS,
@@ -898,6 +902,8 @@ class StreamingController(QObject):
         self.third_fec_mode = third_fec_mode
         self.third_touch_enabled = third_touch_enabled
         self.third_stylus_enabled = third_stylus_enabled
+        self.third_audio_enabled = third_audio_enabled
+        self.third_audio_process = None
         self.third_output = third_output
         self.third_env = env
         self.third_ready = False
@@ -1044,6 +1050,34 @@ class StreamingController(QObject):
         self.third_input_bridge = None
         self.third_input_launched = False
 
+    def _launch_third_audio(self, generation):
+        if (not self.third_streaming or generation != self.third_generation or
+                not self.third_audio_enabled or self.third_audio_process is not None):
+            return
+        self.third_audio_process = self._new_third_process(
+            self.third_env or QProcessEnvironment.systemEnvironment()
+        )
+        process = self.third_audio_process
+        process.readyReadStandardOutput.connect(lambda: self._read_third_audio(generation, process))
+        process.finished.connect(lambda code, status: self._third_audio_finished(code, status, generation, process))
+        process.start(sys.executable, ["-m", "monitorize.streaming.audio_sender", "wifi", "--port", str(THIRD_AUDIO_PORT)])
+
+    def _read_third_audio(self, generation, process):
+        if generation == self.third_generation and process is self.third_audio_process:
+            raw = bytes(process.readAllStandardOutput()).decode("utf-8", errors="replace")
+            if raw:
+                self.logAppended.emit("AUDIO", f"[Third display] {raw}")
+
+    def _third_audio_finished(self, code, _status, generation, process):
+        if generation == self.third_generation and process is self.third_audio_process:
+            self.third_audio_process = None
+            self.logAppended.emit("AUDIO", f"[Third display] Audio sender exited (code {code}); video continues.")
+
+    def _stop_third_audio(self):
+        if self.third_audio_process is not None:
+            stop_processes(self.third_audio_process)
+        self.third_audio_process = None
+
     def _read_third_streamer(self, generation=None, process=None):
         generation = self.third_generation if generation is None else generation
         process = self.third_streamer if process is None else process
@@ -1102,6 +1136,7 @@ class StreamingController(QObject):
                     self.third_ready = True
                     self._advertise()
                     self._set_status("Third display streaming")
+                self._launch_third_audio(generation)
                 self._maybe_launch_third_input(generation)
             elif event and event.get("type") in (
                 "kde_output_ready", "gnome_output_ready",
@@ -1118,6 +1153,7 @@ class StreamingController(QObject):
             return
         self.logAppended.emit("STREAMER", f"[Third display] Streamer exited (code {code})")
         self._stop_third_input()
+        self._stop_third_audio()
         self.third_streamer = None
         self.third_streaming = False
         self.third_ready = False
@@ -1172,6 +1208,7 @@ class StreamingController(QObject):
                 "fec_mode": self.third_fec_mode,
                 "enable_touch": self.third_touch_enabled,
                 "enable_stylus_features": self.third_stylus_enabled,
+                "enable_audio": self.third_audio_enabled,
             }
         return config
 
@@ -1180,6 +1217,7 @@ class StreamingController(QObject):
             self._save_gnome_virtual_layout()
         self.third_generation += 1
         self._stop_third_input()
+        self._stop_third_audio()
         if self.third_streamer is not None:
             stop_processes(self.third_streamer)
         self.third_streamer = None
@@ -1198,6 +1236,7 @@ class StreamingController(QObject):
         self.third_touch_enabled = True
         self.third_stylus_enabled = False
         self.third_fec_mode = "Off"
+        self.third_audio_enabled = False
         if not self.wifi:
             self._run_adb_reverse("--remove", f"tcp:{THIRD_STREAM_PUBLIC_PORT}")
             self._run_adb_reverse("--remove", f"tcp:{THIRD_STREAM_BACKEND_PORT}")
@@ -1244,6 +1283,7 @@ class StreamingController(QObject):
             self.third_streaming
             or self.third_streamer is not None
             or self.third_input_bridge is not None
+            or self.third_audio_process is not None
         ):
             self.stop_third()
         stop_processes(self.streamer, self.input_bridge, self.audio_process)

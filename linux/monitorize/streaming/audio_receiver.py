@@ -121,7 +121,7 @@ class LinuxAudioReceiver:
         self._stop_event = None
         self._host = ""
 
-    def start(self, host):
+    def start(self, host, control_port=AUDIO_PORT):
         with self._lock:
             if self._thread is not None and self._thread.is_alive() and self._host == host:
                 return
@@ -129,7 +129,7 @@ class LinuxAudioReceiver:
         stop_event = threading.Event()
         thread = threading.Thread(
             target=self._run,
-            args=(host, stop_event),
+            args=(host, control_port, stop_event),
             name="MonitorizeLinuxAudioReceiver",
             daemon=True,
         )
@@ -159,7 +159,9 @@ class LinuxAudioReceiver:
         except Exception:
             pass
 
-    def _run(self, host, stop_event):
+    def _run(self, host, control_port, stop_event=None):
+        if stop_event is None:
+            control_port, stop_event = AUDIO_PORT, control_port
         attempts = 0
         ever_connected = False
 
@@ -170,7 +172,7 @@ class LinuxAudioReceiver:
         try:
             while not stop_event.is_set():
                 try:
-                    self._receive_once(host, stop_event, mark_connected)
+                    self._receive_once(host, control_port, stop_event, mark_connected)
                 except Exception as exc:
                     attempts += 1
                     if ever_connected:
@@ -190,7 +192,9 @@ class LinuxAudioReceiver:
                     self._stop_event = None
                     self._host = ""
 
-    def _receive_once(self, host, stop_event, mark_connected):
+    def _receive_once(self, host, control_port, stop_event=None, mark_connected=None):
+        if mark_connected is None:
+            control_port, stop_event, mark_connected = AUDIO_PORT, control_port, stop_event
         Gst, Gio = _load_gst()
         sinks = [
             sink for sink in ("pulsesink", "autoaudiosink")
@@ -203,8 +207,8 @@ class LinuxAudioReceiver:
         raw_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 262144)
         raw_socket.bind(("", 0))
         try:
-            raw_socket.sendto(b"\0", (host, AUDIO_PORT))
-            _negotiate(host, raw_socket.getsockname()[1])
+            raw_socket.sendto(b"\0", (host, control_port))
+            _negotiate(host, raw_socket.getsockname()[1], control_port)
             for index, sink in enumerate(sinks):
                 pipeline = None
                 gst_socket = None

@@ -637,7 +637,8 @@ class MainActivity : ComponentActivity() {
                         null
                     } else {
                         audioReceiver ?: AudioReceiver(
-                            hostIp.takeIf { it.isNotBlank() }
+                            hostIp.takeIf { it.isNotBlank() },
+                            if (hostPort == 7114) 7121 else 7120,
                         ).also { audioReceiver = it }
                     }
                 }

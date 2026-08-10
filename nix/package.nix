@@ -165,7 +165,7 @@ python3Packages.buildPythonApplication rec {
   meta = with lib; {
     description = "Turn your Android / Linux laptop into a secondary monitor for your Linux desktop";
     homepage = "https://github.com/vinnavannewton/ProjectMonitorize";
-    license = licenses.agpl3Plus;
+    license = licenses.gpl3Only;
     platforms = platforms.linux;
     maintainers = [ ];
     mainProgram = "monitorize";

@@ -3,7 +3,7 @@ Version:        0.2.8
 Release:        1%{?dist}
 Summary:        Linux to Android display bridge
 
-License:        AGPL-3.0-only
+License:        GPL-3.0-only
 URL:            https://github.com/vinnavannewton/project-monitorize
 Source0:        %{name}-%{version}.tar.gz
 

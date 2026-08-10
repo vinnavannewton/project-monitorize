@@ -224,6 +224,7 @@ def save_second_display_settings(*, resolution: str, fps: str, bitrate: str,
                                  fec_mode: str = "Off",
                                  enable_touch: bool = True,
                                  enable_stylus_features: bool = False,
+                                 enable_audio: bool = False,
                                  custom_w: str = "", custom_h: str = "",
                                  custom_fps: str = ""):
     values = {
@@ -238,6 +239,7 @@ def save_second_display_settings(*, resolution: str, fps: str, bitrate: str,
         "fec_mode": sanitize_fec_mode(fec_mode),
         "enable_touch": bool(enable_touch),
         "enable_stylus_features": bool(enable_stylus_features),
+        "enable_audio": bool(enable_audio),
     }
     if resolution == "Custom...":
         width, height = sanitize_resolution(
@@ -264,7 +266,8 @@ def load_second_display_settings() -> dict:
         "fec_mode": "Off",
         "enable_touch": True,
         "enable_stylus_features": False,
-    }, ("enable_touch", "enable_stylus_features"))
+        "enable_audio": False,
+    }, ("enable_touch", "enable_stylus_features", "enable_audio"))
     if data["resolution"] == "Custom...":
         width, height = sanitize_resolution(
             f"{data.get('custom_w', '')}x{data.get('custom_h', '')}",
@@ -342,6 +345,7 @@ def _normalize_preset(raw: dict) -> dict | None:
             "enable_stylus_features": bool(
                 third.get("enable_stylus_features", False)
             ),
+            "enable_audio": bool(third.get("enable_audio", False)),
         })
     return preset
 

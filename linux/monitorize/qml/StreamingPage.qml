@@ -11,6 +11,7 @@ Item {
     property bool enableStylusFeatures: false
     property bool secondTouchEnabled: true
     property bool secondStylusEnabled: false
+    property bool secondAudioEnabled: false
     property bool loadingSettings: true
     property int duplicatePresetIndex: -1
     property bool syncingSecondBitrate: false
@@ -111,7 +112,8 @@ Item {
             s2EncoderProfileCombo.currentText,
             s2FecCombo.currentText,
             page.secondTouchEnabled,
-            page.secondStylusEnabled
+            page.secondStylusEnabled,
+            page.secondAudioEnabled
         )
     }
 
@@ -152,6 +154,7 @@ Item {
             page.secondTouchEnabled = s2["enable_touch"] !== undefined ? s2["enable_touch"] : true;
             page.secondStylusEnabled = s2["enable_stylus_features"] !== undefined
                 ? s2["enable_stylus_features"] : false;
+            page.secondAudioEnabled = s2["enable_audio"] === true;
         }
         page.loadingSettings = false;
     }
@@ -844,6 +847,16 @@ Item {
                     }
                 }
 
+                Text { text: "Audio:"; color: theme.cardTextSecondary; font.pixelSize: 13; visible: backend.isWifiStreaming }
+                CustomToggle {
+                    id: s2AudioToggle
+                    text: "Enable Audio"
+                    visible: backend.isWifiStreaming
+                    Layout.alignment: Qt.AlignLeft
+                    checked: page.secondAudioEnabled
+                    onToggled: { page.secondAudioEnabled = checked; page.saveSecondDisplaySettings() }
+                }
+
                     }
                 }
 
@@ -892,7 +905,8 @@ Item {
                             s2EncoderProfileCombo.currentText,
                             backend.isWifiStreaming ? s2FecCombo.currentText : "Off",
                             page.secondTouchEnabled,
-                            page.secondStylusEnabled
+                            page.secondStylusEnabled,
+                            backend.isWifiStreaming && page.secondAudioEnabled
                         )
                         page.saveSecondDisplaySettings()
                         addDisplayWindow.hide()

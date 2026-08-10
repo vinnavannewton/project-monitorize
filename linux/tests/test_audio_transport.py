@@ -131,7 +131,7 @@ class AudioTransportTest(unittest.TestCase):
         receiver = LinuxAudioReceiver(logs.append)
         calls = 0
 
-        def receive(_host, _stop_event, mark_connected):
+        def receive(_host, _port, _stop_event, mark_connected):
             nonlocal calls
             calls += 1
             if calls == 1:
@@ -190,7 +190,7 @@ class AudioTransportTest(unittest.TestCase):
             patch("monitorize.streaming.audio_receiver._negotiate"),
             patch("monitorize.streaming.audio_receiver.attach_udp_socket"),
         ):
-            receiver._receive_once("10.0.0.2", stop_event, mark_connected)
+            receiver._receive_once("10.0.0.2", 7121, stop_event, mark_connected)
 
         self.assertEqual(gst.parse_launch.call_count, 2)
         self.assertIn("pulsesink", gst.parse_launch.call_args_list[0].args[0])

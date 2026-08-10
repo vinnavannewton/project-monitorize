@@ -11,4 +11,6 @@
   <port protocol="udp" port="7117"/>
   <port protocol="tcp" port="7120"/>
   <port protocol="udp" port="7120"/>
+  <port protocol="tcp" port="7121"/>
+  <port protocol="udp" port="7121"/>
 </service>

@@ -3,7 +3,7 @@
   <h1>Monitorize</h1>
   <p><strong>Turn your Android, Linux laptop into a secondary monitor for your Linux desktop.</strong></p>
 
-<a href="https://www.gnu.org/licenses/agpl-3.0"><img src="https://img.shields.io/badge/License-AGPL%20v3-blue.svg" /></a>
+<a href="https://www.gnu.org/licenses/gpl-3.0"><img src="https://img.shields.io/badge/License-GPL%20v3-blue.svg" /></a>
 <img src="https://img.shields.io/badge/Platform-Linux%20%7C%20Android-lightgrey" />
 
 </div>

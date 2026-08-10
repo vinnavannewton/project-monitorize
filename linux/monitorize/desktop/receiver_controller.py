@@ -44,6 +44,9 @@ SOFTWARE_DECODER_PROPS = {
 }
 HARDWARE_DECODERS = ("vah264dec", "vaapih264dec")
 PRIMARY_STREAM_PORT = 7110
+THIRD_STREAM_PORT = 7114
+PRIMARY_AUDIO_PORT = 7120
+THIRD_AUDIO_PORT = 7121
 HARDWARE_DECODER_PROPS = {
     "discard-corrupted-frames": "true",
     "automatic-request-sync-points": "true",
@@ -465,10 +468,13 @@ class ReceiverController(QObject):
         if (
             generation == self.generation
             and self.udp_transport
-            and self.port == PRIMARY_STREAM_PORT
+            and self.port in (PRIMARY_STREAM_PORT, THIRD_STREAM_PORT)
         ):
             try:
-                self.audio_receiver.start(self.host)
+                self.audio_receiver.start(
+                    self.host,
+                    THIRD_AUDIO_PORT if self.port == THIRD_STREAM_PORT else PRIMARY_AUDIO_PORT,
+                )
             except Exception as exc:
                 self.logAppended.emit(f"Audio receiver unavailable: {exc}")
 
