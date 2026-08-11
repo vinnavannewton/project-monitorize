@@ -89,13 +89,7 @@ Please read the [Contribution Guide](https://github.com/vinnavannewton/project-m
 
 ## Star History
 
-<a href="https://www.star-history.com/?type=timeline&repos=vinnavannewton%2Fproject-monitorize">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=vinnavannewton/project-monitorize&type=timeline&theme=dark&legend=top-left&sealed_token=i7tImjFAdn6mJ7yyA6dCuwhVSy9r7uKrNKAkLLhC-1M3qLL9yJIwEQM0Fdf0M5QZGhCq_-7SEIzjL2sZDwbC0p39iYygcf1qunSnjYfURTQmwsVJGtyRRkZcv2apbaeXmn0rW6vGgif5DjDrhPsMAgM82DP2VRXDcxAkL2dDMvJj6fZocbabPGEMA_F6" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=vinnavannewton/project-monitorize&type=timeline&legend=top-left&sealed_token=i7tImjFAdn6mJ7yyA6dCuwhVSy9r7uKrNKAkLLhC-1M3qLL9yJIwEQM0Fdf0M5QZGhCq_-7SEIzjL2sZDwbC0p39iYygcf1qunSnjYfURTQmwsVJGtyRRkZcv2apbaeXmn0rW6vGgif5DjDrhPsMAgM82DP2VRXDcxAkL2dDMvJj6fZocbabPGEMA_F6" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=vinnavannewton/project-monitorize&type=timeline&legend=top-left&sealed_token=i7tImjFAdn6mJ7yyA6dCuwhVSy9r7uKrNKAkLLhC-1M3qLL9yJIwEQM0Fdf0M5QZGhCq_-7SEIzjL2sZDwbC0p39iYygcf1qunSnjYfURTQmwsVJGtyRRkZcv2apbaeXmn0rW6vGgif5DjDrhPsMAgM82DP2VRXDcxAkL2dDMvJj6fZocbabPGEMA_F6" />
- </picture>
-</a>
+
 
 ---
 
