@@ -17,10 +17,11 @@
 #include <unistd.h>
 
 #define MAX_PACKET 2048
-#define MAX_BATCH 4
+#define MAX_BATCH 16
 #define RTP_MEDIA_PT 96
 #define RTP_FEC_PT 122
-#define MAX_QUEUED_PACKETS 4096
+#define MAX_QUEUED_PACKETS 512
+#define MAX_QUEUED_FRAMES 3
 
 struct packet {
     struct packet *next;
@@ -84,6 +85,37 @@ static void flush_queue_locked(void) {
     }
     tail = NULL;
     queued_packets = 0;
+}
+
+static size_t count_queued_frames_locked(void) {
+    if (!head) return 0;
+    size_t count = 1;
+    uint32_t ts = head->timestamp;
+    for (struct packet *p = head->next; p; p = p->next) {
+        if (p->timestamp != ts) {
+            count++;
+            ts = p->timestamp;
+        }
+    }
+    return count;
+}
+
+static void drop_oldest_frame_locked(void) {
+    if (!head) return;
+    uint32_t ts = head->timestamp;
+    size_t dropped = 0;
+    while (head && head->timestamp == ts) {
+        struct packet *next = head->next;
+        free(head);
+        head = next;
+        queued_packets--;
+        dropped++;
+    }
+    if (!head) tail = NULL;
+    interval_drops++;
+    printf("DROP timestamp=%u reason=stale-frame packets=%zu queued=%zu\n",
+           ts, dropped, queued_packets);
+    fflush(stdout);
 }
 
 static int resolve_destination(int socket_fd, const char *host, const char *port) {
@@ -175,13 +207,27 @@ static int enqueue_packet(int input_fd) {
     packet->length = (size_t)length;
     packet->received_ns = monotonic_ns();
     pthread_mutex_lock(&queue_mutex);
+
+    /* Frame-aware dropping: when a new frame starts arriving, ensure the
+     * queue holds at most MAX_QUEUED_FRAMES by evicting the oldest. */
+    if (!tail || packet->timestamp != tail->timestamp) {
+        size_t frames = count_queued_frames_locked();
+        while (frames >= MAX_QUEUED_FRAMES) {
+            drop_oldest_frame_locked();
+            next_send_ns = monotonic_ns();
+            frames--;
+        }
+    }
+
+    /* Safety net: hard-flush if packets grow extreme despite frame dropping. */
     if (queued_packets >= MAX_QUEUED_PACKETS) {
         flush_queue_locked();
         next_send_ns = monotonic_ns();
         interval_drops++;
-        printf("DROP timestamp=%u reason=stale-queue-reset\n", packet->timestamp);
+        printf("DROP timestamp=%u reason=safety-flush\n", packet->timestamp);
         fflush(stdout);
     }
+
     if (tail) tail->next = packet;
     else head = packet;
     tail = packet;
