@@ -238,6 +238,7 @@ class VideoTransportTest(unittest.TestCase):
 
     def test_encoded_idr_is_classified_as_scheduled_or_recovery(self):
         session = Session.__new__(Session)
+        session.idr_bitrate_reduced = False
         session.pending_idr_since = None
         session.scheduled_idr_count = 0
         session.confirmed_idr_count = 0
@@ -279,14 +280,15 @@ class VideoTransportTest(unittest.TestCase):
             congestion_bitrate_kbps,
             sender_pacing_kbps,
         )
-        self.assertEqual(10_000, sender_pacing_kbps(8_000))
-        self.assertEqual(28_750, sender_pacing_kbps(23_000))
+        self.assertEqual(12_000, sender_pacing_kbps(8_000))
+        self.assertEqual(34_500, sender_pacing_kbps(23_000))
         self.assertEqual(23_000, congestion_bitrate_kbps(23_000, 4.9))
         self.assertEqual(17_250, congestion_bitrate_kbps(23_000, 5.0))
         self.assertEqual(4_000, congestion_bitrate_kbps(4_000, 50.0))
 
     def test_congestion_reduces_encoder_and_sender_together(self):
         session = Session.__new__(Session)
+        session.idr_bitrate_reduced = False
         session.current_bitrate = 23_000
         session.pacing_bytes_per_second = 0
         encoder = Mock()
@@ -297,7 +299,7 @@ class VideoTransportTest(unittest.TestCase):
         self.assertFalse(session.reduce_bitrate_for_congestion(12.0))
 
         encoder.set_property.assert_called_once_with("bitrate", 17_250)
-        session.sender_command.assert_called_once_with("RATE 21562")
+        session.sender_command.assert_called_once_with("RATE 25875")
         session.force_key_unit.assert_called_once_with(replace_pending=True)
         self.assertEqual(17_250, session.current_bitrate)
 
