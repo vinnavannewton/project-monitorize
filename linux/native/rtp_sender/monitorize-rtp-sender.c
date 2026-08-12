@@ -17,7 +17,7 @@
 #include <unistd.h>
 
 #define MAX_PACKET 2048
-#define MAX_BATCH 16
+#define MAX_BATCH 2
 #define RTP_MEDIA_PT 96
 #define RTP_FEC_PT 122
 #define MAX_QUEUED_PACKETS 512
