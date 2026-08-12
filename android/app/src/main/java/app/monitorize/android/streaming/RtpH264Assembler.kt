@@ -19,6 +19,8 @@ internal class RtpH264Assembler(private val detectCrossFrameGaps: Boolean = true
         private set
     var completedSequenceGap: Int = 0
         private set
+    var completedFirstPacketNanos: Long? = null
+        private set
     private val frames = java.util.ArrayDeque<Frame>()
     private var lastFinalizedTimestamp: Long? = null
     private var lastCompletedEndSequence: Int? = null
@@ -29,6 +31,7 @@ internal class RtpH264Assembler(private val detectCrossFrameGaps: Boolean = true
         completedTimestamp = null
         completedAssemblyNanos = null
         completedSequenceGap = 0
+        completedFirstPacketNanos = null
         lastCompletedEndSequence = null
         droppedFrame = false
         lostPackets = 0
@@ -76,6 +79,7 @@ internal class RtpH264Assembler(private val detectCrossFrameGaps: Boolean = true
         lastFinalizedTimestamp = oldest.timestamp
         completedTimestamp = oldest.timestamp
         completedAssemblyNanos = (System.nanoTime() - oldest.firstPacketNanos).coerceAtLeast(0)
+        completedFirstPacketNanos = oldest.firstPacketNanos
         val start = requireNotNull(oldest.startSequence)
         val end = requireNotNull(oldest.endSequence)
         val expected = lastCompletedEndSequence?.let { (it + 1) and 0xffff }

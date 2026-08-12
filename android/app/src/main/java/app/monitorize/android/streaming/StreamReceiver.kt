@@ -425,6 +425,8 @@ class StreamReceiver(
         val packet = DatagramPacket(buffer, buffer.size)
         var waitingForIdr = true
         val frameDeadlineNanos = rtpFrameDeadlineNanos(ready.fps)
+        val stalenessThresholdNanos = (2_000_000_000L / ready.fps.coerceAtLeast(1))
+            .coerceAtLeast(32_000_000L)
         var lostPackets = 0
         var recoveredPackets = 0
         var mediaPackets = 0
@@ -499,6 +501,7 @@ class StreamReceiver(
 
         fun drainCompletedFrames(first: ByteArray?) {
             var frame = first
+            var droppedStale = false
             while (frame != null && !decoderFailed) {
                 assembler.completedAssemblyNanos?.let { duration ->
                     assemblySamplesMs += duration / 1_000_000f
@@ -506,8 +509,19 @@ class StreamReceiver(
                         lateFrames++
                     }
                 }
+                val firstPacketNs = assembler.completedFirstPacketNanos
+                val ageNanos = if (firstPacketNs != null) System.nanoTime() - firstPacketNs else 0L
+                if (ageNanos > stalenessThresholdNanos && !containsIdr(frame)) {
+                    droppedStale = true
+                    frame = assembler.pollCompleted()
+                    continue
+                }
                 feedCompletedFrame(frame, assembler.completedSequenceGap)
                 frame = assembler.pollCompleted()
+            }
+            if (droppedStale) {
+                Log.w(TAG, "RTP dropped stale frames; requesting recovery IDR")
+                requestRecoveryIdr()
             }
         }
 
