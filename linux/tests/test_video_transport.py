@@ -256,9 +256,11 @@ class VideoTransportTest(unittest.TestCase):
         self.assertEqual(2.0, session.last_idr_kib)
 
     def test_fec_requires_both_request_and_receiver_capability(self):
-        capable = {"fecModes": ["ulp-rfc5109"]}
-        self.assertEqual(negotiate_fec_percent(capable, 10), 10)
-        self.assertEqual(negotiate_fec_percent(capable, 0), 0)
+        capable_rs = {"fecModes": ["rs-fec-v1"]}
+        capable_ulp = {"fecModes": ["ulp-rfc5109"]}
+        self.assertEqual(negotiate_fec_percent(capable_rs, 10), 10)
+        self.assertEqual(negotiate_fec_percent(capable_ulp, 10), 10)
+        self.assertEqual(negotiate_fec_percent(capable_rs, 0), 0)
         self.assertEqual(negotiate_fec_percent({}, 10), 0)
 
     def test_rtp_pipeline_uses_the_selected_fixed_bitrate_without_activity_branch(self):
@@ -272,7 +274,7 @@ class VideoTransportTest(unittest.TestCase):
         self.assertIn("bitrate=8000", description)
         self.assertNotIn("monitorize_activity", description)
         self.assertNotIn("appsink", description)
-        self.assertIn("key-int-max=1800", description)
+        self.assertIn("key-int-max=60", description)
         self.assertIn("h264parse name=monitorize_parser", description)
 
     def test_rtp_sender_pacing_tracks_selected_bitrate_with_headroom(self):
@@ -318,10 +320,8 @@ class VideoTransportTest(unittest.TestCase):
             ),
         )
         description = " ".join(pipeline)
-        self.assertIn("bitrate=18000", description)
-        self.assertIn(
-            "rtpulpfecenc pt=122 percentage=10 multipacket=true", description
-        )
+        self.assertIn("bitrate=20000", description)
+        self.assertNotIn("rtpulpfecenc", description)
         self.assertIn("udpsink host=192.0.2.1", description)
         self.assertIn("qos-dscp=40", description)
         self.assertIn("buffer-size=500000", description)

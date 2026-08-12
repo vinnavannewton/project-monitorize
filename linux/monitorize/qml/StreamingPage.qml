@@ -796,7 +796,7 @@ Item {
                     id: s2FecCombo
                     visible: backend.isWifiStreaming
                     chipWidth: page.optionChipWidth
-                    model: ["Off", "ULPFEC 10%"]
+                    model: ["Off", "RS-FEC 10%"]
                     currentIndex: 0
                     onActivated: page.saveSecondDisplaySettings()
                 }

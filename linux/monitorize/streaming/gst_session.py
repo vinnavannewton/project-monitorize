@@ -38,8 +38,9 @@ MIN_ADAPTIVE_BITRATE_KBPS = 4_000
 IDR_BITRATE_PERCENT = 50
 
 
-def sender_pacing_kbps(bitrate):
-    return max(1_000, int(bitrate) * (100 + SENDER_PACING_HEADROOM_PERCENT) // 100)
+def sender_pacing_kbps(bitrate, fec_percent=0):
+    total_bitrate = int(bitrate) * (100 + int(fec_percent)) // 100
+    return max(1_000, total_bitrate * (100 + SENDER_PACING_HEADROOM_PERCENT) // 100)
 
 
 def congestion_bitrate_kbps(current_bitrate, loss_percent):

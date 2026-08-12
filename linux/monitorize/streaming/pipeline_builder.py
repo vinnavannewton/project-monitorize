@@ -179,7 +179,7 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
         int(rtp_endpoint[4])
         if rtp_endpoint and len(rtp_endpoint) > 4 else 0
     )
-    video_bitrate = max(1, round(bitrate * (100 - fec_percent) / 100))
+    video_bitrate = max(1, bitrate)
     zero_copy = hw_encoder != "nvh264enc" or nvidia_memory == "gl"
     always_copy = "false" if hw_encoder and zero_copy else "true"
     keepalive_ms = (
@@ -215,8 +215,8 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
 
     
     
-    key_int = fps * 30 if rtp_endpoint else max(fps // 4, 15)
-    intra_refresh = True if encoder_profile == "Low Latency" else not bool(rtp_endpoint)
+    key_int = max(15, fps) if rtp_endpoint else max(fps // 4, 15)
+    intra_refresh = bool(hw_encoder) if encoder_profile == "Low Latency" else not bool(rtp_endpoint)
 
     early_convert = ""
     if hw_encoder:
@@ -305,11 +305,6 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
         sink = (
             f"rtph264pay aggregate-mode=none config-interval=-1 "
             f"mtu={MTU} pt={RTP_PAYLOAD_TYPE}{ssrc} ! "
-            + (
-                f"rtpulpfecenc pt={FEC_PAYLOAD_TYPE} percentage={fec_percent} "
-                "multipacket=true ! "
-                if fec_percent else ""
-            ) +
             f"udpsink host={client_host} port={client_port} bind-port={port} "
             f"sync=false async=false buffer-size={udp_send_buffer_bytes(bitrate)} "
             f"qos-dscp=40"
@@ -470,14 +465,6 @@ def prepare_rtp_endpoint(*, width, height, fps, bitrate, port, server_mode):
     requested_fec_percent = (
         10 if os.environ.get("MONITORIZE_FEC_PERCENT") == "10" else 0
     )
-    if requested_fec_percent and not _gst_inspect("rtpulpfecenc"):
-        print(
-            "[RTP] WARNING: ULPFEC 10% requested, but GStreamer's "
-            "rtpulpfecenc is unavailable; install gst-plugins-good. "
-            "Continuing with FEC Off.",
-            flush=True,
-        )
-        requested_fec_percent = 0
     return wait_for_client(
         port, width=width, height=height, fps=fps, bitrate=bitrate,
         transport=TRANSPORT, requested_fec_percent=requested_fec_percent,
