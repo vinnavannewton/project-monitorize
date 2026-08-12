@@ -35,6 +35,7 @@ MIN_RECOVERY_IDR_INTERVAL_SECONDS = 1.0
 BITRATE_REDUCTION_COOLDOWN_SECONDS = 1.0
 SEVERE_LOSS_PERCENT = 5.0
 MIN_ADAPTIVE_BITRATE_KBPS = 4_000
+IDR_BITRATE_PERCENT = 50
 
 
 def sender_pacing_kbps(bitrate):
@@ -63,6 +64,7 @@ class Session:
         self.last_forced_idr_at = None
         self.last_idr_ms = None
         self.last_idr_kib = None
+        self.idr_bitrate_reduced = False
         self.target_fps = target_fps
         self.width = width
         self.height = height
@@ -238,7 +240,7 @@ class Session:
                 process.kill()
                 process.wait()
 
-    def force_key_unit(self, replace_pending=False):
+    def force_key_unit(self, replace_pending=False, reduce_bitrate_for_idr=False):
         if self.pending_idr_since is not None and not replace_pending:
             self.coalesced_idr_count += 1
             print("[RTP] Recovery IDR request coalesced; one is pending", flush=True)
@@ -250,6 +252,8 @@ class Session:
             self.coalesced_idr_count += 1
             print("[RTP] Recovery IDR request rate-limited", flush=True)
             return False
+        if reduce_bitrate_for_idr:
+            self._reduce_bitrate_for_idr()
         self.force_key_count += 1
         for name in ("nvh264enc0", "vah264enc0", "vah264lpenc0", "vaapih264enc0", "x264enc0"):
             encoder = self.pipeline.get_by_name(name)
@@ -266,6 +270,47 @@ class Session:
             return False
         return False
 
+    def _reduce_bitrate_for_idr(self):
+        """Temporarily reduce encoder bitrate so the forced IDR frame is smaller."""
+        if self.idr_bitrate_reduced:
+            return
+        encoder = self._element(
+            "nvh264enc0", "vah264enc0", "vah264lpenc0", "vaapih264enc0", "x264enc0",
+        )
+        if encoder is None:
+            return
+        reduced = max(
+            MIN_ADAPTIVE_BITRATE_KBPS,
+            self.current_bitrate * IDR_BITRATE_PERCENT // 100,
+        )
+        if reduced >= self.current_bitrate:
+            return
+        self.idr_bitrate_reduced = True
+        encoder.set_property("bitrate", reduced)
+        try:
+            self.sender_command("FLUSH")
+        except RuntimeError:
+            pass
+        print(
+            f"[RTP] IDR bitrate reduction: {self.current_bitrate} -> {reduced} kbps",
+            flush=True,
+        )
+
+    def _restore_bitrate_after_idr(self):
+        """Restore encoder bitrate after the IDR frame has been encoded."""
+        if not self.idr_bitrate_reduced:
+            return
+        self.idr_bitrate_reduced = False
+        encoder = self._element(
+            "nvh264enc0", "vah264enc0", "vah264lpenc0", "vaapih264enc0", "x264enc0",
+        )
+        if encoder is not None:
+            encoder.set_property("bitrate", self.current_bitrate)
+        print(
+            f"[RTP] IDR bitrate restored -> {self.current_bitrate} kbps",
+            flush=True,
+        )
+
     @staticmethod
     def encoded_access_unit_has_idr(data):
         for match in re.finditer(b"\x00\x00(?:\x00)?\x01", data):
@@ -277,6 +322,7 @@ class Session:
     def record_encoded_idr(self, size, now=None):
         now = time.monotonic() if now is None else now
         self.last_idr_kib = size / 1024
+        self._restore_bitrate_after_idr()
         if self.pending_idr_since is None:
             self.scheduled_idr_count += 1
             return
@@ -430,7 +476,7 @@ class Session:
     def handle_idr_message(self, message):
         if message.get("type") != "idr":
             return False
-        GLib.idle_add(self.force_key_unit)
+        GLib.idle_add(lambda: self.force_key_unit(reduce_bitrate_for_idr=True))
         return True
 
     def update_client(self, host, port):
