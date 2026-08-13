@@ -473,7 +473,7 @@ class StreamReceiver(
         }
 
         fun feedCompletedFrame(frame: ByteArray, sequenceGap: Int) {
-            val isIdr = containsIdr(frame, ready.codec == "h265")
+            val isIdr = containsIdr(frame, ready.codec)
             if (sequenceGap > 0 && !isIdr) {
                 lostPackets += sequenceGap
                 incompleteFrames++
@@ -529,7 +529,7 @@ class StreamReceiver(
                 }
                 val firstPacketNs = assembler.completedFirstPacketNanos
                 val ageNanos = if (firstPacketNs != null) System.nanoTime() - firstPacketNs else 0L
-                if (ageNanos > stalenessThresholdNanos && !containsIdr(frame, ready.codec == "h265")) {
+                if (ageNanos > stalenessThresholdNanos && !containsIdr(frame, ready.codec)) {
                     droppedStale = true
                     frame = assembler.pollCompleted()
                     continue
@@ -556,7 +556,10 @@ class StreamReceiver(
                 totalReceivedPackets++
                 if (!firstPacketLogged) {
                     firstPacketLogged = true
-                    val nalType = if (rtp.payload.isNotEmpty()) rtp.payload[0].toInt() and 0x1f else -1
+                    val nalType = if (rtp.payload.isNotEmpty()) {
+                        if (ready.codec == "h265") (rtp.payload[0].toInt() ushr 1) and 0x3f
+                        else rtp.payload[0].toInt() and 0x1f
+                    } else -1
                     Log.i(TAG, "RTP first packet: seq=${rtp.sequence} ts=${rtp.timestamp} " +
                         "pt=${rtp.payloadType} marker=${rtp.marker} " +
                         "payloadSize=${rtp.payload.size} nalType=$nalType " +
@@ -761,19 +764,20 @@ class StreamReceiver(
         }, "MonitorizeStats").start()
     }
 
-    private fun containsIdr(frame: ByteArray, isHevc: Boolean = false): Boolean {
+    private fun containsIdr(frame: ByteArray, codec: String = "h264"): Boolean {
+        val isHevc = codec == "h265"
         for (index in 0 until frame.size - 4) {
             if (frame[index].toInt() == 0 && frame[index + 1].toInt() == 0 &&
                 ((frame[index + 2].toInt() == 1) ||
                     (frame[index + 2].toInt() == 0 && frame[index + 3].toInt() == 1))) {
                 val header = if (frame[index + 2].toInt() == 1) index + 3 else index + 4
                 if (header < frame.size) {
-                    val byteVal = frame[header].toInt()
-                    if (!isHevc) {
-                        if (byteVal and 0x1f == 5) return true
+                    if (isHevc) {
+                        val nalType = (frame[header].toInt() ushr 1) and 0x3f
+                        if (nalType in 16..21) return true
                     } else {
-                        val nalType = (byteVal ushr 1) and 0x3f
-                        if (nalType in setOf(19, 20, 21)) return true
+                        val nalType = frame[header].toInt() and 0x1f
+                        if (nalType == 5) return true
                     }
                 }
             }
@@ -900,7 +904,7 @@ class StreamReceiver(
         fun rememberCodecConfig(nalStart: Int, nalEnd: Int, nalType: Int) {
             val nalSize = nalEnd - nalStart
             if (nalSize <= 0 || nalSize > codecConfig.size) return
-            if (nalType == 7) {
+            if (nalType == 7 || nalType == 32) {
                 codecConfigSize = 0
             }
             if (codecConfigSize + nalSize > codecConfig.size) {
@@ -917,14 +921,17 @@ class StreamReceiver(
             val nalHeader = nalStart + startCodeLen
             if (nalHeader >= nalEnd) return
 
-            val nalType = buf[nalHeader].toInt() and 0x1F
-            val isCodecConfig = nalType == 7 || nalType == 8
+            val rawType = buf[nalHeader].toInt()
+            val nalTypeH264 = rawType and 0x1F
+            val nalTypeH265 = (rawType ushr 1) and 0x3F
+            val isCodecConfig = nalTypeH264 in 7..8 || nalTypeH265 in 32..34
             if (isCodecConfig) {
-                rememberCodecConfig(nalStart, nalEnd, nalType)
+                rememberCodecConfig(nalStart, nalEnd, if (nalTypeH265 in 32..34) nalTypeH265 else nalTypeH264)
             }
-            val isVcl = nalType in 1..5
+            val isVcl = nalTypeH264 in 1..5 || nalTypeH265 in 0..31
+            val isIdr = nalTypeH264 == 5 || nalTypeH265 in 16..21
             val startsNewAccessUnit = accessUnitHasVcl && (
-                nalType in 6..9 ||
+                nalTypeH264 in 6..9 || nalTypeH265 in 32..35 ||
                     (isVcl && isFirstSlice(buf, nalHeader + 1, nalEnd))
                 )
 
@@ -950,7 +957,7 @@ class StreamReceiver(
             accessUnitSize += nalSize
             if (isCodecConfig) accessUnitHasConfig = true
             if (isVcl) accessUnitHasVcl = true
-            if (nalType == 5) accessUnitHasIdr = true
+            if (isIdr) accessUnitHasIdr = true
         }
 
         while (running.get()) {

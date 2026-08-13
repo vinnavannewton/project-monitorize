@@ -69,6 +69,16 @@ class RtpH264AssemblerTest {
         )
     }
 
+    @Test fun reconstructsHevcSingleSlicePacket() {
+        val assembler = RtpH264Assembler(codec = "h265")
+        
+        val p = packet(20, 90, true, byteArrayOf(0x02, 0x01, 0x10, 0x20))
+        assertArrayEquals(
+            byteArrayOf(0, 0, 0, 1, 0x02, 0x01, 0x10, 0x20),
+            assembler.offer(p)
+        )
+    }
+
     @Test fun markerArrivingBeforeAudDoesNotCreateFakeFrame() {
         val assembler = RtpH264Assembler()
         assertNull(assembler.offer(packet(12, 90, true, byteArrayOf(0x65, 3))))

@@ -129,6 +129,8 @@ internal class RtpH264Assembler(private val detectCrossFrameGaps: Boolean = true
                 (isHevc && nalType == 49 && packet.payload.size >= 3 && packet.payload[2].toInt() and 0x80 != 0)
             ) {
                 if (startSequence == null) startSequence = packet.sequence
+            } else if (isHevc && nalType in 0..31 && packet.marker && startSequence == null) {
+                startSequence = packet.sequence
             }
             if (packet.marker) endSequence = packet.sequence
         }
@@ -242,7 +244,7 @@ internal class RtpH264Assembler(private val detectCrossFrameGaps: Boolean = true
                         val startBit = payload[2].toInt() and 0x80 != 0
                         if (startBit) {
                             output.write(START_CODE)
-                            output.write((innerType shl 1) or (payload[0].toInt() and 0x01))
+                            output.write(((payload[0].toInt() and 0x81)) or ((innerType and 0x3f) shl 1))
                             output.write(payload[1].toInt() and 0xff)
                         }
                         output.write(payload, 3, payload.size - 3)
