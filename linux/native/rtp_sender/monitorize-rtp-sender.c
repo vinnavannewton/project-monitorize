@@ -20,8 +20,9 @@
 #define MAX_BATCH 2
 #define RTP_MEDIA_PT 96
 #define RTP_FEC_PT 122
-#define MAX_QUEUED_PACKETS 512
-#define MAX_QUEUED_FRAMES 3
+#define MAX_QUEUED_PACKETS 4096
+
+static size_t max_queued_frames = 6;
 
 struct packet {
     struct packet *next;
@@ -107,6 +108,35 @@ static size_t count_queued_frames_locked(void) {
 
 static void drop_oldest_frame_locked(void) {
     if (!head) return;
+
+    /* If head is currently in-flight (partially sent) and there are later frames,
+     * evict the oldest non-started frame instead so the in-flight frame is not truncated. */
+    if (frame_pacing_started && head->timestamp == current_send_timestamp && head->next) {
+        uint32_t current_ts = head->timestamp;
+        struct packet *prev = head;
+        while (prev->next && prev->next->timestamp == current_ts) {
+            prev = prev->next;
+        }
+        if (prev->next) {
+            uint32_t drop_ts = prev->next->timestamp;
+            size_t dropped = 0;
+            while (prev->next && prev->next->timestamp == drop_ts) {
+                struct packet *to_free = prev->next;
+                prev->next = to_free->next;
+                if (to_free == tail) tail = prev;
+                free(to_free);
+                queued_packets--;
+                dropped++;
+            }
+            if (!head->next) tail = head;
+            interval_drops++;
+            printf("DROP timestamp=%u reason=stale-frame packets=%zu queued=%zu\n",
+                   drop_ts, dropped, queued_packets);
+            fflush(stdout);
+            return;
+        }
+    }
+
     uint32_t ts = head->timestamp;
     size_t dropped = 0;
     while (head && head->timestamp == ts) {
@@ -234,10 +264,10 @@ static int enqueue_packet(int input_fd) {
     pthread_mutex_lock(&queue_mutex);
 
     /* Frame-aware dropping: when a new frame starts arriving, ensure the
-     * queue holds at most MAX_QUEUED_FRAMES by evicting the oldest. */
+     * queue holds at most max_queued_frames by evicting the oldest. */
     if (!tail || packet->timestamp != tail->timestamp) {
         size_t frames = count_queued_frames_locked();
-        while (frames >= MAX_QUEUED_FRAMES) {
+        while (frames >= max_queued_frames) {
             drop_oldest_frame_locked();
             next_send_ns = monotonic_ns();
             frames--;
@@ -317,6 +347,8 @@ int main(int argc, char **argv) {
         pacing_kbps < 1000 || pacing_kbps > 250000) return 2;
     pacing_bytes_per_second = pacing_kbps * 1000 / 8;
     frame_interval_ns = 1000000000ULL / (uint64_t)fps;
+    max_queued_frames = (size_t)((fps * 120 + 999) / 1000);
+    if (max_queued_frames < 4) max_queued_frames = 4;
     signal(SIGINT, stop_signal);
     signal(SIGTERM, stop_signal);
     if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0 || getppid() == 1) return 1;

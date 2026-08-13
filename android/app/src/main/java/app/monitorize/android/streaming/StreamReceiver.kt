@@ -457,6 +457,9 @@ class StreamReceiver(
         var startupFramesLogged = 0
         var firstPacketLogged = false
         var lastStats = android.os.SystemClock.uptimeMillis()
+        var smoothedInputFps = 0f
+        var smoothedDecodedFps = 0f
+        var smoothedRenderedFps = 0f
         var receivedBytes = 0L
         val assemblySamplesMs = ArrayList<Float>()
         var lateFrames = 0
@@ -619,9 +622,15 @@ class StreamReceiver(
                 val elapsedMs = (statsNow - lastStats).coerceAtLeast(1)
                 val receivedKbps = ((receivedBytes * 8L) / elapsedMs).toInt()
                 val packetsPerSecond = ((receivedPackets * 1_000L) / elapsedMs).toInt()
-                val inputFps = totalFramesDecoded.toFloat() * 1_000f / elapsedMs
-                val decodedFps = stats.decodedFrames.toFloat() * 1_000f / elapsedMs
-                val renderedFps = stats.renderedFrames.toFloat() * 1_000f / elapsedMs
+                val instInputFps = totalFramesDecoded.toFloat() * 1_000f / elapsedMs
+                val instDecodedFps = stats.decodedFrames.toFloat() * 1_000f / elapsedMs
+                val instRenderedFps = stats.renderedFrames.toFloat() * 1_000f / elapsedMs
+                smoothedInputFps = if (smoothedInputFps == 0f) instInputFps else (smoothedInputFps * 0.7f + instInputFps * 0.3f)
+                smoothedDecodedFps = if (smoothedDecodedFps == 0f) instDecodedFps else (smoothedDecodedFps * 0.7f + instDecodedFps * 0.3f)
+                smoothedRenderedFps = if (smoothedRenderedFps == 0f) instRenderedFps else (smoothedRenderedFps * 0.7f + instRenderedFps * 0.3f)
+                val inputFps = smoothedInputFps
+                val decodedFps = smoothedDecodedFps
+                val renderedFps = smoothedRenderedFps
                 val lossPercent = lostPackets * 100f /
                     (mediaPackets + recoveredPackets + lostPackets).coerceAtLeast(1)
                 val latency = clockSync.latest()

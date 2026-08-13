@@ -259,11 +259,7 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
         )
 
     queue = "queue max-size-buffers=1 max-size-time=0 max-size-bytes=0 leaky=downstream"
-    source_rate_cap = (
-        f"'video/x-raw(ANY),max-framerate={fps}/1'"
-        if target_object is not None and preserve_source_rate and rtp_endpoint
-        else ""
-    )
+    source_rate_cap = ""
 
     
     

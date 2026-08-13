@@ -3325,7 +3325,6 @@ class PipelineBuilderTest(unittest.TestCase):
         )
         self.assertIn("keepalive-time=1000", text)
         self.assertIn("name=monitorize_kwin_source", text)
-        self.assertIn("video/x-raw(ANY),max-framerate=60/1", text)
         self.assertNotIn("videorate", text)
         self.assertNotIn("imagefreeze", text)
         self.assertNotIn("skip-to-first=false", text)
@@ -3393,7 +3392,6 @@ class PipelineBuilderTest(unittest.TestCase):
                     rtp_endpoint=("192.0.2.1", 49152, 1, "high"),
                 )
                 self.assertIn("keepalive-time=1000", text)
-                self.assertIn("video/x-raw(ANY),max-framerate=60/1", text)
                 self.assertNotIn("videorate", text)
                 self.assertNotIn("imagefreeze", text)
                 self.assertNotIn("skip-to-first=false", text)
@@ -3415,8 +3413,6 @@ class PipelineBuilderTest(unittest.TestCase):
                     target_object="101", preserve_source_rate=True,
                     wifi_mode=True, rtp_endpoint=endpoint,
                 )
-                self.assertIn("video/x-raw(ANY),max-framerate=30/1", text)
-                self.assertNotIn("video/x-raw(ANY),framerate=30/1", text)
                 self.assertNotIn("videorate", text)
                 self.assertNotIn("imagefreeze", text)
 

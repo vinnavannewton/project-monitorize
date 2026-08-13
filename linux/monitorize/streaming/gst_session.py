@@ -52,7 +52,8 @@ def congestion_bitrate_kbps(current_bitrate, loss_percent):
 class Session:
     def __init__(self, description, control_port, bitrate, target_fps, width, height):
         Gst.init(None)
-        self.pipeline = Gst.parse_launch(description)
+        clean_desc = re.sub(r"['\"]([^'\"]+)['\"]", r"\1", description)
+        self.pipeline = Gst.parse_launch(clean_desc)
         self.exit_code = 0
         self.control_port = control_port
         self.loop = GLib.MainLoop()
@@ -715,8 +716,14 @@ class Session:
         bus.connect("message", self.bus_message)
         threading.Thread(target=self.control_loop, daemon=True).start()
         self.install_diagnostics()
-        if self.pipeline.set_state(Gst.State.PLAYING) == Gst.StateChangeReturn.FAILURE:
-            print("[GStreamer] ERROR: pipeline failed to enter PLAYING", flush=True)
+        ret = self.pipeline.set_state(Gst.State.PLAYING)
+        if ret == Gst.StateChangeReturn.FAILURE:
+            msg = bus.timed_pop_filtered(Gst.SECOND, Gst.MessageType.ERROR)
+            if msg:
+                err, dbg = msg.parse_error()
+                print(f"[GStreamer] ERROR: pipeline failed to enter PLAYING: {err} ({dbg or ''})", flush=True)
+            else:
+                print("[GStreamer] ERROR: pipeline failed to enter PLAYING", flush=True)
             self.running = False
             self.stop_sender()
             return 1

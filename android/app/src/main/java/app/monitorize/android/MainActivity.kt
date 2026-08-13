@@ -1558,9 +1558,6 @@ fun StreamSurface(
                     }
 
                     private fun applyFrameRateHint(surface: Surface?) {
-                        if (surface == null || !surface.isValid || Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-                            return
-                        }
                         val display = streamView.display
                         val currentMode = display?.mode
                         val supportedRates = display?.supportedModes
@@ -1574,22 +1571,51 @@ fun StreamSurface(
                             ?.toList()
                             .orEmpty()
                         val frameRate = preferredSurfaceFrameRate(fps, supportedRates)
-                        try {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                surface.setFrameRate(
-                                    frameRate,
-                                    Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE,
-                                    Surface.CHANGE_FRAME_RATE_ALWAYS
-                                )
-                            } else {
-                                surface.setFrameRate(frameRate, Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            try {
+                                val activity = streamView.context as? android.app.Activity
+                                val window = activity?.window
+                                val params = window?.attributes
+                                val modes = display?.supportedModes ?: emptyArray()
+                                val matchingModes = modes.filter {
+                                    currentMode == null ||
+                                        (it.physicalWidth == currentMode.physicalWidth &&
+                                            it.physicalHeight == currentMode.physicalHeight)
+                                }
+                                val bestMode = matchingModes
+                                    .filter { it.refreshRate >= frameRate - 1f }
+                                    .minByOrNull { it.refreshRate }
+                                    ?: matchingModes.maxByOrNull { it.refreshRate }
+                                if (params != null && window != null && bestMode != null && params.preferredDisplayModeId != bestMode.modeId) {
+                                    params.preferredDisplayModeId = bestMode.modeId
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                                        params.preferredRefreshRate = bestMode.refreshRate
+                                    }
+                                    window.attributes = params
+                                    Log.i("StreamSurface", "Window preferred display mode: id=${bestMode.modeId} fps=${bestMode.refreshRate}")
+                                }
+                            } catch (e: Exception) {
+                                Log.w("StreamSurface", "Failed to set window preferredDisplayModeId: ${e.message}")
                             }
-                            Log.i(
-                                "StreamSurface",
-                                "Fixed frame rate: stream=$fps requested=$frameRate supported=$supportedRates",
-                            )
-                        } catch (e: Exception) {
-                            Log.w("StreamSurface", "Frame rate hint failed: ${e.message}")
+                        }
+                        if (surface != null && surface.isValid && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            try {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                    surface.setFrameRate(
+                                        frameRate,
+                                        Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE,
+                                        Surface.CHANGE_FRAME_RATE_ALWAYS
+                                    )
+                                } else {
+                                    surface.setFrameRate(frameRate, Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE)
+                                }
+                                Log.i(
+                                    "StreamSurface",
+                                    "Fixed frame rate: stream=$fps requested=$frameRate supported=$supportedRates",
+                                )
+                            } catch (e: Exception) {
+                                Log.w("StreamSurface", "Frame rate hint failed: ${e.message}")
+                            }
                         }
                     }
 
