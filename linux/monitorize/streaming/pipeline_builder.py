@@ -522,12 +522,16 @@ def _nvidia_memory_candidates(codec="h264"):
 
 
 def prepare_rtp_endpoint(*, width, height, fps, bitrate, port, server_mode,
-                         codec="h264"):
+                         codec=None):
     """Negotiate RTP before opening compositor capture resources."""
     import os
 
     if not server_mode or os.environ.get("MONITORIZE_VIDEO_TRANSPORT", "") != TRANSPORT:
         return None
+    if codec is None:
+        codec = os.environ.get("MONITORIZE_VIDEO_CODEC", "h264")
+    if codec not in ("h264", "h265"):
+        codec = "h264"
     requested_fec_percent = (
         10 if os.environ.get("MONITORIZE_FEC_PERCENT") == "10" else 0
     )

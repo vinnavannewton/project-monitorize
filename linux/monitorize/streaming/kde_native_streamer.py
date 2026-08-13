@@ -182,9 +182,13 @@ def run_native_streamer(
             "requested_fps": fps,
         })
 
+        codec = os.environ.get("MONITORIZE_VIDEO_CODEC", "h264")
+        if codec not in ("h264", "h265"):
+            codec = "h264"
         rtp_endpoint = prepare_rtp_endpoint(
             width=actual["width"], height=actual["height"], fps=fps,
             bitrate=bitrate, port=port, server_mode=mode == "wifi",
+            codec=codec,
         )
 
         if rtp_endpoint is not None:
