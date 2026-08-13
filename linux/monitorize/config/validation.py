@@ -98,7 +98,15 @@ def sanitize_encoder_profile(value):
 
 
 def sanitize_encoder(value):
-    return value if value in VALID_ENCODERS else "Software (CPU / x264enc)"
+    val_str = str(value or "").strip()
+    if val_str in VALID_ENCODERS:
+        return val_str
+    val_lower = val_str.lower()
+    if "nvidia" in val_lower or "nvenc" in val_lower:
+        return "NVIDIA NVENC (nvh264enc)"
+    if "va-api" in val_lower or "vaapi" in val_lower or "intel" in val_lower or "amd" in val_lower:
+        return "Intel/AMD VA-API (vah264enc)"
+    return "Software (CPU / x264enc)"
 
 
 def sanitize_fec_mode(value):

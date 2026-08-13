@@ -120,8 +120,10 @@ internal class RtpH264Assembler(private val detectCrossFrameGaps: Boolean = true
             } else {
                 packet.payload[0].toInt() and 0x1f
             }
-            if ((!isHevc && nalType == 9) || (isHevc && nalType == 35)) {
-                startSequence = packet.sequence
+            if ((!isHevc && nalType == 9) || (isHevc && nalType in 32..35)) {
+                if (!isHevc || nalType == 35 || startSequence == null) {
+                    startSequence = packet.sequence
+                }
             } else if (
                 (!isHevc && nalType == 28 && packet.payload.size >= 2 && packet.payload[1].toInt() and 0x80 != 0) ||
                 (isHevc && nalType == 49 && packet.payload.size >= 3 && packet.payload[2].toInt() and 0x80 != 0)
@@ -219,7 +221,7 @@ internal class RtpH264Assembler(private val detectCrossFrameGaps: Boolean = true
                 }
             } else {
                 when {
-                    type in 0..31 -> {
+                    type in 0..47 -> {
                         output.write(START_CODE)
                         output.write(payload)
                     }

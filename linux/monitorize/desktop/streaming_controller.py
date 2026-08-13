@@ -242,10 +242,14 @@ class StreamingController(QObject):
         self.audio_enabled = bool(enable_audio)
         self.env = QProcessEnvironment.systemEnvironment()
         self.env.insert("PYTHONUNBUFFERED", "1")
-        self.env.insert("MONITORIZE_ENCODER", {
-            "NVIDIA NVENC (nvh264enc)": "nvidia",
-            "Intel/AMD VA-API (vah264enc)": "vaapi",
-        }.get(self.encoder, "cpu"))
+        enc_lower = str(self.encoder or "").lower()
+        if "nvidia" in enc_lower or "nvenc" in enc_lower:
+            enc_setting = "nvidia"
+        elif "va-api" in enc_lower or "vaapi" in enc_lower or "intel" in enc_lower or "amd" in enc_lower:
+            enc_setting = "vaapi"
+        else:
+            enc_setting = "cpu"
+        self.env.insert("MONITORIZE_ENCODER", enc_setting)
         self.env.insert("MONITORIZE_ENCODER_PROFILE", self.encoder_profile)
         is_hevc = self.video_codec in ("H.265 (HEVC)", "h265", "H.265") and self.encoder != "Software (CPU / x264enc)"
         self.env.insert("MONITORIZE_VIDEO_CODEC", "h265" if is_hevc else "h264")
@@ -858,10 +862,14 @@ class StreamingController(QObject):
 
         env = QProcessEnvironment.systemEnvironment()
         env.insert("PYTHONUNBUFFERED", "1")
-        env.insert("MONITORIZE_ENCODER", {
-            "NVIDIA NVENC (nvh264enc)": "nvidia",
-            "Intel/AMD VA-API (vah264enc)": "vaapi",
-        }.get(third_encoder, "cpu"))
+        third_enc_lower = str(third_encoder or "").lower()
+        if "nvidia" in third_enc_lower or "nvenc" in third_enc_lower:
+            third_enc_setting = "nvidia"
+        elif "va-api" in third_enc_lower or "vaapi" in third_enc_lower or "intel" in third_enc_lower or "amd" in third_enc_lower:
+            third_enc_setting = "vaapi"
+        else:
+            third_enc_setting = "cpu"
+        env.insert("MONITORIZE_ENCODER", third_enc_setting)
         env.insert("MONITORIZE_ENCODER_PROFILE", third_encoder_profile)
         if self.wifi:
             env.insert("MONITORIZE_VIDEO_TRANSPORT", "rtp-udp-v1")
