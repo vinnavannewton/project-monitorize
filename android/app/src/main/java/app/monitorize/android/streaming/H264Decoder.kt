@@ -103,7 +103,7 @@ class H264Decoder(
 
     companion object {
         private const val TAG = "H264Decoder"
-        private const val MAX_INPUT = 2 * 1024 * 1024
+        private const val MAX_INPUT = 4 * 1024 * 1024
     }
 
     @Synchronized

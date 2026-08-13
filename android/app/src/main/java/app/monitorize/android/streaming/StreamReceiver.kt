@@ -473,7 +473,7 @@ class StreamReceiver(
         }
 
         fun feedCompletedFrame(frame: ByteArray, sequenceGap: Int) {
-            val isIdr = containsIdr(frame)
+            val isIdr = containsIdr(frame, ready.codec == "h265")
             if (sequenceGap > 0 && !isIdr) {
                 lostPackets += sequenceGap
                 incompleteFrames++
@@ -529,7 +529,7 @@ class StreamReceiver(
                 }
                 val firstPacketNs = assembler.completedFirstPacketNanos
                 val ageNanos = if (firstPacketNs != null) System.nanoTime() - firstPacketNs else 0L
-                if (ageNanos > stalenessThresholdNanos && !containsIdr(frame)) {
+                if (ageNanos > stalenessThresholdNanos && !containsIdr(frame, ready.codec == "h265")) {
                     droppedStale = true
                     frame = assembler.pollCompleted()
                     continue
@@ -761,13 +761,21 @@ class StreamReceiver(
         }, "MonitorizeStats").start()
     }
 
-    private fun containsIdr(frame: ByteArray): Boolean {
+    private fun containsIdr(frame: ByteArray, isHevc: Boolean = false): Boolean {
         for (index in 0 until frame.size - 4) {
             if (frame[index].toInt() == 0 && frame[index + 1].toInt() == 0 &&
                 ((frame[index + 2].toInt() == 1) ||
                     (frame[index + 2].toInt() == 0 && frame[index + 3].toInt() == 1))) {
                 val header = if (frame[index + 2].toInt() == 1) index + 3 else index + 4
-                if (header < frame.size && frame[header].toInt() and 0x1f == 5) return true
+                if (header < frame.size) {
+                    val byteVal = frame[header].toInt()
+                    if (!isHevc) {
+                        if (byteVal and 0x1f == 5) return true
+                    } else {
+                        val nalType = (byteVal ushr 1) and 0x3f
+                        if (nalType in setOf(19, 20, 21)) return true
+                    }
+                }
             }
         }
         return false
