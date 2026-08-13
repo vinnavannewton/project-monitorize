@@ -216,7 +216,7 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
     
     
     key_int = max(15, fps) if rtp_endpoint else max(fps // 4, 15)
-    intra_refresh = bool(hw_encoder) if encoder_profile == "Low Latency" else not bool(rtp_endpoint)
+    intra_refresh = bool(hw_encoder)
 
     early_convert = ""
     if hw_encoder:

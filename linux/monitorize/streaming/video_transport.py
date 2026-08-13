@@ -97,8 +97,8 @@ def wait_for_client(video_port, timeout=120, *, width=0, height=0, fps=0, bitrat
             print(f"[RTP] Client {addr[0]}:{port} connected", flush=True)
             if requested_fec_percent and not fec_percent:
                 print(
-                    "[RTP] WARNING: ULPFEC 10% requested, but the receiver did not "
-                    "advertise RFC 5109 support; continuing with FEC Off.",
+                    "[RTP] WARNING: RS-FEC 10% requested, but the receiver did not "
+                    "advertise RS-FEC support; continuing with FEC Off.",
                     flush=True,
                 )
             return addr[0], port, ssrc, profile, fec_percent
