@@ -1,4 +1,4 @@
-"""Build and launch low-latency PipeWire to H.264 GStreamer pipelines."""
+"""Build and launch low-latency PipeWire to H.264/H.265 GStreamer pipelines."""
 
 import shlex
 import subprocess
@@ -25,7 +25,8 @@ def _gst_inspect(element):
     return result.stdout if result.returncode == 0 else ""
 
 
-def get_encoder(preference: str = "cpu", require_hardware: bool = False) -> str | None:
+def get_encoder(preference: str = "cpu", require_hardware: bool = False,
+                codec: str = "h264") -> str | None:
     """
     Return the encoder name based on user preference.
     
@@ -36,22 +37,32 @@ def get_encoder(preference: str = "cpu", require_hardware: bool = False) -> str 
     require_hardware : bool
         Keep the requested NVIDIA element when it is unavailable so startup
         fails instead of selecting CPU.
+    codec : str
+        'h264' or 'h265'.
     """
     pref = preference.lower()
+    is_hevc = codec == "h265"
     
     if pref == "nvidia":
-        if _gst_inspect("nvh264enc"):
-            return "nvh264enc"
-        print("[Pipeline] NVIDIA NVENC is unavailable; startup will fail without CPU fallback")
-        return "nvh264enc"
+        enc = "nvh265enc" if is_hevc else "nvh264enc"
+        if _gst_inspect(enc):
+            return enc
+        print(f"[Pipeline] NVIDIA {'HEVC' if is_hevc else 'NVENC'} is unavailable; startup will fail without CPU fallback")
+        return enc
         
     elif pref == "vaapi":
-        for enc in ("vah264enc", "vah264lpenc", "vaapih264enc"):
+        candidates = (
+            ("vah265enc", "vah265lpenc", "vaapih265enc") if is_hevc
+            else ("vah264enc", "vah264lpenc", "vaapih264enc")
+        )
+        for enc in candidates:
             info = _gst_inspect(enc)
             if info and "nvidia" not in info.lower():
                 return enc
-        return "vah264enc"  
+        return candidates[0]
         
+    if is_hevc:
+        return None
     return None
 
 
@@ -154,12 +165,53 @@ def _cpu_encoder_params(
     )
 
 
+def _hw_h265_encoder_params(
+    enc_name, bitrate, key_int, fps=60, wifi_mode=False,
+    encoder_profile="Low Latency",
+):
+    """Return GStreamer property string for a detected H.265 hardware encoder."""
+    encoder_profile = _encoder_profile(encoder_profile)
+    one_frame_kbits = max(1, (bitrate + max(fps, 1) - 1) // max(fps, 1))
+    if enc_name == "nvh265enc":
+        common = (
+            f"nvh265enc bitrate={bitrate} vbv-buffer-size={one_frame_kbits} "
+            f"zerolatency=true bframes=0 rc-lookahead=0 rc-mode=cbr "
+            f"gop-size={key_int} aud=true repeat-sequence-header=true"
+        )
+        if encoder_profile == "Low Latency":
+            return f"{common} preset=p1"
+        preset = "p3" if encoder_profile == "Balanced" else "p5"
+        return f"{common} preset={preset}"
+    elif enc_name in ("vah265enc", "vah265lpenc"):
+        usage = 7 if encoder_profile == "Low Latency" else (
+            5 if encoder_profile == "Balanced" else 3
+        )
+        refs = 1 if encoder_profile in ("Low Latency", "Balanced") else 2
+        return (
+            f"{enc_name} rate-control=cbr bitrate={bitrate} "
+            f"cpb-size={one_frame_kbits} key-int-max={key_int} ref-frames={refs} "
+            f"b-frames=0 target-usage={usage} aud=true"
+        )
+    elif enc_name == "vaapih265enc":
+        quality = 7 if encoder_profile == "Low Latency" else (
+            5 if encoder_profile == "Balanced" else 3
+        )
+        return (
+            f"{enc_name} rate-control=cbr bitrate={bitrate} cpb-size={one_frame_kbits} "
+            f"keyframe-period={key_int} max-bframes=0 quality-level={quality} aud=true"
+        )
+    return (
+        f"{enc_name} rate-control=cbr bitrate={bitrate} cpb-size={one_frame_kbits} "
+        f"key-int-max={key_int} ref-frames=1 b-frames=0 target-usage=7 aud=true"
+    )
+
+
 def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
                    hw_encoder=None, host="127.0.0.1",
                    wifi_mode=False, preserve_source_size=False,
                    preserve_source_rate=False, target_object=None,
                    encoder_profile="Low Latency", nvidia_memory="cuda",
-                   rtp_endpoint=None):
+                   rtp_endpoint=None, codec="h264"):
     """
     Build a full gst-launch-1.0 argv list.
 
@@ -216,7 +268,8 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
     
     
     key_int = max(15, fps) if rtp_endpoint else max(fps // 4, 15)
-    intra_refresh = bool(hw_encoder)
+    is_hevc = codec == "h265"
+    intra_refresh = bool(hw_encoder) and not is_hevc
 
     early_convert = ""
     if hw_encoder:
@@ -226,7 +279,7 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
             if wifi_mode and not preserve_source_rate else ""
         )
         dimensions = "" if preserve_source_size else f",width={width},height={height}"
-        if hw_encoder == "nvh264enc":
+        if hw_encoder in ("nvh264enc", "nvh265enc"):
             if nvidia_memory == "gl":
                 gl_scale = "" if preserve_source_size else " ! glcolorscale"
                 convert = (
@@ -248,7 +301,7 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
                     f"'video/x-raw(memory:CUDAMemory),format=NV12{dimensions}'"
                 )
         else:
-            postproc = "vapostproc" if hw_encoder in ("vah264enc", "vah264lpenc") else "vaapipostproc"
+            postproc = "vapostproc" if hw_encoder in ("vah264enc", "vah264lpenc", "vah265enc", "vah265lpenc") else "vaapipostproc"
             if wifi_mode and target_object is not None and rtp_endpoint:
                 early_convert = (
                     "videoconvert name=monitorize_kwin_copy n-threads=4 ! "
@@ -266,11 +319,17 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
                 )
             else:
                 convert = f"{postproc} ! 'video/x-raw(memory:VAMemory),format=NV12{dimensions}'"
-        encoder = _hw_encoder_params(
-            hw_encoder, video_bitrate, key_int, fps=fps,
-            intra_refresh=intra_refresh, wifi_mode=wifi_mode,
-            encoder_profile=encoder_profile,
-        )
+        if is_hevc:
+            encoder = _hw_h265_encoder_params(
+                hw_encoder, video_bitrate, key_int, fps=fps,
+                wifi_mode=wifi_mode, encoder_profile=encoder_profile,
+            )
+        else:
+            encoder = _hw_encoder_params(
+                hw_encoder, video_bitrate, key_int, fps=fps,
+                intra_refresh=intra_refresh, wifi_mode=wifi_mode,
+                encoder_profile=encoder_profile,
+            )
         encoder = _probe_encoder_properties(encoder)
     else:
         rate_filter = (
@@ -286,24 +345,29 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
         )
         encoder = _probe_encoder_properties(encoder)
 
-    parse = "h264parse name=monitorize_parser config-interval=1"
-    negotiated_profile = (
-        rtp_endpoint[3] if rtp_endpoint and len(rtp_endpoint) > 3 else None
-    )
-    if negotiated_profile == "high":
-        caps_out = "video/x-h264,profile=high,stream-format=byte-stream,alignment=au"
-    elif hw_encoder:
-        caps_out = "video/x-h264,stream-format=byte-stream,alignment=au"
+    if is_hevc:
+        parse = "h265parse name=monitorize_parser config-interval=1"
+        caps_out = "video/x-h265,stream-format=byte-stream,alignment=au"
     else:
-        caps_out = "video/x-h264,profile=baseline,stream-format=byte-stream,alignment=au"
+        parse = "h264parse name=monitorize_parser config-interval=1"
+        negotiated_profile = (
+            rtp_endpoint[3] if rtp_endpoint and len(rtp_endpoint) > 3 else None
+        )
+        if negotiated_profile == "high":
+            caps_out = "video/x-h264,profile=high,stream-format=byte-stream,alignment=au"
+        elif hw_encoder:
+            caps_out = "video/x-h264,stream-format=byte-stream,alignment=au"
+        else:
+            caps_out = "video/x-h264,profile=baseline,stream-format=byte-stream,alignment=au"
 
     
     
     if rtp_endpoint:
         client_host, client_port, *endpoint_options = rtp_endpoint
         ssrc = f" ssrc={endpoint_options[0]}" if endpoint_options else ""
+        payloader = "rtph265pay" if is_hevc else "rtph264pay"
         sink = (
-            f"rtph264pay aggregate-mode=none config-interval=-1 "
+            f"{payloader} aggregate-mode=none config-interval=-1 "
             f"mtu={MTU} pt={RTP_PAYLOAD_TYPE}{ssrc} ! "
             f"udpsink host={client_host} port={client_port} bind-port={port} "
             f"sync=false async=false buffer-size={udp_send_buffer_bytes(bitrate)} "
@@ -338,7 +402,7 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
 
 def _launch(argv, pass_fds=None, target_fps=60, bitrate=8000,
             target_width=0, target_height=0):
-    if "rtph264pay" in argv:
+    if "rtph264pay" in argv or "rtph265pay" in argv:
         import sys
         gst_index = argv.index("gst-launch-1.0")
         elements = argv[gst_index + 2:]
@@ -456,7 +520,8 @@ def _nvidia_memory_candidates():
     return candidates
 
 
-def prepare_rtp_endpoint(*, width, height, fps, bitrate, port, server_mode):
+def prepare_rtp_endpoint(*, width, height, fps, bitrate, port, server_mode,
+                         codec="h264"):
     """Negotiate RTP before opening compositor capture resources."""
     import os
 
@@ -468,6 +533,7 @@ def prepare_rtp_endpoint(*, width, height, fps, bitrate, port, server_mode):
     return wait_for_client(
         port, width=width, height=height, fps=fps, bitrate=bitrate,
         transport=TRANSPORT, requested_fec_percent=requested_fec_percent,
+        requested_codec=codec,
     )
 
 
@@ -485,15 +551,23 @@ def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
     transport = os.environ.get("MONITORIZE_VIDEO_TRANSPORT", "")
     require_hardware = os.environ.get("MONITORIZE_REQUIRE_HARDWARE_ENCODER") == "1"
     encoder_profile = os.environ.get("MONITORIZE_ENCODER_PROFILE", "Low Latency")
+    codec = os.environ.get("MONITORIZE_VIDEO_CODEC", "h264")
+    if codec not in ("h264", "h265"):
+        codec = "h264"
     if preserve_source_size is None:
         preserve_source_size = os.environ.get("MONITORIZE_PRESERVE_SOURCE_SIZE") == "1"
     if server_mode and transport == TRANSPORT and rtp_endpoint is None:
         rtp_endpoint = prepare_rtp_endpoint(
             width=width, height=height, fps=fps, bitrate=bitrate, port=port,
-            server_mode=True,
+            server_mode=True, codec=codec,
         )
+    
+    negotiated_codec = (
+        rtp_endpoint[-1] if rtp_endpoint and isinstance(rtp_endpoint[-1], str)
+        and rtp_endpoint[-1] in ("h264", "h265") else codec
+    )
     modes = [None]
-    if hw_encoder == "nvh264enc":
+    if hw_encoder in ("nvh264enc", "nvh265enc"):
         requested = os.environ.get("MONITORIZE_NVIDIA_MEMORY", "auto").lower()
         modes = (
             [requested]
@@ -512,6 +586,7 @@ def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
             encoder_profile=encoder_profile,
             nvidia_memory=mode or "cuda",
             rtp_endpoint=rtp_endpoint,
+            codec=negotiated_codec,
         )
         label = f"{hw_encoder} ({mode})" if mode else (hw_encoder or "x264enc (CPU)")
         print(f"\n[Pipeline] Encoder: {label}")
@@ -528,16 +603,16 @@ def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
         if not hw_encoder:
             print("[Pipeline] CPU encoder failed during startup", flush=True)
             return proc
-        if require_hardware and hw_encoder != "nvh264enc":
+        if require_hardware and hw_encoder not in ("nvh264enc", "nvh265enc"):
             print("[Pipeline] Requested hardware encoder failed; CPU fallback is disabled", flush=True)
             return proc
         if (
             mode_index + 1 < len(modes)
-            or (hw_encoder != "nvh264enc" and not require_hardware)
+            or (hw_encoder not in ("nvh264enc", "nvh265enc") and not require_hardware)
         ):
             print(f"[Pipeline] {label} failed during startup; trying fallback")
 
-    if hw_encoder == "nvh264enc":
+    if hw_encoder in ("nvh264enc", "nvh265enc"):
         print(
             "[ERROR] NVIDIA NVENC failed in all permitted memory modes; "
             "CPU fallback is disabled",
@@ -554,6 +629,7 @@ def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
         preserve_source_rate=preserve_source_rate, target_object=target_object,
         encoder_profile=encoder_profile,
         rtp_endpoint=rtp_endpoint,
+        codec="h264",
     )
     print(f"[GStreamer] {shlex.join(pipeline)}\n")
     proc = _launch(

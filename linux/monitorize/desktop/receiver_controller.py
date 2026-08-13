@@ -23,6 +23,7 @@ RAW_DROP_QUEUE = [
     "leaky=downstream",
 ]
 PARSED_H264_CAPS = "video/x-h264,stream-format=byte-stream,alignment=au"
+PARSED_H265_CAPS = "video/x-h265,stream-format=byte-stream,alignment=au"
 SINK_PROPS = {
     "sync": "false",
     "async": "false",
@@ -42,7 +43,9 @@ SOFTWARE_DECODER_PROPS = {
     "discard-corrupted-frames": "true",
     "automatic-request-sync-points": "true",
 }
-HARDWARE_DECODERS = ("vah264dec", "vaapih264dec")
+HARDWARE_DECODERS_H264 = ("vah264dec", "vaapih264dec")
+HARDWARE_DECODERS_H265 = ("vah265dec", "vaapih265dec")
+HARDWARE_DECODERS = HARDWARE_DECODERS_H264
 PRIMARY_STREAM_PORT = 7110
 THIRD_STREAM_PORT = 7114
 PRIMARY_AUDIO_PORT = 7120
@@ -193,7 +196,7 @@ def _negotiate_udp(host, control_port, udp_port):
     if (
         ready.get("transport") != "rtp-udp-v1"
         or ready.get("status") != "ready"
-        or ready.get("codec") != "h264"
+        or ready.get("codec") not in ("h264", "h265", None)
         or int(ready.get("rtpPt", 96)) != 96
     ):
         raise RuntimeError("UDP control response rejected")
@@ -249,6 +252,7 @@ class ReceiverController(QObject):
         self.decoder = "Software"
         self.decoder_args = self._software_decoder_args()
         self.decoder_label = "Software avdec_h264"
+        self.stream_codec = "h264"
         self.audio_receiver = LinuxAudioReceiver(self.logAppended.emit)
         self.hardware_decoder_candidates = []
         self.hardware_decoder_index = 0
@@ -302,7 +306,7 @@ class ReceiverController(QObject):
         self.pipeline_fallback_used = False
         if decoder == "Hardware":
             self.hardware_decoder_candidates = [
-                name for name in HARDWARE_DECODERS if gst_has_element(name)
+                name for name in HARDWARE_DECODERS_H264 if gst_has_element(name)
             ]
             self.hardware_decoder_index = 0
             if not self.hardware_decoder_candidates:
@@ -359,21 +363,32 @@ class ReceiverController(QObject):
             return
         self._launch_external_pipeline(host, port, generation)
 
-    def _udp_pipeline_args(self, sink_name, udp_port):
+    def _udp_pipeline_args(self, sink_name, udp_port, codec="h264"):
+        is_hevc = codec == "h265"
+        if is_hevc:
+            rtp_caps = 'caps=application/x-rtp,media=video,encoding-name=H265,payload=96,clock-rate=90000'
+            depayloader = "rtph265depay"
+            parser = "h265parse"
+            parsed_caps = PARSED_H265_CAPS
+        else:
+            rtp_caps = 'caps=application/x-rtp,media=video,encoding-name=H264,payload=96,clock-rate=90000'
+            depayloader = "rtph264depay"
+            parser = "h264parse"
+            parsed_caps = PARSED_H264_CAPS
         args = [
             "udpsrc", "name=receiver_source", f"port={udp_port}", "buffer-size=524288",
-            'caps=application/x-rtp,media=video,encoding-name=H264,payload=96,clock-rate=90000', "!",
-            "rtph264depay", "name=receiver_depay", "!",
-            "h264parse", "name=receiver_parser", "disable-passthrough=true", "config-interval=-1", "!",
-            PARSED_H264_CAPS, "!",
+            rtp_caps, "!",
+            depayloader, "name=receiver_depay", "!",
+            parser, "name=receiver_parser", "disable-passthrough=true", "config-interval=-1", "!",
+            parsed_caps, "!",
             "queue", "name=receiver_compressed_queue", *COMPRESSED_QUEUE[1:], "!",
             *self._named_decoder_args(), "!",
             *self._display_chain_args(sink_name),
         ]
         return args
 
-    def _udp_pipeline_description(self, sink_name, udp_port=0):
-        return " ".join(self._udp_pipeline_args(sink_name, udp_port))
+    def _udp_pipeline_description(self, sink_name, udp_port=0, codec="h264"):
+        return " ".join(self._udp_pipeline_args(sink_name, udp_port, codec))
 
     def _launch_udp_pipeline(self, host, port, generation, sink_name):
         self.receiver_host = host
@@ -389,12 +404,17 @@ class ReceiverController(QObject):
         except Exception as exc:
             raw.close()
             raise ReceiverNegotiationError(str(exc)) from exc
+        
+        codec = ready.get("codec", "h264")
+        self.stream_codec = codec
+        if codec == "h265":
+            self._apply_codec_h265()
         self.logAppended.emit(
             f"UDP ready: {ready.get('width', '?')}x{ready.get('height', '?')}@{ready.get('fps', '?')}; "
-            f"decoder: {self.decoder_label}; sink: {sink_name}"
+            f"codec: {codec.upper()}; decoder: {self.decoder_label}; sink: {sink_name}"
         )
         self._launch_gst_pipeline(
-            self._udp_pipeline_description(sink_name, udp_port), generation, raw
+            self._udp_pipeline_description(sink_name, udp_port, codec), generation, raw
         )
 
     def _launch_external_pipeline(self, host, port, generation=None):
@@ -768,10 +788,11 @@ class ReceiverController(QObject):
                 args.append(f"{name}={value}")
         return args
 
-    def _software_decoder_args(self):
-        args = ["avdec_h264"]
+    def _software_decoder_args(self, codec="h264"):
+        element = "avdec_h265" if codec == "h265" else "avdec_h264"
+        args = [element]
         for name, value in SOFTWARE_DECODER_PROPS.items():
-            if _gst_has_property("avdec_h264", name):
+            if _gst_has_property(element, name):
                 args.append(f"{name}={value}")
         return args
 
@@ -792,12 +813,37 @@ class ReceiverController(QObject):
         decoder = self.decoder_args[0] if self.decoder_args else ""
         preferred = (
             ("vaapipostproc", "vapostproc")
-            if decoder == "vaapih264dec" else ("vapostproc", "vaapipostproc")
+            if decoder in ("vaapih264dec", "vaapih265dec") else ("vapostproc", "vaapipostproc")
         )
         postproc = next((name for name in preferred if gst_has_element(name)), None)
         if postproc:
             return [postproc, "!", "video/x-raw,format=NV12", "!"]
         return ["videoconvert", "!", "video/x-raw,format=NV12", "!"]
+
+    def _apply_codec_h265(self):
+        """Switch decoder to H.265 equivalents after codec negotiation."""
+        if self.decoder == "Hardware":
+            candidates = [
+                name for name in HARDWARE_DECODERS_H265 if gst_has_element(name)
+            ]
+            if candidates:
+                self.hardware_decoder_candidates = candidates
+                self.hardware_decoder_index = 0
+                self._select_hardware_decoder(0)
+                
+                self.decoder_label = f"VA-API H.265 {candidates[0]}"
+            else:
+                
+                self.decoder = "Software"
+                self.hardware_decoder_candidates = []
+                self.decoder_args = self._software_decoder_args("h265")
+                self.decoder_label = "Software avdec_h265"
+                self.logAppended.emit(
+                    "[Receiver] No VA-API H.265 decoder found; falling back to software avdec_h265."
+                )
+        else:
+            self.decoder_args = self._software_decoder_args("h265")
+            self.decoder_label = "Software avdec_h265"
 
     def _named_decoder_args(self):
         return [self.decoder_args[0], "name=receiver_decoder", *self.decoder_args[1:]]
@@ -848,8 +894,9 @@ class ReceiverController(QObject):
         self.decoder = "Software"
         self.hardware_decoder_candidates = []
         self.hardware_decoder_index = 0
-        self.decoder_args = self._software_decoder_args()
-        self.decoder_label = "Software avdec_h264"
+        self.decoder_args = self._software_decoder_args(getattr(self, "stream_codec", "h264"))
+        sw_element = self.decoder_args[0]
+        self.decoder_label = f"Software {sw_element}"
         self.logAppended.emit(
             f"Receiver pipeline failed immediately; retrying with "
             f"{self.decoder_label}; sink: {self.sink}"

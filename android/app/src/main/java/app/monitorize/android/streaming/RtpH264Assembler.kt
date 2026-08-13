@@ -8,7 +8,8 @@ internal data class RtpPacket(
     val payload: ByteArray
 )
 
-internal class RtpH264Assembler(private val detectCrossFrameGaps: Boolean = true) {
+internal class RtpH264Assembler(private val detectCrossFrameGaps: Boolean = true, codec: String = "h264") {
+    private val isHevc = codec == "h265"
     var droppedFrame = false
         private set
     var lostPackets = 0
@@ -56,7 +57,7 @@ internal class RtpH264Assembler(private val detectCrossFrameGaps: Boolean = true
                 val nextSequence = lastCompletedEndSequence?.let { (it + 1) and 0xffff }
                 val sameTimestampNextAccessUnit =
                     packet.timestamp == finalized &&
-                    packet.isAccessUnitDelimiter() &&
+                    packet.isAccessUnitDelimiter(isHevc) &&
                     packet.sequence == nextSequence
                 if (!sameTimestampNextAccessUnit) return null
             }
@@ -65,7 +66,7 @@ internal class RtpH264Assembler(private val detectCrossFrameGaps: Boolean = true
                 return null
             }
             if (frames.size == MAX_FRAME_WINDOW) dropOldest()
-            frame = Frame(packet.timestamp, System.nanoTime())
+            frame = Frame(packet.timestamp, System.nanoTime(), isHevc)
             frames.addLast(frame)
         }
         frame.offer(packet)
@@ -105,7 +106,7 @@ internal class RtpH264Assembler(private val detectCrossFrameGaps: Boolean = true
         lostPackets = oldest.missingPacketCount()
     }
 
-    private class Frame(val timestamp: Long, val firstPacketNanos: Long) {
+    private class Frame(val timestamp: Long, val firstPacketNanos: Long, val isHevc: Boolean) {
         private val packets = HashMap<Int, RtpPacket>()
         var startSequence: Int? = null
             private set
@@ -114,12 +115,16 @@ internal class RtpH264Assembler(private val detectCrossFrameGaps: Boolean = true
 
         fun offer(packet: RtpPacket) {
             packets[packet.sequence] = packet
-            val nalType = packet.payload[0].toInt() and 0x1f
-            if (nalType == 9) {
+            val nalType = if (isHevc) {
+                (packet.payload[0].toInt() ushr 1) and 0x3f
+            } else {
+                packet.payload[0].toInt() and 0x1f
+            }
+            if ((!isHevc && nalType == 9) || (isHevc && nalType == 35)) {
                 startSequence = packet.sequence
             } else if (
-                nalType == 28 && packet.payload.size >= 2 &&
-                packet.payload[1].toInt() and 0x80 != 0
+                (!isHevc && nalType == 28 && packet.payload.size >= 2 && packet.payload[1].toInt() and 0x80 != 0) ||
+                (isHevc && nalType == 49 && packet.payload.size >= 3 && packet.payload[2].toInt() and 0x80 != 0)
             ) {
                 if (startSequence == null) startSequence = packet.sequence
             }
@@ -130,7 +135,7 @@ internal class RtpH264Assembler(private val detectCrossFrameGaps: Boolean = true
             val ordered = orderedPackets() ?: return null
             val output = java.io.ByteArrayOutputStream()
             for (packet in ordered) {
-                appendPayload(output, packet.payload) ?: return null
+                appendPayload(output, packet.payload, isHevc) ?: return null
             }
             return output.toByteArray()
         }
@@ -172,40 +177,76 @@ internal class RtpH264Assembler(private val detectCrossFrameGaps: Boolean = true
             return distance in 1..0x7fffffffL
         }
 
-        private fun RtpPacket.isAccessUnitDelimiter(): Boolean =
-            payload.isNotEmpty() && payload[0].toInt() and 0x1f == 9
+        private fun RtpPacket.isAccessUnitDelimiter(isHevc: Boolean): Boolean {
+            if (payload.isEmpty()) return false
+            val type = if (isHevc) (payload[0].toInt() ushr 1) and 0x3f else payload[0].toInt() and 0x1f
+            return if (isHevc) type == 35 else type == 9
+        }
 
         private fun appendPayload(
             output: java.io.ByteArrayOutputStream,
             payload: ByteArray,
+            isHevc: Boolean
         ): Unit? {
-            val type = payload[0].toInt() and 0x1f
-            when {
-                type in 1..23 -> {
-                    output.write(START_CODE)
-                    output.write(payload)
-                }
-                type == 24 -> {
-                    var offset = 1
-                    while (offset + 2 <= payload.size) {
-                        val size = ((payload[offset].toInt() and 0xff) shl 8) or
-                            (payload[offset + 1].toInt() and 0xff)
-                        offset += 2
-                        if (size <= 0 || offset + size > payload.size) return null
+            val type = if (isHevc) (payload[0].toInt() ushr 1) and 0x3f else payload[0].toInt() and 0x1f
+            if (!isHevc) {
+                when {
+                    type in 1..23 -> {
                         output.write(START_CODE)
-                        output.write(payload, offset, size)
-                        offset += size
+                        output.write(payload)
                     }
+                    type == 24 -> {
+                        var offset = 1
+                        while (offset + 2 <= payload.size) {
+                            val size = ((payload[offset].toInt() and 0xff) shl 8) or
+                                (payload[offset + 1].toInt() and 0xff)
+                            offset += 2
+                            if (size <= 0 || offset + size > payload.size) return null
+                            output.write(START_CODE)
+                            output.write(payload, offset, size)
+                            offset += size
+                        }
+                    }
+                    type == 28 && payload.size >= 3 -> {
+                        val header = payload[1].toInt() and 0xff
+                        if (header and 0x80 != 0) {
+                            output.write(START_CODE)
+                            output.write((payload[0].toInt() and 0xe0) or (header and 0x1f))
+                        }
+                        output.write(payload, 2, payload.size - 2)
+                    }
+                    else -> return null
                 }
-                type == 28 && payload.size >= 3 -> {
-                    val header = payload[1].toInt() and 0xff
-                    if (header and 0x80 != 0) {
+            } else {
+                when {
+                    type in 0..31 -> {
                         output.write(START_CODE)
-                        output.write((payload[0].toInt() and 0xe0) or (header and 0x1f))
+                        output.write(payload)
                     }
-                    output.write(payload, 2, payload.size - 2)
+                    type == 48 -> {
+                        var offset = 2
+                        while (offset + 2 <= payload.size) {
+                            val size = ((payload[offset].toInt() and 0xff) shl 8) or
+                                (payload[offset + 1].toInt() and 0xff)
+                            offset += 2
+                            if (size <= 0 || offset + size > payload.size) return null
+                            output.write(START_CODE)
+                            output.write(payload, offset, size)
+                            offset += size
+                        }
+                    }
+                    type == 49 && payload.size >= 4 -> {
+                        val innerType = payload[2].toInt() and 0x3f
+                        val startBit = payload[2].toInt() and 0x80 != 0
+                        if (startBit) {
+                            output.write(START_CODE)
+                            output.write((innerType shl 1) or (payload[0].toInt() and 0x01))
+                            output.write(payload[1].toInt() and 0xff)
+                        }
+                        output.write(payload, 3, payload.size - 3)
+                    }
+                    else -> return null
                 }
-                else -> return null
             }
             return Unit
         }

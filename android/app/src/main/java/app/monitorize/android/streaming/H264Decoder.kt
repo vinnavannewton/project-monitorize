@@ -108,7 +108,7 @@ class H264Decoder(
 
     @Synchronized
     fun init(
-        width: Int, height: Int, fps: Int = 60, balancedOutput: Boolean = false,
+        width: Int, height: Int, fps: Int = 60, videoCodec: String = "h264", balancedOutput: Boolean = false,
         inputFrameCapacity: Int = 1, replaceInputOnOverflow: Boolean = true,
     ): Boolean {
         release()
@@ -124,8 +124,9 @@ class H264Decoder(
         try {
             Log.i(TAG, "Init: ${width}×${height}@${fps}")
 
+            val mimeType = if (videoCodec == "h265") MediaFormat.MIMETYPE_VIDEO_HEVC else MediaFormat.MIMETYPE_VIDEO_AVC
             val format = MediaFormat.createVideoFormat(
-                MediaFormat.MIMETYPE_VIDEO_AVC, width, height
+                mimeType, width, height
             ).apply {
                 setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, MAX_INPUT)
                 setInteger(MediaFormat.KEY_FRAME_RATE, fps.coerceIn(24, 240))
@@ -134,8 +135,8 @@ class H264Decoder(
                 setInteger(MediaFormat.KEY_LOW_LATENCY, 1)
             }
 
-            val decoderInfo = selectDecoder()
-                ?: throw IllegalStateException("No H.264 decoder available")
+            val decoderInfo = selectDecoder(mimeType)
+                ?: throw IllegalStateException("No $videoCodec decoder available")
             val hasQualcommOptions = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
                 (decoderInfo.name.startsWith("c2.qti", true) ||
                     decoderInfo.name.startsWith("omx.qcom", true))
@@ -292,11 +293,11 @@ class H264Decoder(
 
     private val pendingInputBuffers = LinkedBlockingQueue<Int>(16)
 
-    private fun selectDecoder(): MediaCodecInfo? {
+    private fun selectDecoder(mimeType: String): MediaCodecInfo? {
         return MediaCodecList(MediaCodecList.ALL_CODECS).codecInfos
             .asSequence()
             .filter { !it.isEncoder && it.supportedTypes.any { type ->
-                type.equals(MediaFormat.MIMETYPE_VIDEO_AVC, true)
+                type.equals(mimeType, true)
             } }
             .filter { info ->
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -311,7 +312,7 @@ class H264Decoder(
                 var score = if (name.contains("low_latency") || name.contains("lowlatency")) 4 else 0
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     try {
-                        if (info.getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC)
+                        if (info.getCapabilitiesForType(mimeType)
                                 .isFeatureSupported(MediaCodecInfo.CodecCapabilities.FEATURE_LowLatency)) {
                             score += 8
                         }
@@ -322,7 +323,7 @@ class H264Decoder(
             .firstOrNull()
             ?: MediaCodecList(MediaCodecList.ALL_CODECS).codecInfos.firstOrNull {
                 !it.isEncoder && it.supportedTypes.any { type ->
-                    type.equals(MediaFormat.MIMETYPE_VIDEO_AVC, true)
+                    type.equals(mimeType, true)
                 }
             }
     }

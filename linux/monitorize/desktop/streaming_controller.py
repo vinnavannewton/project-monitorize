@@ -40,6 +40,7 @@ from monitorize.config.validation import (
     sanitize_fec_mode,
     sanitize_fps,
     sanitize_resolution,
+    sanitize_video_codec,
 )
 from monitorize.input_bridge.uinput_backend import UINPUT_PERMISSION_HINT
 
@@ -239,9 +240,13 @@ class StreamingController(QObject):
         self.env.insert("PYTHONUNBUFFERED", "1")
         self.env.insert("MONITORIZE_ENCODER", {
             "NVIDIA NVENC (nvh264enc)": "nvidia",
+            "NVIDIA NVENC H.265 (nvh265enc)": "nvidia",
             "Intel/AMD VA-API (vah264enc)": "vaapi",
+            "Intel/AMD VA-API H.265 (vah265enc)": "vaapi",
         }.get(self.encoder, "cpu"))
         self.env.insert("MONITORIZE_ENCODER_PROFILE", self.encoder_profile)
+        self.env.insert("MONITORIZE_VIDEO_CODEC",
+            "h265" if "H.265" in self.encoder else "h264")
         self.env.insert("MONITORIZE_REQUIRE_HARDWARE_ENCODER", "0")
         if wifi:
             self.env.insert("MONITORIZE_VIDEO_TRANSPORT", "rtp-udp-v1")
@@ -853,9 +858,13 @@ class StreamingController(QObject):
         env.insert("PYTHONUNBUFFERED", "1")
         env.insert("MONITORIZE_ENCODER", {
             "NVIDIA NVENC (nvh264enc)": "nvidia",
+            "NVIDIA NVENC H.265 (nvh265enc)": "nvidia",
             "Intel/AMD VA-API (vah264enc)": "vaapi",
+            "Intel/AMD VA-API H.265 (vah265enc)": "vaapi",
         }.get(third_encoder, "cpu"))
         env.insert("MONITORIZE_ENCODER_PROFILE", third_encoder_profile)
+        env.insert("MONITORIZE_VIDEO_CODEC",
+            "h265" if "H.265" in third_encoder else "h264")
         if self.wifi:
             env.insert("MONITORIZE_VIDEO_TRANSPORT", "rtp-udp-v1")
             env.insert(

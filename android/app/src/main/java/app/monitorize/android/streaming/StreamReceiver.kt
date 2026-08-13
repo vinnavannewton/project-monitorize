@@ -9,6 +9,8 @@ import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
 import java.util.concurrent.atomic.AtomicBoolean
+import android.media.MediaCodecList
+import android.media.MediaFormat
 
 private const val RTP_TRANSPORT = "rtp-udp-v1"
 private const val IDR_REQUEST_COOLDOWN_MS = 1_000L
@@ -21,11 +23,17 @@ internal data class RtpStreamConfig(
     val fps: Int,
     val fecPayloadType: Int = 122,
     val fecPercent: Int = 0,
+    val codec: String = "h264",
 )
 
 internal fun rtpFrameDeadlineNanos(fps: Int): Long {
     return (15_000_000_000L / fps.coerceAtLeast(1))
         .coerceIn(150_000_000L, 250_000_000L)
+}
+
+internal fun hasHevcDecoder(): Boolean {
+    return MediaCodecList(MediaCodecList.ALL_CODECS).codecInfos
+        .any { !it.isEncoder && it.supportedTypes.any { type -> type.equals(MediaFormat.MIMETYPE_VIDEO_HEVC, true) } }
 }
 
 internal fun recoveryIdrAllowed(
@@ -54,13 +62,16 @@ internal fun buildRtpControlMessage(
     width: Int,
     height: Int,
     requestIdr: Boolean = false,
+    supportedCodecs: List<String> = listOf("h264"),
 ): String {
     val type = if (requestIdr) "idr" else "start"
+    val codecsJson = supportedCodecs.joinToString(",") { "\"$it\"" }
     return "MZRP1 {\"transport\":\"$RTP_TRANSPORT\",\"port\":$localUdpPort," +
         "\"type\":\"$type\"," +
         "\"fps\":$fps,\"width\":$width,\"height\":$height," +
         "\"decoderProfiles\":[\"high\",\"constrained-baseline\"]," +
-        "\"fecModes\":[\"rs-fec-v1\",\"ulp-rfc5109\"]}"
+        "\"fecModes\":[\"rs-fec-v1\",\"ulp-rfc5109\"]," +
+        "\"supportedCodecs\":[$codecsJson]}"
 }
 
 data class StreamStats(
@@ -254,13 +265,15 @@ internal fun parseRtpReady(response: String): RtpStreamConfig? {
     val fps = integerField("fps") ?: return null
     val fecPercent = integerField("fecPercent") ?: 0
     val fecPayloadType = integerField("fecPt") ?: 122
+    val codec = textField("codec") ?: "h264"
     return if (
         textField("transport") != RTP_TRANSPORT ||
         textField("status") != "ready" ||
+        codec !in setOf("h264", "h265") ||
         width !in 320..7680 || height !in 240..4320 ||
         width % 2 != 0 || height % 2 != 0 || fps !in 24..240 ||
         fecPercent !in setOf(0, 10) || fecPayloadType !in 0..127
-    ) null else RtpStreamConfig(width, height, fps, fecPayloadType, fecPercent)
+    ) null else RtpStreamConfig(width, height, fps, fecPayloadType, fecPercent, codec)
 }
 
 private fun readAsciiLine(socket: Socket, maxBytes: Int): String {
@@ -377,7 +390,8 @@ class StreamReceiver(
         try { socket.trafficClass = 0xC0 } catch (_: Exception) {}
         val host = InetAddress.getByName(targetIp)
         val controlPort = hostPort
-        val hello = buildRtpControlMessage(socket.localPort, fps, width, height)
+        val supportedCodecs = if (hasHevcDecoder()) listOf("h264", "h265") else listOf("h264")
+        val hello = buildRtpControlMessage(socket.localPort, fps, width, height, supportedCodecs = supportedCodecs)
         val helloBytes = hello.toByteArray(Charsets.UTF_8)
         Log.i(TAG, "RTP negotiation: UDP port ${socket.localPort}, target $targetIp:$controlPort")
         val ready: RtpStreamConfig? = try {
@@ -407,7 +421,7 @@ class StreamReceiver(
         onTransportReady?.invoke()
         onPlainTransportReady?.invoke()
         if (!decoder.init(
-            ready.width, ready.height, ready.fps,
+            ready.width, ready.height, ready.fps, ready.codec,
             balancedOutput = true, inputFrameCapacity = 5,
             replaceInputOnOverflow = false,
         )) {
@@ -415,7 +429,7 @@ class StreamReceiver(
             return true
         }
         onStatusChange?.invoke("Waiting for video…")
-        val assembler = RtpH264Assembler(detectCrossFrameGaps = ready.fecPercent == 0)
+        val assembler = RtpH264Assembler(detectCrossFrameGaps = ready.fecPercent == 0, codec = ready.codec)
         val clockSync = RtpClockSync()
         decoder.setFrameRenderedTimingCallback(clockSync::recordRendered)
         val fecRecovery = if (ready.fecPercent == 10) {
@@ -678,8 +692,9 @@ class StreamReceiver(
                     control.connect(InetSocketAddress(hostIp, controlPort), 1000)
                     control.soTimeout = 1000
                     control.tcpNoDelay = true
+                    val supportedCodecs = if (hasHevcDecoder()) listOf("h264", "h265") else listOf("h264")
                     val hello = buildRtpControlMessage(
-                        localUdpPort, fps, width, height, requestIdr = true
+                        localUdpPort, fps, width, height, requestIdr = true, supportedCodecs = supportedCodecs
                     )
                     control.getOutputStream().apply {
                         write(hello.toByteArray(Charsets.UTF_8))
