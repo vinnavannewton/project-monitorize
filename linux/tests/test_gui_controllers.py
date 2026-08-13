@@ -3133,6 +3133,7 @@ class KdeNativeStreamerTest(unittest.TestCase):
 
         self.assertEqual(result, 0)
         self.assertEqual(["negotiate", "wakeup"], events)
+        helper.stdin.write.assert_not_called()
         self.assertEqual(launch.call_args.kwargs["target_object"], "100")
         output.assert_any_call(
             "[KDE Native] Capture path=owner node=10 target=100", flush=True
