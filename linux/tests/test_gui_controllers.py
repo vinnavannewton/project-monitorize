@@ -3126,17 +3126,16 @@ class KdeNativeStreamerTest(unittest.TestCase):
             "[KDE Native] Capture path=owner node=10 target=100", flush=True
         )
 
-    def test_additional_rtp_above_60_uses_post_mode_capture(self):
+    def test_additional_rtp_above_60_uses_owner_capture(self):
         result, events, helper, launch, output = self._run_case(
             120, slot="additional"
         )
 
         self.assertEqual(result, 0)
-        self.assertEqual(["negotiate", "wakeup", "capture"], events)
-        helper.stdin.write.assert_called_once_with("capture\n")
-        self.assertEqual(launch.call_args.kwargs["target_object"], "101")
+        self.assertEqual(["negotiate", "wakeup"], events)
+        self.assertEqual(launch.call_args.kwargs["target_object"], "100")
         output.assert_any_call(
-            "[KDE Native] Capture path=post-mode node=11 target=101", flush=True
+            "[KDE Native] Capture path=owner node=10 target=100", flush=True
         )
 
     def test_usb_keeps_post_mode_capture(self):

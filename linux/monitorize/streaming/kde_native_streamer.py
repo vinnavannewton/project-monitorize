@@ -196,7 +196,7 @@ def run_native_streamer(
 
         capture_path = "owner"
         capture = owner
-        if rtp_endpoint is None or fps > 60:
+        if rtp_endpoint is None:
             capture_path = "post-mode"
             helper.stdin.write("capture\n")
             helper.stdin.flush()
