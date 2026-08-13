@@ -60,7 +60,7 @@ internal fun buildRtpControlMessage(
         "\"type\":\"$type\"," +
         "\"fps\":$fps,\"width\":$width,\"height\":$height," +
         "\"decoderProfiles\":[\"high\",\"constrained-baseline\"]," +
-        "\"fecModes\":[\"ulp-rfc5109\"]}"
+        "\"fecModes\":[\"rs-fec-v1\",\"ulp-rfc5109\"]}"
 }
 
 data class StreamStats(

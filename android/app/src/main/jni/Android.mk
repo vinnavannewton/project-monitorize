@@ -13,3 +13,11 @@ LOCAL_STATIC_LIBRARIES := opus
 LOCAL_LDLIBS := -llog
 LOCAL_LDFLAGS := -Wl,-z,max-page-size=16384
 include $(BUILD_SHARED_LIBRARY)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := monitorize_fec
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/nanors $(LOCAL_PATH)/nanors/deps/obl
+LOCAL_SRC_FILES := native_fec_decoder.c nanors/rs.c nanors/deps/obl/oblas_common.c nanors/deps/obl/oblas_lite.c
+LOCAL_LDLIBS := -llog
+LOCAL_LDFLAGS := -Wl,-z,max-page-size=16384
+include $(BUILD_SHARED_LIBRARY)

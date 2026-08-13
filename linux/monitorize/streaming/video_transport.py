@@ -10,7 +10,9 @@ HELLO_PREFIX = b"MZRP1 "
 MTU = 1200
 RTP_PAYLOAD_TYPE = 96
 FEC_PAYLOAD_TYPE = 122
+RS_FEC_MODE = "rs-fec-v1"
 ULPFEC_MODE = "ulp-rfc5109"
+SUPPORTED_FEC_MODES = {RS_FEC_MODE, ULPFEC_MODE}
 
 
 def udp_send_buffer_bytes(bitrate_kbps):
@@ -20,7 +22,9 @@ def udp_send_buffer_bytes(bitrate_kbps):
 
 def negotiate_fec_percent(message, requested_percent):
     modes = message.get("fecModes", [])
-    return 10 if requested_percent == 10 and ULPFEC_MODE in modes else 0
+    if requested_percent == 10 and any(m in modes for m in SUPPORTED_FEC_MODES):
+        return 10
+    return 0
 
 
 def parse_hello(data, transport=TRANSPORT):
@@ -93,8 +97,8 @@ def wait_for_client(video_port, timeout=120, *, width=0, height=0, fps=0, bitrat
             print(f"[RTP] Client {addr[0]}:{port} connected", flush=True)
             if requested_fec_percent and not fec_percent:
                 print(
-                    "[RTP] WARNING: ULPFEC 10% requested, but the receiver did not "
-                    "advertise RFC 5109 support; continuing with FEC Off.",
+                    "[RTP] WARNING: RS-FEC 10% requested, but the receiver did not "
+                    "advertise RS-FEC support; continuing with FEC Off.",
                     flush=True,
                 )
             return addr[0], port, ssrc, profile, fec_percent

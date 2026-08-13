@@ -22,7 +22,7 @@ RowLayout {
         if (value.indexOf("NVIDIA") === 0) return "NVIDIA NVENC (Beta)"
         if (value.indexOf("Intel/AMD") === 0) return "VA-API (Recommended)"
         if (value.indexOf("Software") === 0) return "CPU"
-        if (value === "ULPFEC 10%") return "ULPFEC 10% (Beta)"
+        if (value === "RS-FEC 10%" || value === "ULPFEC 10%") return "RS-FEC 10% (Beta)"
         return value
     }
 

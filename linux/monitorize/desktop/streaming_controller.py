@@ -247,7 +247,7 @@ class StreamingController(QObject):
             self.env.insert("MONITORIZE_VIDEO_TRANSPORT", "rtp-udp-v1")
             self.env.insert(
                 "MONITORIZE_FEC_PERCENT",
-                "10" if self.fec_mode == "ULPFEC 10%" else "0",
+                "10" if self.fec_mode in ("RS-FEC 10%", "ULPFEC 10%") else "0",
             )
         self.runtime_general = options.get("general")
         if self.de in ("kde", "hyprland") and self.display_type == "Extend":
@@ -860,7 +860,7 @@ class StreamingController(QObject):
             env.insert("MONITORIZE_VIDEO_TRANSPORT", "rtp-udp-v1")
             env.insert(
                 "MONITORIZE_FEC_PERCENT",
-                "10" if third_fec_mode == "ULPFEC 10%" else "0",
+                "10" if third_fec_mode in ("RS-FEC 10%", "ULPFEC 10%") else "0",
             )
         if self.de == "kde":
             env.insert("MONITORIZE_KDE_VIRTUAL_SLOT", "additional")

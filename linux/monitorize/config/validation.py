@@ -20,7 +20,7 @@ MAX_BITRATE = 100000
 VALID_DECODERS = {"Software", "Hardware"}
 VALID_DISPLAY_TYPES = {"Extend", "Mirror"}
 VALID_ENCODER_PROFILES = {"Low Latency", "Balanced", "Quality"}
-VALID_FEC_MODES = {"Off", "ULPFEC 10%"}
+VALID_FEC_MODES = {"Off", "RS-FEC 10%", "ULPFEC 10%"}
 VALID_ENCODERS = {
     "NVIDIA NVENC (nvh264enc)",
     "Intel/AMD VA-API (vah264enc)",

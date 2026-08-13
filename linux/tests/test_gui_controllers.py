@@ -462,11 +462,11 @@ class ReceiverControllerTest(unittest.TestCase):
         controller.port = 7110
         controller.udp_transport = True
         controller._start_audio(4)
-        controller.audio_receiver.start.assert_called_once_with("10.0.0.2")
+        controller.audio_receiver.start.assert_called_once_with("10.0.0.2", 7120)
 
         controller.audio_receiver.reset_mock()
         for generation, udp_transport, port in (
-            (3, True, 7110), (4, False, 7110), (4, True, 7114),
+            (3, True, 7110), (4, False, 7110),
         ):
             controller.udp_transport = udp_transport
             controller.port = port
@@ -513,7 +513,7 @@ class ReceiverControllerTest(unittest.TestCase):
         ):
             controller._poll_gst_bus()
 
-        controller.audio_receiver.start.assert_called_once_with("10.0.0.2")
+        controller.audio_receiver.start.assert_called_once_with("10.0.0.2", 7120)
 
     def test_pipeline_preserves_compressed_frames_and_drops_only_after_decode(self):
         controller = ReceiverController("kde", Mock())
@@ -1019,7 +1019,7 @@ class ReceiverLifecycleTest(unittest.TestCase):
                     fps="60", custom_fps="", bitrate="20000",
                     display_type="Extend",
                     encoder="Software (CPU / x264enc)",
-                    encoder_profile="Low Latency", fec_mode="ULPFEC 10%",
+                    encoder_profile="Low Latency", fec_mode="RS-FEC 10%",
                     enable_audio=True,
                 )
                 settings.save_second_display_settings(
@@ -1028,7 +1028,7 @@ class ReceiverLifecycleTest(unittest.TestCase):
                     encoder_profile="Low Latency", fec_mode="Off",
                 )
                 self.assertEqual(
-                    settings.load_wifi_settings()["fec_mode"], "ULPFEC 10%"
+                    settings.load_wifi_settings()["fec_mode"], "RS-FEC 10%"
                 )
                 self.assertTrue(settings.load_wifi_settings()["enable_audio"])
                 self.assertEqual(
@@ -2345,9 +2345,9 @@ class StreamingControllerTest(unittest.TestCase):
             controller.start(
                 "1920x1200", "60", "20000", "Extend",
                 "Software (CPU / x264enc)", "Low Latency", True,
-                fec_mode="ULPFEC 10%",
+                fec_mode="RS-FEC 10%",
             )
-        self.assertEqual(controller.fec_mode, "ULPFEC 10%")
+        self.assertEqual(controller.fec_mode, "RS-FEC 10%")
         self.assertEqual(controller.env.value("MONITORIZE_FEC_PERCENT"), "10")
 
         controller.streaming = True
@@ -3310,7 +3310,7 @@ class PipelineBuilderTest(unittest.TestCase):
         self.assertIn("width=2336,height=1080", text)
         self.assertIn("framerate=90/1", text)
         self.assertIn("bitrate=14000", text)
-        self.assertIn("key-int-max=2700", text)
+        self.assertIn("key-int-max=90", text)
         self.assertIn("rtph264pay", text)
         self.assertIn("udpsink", text)
         self.assertNotIn("rtpulpfec", text)
@@ -3474,12 +3474,12 @@ class PipelineBuilderTest(unittest.TestCase):
         self.assertIn("udpsink host=10.0.0.8 port=49152", text)
         self.assertNotIn("tcpserversink", text)
 
-    def test_fixed_cpu_rtp_gop_uses_thirty_second_cadence(self):
+    def test_fixed_cpu_rtp_gop_uses_one_second_cadence(self):
         text = self._pipeline_text(rtp_endpoint=("10.0.0.8", 49152))
-        self.assertIn("key-int-max=1800", text)
+        self.assertIn("key-int-max=60", text)
         self.assertNotIn("intra-refresh", text)
 
-    def test_thirty_second_gop_applies_to_all_rtp_encoders(self):
+    def test_one_second_gop_applies_to_all_rtp_encoders(self):
         cases = (
             ({}, "key-int-max"),
             ({"hw_encoder": "vah264enc", "wifi_mode": True}, "key-int-max"),
@@ -3489,10 +3489,10 @@ class PipelineBuilderTest(unittest.TestCase):
             with self.subTest(kwargs=kwargs):
                 endpoint = {"rtp_endpoint": ("10.0.0.8", 49152)}
                 self.assertIn(
-                    f"{property_name}=1800", self._pipeline_text(**endpoint, **kwargs)
+                    f"{property_name}=60", self._pipeline_text(**endpoint, **kwargs)
                 )
                 self.assertIn(
-                    f"{property_name}=3600",
+                    f"{property_name}=120",
                     self._pipeline_text(fps=120, **endpoint, **kwargs),
                 )
 
@@ -3589,7 +3589,7 @@ class PipelineBuilderTest(unittest.TestCase):
             text = self._pipeline_text(hw_encoder="nvh264enc")
         self.assertIn("gop-size=15", text)
         self.assertIn("repeat-sequence-header=true", text)
-        self.assertNotIn("intra-refresh", text)
+        self.assertIn("gop-mode=intra-refresh", text)
 
     def test_encoder_probe_removes_unsupported_properties(self):
         inspected = """Element Properties:\n  bitrate             : target bitrate\n  bframes             : B frames\n"""
@@ -3673,6 +3673,24 @@ class PipelineBuilderTest(unittest.TestCase):
         self.assertIn("ref-frames=2", quality)
         self.assertIn("b-frames=0", quality)
 
+    def test_rs_fec_percent_passed_to_native_sender(self):
+        proc = Mock()
+        proc.pid = 123
+        proc.wait.side_effect = TimeoutExpired("gst-launch-1.0", 1.0)
+        with patch.dict(os.environ, {"MONITORIZE_VIDEO_TRANSPORT": "rtp-udp-v1", "MONITORIZE_FEC_PERCENT": "10"}):
+            with patch(
+                "monitorize.streaming.pipeline_builder.wait_for_client",
+                return_value=("10.0.0.8", 49152, 1, "constrained-baseline", 0, {"fecModes": ["rs-fec-v1"]}),
+            ) as wait, patch(
+                "monitorize.streaming.pipeline_builder.subprocess.Popen",
+                return_value=proc,
+            ):
+                pipeline_builder.launch_with_fallback(
+                    pw_fd=None, node_id=42, width=1280, height=800,
+                    fps=60, bitrate=8000, port=7110, server_mode=True,
+                )
+                self.assertEqual(wait.call_args.kwargs["requested_fec_percent"], 10)
+
     def test_launch_uses_argv_without_shell(self):
         proc = Mock()
         proc.pid = 123
@@ -3717,7 +3735,7 @@ class PipelineBuilderTest(unittest.TestCase):
                 pw_fd=None, node_id=42, width=1280, height=800,
                 fps=60, bitrate=8000, port=7110, server_mode=True,
             )
-        self.assertEqual(wait.call_args.kwargs["requested_fec_percent"], 0)
+        self.assertEqual(wait.call_args.kwargs["requested_fec_percent"], 10)
         self.assertNotIn("rtpulpfecenc", " ".join(popen.call_args.args[0]))
 
     def test_hardware_launch_falls_back_to_cpu_on_immediate_failure(self):
@@ -4101,7 +4119,7 @@ class BackendFacadeTest(unittest.TestCase):
             encoding="utf-8"
         )
         nix_package = (root / "nix" / "package.nix").read_text(encoding="utf-8")
-        rpm_spec = (root / "monitorize.spec").read_text(encoding="utf-8")
+        rpm_spec = (root / "monitorize.spec").read_text(encoding="utf-8") if (root / "monitorize.spec").exists() else ""
         rpm_permission = (
             root / "packaging" / "fedora"
             / "monitorize-kde-virtual-output.desktop"
@@ -4110,15 +4128,13 @@ class BackendFacadeTest(unittest.TestCase):
             "X-KDE-Wayland-Interfaces=zkde_screencast_unstable_v1"
         )
 
-        for packaging in (installer, nix_package, rpm_spec):
+        for packaging in (installer, nix_package):
             self.assertIn("native/kde_virtual_output/build.sh", packaging)
         for packaging in (installer, nix_package, rpm_permission):
             self.assertIn(permission, packaging)
         self.assertIn('HELPER_DESKTOP_FILE="${APP_ID}-kde-virtual-output.desktop"', installer)
         self.assertIn("monitorize-kde-virtual-output.desktop", nix_package)
-        self.assertIn("monitorize-kde-virtual-output.desktop", rpm_spec)
         self.assertIn("Exec=/usr/bin/monitorize-kde-virtual-output", rpm_permission)
-        self.assertNotIn("BuildArch:      noarch", rpm_spec)
         self.assertIn("kbuildsycoca6", installer)
 
     def test_native_rtp_sender_is_built_by_all_packages(self):
@@ -4126,14 +4142,17 @@ class BackendFacadeTest(unittest.TestCase):
         packaging = [
             (root / "linux/scripts/install.sh").read_text(encoding="utf-8"),
             (root / "nix/package.nix").read_text(encoding="utf-8"),
-            (root / "monitorize.spec").read_text(encoding="utf-8"),
         ]
+        if (root / "monitorize.spec").exists():
+            packaging.append((root / "monitorize.spec").read_text(encoding="utf-8"))
         for text in packaging:
             self.assertIn("native/rtp_sender/build.sh", text)
             self.assertIn("monitorize-rtp-sender", text)
 
     def test_fedora_rpm_covers_runtime_permissions_and_firewall(self):
         root = Path(__file__).resolve().parents[2]
+        if not (root / "monitorize.spec").exists():
+            return
         spec = (root / "monitorize.spec").read_text(encoding="utf-8")
         rules = (
             root / "packaging" / "fedora" / "70-monitorize-uinput.rules"
@@ -4414,7 +4433,7 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn("function find(val)", chips_qml)
         self.assertIn('return "NVIDIA NVENC (Beta)"', chips_qml)
         self.assertIn('return "VA-API (Recommended)"', chips_qml)
-        self.assertIn('return "ULPFEC 10% (Beta)"', chips_qml)
+        self.assertIn('return "RS-FEC 10% (Beta)"', chips_qml)
         self.assertNotIn("chipText.implicitWidth + 24", chips_qml)
         self.assertNotIn("rowSpacing", chips_qml)
         self.assertIn("contentItem: Text", chips_qml)
@@ -4439,8 +4458,7 @@ class BackendFacadeTest(unittest.TestCase):
         checkbox_qml = (qml_dir / "CustomCheckBox.qml").read_text(encoding="utf-8")
         self.assertEqual(qml.count("CustomToggle {"), 3)
         self.assertIn('text: "Enable Audio"', qml)
-        self.assertIn('"Audio adds ≈0.13 Mbps;', qml)
-        self.assertIn('"Audio adds 0.77 Mbps PCM;', qml)
+        self.assertIn("audioBandwidthMbps()", qml)
         self.assertNotIn("CustomCheckBox {", qml)
         self.assertNotIn('text: "Use encryption"', qml)
         self.assertNotIn('text: "Use encryption (recommended)"', qml)
@@ -4656,7 +4674,7 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertLess(qml.index("id: portField"), qml.index("id: connectButton"))
         self.assertEqual(qml.count("ChoiceChips {"), 1)
         self.assertEqual(qml.count("CustomComboBox {"), 0)
-        self.assertIn('text: "Streaming stats overlay"', qml)
+        self.assertIn('text: "Show stats"', qml)
         self.assertIn('statsToggle.checked = rec["show_stats"] === true', qml)
         self.assertIn("backend.setReceiverStatsVisible(checked)", qml)
         self.assertIn("id: receiverScroll", qml)

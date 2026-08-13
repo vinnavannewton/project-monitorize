@@ -387,7 +387,7 @@ Item {
                     id: fecCombo
                     visible: page.isWifi
                     chipWidth: page.optionChipWidth
-                    model: ["Off", "ULPFEC 10%"]
+                    model: ["Off", "RS-FEC 10%"]
                     currentIndex: 0
                     onActivated: page.saveSettings()
                 }

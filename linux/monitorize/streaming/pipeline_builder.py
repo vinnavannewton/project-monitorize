@@ -84,45 +84,51 @@ def _hw_encoder_params(
     encoder_profile = _encoder_profile(encoder_profile)
     one_frame_kbits = max(1, (bitrate + max(fps, 1) - 1) // max(fps, 1))
     if enc_name == "nvh264enc":
+        ir_opt = " gop-mode=intra-refresh" if intra_refresh else ""
         common = (
             f"nvh264enc bitrate={bitrate} vbv-buffer-size={one_frame_kbits} "
             f"zerolatency=true bframes=0 rc-lookahead=0 rc-mode=cbr "
             f"gop-size={key_int} tune=ultra-low-latency strict-gop=true "
-            f"repeat-sequence-header=true aud=true num-surfaces=1 ref-frames=1"
+            f"repeat-sequence-header=true aud=true num-surfaces=1 ref-frames=1{ir_opt}"
         )
         if encoder_profile == "Low Latency":
             return f"{common} preset=p1"
         preset = "p3" if encoder_profile == "Balanced" else "p5"
         return f"{common} preset={preset}"
     elif enc_name in ("vah264enc", "vah264lpenc") and wifi_mode and encoder_profile == "Low Latency":
+        ir_opt = " intra-refresh-type=vertical" if intra_refresh else ""
         return (
             f"{enc_name} rate-control=cbr bitrate={bitrate} cabac=false "
             f"cpb-size={one_frame_kbits} key-int-max={key_int} ref-frames=1 "
-            f"b-frames=0 target-usage=7 async-depth=3 aud=true"
+            f"b-frames=0 target-usage=7 async-depth=3 aud=true{ir_opt}"
         )
     elif enc_name == "vaapih264enc" and encoder_profile == "Low Latency":
+        ir_opt = " intra-refresh-type=vertical" if intra_refresh else ""
         return (
-            f"{enc_name} rate-control=cqp init-qp=20 cabac=false "
-            f"keyframe-period={key_int} max-bframes=0 quality-level=7 aud=true"
+            f"{enc_name} rate-control=cbr bitrate={bitrate} cpb-size={one_frame_kbits} cabac=false "
+            f"keyframe-period={key_int} max-bframes=0 quality-level=7 aud=true{ir_opt}"
         )
     elif enc_name == "vaapih264enc":
         quality = 5 if encoder_profile == "Balanced" else 3
+        ir_opt = " intra-refresh-type=vertical" if intra_refresh else ""
         return (
-            f"{enc_name} rate-control=cqp init-qp=20 cabac=true "
-            f"keyframe-period={key_int} max-bframes=0 quality-level={quality} aud=true"
+            f"{enc_name} rate-control=cbr bitrate={bitrate} cpb-size={one_frame_kbits} cabac=true "
+            f"keyframe-period={key_int} max-bframes=0 quality-level={quality} aud=true{ir_opt}"
         )
     elif encoder_profile != "Low Latency":
         usage = 5 if encoder_profile == "Balanced" else 3
         refs = 1 if encoder_profile == "Balanced" else 2
+        ir_opt = " intra-refresh-type=vertical" if intra_refresh else ""
         return (
-            f"{enc_name} rate-control=cbr bitrate={bitrate} cabac=true cpb-size=2000 "
+            f"{enc_name} rate-control=cbr bitrate={bitrate} cabac=true cpb-size={one_frame_kbits} "
             f"key-int-max={key_int} ref-frames={refs} b-frames=0 "
-            f"target-usage={usage} aud=true"
+            f"target-usage={usage} aud=true{ir_opt}"
         )
     
+    ir_opt = " intra-refresh-type=vertical" if intra_refresh else ""
     return (
-        f"{enc_name} rate-control=cqp qpi=20 qpp=22 cabac=false cpb-size=2000 "
-        f"key-int-max={key_int} ref-frames=1 b-frames=0 target-usage=7 aud=true"
+        f"{enc_name} rate-control=cbr bitrate={bitrate} cabac=false cpb-size={one_frame_kbits} "
+        f"key-int-max={key_int} ref-frames=1 b-frames=0 target-usage=7 aud=true{ir_opt}"
     )
 
 
@@ -173,7 +179,7 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
         int(rtp_endpoint[4])
         if rtp_endpoint and len(rtp_endpoint) > 4 else 0
     )
-    video_bitrate = max(1, round(bitrate * (100 - fec_percent) / 100))
+    video_bitrate = max(1, bitrate)
     zero_copy = hw_encoder != "nvh264enc" or nvidia_memory == "gl"
     always_copy = "false" if hw_encoder and zero_copy else "true"
     keepalive_ms = (
@@ -209,8 +215,8 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
 
     
     
-    key_int = fps * 30 if rtp_endpoint else max(fps // 4, 15)
-    intra_refresh = not bool(rtp_endpoint)
+    key_int = max(15, fps) if rtp_endpoint else max(fps // 4, 15)
+    intra_refresh = bool(hw_encoder)
 
     early_convert = ""
     if hw_encoder:
@@ -299,11 +305,6 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
         sink = (
             f"rtph264pay aggregate-mode=none config-interval=-1 "
             f"mtu={MTU} pt={RTP_PAYLOAD_TYPE}{ssrc} ! "
-            + (
-                f"rtpulpfecenc pt={FEC_PAYLOAD_TYPE} percentage={fec_percent} "
-                "multipacket=true ! "
-                if fec_percent else ""
-            ) +
             f"udpsink host={client_host} port={client_port} bind-port={port} "
             f"sync=false async=false buffer-size={udp_send_buffer_bytes(bitrate)} "
             f"qos-dscp=40"
@@ -464,14 +465,6 @@ def prepare_rtp_endpoint(*, width, height, fps, bitrate, port, server_mode):
     requested_fec_percent = (
         10 if os.environ.get("MONITORIZE_FEC_PERCENT") == "10" else 0
     )
-    if requested_fec_percent and not _gst_inspect("rtpulpfecenc"):
-        print(
-            "[RTP] WARNING: ULPFEC 10% requested, but GStreamer's "
-            "rtpulpfecenc is unavailable; install gst-plugins-good. "
-            "Continuing with FEC Off.",
-            flush=True,
-        )
-        requested_fec_percent = 0
     return wait_for_client(
         port, width=width, height=height, fps=fps, bitrate=bitrate,
         transport=TRANSPORT, requested_fec_percent=requested_fec_percent,
