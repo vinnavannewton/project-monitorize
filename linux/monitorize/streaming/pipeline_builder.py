@@ -571,6 +571,13 @@ def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
         rtp_endpoint[-1] if rtp_endpoint and isinstance(rtp_endpoint[-1], str)
         and rtp_endpoint[-1] in ("h264", "h265") else codec
     )
+    if codec == "h265" and negotiated_codec != "h265":
+        print(
+            "[ERROR] H.265 was requested, but client negotiated H.264. "
+            "Strict H.265 mode enabled; aborting.",
+            flush=True,
+        )
+        raise RuntimeError("H.265 was requested, but client negotiated H.264.")
     if negotiated_codec != codec:
         hw_encoder = get_encoder(
             os.environ.get("MONITORIZE_ENCODER", "cpu"),
@@ -627,6 +634,14 @@ def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
         print(
             "[ERROR] NVIDIA NVENC failed in all permitted memory modes; "
             "CPU fallback is disabled",
+            flush=True,
+        )
+        return last_proc
+
+    if codec == "h265":
+        print(
+            "[ERROR] H.265 hardware encoder failed during startup; "
+            "CPU x264enc fallback is not supported for H.265",
             flush=True,
         )
         return last_proc
