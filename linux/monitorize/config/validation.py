@@ -25,10 +25,8 @@ VALID_ENCODERS = {
     "NVIDIA NVENC (nvh264enc)",
     "Intel/AMD VA-API (vah264enc)",
     "Software (CPU / x264enc)",
-    "NVIDIA NVENC H.265 (nvh265enc)",
-    "Intel/AMD VA-API H.265 (vah265enc)",
 }
-VALID_VIDEO_CODECS = {"H.264 (AVC)", "H.265 (HEVC)"}
+VALID_VIDEO_CODECS = {"H.264 (AVC)", "H.265 (HEVC)", "h264", "h265", "H.264", "H.265"}
 
 
 def clamp_int(value, default, minimum, maximum):
@@ -108,4 +106,5 @@ def sanitize_fec_mode(value):
 
 
 def sanitize_video_codec(value):
-    return value if value in VALID_VIDEO_CODECS else "H.264 (AVC)"
+    val_str = str(value or "").strip()
+    return "H.265 (HEVC)" if val_str in {"H.265 (HEVC)", "h265", "H.265"} else "H.264 (AVC)"

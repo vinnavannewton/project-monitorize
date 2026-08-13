@@ -1037,6 +1037,37 @@ class ReceiverLifecycleTest(unittest.TestCase):
             finally:
                 settings.CONFIG_DIR, settings.CONFIG_FILE = old_dir, old_file
 
+    def test_video_codec_saved_and_cpu_encoder_overrides_to_h264(self):
+        old_dir, old_file = settings.CONFIG_DIR, settings.CONFIG_FILE
+        with tempfile.TemporaryDirectory() as directory:
+            try:
+                settings.CONFIG_DIR = directory
+                settings.CONFIG_FILE = str(Path(directory) / "settings.ini")
+                settings.save_wifi_settings(
+                    resolution="1920x1080", custom_w="", custom_h="",
+                    fps="60", custom_fps="", bitrate="20000",
+                    display_type="Extend",
+                    encoder="Intel/AMD VA-API (vah264enc)",
+                    encoder_profile="Low Latency", video_codec="H.265 (HEVC)",
+                    fec_mode="Off", enable_audio=False,
+                )
+                self.assertEqual(
+                    settings.load_wifi_settings()["video_codec"], "H.265 (HEVC)"
+                )
+                settings.save_wifi_settings(
+                    resolution="1920x1080", custom_w="", custom_h="",
+                    fps="60", custom_fps="", bitrate="20000",
+                    display_type="Extend",
+                    encoder="Software (CPU / x264enc)",
+                    encoder_profile="Low Latency", video_codec="H.265 (HEVC)",
+                    fec_mode="Off", enable_audio=False,
+                )
+                self.assertEqual(
+                    settings.load_wifi_settings()["video_codec"], "H.264 (AVC)"
+                )
+            finally:
+                settings.CONFIG_DIR, settings.CONFIG_FILE = old_dir, old_file
+
     def test_first_run_usb_defaults_are_cpu_1080p_16mbps(self):
         old_dir, old_file = settings.CONFIG_DIR, settings.CONFIG_FILE
         with tempfile.TemporaryDirectory() as directory:
@@ -4422,8 +4453,8 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertNotIn("Wi-Fi video uses direct RTP/UDP", qml)
         self.assertNotIn("MUST EXACTLY MATCH", qml)
         self.assertNotIn("WarningCard", qml)
-        self.assertEqual(qml.count("ChoiceChips {"), 4)
-        self.assertEqual(qml.count("chipWidth: page.optionChipWidth"), 4)
+        self.assertEqual(qml.count("ChoiceChips {"), 5)
+        self.assertEqual(qml.count("chipWidth: page.optionChipWidth"), 5)
         self.assertEqual(qml.count("CustomComboBox {"), 2)
         self.assertIn("RowLayout {", chips_qml)
         self.assertIn("property int chipWidth: 112", chips_qml)
@@ -4448,6 +4479,7 @@ class BackendFacadeTest(unittest.TestCase):
             "displayTypeCombo",
             "encoderCombo",
             "encoderProfileCombo",
+            "videoCodecCombo",
         ):
             self.assertIn(f"id: {control_id}", qml)
 

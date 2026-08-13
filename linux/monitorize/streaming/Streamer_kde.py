@@ -27,6 +27,7 @@ selector_hint = os.environ.get(
 encoder = get_encoder(
     os.environ.get("MONITORIZE_ENCODER", "cpu"),
     os.environ.get("MONITORIZE_REQUIRE_HARDWARE_ENCODER") == "1",
+    codec=os.environ.get("MONITORIZE_VIDEO_CODEC", "h264"),
 )
 host = os.environ.get("MONITORIZE_HOST", "0.0.0.0" if server_mode else "127.0.0.1")
 port = int(os.environ.get(

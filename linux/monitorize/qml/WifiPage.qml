@@ -109,7 +109,8 @@ Item {
             page.bitrateKbpsText(),
             displayTypeCombo.visible ? displayTypeCombo.currentText : "Extend",
             encoderCombo.currentText,
-            encoderProfileCombo.currentText
+            encoderProfileCombo.currentText,
+            videoCodecCombo ? videoCodecCombo.currentText : "H.264 (AVC)"
         ]
         if (page.isWifi) {
             backend.saveWifiSettings(...args, fecCombo.currentText, audioCheck.checked)
@@ -168,6 +169,15 @@ Item {
         if (!encoderProfileCombo.selectValue(saved["encoder_profile"] || "Low Latency", true)) {
             encoderProfileCombo.selectValue("Low Latency");
         }
+
+        let savedCodec = saved["video_codec"] || "H.264 (AVC)";
+        if (savedEnc === "Software (CPU / x264enc)") {
+            savedCodec = "H.264 (AVC)";
+        }
+        if (!videoCodecCombo.selectValue(savedCodec, true)) {
+            videoCodecCombo.selectValue("H.264 (AVC)");
+        }
+
         if (!fecCombo.selectValue(saved["fec_mode"] || "Off", true)) {
             fecCombo.selectValue("Off");
         }
@@ -417,7 +427,27 @@ Item {
                         "Intel/AMD VA-API (vah264enc)",
                         "Software (CPU / x264enc)"
                     ]
-                    onActivated: page.saveSettings()
+                    onActivated: {
+                        if (encoderCombo.currentText === "Software (CPU / x264enc)" && videoCodecCombo.currentText === "H.265 (HEVC)") {
+                            videoCodecCombo.selectValue("H.264 (AVC)")
+                        }
+                        page.saveSettings()
+                    }
+                }
+
+                Text { text: "Video Codec:"; color: theme.textSecondary; font.pixelSize: 14 }
+                ChoiceChips {
+                    id: videoCodecCombo
+                    chipWidth: page.optionChipWidth
+                    model: ["H.264 (AVC)", "H.265 (HEVC)"]
+                    currentIndex: 0
+                    disabledValues: encoderCombo.currentText === "Software (CPU / x264enc)" ? ["H.265 (HEVC)"] : []
+                    onActivated: {
+                        if (encoderCombo.currentText === "Software (CPU / x264enc)" && videoCodecCombo.currentText === "H.265 (HEVC)") {
+                            videoCodecCombo.selectValue("H.264 (AVC)")
+                        }
+                        page.saveSettings()
+                    }
                 }
 
                 Text { text: "Encoder Profile:"; color: theme.textSecondary; font.pixelSize: 14 }
@@ -499,6 +529,7 @@ Item {
                             displayTypeCombo.visible ? displayTypeCombo.currentText : "Extend",
                             encoderCombo.currentText,
                             encoderProfileCombo.currentText,
+                            videoCodecCombo.currentText,
                             page.isWifi,
                             page.isWifi ? fecCombo.currentText : "Off",
                             audioCheck.checked

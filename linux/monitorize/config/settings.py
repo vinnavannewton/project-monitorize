@@ -18,6 +18,7 @@ from monitorize.config.validation import (
     sanitize_fps,
     sanitize_port,
     sanitize_resolution,
+    sanitize_video_codec,
 )
 
 CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".config", "monitorize")
@@ -98,22 +99,23 @@ def _normalize_stream_settings(data: dict) -> dict:
         if data.get("custom_fps") else ""
     )
     data["bitrate"] = str(sanitize_bitrate(data["bitrate"]))
-    if data["resolution"] == "Custom...":
-        width, height = sanitize_resolution(
-            f"{data.get('custom_w', '')}x{data.get('custom_h', '')}"
-        )
-        data["custom_w"] = str(width)
-        data["custom_h"] = str(height)
+    data["video_codec"] = sanitize_video_codec(data.get("video_codec", "H.264 (AVC)"))
+    if data["encoder"] == "Software (CPU / x264enc)":
+        data["video_codec"] = "H.264 (AVC)"
     return data
 
 def save_wifi_settings(*, resolution: str, custom_w: str, custom_h: str,
                        fps: str, custom_fps: str, bitrate: str,
                        display_type: str, encoder: str, encoder_profile: str,
+                       video_codec: str = "H.264 (AVC)",
                        fec_mode: str = "Off", enable_audio: bool = False):
     values = locals()
     values["display_type"] = sanitize_display_type(display_type)
     values["encoder"] = sanitize_encoder(encoder)
     values["encoder_profile"] = sanitize_encoder_profile(encoder_profile)
+    values["video_codec"] = sanitize_video_codec(video_codec)
+    if values["encoder"] == "Software (CPU / x264enc)":
+        values["video_codec"] = "H.264 (AVC)"
     values["fec_mode"] = sanitize_fec_mode(fec_mode)
     values["enable_audio"] = bool(enable_audio)
     values["fps"] = str(sanitize_fps(fps))
@@ -132,11 +134,15 @@ def save_wifi_settings(*, resolution: str, custom_w: str, custom_h: str,
 def save_usb_settings(*, resolution: str, custom_w: str, custom_h: str,
                       fps: str, custom_fps: str, bitrate: str,
                       display_type: str, encoder: str, encoder_profile: str,
+                      video_codec: str = "H.264 (AVC)",
                       enable_audio: bool = False):
     values = locals()
     values["display_type"] = sanitize_display_type(display_type)
     values["encoder"] = sanitize_encoder(encoder)
     values["encoder_profile"] = sanitize_encoder_profile(encoder_profile)
+    values["video_codec"] = sanitize_video_codec(video_codec)
+    if values["encoder"] == "Software (CPU / x264enc)":
+        values["video_codec"] = "H.264 (AVC)"
     values["enable_audio"] = bool(enable_audio)
     values["fps"] = str(sanitize_fps(fps))
     values["custom_fps"] = str(sanitize_fps(custom_fps)) if custom_fps else ""
@@ -173,6 +179,7 @@ STREAM_DEFAULTS = {
     "display_type": "Extend",
     "encoder": "Software (CPU / x264enc)",
     "encoder_profile": "Low Latency",
+    "video_codec": "H.264 (AVC)",
     "enable_audio": False,
 }
 WIFI_DEFAULTS = {**STREAM_DEFAULTS, "bitrate": "20000", "fec_mode": "Off"}

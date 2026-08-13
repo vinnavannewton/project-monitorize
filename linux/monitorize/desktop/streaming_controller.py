@@ -220,7 +220,7 @@ class StreamingController(QObject):
 
     def start(
         self, res, fps, bitrate, display_type, encoder, encoder_profile, wifi,
-        options=None, fec_mode="Off", enable_audio=False,
+        options=None, video_codec="H.264 (AVC)", fec_mode="Off", enable_audio=False,
     ):
         self.stop()
         self.generation += 1
@@ -234,19 +234,21 @@ class StreamingController(QObject):
         self.display_type = sanitize_display_type(display_type)
         self.encoder = sanitize_encoder(encoder)
         self.encoder_profile = sanitize_encoder_profile(encoder_profile)
+        self.video_codec = sanitize_video_codec(video_codec)
+        if self.encoder == "Software (CPU / x264enc)":
+            self.video_codec = "H.264 (AVC)"
+
         self.fec_mode = sanitize_fec_mode(fec_mode) if wifi else "Off"
         self.audio_enabled = bool(enable_audio)
         self.env = QProcessEnvironment.systemEnvironment()
         self.env.insert("PYTHONUNBUFFERED", "1")
         self.env.insert("MONITORIZE_ENCODER", {
             "NVIDIA NVENC (nvh264enc)": "nvidia",
-            "NVIDIA NVENC H.265 (nvh265enc)": "nvidia",
             "Intel/AMD VA-API (vah264enc)": "vaapi",
-            "Intel/AMD VA-API H.265 (vah265enc)": "vaapi",
         }.get(self.encoder, "cpu"))
         self.env.insert("MONITORIZE_ENCODER_PROFILE", self.encoder_profile)
-        self.env.insert("MONITORIZE_VIDEO_CODEC",
-            "h265" if "H.265" in self.encoder else "h264")
+        is_hevc = self.video_codec in ("H.265 (HEVC)", "h265", "H.265") and self.encoder != "Software (CPU / x264enc)"
+        self.env.insert("MONITORIZE_VIDEO_CODEC", "h265" if is_hevc else "h264")
         self.env.insert("MONITORIZE_REQUIRE_HARDWARE_ENCODER", "0")
         if wifi:
             self.env.insert("MONITORIZE_VIDEO_TRANSPORT", "rtp-udp-v1")
@@ -858,13 +860,9 @@ class StreamingController(QObject):
         env.insert("PYTHONUNBUFFERED", "1")
         env.insert("MONITORIZE_ENCODER", {
             "NVIDIA NVENC (nvh264enc)": "nvidia",
-            "NVIDIA NVENC H.265 (nvh265enc)": "nvidia",
             "Intel/AMD VA-API (vah264enc)": "vaapi",
-            "Intel/AMD VA-API H.265 (vah265enc)": "vaapi",
         }.get(third_encoder, "cpu"))
         env.insert("MONITORIZE_ENCODER_PROFILE", third_encoder_profile)
-        env.insert("MONITORIZE_VIDEO_CODEC",
-            "h265" if "H.265" in third_encoder else "h264")
         if self.wifi:
             env.insert("MONITORIZE_VIDEO_TRANSPORT", "rtp-udp-v1")
             env.insert(

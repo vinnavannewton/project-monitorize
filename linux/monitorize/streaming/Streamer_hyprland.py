@@ -34,6 +34,7 @@ sys.exit(run_portal_streamer(
     get_encoder(
         os.environ.get("MONITORIZE_ENCODER", "cpu"),
         os.environ.get("MONITORIZE_REQUIRE_HARDWARE_ENCODER") == "1",
+        codec=os.environ.get("MONITORIZE_VIDEO_CODEC", "h264"),
     ),
     os.environ.get("MONITORIZE_HOST", "0.0.0.0" if server_mode else "127.0.0.1"),
 ))
