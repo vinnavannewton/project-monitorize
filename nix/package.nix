@@ -35,6 +35,7 @@ python3Packages.buildPythonApplication rec {
     gobject-introspection
     pkg-config
     wayland
+    bash
   ];
 
   buildInputs = [
@@ -82,6 +83,9 @@ python3Packages.buildPythonApplication rec {
     exec ${python}/bin/python3 -m monitorize "\$@"
     WRAPPER
     chmod +x "$out/bin/monitorize"
+
+    # Patch /usr/bin/env shebang before executing the script.
+    patchShebangs native/kde_virtual_output/build.sh
 
     # Native KWin virtual-output owner. The hidden desktop entry below grants
     # this exact executable access to KWin's restricted screencast protocol.
