@@ -177,6 +177,7 @@ def _negotiate_udp(host, control_port, udp_port):
         "transport": "rtp-udp-v1", "port": udp_port,
         "type": "start",
         "decoderProfiles": ["high", "constrained-baseline"],
+        "supportedCodecs": ["h264", "h265"],
     }, separators=(",", ":")).encode()
     with socket.create_connection((host, control_port), timeout=1.5) as control:
         control.settimeout(1.5)

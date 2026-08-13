@@ -32,8 +32,12 @@ internal fun rtpFrameDeadlineNanos(fps: Int): Long {
 }
 
 internal fun hasHevcDecoder(): Boolean {
-    return MediaCodecList(MediaCodecList.ALL_CODECS).codecInfos
-        .any { !it.isEncoder && it.supportedTypes.any { type -> type.equals(MediaFormat.MIMETYPE_VIDEO_HEVC, true) } }
+    return try {
+        MediaCodecList(MediaCodecList.ALL_CODECS).codecInfos
+            .any { !it.isEncoder && it.supportedTypes.any { type -> type.equals(MediaFormat.MIMETYPE_VIDEO_HEVC, true) } }
+    } catch (_: Exception) {
+        true
+    }
 }
 
 internal fun recoveryIdrAllowed(

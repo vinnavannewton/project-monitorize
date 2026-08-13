@@ -28,9 +28,9 @@ def negotiate_fec_percent(message, requested_percent):
 
 
 def negotiate_codec(message, requested_codec):
-    """Return the codec to use, falling back to h264 if client doesn't support."""
-    supported = message.get("supportedCodecs", ["h264"])
-    if requested_codec in supported:
+    """Return the codec to use, falling back to h264 if client explicitly doesn't support."""
+    supported = message.get("supportedCodecs")
+    if supported is None or requested_codec in supported:
         return requested_codec
     return "h264"
 

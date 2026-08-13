@@ -268,7 +268,7 @@ def build_pipeline(*, pw_fd, node_id, width, height, fps, bitrate, port,
     
     
     key_int = max(15, fps) if rtp_endpoint else max(fps // 4, 15)
-    is_hevc = codec == "h265"
+    is_hevc = codec == "h265" or bool(hw_encoder and "h265" in hw_encoder)
     intra_refresh = bool(hw_encoder) and not is_hevc
 
     early_convert = ""
@@ -495,8 +495,9 @@ def _same_nvidia_kwin_gpu():
     return True, f"{name} at {pci_id}"
 
 
-def _nvidia_memory_candidates():
-    encoder = _gst_inspect("nvh264enc")
+def _nvidia_memory_candidates(codec="h264"):
+    encoder_name = "nvh265enc" if codec == "h265" else "nvh264enc"
+    encoder = _gst_inspect(encoder_name)
     candidates = []
     gl_elements = ("glupload", "glcolorconvert", "glcolorscale", "cudaupload")
     same_gpu, reason = _same_nvidia_kwin_gpu()
@@ -566,13 +567,19 @@ def launch_with_fallback(*, pw_fd, node_id, width, height, fps, bitrate, port,
         rtp_endpoint[-1] if rtp_endpoint and isinstance(rtp_endpoint[-1], str)
         and rtp_endpoint[-1] in ("h264", "h265") else codec
     )
+    if negotiated_codec != codec:
+        hw_encoder = get_encoder(
+            os.environ.get("MONITORIZE_ENCODER", "cpu"),
+            require_hardware,
+            codec=negotiated_codec,
+        )
     modes = [None]
     if hw_encoder in ("nvh264enc", "nvh265enc"):
         requested = os.environ.get("MONITORIZE_NVIDIA_MEMORY", "auto").lower()
         modes = (
             [requested]
             if requested in {"gl", "cuda", "system"}
-            else _nvidia_memory_candidates()
+            else _nvidia_memory_candidates(negotiated_codec)
         )
 
     last_proc = None

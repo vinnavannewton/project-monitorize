@@ -4736,6 +4736,20 @@ class BackendFacadeTest(unittest.TestCase):
         } <= methods)
         backend.network_timer.stop()
 
+    def test_start_streaming_slot_parameter_count_matches_qml_call(self):
+        with patch("monitorize.desktop.backend.get_local_ip", return_value="127.0.0.1"):
+            backend = MonitorizeBackend("kde")
+        meta = backend.metaObject()
+        match = None
+        for i in range(meta.methodCount()):
+            method = meta.method(i)
+            if method.name().data().decode() == "startStreaming":
+                match = method
+                break
+        self.assertIsNotNone(match)
+        self.assertEqual(match.parameterCount(), 10)
+        backend.network_timer.stop()
+
     def test_second_stream_active_comes_from_streaming_controller(self):
         with patch("monitorize.desktop.backend.get_local_ip", return_value="127.0.0.1"):
             backend = MonitorizeBackend("kde")

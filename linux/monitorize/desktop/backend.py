@@ -329,7 +329,7 @@ class MonitorizeBackend(QObject):
     def stopReceiving(self):
         self.receiver.stop()
 
-    @pyqtSlot(str, str, str, str, str, str, str, str, bool, str, bool)
+    @pyqtSlot(str, str, str, str, str, str, str, bool, str, bool)
     def startStreaming(
         self, res, fps, bitrate, display_type, encoder, encoder_profile,
         video_codec, wifi, fec_mode, enable_audio,
