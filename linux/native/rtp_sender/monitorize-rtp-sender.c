@@ -37,6 +37,10 @@ static struct packet *tail;
 static size_t queued_packets;
 static uint64_t next_send_ns;
 static uint64_t pacing_bytes_per_second;
+static uint64_t frame_interval_ns;
+static uint32_t current_send_timestamp;
+static uint64_t last_frame_send_ns;
+static int frame_pacing_started;
 static uint64_t interval_bytes;
 static uint64_t interval_packets;
 static uint64_t interval_drops;
@@ -85,6 +89,7 @@ static void flush_queue_locked(void) {
     }
     tail = NULL;
     queued_packets = 0;
+    frame_pacing_started = 0;
 }
 
 static size_t count_queued_frames_locked(void) {
@@ -136,6 +141,16 @@ static int send_due(int socket_fd) {
         pthread_mutex_unlock(&queue_mutex);
         return 0;
     }
+
+    /* Frame-pacing floor: when the head packet belongs to a new frame,
+     * ensure we don't send it earlier than last_frame_send_ns + frame_interval_ns.
+     * This prevents small P-frames from bunching together during static scenes. */
+    if (frame_pacing_started && head->timestamp != current_send_timestamp) {
+        uint64_t frame_deadline = last_frame_send_ns + frame_interval_ns;
+        if (frame_deadline > next_send_ns)
+            next_send_ns = frame_deadline;
+    }
+
     uint64_t now = monotonic_ns();
     uint64_t deadline_ns = next_send_ns;
     pthread_mutex_unlock(&queue_mutex);
@@ -153,6 +168,14 @@ static int send_due(int socket_fd) {
         pthread_mutex_unlock(&queue_mutex);
         return 0;
     }
+
+    /* Record frame boundary before sending. */
+    if (!frame_pacing_started || head->timestamp != current_send_timestamp) {
+        last_frame_send_ns = now;
+        current_send_timestamp = head->timestamp;
+        frame_pacing_started = 1;
+    }
+
     struct mmsghdr messages[MAX_BATCH] = {0};
     struct iovec vectors[MAX_BATCH] = {0};
     struct packet *packet = head;
@@ -186,8 +209,10 @@ static int send_due(int socket_fd) {
         free(done);
     }
     if (!head) tail = NULL;
-    next_send_ns = (next_send_ns > now ? next_send_ns : now) +
+    /* Byte-rate deadline for the data just sent. */
+    uint64_t byte_deadline = (next_send_ns > now ? next_send_ns : now) +
         sent_bytes * 1000000000ULL / pacing_bytes_per_second;
+    next_send_ns = byte_deadline;
     pthread_mutex_unlock(&queue_mutex);
     return sent;
 }
@@ -291,6 +316,7 @@ int main(int argc, char **argv) {
         send_buffer < 262144 || send_buffer > 2097152 ||
         pacing_kbps < 1000 || pacing_kbps > 250000) return 2;
     pacing_bytes_per_second = pacing_kbps * 1000 / 8;
+    frame_interval_ns = 1000000000ULL / (uint64_t)fps;
     signal(SIGINT, stop_signal);
     signal(SIGTERM, stop_signal);
     if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0 || getppid() == 1) return 1;
