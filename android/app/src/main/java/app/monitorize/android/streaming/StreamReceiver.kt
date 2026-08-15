@@ -40,6 +40,22 @@ internal fun hasHevcDecoder(): Boolean {
     }
 }
 
+internal fun detectNalCodec(nalHeaderByte: Int): String? {
+    val raw = nalHeaderByte and 0xFF
+    val hevcType = (raw ushr 1) and 0x3F
+    return when {
+        
+        hevcType in 32..35 || hevcType == 39 -> "h265"
+        
+        raw == 0x26 || raw == 0x28 || raw == 0x2A -> "h265"
+        
+        raw in setOf(0x67, 0x27, 0x47, 0x68, 0x28, 0x48, 0x09) -> "h264"
+        
+        raw in setOf(0x65, 0x25, 0x45) -> "h264"
+        else -> null
+    }
+}
+
 internal fun recoveryIdrAllowed(
     lastRequestMs: Long,
     nowMs: Long,
@@ -830,9 +846,10 @@ class StreamReceiver(
 
             onStatusChange?.invoke(if (hasConnected) "Reconnected" else "Connected")
             onTransportReady?.invoke()
-            decoder.init(width, height, fps)
+            decoder.init(width, height, fps, "h264")
             onStatusChange?.invoke("")
             hasConnected = true
+            onStats?.invoke(StreamStats())
 
             processStreamLoop(socket.getInputStream(), streamType)
             try { socket.close() } catch (e: Exception) {}
@@ -866,6 +883,72 @@ class StreamReceiver(
         var waitingForKeyFrame = true
         var idleReads = 0
         var decoderFailed = false
+        var currentCodec = "h264"
+        var decoderInitializedCodec: String? = "h264"
+
+        var lastStats = android.os.SystemClock.uptimeMillis()
+        var receivedBytes = 0L
+        var readChunks = 0
+        var inputFramesCount = 0
+        var smoothedInputFps = 0f
+        var smoothedDecodedFps = 0f
+        var smoothedRenderedFps = 0f
+
+        fun sampleAndEmitStats() {
+            val statsNow = android.os.SystemClock.uptimeMillis()
+            val elapsedMs = (statsNow - lastStats).coerceAtLeast(1)
+            if (elapsedMs < 250) return
+
+            val stats = decoder.takeStats()
+            val receivedKbps = ((receivedBytes * 8L) / elapsedMs).toInt()
+            val chunksPerSecond = ((readChunks * 1_000L) / elapsedMs).toInt()
+            val instInputFps = inputFramesCount.toFloat() * 1_000f / elapsedMs
+            val instDecodedFps = stats.decodedFrames.toFloat() * 1_000f / elapsedMs
+            val instRenderedFps = stats.renderedFrames.toFloat() * 1_000f / elapsedMs
+            smoothedInputFps = if (smoothedInputFps == 0f) instInputFps else (smoothedInputFps * 0.7f + instInputFps * 0.3f)
+            smoothedDecodedFps = if (smoothedDecodedFps == 0f) instDecodedFps else (smoothedDecodedFps * 0.7f + instDecodedFps * 0.3f)
+            smoothedRenderedFps = if (smoothedRenderedFps == 0f) instRenderedFps else (smoothedRenderedFps * 0.7f + instRenderedFps * 0.3f)
+
+            val snapshot = StreamStats(
+                receivedKbps = receivedKbps,
+                packetsPerSecond = chunksPerSecond,
+                lossPercent = 0f,
+                incompleteFrames = 0,
+                inputFps = smoothedInputFps,
+                decodedFps = smoothedDecodedFps,
+                renderedFps = smoothedRenderedFps,
+                decodeMs = stats.decodeMicros / 1_000f,
+                renderMs = stats.renderMicros / 1_000f,
+                queueDepth = stats.queueDepth,
+                decoderDroppedFrames = stats.droppedFrames,
+                inputFrames = inputFramesCount,
+                decodedFrames = stats.decodedFrames,
+                renderedFrames = stats.renderedFrames,
+                measurementMs = elapsedMs,
+            )
+            onStats?.invoke(snapshot)
+            receivedBytes = 0L
+            readChunks = 0
+            inputFramesCount = 0
+            lastStats = statsNow
+        }
+
+        fun ensureDecoderInitialized(codec: String) {
+            if (decoderInitializedCodec == codec) return
+            Log.i(TAG, "$streamType initializing decoder for $codec (${width}x${height}@${fps})")
+            if (!decoder.init(width, height, fps, codec)) {
+                Log.w(TAG, "$streamType failed to initialize decoder for $codec")
+                decoderFailed = true
+                return
+            }
+            decoderInitializedCodec = codec
+            accessUnitSize = 0
+            accessUnitHasVcl = false
+            accessUnitHasIdr = false
+            accessUnitHasConfig = false
+            codecConfigSize = 0
+            waitingForKeyFrame = true
+        }
 
         fun flushAccessUnit() {
             if (decoderFailed) {
@@ -883,6 +966,7 @@ class StreamReceiver(
                     accessUnitHasConfig = false
                     return
                 }
+                ensureDecoderInitialized(currentCodec)
                 if (waitingForKeyFrame && !accessUnitHasConfig && codecConfigSize > 0) {
                     if (codecConfigSize + accessUnitSize <= accessUnit.size) {
                         System.arraycopy(accessUnit, 0, accessUnit, codecConfigSize, accessUnitSize)
@@ -894,6 +978,7 @@ class StreamReceiver(
                     }
                 }
                 waitingForKeyFrame = false
+                inputFramesCount++
                 when (decoder.feedChunk(accessUnit, 0, accessUnitSize, accessUnitHasIdr)) {
                     H264Decoder.SubmissionResult.FAILED -> {
                         Log.w(TAG, "$streamType decoder rejected frame; reconnecting")
@@ -910,10 +995,10 @@ class StreamReceiver(
             accessUnitHasConfig = false
         }
 
-        fun rememberCodecConfig(nalStart: Int, nalEnd: Int, nalType: Int) {
+        fun rememberCodecConfig(nalStart: Int, nalEnd: Int, isHevc: Boolean, nalType: Int) {
             val nalSize = nalEnd - nalStart
             if (nalSize <= 0 || nalSize > codecConfig.size) return
-            if (nalType == 7 || nalType == 32) {
+            if ((!isHevc && nalType == 7) || (isHevc && nalType == 32)) {
                 codecConfigSize = 0
             }
             if (codecConfigSize + nalSize > codecConfig.size) {
@@ -930,19 +1015,32 @@ class StreamReceiver(
             val nalHeader = nalStart + startCodeLen
             if (nalHeader >= nalEnd) return
 
-            val rawType = buf[nalHeader].toInt()
+            val rawType = buf[nalHeader].toInt() and 0xFF
             val nalTypeH264 = rawType and 0x1F
             val nalTypeH265 = (rawType ushr 1) and 0x3F
-            val isCodecConfig = nalTypeH264 in 7..8 || nalTypeH265 in 32..34
-            if (isCodecConfig) {
-                rememberCodecConfig(nalStart, nalEnd, if (nalTypeH265 in 32..34) nalTypeH265 else nalTypeH264)
+
+            val detected = detectNalCodec(rawType)
+            if (detected != null && detected != currentCodec) {
+                currentCodec = detected
+                ensureDecoderInitialized(currentCodec)
             }
-            val isVcl = nalTypeH264 in 1..5 || nalTypeH265 in 0..31
-            val isIdr = nalTypeH264 == 5 || nalTypeH265 in 16..21
+
+            val isHevc = currentCodec == "h265"
+            val isCodecConfig = if (isHevc) nalTypeH265 in 32..34 else nalTypeH264 in 7..8
+            if (isCodecConfig) {
+                rememberCodecConfig(nalStart, nalEnd, isHevc, if (isHevc) nalTypeH265 else nalTypeH264)
+            }
+            val isVcl = if (isHevc) nalTypeH265 in 0..31 else nalTypeH264 in 1..5
+            val isIdr = if (isHevc) nalTypeH265 in 16..21 else nalTypeH264 == 5
             val startsNewAccessUnit = accessUnitHasVcl && (
-                nalTypeH264 in 6..9 || nalTypeH265 in 32..35 ||
-                    (isVcl && isFirstSlice(buf, nalHeader + 1, nalEnd))
-                )
+                if (isHevc) {
+                    nalTypeH265 in 32..35 || nalTypeH265 == 39 ||
+                        (isVcl && isFirstSliceHevc(buf, nalHeader + 2, nalEnd))
+                } else {
+                    nalTypeH264 in 6..9 ||
+                        (isVcl && isFirstSliceH264(buf, nalHeader + 1, nalEnd))
+                }
+            )
 
             if (startsNewAccessUnit) {
                 flushAccessUnit()
@@ -974,6 +1072,7 @@ class StreamReceiver(
                 input.read(readBuf)
             } catch (e: SocketTimeoutException) {
                 idleReads++
+                sampleAndEmitStats()
                 if (idleReads < MAX_IDLE_READS) {
                     onStatusChange?.invoke("Waiting for frames…")
                     continue
@@ -989,6 +1088,10 @@ class StreamReceiver(
                 if (running.get()) Log.w(TAG, "$streamType stream ended. Reconnecting…")
                 break
             }
+
+            receivedBytes += bytesRead
+            readChunks++
+            sampleAndEmitStats()
 
             if (idleReads > 0) {
                 idleReads = 0
@@ -1045,6 +1148,7 @@ class StreamReceiver(
         }
 
         flushAccessUnit()
+        sampleAndEmitStats()
     }
 
     private fun findStartCode(buf: ByteArray, from: Int, limit: Int): Int {
@@ -1083,8 +1187,13 @@ class StreamReceiver(
         }
     }
 
-    private fun isFirstSlice(buf: ByteArray, rbspStart: Int, limit: Int): Boolean {
+    private fun isFirstSliceH264(buf: ByteArray, rbspStart: Int, limit: Int): Boolean {
         return H264BitReader(buf, rbspStart, limit).readUnsignedExpGolomb()?.let { it == 0 } ?: true
+    }
+
+    private fun isFirstSliceHevc(buf: ByteArray, sliceHeaderStart: Int, limit: Int): Boolean {
+        if (sliceHeaderStart >= limit) return true
+        return (buf[sliceHeaderStart].toInt() and 0x80) != 0
     }
 
     private class H264BitReader(

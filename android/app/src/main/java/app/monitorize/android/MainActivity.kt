@@ -837,21 +837,6 @@ fun HomeScreen(
                                     fontWeight = FontWeight.Bold
                                 )
                             }
-                            if (!isTablet) {
-                                IconButton(
-                                    onClick = onSettingsToggle,
-                                    modifier = Modifier
-                                        .size(if (isLandscapeMobile) 32.dp else 36.dp)
-                                        .background(CardDark, CircleShape)
-                                ) {
-                                    Icon(
-                                        Icons.Default.Settings,
-                                        contentDescription = "Settings",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(if (isLandscapeMobile) 18.dp else 20.dp)
-                                    )
-                                }
-                            }
                         }
                     }
                 }
@@ -1321,8 +1306,8 @@ fun ReceiveScreen(
         }
 
         
-        if (showStreamingStats && hostIp.isNotBlank()) {
-            StreamingStatsOverlay(streamStats)
+        if (showStreamingStats) {
+            StreamingStatsOverlay(streamStats, isUsb = hostIp.isBlank())
         }
 
         if (status.isNotEmpty()) {
@@ -1342,28 +1327,47 @@ fun ReceiveScreen(
 }
 
 @Composable
-private fun BoxScope.StreamingStatsOverlay(stats: StreamStats) {
-    val text = String.format(
-        Locale.US,
-        "Wi-Fi RTP/UDP\nRX %d kbps · %d pps · loss %.1f%%\n" +
-            "frames in/dec/out %.1f / %.1f / %.1f fps\n" +
-            "decode %.1f ms · display %.1f ms · q %d\n" +
-            "capture-to-render estimate %s\nincomplete %d · decoder drops %d",
-        stats.receivedKbps,
-        stats.packetsPerSecond,
-        stats.lossPercent,
-        stats.inputFps,
-        stats.decodedFps,
-        stats.renderedFps,
-        stats.decodeMs,
-        stats.renderMs,
-        stats.queueDepth,
-        if (stats.endToEndMs != null && stats.clockErrorMs != null) {
-            String.format(Locale.US, "%.1f ms ± %.1f ms", stats.endToEndMs, stats.clockErrorMs)
-        } else "— (syncing)",
-        stats.incompleteFrames,
-        stats.decoderDroppedFrames,
-    )
+private fun BoxScope.StreamingStatsOverlay(stats: StreamStats, isUsb: Boolean = false) {
+    val text = if (isUsb) {
+        String.format(
+            Locale.US,
+            "USB TCP\nRX %d kbps · %d chunks/s\n" +
+                "frames in/dec/out %.1f / %.1f / %.1f fps\n" +
+                "decode %.1f ms · display %.1f ms · q %d\n" +
+                "decoder drops %d",
+            stats.receivedKbps,
+            stats.packetsPerSecond,
+            stats.inputFps,
+            stats.decodedFps,
+            stats.renderedFps,
+            stats.decodeMs,
+            stats.renderMs,
+            stats.queueDepth,
+            stats.decoderDroppedFrames,
+        )
+    } else {
+        String.format(
+            Locale.US,
+            "Wi-Fi RTP/UDP\nRX %d kbps · %d pps · loss %.1f%%\n" +
+                "frames in/dec/out %.1f / %.1f / %.1f fps\n" +
+                "decode %.1f ms · display %.1f ms · q %d\n" +
+                "capture-to-render estimate %s\nincomplete %d · decoder drops %d",
+            stats.receivedKbps,
+            stats.packetsPerSecond,
+            stats.lossPercent,
+            stats.inputFps,
+            stats.decodedFps,
+            stats.renderedFps,
+            stats.decodeMs,
+            stats.renderMs,
+            stats.queueDepth,
+            if (stats.endToEndMs != null && stats.clockErrorMs != null) {
+                String.format(Locale.US, "%.1f ms ± %.1f ms", stats.endToEndMs, stats.clockErrorMs)
+            } else "— (syncing)",
+            stats.incompleteFrames,
+            stats.decoderDroppedFrames,
+        )
+    }
     Box(
         modifier = Modifier
             .align(Alignment.TopStart)
