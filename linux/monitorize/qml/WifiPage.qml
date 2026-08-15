@@ -74,12 +74,14 @@ Item {
 
     function recommendedBitrateKbps() {
         return backend.recommendedWifiBitrateKbps(
-            page.selectedWidth(), page.selectedHeight(), page.selectedFps()
+            page.selectedWidth(), page.selectedHeight(), page.selectedFps(),
+            videoCodecCombo ? videoCodecCombo.currentText : "H.264 (AVC)",
+            audioCheck ? audioCheck.checked : false
         )
     }
 
     function resolutionOrFpsChanged() {
-        if (page.isWifi && page.selectedWidth() > 0 &&
+        if (page.autoBitrate && page.selectedWidth() > 0 &&
                 page.selectedHeight() > 0 && page.selectedFps() > 0) {
             page.setBitrateMbps(page.recommendedBitrateKbps() / 1000, true, true)
         } else {
@@ -146,10 +148,11 @@ Item {
             customFps.text = saved["custom_fps"] || "";
         }
         
-        let savedMbps = Number(saved["bitrate"] || "16000") / 1000;
+        let defaultBitrate = page.isWifi ? "20000" : "16000";
+        let savedMbps = Number(saved["bitrate"] || defaultBitrate) / 1000;
         page.setBitrateMbps(
             savedMbps, false,
-            page.isWifi && Math.abs(savedMbps - page.recommendedBitrateKbps() / 1000) < 0.001
+            Math.abs(savedMbps - page.recommendedBitrateKbps() / 1000) < 0.001
         );
         
         if (displayTypeCombo) {
@@ -367,16 +370,8 @@ Item {
                         onEditingFinished: page.setBitrateMbps(parseFloat(text), true, false)
                     }
 
-                    Text {
-                        text: "Mbps"
-                        color: theme.textMuted
-                        font.pixelSize: 12
-                        visible: !page.isWifi
-                    }
-
                     CustomButton {
                         text: "Use auto"
-                        visible: page.isWifi
                         primary: page.autoBitrate
                         implicitWidth: page.optionChipWidth
                         implicitHeight: 30
@@ -446,7 +441,11 @@ Item {
                         if (encoderCombo.currentText === "Software (CPU / x264enc)" && videoCodecCombo.currentText === "H.265 (HEVC)") {
                             videoCodecCombo.selectValue("H.264 (AVC)")
                         }
-                        page.saveSettings()
+                        if (page.autoBitrate) {
+                            page.setBitrateMbps(page.recommendedBitrateKbps() / 1000, true, true)
+                        } else {
+                            page.saveSettings()
+                        }
                     }
                 }
 
@@ -490,7 +489,13 @@ Item {
                         id: audioCheck
                         text: "Enable Audio"
                         Layout.alignment: Qt.AlignLeft
-                        onCheckedChanged: page.saveSettings()
+                        onCheckedChanged: {
+                            if (page.autoBitrate) {
+                                page.setBitrateMbps(page.recommendedBitrateKbps() / 1000, true, true)
+                            } else {
+                                page.saveSettings()
+                            }
+                        }
                     }
 
                     Text {

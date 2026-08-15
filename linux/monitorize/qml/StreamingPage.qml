@@ -79,7 +79,7 @@ Item {
 
     function secondResolutionOrFpsChanged() {
         let resolution = page.secondResolutionValue().split("x")
-        if (backend.isWifiStreaming && Number(resolution[0]) > 0 &&
+        if (page.secondAutoBitrate && Number(resolution[0]) > 0 &&
                 Number(resolution[1]) > 0 && Number(page.secondFpsValue()) > 0) {
             page.setSecondBitrateMbps(
                 page.secondRecommendedBitrateKbps() / 1000, true, true
@@ -766,16 +766,8 @@ Item {
                         onEditingFinished: page.setSecondBitrateMbps(parseFloat(text), true, false)
                     }
 
-                    Text {
-                        text: "Mbps"
-                        color: theme.cardTextMuted
-                        font.pixelSize: 12
-                        visible: !backend.isWifiStreaming
-                    }
-
                     CustomButton {
                         text: "Use auto"
-                        visible: backend.isWifiStreaming
                         primary: page.secondAutoBitrate
                         implicitWidth: page.optionChipWidth
                         implicitHeight: 30

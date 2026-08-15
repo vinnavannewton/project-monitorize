@@ -3535,6 +3535,11 @@ class PipelineBuilderTest(unittest.TestCase):
         self.assertEqual(80_000, recommended_wifi_bitrate_kbps(3840, 2160, 60))
         self.assertEqual(1_000, recommended_wifi_bitrate_kbps(320, 240, 24))
         self.assertEqual(100_000, recommended_wifi_bitrate_kbps(7680, 4320, 240))
+        
+        self.assertEqual(8_000, recommended_wifi_bitrate_kbps(1280, 720, 60, "H.265 (HEVC)"))
+        self.assertEqual(15_000, recommended_wifi_bitrate_kbps(1920, 1080, 60, "H.265 (HEVC)"))
+        self.assertEqual(21_000, recommended_wifi_bitrate_kbps(1920, 1080, 120, "H.265 (HEVC)"))
+        self.assertEqual(60_000, recommended_wifi_bitrate_kbps(3840, 2160, 60, "H.265 (HEVC)"))
 
     def test_nvidia_auto_prefers_same_gpu_gl_then_cuda_then_system(self):
         encoder = "memory:GLMemory memory:CUDAMemory"

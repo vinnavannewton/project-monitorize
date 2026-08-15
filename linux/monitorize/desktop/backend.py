@@ -39,8 +39,8 @@ from monitorize.config.validation import (
     valid_port,
 )
 
-def recommended_wifi_bitrate_kbps(width, height, fps):
-    """Return Moonlight's resolution/FPS-derived default bitrate."""
+def recommended_wifi_bitrate_kbps(width, height, fps, video_codec="H.264 (AVC)", audio_enabled=False):
+    """Return Moonlight's resolution/FPS/codec-derived default bitrate."""
     width = max(1, int(width))
     height = max(1, int(height))
     fps = max(1, int(fps))
@@ -62,7 +62,8 @@ def recommended_wifi_bitrate_kbps(width, height, fps):
                 )
             break
     scaled_fps = fps if fps <= 60 else math.sqrt(fps / 60) * 60
-    bitrate = int(resolution_factor * scaled_fps / 30 + 0.5) * 1_000
+    codec_factor = 0.75 if ("h265" in str(video_codec).lower() or "hevc" in str(video_codec).lower()) else 1.0
+    bitrate = int(resolution_factor * scaled_fps / 30 * codec_factor + 0.5) * 1_000
     return max(1_000, min(100_000, bitrate))
 
 
@@ -272,8 +273,16 @@ class MonitorizeBackend(QObject):
         )
 
     @pyqtSlot(int, int, int, result=int)
-    def recommendedWifiBitrateKbps(self, width, height, fps):
-        return recommended_wifi_bitrate_kbps(width, height, fps)
+    @pyqtSlot(int, int, int, str, result=int)
+    @pyqtSlot(int, int, int, str, bool, result=int)
+    def recommendedWifiBitrateKbps(self, width, height, fps, video_codec="H.264 (AVC)", audio_enabled=False):
+        return recommended_wifi_bitrate_kbps(width, height, fps, video_codec, audio_enabled)
+
+    @pyqtSlot(int, int, int, result=int)
+    @pyqtSlot(int, int, int, str, result=int)
+    @pyqtSlot(int, int, int, str, bool, result=int)
+    def recommendedBitrateKbps(self, width, height, fps, video_codec="H.264 (AVC)", audio_enabled=False):
+        return recommended_wifi_bitrate_kbps(width, height, fps, video_codec, audio_enabled)
 
     @pyqtSlot(result="QVariant")
     def loadSecondDisplaySettings(self):
