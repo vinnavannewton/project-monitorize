@@ -4454,8 +4454,8 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertNotIn("Wi-Fi video uses direct RTP/UDP", qml)
         self.assertNotIn("MUST EXACTLY MATCH", qml)
         self.assertNotIn("WarningCard", qml)
-        self.assertEqual(qml.count("ChoiceChips {"), 5)
-        self.assertEqual(qml.count("chipWidth: page.optionChipWidth"), 5)
+        self.assertEqual(qml.count("ChoiceChips {"), 6)
+        self.assertEqual(qml.count("chipWidth: page.optionChipWidth"), 6)
         self.assertEqual(qml.count("CustomComboBox {"), 2)
         self.assertIn("RowLayout {", chips_qml)
         self.assertIn("property int chipWidth: 112", chips_qml)
@@ -4477,12 +4477,51 @@ class BackendFacadeTest(unittest.TestCase):
             self.assertIn('"Intel/AMD VA-API (vah264enc)"', source)
             self.assertIn('"Software (CPU / x264enc)"', source)
         for control_id in (
+            "backendCombo",
             "displayTypeCombo",
             "encoderCombo",
             "encoderProfileCombo",
             "videoCodecCombo",
         ):
             self.assertIn(f"id: {control_id}", qml)
+
+    def test_wifi_settings_backend_persistence_and_sunshine_mode(self):
+        from monitorize.config.settings import save_wifi_settings, load_wifi_settings
+        save_wifi_settings(
+            resolution="1920x1080",
+            custom_w="",
+            custom_h="",
+            fps="60",
+            custom_fps="",
+            bitrate="20000",
+            display_type="Extend",
+            encoder="Software (CPU / x264enc)",
+            encoder_profile="Low Latency",
+            video_codec="H.264 (AVC)",
+            fec_mode="Off",
+            enable_audio=False,
+            streaming_backend="Sunshine",
+        )
+        loaded = load_wifi_settings()
+        self.assertEqual(loaded.get("streaming_backend"), "Sunshine")
+
+        save_wifi_settings(
+            resolution="1920x1080",
+            custom_w="",
+            custom_h="",
+            fps="60",
+            custom_fps="",
+            bitrate="20000",
+            display_type="Extend",
+            encoder="Software (CPU / x264enc)",
+            encoder_profile="Low Latency",
+            video_codec="H.264 (AVC)",
+            fec_mode="Off",
+            enable_audio=False,
+            streaming_backend="Monitorize",
+        )
+        loaded = load_wifi_settings()
+        self.assertEqual(loaded.get("streaming_backend"), "Monitorize")
 
     def test_wifi_usb_settings_page_uses_toggles(self):
         qml_dir = Path(__file__).resolve().parents[1] / "monitorize" / "qml"

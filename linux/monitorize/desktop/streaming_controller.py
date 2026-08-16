@@ -40,6 +40,7 @@ from monitorize.config.validation import (
     sanitize_fec_mode,
     sanitize_fps,
     sanitize_resolution,
+    sanitize_streaming_backend,
     sanitize_video_codec,
 )
 from monitorize.input_bridge.uinput_backend import UINPUT_PERMISSION_HINT
@@ -113,6 +114,7 @@ class StreamingController(QObject):
         self.encoder_profile = "Low Latency"
         self.fec_mode = "Off"
         self.audio_enabled = False
+        self.streaming_backend = "Monitorize"
         self.runtime_general = None
         self.countdown_timer = QTimer(self)
         self.countdown_timer.setInterval(1000)
@@ -221,6 +223,7 @@ class StreamingController(QObject):
     def start(
         self, res, fps, bitrate, display_type, encoder, encoder_profile, wifi,
         options=None, video_codec="H.264 (AVC)", fec_mode="Off", enable_audio=False,
+        streaming_backend="Monitorize",
     ):
         self.stop()
         self.generation += 1
@@ -228,6 +231,7 @@ class StreamingController(QObject):
         self._reset_telemetry()
         options = options or {}
         self.wifi = wifi
+        self.streaming_backend = sanitize_streaming_backend(streaming_backend)
         width, height = sanitize_resolution(res, DEFAULT_PRIMARY_RESOLUTION)
         self.width, self.height = width, height
         self.fps, self.bitrate = sanitize_fps(fps), sanitize_bitrate(bitrate)
@@ -242,6 +246,7 @@ class StreamingController(QObject):
         self.audio_enabled = bool(enable_audio)
         self.env = QProcessEnvironment.systemEnvironment()
         self.env.insert("PYTHONUNBUFFERED", "1")
+        self.env.insert("MONITORIZE_STREAMING_BACKEND", self.streaming_backend)
         enc_lower = str(self.encoder or "").lower()
         if "nvidia" in enc_lower or "nvenc" in enc_lower:
             enc_setting = "nvidia"
@@ -354,7 +359,8 @@ class StreamingController(QObject):
         if not self.streaming or generation != self.generation:
             return
         self.streamer_has_pipewire_node = False
-        self._launch_audio(generation)
+        if getattr(self, "streaming_backend", "Monitorize") != "Sunshine":
+            self._launch_audio(generation)
         self.kde_event_buffer = ""
         self.gnome_event_buffer = ""
         self.streamer = self._new_process()
@@ -372,6 +378,15 @@ class StreamingController(QObject):
                 "STREAMER", generation, process, self.streamer
             )
         )
+        if getattr(self, "streaming_backend", "Monitorize") == "Sunshine":
+            args = [
+                "-m", "monitorize.streaming.headless_virtual_display",
+                str(self.width), str(self.height), str(self.fps), "primary",
+            ]
+            self.streamer.start(sys.executable, args)
+            self._set_status("Starting virtual display for Sunshine…")
+            return
+
         module = {
             "kde": "monitorize.streaming.Streamer_kde",
             "gnome": "monitorize.streaming.Streamer_gnome",
@@ -533,6 +548,19 @@ class StreamingController(QObject):
             lines = raw.splitlines()
         for line in lines:
             self._track_gst_pid(line)
+            event = self._structured_event(line)
+            if event and event.get("type") == "headless_ready":
+                output_name = str(event.get("name") or "Virtual-Monitorize-1")
+                self.env.insert("MONITORIZE_OUTPUT", output_name)
+                self.width = int(event.get("width") or self.width)
+                self.height = int(event.get("height") or self.height)
+                refresh = float(event.get("fps") or self.fps)
+                self.streamer_was_ready = True
+                self._set_primary_ready(True)
+                self._set_status(
+                    f"Virtual display active: {output_name} "
+                    f"({self.width}x{self.height}@{refresh:g}Hz) — Ready for Sunshine / Moonlight"
+                )
             if line == "[Pipeline] READY":
                 self.streamer_was_ready = True
                 self._set_primary_ready(True)

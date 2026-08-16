@@ -116,3 +116,13 @@ def sanitize_fec_mode(value):
 def sanitize_video_codec(value):
     val_str = str(value or "").strip()
     return "H.265 (HEVC)" if val_str in {"H.265 (HEVC)", "h265", "H.265"} else "H.264 (AVC)"
+
+
+VALID_STREAMING_BACKENDS = {"Monitorize", "Sunshine"}
+
+
+def sanitize_streaming_backend(value):
+    val_str = str(value or "").strip()
+    if "sunshine" in val_str.lower() or "moonlight" in val_str.lower():
+        return "Sunshine"
+    return "Monitorize"

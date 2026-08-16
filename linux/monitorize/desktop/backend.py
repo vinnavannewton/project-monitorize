@@ -160,6 +160,10 @@ class MonitorizeBackend(QObject):
     def isWifiStreaming(self):
         return self.streaming.streaming and self.streaming.wifi
 
+    @pyqtProperty(str, notify=isStreamingChanged)
+    def streamingBackend(self):
+        return getattr(self.streaming, "streaming_backend", "Monitorize")
+
     @pyqtProperty(int, notify=countdownChanged)
     def countdown(self):
         return self.streaming.countdown
@@ -260,9 +264,11 @@ class MonitorizeBackend(QObject):
         )
 
     @pyqtSlot(str, str, str, str, str, str, str, str, str, str, str, bool)
+    @pyqtSlot(str, str, str, str, str, str, str, str, str, str, str, bool, str)
     def saveWifiSettings(
         self, resolution, custom_w, custom_h, fps, custom_fps, bitrate,
         display_type, encoder, encoder_profile, video_codec, fec_mode, enable_audio,
+        streaming_backend="Monitorize",
     ):
         save_wifi_settings(
             resolution=resolution, custom_w=custom_w, custom_h=custom_h,
@@ -270,6 +276,7 @@ class MonitorizeBackend(QObject):
             display_type=display_type, encoder=encoder,
             encoder_profile=encoder_profile, video_codec=video_codec,
             fec_mode=fec_mode, enable_audio=enable_audio,
+            streaming_backend=streaming_backend,
         )
 
     @pyqtSlot(int, int, int, result=int)
@@ -339,14 +346,16 @@ class MonitorizeBackend(QObject):
         self.receiver.stop()
 
     @pyqtSlot(str, str, str, str, str, str, str, bool, str, bool)
+    @pyqtSlot(str, str, str, str, str, str, str, bool, str, bool, str)
     def startStreaming(
         self, res, fps, bitrate, display_type, encoder, encoder_profile,
-        video_codec, wifi, fec_mode, enable_audio,
+        video_codec, wifi, fec_mode, enable_audio, streaming_backend="Monitorize",
     ):
         self._pending_usb_preset = None
         self.streaming.start(
             res, fps, bitrate, display_type, encoder, encoder_profile, wifi,
             video_codec=video_codec, fec_mode=fec_mode, enable_audio=enable_audio,
+            streaming_backend=streaming_backend,
         )
 
     @pyqtSlot()

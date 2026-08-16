@@ -18,6 +18,7 @@ from monitorize.config.validation import (
     sanitize_fps,
     sanitize_port,
     sanitize_resolution,
+    sanitize_streaming_backend,
     sanitize_video_codec,
 )
 
@@ -93,6 +94,8 @@ def _normalize_stream_settings(data: dict) -> dict:
     )
     if "fec_mode" in data:
         data["fec_mode"] = sanitize_fec_mode(data.get("fec_mode"))
+    if "streaming_backend" in data:
+        data["streaming_backend"] = sanitize_streaming_backend(data.get("streaming_backend"))
     data["fps"] = str(sanitize_fps(data["fps"]))
     data["custom_fps"] = (
         str(sanitize_fps(data["custom_fps"]))
@@ -108,7 +111,8 @@ def save_wifi_settings(*, resolution: str, custom_w: str, custom_h: str,
                        fps: str, custom_fps: str, bitrate: str,
                        display_type: str, encoder: str, encoder_profile: str,
                        video_codec: str = "H.264 (AVC)",
-                       fec_mode: str = "Off", enable_audio: bool = False):
+                       fec_mode: str = "Off", enable_audio: bool = False,
+                       streaming_backend: str = "Monitorize"):
     values = locals()
     values["display_type"] = sanitize_display_type(display_type)
     values["encoder"] = sanitize_encoder(encoder)
@@ -118,6 +122,7 @@ def save_wifi_settings(*, resolution: str, custom_w: str, custom_h: str,
         values["video_codec"] = "H.264 (AVC)"
     values["fec_mode"] = sanitize_fec_mode(fec_mode)
     values["enable_audio"] = bool(enable_audio)
+    values["streaming_backend"] = sanitize_streaming_backend(streaming_backend)
     values["fps"] = str(sanitize_fps(fps))
     values["custom_fps"] = str(sanitize_fps(custom_fps)) if custom_fps else ""
     values["bitrate"] = str(sanitize_bitrate(bitrate))
@@ -182,7 +187,12 @@ STREAM_DEFAULTS = {
     "video_codec": "H.264 (AVC)",
     "enable_audio": False,
 }
-WIFI_DEFAULTS = {**STREAM_DEFAULTS, "bitrate": "20000", "fec_mode": "Off"}
+WIFI_DEFAULTS = {
+    **STREAM_DEFAULTS,
+    "bitrate": "20000",
+    "fec_mode": "Off",
+    "streaming_backend": "Monitorize",
+}
 
 
 def load_wifi_settings() -> dict:

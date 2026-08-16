@@ -22,7 +22,10 @@ Item {
     readonly property int streamInfoColumns: 3
     readonly property int streamInfoCardHeight: 28
     readonly property int streamInfoSpacing: 10
-    readonly property var streamInfoBaseItems: ["Second Display  Port 7110", "Host  " + backend.localIp]
+    readonly property bool isSunshineMode: backend.streamingBackend === "Sunshine"
+    readonly property var streamInfoBaseItems: isSunshineMode
+        ? ["Backend  Sunshine / Moonlight", "Host  " + backend.localIp]
+        : ["Second Display  Port 7110", "Host  " + backend.localIp]
     readonly property var streamInfoItems: backend.secondStreamActive
         ? page.streamInfoBaseItems.concat(["Third Display  Port 7114"])
         : page.streamInfoBaseItems
@@ -323,7 +326,7 @@ Item {
                     backend.stopStreaming()
                 }
                 background: Rectangle {
-                    implicitWidth: page.actionButtonWidth
+                    implicitWidth: page.isSunshineMode ? 190 : page.actionButtonWidth
                     implicitHeight: page.actionButtonHeight
                     color: parent.down ? "#5a1010" : (parent.hovered ? "#c42830" : "#a82028")
                     radius: 8
@@ -343,6 +346,7 @@ Item {
 
             Button {
                 text: "Save Preset"
+                visible: !page.isSunshineMode
                 Layout.preferredWidth: page.actionButtonWidth
                 Layout.preferredHeight: page.actionButtonHeight
                 implicitWidth: page.actionButtonWidth
@@ -376,7 +380,7 @@ Item {
             Button {
                 id: displayActionButton
                 text: backend.secondStreamActive ? "Remove Third Display" : "Add Another Display"
-                visible: backend.detectedDe === "kde" || backend.detectedDe === "gnome" || backend.detectedDe === "hyprland"
+                visible: !page.isSunshineMode && (backend.detectedDe === "kde" || backend.detectedDe === "gnome" || backend.detectedDe === "hyprland")
                 Layout.preferredWidth: page.actionButtonWidth
                 Layout.preferredHeight: page.actionButtonHeight
                 implicitWidth: page.actionButtonWidth

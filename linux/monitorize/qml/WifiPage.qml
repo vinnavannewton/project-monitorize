@@ -115,7 +115,12 @@ Item {
             videoCodecCombo ? videoCodecCombo.currentText : "H.264 (AVC)"
         ]
         if (page.isWifi) {
-            backend.saveWifiSettings(...args, fecCombo.currentText, audioCheck.checked)
+            backend.saveWifiSettings(
+                ...args,
+                fecCombo.currentText,
+                audioCheck.checked,
+                backendCombo ? backendCombo.currentText : "Monitorize"
+            )
         } else {
             backend.saveUsbSettings(...args, audioCheck.checked)
         }
@@ -133,6 +138,12 @@ Item {
     Component.onCompleted: {
         let saved = page.isWifi ? backend.loadWifiSettings() : backend.loadUsbSettings();
         
+        if (page.isWifi && backendCombo) {
+            if (!backendCombo.selectValue(saved["streaming_backend"] || "Monitorize", true)) {
+                backendCombo.selectValue("Monitorize");
+            }
+        }
+
         if (!resCombo.selectValue(saved["resolution"])) {
             resCombo.selectValue("1920x1080");
         }
@@ -294,6 +305,21 @@ Item {
                 rowSpacing: 12
                 Layout.alignment: Qt.AlignHCenter
 
+                Text {
+                    text: "Backend Engine:"
+                    color: theme.textSecondary
+                    font.pixelSize: 14
+                    visible: page.isWifi
+                }
+                ChoiceChips {
+                    id: backendCombo
+                    visible: page.isWifi
+                    chipWidth: page.optionChipWidth
+                    model: ["Monitorize", "Sunshine"]
+                    currentIndex: 0
+                    onActivated: page.saveSettings()
+                }
+
                 Text { text: "Resolution:"; color: theme.textSecondary; font.pixelSize: 14 }
                 CustomComboBox {
                     id: resCombo
@@ -332,9 +358,15 @@ Item {
                     Text { text: "(24 - 240)"; color: theme.textMuted; font.pixelSize: 11; font.italic: true }
                 }
 
-                Text { text: "Video Bitrate (Mbps):"; color: theme.textSecondary; font.pixelSize: 14 }
+                Text {
+                    text: "Video Bitrate (Mbps):"
+                    color: theme.textSecondary
+                    font.pixelSize: 14
+                    visible: !page.isWifi || backendCombo.currentText === "Monitorize"
+                }
                 RowLayout {
                     spacing: 8
+                    visible: !page.isWifi || backendCombo.currentText === "Monitorize"
 
                     CustomSlider {
                         id: bitrateSlider
@@ -386,11 +418,11 @@ Item {
                     text: "Packet-loss recovery:"
                     color: theme.textSecondary
                     font.pixelSize: 14
-                    visible: page.isWifi
+                    visible: page.isWifi && backendCombo.currentText === "Monitorize"
                 }
                 ChoiceChips {
                     id: fecCombo
-                    visible: page.isWifi
+                    visible: page.isWifi && backendCombo.currentText === "Monitorize"
                     chipWidth: page.optionChipWidth
                     model: ["Off", "RS-FEC 10%"]
                     currentIndex: 0
@@ -412,9 +444,15 @@ Item {
                     onActivated: page.saveSettings()
                 }
 
-                Text { text: "Encoder:"; color: theme.textSecondary; font.pixelSize: 14 }
+                Text {
+                    text: "Encoder:"
+                    color: theme.textSecondary
+                    font.pixelSize: 14
+                    visible: !page.isWifi || backendCombo.currentText === "Monitorize"
+                }
                 ChoiceChips {
                     id: encoderCombo
+                    visible: !page.isWifi || backendCombo.currentText === "Monitorize"
                     chipWidth: page.optionChipWidth
                     currentIndex: 2
                     model: [
@@ -430,9 +468,15 @@ Item {
                     }
                 }
 
-                Text { text: "Video Codec:"; color: theme.textSecondary; font.pixelSize: 14 }
+                Text {
+                    text: "Video Codec:"
+                    color: theme.textSecondary
+                    font.pixelSize: 14
+                    visible: !page.isWifi || backendCombo.currentText === "Monitorize"
+                }
                 ChoiceChips {
                     id: videoCodecCombo
+                    visible: !page.isWifi || backendCombo.currentText === "Monitorize"
                     chipWidth: page.optionChipWidth
                     model: ["H.264 (AVC)", "H.265 (HEVC)"]
                     currentIndex: 0
@@ -449,9 +493,15 @@ Item {
                     }
                 }
 
-                Text { text: "Encoder Profile:"; color: theme.textSecondary; font.pixelSize: 14 }
+                Text {
+                    text: "Encoder Profile:"
+                    color: theme.textSecondary
+                    font.pixelSize: 14
+                    visible: !page.isWifi || backendCombo.currentText === "Monitorize"
+                }
                 ChoiceChips {
                     id: encoderProfileCombo
+                    visible: !page.isWifi || backendCombo.currentText === "Monitorize"
                     chipWidth: page.optionChipWidth
                     model: ["Low Latency", "Balanced", "Quality"]
                     currentIndex: 0
@@ -464,9 +514,42 @@ Item {
                     spacing: 8
                     Layout.alignment: Qt.AlignLeft
 
+                    Rectangle {
+                        visible: page.isWifi && backendCombo.currentText === "Sunshine"
+                        Layout.fillWidth: true
+                        Layout.preferredWidth: page.optionChipWidth * 2.2
+                        color: theme.surfaceCard || "#1E293B"
+                        radius: 8
+                        border.color: theme.accent
+                        border.width: 1
+                        implicitHeight: sunshineCol.implicitHeight + 20
+
+                        ColumnLayout {
+                            id: sunshineCol
+                            anchors.fill: parent
+                            anchors.margins: 10
+                            spacing: 4
+
+                            Text {
+                                text: "✨ Sunshine / Moonlight Mode"
+                                color: theme.accent
+                                font.pixelSize: 13
+                                font.weight: Font.Bold
+                            }
+                            Text {
+                                text: "Monitorize will create & hold the virtual display. Connect via the Moonlight app on your Android or PC to stream with Sunshine."
+                                color: theme.textSecondary
+                                font.pixelSize: 11
+                                wrapMode: Text.WordWrap
+                                Layout.fillWidth: true
+                            }
+                        }
+                    }
+
                     CustomToggle {
                         id: touchCheck
                         text: "Enable Touch Input"
+                        visible: !page.isWifi || backendCombo.currentText === "Monitorize"
                         Layout.alignment: Qt.AlignLeft
                         onCheckedChanged: {
                             page.enableStylusFeatures = stylusCheck.checked
@@ -477,7 +560,7 @@ Item {
                     CustomToggle {
                         id: stylusCheck
                         text: "Enable Stylus Features"
-                        visible: page.stylusControlsVisible
+                        visible: page.stylusControlsVisible && (!page.isWifi || backendCombo.currentText === "Monitorize")
                         Layout.alignment: Qt.AlignLeft
                         onCheckedChanged: {
                             page.enableStylusFeatures = checked
@@ -488,6 +571,7 @@ Item {
                     CustomToggle {
                         id: audioCheck
                         text: "Enable Audio"
+                        visible: !page.isWifi || backendCombo.currentText === "Monitorize"
                         Layout.alignment: Qt.AlignLeft
                         onCheckedChanged: {
                             if (page.autoBitrate) {
@@ -499,7 +583,7 @@ Item {
                     }
 
                     Text {
-                        visible: page.isWifi
+                        visible: page.isWifi && backendCombo.currentText === "Monitorize"
                         text: "Use Tailscale or WireGuard for encryption."
                         color: theme.textMuted
                         font.pixelSize: 11
@@ -515,8 +599,8 @@ Item {
                 Layout.alignment: Qt.AlignHCenter
 
                 CustomButton {
-                    text: "▶  Start Streaming"
-                    implicitWidth: 200
+                    text: page.isWifi && backendCombo.currentText === "Sunshine" ? "▶  Create Virtual Display" : "▶  Start Streaming"
+                    implicitWidth: 220
                     implicitHeight: 44
                     onClicked: {
                         let cleanRes = resCombo.currentText;
@@ -537,7 +621,8 @@ Item {
                             videoCodecCombo.currentText,
                             page.isWifi,
                             page.isWifi ? fecCombo.currentText : "Off",
-                            audioCheck.checked
+                            audioCheck.checked,
+                            page.isWifi && backendCombo ? backendCombo.currentText : "Monitorize"
                         );
                     }
                 }
