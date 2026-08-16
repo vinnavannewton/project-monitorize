@@ -4584,6 +4584,72 @@ class BackendFacadeTest(unittest.TestCase):
             self.assertFalse(ok)
             self.assertEqual(msg, "Invalid PIN")
 
+        
+        from monitorize.platform.sunshine_service import restart_sunshine
+        mock_restart_resp = MagicMock()
+        mock_restart_resp.__enter__.return_value = mock_restart_resp
+
+        with (
+            patch("monitorize.platform.sunshine_service.is_sunshine_running", return_value=True),
+            patch("urllib.request.urlopen", return_value=mock_restart_resp),
+        ):
+            ok, msg = restart_sunshine()
+            self.assertTrue(ok)
+            self.assertIn("restarted", msg.lower())
+
+            discovery = Mock()
+            backend = MonitorizeBackend(discovery)
+            res = backend.restartSunshine()
+            self.assertTrue(res["success"])
+
+    def test_sunshine_output_name_config_and_controller_link(self):
+        import tempfile
+        from unittest.mock import patch
+        from monitorize.platform.sunshine_service import set_sunshine_output_name, clear_sunshine_output_name
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            conf_path = os.path.join(tmpdir, "sunshine", "sunshine.conf")
+            with (
+                patch("monitorize.platform.sunshine_service.get_sunshine_config_path", return_value=conf_path),
+                patch("monitorize.platform.sunshine_service.is_sunshine_running", return_value=False),
+            ):
+                ok, msg = set_sunshine_output_name("Virtual-1")
+                self.assertTrue(ok)
+                self.assertIn("Virtual-1", msg)
+
+                with open(conf_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                self.assertIn("output_name = Virtual-1", content)
+
+                ok, msg = clear_sunshine_output_name()
+                self.assertTrue(ok)
+                with open(conf_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                self.assertIn("output_name = \n", content)
+
+        
+        discovery = Mock()
+        controller = StreamingController("kde", "10.0.0.1", discovery)
+        controller.streaming = True
+        controller.streaming_backend = "Sunshine"
+
+        with (
+            patch("monitorize.platform.sunshine_service.set_sunshine_output_name") as mock_set,
+            patch("monitorize.platform.sunshine_service.is_sunshine_running", return_value=True),
+        ):
+            raw = 'MONITORIZE_EVENT {"type":"headless_ready","name":"Virtual-1","width":1920,"height":1080,"fps":60,"backend":"Sunshine"}\n'
+            proc = Mock()
+            proc.readAllStandardOutput.return_value = raw.encode("utf-8")
+            controller.streamer = proc
+            controller._read_streamer(controller.generation, proc)
+            mock_set.assert_called_once_with("Virtual-1")
+            self.assertIn("Virtual-1 linked to Sunshine", controller.status)
+
+        with patch("monitorize.platform.sunshine_service.clear_sunshine_output_name") as mock_clear:
+            controller.stop()
+            mock_clear.assert_called_once()
+
+
 
     def test_wifi_usb_settings_page_uses_toggles(self):
         qml_dir = Path(__file__).resolve().parents[1] / "monitorize" / "qml"

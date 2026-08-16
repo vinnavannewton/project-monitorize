@@ -33,6 +33,7 @@ from monitorize.desktop.usb_controller import UsbController
 from monitorize.platform.sunshine_service import (
     open_sunshine_dashboard,
     pair_moonlight_pin,
+    restart_sunshine,
 )
 from monitorize.platform.utils import get_local_ip
 from monitorize.config.validation import (
@@ -374,6 +375,11 @@ class MonitorizeBackend(QObject):
     @pyqtSlot(str, result="QVariantMap")
     def pairMoonlightPin(self, pin: str):
         success, message = pair_moonlight_pin(pin)
+        return {"success": success, "message": message}
+
+    @pyqtSlot(result="QVariantMap")
+    def restartSunshine(self):
+        success, message = restart_sunshine()
         return {"success": success, "message": message}
 
     @pyqtSlot(str, str, str, str, str, str, bool, bool, bool)

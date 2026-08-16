@@ -176,3 +176,103 @@ def pair_moonlight_pin(pin: str, name: str = "Monitorize Display") -> tuple[bool
     except Exception as exc:
         return False, f"Could not connect to Sunshine API: {exc}"
 
+
+def get_sunshine_config_path() -> str:
+    """Return the absolute path to the active sunshine.conf file."""
+    config_dir = os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config"))
+    return os.path.join(config_dir, "sunshine", "sunshine.conf")
+
+
+def set_sunshine_output_name(output_name: str) -> tuple[bool, str]:
+    """Configure Sunshine to capture a specific virtual display output name.
+
+    Updates sunshine.conf and notifies Sunshine's REST API if running.
+    """
+    clean_name = str(output_name or "").strip()
+    config_path = get_sunshine_config_path()
+    os.makedirs(os.path.dirname(config_path), exist_ok=True)
+
+    
+    lines = []
+    found = False
+    if os.path.isfile(config_path):
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    stripped = line.strip()
+                    if stripped.startswith("output_name"):
+                        lines.append(f"output_name = {clean_name}\n")
+                        found = True
+                    else:
+                        lines.append(line)
+        except OSError:
+            pass
+
+    if not found:
+        lines.append(f"output_name = {clean_name}\n")
+
+    try:
+        with open(config_path, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+    except OSError as exc:
+        return False, f"Could not write sunshine.conf: {exc}"
+
+    
+    if is_sunshine_running():
+        import json
+        import ssl
+        import urllib.request
+
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+
+        payload = json.dumps({"output_name": clean_name}).encode("utf-8")
+        req = urllib.request.Request(
+            f"{SUNSHINE_WEB_URL}/api/config",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, context=ctx, timeout=3.0) as _resp:
+                pass
+        except Exception:
+            pass
+
+        
+        restart_sunshine()
+
+    return True, f"Configured Sunshine output_name = {clean_name}"
+
+
+def restart_sunshine() -> tuple[bool, str]:
+    """Request Sunshine to restart its process and stream capture via local REST API."""
+    if not is_sunshine_running():
+        return start_sunshine()
+
+    import ssl
+    import urllib.request
+
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+
+    req = urllib.request.Request(
+        f"{SUNSHINE_WEB_URL}/api/restart",
+        data=b"{}",
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, context=ctx, timeout=4.0) as _resp:
+            return True, "Sunshine restarted successfully."
+    except Exception as exc:
+        return False, f"Could not restart Sunshine via API: {exc}"
+
+
+def clear_sunshine_output_name() -> tuple[bool, str]:
+    """Reset Sunshine output_name configuration back to default."""
+    return set_sunshine_output_name("")
+
+

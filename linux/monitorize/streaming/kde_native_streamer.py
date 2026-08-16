@@ -27,7 +27,17 @@ HELPER_EVENT_TIMEOUT = 10
 
 def find_helper():
     override = os.environ.get("MONITORIZE_KDE_HELPER", "").strip()
-    candidates = [override, str(Path(sys.executable).with_name(HELPER_NAME))]
+    repo_root = Path(__file__).resolve().parents[2]
+    candidates = [
+        override,
+        str(Path(sys.executable).with_name(HELPER_NAME)),
+        str(repo_root / "venv" / "bin" / HELPER_NAME),
+        str(repo_root / "linux" / "venv" / "bin" / HELPER_NAME),
+        str(repo_root / "native" / "kde_virtual_output" / "build" / HELPER_NAME),
+        str(repo_root / "linux" / "native" / "kde_virtual_output" / "build" / HELPER_NAME),
+        "/usr/local/bin/" + HELPER_NAME,
+        "/usr/bin/" + HELPER_NAME,
+    ]
     from_path = shutil.which(HELPER_NAME)
     if from_path:
         candidates.append(from_path)

@@ -381,7 +381,7 @@ class StreamingController(QObject):
         if getattr(self, "streaming_backend", "Monitorize") == "Sunshine":
             args = [
                 "-m", "monitorize.streaming.headless_virtual_display",
-                str(self.width), str(self.height), str(self.fps), "primary",
+                str(self.width), str(self.height), str(self.fps), "primary", str(self.de),
             ]
             self.streamer.start(sys.executable, args)
             self._set_status("Starting virtual display for Sunshine…")
@@ -551,15 +551,27 @@ class StreamingController(QObject):
             event = self._structured_event(line)
             if event and event.get("type") == "headless_ready":
                 output_name = str(event.get("name") or "Virtual-Monitorize-1")
-                self.env.insert("MONITORIZE_OUTPUT", output_name)
+                if hasattr(self, "env") and self.env is not None:
+                    self.env.insert("MONITORIZE_OUTPUT", output_name)
                 self.width = int(event.get("width") or self.width)
                 self.height = int(event.get("height") or self.height)
                 refresh = float(event.get("fps") or self.fps)
                 self.streamer_was_ready = True
                 self._set_primary_ready(True)
+                try:
+                    from monitorize.platform.sunshine_service import (
+                        is_sunshine_running,
+                        set_sunshine_output_name,
+                        start_sunshine,
+                    )
+                    set_sunshine_output_name(output_name)
+                    if not is_sunshine_running():
+                        start_sunshine()
+                except Exception as exc:
+                    app_log.warning(f"Could not auto-configure Sunshine output: {exc}")
                 self._set_status(
-                    f"Virtual display active: {output_name} "
-                    f"({self.width}x{self.height}@{refresh:g}Hz) — Ready for Sunshine / Moonlight"
+                    f"Virtual display {output_name} linked to Sunshine "
+                    f"({self.width}x{self.height}@{refresh:g}Hz) — Ready for Moonlight"
                 )
             if line == "[Pipeline] READY":
                 self.streamer_was_ready = True
@@ -1344,4 +1356,10 @@ class StreamingController(QObject):
         self.display.cleanup()
         self.gnome_outputs.clear()
         self.discovery.stop_advertising()
+        if getattr(self, "streaming_backend", "Monitorize") == "Sunshine":
+            try:
+                from monitorize.platform.sunshine_service import clear_sunshine_output_name
+                clear_sunshine_output_name()
+            except Exception:
+                pass
         self._set_streaming(False)
