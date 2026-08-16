@@ -379,6 +379,24 @@ class StreamingController(QObject):
             )
         )
         if getattr(self, "streaming_backend", "Monitorize") == "Sunshine":
+            if self.display_type == "Mirror":
+                self.streamer = None
+                try:
+                    from monitorize.platform.sunshine_service import (
+                        clear_sunshine_output_name,
+                        is_sunshine_running,
+                        start_sunshine,
+                    )
+                    clear_sunshine_output_name()
+                    if not is_sunshine_running():
+                        start_sunshine()
+                except Exception as exc:
+                    app_log.warning(f"Could not initialize Sunshine mirror mode: {exc}")
+                self.streamer_was_ready = True
+                self._set_primary_ready(True)
+                self._set_status("Sunshine mirroring primary display — Ready for Moonlight")
+                return
+
             args = [
                 "-m", "monitorize.streaming.headless_virtual_display",
                 str(self.width), str(self.height), str(self.fps), "primary", str(self.de),
@@ -1358,8 +1376,8 @@ class StreamingController(QObject):
         self.discovery.stop_advertising()
         if getattr(self, "streaming_backend", "Monitorize") == "Sunshine":
             try:
-                from monitorize.platform.sunshine_service import clear_sunshine_output_name
-                clear_sunshine_output_name()
+                from monitorize.platform.sunshine_service import stop_sunshine
+                stop_sunshine()
             except Exception:
                 pass
         self._set_streaming(False)

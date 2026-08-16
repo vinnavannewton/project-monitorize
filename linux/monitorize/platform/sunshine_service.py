@@ -3,11 +3,30 @@
 Detects, launches, and checks the status of the Sunshine GameStream server.
 """
 
+import atexit
+import ctypes
 import os
 import shutil
+import signal
 import socket
 import subprocess
 import webbrowser
+
+PR_SET_PDEATHSIG = 1
+_SUNSHINE_PROCESS: subprocess.Popen | None = None
+
+
+def _set_pdeathsig() -> None:
+    """Set Linux parent-death signal on the child process to guarantee termination if Monitorize dies."""
+    try:
+        libc = ctypes.CDLL(None)
+        libc.prctl(PR_SET_PDEATHSIG, signal.SIGTERM)
+    except Exception:
+        try:
+            libc = ctypes.CDLL("libc.so.6")
+            libc.prctl(PR_SET_PDEATHSIG, signal.SIGTERM)
+        except Exception:
+            pass
 
 
 SUNSHINE_HTTPS_PORT = 47990
@@ -94,8 +113,36 @@ def find_sunshine_command() -> list[str] | None:
     return candidates[0] if candidates else None
 
 
+def ensure_sunshine_tray_disabled() -> None:
+    """Ensure sunshine.conf permanently disables the system tray icon."""
+    config_path = get_sunshine_config_path()
+    os.makedirs(os.path.dirname(config_path), exist_ok=True)
+    lines = []
+    has_tray = False
+    if os.path.isfile(config_path):
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.strip().startswith("system_tray"):
+                        lines.append("system_tray = disabled\n")
+                        has_tray = True
+                    else:
+                        lines.append(line)
+        except OSError:
+            pass
+    if not has_tray:
+        lines.append("system_tray = disabled\n")
+    try:
+        with open(config_path, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+    except OSError:
+        pass
+
+
 def start_sunshine() -> tuple[bool, str]:
-    """Start Sunshine if not already running, trying each candidate in order."""
+    """Start Sunshine if not already running, binding child process to parent lifetime."""
+    global _SUNSHINE_PROCESS
+    ensure_sunshine_tray_disabled()
     if is_sunshine_running():
         return True, "Sunshine is already running."
 
@@ -112,12 +159,13 @@ def start_sunshine() -> tuple[bool, str]:
                     return True, "Sunshine service started via systemd."
                 errors.append(f"systemctl: {res.stderr.strip() or 'failed'}")
             else:
-                subprocess.Popen(
+                proc = subprocess.Popen(
                     cmd,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
-                    start_new_session=True,
+                    preexec_fn=_set_pdeathsig,
                 )
+                _SUNSHINE_PROCESS = proc
                 return True, f"Launched Sunshine process ({cmd[0]})."
         except (FileNotFoundError, OSError, subprocess.TimeoutExpired) as exc:
             errors.append(f"{cmd[0]}: {exc}")
@@ -125,10 +173,70 @@ def start_sunshine() -> tuple[bool, str]:
     return False, f"Failed to start Sunshine ({'; '.join(errors)})"
 
 
-def open_sunshine_dashboard() -> bool:
-    """Open Sunshine Web UI in the default browser."""
+def stop_sunshine() -> tuple[bool, str]:
+    """Gracefully stop Sunshine background processes, service, and clear virtual monitor configuration."""
+    global _SUNSHINE_PROCESS
+    stopped = False
+
+    
+    if _SUNSHINE_PROCESS is not None:
+        try:
+            if _SUNSHINE_PROCESS.poll() is None:
+                _SUNSHINE_PROCESS.terminate()
+                try:
+                    _SUNSHINE_PROCESS.wait(timeout=2.0)
+                except subprocess.TimeoutExpired:
+                    _SUNSHINE_PROCESS.kill()
+            stopped = True
+        except Exception:
+            pass
+        _SUNSHINE_PROCESS = None
+
+    
+    if shutil.which("systemctl"):
+        try:
+            subprocess.run(
+                ["systemctl", "--user", "stop", "sunshine"],
+                capture_output=True,
+                timeout=3,
+            )
+        except Exception:
+            pass
+
+    
+    if shutil.which("pkill"):
+        try:
+            res = subprocess.run(
+                ["pkill", "-TERM", "-f", "sunshine"],
+                capture_output=True,
+                timeout=3,
+            )
+            if res.returncode == 0:
+                stopped = True
+        except Exception:
+            pass
+
+    
+    clear_sunshine_output_name()
+
+    return True, "Sunshine stopped successfully."
+
+
+atexit.register(stop_sunshine)
+
+
+def open_sunshine_dashboard(path: str = "") -> bool:
+    """Open Sunshine Web UI in the default browser, auto-starting Sunshine if needed."""
+    if not is_sunshine_running():
+        start_sunshine()
+
+    url = SUNSHINE_WEB_URL
+    if path:
+        clean_path = path.strip("/")
+        url = f"{SUNSHINE_WEB_URL}/{clean_path}"
+
     try:
-        return webbrowser.open(SUNSHINE_WEB_URL)
+        return webbrowser.open(url)
     except Exception:
         return False
 
@@ -194,7 +302,8 @@ def set_sunshine_output_name(output_name: str) -> tuple[bool, str]:
 
     
     lines = []
-    found = False
+    found_output = False
+    found_tray = False
     if os.path.isfile(config_path):
         try:
             with open(config_path, "r", encoding="utf-8") as f:
@@ -202,14 +311,19 @@ def set_sunshine_output_name(output_name: str) -> tuple[bool, str]:
                     stripped = line.strip()
                     if stripped.startswith("output_name"):
                         lines.append(f"output_name = {clean_name}\n")
-                        found = True
+                        found_output = True
+                    elif stripped.startswith("system_tray"):
+                        lines.append("system_tray = disabled\n")
+                        found_tray = True
                     else:
                         lines.append(line)
         except OSError:
             pass
 
-    if not found:
+    if not found_output:
         lines.append(f"output_name = {clean_name}\n")
+    if not found_tray:
+        lines.append("system_tray = disabled\n")
 
     try:
         with open(config_path, "w", encoding="utf-8") as f:
@@ -274,5 +388,280 @@ def restart_sunshine() -> tuple[bool, str]:
 def clear_sunshine_output_name() -> tuple[bool, str]:
     """Reset Sunshine output_name configuration back to default."""
     return set_sunshine_output_name("")
+
+
+def set_sunshine_encoder(encoder_name: str) -> tuple[bool, str]:
+    """Configure Sunshine's forced video encoder option in sunshine.conf and REST API.
+
+    Options mapped:
+        'Auto' / '' -> '' (auto-detect)
+        'NVIDIA' / 'NVIDIA NVENC' / 'nvenc' -> 'nvenc'
+        'VA-API' / 'Intel/AMD VA-API' / 'vaapi' -> 'vaapi'
+        'Software' / 'Software Enc' / 'Software (CPU)' / 'software' -> 'software'
+    """
+    clean = str(encoder_name or "").strip()
+    mapping = {
+        "auto": "",
+        "nvidia": "nvenc",
+        "nvidia nvenc": "nvenc",
+        "nvidia nvenc (nvh264enc)": "nvenc",
+        "nvenc": "nvenc",
+        "va-api": "vaapi",
+        "vaapi": "vaapi",
+        "intel/amd va-api (vah264enc)": "vaapi",
+        "software": "software",
+        "software enc": "software",
+        "software (cpu)": "software",
+        "software (cpu / x264enc)": "software",
+    }
+    target_value = mapping.get(clean.lower(), clean)
+
+    config_path = get_sunshine_config_path()
+    os.makedirs(os.path.dirname(config_path), exist_ok=True)
+
+    lines = []
+    found = False
+    if os.path.isfile(config_path):
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    stripped = line.strip()
+                    if stripped.startswith("encoder"):
+                        lines.append(f"encoder = {target_value}\n")
+                        found = True
+                    else:
+                        lines.append(line)
+        except OSError:
+            pass
+
+    if not found:
+        lines.append(f"encoder = {target_value}\n")
+
+    try:
+        with open(config_path, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+    except OSError as exc:
+        return False, f"Could not write sunshine.conf: {exc}"
+
+    if is_sunshine_running():
+        import json
+        import ssl
+        import urllib.request
+
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+
+        payload = json.dumps({"encoder": target_value}).encode("utf-8")
+        req = urllib.request.Request(
+            f"{SUNSHINE_WEB_URL}/api/config",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, context=ctx, timeout=3.0) as _resp:
+                pass
+        except Exception:
+            pass
+
+    return True, f"Sunshine encoder set to '{target_value or 'auto'}'."
+
+
+DEFAULT_SUNSHINE_CONFIG = {
+    
+    "locale": "en",
+    "sunshine_name": "Monitorize Display",
+    "min_log_level": "2",
+    
+    "controller": "enabled",
+    "gamepad": "auto",
+    "motion_as_ds4": "enabled",
+    "touchpad_as_ds4": "enabled",
+    "ds4_back_as_touchpad_click": "enabled",
+    "ds5_inputtino_randomize_mac": "enabled",
+    "back_button_timeout": "-1",
+    "keyboard": "enabled",
+    "key_repeat_delay": "500",
+    "key_repeat_frequency": "24.9",
+    "always_send_scancodes": "enabled",
+    "key_rightalt_to_key_win": "disabled",
+    "mouse": "enabled",
+    "high_resolution_scrolling": "enabled",
+    "native_pen_touch": "enabled",
+    
+    "audio_sink": "",
+    "virtual_sink": "",
+    "stream_audio": "enabled",
+    "adapter_name": "",
+    "output_name": "",
+    "encoder": "",
+    "max_bitrate": "0",
+    "minimum_fps_target": "0",
+    "dd_configuration_option": "disabled",
+    "dd_resolution_option": "auto",
+    "dd_manual_resolution": "",
+    "dd_refresh_rate_option": "auto",
+    "dd_manual_refresh_rate": "",
+    "dd_hdr_option": "auto",
+    
+    "upnp": "disabled",
+    "address_family": "both",
+    "bind_address": "",
+    "port": "47989",
+    "origin_web_ui_allowed": "lan",
+    "csrf_allowed_origins": "",
+    "external_ip": "",
+    "lan_encryption_mode": "0",
+    "wan_encryption_mode": "1",
+    "ping_timeout": "10000",
+    "packetsize": "0",
+    
+    "file_apps": "",
+    "credentials_file": "",
+    "log_path": "",
+    "pkey": "",
+    "cert": "",
+    "file_state": "",
+    
+    "fec_percentage": "20",
+    "qp": "28",
+    "min_threads": "2",
+    "hevc_mode": "0",
+    "av1_mode": "0",
+    "capture": "",
+    "encoder": "",
+    
+    "nvenc_preset": "1",
+    "nvenc_twopass": "quarter_res",
+    "nvenc_spatial_aq": "disabled",
+    "nvenc_vbv_increase": "0",
+    "nvenc_realtime_hags": "enabled",
+    "nvenc_split_encode": "driver_decides",
+    "nvenc_latency_over_power": "enabled",
+    "nvenc_h264_cavlc": "disabled",
+    
+    "amd_usage": "ultralowlatency",
+    "amd_rc": "vbr_latency",
+    "amd_enforce_hrd": "disabled",
+    "amd_quality": "balanced",
+    "amd_preanalysis": "disabled",
+    "amd_vbaq": "enabled",
+    "amd_coder": "auto",
+    
+    "qsv_preset": "medium",
+    "qsv_coder": "auto",
+    "qsv_slow_hevc": "disabled",
+    
+    "vaapi_rc": "auto",
+    "vaapi_quality": "auto",
+    "vaapi_strict_rc_buffer": "disabled",
+    "vaapi_blbrc": "disabled",
+    
+    "vk_tune": "0",
+    "vk_rc_mode": "0",
+    
+    "sw_preset": "superfast",
+    "sw_tune": "zerolatency",
+}
+
+
+def get_sunshine_config() -> dict[str, str]:
+    """Retrieve Sunshine configuration dictionary from REST API or local config file."""
+    config = dict(DEFAULT_SUNSHINE_CONFIG)
+
+    
+    config_path = get_sunshine_config_path()
+    if os.path.isfile(config_path):
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    key, _, val = line.partition("=")
+                    key = key.strip()
+                    val = val.strip()
+                    if key:
+                        config[key] = val
+        except OSError:
+            pass
+
+    
+    if is_sunshine_running():
+        import json
+        import ssl
+        import urllib.request
+
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+
+        req = urllib.request.Request(
+            f"{SUNSHINE_WEB_URL}/api/config",
+            headers={"Accept": "application/json"},
+            method="GET",
+        )
+        try:
+            with urllib.request.urlopen(req, context=ctx, timeout=3.0) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                for k, v in data.items():
+                    if k not in ("status", "platform", "version") and v is not None:
+                        config[k] = str(v)
+        except Exception:
+            pass
+
+    return config
+
+
+def save_sunshine_config(new_config: dict[str, str]) -> tuple[bool, str]:
+    """Save configuration dictionary to sunshine.conf and push to running Sunshine instance."""
+    config_path = get_sunshine_config_path()
+    os.makedirs(os.path.dirname(config_path), exist_ok=True)
+
+    current_config = get_sunshine_config()
+    current_config.update({str(k): str(v) for k, v in new_config.items() if v is not None})
+
+    
+    lines = [
+        "# Sunshine configuration generated by Monitorize\n",
+    ]
+    for k, v in sorted(current_config.items()):
+        if str(v).strip():
+            lines.append(f"{k} = {v}\n")
+
+    try:
+        with open(config_path, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+    except OSError as exc:
+        return False, f"Could not write sunshine.conf: {exc}"
+
+    
+    if is_sunshine_running():
+        import json
+        import ssl
+        import urllib.request
+
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+
+        payload = json.dumps(current_config).encode("utf-8")
+        req = urllib.request.Request(
+            f"{SUNSHINE_WEB_URL}/api/config",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, context=ctx, timeout=3.0) as _resp:
+                pass
+        except Exception:
+            pass
+
+        restart_sunshine()
+
+    return True, "Sunshine settings saved and applied successfully."
+
 
 

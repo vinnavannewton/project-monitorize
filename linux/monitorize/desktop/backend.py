@@ -31,9 +31,12 @@ from monitorize.config.settings import (
 from monitorize.desktop.streaming_controller import StreamingController
 from monitorize.desktop.usb_controller import UsbController
 from monitorize.platform.sunshine_service import (
+    get_sunshine_config,
     open_sunshine_dashboard,
     pair_moonlight_pin,
     restart_sunshine,
+    save_sunshine_config,
+    set_sunshine_encoder,
 )
 from monitorize.platform.utils import get_local_ip
 from monitorize.config.validation import (
@@ -270,10 +273,11 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot(str, str, str, str, str, str, str, str, str, str, str, bool)
     @pyqtSlot(str, str, str, str, str, str, str, str, str, str, str, bool, str)
+    @pyqtSlot(str, str, str, str, str, str, str, str, str, str, str, bool, str, str)
     def saveWifiSettings(
         self, resolution, custom_w, custom_h, fps, custom_fps, bitrate,
         display_type, encoder, encoder_profile, video_codec, fec_mode, enable_audio,
-        streaming_backend="Monitorize",
+        streaming_backend="Monitorize", sunshine_encoder="Auto",
     ):
         save_wifi_settings(
             resolution=resolution, custom_w=custom_w, custom_h=custom_h,
@@ -282,7 +286,10 @@ class MonitorizeBackend(QObject):
             encoder_profile=encoder_profile, video_codec=video_codec,
             fec_mode=fec_mode, enable_audio=enable_audio,
             streaming_backend=streaming_backend,
+            sunshine_encoder=sunshine_encoder,
         )
+        if str(streaming_backend).strip().lower() == "sunshine":
+            set_sunshine_encoder(sunshine_encoder)
 
     @pyqtSlot(int, int, int, result=int)
     @pyqtSlot(int, int, int, str, result=int)
@@ -370,7 +377,7 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot()
     def openSunshineWebUi(self):
-        open_sunshine_dashboard()
+        open_sunshine_dashboard("config")
 
     @pyqtSlot(str, result="QVariantMap")
     def pairMoonlightPin(self, pin: str):
@@ -380,6 +387,20 @@ class MonitorizeBackend(QObject):
     @pyqtSlot(result="QVariantMap")
     def restartSunshine(self):
         success, message = restart_sunshine()
+        return {"success": success, "message": message}
+
+    @pyqtSlot(result="QVariantMap")
+    def getSunshineConfig(self):
+        return get_sunshine_config()
+
+    @pyqtSlot("QVariantMap", result="QVariantMap")
+    def saveSunshineConfig(self, config_data):
+        success, message = save_sunshine_config(dict(config_data or {}))
+        return {"success": success, "message": message}
+
+    @pyqtSlot(str, result="QVariantMap")
+    def setSunshineEncoder(self, encoder_name: str):
+        success, message = set_sunshine_encoder(encoder_name)
         return {"success": success, "message": message}
 
     @pyqtSlot(str, str, str, str, str, str, bool, bool, bool)

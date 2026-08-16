@@ -408,11 +408,11 @@ Item {
             }
 
             Button {
-                text: "🌐 Sunshine Web UI"
+                text: "⚙ Sunshine Settings"
                 visible: page.isSunshineMode
-                Layout.preferredWidth: 160
+                Layout.preferredWidth: 165
                 Layout.preferredHeight: page.actionButtonHeight
-                implicitWidth: 160
+                implicitWidth: 165
                 implicitHeight: page.actionButtonHeight
                 padding: 0
                 scale: hovered ? theme.hoverScale : 1.0
@@ -421,22 +421,24 @@ Item {
                     backend.openSunshineWebUi()
                 }
                 background: Rectangle {
-                    implicitWidth: 160
+                    implicitWidth: 165
                     implicitHeight: page.actionButtonHeight
                     color: parent.down ? theme.surfaceAlt : (parent.hovered ? theme.borderHover : theme.surface)
-                    border.color: theme.accent
+                    border.color: theme.border
                     radius: 8
                     Behavior on color { ColorAnimation { duration: 150 } }
                 }
                 contentItem: Text {
                     text: parent.text
-                    color: theme.accent
+                    color: parent.hovered ? theme.textPrimary : theme.cardTextPrimary
                     font.pixelSize: 12
                     font.weight: Font.Bold
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
             }
+
+
 
             // Add / Remove Third Display button
             Button {

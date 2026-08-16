@@ -119,7 +119,8 @@ Item {
                 ...args,
                 fecCombo.currentText,
                 audioCheck.checked,
-                backendCombo ? backendCombo.currentText : "Monitorize"
+                backendCombo ? backendCombo.currentText : "Monitorize",
+                sunshineEncoderCombo ? sunshineEncoderCombo.currentText : "Auto"
             )
         } else {
             backend.saveUsbSettings(...args, audioCheck.checked)
@@ -196,6 +197,12 @@ Item {
             fecCombo.selectValue("Off");
         }
         
+        if (sunshineEncoderCombo) {
+            if (!sunshineEncoderCombo.selectValue(saved["sunshine_encoder"] || "Auto", true)) {
+                sunshineEncoderCombo.selectValue("Auto");
+            }
+        }
+
         let gen = backend.loadGeneralSettings();
         let enableTouch = gen["enable_touch"] !== undefined ? gen["enable_touch"] : true;
         page.enableStylusFeatures = gen["enable_stylus_features"] !== undefined ? gen["enable_stylus_features"] : false;
@@ -469,6 +476,29 @@ Item {
                 }
 
                 Text {
+                    text: "Encoder:"
+                    color: theme.textSecondary
+                    font.pixelSize: 14
+                    visible: page.isWifi && backendCombo.currentText === "Sunshine"
+                }
+                ChoiceChips {
+                    id: sunshineEncoderCombo
+                    visible: page.isWifi && backendCombo.currentText === "Sunshine"
+                    chipWidth: page.optionChipWidth
+                    currentIndex: 0
+                    model: [
+                        "Auto",
+                        "NVIDIA",
+                        "VA-API",
+                        "Software Enc"
+                    ]
+                    onActivated: {
+                        backend.setSunshineEncoder(currentText)
+                        page.saveSettings()
+                    }
+                }
+
+                Text {
                     text: "Video Codec:"
                     color: theme.textSecondary
                     font.pixelSize: 14
@@ -571,9 +601,12 @@ Item {
                     CustomToggle {
                         id: audioCheck
                         text: "Enable Audio"
-                        visible: !page.isWifi || backendCombo.currentText === "Monitorize"
+                        visible: true
                         Layout.alignment: Qt.AlignLeft
                         onCheckedChanged: {
+                            if (backendCombo && backendCombo.currentText === "Sunshine") {
+                                backend.saveSunshineConfig({"stream_audio": checked ? "enabled" : "disabled"})
+                            }
                             if (page.autoBitrate) {
                                 page.setBitrateMbps(page.recommendedBitrateKbps() / 1000, true, true)
                             } else {
