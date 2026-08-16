@@ -4523,6 +4523,24 @@ class BackendFacadeTest(unittest.TestCase):
         loaded = load_wifi_settings()
         self.assertEqual(loaded.get("streaming_backend"), "Monitorize")
 
+    def test_sunshine_service_helpers(self):
+        from unittest.mock import patch
+        from monitorize.platform.sunshine_service import is_sunshine_running, find_sunshine_command, start_sunshine, open_sunshine_dashboard
+
+        with patch("socket.socket") as mock_sock:
+            mock_inst = mock_sock.return_value.__enter__.return_value
+            mock_inst.connect_ex.return_value = 0
+            self.assertTrue(is_sunshine_running())
+
+        with patch("monitorize.platform.sunshine_service.is_sunshine_running", return_value=True):
+            ok, msg = start_sunshine()
+            self.assertTrue(ok)
+            self.assertIn("already running", msg)
+
+        with patch("webbrowser.open", return_value=True) as mock_open:
+            self.assertTrue(open_sunshine_dashboard())
+            mock_open.assert_called_once_with("https://localhost:47990")
+
     def test_wifi_usb_settings_page_uses_toggles(self):
         qml_dir = Path(__file__).resolve().parents[1] / "monitorize" / "qml"
         qml = (qml_dir / "WifiPage.qml").read_text(encoding="utf-8")
@@ -4647,7 +4665,7 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn("readonly property int actionButtonWidth: 160", qml)
         self.assertIn("readonly property int actionButtonHeight: 38", qml)
         self.assertEqual(qml.count("Layout.preferredWidth: page.actionButtonWidth"), 3)
-        self.assertEqual(qml.count("Layout.preferredHeight: page.actionButtonHeight"), 3)
+        self.assertEqual(qml.count("Layout.preferredHeight: page.actionButtonHeight"), 4)
         self.assertNotIn("activeIndicator", qml)
         self.assertNotIn("OpacityAnimator", qml)
         self.assertNotIn("backend.streamingStatus", qml)

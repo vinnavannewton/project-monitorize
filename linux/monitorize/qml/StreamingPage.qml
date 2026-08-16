@@ -376,6 +376,37 @@ Item {
                 }
             }
 
+            Button {
+                text: "🌐 Sunshine Web UI"
+                visible: page.isSunshineMode
+                Layout.preferredWidth: 160
+                Layout.preferredHeight: page.actionButtonHeight
+                implicitWidth: 160
+                implicitHeight: page.actionButtonHeight
+                padding: 0
+                scale: hovered ? theme.hoverScale : 1.0
+                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+                onClicked: {
+                    backend.openSunshineWebUi()
+                }
+                background: Rectangle {
+                    implicitWidth: 160
+                    implicitHeight: page.actionButtonHeight
+                    color: parent.down ? theme.surfaceAlt : (parent.hovered ? theme.borderHover : theme.surface)
+                    border.color: theme.accent
+                    radius: 8
+                    Behavior on color { ColorAnimation { duration: 150 } }
+                }
+                contentItem: Text {
+                    text: parent.text
+                    color: theme.accent
+                    font.pixelSize: 12
+                    font.weight: Font.Bold
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+            }
+
             // Add / Remove Third Display button
             Button {
                 id: displayActionButton

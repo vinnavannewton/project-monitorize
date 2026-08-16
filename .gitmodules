@@ -1,0 +1,3 @@
+[submodule "external/sunshine"]
+	path = external/sunshine
+	url = https://github.com/vinnavannewton/sunshine.git
