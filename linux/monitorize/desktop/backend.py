@@ -30,7 +30,10 @@ from monitorize.config.settings import (
 )
 from monitorize.desktop.streaming_controller import StreamingController
 from monitorize.desktop.usb_controller import UsbController
-from monitorize.platform.sunshine_service import open_sunshine_dashboard
+from monitorize.platform.sunshine_service import (
+    open_sunshine_dashboard,
+    pair_moonlight_pin,
+)
 from monitorize.platform.utils import get_local_ip
 from monitorize.config.validation import (
     normalize_host,
@@ -367,6 +370,11 @@ class MonitorizeBackend(QObject):
     @pyqtSlot()
     def openSunshineWebUi(self):
         open_sunshine_dashboard()
+
+    @pyqtSlot(str, result="QVariantMap")
+    def pairMoonlightPin(self, pin: str):
+        success, message = pair_moonlight_pin(pin)
+        return {"success": success, "message": message}
 
     @pyqtSlot(str, str, str, str, str, str, bool, bool, bool)
     def startSecondStream(

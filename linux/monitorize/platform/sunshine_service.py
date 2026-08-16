@@ -131,3 +131,48 @@ def open_sunshine_dashboard() -> bool:
         return webbrowser.open(SUNSHINE_WEB_URL)
     except Exception:
         return False
+
+
+def pair_moonlight_pin(pin: str, name: str = "Monitorize Display") -> tuple[bool, str]:
+    """Submit a 4-digit Moonlight pairing PIN to Sunshine's local API.
+
+    Returns:
+        tuple[bool, str]: (success, status_message)
+    """
+    clean_pin = str(pin or "").strip()
+    if not (len(clean_pin) == 4 and clean_pin.isdigit()):
+        return False, "PIN must be exactly 4 digits."
+
+    import json
+    import ssl
+    import urllib.request
+
+    
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+
+    payload = json.dumps({"pin": clean_pin, "name": name}).encode("utf-8")
+    req = urllib.request.Request(
+        f"{SUNSHINE_WEB_URL}/api/pin",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req, context=ctx, timeout=5.0) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            if data.get("status") is True:
+                return True, "Paired successfully! Moonlight is now unlocked."
+            else:
+                return False, data.get("error", "Pairing failed. Make sure Moonlight is asking for a PIN.")
+    except urllib.error.HTTPError as exc:
+        try:
+            err_data = json.loads(exc.read().decode("utf-8"))
+            return False, err_data.get("error", f"Pairing error ({exc.code})")
+        except Exception:
+            return False, f"Pairing failed with HTTP error {exc.code}."
+    except Exception as exc:
+        return False, f"Could not connect to Sunshine API: {exc}"
+

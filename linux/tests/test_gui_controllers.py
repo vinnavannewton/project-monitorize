@@ -4541,6 +4541,50 @@ class BackendFacadeTest(unittest.TestCase):
             self.assertTrue(open_sunshine_dashboard())
             mock_open.assert_called_once_with("https://localhost:47990")
 
+    def test_pair_moonlight_pin_and_backend_slot(self):
+        from unittest.mock import patch, MagicMock
+        from monitorize.platform.sunshine_service import pair_moonlight_pin
+        from monitorize.desktop.backend import MonitorizeBackend
+
+        
+        ok, msg = pair_moonlight_pin("")
+        self.assertFalse(ok)
+        self.assertIn("exactly 4 digits", msg)
+
+        ok, msg = pair_moonlight_pin("12a4")
+        self.assertFalse(ok)
+
+        ok, msg = pair_moonlight_pin("12345")
+        self.assertFalse(ok)
+
+        
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = b'{"status": true}'
+        mock_resp.__enter__.return_value = mock_resp
+
+        with patch("urllib.request.urlopen", return_value=mock_resp):
+            ok, msg = pair_moonlight_pin("1234")
+            self.assertTrue(ok)
+            self.assertIn("unlocked", msg.lower())
+
+            
+            discovery = Mock()
+            backend = MonitorizeBackend(discovery)
+            res = backend.pairMoonlightPin("1234")
+            self.assertTrue(res["success"])
+            self.assertIn("unlocked", res["message"].lower())
+
+        
+        mock_err_resp = MagicMock()
+        mock_err_resp.read.return_value = b'{"status": false, "error": "Invalid PIN"}'
+        mock_err_resp.__enter__.return_value = mock_err_resp
+
+        with patch("urllib.request.urlopen", return_value=mock_err_resp):
+            ok, msg = pair_moonlight_pin("9999")
+            self.assertFalse(ok)
+            self.assertEqual(msg, "Invalid PIN")
+
+
     def test_wifi_usb_settings_page_uses_toggles(self):
         qml_dir = Path(__file__).resolve().parents[1] / "monitorize" / "qml"
         qml = (qml_dir / "WifiPage.qml").read_text(encoding="utf-8")
@@ -4665,7 +4709,7 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn("readonly property int actionButtonWidth: 160", qml)
         self.assertIn("readonly property int actionButtonHeight: 38", qml)
         self.assertEqual(qml.count("Layout.preferredWidth: page.actionButtonWidth"), 3)
-        self.assertEqual(qml.count("Layout.preferredHeight: page.actionButtonHeight"), 4)
+        self.assertEqual(qml.count("Layout.preferredHeight: page.actionButtonHeight"), 5)
         self.assertNotIn("activeIndicator", qml)
         self.assertNotIn("OpacityAnimator", qml)
         self.assertNotIn("backend.streamingStatus", qml)

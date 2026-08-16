@@ -377,6 +377,37 @@ Item {
             }
 
             Button {
+                text: "🔑 Pair Moonlight PIN"
+                visible: page.isSunshineMode
+                Layout.preferredWidth: 165
+                Layout.preferredHeight: page.actionButtonHeight
+                implicitWidth: 165
+                implicitHeight: page.actionButtonHeight
+                padding: 0
+                scale: hovered ? theme.hoverScale : 1.0
+                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+                onClicked: {
+                    pairMoonlightPopup.open()
+                }
+                background: Rectangle {
+                    implicitWidth: 165
+                    implicitHeight: page.actionButtonHeight
+                    color: parent.down ? theme.surfaceAlt : (parent.hovered ? theme.borderHover : theme.surface)
+                    border.color: theme.accent
+                    radius: 8
+                    Behavior on color { ColorAnimation { duration: 150 } }
+                }
+                contentItem: Text {
+                    text: parent.text
+                    color: theme.accent
+                    font.pixelSize: 12
+                    font.weight: Font.Bold
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+            }
+
+            Button {
                 text: "🌐 Sunshine Web UI"
                 visible: page.isSunshineMode
                 Layout.preferredWidth: 160
@@ -581,6 +612,133 @@ Item {
                     }
                 }
             }
+        }
+    }
+
+    Popup {
+        id: pairMoonlightPopup
+        modal: true
+        x: (page.width - width) / 2
+        y: (page.height - height) / 2
+        width: 380
+        height: pairMoonlightContent.implicitHeight + 48
+        padding: 0
+        background: Rectangle {
+            color: theme.surface
+            border.color: theme.border
+            border.width: 1
+            radius: theme.cardRadius
+        }
+        Overlay.modal: Rectangle { color: "#80000000" }
+
+        onOpened: {
+            pairPinField.text = ""
+            pairStatusText.text = ""
+            pairPinField.forceActiveFocus()
+        }
+
+        ColumnLayout {
+            id: pairMoonlightContent
+            anchors.fill: parent
+            anchors.margins: 24
+            spacing: 12
+
+            Text {
+                text: "📱 Pair Moonlight Device"
+                color: theme.cardTextPrimary
+                font.pixelSize: 18
+                font.weight: Font.Bold
+            }
+            Text {
+                Layout.fillWidth: true
+                text: "Enter the 4-digit PIN displayed on your Moonlight client to pair this device."
+                color: theme.cardTextMuted
+                font.pixelSize: 12
+                wrapMode: Text.WordWrap
+            }
+            CustomTextField {
+                id: pairPinField
+                Layout.fillWidth: true
+                placeholderText: "4-digit PIN (e.g. 1234)"
+                maximumLength: 4
+                font.pixelSize: 18
+                font.weight: Font.Bold
+                horizontalAlignment: TextInput.AlignHCenter
+                inputMethodHints: Qt.ImhDigitsOnly
+                validator: RegularExpressionValidator { regularExpression: /^[0-9]{4}$/ }
+                onAccepted: submitPinButton.clicked()
+            }
+            Text {
+                id: pairStatusText
+                Layout.fillWidth: true
+                text: ""
+                font.pixelSize: 12
+                font.weight: Font.DemiBold
+                wrapMode: Text.WordWrap
+                horizontalAlignment: Text.AlignHCenter
+            }
+            RowLayout {
+                Layout.alignment: Qt.AlignRight
+                spacing: 10
+                Button {
+                    text: "Cancel"
+                    onClicked: pairMoonlightPopup.close()
+                    background: Rectangle {
+                        implicitWidth: 90
+                        implicitHeight: 36
+                        color: parent.down ? theme.surfaceAlt : (parent.hovered ? theme.borderHover : theme.surface)
+                        border.color: parent.hovered ? theme.borderHover : theme.border
+                        border.width: 1
+                        radius: theme.controlRadius
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: parent.hovered ? theme.textPrimary : theme.cardTextPrimary
+                        font.pixelSize: 13
+                        font.weight: Font.Bold
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                }
+                Button {
+                    id: submitPinButton
+                    text: "Pair Device"
+                    enabled: pairPinField.text.length === 4
+                    opacity: enabled ? 1.0 : 0.5
+                    onClicked: {
+                        let res = backend.pairMoonlightPin(pairPinField.text)
+                        if (res && res.success) {
+                            pairStatusText.color = theme.accent
+                            pairStatusText.text = "✅ " + res.message
+                            closeTimer.start()
+                        } else {
+                            pairStatusText.color = "#fca5a5"
+                            pairStatusText.text = "❌ " + (res ? res.message : "Pairing failed.")
+                        }
+                    }
+                    background: Rectangle {
+                        implicitWidth: 110
+                        implicitHeight: 36
+                        color: parent.enabled ? (parent.down ? theme.accentPressed : (parent.hovered ? theme.accentHover : theme.accent)) : theme.surfaceAlt
+                        radius: theme.controlRadius
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: parent.enabled ? "#000000" : theme.cardTextMuted
+                        font.pixelSize: 13
+                        font.weight: Font.Bold
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                }
+            }
+        }
+
+        Timer {
+            id: closeTimer
+            interval: 1500
+            repeat: false
+            onTriggered: pairMoonlightPopup.close()
         }
     }
 
