@@ -49,6 +49,11 @@
         {
           options.programs.monitorize = {
             enable = lib.mkEnableOption "Monitorize – Android / Linux secondary monitor";
+            openFirewall = lib.mkOption {
+              type = lib.types.bool;
+              default = true;
+              description = "Whether to automatically open required firewall ports for Monitorize streaming and input.";
+            };
           };
 
           config = lib.mkIf cfg.enable {
@@ -68,6 +73,12 @@
             services.udev.extraRules = ''
               KERNEL=="uinput", MODE="0660", GROUP="monitorize-input"
             '';
+
+            networking.firewall = lib.mkIf cfg.openFirewall {
+              allowedTCPPorts = [ 7110 7114 48989 ];
+              allowedUDPPorts = [ 5353 7113 7117 ];
+              allowedUDPPortRanges = [ { from = 48998; to = 49010; } ];
+            };
           };
         };
     };

@@ -364,6 +364,12 @@ class MonitorizeBackend(QObject):
         video_codec, wifi, fec_mode, enable_audio, streaming_backend="Monitorize",
     ):
         self._pending_usb_preset = None
+        if str(streaming_backend).strip().lower() == "sunshine":
+            try:
+                enc = load_wifi_settings().get("sunshine_encoder", "Auto")
+                set_sunshine_encoder(enc)
+            except Exception:
+                pass
         self.streaming.start(
             res, fps, bitrate, display_type, encoder, encoder_profile, wifi,
             video_codec=video_codec, fec_mode=fec_mode, enable_audio=enable_audio,

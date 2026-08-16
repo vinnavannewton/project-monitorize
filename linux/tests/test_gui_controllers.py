@@ -4542,7 +4542,20 @@ class BackendFacadeTest(unittest.TestCase):
             patch("webbrowser.open", return_value=True) as mock_open,
         ):
             self.assertTrue(open_sunshine_dashboard("config"))
-            mock_open.assert_called_once_with("https://localhost:47990/config")
+            mock_open.assert_called_once_with("https://localhost:48990/config")
+
+    def test_sunshine_isolation_paths_and_port(self):
+        from monitorize.platform.sunshine_service import (
+            SUNSHINE_BASE_PORT,
+            SUNSHINE_HTTPS_PORT,
+            get_sunshine_config_dir,
+            get_sunshine_config_path,
+        )
+        self.assertEqual(SUNSHINE_BASE_PORT, 48989)
+        self.assertEqual(SUNSHINE_HTTPS_PORT, 48990)
+        self.assertTrue(get_sunshine_config_dir(1).endswith(os.path.join("monitorize", "sunshine-1")))
+        self.assertTrue(get_sunshine_config_dir(2).endswith(os.path.join("monitorize", "sunshine-2")))
+        self.assertTrue(get_sunshine_config_path(1).endswith(os.path.join("monitorize", "sunshine-1", "sunshine.conf")))
 
     def test_pair_moonlight_pin_and_backend_slot(self):
         from unittest.mock import patch, MagicMock

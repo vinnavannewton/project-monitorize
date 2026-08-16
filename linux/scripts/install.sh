@@ -134,6 +134,22 @@ if ! "${RTP_SENDER_BUILD}" "${RTP_SENDER_PATH}"; then
 fi
 echo "✓ Deterministic RTP sender installed to ${RTP_SENDER_PATH}"
 
+# ── Pre-configure Isolated Sunshine Profile ──────────────────────────
+SUNSHINE_PROFILE_DIR="${HOME}/.config/monitorize/sunshine-1"
+mkdir -p "${SUNSHINE_PROFILE_DIR}"
+SUNSHINE_CONF="${SUNSHINE_PROFILE_DIR}/sunshine.conf"
+if [[ ! -f "${SUNSHINE_CONF}" ]]; then
+    cat > "${SUNSHINE_CONF}" <<EOF
+# Sunshine configuration isolated for Monitorize
+sunshine_name = Monitorize Display
+port = 48989
+system_tray = disabled
+origin_pin_allowed = pc,lan,wan
+encoder = 
+EOF
+    echo "✓ Isolated Sunshine profile initialized at ${SUNSHINE_PROFILE_DIR}"
+fi
+
 # ── Install icon ─────────────────────────────────────────────────────
 mkdir -p "${ICON_DIR}"
 cp "${ICON_SRC}" "${ICON_DEST}"

@@ -24,7 +24,7 @@ Item {
     readonly property int streamInfoSpacing: 10
     readonly property bool isSunshineMode: backend.streamingBackend === "Sunshine"
     readonly property var streamInfoBaseItems: isSunshineMode
-        ? ["Backend  Sunshine / Moonlight", "Host  " + backend.localIp]
+        ? ["Backend  Sunshine / Moonlight", "Host  " + backend.localIp, "Port  48989"]
         : ["Second Display  Port 7110", "Host  " + backend.localIp]
     readonly property var streamInfoItems: backend.secondStreamActive
         ? page.streamInfoBaseItems.concat(["Third Display  Port 7114"])

@@ -29,13 +29,32 @@ def _set_pdeathsig() -> None:
             pass
 
 
-SUNSHINE_HTTPS_PORT = 47990
-SUNSHINE_HTTP_PORT = 47989
-SUNSHINE_WEB_URL = "https://localhost:47990"
+SUNSHINE_BASE_PORT = 48989
+SUNSHINE_HTTPS_PORT = 48990
+SUNSHINE_HTTP_PORT = 48989
+SUNSHINE_WEB_URL = f"https://localhost:{SUNSHINE_HTTPS_PORT}"
+
+
+def get_sunshine_config_dir(instance: int = 1) -> str:
+    """Return the isolated configuration directory for Monitorize's Sunshine engine."""
+    override = os.environ.get("SUNSHINE_CONFIG_DIR")
+    if override:
+        return override
+    config_home = os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config"))
+    return os.path.join(config_home, "monitorize", f"sunshine-{instance}")
+
+
+def get_sunshine_config_path(instance: int = 1) -> str:
+    """Return the absolute path to the active isolated sunshine.conf file."""
+    return os.path.join(get_sunshine_config_dir(instance), "sunshine.conf")
 
 
 def is_sunshine_running(timeout: float = 0.5) -> bool:
-    """Check whether Sunshine is already running by checking if its web port is listening."""
+    """Check whether Monitorize's Sunshine instance is currently running."""
+    global _SUNSHINE_PROCESS
+    if _SUNSHINE_PROCESS is not None and _SUNSHINE_PROCESS.poll() is None:
+        return True
+
     for port in (SUNSHINE_HTTPS_PORT, SUNSHINE_HTTP_PORT):
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
@@ -45,51 +64,29 @@ def is_sunshine_running(timeout: float = 0.5) -> bool:
         except OSError:
             pass
 
-    
-    try:
-        res = subprocess.run(["pgrep", "-x", "sunshine"], capture_output=True, text=True)
-        if res.returncode == 0 and res.stdout.strip():
-            return True
-    except (FileNotFoundError, OSError):
-        pass
-
     return False
 
 
-def get_sunshine_candidates() -> list[list[str]]:
-    """Return an ordered list of candidate commands to launch Sunshine on this system."""
+def get_sunshine_candidates(instance: int = 1) -> list[list[str]]:
+    """Return an ordered list of candidate commands to launch Monitorize's Sunshine engine."""
     candidates: list[list[str]] = []
+    config_file = get_sunshine_config_path(instance)
+
+    
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+    venv_sunshine = os.path.join(project_root, "linux", "venv", "bin", "sunshine")
+    build_sunshine = os.path.join(project_root, "external", "sunshine", "build", "sunshine")
+
+    for local_bin in (venv_sunshine, build_sunshine):
+        if os.path.isfile(local_bin) and os.access(local_bin, os.X_OK):
+            candidates.append([local_bin, config_file])
 
     
     sunshine_bin = shutil.which("sunshine")
     if sunshine_bin:
-        candidates.append([sunshine_bin])
-
-    
-    if shutil.which("systemctl"):
-        try:
-            res = subprocess.run(
-                ["systemctl", "--user", "cat", "sunshine.service"],
-                capture_output=True,
-                text=True,
-            )
-            if res.returncode == 0:
-                candidates.append(["systemctl", "--user", "start", "sunshine"])
-        except (FileNotFoundError, OSError):
-            pass
-
-    
-    if shutil.which("flatpak"):
-        try:
-            res = subprocess.run(
-                ["flatpak", "info", "dev.lizardbyte.sunshine"],
-                capture_output=True,
-                text=True,
-            )
-            if res.returncode == 0:
-                candidates.append(["flatpak", "run", "dev.lizardbyte.sunshine"])
-        except (FileNotFoundError, OSError):
-            pass
+        cmd = [sunshine_bin, config_file]
+        if cmd not in candidates:
+            candidates.append(cmd)
 
     
     for common_path in (
@@ -101,37 +98,54 @@ def get_sunshine_candidates() -> list[list[str]]:
         os.path.expanduser("~/.local/bin/sunshine"),
     ):
         if os.path.isfile(common_path) and os.access(common_path, os.X_OK):
-            if [common_path] not in candidates:
-                candidates.append([common_path])
+            cmd = [common_path, config_file]
+            if cmd not in candidates:
+                candidates.append(cmd)
 
     return candidates
 
 
-def find_sunshine_command() -> list[str] | None:
+def find_sunshine_command(instance: int = 1) -> list[str] | None:
     """Find the first available command to start Sunshine."""
-    candidates = get_sunshine_candidates()
+    candidates = get_sunshine_candidates(instance)
     return candidates[0] if candidates else None
 
 
-def ensure_sunshine_tray_disabled() -> None:
-    """Ensure sunshine.conf permanently disables the system tray icon."""
-    config_path = get_sunshine_config_path()
-    os.makedirs(os.path.dirname(config_path), exist_ok=True)
+def ensure_sunshine_tray_disabled(instance: int = 1) -> None:
+    """Ensure sunshine.conf has dedicated non-clashing port and permanently disabled tray."""
+    config_path = get_sunshine_config_path(instance)
+    try:
+        os.makedirs(os.path.dirname(config_path), exist_ok=True)
+    except OSError:
+        pass
     lines = []
     has_tray = False
+    has_port = False
+    has_origin = False
     if os.path.isfile(config_path):
         try:
             with open(config_path, "r", encoding="utf-8") as f:
                 for line in f:
-                    if line.strip().startswith("system_tray"):
+                    stripped = line.strip()
+                    if stripped.startswith("system_tray"):
                         lines.append("system_tray = disabled\n")
                         has_tray = True
+                    elif stripped.startswith("port"):
+                        lines.append(f"port = {SUNSHINE_BASE_PORT}\n")
+                        has_port = True
+                    elif stripped.startswith("origin_pin_allowed"):
+                        lines.append("origin_pin_allowed = pc,lan,wan\n")
+                        has_origin = True
                     else:
                         lines.append(line)
         except OSError:
             pass
     if not has_tray:
         lines.append("system_tray = disabled\n")
+    if not has_port:
+        lines.append(f"port = {SUNSHINE_BASE_PORT}\n")
+    if not has_origin:
+        lines.append("origin_pin_allowed = pc,lan,wan\n")
     try:
         with open(config_path, "w", encoding="utf-8") as f:
             f.writelines(lines)
@@ -139,42 +153,42 @@ def ensure_sunshine_tray_disabled() -> None:
         pass
 
 
-def start_sunshine() -> tuple[bool, str]:
-    """Start Sunshine if not already running, binding child process to parent lifetime."""
+def start_sunshine(instance: int = 1) -> tuple[bool, str]:
+    """Start isolated Sunshine engine binding child process to parent lifetime."""
     global _SUNSHINE_PROCESS
-    ensure_sunshine_tray_disabled()
+    ensure_sunshine_tray_disabled(instance)
     if is_sunshine_running():
         return True, "Sunshine is already running."
 
-    candidates = get_sunshine_candidates()
+    candidates = get_sunshine_candidates(instance)
     if not candidates:
-        return False, "Sunshine not found. Please start Sunshine or verify it is installed."
+        return False, "Sunshine not found. Please verify Monitorize Sunshine is built or installed."
+
+    config_dir = get_sunshine_config_dir(instance)
+    env = dict(os.environ)
+    env["SUNSHINE_CONFIG_DIR"] = config_dir
+    env["XDG_CONFIG_HOME"] = os.path.dirname(config_dir)
 
     errors = []
     for cmd in candidates:
         try:
-            if cmd[0] == "systemctl":
-                res = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
-                if res.returncode == 0:
-                    return True, "Sunshine service started via systemd."
-                errors.append(f"systemctl: {res.stderr.strip() or 'failed'}")
-            else:
-                proc = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    preexec_fn=_set_pdeathsig,
-                )
-                _SUNSHINE_PROCESS = proc
-                return True, f"Launched Sunshine process ({cmd[0]})."
-        except (FileNotFoundError, OSError, subprocess.TimeoutExpired) as exc:
+            proc = subprocess.Popen(
+                cmd,
+                env=env,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                preexec_fn=_set_pdeathsig,
+            )
+            _SUNSHINE_PROCESS = proc
+            return True, f"Launched isolated Sunshine process ({cmd[0]})."
+        except (FileNotFoundError, OSError) as exc:
             errors.append(f"{cmd[0]}: {exc}")
 
     return False, f"Failed to start Sunshine ({'; '.join(errors)})"
 
 
 def stop_sunshine() -> tuple[bool, str]:
-    """Gracefully stop Sunshine background processes, service, and clear virtual monitor configuration."""
+    """Gracefully stop Monitorize's Sunshine child process without affecting user's personal Sunshine."""
     global _SUNSHINE_PROCESS
     stopped = False
 
@@ -191,30 +205,6 @@ def stop_sunshine() -> tuple[bool, str]:
         except Exception:
             pass
         _SUNSHINE_PROCESS = None
-
-    
-    if shutil.which("systemctl"):
-        try:
-            subprocess.run(
-                ["systemctl", "--user", "stop", "sunshine"],
-                capture_output=True,
-                timeout=3,
-            )
-        except Exception:
-            pass
-
-    
-    if shutil.which("pkill"):
-        try:
-            res = subprocess.run(
-                ["pkill", "-TERM", "-f", "sunshine"],
-                capture_output=True,
-                timeout=3,
-            )
-            if res.returncode == 0:
-                stopped = True
-        except Exception:
-            pass
 
     
     clear_sunshine_output_name()
@@ -285,11 +275,6 @@ def pair_moonlight_pin(pin: str, name: str = "Monitorize Display") -> tuple[bool
         return False, f"Could not connect to Sunshine API: {exc}"
 
 
-def get_sunshine_config_path() -> str:
-    """Return the absolute path to the active sunshine.conf file."""
-    config_dir = os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config"))
-    return os.path.join(config_dir, "sunshine", "sunshine.conf")
-
 
 def set_sunshine_output_name(output_name: str) -> tuple[bool, str]:
     """Configure Sunshine to capture a specific virtual display output name.
@@ -298,7 +283,10 @@ def set_sunshine_output_name(output_name: str) -> tuple[bool, str]:
     """
     clean_name = str(output_name or "").strip()
     config_path = get_sunshine_config_path()
-    os.makedirs(os.path.dirname(config_path), exist_ok=True)
+    try:
+        os.makedirs(os.path.dirname(config_path), exist_ok=True)
+    except OSError:
+        pass
 
     
     lines = []
@@ -417,7 +405,10 @@ def set_sunshine_encoder(encoder_name: str) -> tuple[bool, str]:
     target_value = mapping.get(clean.lower(), clean)
 
     config_path = get_sunshine_config_path()
-    os.makedirs(os.path.dirname(config_path), exist_ok=True)
+    try:
+        os.makedirs(os.path.dirname(config_path), exist_ok=True)
+    except OSError:
+        pass
 
     lines = []
     found = False
@@ -465,6 +456,9 @@ def set_sunshine_encoder(encoder_name: str) -> tuple[bool, str]:
         except Exception:
             pass
 
+        
+        restart_sunshine()
+
     return True, f"Sunshine encoder set to '{target_value or 'auto'}'."
 
 
@@ -508,7 +502,7 @@ DEFAULT_SUNSHINE_CONFIG = {
     "upnp": "disabled",
     "address_family": "both",
     "bind_address": "",
-    "port": "47989",
+    "port": "48989",
     "origin_web_ui_allowed": "lan",
     "csrf_allowed_origins": "",
     "external_ip": "",
@@ -530,7 +524,6 @@ DEFAULT_SUNSHINE_CONFIG = {
     "hevc_mode": "0",
     "av1_mode": "0",
     "capture": "",
-    "encoder": "",
     
     "nvenc_preset": "1",
     "nvenc_twopass": "quarter_res",
@@ -617,7 +610,10 @@ def get_sunshine_config() -> dict[str, str]:
 def save_sunshine_config(new_config: dict[str, str]) -> tuple[bool, str]:
     """Save configuration dictionary to sunshine.conf and push to running Sunshine instance."""
     config_path = get_sunshine_config_path()
-    os.makedirs(os.path.dirname(config_path), exist_ok=True)
+    try:
+        os.makedirs(os.path.dirname(config_path), exist_ok=True)
+    except OSError:
+        pass
 
     current_config = get_sunshine_config()
     current_config.update({str(k): str(v) for k, v in new_config.items() if v is not None})
