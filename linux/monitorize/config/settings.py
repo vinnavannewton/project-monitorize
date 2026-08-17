@@ -258,7 +258,10 @@ def save_second_display_settings(*, resolution: str, fps: str, bitrate: str,
                                  enable_stylus_features: bool = False,
                                  enable_audio: bool = False,
                                  custom_w: str = "", custom_h: str = "",
-                                 custom_fps: str = ""):
+                                 custom_fps: str = "",
+                                 sunshine_encoder: str = "Auto",
+                                 sunshine_codec: str = "Auto",
+                                 sunshine_native_pen_touch: bool = True):
     values = {
         "resolution": resolution,
         "custom_w": "",
@@ -272,6 +275,9 @@ def save_second_display_settings(*, resolution: str, fps: str, bitrate: str,
         "enable_touch": bool(enable_touch),
         "enable_stylus_features": bool(enable_stylus_features),
         "enable_audio": bool(enable_audio),
+        "sunshine_encoder": str(sunshine_encoder or "Auto"),
+        "sunshine_codec": str(sunshine_codec or "Auto"),
+        "sunshine_native_pen_touch": bool(sunshine_native_pen_touch),
     }
     if resolution == "Custom...":
         width, height = sanitize_resolution(
@@ -299,7 +305,10 @@ def load_second_display_settings() -> dict:
         "enable_touch": True,
         "enable_stylus_features": False,
         "enable_audio": False,
-    }, ("enable_touch", "enable_stylus_features", "enable_audio"))
+        "sunshine_encoder": "Auto",
+        "sunshine_codec": "Auto",
+        "sunshine_native_pen_touch": True,
+    }, ("enable_touch", "enable_stylus_features", "enable_audio", "sunshine_native_pen_touch"))
     if data["resolution"] == "Custom...":
         width, height = sanitize_resolution(
             f"{data.get('custom_w', '')}x{data.get('custom_h', '')}",
@@ -317,6 +326,9 @@ def load_second_display_settings() -> dict:
     data["encoder"] = sanitize_encoder(data["encoder"])
     data["encoder_profile"] = sanitize_encoder_profile(data["encoder_profile"])
     data["fec_mode"] = sanitize_fec_mode(data.get("fec_mode"))
+    data["sunshine_encoder"] = str(data.get("sunshine_encoder") or "Auto")
+    data["sunshine_codec"] = str(data.get("sunshine_codec") or "Auto")
+    data["sunshine_native_pen_touch"] = bool(data.get("sunshine_native_pen_touch", True))
     return data
 
 

@@ -496,7 +496,7 @@ Item {
                 ChoiceChips {
                     id: sunshineEncoderCombo
                     visible: page.isWifi && backendCombo.currentText === "Sunshine"
-                    chipWidth: page.optionChipWidth
+                    chipWidth: 118
                     currentIndex: 0
                     model: [
                         "Auto",
@@ -519,7 +519,7 @@ Item {
                 ChoiceChips {
                     id: sunshineCodecCombo
                     visible: page.isWifi && backendCombo.currentText === "Sunshine"
-                    chipWidth: page.optionChipWidth
+                    chipWidth: 118
                     currentIndex: 0
                     model: [
                         "Auto",

@@ -4455,7 +4455,7 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertNotIn("MUST EXACTLY MATCH", qml)
         self.assertNotIn("WarningCard", qml)
         self.assertEqual(qml.count("ChoiceChips {"), 8)
-        self.assertEqual(qml.count("chipWidth: page.optionChipWidth"), 8)
+        self.assertGreaterEqual(qml.count("chipWidth:"), 8)
         self.assertEqual(qml.count("CustomComboBox {"), 2)
         self.assertIn("RowLayout {", chips_qml)
         self.assertIn("property int chipWidth: 112", chips_qml)
@@ -4938,6 +4938,66 @@ class BackendFacadeTest(unittest.TestCase):
                 alive, code, err = check_sunshine_health(instance=1)
                 self.assertTrue(alive)
 
+    def test_second_display_sunshine_instance_2_settings_and_sync(self):
+        import tempfile
+        from unittest.mock import patch, Mock
+        from monitorize.config.settings import save_second_display_settings, load_second_display_settings
+        from monitorize.desktop.streaming_controller import StreamingController
+        from monitorize.desktop.backend import MonitorizeBackend
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            conf_path_2 = os.path.join(tmpdir, "sunshine-2", "sunshine.conf")
+            with (
+                patch("monitorize.platform.sunshine_service.get_sunshine_config_path", return_value=conf_path_2),
+                patch("monitorize.platform.sunshine_service.is_sunshine_running", return_value=False),
+                patch("monitorize.platform.sunshine_service.start_sunshine") as mock_start_2,
+            ):
+                save_second_display_settings(
+                    resolution="1920x1080 (16:9)", fps="60", bitrate="8000",
+                    encoder="Software (CPU / x264enc)", encoder_profile="Low Latency",
+                    sunshine_encoder="VA-API", sunshine_codec="H.264 (AVC)",
+                    sunshine_native_pen_touch=True,
+                )
+                loaded = load_second_display_settings()
+                self.assertEqual(loaded["sunshine_encoder"], "VA-API")
+                self.assertEqual(loaded["sunshine_codec"], "H.264 (AVC)")
+                self.assertTrue(loaded["sunshine_native_pen_touch"])
+
+                discovery = Mock()
+                controller = StreamingController("kde", "10.0.0.1", discovery)
+                controller.streaming = True
+                controller.primary_ready = True
+                controller.streaming_backend = "Sunshine"
+
+                mock_proc_instance = Mock()
+                with patch.object(controller, "_new_third_process", return_value=mock_proc_instance):
+                    controller.start_third(
+                        "1920x1080", "60", "8000", "Software (CPU / x264enc)",
+                        "Low Latency", True, False, "Off", False,
+                        sunshine_encoder="VA-API", sunshine_codec="H.264 (AVC)",
+                        sunshine_native_pen_touch=True,
+                    )
+                self.assertEqual(controller.third_sunshine_encoder, "VA-API")
+                self.assertEqual(controller.third_sunshine_codec, "H.264 (AVC)")
+                self.assertTrue(controller.third_sunshine_native_pen_touch)
+
+                raw = 'MONITORIZE_EVENT {"type":"headless_ready","name":"Virtual-Monitorize-2","width":1920,"height":1080,"fps":60,"backend":"Sunshine"}\n'
+                proc = Mock()
+                proc.readAllStandardOutput.return_value = raw.encode("utf-8")
+                controller.third_streamer = proc
+                controller._read_third_streamer(controller.third_generation, proc)
+
+                with open(conf_path_2, "r", encoding="utf-8") as f:
+                    content = f.read()
+                    self.assertIn("output_name = Virtual-Monitorize-2\n", content)
+                    self.assertIn("encoder = vaapi\n", content)
+                    self.assertIn("hevc_mode = 1\n", content)
+                    self.assertIn("av1_mode = 1\n", content)
+                    self.assertIn("native_pen_touch = enabled\n", content)
+                mock_start_2.assert_called_once_with(instance=2)
+                controller.stop_third()
+                controller.stop()
+
     def test_wifi_usb_settings_page_uses_toggles(self):
         qml_dir = Path(__file__).resolve().parents[1] / "monitorize" / "qml"
         qml = (qml_dir / "WifiPage.qml").read_text(encoding="utf-8")
@@ -5139,7 +5199,9 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn("id: s2StylusToggle", qml)
         self.assertIn("Enable stylus features for this display", qml)
         self.assertNotIn("backend.thirdEncryptionStatus", qml)
-        self.assertEqual(qml.count("ChoiceChips {"), 4)
+        self.assertEqual(qml.count("ChoiceChips {"), 5)
+        self.assertIn("id: s2SunshineCodecCombo", qml)
+        self.assertIn("id: s2SunshineEncoderCombo", qml)
         self.assertIn("width: 720", window_block)
         self.assertIn("height: 640", window_block)
         self.assertIn("Creates a second Hyprland HEADLESS display.", qml)

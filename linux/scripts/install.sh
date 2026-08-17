@@ -52,8 +52,12 @@ if [[ "${1:-}" == "remove" || "${1:-}" == "uninstall" ]]; then
     echo "Removing ${APP_NAME} desktop entry…"
     rm -f "${DESKTOP_DIR}/${DESKTOP_FILE}"
     rm -f "${DESKTOP_DIR}/${HELPER_DESKTOP_FILE}"
+    rm -f "${DESKTOP_DIR}/dev.lizardbyte.app.Sunshine*.desktop"
     rm -f "${ICON_DEST}"
     remove_legacy_udp_entries
+    if command -v sudo &>/dev/null; then
+        sudo rm -f /usr/local/share/applications/dev.lizardbyte.app.Sunshine*.desktop 2>/dev/null || true
+    fi
     rm -rf "${PROJECT_DIR}/venv"
     find "${PROJECT_DIR}" -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
     # Refresh desktop database if available
@@ -147,8 +151,14 @@ if [[ -f "${SUNSHINE_BUILD_BIN}" ]]; then
     echo "Installing Sunshine assets to /usr/local/assets…"
     if command -v sudo &>/dev/null; then
         sudo cmake --install "${SUNSHINE_SUBMODULE_DIR}/build"
+        # Sunshine is an embedded headless backend for Monitorize. Remove standalone desktop launchers so it never pollutes the application menu.
+        sudo rm -f /usr/local/share/applications/dev.lizardbyte.app.Sunshine*.desktop 2>/dev/null || true
+        if command -v update-desktop-database &>/dev/null; then
+            sudo update-desktop-database /usr/local/share/applications 2>/dev/null || true
+        fi
     else
         cmake --install "${SUNSHINE_SUBMODULE_DIR}/build"
+        rm -f /usr/local/share/applications/dev.lizardbyte.app.Sunshine*.desktop 2>/dev/null || true
     fi
     echo "✓ Sunshine assets installed"
 else
@@ -181,8 +191,13 @@ else
                 echo "Installing Sunshine assets to /usr/local/assets…"
                 if command -v sudo &>/dev/null; then
                     sudo cmake --install "${SUNSHINE_SUBMODULE_DIR}/build"
+                    sudo rm -f /usr/local/share/applications/dev.lizardbyte.app.Sunshine*.desktop 2>/dev/null || true
+                    if command -v update-desktop-database &>/dev/null; then
+                        sudo update-desktop-database /usr/local/share/applications 2>/dev/null || true
+                    fi
                 else
                     cmake --install "${SUNSHINE_SUBMODULE_DIR}/build"
+                    rm -f /usr/local/share/applications/dev.lizardbyte.app.Sunshine*.desktop 2>/dev/null || true
                 fi
                 echo "✓ Sunshine assets installed"
             else

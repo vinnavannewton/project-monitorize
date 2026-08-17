@@ -118,7 +118,10 @@ Item {
             s2FecCombo.currentText,
             page.secondTouchEnabled,
             page.secondStylusEnabled,
-            page.secondAudioEnabled
+            page.secondAudioEnabled,
+            s2SunshineEncoderCombo ? s2SunshineEncoderCombo.currentText : "Auto",
+            s2SunshineCodecCombo ? s2SunshineCodecCombo.currentText : "Auto",
+            s2SunshineTouchStylusToggle ? s2SunshineTouchStylusToggle.checked : true
         )
     }
 
@@ -160,6 +163,20 @@ Item {
             page.secondStylusEnabled = s2["enable_stylus_features"] !== undefined
                 ? s2["enable_stylus_features"] : false;
             page.secondAudioEnabled = s2["enable_audio"] === true;
+
+            if (s2SunshineEncoderCombo) {
+                if (!s2SunshineEncoderCombo.selectValue(s2["sunshine_encoder"] || "Auto", true)) {
+                    s2SunshineEncoderCombo.selectValue("Auto");
+                }
+            }
+            if (s2SunshineCodecCombo) {
+                if (!s2SunshineCodecCombo.selectValue(s2["sunshine_codec"] || "Auto", true)) {
+                    s2SunshineCodecCombo.selectValue("Auto");
+                }
+            }
+            if (s2SunshineTouchStylusToggle) {
+                s2SunshineTouchStylusToggle.checked = s2["sunshine_native_pen_touch"] !== undefined ? s2["sunshine_native_pen_touch"] : true;
+            }
         }
         page.loadingSettings = false;
     }
@@ -1121,25 +1138,6 @@ Item {
                 }
 
                 Text {
-                    text: "Encoder:"
-                    color: theme.cardTextSecondary
-                    font.pixelSize: 13
-                    visible: page.isSunshineMode
-                }
-                ChoiceChips {
-                    id: s2SunshineEncoderCombo
-                    visible: page.isSunshineMode
-                    chipWidth: page.optionChipWidth
-                    currentIndex: 0
-                    model: [
-                        "Auto",
-                        "NVIDIA",
-                        "VA-API",
-                        "Software Enc"
-                    ]
-                }
-
-                Text {
                     text: "Bitrate (Mbps):"
                     color: theme.cardTextSecondary
                     font.pixelSize: 13
@@ -1208,6 +1206,76 @@ Item {
                     model: ["Off", "RS-FEC 10%"]
                     currentIndex: 0
                     onActivated: page.saveSecondDisplaySettings()
+                }
+
+                Text {
+                    text: "Video Codec:"
+                    color: theme.cardTextSecondary
+                    font.pixelSize: 13
+                    visible: page.isSunshineMode
+                }
+                ChoiceChips {
+                    id: s2SunshineCodecCombo
+                    visible: page.isSunshineMode
+                    chipWidth: 118
+                    currentIndex: 0
+                    model: [
+                        "Auto",
+                        "H.264 (AVC)",
+                        "H.265 (HEVC)",
+                        "AV1"
+                    ]
+                    onActivated: {
+                        if (page.isSunshineMode) {
+                            backend.setSunshineCodec(currentText, 2)
+                        }
+                        page.saveSecondDisplaySettings()
+                    }
+                }
+
+                Text {
+                    text: "Encoder:"
+                    color: theme.cardTextSecondary
+                    font.pixelSize: 13
+                    visible: page.isSunshineMode
+                }
+                ChoiceChips {
+                    id: s2SunshineEncoderCombo
+                    visible: page.isSunshineMode
+                    chipWidth: 118
+                    currentIndex: 0
+                    model: [
+                        "Auto",
+                        "NVIDIA",
+                        "VA-API",
+                        "Software Enc"
+                    ]
+                    onActivated: {
+                        if (page.isSunshineMode) {
+                            backend.setSunshineEncoder(currentText, 2)
+                        }
+                        page.saveSecondDisplaySettings()
+                    }
+                }
+
+                Text {
+                    text: "Input:"
+                    color: theme.cardTextSecondary
+                    font.pixelSize: 13
+                    visible: page.isSunshineMode
+                }
+                CustomToggle {
+                    id: s2SunshineTouchStylusToggle
+                    visible: page.isSunshineMode
+                    text: "Touch and Stylus Input"
+                    Layout.alignment: Qt.AlignLeft
+                    checked: true
+                    onToggled: {
+                        if (page.isSunshineMode) {
+                            backend.setSunshineNativePenTouch(checked, 2)
+                        }
+                        page.saveSecondDisplaySettings()
+                    }
                 }
 
                 Text {
@@ -1374,8 +1442,10 @@ Item {
                     implicitWidth: 170
                     implicitHeight: 36
                     onClicked: {
-                        if (page.isSunshineMode && typeof s2SunshineEncoderCombo !== "undefined") {
-                            backend.setSunshineEncoder(s2SunshineEncoderCombo.currentText, 2)
+                        if (page.isSunshineMode) {
+                            if (s2SunshineEncoderCombo) backend.setSunshineEncoder(s2SunshineEncoderCombo.currentText, 2)
+                            if (s2SunshineCodecCombo) backend.setSunshineCodec(s2SunshineCodecCombo.currentText, 2)
+                            if (s2SunshineTouchStylusToggle) backend.setSunshineNativePenTouch(s2SunshineTouchStylusToggle.checked, 2)
                         }
                         backend.startSecondStream(
                             page.secondResolutionValue(),
@@ -1386,7 +1456,10 @@ Item {
                             backend.isWifiStreaming ? s2FecCombo.currentText : "Off",
                             page.secondTouchEnabled,
                             page.secondStylusEnabled,
-                            backend.isWifiStreaming && page.secondAudioEnabled
+                            backend.isWifiStreaming && page.secondAudioEnabled,
+                            s2SunshineEncoderCombo ? s2SunshineEncoderCombo.currentText : "Auto",
+                            s2SunshineCodecCombo ? s2SunshineCodecCombo.currentText : "Auto",
+                            s2SunshineTouchStylusToggle ? s2SunshineTouchStylusToggle.checked : true
                         )
                         page.saveSecondDisplaySettings()
                         addDisplayWindow.hide()

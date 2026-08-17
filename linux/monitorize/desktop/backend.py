@@ -317,9 +317,14 @@ class MonitorizeBackend(QObject):
         return load_second_display_settings()
 
     @pyqtSlot(str, str, str, str, str, str, str, str, str, bool, bool, bool)
+    @pyqtSlot(str, str, str, str, str, str, str, str, str, bool, bool, bool)
+    @pyqtSlot(str, str, str, str, str, str, str, str, str, bool, bool, bool, str)
+    @pyqtSlot(str, str, str, str, str, str, str, str, str, bool, bool, bool, str, str)
+    @pyqtSlot(str, str, str, str, str, str, str, str, str, bool, bool, bool, str, str, bool)
     def saveSecondDisplaySettings(
         self, resolution, custom_w, custom_h, fps, custom_fps, bitrate,
         encoder, encoder_profile, fec_mode, enable_touch, enable_stylus_features, enable_audio,
+        sunshine_encoder="Auto", sunshine_codec="Auto", sunshine_native_pen_touch=True,
     ):
         save_second_display_settings(
             resolution=resolution, custom_w=custom_w, custom_h=custom_h,
@@ -328,7 +333,14 @@ class MonitorizeBackend(QObject):
             enable_touch=enable_touch,
             enable_stylus_features=enable_stylus_features,
             enable_audio=enable_audio,
+            sunshine_encoder=sunshine_encoder,
+            sunshine_codec=sunshine_codec,
+            sunshine_native_pen_touch=sunshine_native_pen_touch,
         )
+        if getattr(self.streaming, "streaming_backend", "Monitorize") == "Sunshine":
+            set_sunshine_encoder(sunshine_encoder, instance=2)
+            set_sunshine_codec(sunshine_codec, instance=2)
+            set_sunshine_native_pen_touch(sunshine_native_pen_touch, instance=2)
 
     @pyqtSlot(result="QVariant")
     def loadReceiverSettings(self):
@@ -441,13 +453,20 @@ class MonitorizeBackend(QObject):
         return {"success": success, "message": message}
 
     @pyqtSlot(str, str, str, str, str, str, bool, bool, bool)
+    @pyqtSlot(str, str, str, str, str, str, bool, bool, bool, str)
+    @pyqtSlot(str, str, str, str, str, str, bool, bool, bool, str, str)
+    @pyqtSlot(str, str, str, str, str, str, bool, bool, bool, str, str, bool)
     def startSecondStream(
         self, res, fps, bitrate, encoder, encoder_profile, fec_mode, enable_touch,
         enable_stylus_features, enable_audio,
+        sunshine_encoder="Auto", sunshine_codec="Auto", sunshine_native_pen_touch=True,
     ):
         self.streaming.start_third(
             res, fps, bitrate, encoder, encoder_profile, enable_touch,
             enable_stylus_features, fec_mode=fec_mode, enable_audio=enable_audio,
+            sunshine_encoder=sunshine_encoder,
+            sunshine_codec=sunshine_codec,
+            sunshine_native_pen_touch=sunshine_native_pen_touch,
         )
 
     @pyqtSlot()

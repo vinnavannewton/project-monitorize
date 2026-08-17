@@ -897,6 +897,7 @@ class StreamingController(QObject):
     def start_third(
         self, res, fps, bitrate, encoder, encoder_profile, enable_touch=True,
         enable_stylus_features=False, fec_mode="Off", enable_audio=False,
+        sunshine_encoder="Auto", sunshine_codec="Auto", sunshine_native_pen_touch=True,
     ):
         if self.de not in ("kde", "gnome", "hyprland"):
             self.logAppended.emit(
@@ -1029,6 +1030,9 @@ class StreamingController(QObject):
         self.third_touch_enabled = third_touch_enabled
         self.third_stylus_enabled = third_stylus_enabled
         self.third_audio_enabled = third_audio_enabled
+        self.third_sunshine_encoder = str(sunshine_encoder or "Auto")
+        self.third_sunshine_codec = str(sunshine_codec or "Auto")
+        self.third_sunshine_native_pen_touch = bool(sunshine_native_pen_touch)
         self.third_audio_process = None
         self.third_output = third_output
         self.third_env = env
@@ -1249,13 +1253,19 @@ class StreamingController(QObject):
                 try:
                     from monitorize.platform.sunshine_service import (
                         is_sunshine_running,
-                        set_sunshine_output_name,
                         start_sunshine,
+                        sync_sunshine_stream_config,
                     )
-                    set_sunshine_output_name(output_name, instance=2)
+                    sync_sunshine_stream_config(
+                        output_name,
+                        getattr(self, "third_sunshine_encoder", "Auto"),
+                        getattr(self, "third_sunshine_codec", "Auto"),
+                        getattr(self, "third_sunshine_native_pen_touch", True),
+                        instance=2,
+                    )
                     if not is_sunshine_running(instance=2):
                         start_sunshine(instance=2)
-                    self.sunshine_watchdog_timer.start()
+                    QTimer.singleShot(1500, self.sunshine_watchdog_timer.start)
                 except Exception as exc:
                     app_log.warning(f"Could not auto-configure Sunshine instance 2 output: {exc}")
                 self._set_status(
