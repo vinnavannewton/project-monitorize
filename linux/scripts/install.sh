@@ -160,6 +160,7 @@ else
             mkdir -p "${SUNSHINE_SUBMODULE_DIR}/build"
             if cmake -B "${SUNSHINE_SUBMODULE_DIR}/build" -S "${SUNSHINE_SUBMODULE_DIR}" \
                      -DCMAKE_BUILD_TYPE=Release -DSUNSHINE_ENABLE_TRAY=OFF -DBUILD_TESTS=OFF -DBUILD_DOCS=OFF \
+                     -DCUDA_FAIL_ON_MISSING=OFF \
                      -DPython_EXECUTABLE="${VENV_DIR}/bin/python3" -DGLAD_SKIP_PIP_INSTALL=ON && \
                cmake --build "${SUNSHINE_SUBMODULE_DIR}/build" -j"${NPROC}"; then
                 cp -f "${SUNSHINE_BUILD_BIN}" "${SUNSHINE_VENV_BIN}"
