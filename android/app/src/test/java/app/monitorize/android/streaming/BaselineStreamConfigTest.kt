@@ -226,4 +226,41 @@ class RtpStreamConfigTest {
 
         assertEquals(validEstimate, sync.latest())
     }
+
+    @Test fun detectNalCodecIdentifiesHevcParameterSetsAndKeyframes() {
+        
+        assertEquals("h265", detectNalCodec(0x40))
+        
+        assertEquals("h265", detectNalCodec(0x42))
+        
+        assertEquals("h265", detectNalCodec(0x44))
+        
+        assertEquals("h265", detectNalCodec(0x46))
+        
+        assertEquals("h265", detectNalCodec(0x26))
+        
+        assertEquals("h265", detectNalCodec(0x28))
+        
+        assertEquals("h265", detectNalCodec(0x2A))
+    }
+
+    @Test fun detectNalCodecIdentifiesH264ParameterSetsAndKeyframes() {
+        
+        assertEquals("h264", detectNalCodec(0x67))
+        
+        assertEquals("h264", detectNalCodec(0x27))
+        
+        assertEquals("h264", detectNalCodec(0x68))
+        
+        assertEquals("h264", detectNalCodec(0x09))
+        
+        assertEquals("h264", detectNalCodec(0x65))
+        assertEquals("h264", detectNalCodec(0x25))
+    }
+
+    @Test fun detectNalCodecReturnsNullForGenericSlices() {
+        
+        assertNull(detectNalCodec(0x01))
+        assertNull(detectNalCodec(0x02))
+    }
 }

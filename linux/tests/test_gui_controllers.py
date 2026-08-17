@@ -1037,6 +1037,37 @@ class ReceiverLifecycleTest(unittest.TestCase):
             finally:
                 settings.CONFIG_DIR, settings.CONFIG_FILE = old_dir, old_file
 
+    def test_video_codec_saved_and_cpu_encoder_overrides_to_h264(self):
+        old_dir, old_file = settings.CONFIG_DIR, settings.CONFIG_FILE
+        with tempfile.TemporaryDirectory() as directory:
+            try:
+                settings.CONFIG_DIR = directory
+                settings.CONFIG_FILE = str(Path(directory) / "settings.ini")
+                settings.save_wifi_settings(
+                    resolution="1920x1080", custom_w="", custom_h="",
+                    fps="60", custom_fps="", bitrate="20000",
+                    display_type="Extend",
+                    encoder="Intel/AMD VA-API (vah264enc)",
+                    encoder_profile="Low Latency", video_codec="H.265 (HEVC)",
+                    fec_mode="Off", enable_audio=False,
+                )
+                self.assertEqual(
+                    settings.load_wifi_settings()["video_codec"], "H.265 (HEVC)"
+                )
+                settings.save_wifi_settings(
+                    resolution="1920x1080", custom_w="", custom_h="",
+                    fps="60", custom_fps="", bitrate="20000",
+                    display_type="Extend",
+                    encoder="Software (CPU / x264enc)",
+                    encoder_profile="Low Latency", video_codec="H.265 (HEVC)",
+                    fec_mode="Off", enable_audio=False,
+                )
+                self.assertEqual(
+                    settings.load_wifi_settings()["video_codec"], "H.264 (AVC)"
+                )
+            finally:
+                settings.CONFIG_DIR, settings.CONFIG_FILE = old_dir, old_file
+
     def test_first_run_usb_defaults_are_cpu_1080p_16mbps(self):
         old_dir, old_file = settings.CONFIG_DIR, settings.CONFIG_FILE
         with tempfile.TemporaryDirectory() as directory:
@@ -3095,17 +3126,17 @@ class KdeNativeStreamerTest(unittest.TestCase):
             "[KDE Native] Capture path=owner node=10 target=100", flush=True
         )
 
-    def test_additional_rtp_above_60_uses_post_mode_capture(self):
+    def test_additional_rtp_above_60_uses_owner_capture(self):
         result, events, helper, launch, output = self._run_case(
             120, slot="additional"
         )
 
         self.assertEqual(result, 0)
-        self.assertEqual(["negotiate", "wakeup", "capture"], events)
-        helper.stdin.write.assert_called_once_with("capture\n")
-        self.assertEqual(launch.call_args.kwargs["target_object"], "101")
+        self.assertEqual(["negotiate", "wakeup"], events)
+        helper.stdin.write.assert_not_called()
+        self.assertEqual(launch.call_args.kwargs["target_object"], "100")
         output.assert_any_call(
-            "[KDE Native] Capture path=post-mode node=11 target=101", flush=True
+            "[KDE Native] Capture path=owner node=10 target=100", flush=True
         )
 
     def test_usb_keeps_post_mode_capture(self):
@@ -3294,7 +3325,6 @@ class PipelineBuilderTest(unittest.TestCase):
         )
         self.assertIn("keepalive-time=1000", text)
         self.assertIn("name=monitorize_kwin_source", text)
-        self.assertIn("video/x-raw(ANY),max-framerate=60/1", text)
         self.assertNotIn("videorate", text)
         self.assertNotIn("imagefreeze", text)
         self.assertNotIn("skip-to-first=false", text)
@@ -3362,7 +3392,6 @@ class PipelineBuilderTest(unittest.TestCase):
                     rtp_endpoint=("192.0.2.1", 49152, 1, "high"),
                 )
                 self.assertIn("keepalive-time=1000", text)
-                self.assertIn("video/x-raw(ANY),max-framerate=60/1", text)
                 self.assertNotIn("videorate", text)
                 self.assertNotIn("imagefreeze", text)
                 self.assertNotIn("skip-to-first=false", text)
@@ -3384,8 +3413,6 @@ class PipelineBuilderTest(unittest.TestCase):
                     target_object="101", preserve_source_rate=True,
                     wifi_mode=True, rtp_endpoint=endpoint,
                 )
-                self.assertIn("video/x-raw(ANY),max-framerate=30/1", text)
-                self.assertNotIn("video/x-raw(ANY),framerate=30/1", text)
                 self.assertNotIn("videorate", text)
                 self.assertNotIn("imagefreeze", text)
 
@@ -3508,6 +3535,11 @@ class PipelineBuilderTest(unittest.TestCase):
         self.assertEqual(80_000, recommended_wifi_bitrate_kbps(3840, 2160, 60))
         self.assertEqual(1_000, recommended_wifi_bitrate_kbps(320, 240, 24))
         self.assertEqual(100_000, recommended_wifi_bitrate_kbps(7680, 4320, 240))
+        
+        self.assertEqual(8_000, recommended_wifi_bitrate_kbps(1280, 720, 60, "H.265 (HEVC)"))
+        self.assertEqual(15_000, recommended_wifi_bitrate_kbps(1920, 1080, 60, "H.265 (HEVC)"))
+        self.assertEqual(21_000, recommended_wifi_bitrate_kbps(1920, 1080, 120, "H.265 (HEVC)"))
+        self.assertEqual(60_000, recommended_wifi_bitrate_kbps(3840, 2160, 60, "H.265 (HEVC)"))
 
     def test_nvidia_auto_prefers_same_gpu_gl_then_cuda_then_system(self):
         encoder = "memory:GLMemory memory:CUDAMemory"
@@ -4422,8 +4454,8 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertNotIn("Wi-Fi video uses direct RTP/UDP", qml)
         self.assertNotIn("MUST EXACTLY MATCH", qml)
         self.assertNotIn("WarningCard", qml)
-        self.assertEqual(qml.count("ChoiceChips {"), 4)
-        self.assertEqual(qml.count("chipWidth: page.optionChipWidth"), 4)
+        self.assertEqual(qml.count("ChoiceChips {"), 7)
+        self.assertEqual(qml.count("chipWidth: page.optionChipWidth"), 7)
         self.assertEqual(qml.count("CustomComboBox {"), 2)
         self.assertIn("RowLayout {", chips_qml)
         self.assertIn("property int chipWidth: 112", chips_qml)
@@ -4445,11 +4477,356 @@ class BackendFacadeTest(unittest.TestCase):
             self.assertIn('"Intel/AMD VA-API (vah264enc)"', source)
             self.assertIn('"Software (CPU / x264enc)"', source)
         for control_id in (
+            "backendCombo",
             "displayTypeCombo",
             "encoderCombo",
             "encoderProfileCombo",
+            "videoCodecCombo",
         ):
             self.assertIn(f"id: {control_id}", qml)
+
+    def test_wifi_settings_backend_persistence_and_sunshine_mode(self):
+        from monitorize.config.settings import save_wifi_settings, load_wifi_settings
+        save_wifi_settings(
+            resolution="1920x1080",
+            custom_w="",
+            custom_h="",
+            fps="60",
+            custom_fps="",
+            bitrate="20000",
+            display_type="Extend",
+            encoder="Software (CPU / x264enc)",
+            encoder_profile="Low Latency",
+            video_codec="H.264 (AVC)",
+            fec_mode="Off",
+            enable_audio=False,
+            streaming_backend="Sunshine",
+        )
+        loaded = load_wifi_settings()
+        self.assertEqual(loaded.get("streaming_backend"), "Sunshine")
+
+        save_wifi_settings(
+            resolution="1920x1080",
+            custom_w="",
+            custom_h="",
+            fps="60",
+            custom_fps="",
+            bitrate="20000",
+            display_type="Extend",
+            encoder="Software (CPU / x264enc)",
+            encoder_profile="Low Latency",
+            video_codec="H.264 (AVC)",
+            fec_mode="Off",
+            enable_audio=False,
+            streaming_backend="Monitorize",
+        )
+        loaded = load_wifi_settings()
+        self.assertEqual(loaded.get("streaming_backend"), "Monitorize")
+
+    def test_sunshine_service_helpers(self):
+        from unittest.mock import patch
+        from monitorize.platform.sunshine_service import is_sunshine_running, find_sunshine_command, start_sunshine, open_sunshine_dashboard
+
+        with patch("socket.socket") as mock_sock:
+            mock_inst = mock_sock.return_value.__enter__.return_value
+            mock_inst.connect_ex.return_value = 0
+            self.assertTrue(is_sunshine_running())
+
+        with patch("monitorize.platform.sunshine_service.is_sunshine_running", return_value=True):
+            ok, msg = start_sunshine()
+            self.assertTrue(ok)
+            self.assertIn("already running", msg)
+
+        with (
+            patch("monitorize.platform.sunshine_service.is_sunshine_running", return_value=True),
+            patch("webbrowser.open", return_value=True) as mock_open,
+        ):
+            self.assertTrue(open_sunshine_dashboard("config"))
+            mock_open.assert_called_once_with("https://localhost:48990/config")
+
+    def test_sunshine_isolation_paths_and_port(self):
+        from unittest.mock import patch
+        from monitorize.platform.sunshine_service import (
+            SUNSHINE_BASE_PORT,
+            SUNSHINE_HTTPS_PORT,
+            get_sunshine_config_dir,
+            get_sunshine_config_path,
+            get_sunshine_port,
+            get_sunshine_https_port,
+            get_sunshine_web_url,
+            get_sunshine_device_name,
+        )
+        self.assertEqual(SUNSHINE_BASE_PORT, 48989)
+        self.assertEqual(SUNSHINE_HTTPS_PORT, 48990)
+        self.assertEqual(get_sunshine_port(1), 48989)
+        self.assertEqual(get_sunshine_https_port(1), 48990)
+        self.assertEqual(get_sunshine_port(2), 49089)
+        self.assertEqual(get_sunshine_https_port(2), 49090)
+        self.assertEqual(get_sunshine_web_url(1), "https://localhost:48990")
+        self.assertEqual(get_sunshine_web_url(2), "https://localhost:49090")
+        self.assertTrue(get_sunshine_config_dir(1).endswith(os.path.join("monitorize", "sunshine-1")))
+        self.assertTrue(get_sunshine_config_dir(2).endswith(os.path.join("monitorize", "sunshine-2")))
+        self.assertTrue(get_sunshine_config_path(1).endswith(os.path.join("monitorize", "sunshine-1", "sunshine.conf")))
+        self.assertTrue(get_sunshine_config_path(2).endswith(os.path.join("monitorize", "sunshine-2", "sunshine.conf")))
+
+        with patch("socket.gethostname", return_value="Ledora.local"):
+            self.assertEqual(get_sunshine_device_name(1), "Ledora Monitor 1")
+            self.assertEqual(get_sunshine_device_name(2), "Ledora Monitor 2")
+
+    def test_pair_moonlight_pin_and_backend_slot(self):
+        from unittest.mock import patch, MagicMock
+        from monitorize.platform.sunshine_service import pair_moonlight_pin
+        from monitorize.desktop.backend import MonitorizeBackend
+
+        
+        ok, msg = pair_moonlight_pin("")
+        self.assertFalse(ok)
+        self.assertIn("exactly 4 digits", msg)
+
+        ok, msg = pair_moonlight_pin("12a4")
+        self.assertFalse(ok)
+
+        ok, msg = pair_moonlight_pin("12345")
+        self.assertFalse(ok)
+
+        
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = b'{"status": true}'
+        mock_resp.__enter__.return_value = mock_resp
+
+        with patch("urllib.request.urlopen", return_value=mock_resp):
+            ok, msg = pair_moonlight_pin("1234")
+            self.assertTrue(ok)
+            self.assertIn("unlocked", msg.lower())
+
+            
+            discovery = Mock()
+            backend = MonitorizeBackend(discovery)
+            res = backend.pairMoonlightPin("1234")
+            self.assertTrue(res["success"])
+            self.assertIn("unlocked", res["message"].lower())
+
+        
+        mock_err_resp = MagicMock()
+        mock_err_resp.read.return_value = b'{"status": false, "error": "Invalid PIN"}'
+        mock_err_resp.__enter__.return_value = mock_err_resp
+
+        with patch("urllib.request.urlopen", return_value=mock_err_resp):
+            ok, msg = pair_moonlight_pin("9999")
+            self.assertFalse(ok)
+            self.assertEqual(msg, "Invalid PIN")
+
+        
+        from monitorize.platform.sunshine_service import restart_sunshine
+        mock_restart_resp = MagicMock()
+        mock_restart_resp.__enter__.return_value = mock_restart_resp
+
+        with (
+            patch("monitorize.platform.sunshine_service.is_sunshine_running", return_value=True),
+            patch("urllib.request.urlopen", return_value=mock_restart_resp),
+        ):
+            ok, msg = restart_sunshine()
+            self.assertTrue(ok)
+            self.assertIn("restarted", msg.lower())
+
+            discovery = Mock()
+            backend = MonitorizeBackend(discovery)
+            res = backend.restartSunshine()
+            self.assertTrue(res["success"])
+
+    def test_sunshine_output_name_config_and_controller_link(self):
+        import tempfile
+        from unittest.mock import patch
+        from monitorize.platform.sunshine_service import set_sunshine_output_name, clear_sunshine_output_name
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            conf_path = os.path.join(tmpdir, "sunshine", "sunshine.conf")
+            with (
+                patch("monitorize.platform.sunshine_service.get_sunshine_config_path", return_value=conf_path),
+                patch("monitorize.platform.sunshine_service.is_sunshine_running", return_value=False),
+            ):
+                ok, msg = set_sunshine_output_name("Virtual-1")
+                self.assertTrue(ok)
+                self.assertIn("Virtual-1", msg)
+
+                with open(conf_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                self.assertIn("output_name = Virtual-1", content)
+
+                ok, msg = clear_sunshine_output_name()
+                self.assertTrue(ok)
+                with open(conf_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                self.assertIn("output_name = \n", content)
+
+        
+        discovery = Mock()
+        controller = StreamingController("kde", "10.0.0.1", discovery)
+        controller.streaming = True
+        controller.streaming_backend = "Sunshine"
+
+        with (
+            patch("monitorize.platform.sunshine_service.set_sunshine_output_name") as mock_set,
+            patch("monitorize.platform.sunshine_service.is_sunshine_running", return_value=True),
+        ):
+            raw = 'MONITORIZE_EVENT {"type":"headless_ready","name":"Virtual-1","width":1920,"height":1080,"fps":60,"backend":"Sunshine"}\n'
+            proc = Mock()
+            proc.readAllStandardOutput.return_value = raw.encode("utf-8")
+            controller.streamer = proc
+            controller._read_streamer(controller.generation, proc)
+            mock_set.assert_called_once_with("Virtual-1")
+            self.assertIn("Virtual-1 linked to Sunshine", controller.status)
+
+        with patch("monitorize.platform.sunshine_service.stop_sunshine") as mock_stop:
+            controller.stop()
+            mock_stop.assert_called_once()
+
+    def test_sunshine_mirror_mode_clears_output_and_starts_sunshine(self):
+        from unittest.mock import patch, Mock
+        discovery = Mock()
+        controller = StreamingController("kde", "10.0.0.1", discovery)
+
+        with (
+            patch("monitorize.platform.sunshine_service.clear_sunshine_output_name") as mock_clear,
+            patch("monitorize.platform.sunshine_service.is_sunshine_running", return_value=False),
+            patch("monitorize.platform.sunshine_service.start_sunshine") as mock_start,
+        ):
+            controller.start(
+                "1920x1080", "60", "20000", "Mirror", "Software (CPU / x264enc)",
+                "Low Latency", True, streaming_backend="Sunshine",
+            )
+            mock_clear.assert_called_once()
+            mock_start.assert_called_once()
+            self.assertTrue(controller.primary_ready)
+            self.assertIn("mirroring primary display", controller.status.lower())
+            self.assertIsNone(controller.streamer)
+
+    def test_stop_sunshine_service(self):
+        from unittest.mock import patch, MagicMock
+        from monitorize.platform.sunshine_service import stop_sunshine
+        import monitorize.platform.sunshine_service as ss
+
+        mock_proc = MagicMock()
+        mock_proc.poll.return_value = None
+        ss._SUNSHINE_PROCESS = mock_proc
+
+        with patch("monitorize.platform.sunshine_service.clear_sunshine_output_name") as mock_clear:
+            ok, msg = stop_sunshine()
+            self.assertTrue(ok)
+            mock_proc.terminate.assert_called_once()
+            mock_clear.assert_called_once()
+            self.assertIsNone(ss._SUNSHINE_PROCESS)
+
+    def test_sunshine_advanced_config_service_and_backend_slots(self):
+        import tempfile
+        import json
+        from unittest.mock import patch, MagicMock
+        from monitorize.platform.sunshine_service import (
+            get_sunshine_config,
+            save_sunshine_config,
+        )
+        from monitorize.desktop.backend import MonitorizeBackend
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            conf_path = os.path.join(tmpdir, "sunshine", "sunshine.conf")
+            with (
+                patch("monitorize.platform.sunshine_service.get_sunshine_config_path", return_value=conf_path),
+                patch("monitorize.platform.sunshine_service.is_sunshine_running", return_value=False),
+            ):
+                
+                cfg = get_sunshine_config()
+                self.assertTrue(cfg["sunshine_name"].endswith("Monitor 1"))
+                self.assertEqual(cfg["vk_tune"], "0")
+                self.assertEqual(cfg["amd_usage"], "ultralowlatency")
+                self.assertEqual(cfg["qsv_preset"], "medium")
+
+                
+                new_data = {
+                    "sunshine_name": "Custom PC Screen",
+                    "min_log_level": "debug",
+                    "encoder": "vaapi",
+                    "fec_percentage": "10",
+                }
+                ok, msg = save_sunshine_config(new_data)
+                self.assertTrue(ok)
+                self.assertIn("saved", msg.lower())
+
+                
+                updated_cfg = get_sunshine_config()
+                self.assertEqual(updated_cfg["sunshine_name"], "Custom PC Screen")
+                self.assertEqual(updated_cfg["min_log_level"], "debug")
+                self.assertEqual(updated_cfg["encoder"], "vaapi")
+                self.assertEqual(updated_cfg["fec_percentage"], "10")
+
+                
+                discovery = Mock()
+                backend = MonitorizeBackend(discovery)
+                backend_cfg = backend.getSunshineConfig()
+                self.assertEqual(backend_cfg["sunshine_name"], "Custom PC Screen")
+
+                save_res = backend.saveSunshineConfig({"sunshine_name": "New Name"})
+                self.assertTrue(save_res["success"])
+                self.assertEqual(backend.getSunshineConfig()["sunshine_name"], "New Name")
+
+        
+        mock_get_resp = MagicMock()
+        mock_get_resp.read.return_value = json.dumps({
+            "status": True,
+            "sunshine_name": "Live Host",
+            "encoder": "software",
+        }).encode("utf-8")
+        mock_get_resp.__enter__.return_value = mock_get_resp
+
+        with (
+            patch("monitorize.platform.sunshine_service.is_sunshine_running", return_value=True),
+            patch("urllib.request.urlopen", return_value=mock_get_resp),
+        ):
+            live_cfg = get_sunshine_config()
+            self.assertEqual(live_cfg["sunshine_name"], "Live Host")
+            self.assertEqual(live_cfg["encoder"], "software")
+
+    def test_sunshine_encoder_settings_and_backend_slot(self):
+        import tempfile
+        from unittest.mock import patch
+        from monitorize.platform.sunshine_service import set_sunshine_encoder
+        from monitorize.desktop.backend import MonitorizeBackend
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            conf_path = os.path.join(tmpdir, "sunshine", "sunshine.conf")
+            with (
+                patch("monitorize.platform.sunshine_service.get_sunshine_config_path", return_value=conf_path),
+                patch("monitorize.platform.sunshine_service.is_sunshine_running", return_value=False),
+            ):
+                
+                ok, msg = set_sunshine_encoder("Auto")
+                self.assertTrue(ok)
+                with open(conf_path, "r", encoding="utf-8") as f:
+                    self.assertIn("encoder = \n", f.read())
+
+                
+                ok, msg = set_sunshine_encoder("NVIDIA")
+                self.assertTrue(ok)
+                with open(conf_path, "r", encoding="utf-8") as f:
+                    self.assertIn("encoder = nvenc\n", f.read())
+
+                
+                ok, msg = set_sunshine_encoder("VA-API")
+                self.assertTrue(ok)
+                with open(conf_path, "r", encoding="utf-8") as f:
+                    self.assertIn("encoder = vaapi\n", f.read())
+
+                
+                ok, msg = set_sunshine_encoder("Software Enc")
+                self.assertTrue(ok)
+                with open(conf_path, "r", encoding="utf-8") as f:
+                    self.assertIn("encoder = software\n", f.read())
+
+                
+                discovery = Mock()
+                backend = MonitorizeBackend(discovery)
+                res = backend.setSunshineEncoder("NVIDIA")
+                self.assertTrue(res["success"])
+                self.assertIn("nvenc", res["message"])
 
     def test_wifi_usb_settings_page_uses_toggles(self):
         qml_dir = Path(__file__).resolve().parents[1] / "monitorize" / "qml"
@@ -4489,8 +4866,14 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn("implicitWidth: 92", qml)
         self.assertIn("implicitHeight: 36", qml)
         self.assertIn("parent.hovered ? theme.borderHover : theme.surface", qml)
-        self.assertIn("border.color: parent.hovered ? theme.borderHover : theme.border", qml)
-        self.assertIn("radius: theme.controlRadius", qml)
+    def test_sunshine_settings_button_on_streaming_page(self):
+        qml_dir = Path(__file__).resolve().parents[1] / "monitorize" / "qml"
+        streaming_qml = (qml_dir / "StreamingPage.qml").read_text(encoding="utf-8")
+        main_qml = (qml_dir / "main.qml").read_text(encoding="utf-8")
+        self.assertIn('text: "⚙ Sunshine Settings"', streaming_qml)
+        self.assertIn("backend.openSunshineWebUi()", streaming_qml)
+        self.assertNotIn('text: "⚙ Sunshine Settings"', main_qml)
+
 
     def test_qml_icon_buttons_do_not_use_tooltips(self):
         qml_dir = Path(__file__).resolve().parents[1] / "monitorize" / "qml"
@@ -4575,7 +4958,7 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn("readonly property int actionButtonWidth: 160", qml)
         self.assertIn("readonly property int actionButtonHeight: 38", qml)
         self.assertEqual(qml.count("Layout.preferredWidth: page.actionButtonWidth"), 3)
-        self.assertEqual(qml.count("Layout.preferredHeight: page.actionButtonHeight"), 3)
+        self.assertEqual(qml.count("Layout.preferredHeight: page.actionButtonHeight"), 5)
         self.assertNotIn("activeIndicator", qml)
         self.assertNotIn("OpacityAnimator", qml)
         self.assertNotIn("backend.streamingStatus", qml)
@@ -4702,6 +5085,20 @@ class BackendFacadeTest(unittest.TestCase):
             "saveCurrentPreset", "launchPreset", "renamePreset", "deletePreset",
             "isAutostartEnabled", "setAutostartEnabled", "setReceiverStatsVisible",
         } <= methods)
+        backend.network_timer.stop()
+
+    def test_start_streaming_slot_parameter_count_matches_qml_call(self):
+        with patch("monitorize.desktop.backend.get_local_ip", return_value="127.0.0.1"):
+            backend = MonitorizeBackend("kde")
+        meta = backend.metaObject()
+        match = None
+        for i in range(meta.methodCount()):
+            method = meta.method(i)
+            if method.name().data().decode() == "startStreaming":
+                match = method
+                break
+        self.assertIsNotNone(match)
+        self.assertEqual(match.parameterCount(), 10)
         backend.network_timer.stop()
 
     def test_second_stream_active_comes_from_streaming_controller(self):

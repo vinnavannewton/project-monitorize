@@ -837,21 +837,6 @@ fun HomeScreen(
                                     fontWeight = FontWeight.Bold
                                 )
                             }
-                            if (!isTablet) {
-                                IconButton(
-                                    onClick = onSettingsToggle,
-                                    modifier = Modifier
-                                        .size(if (isLandscapeMobile) 32.dp else 36.dp)
-                                        .background(CardDark, CircleShape)
-                                ) {
-                                    Icon(
-                                        Icons.Default.Settings,
-                                        contentDescription = "Settings",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(if (isLandscapeMobile) 18.dp else 20.dp)
-                                    )
-                                }
-                            }
                         }
                     }
                 }
@@ -1321,8 +1306,8 @@ fun ReceiveScreen(
         }
 
         
-        if (showStreamingStats && hostIp.isNotBlank()) {
-            StreamingStatsOverlay(streamStats)
+        if (showStreamingStats) {
+            StreamingStatsOverlay(streamStats, isUsb = hostIp.isBlank())
         }
 
         if (status.isNotEmpty()) {
@@ -1342,28 +1327,47 @@ fun ReceiveScreen(
 }
 
 @Composable
-private fun BoxScope.StreamingStatsOverlay(stats: StreamStats) {
-    val text = String.format(
-        Locale.US,
-        "Wi-Fi RTP/UDP\nRX %d kbps · %d pps · loss %.1f%%\n" +
-            "frames in/dec/out %.1f / %.1f / %.1f fps\n" +
-            "decode %.1f ms · display %.1f ms · q %d\n" +
-            "capture-to-render estimate %s\nincomplete %d · decoder drops %d",
-        stats.receivedKbps,
-        stats.packetsPerSecond,
-        stats.lossPercent,
-        stats.inputFps,
-        stats.decodedFps,
-        stats.renderedFps,
-        stats.decodeMs,
-        stats.renderMs,
-        stats.queueDepth,
-        if (stats.endToEndMs != null && stats.clockErrorMs != null) {
-            String.format(Locale.US, "%.1f ms ± %.1f ms", stats.endToEndMs, stats.clockErrorMs)
-        } else "— (syncing)",
-        stats.incompleteFrames,
-        stats.decoderDroppedFrames,
-    )
+private fun BoxScope.StreamingStatsOverlay(stats: StreamStats, isUsb: Boolean = false) {
+    val text = if (isUsb) {
+        String.format(
+            Locale.US,
+            "USB TCP\nRX %d kbps · %d chunks/s\n" +
+                "frames in/dec/out %.1f / %.1f / %.1f fps\n" +
+                "decode %.1f ms · display %.1f ms · q %d\n" +
+                "decoder drops %d",
+            stats.receivedKbps,
+            stats.packetsPerSecond,
+            stats.inputFps,
+            stats.decodedFps,
+            stats.renderedFps,
+            stats.decodeMs,
+            stats.renderMs,
+            stats.queueDepth,
+            stats.decoderDroppedFrames,
+        )
+    } else {
+        String.format(
+            Locale.US,
+            "Wi-Fi RTP/UDP\nRX %d kbps · %d pps · loss %.1f%%\n" +
+                "frames in/dec/out %.1f / %.1f / %.1f fps\n" +
+                "decode %.1f ms · display %.1f ms · q %d\n" +
+                "capture-to-render estimate %s\nincomplete %d · decoder drops %d",
+            stats.receivedKbps,
+            stats.packetsPerSecond,
+            stats.lossPercent,
+            stats.inputFps,
+            stats.decodedFps,
+            stats.renderedFps,
+            stats.decodeMs,
+            stats.renderMs,
+            stats.queueDepth,
+            if (stats.endToEndMs != null && stats.clockErrorMs != null) {
+                String.format(Locale.US, "%.1f ms ± %.1f ms", stats.endToEndMs, stats.clockErrorMs)
+            } else "— (syncing)",
+            stats.incompleteFrames,
+            stats.decoderDroppedFrames,
+        )
+    }
     Box(
         modifier = Modifier
             .align(Alignment.TopStart)
@@ -1558,9 +1562,6 @@ fun StreamSurface(
                     }
 
                     private fun applyFrameRateHint(surface: Surface?) {
-                        if (surface == null || !surface.isValid || Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-                            return
-                        }
                         val display = streamView.display
                         val currentMode = display?.mode
                         val supportedRates = display?.supportedModes
@@ -1574,22 +1575,51 @@ fun StreamSurface(
                             ?.toList()
                             .orEmpty()
                         val frameRate = preferredSurfaceFrameRate(fps, supportedRates)
-                        try {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                surface.setFrameRate(
-                                    frameRate,
-                                    Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE,
-                                    Surface.CHANGE_FRAME_RATE_ALWAYS
-                                )
-                            } else {
-                                surface.setFrameRate(frameRate, Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            try {
+                                val activity = streamView.context as? android.app.Activity
+                                val window = activity?.window
+                                val params = window?.attributes
+                                val modes = display?.supportedModes ?: emptyArray()
+                                val matchingModes = modes.filter {
+                                    currentMode == null ||
+                                        (it.physicalWidth == currentMode.physicalWidth &&
+                                            it.physicalHeight == currentMode.physicalHeight)
+                                }
+                                val bestMode = matchingModes
+                                    .filter { it.refreshRate >= frameRate - 1f }
+                                    .minByOrNull { it.refreshRate }
+                                    ?: matchingModes.maxByOrNull { it.refreshRate }
+                                if (params != null && window != null && bestMode != null && params.preferredDisplayModeId != bestMode.modeId) {
+                                    params.preferredDisplayModeId = bestMode.modeId
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                                        params.preferredRefreshRate = bestMode.refreshRate
+                                    }
+                                    window.attributes = params
+                                    Log.i("StreamSurface", "Window preferred display mode: id=${bestMode.modeId} fps=${bestMode.refreshRate}")
+                                }
+                            } catch (e: Exception) {
+                                Log.w("StreamSurface", "Failed to set window preferredDisplayModeId: ${e.message}")
                             }
-                            Log.i(
-                                "StreamSurface",
-                                "Fixed frame rate: stream=$fps requested=$frameRate supported=$supportedRates",
-                            )
-                        } catch (e: Exception) {
-                            Log.w("StreamSurface", "Frame rate hint failed: ${e.message}")
+                        }
+                        if (surface != null && surface.isValid && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            try {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                    surface.setFrameRate(
+                                        frameRate,
+                                        Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE,
+                                        Surface.CHANGE_FRAME_RATE_ALWAYS
+                                    )
+                                } else {
+                                    surface.setFrameRate(frameRate, Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE)
+                                }
+                                Log.i(
+                                    "StreamSurface",
+                                    "Fixed frame rate: stream=$fps requested=$frameRate supported=$supportedRates",
+                                )
+                            } catch (e: Exception) {
+                                Log.w("StreamSurface", "Frame rate hint failed: ${e.message}")
+                            }
                         }
                     }
 

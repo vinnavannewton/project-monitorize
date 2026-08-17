@@ -26,6 +26,7 @@ VALID_ENCODERS = {
     "Intel/AMD VA-API (vah264enc)",
     "Software (CPU / x264enc)",
 }
+VALID_VIDEO_CODECS = {"H.264 (AVC)", "H.265 (HEVC)", "h264", "h265", "H.264", "H.265"}
 
 
 def clamp_int(value, default, minimum, maximum):
@@ -97,8 +98,31 @@ def sanitize_encoder_profile(value):
 
 
 def sanitize_encoder(value):
-    return value if value in VALID_ENCODERS else "Software (CPU / x264enc)"
+    val_str = str(value or "").strip()
+    if val_str in VALID_ENCODERS:
+        return val_str
+    val_lower = val_str.lower()
+    if "nvidia" in val_lower or "nvenc" in val_lower:
+        return "NVIDIA NVENC (nvh264enc)"
+    if "va-api" in val_lower or "vaapi" in val_lower or "intel" in val_lower or "amd" in val_lower:
+        return "Intel/AMD VA-API (vah264enc)"
+    return "Software (CPU / x264enc)"
 
 
 def sanitize_fec_mode(value):
     return value if value in VALID_FEC_MODES else "Off"
+
+
+def sanitize_video_codec(value):
+    val_str = str(value or "").strip()
+    return "H.265 (HEVC)" if val_str in {"H.265 (HEVC)", "h265", "H.265"} else "H.264 (AVC)"
+
+
+VALID_STREAMING_BACKENDS = {"Monitorize", "Sunshine"}
+
+
+def sanitize_streaming_backend(value):
+    val_str = str(value or "").strip()
+    if "sunshine" in val_str.lower() or "moonlight" in val_str.lower():
+        return "Sunshine"
+    return "Monitorize"

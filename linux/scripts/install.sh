@@ -134,6 +134,104 @@ if ! "${RTP_SENDER_BUILD}" "${RTP_SENDER_PATH}"; then
 fi
 echo "✓ Deterministic RTP sender installed to ${RTP_SENDER_PATH}"
 
+# ── Setup Isolated Sunshine Submodule & Profile ──────────────────────
+SUNSHINE_SUBMODULE_DIR="${PROJECT_DIR}/../external/sunshine"
+SUNSHINE_BUILD_BIN="${SUNSHINE_SUBMODULE_DIR}/build/sunshine"
+SUNSHINE_VENV_BIN="${VENV_DIR}/bin/sunshine"
+
+if [[ -f "${SUNSHINE_BUILD_BIN}" ]]; then
+    echo "Installing bundled Sunshine binary to ${SUNSHINE_VENV_BIN}…"
+    cp -f "${SUNSHINE_BUILD_BIN}" "${SUNSHINE_VENV_BIN}"
+    chmod +x "${SUNSHINE_VENV_BIN}"
+    echo "✓ Bundled Sunshine binary installed to ${SUNSHINE_VENV_BIN}"
+elif [[ -f "${SUNSHINE_SUBMODULE_DIR}/CMakeLists.txt" ]]; then
+    if command -v cmake &>/dev/null; then
+        echo "Building Sunshine from submodule at ${SUNSHINE_SUBMODULE_DIR}…"
+        mkdir -p "${SUNSHINE_SUBMODULE_DIR}/build"
+        if cmake -B "${SUNSHINE_SUBMODULE_DIR}/build" -S "${SUNSHINE_SUBMODULE_DIR}" \
+                 -DCMAKE_BUILD_TYPE=Release -DSUNSHINE_ENABLE_TRAY=OFF -DBUILD_TESTS=OFF -DBUILD_DOCS=OFF && \
+           cmake --build "${SUNSHINE_SUBMODULE_DIR}/build" -j"$(nproc 2>/dev/null || echo 2)"; then
+            cp -f "${SUNSHINE_BUILD_BIN}" "${SUNSHINE_VENV_BIN}"
+            chmod +x "${SUNSHINE_VENV_BIN}"
+            echo "✓ Sunshine compiled and installed to ${SUNSHINE_VENV_BIN}"
+        else
+            echo "Note: Sunshine submodule compilation failed. Monitorize will use system Sunshine or GStreamer fallback."
+        fi
+    else
+        echo "Note: 'cmake' was not found. If you wish to build the bundled Sunshine submodule, install cmake and re-run install.sh."
+    fi
+fi
+
+# Hostname for advertised Sunshine device entries (Option A)
+HOST_NAME="$(hostname 2>/dev/null | cut -d. -f1 || echo "Monitorize")"
+if [[ -z "${HOST_NAME}" ]]; then
+    HOST_NAME="Monitorize"
+fi
+
+# Instance 1 (Primary Display - Port 48989)
+SUNSHINE_PROFILE_DIR_1="${HOME}/.config/monitorize/sunshine-1"
+mkdir -p "${SUNSHINE_PROFILE_DIR_1}"
+SUNSHINE_CONF_1="${SUNSHINE_PROFILE_DIR_1}/sunshine.conf"
+if [[ ! -f "${SUNSHINE_CONF_1}" ]]; then
+    cat > "${SUNSHINE_CONF_1}" <<EOF
+# Sunshine configuration isolated for Monitorize Display 1
+sunshine_name = ${HOST_NAME} Monitor 1
+port = 48989
+system_tray = disabled
+origin_pin_allowed = pc,lan,wan
+encoder = 
+EOF
+    echo "✓ Isolated Sunshine profile 1 (${HOST_NAME} Monitor 1) initialized at ${SUNSHINE_PROFILE_DIR_1}"
+fi
+SUNSHINE_APPS_1="${SUNSHINE_PROFILE_DIR_1}/apps.json"
+if [[ ! -f "${SUNSHINE_APPS_1}" ]]; then
+    cat > "${SUNSHINE_APPS_1}" <<EOF
+{
+    "apps": [
+        {
+            "image-path": "desktop.png",
+            "name": "Desktop"
+        }
+    ],
+    "env": {
+        "PATH": "\$(PATH):\$(HOME)/.local/bin"
+    }
+}
+EOF
+fi
+
+# Instance 2 (Secondary / Additional Display - Port 49089)
+SUNSHINE_PROFILE_DIR_2="${HOME}/.config/monitorize/sunshine-2"
+mkdir -p "${SUNSHINE_PROFILE_DIR_2}"
+SUNSHINE_CONF_2="${SUNSHINE_PROFILE_DIR_2}/sunshine.conf"
+if [[ ! -f "${SUNSHINE_CONF_2}" ]]; then
+    cat > "${SUNSHINE_CONF_2}" <<EOF
+# Sunshine configuration isolated for Monitorize Display 2
+sunshine_name = ${HOST_NAME} Monitor 2
+port = 49089
+system_tray = disabled
+origin_pin_allowed = pc,lan,wan
+encoder = 
+EOF
+    echo "✓ Isolated Sunshine profile 2 (${HOST_NAME} Monitor 2) initialized at ${SUNSHINE_PROFILE_DIR_2}"
+fi
+SUNSHINE_APPS_2="${SUNSHINE_PROFILE_DIR_2}/apps.json"
+if [[ ! -f "${SUNSHINE_APPS_2}" ]]; then
+    cat > "${SUNSHINE_APPS_2}" <<EOF
+{
+    "apps": [
+        {
+            "image-path": "desktop.png",
+            "name": "Desktop"
+        }
+    ],
+    "env": {
+        "PATH": "\$(PATH):\$(HOME)/.local/bin"
+    }
+}
+EOF
+fi
+
 # ── Install icon ─────────────────────────────────────────────────────
 mkdir -p "${ICON_DIR}"
 cp "${ICON_SRC}" "${ICON_DEST}"

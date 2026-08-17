@@ -40,6 +40,8 @@ from monitorize.config.validation import (
     sanitize_fec_mode,
     sanitize_fps,
     sanitize_resolution,
+    sanitize_streaming_backend,
+    sanitize_video_codec,
 )
 from monitorize.input_bridge.uinput_backend import UINPUT_PERMISSION_HINT
 
@@ -112,6 +114,7 @@ class StreamingController(QObject):
         self.encoder_profile = "Low Latency"
         self.fec_mode = "Off"
         self.audio_enabled = False
+        self.streaming_backend = "Monitorize"
         self.runtime_general = None
         self.countdown_timer = QTimer(self)
         self.countdown_timer.setInterval(1000)
@@ -219,7 +222,8 @@ class StreamingController(QObject):
 
     def start(
         self, res, fps, bitrate, display_type, encoder, encoder_profile, wifi,
-        options=None, fec_mode="Off", enable_audio=False,
+        options=None, video_codec="H.264 (AVC)", fec_mode="Off", enable_audio=False,
+        streaming_backend="Monitorize",
     ):
         self.stop()
         self.generation += 1
@@ -227,21 +231,33 @@ class StreamingController(QObject):
         self._reset_telemetry()
         options = options or {}
         self.wifi = wifi
+        self.streaming_backend = sanitize_streaming_backend(streaming_backend)
         width, height = sanitize_resolution(res, DEFAULT_PRIMARY_RESOLUTION)
         self.width, self.height = width, height
         self.fps, self.bitrate = sanitize_fps(fps), sanitize_bitrate(bitrate)
         self.display_type = sanitize_display_type(display_type)
         self.encoder = sanitize_encoder(encoder)
         self.encoder_profile = sanitize_encoder_profile(encoder_profile)
+        self.video_codec = sanitize_video_codec(video_codec)
+        if self.encoder == "Software (CPU / x264enc)":
+            self.video_codec = "H.264 (AVC)"
+
         self.fec_mode = sanitize_fec_mode(fec_mode) if wifi else "Off"
         self.audio_enabled = bool(enable_audio)
         self.env = QProcessEnvironment.systemEnvironment()
         self.env.insert("PYTHONUNBUFFERED", "1")
-        self.env.insert("MONITORIZE_ENCODER", {
-            "NVIDIA NVENC (nvh264enc)": "nvidia",
-            "Intel/AMD VA-API (vah264enc)": "vaapi",
-        }.get(self.encoder, "cpu"))
+        self.env.insert("MONITORIZE_STREAMING_BACKEND", self.streaming_backend)
+        enc_lower = str(self.encoder or "").lower()
+        if "nvidia" in enc_lower or "nvenc" in enc_lower:
+            enc_setting = "nvidia"
+        elif "va-api" in enc_lower or "vaapi" in enc_lower or "intel" in enc_lower or "amd" in enc_lower:
+            enc_setting = "vaapi"
+        else:
+            enc_setting = "cpu"
+        self.env.insert("MONITORIZE_ENCODER", enc_setting)
         self.env.insert("MONITORIZE_ENCODER_PROFILE", self.encoder_profile)
+        is_hevc = self.video_codec in ("H.265 (HEVC)", "h265", "H.265") and self.encoder != "Software (CPU / x264enc)"
+        self.env.insert("MONITORIZE_VIDEO_CODEC", "h265" if is_hevc else "h264")
         self.env.insert("MONITORIZE_REQUIRE_HARDWARE_ENCODER", "0")
         if wifi:
             self.env.insert("MONITORIZE_VIDEO_TRANSPORT", "rtp-udp-v1")
@@ -343,7 +359,8 @@ class StreamingController(QObject):
         if not self.streaming or generation != self.generation:
             return
         self.streamer_has_pipewire_node = False
-        self._launch_audio(generation)
+        if getattr(self, "streaming_backend", "Monitorize") != "Sunshine":
+            self._launch_audio(generation)
         self.kde_event_buffer = ""
         self.gnome_event_buffer = ""
         self.streamer = self._new_process()
@@ -361,6 +378,33 @@ class StreamingController(QObject):
                 "STREAMER", generation, process, self.streamer
             )
         )
+        if getattr(self, "streaming_backend", "Monitorize") == "Sunshine":
+            if self.display_type == "Mirror":
+                self.streamer = None
+                try:
+                    from monitorize.platform.sunshine_service import (
+                        clear_sunshine_output_name,
+                        is_sunshine_running,
+                        start_sunshine,
+                    )
+                    clear_sunshine_output_name()
+                    if not is_sunshine_running():
+                        start_sunshine()
+                except Exception as exc:
+                    app_log.warning(f"Could not initialize Sunshine mirror mode: {exc}")
+                self.streamer_was_ready = True
+                self._set_primary_ready(True)
+                self._set_status("Sunshine mirroring primary display — Ready for Moonlight")
+                return
+
+            args = [
+                "-m", "monitorize.streaming.headless_virtual_display",
+                str(self.width), str(self.height), str(self.fps), "primary", str(self.de),
+            ]
+            self.streamer.start(sys.executable, args)
+            self._set_status("Starting virtual display for Sunshine…")
+            return
+
         module = {
             "kde": "monitorize.streaming.Streamer_kde",
             "gnome": "monitorize.streaming.Streamer_gnome",
@@ -522,6 +566,31 @@ class StreamingController(QObject):
             lines = raw.splitlines()
         for line in lines:
             self._track_gst_pid(line)
+            event = self._structured_event(line)
+            if event and event.get("type") == "headless_ready":
+                output_name = str(event.get("name") or "Virtual-Monitorize-1")
+                if hasattr(self, "env") and self.env is not None:
+                    self.env.insert("MONITORIZE_OUTPUT", output_name)
+                self.width = int(event.get("width") or self.width)
+                self.height = int(event.get("height") or self.height)
+                refresh = float(event.get("fps") or self.fps)
+                self.streamer_was_ready = True
+                self._set_primary_ready(True)
+                try:
+                    from monitorize.platform.sunshine_service import (
+                        is_sunshine_running,
+                        set_sunshine_output_name,
+                        start_sunshine,
+                    )
+                    set_sunshine_output_name(output_name)
+                    if not is_sunshine_running():
+                        start_sunshine()
+                except Exception as exc:
+                    app_log.warning(f"Could not auto-configure Sunshine output: {exc}")
+                self._set_status(
+                    f"Virtual display {output_name} linked to Sunshine "
+                    f"({self.width}x{self.height}@{refresh:g}Hz) — Ready for Moonlight"
+                )
             if line == "[Pipeline] READY":
                 self.streamer_was_ready = True
                 self._set_primary_ready(True)
@@ -851,10 +920,14 @@ class StreamingController(QObject):
 
         env = QProcessEnvironment.systemEnvironment()
         env.insert("PYTHONUNBUFFERED", "1")
-        env.insert("MONITORIZE_ENCODER", {
-            "NVIDIA NVENC (nvh264enc)": "nvidia",
-            "Intel/AMD VA-API (vah264enc)": "vaapi",
-        }.get(third_encoder, "cpu"))
+        third_enc_lower = str(third_encoder or "").lower()
+        if "nvidia" in third_enc_lower or "nvenc" in third_enc_lower:
+            third_enc_setting = "nvidia"
+        elif "va-api" in third_enc_lower or "vaapi" in third_enc_lower or "intel" in third_enc_lower or "amd" in third_enc_lower:
+            third_enc_setting = "vaapi"
+        else:
+            third_enc_setting = "cpu"
+        env.insert("MONITORIZE_ENCODER", third_enc_setting)
         env.insert("MONITORIZE_ENCODER_PROFILE", third_encoder_profile)
         if self.wifi:
             env.insert("MONITORIZE_VIDEO_TRANSPORT", "rtp-udp-v1")
@@ -925,6 +998,20 @@ class StreamingController(QObject):
         process.errorOccurred.connect(
             lambda _error: self._third_process_error(generation, process)
         )
+        if getattr(self, "streaming_backend", "Monitorize") == "Sunshine":
+            args = [
+                "-m", "monitorize.streaming.headless_virtual_display",
+                str(width), str(height), str(third_fps), "additional", str(self.de),
+            ]
+            process.start(sys.executable, args)
+            self.secondStreamChanged.emit(True)
+            self._set_status("Starting additional virtual display for Sunshine (Instance 2)…")
+            self.logAppended.emit(
+                "STREAMER",
+                "[Third display] Starting virtual display for Sunshine Instance 2 on port 49089.",
+            )
+            return
+
         module = {
             "kde": "monitorize.streaming.Streamer_kde",
             "gnome": "monitorize.streaming.Streamer_gnome",
@@ -1097,7 +1184,31 @@ class StreamingController(QObject):
         for line in lines:
             self._track_third_gst_pid(line)
             event = self._structured_event(line)
-            if event and event.get("type") == "kde_output_ready":
+            if event and event.get("type") == "headless_ready":
+                output_name = str(event.get("name") or "Virtual-Monitorize-2")
+                if hasattr(self, "third_env") and self.third_env is not None:
+                    self.third_env.insert("MONITORIZE_OUTPUT", output_name)
+                self.third_output = output_name
+                self.third_width = int(event.get("width") or self.third_width)
+                self.third_height = int(event.get("height") or self.third_height)
+                refresh = float(event.get("fps") or self.third_fps)
+                self.third_ready = True
+                try:
+                    from monitorize.platform.sunshine_service import (
+                        is_sunshine_running,
+                        set_sunshine_output_name,
+                        start_sunshine,
+                    )
+                    set_sunshine_output_name(output_name, instance=2)
+                    if not is_sunshine_running(instance=2):
+                        start_sunshine(instance=2)
+                except Exception as exc:
+                    app_log.warning(f"Could not auto-configure Sunshine instance 2 output: {exc}")
+                self._set_status(
+                    f"Additional virtual display {output_name} linked to Sunshine Instance 2 "
+                    f"({self.third_width}x{self.third_height}@{refresh:g}Hz) — Ready for Moonlight (Port 49089)"
+                )
+            elif event and event.get("type") == "kde_output_ready":
                 self.third_output = str(event.get("name") or self.third_output)
                 if self.third_env is not None and self.third_output:
                     self.third_env.insert("MONITORIZE_OUTPUT", self.third_output)
@@ -1243,6 +1354,12 @@ class StreamingController(QObject):
         if self.de == "hyprland":
             self.display.remove_hyprland_output("additional")
         self.gnome_outputs.pop("additional", None)
+        if getattr(self, "streaming_backend", "Monitorize") == "Sunshine":
+            try:
+                from monitorize.platform.sunshine_service import stop_sunshine
+                stop_sunshine(instance=2)
+            except Exception:
+                pass
         self._advertise()
         self.secondStreamChanged.emit(False)
         self.logAppended.emit("STREAMER", "[Third display] Stopped.")
@@ -1301,4 +1418,10 @@ class StreamingController(QObject):
         self.display.cleanup()
         self.gnome_outputs.clear()
         self.discovery.stop_advertising()
+        if getattr(self, "streaming_backend", "Monitorize") == "Sunshine":
+            try:
+                from monitorize.platform.sunshine_service import stop_sunshine
+                stop_sunshine()
+            except Exception:
+                pass
         self._set_streaming(False)

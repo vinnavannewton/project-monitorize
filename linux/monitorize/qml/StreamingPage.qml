@@ -22,7 +22,10 @@ Item {
     readonly property int streamInfoColumns: 3
     readonly property int streamInfoCardHeight: 28
     readonly property int streamInfoSpacing: 10
-    readonly property var streamInfoBaseItems: ["Second Display  Port 7110", "Host  " + backend.localIp]
+    readonly property bool isSunshineMode: backend.streamingBackend === "Sunshine"
+    readonly property var streamInfoBaseItems: isSunshineMode
+        ? ["Backend  Sunshine / Moonlight", "Host  " + backend.localIp, "Port  48989"]
+        : ["Second Display  Port 7110", "Host  " + backend.localIp]
     readonly property var streamInfoItems: backend.secondStreamActive
         ? page.streamInfoBaseItems.concat(["Third Display  Port 7114"])
         : page.streamInfoBaseItems
@@ -79,7 +82,7 @@ Item {
 
     function secondResolutionOrFpsChanged() {
         let resolution = page.secondResolutionValue().split("x")
-        if (backend.isWifiStreaming && Number(resolution[0]) > 0 &&
+        if (page.secondAutoBitrate && Number(resolution[0]) > 0 &&
                 Number(resolution[1]) > 0 && Number(page.secondFpsValue()) > 0) {
             page.setSecondBitrateMbps(
                 page.secondRecommendedBitrateKbps() / 1000, true, true
@@ -323,7 +326,7 @@ Item {
                     backend.stopStreaming()
                 }
                 background: Rectangle {
-                    implicitWidth: page.actionButtonWidth
+                    implicitWidth: page.isSunshineMode ? 190 : page.actionButtonWidth
                     implicitHeight: page.actionButtonHeight
                     color: parent.down ? "#5a1010" : (parent.hovered ? "#c42830" : "#a82028")
                     radius: 8
@@ -343,6 +346,7 @@ Item {
 
             Button {
                 text: "Save Preset"
+                visible: !page.isSunshineMode
                 Layout.preferredWidth: page.actionButtonWidth
                 Layout.preferredHeight: page.actionButtonHeight
                 implicitWidth: page.actionButtonWidth
@@ -372,11 +376,75 @@ Item {
                 }
             }
 
+            Button {
+                text: "🔑 Pair Moonlight PIN"
+                visible: page.isSunshineMode
+                Layout.preferredWidth: 165
+                Layout.preferredHeight: page.actionButtonHeight
+                implicitWidth: 165
+                implicitHeight: page.actionButtonHeight
+                padding: 0
+                scale: hovered ? theme.hoverScale : 1.0
+                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+                onClicked: {
+                    pairMoonlightPopup.open()
+                }
+                background: Rectangle {
+                    implicitWidth: 165
+                    implicitHeight: page.actionButtonHeight
+                    color: parent.down ? theme.surfaceAlt : (parent.hovered ? theme.borderHover : theme.surface)
+                    border.color: theme.accent
+                    radius: 8
+                    Behavior on color { ColorAnimation { duration: 150 } }
+                }
+                contentItem: Text {
+                    text: parent.text
+                    color: theme.accent
+                    font.pixelSize: 12
+                    font.weight: Font.Bold
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+            }
+
+            Button {
+                text: "⚙ Sunshine Settings"
+                visible: page.isSunshineMode
+                Layout.preferredWidth: 165
+                Layout.preferredHeight: page.actionButtonHeight
+                implicitWidth: 165
+                implicitHeight: page.actionButtonHeight
+                padding: 0
+                scale: hovered ? theme.hoverScale : 1.0
+                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+                onClicked: {
+                    backend.openSunshineWebUi()
+                }
+                background: Rectangle {
+                    implicitWidth: 165
+                    implicitHeight: page.actionButtonHeight
+                    color: parent.down ? theme.surfaceAlt : (parent.hovered ? theme.borderHover : theme.surface)
+                    border.color: theme.border
+                    radius: 8
+                    Behavior on color { ColorAnimation { duration: 150 } }
+                }
+                contentItem: Text {
+                    text: parent.text
+                    color: parent.hovered ? theme.textPrimary : theme.cardTextPrimary
+                    font.pixelSize: 12
+                    font.weight: Font.Bold
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+            }
+
+
+
             // Add / Remove Third Display button
             Button {
                 id: displayActionButton
                 text: backend.secondStreamActive ? "Remove Third Display" : "Add Another Display"
-                visible: backend.detectedDe === "kde" || backend.detectedDe === "gnome" || backend.detectedDe === "hyprland"
+                visible: !page.isSunshineMode && (backend.detectedDe === "kde" || backend.detectedDe === "gnome" || backend.detectedDe === "hyprland")
                 Layout.preferredWidth: page.actionButtonWidth
                 Layout.preferredHeight: page.actionButtonHeight
                 implicitWidth: page.actionButtonWidth
@@ -546,6 +614,133 @@ Item {
                     }
                 }
             }
+        }
+    }
+
+    Popup {
+        id: pairMoonlightPopup
+        modal: true
+        x: (page.width - width) / 2
+        y: (page.height - height) / 2
+        width: 380
+        height: pairMoonlightContent.implicitHeight + 48
+        padding: 0
+        background: Rectangle {
+            color: theme.surface
+            border.color: theme.border
+            border.width: 1
+            radius: theme.cardRadius
+        }
+        Overlay.modal: Rectangle { color: "#80000000" }
+
+        onOpened: {
+            pairPinField.text = ""
+            pairStatusText.text = ""
+            pairPinField.forceActiveFocus()
+        }
+
+        ColumnLayout {
+            id: pairMoonlightContent
+            anchors.fill: parent
+            anchors.margins: 24
+            spacing: 12
+
+            Text {
+                text: "📱 Pair Moonlight Device"
+                color: theme.cardTextPrimary
+                font.pixelSize: 18
+                font.weight: Font.Bold
+            }
+            Text {
+                Layout.fillWidth: true
+                text: "Enter the 4-digit PIN displayed on your Moonlight client to pair this device."
+                color: theme.cardTextMuted
+                font.pixelSize: 12
+                wrapMode: Text.WordWrap
+            }
+            CustomTextField {
+                id: pairPinField
+                Layout.fillWidth: true
+                placeholderText: "4-digit PIN (e.g. 1234)"
+                maximumLength: 4
+                font.pixelSize: 18
+                font.weight: Font.Bold
+                horizontalAlignment: TextInput.AlignHCenter
+                inputMethodHints: Qt.ImhDigitsOnly
+                validator: RegularExpressionValidator { regularExpression: /^[0-9]{4}$/ }
+                onAccepted: submitPinButton.clicked()
+            }
+            Text {
+                id: pairStatusText
+                Layout.fillWidth: true
+                text: ""
+                font.pixelSize: 12
+                font.weight: Font.DemiBold
+                wrapMode: Text.WordWrap
+                horizontalAlignment: Text.AlignHCenter
+            }
+            RowLayout {
+                Layout.alignment: Qt.AlignRight
+                spacing: 10
+                Button {
+                    text: "Cancel"
+                    onClicked: pairMoonlightPopup.close()
+                    background: Rectangle {
+                        implicitWidth: 90
+                        implicitHeight: 36
+                        color: parent.down ? theme.surfaceAlt : (parent.hovered ? theme.borderHover : theme.surface)
+                        border.color: parent.hovered ? theme.borderHover : theme.border
+                        border.width: 1
+                        radius: theme.controlRadius
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: parent.hovered ? theme.textPrimary : theme.cardTextPrimary
+                        font.pixelSize: 13
+                        font.weight: Font.Bold
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                }
+                Button {
+                    id: submitPinButton
+                    text: "Pair Device"
+                    enabled: pairPinField.text.length === 4
+                    opacity: enabled ? 1.0 : 0.5
+                    onClicked: {
+                        let res = backend.pairMoonlightPin(pairPinField.text)
+                        if (res && res.success) {
+                            pairStatusText.color = theme.accent
+                            pairStatusText.text = "✅ " + res.message
+                            closeTimer.start()
+                        } else {
+                            pairStatusText.color = "#fca5a5"
+                            pairStatusText.text = "❌ " + (res ? res.message : "Pairing failed.")
+                        }
+                    }
+                    background: Rectangle {
+                        implicitWidth: 110
+                        implicitHeight: 36
+                        color: parent.enabled ? (parent.down ? theme.accentPressed : (parent.hovered ? theme.accentHover : theme.accent)) : theme.surfaceAlt
+                        radius: theme.controlRadius
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: parent.enabled ? "#000000" : theme.cardTextMuted
+                        font.pixelSize: 13
+                        font.weight: Font.Bold
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                }
+            }
+        }
+
+        Timer {
+            id: closeTimer
+            interval: 1500
+            repeat: false
+            onTriggered: pairMoonlightPopup.close()
         }
     }
 
@@ -766,16 +961,8 @@ Item {
                         onEditingFinished: page.setSecondBitrateMbps(parseFloat(text), true, false)
                     }
 
-                    Text {
-                        text: "Mbps"
-                        color: theme.cardTextMuted
-                        font.pixelSize: 12
-                        visible: !backend.isWifiStreaming
-                    }
-
                     CustomButton {
                         text: "Use auto"
-                        visible: backend.isWifiStreaming
                         primary: page.secondAutoBitrate
                         implicitWidth: page.optionChipWidth
                         implicitHeight: 30

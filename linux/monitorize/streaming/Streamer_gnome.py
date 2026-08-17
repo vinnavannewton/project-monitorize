@@ -304,6 +304,7 @@ def main(argv=None):
     encoder = get_encoder(
         os.environ.get("MONITORIZE_ENCODER", "cpu"),
         os.environ.get("MONITORIZE_REQUIRE_HARDWARE_ENCODER") == "1",
+        codec=os.environ.get("MONITORIZE_VIDEO_CODEC", "h264"),
     )
 
     def launch(node_id):

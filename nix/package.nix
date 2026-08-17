@@ -41,6 +41,8 @@ python3Packages.buildPythonApplication rec {
   buildInputs = [
     qt6.qtbase
     qt6.qtdeclarative                   # QML engine
+    qt6.qtquickcontrols2
+    qt6.qtsvg
     qt6.qtwayland
     wayland
   ];
@@ -84,8 +86,8 @@ python3Packages.buildPythonApplication rec {
     WRAPPER
     chmod +x "$out/bin/monitorize"
 
-    # Patch /usr/bin/env shebang before executing the script.
-    patchShebangs native/kde_virtual_output/build.sh
+    # Patch /usr/bin/env shebangs before executing build scripts.
+    patchShebangs native
 
     # Native KWin virtual-output owner. The hidden desktop entry below grants
     # this exact executable access to KWin's restricted screencast protocol.
@@ -168,7 +170,7 @@ python3Packages.buildPythonApplication rec {
 
   meta = with lib; {
     description = "Turn your Android / Linux laptop into a secondary monitor for your Linux desktop";
-    homepage = "https://github.com/vinnavannewton/ProjectMonitorize";
+    homepage = "https://github.com/vinnavannewton/project-monitorize";
     license = licenses.gpl3Only;
     platforms = platforms.linux;
     maintainers = [ ];

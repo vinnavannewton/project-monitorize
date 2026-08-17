@@ -30,6 +30,14 @@ from monitorize.config.settings import (
 )
 from monitorize.desktop.streaming_controller import StreamingController
 from monitorize.desktop.usb_controller import UsbController
+from monitorize.platform.sunshine_service import (
+    get_sunshine_config,
+    open_sunshine_dashboard,
+    pair_moonlight_pin,
+    restart_sunshine,
+    save_sunshine_config,
+    set_sunshine_encoder,
+)
 from monitorize.platform.utils import get_local_ip
 from monitorize.config.validation import (
     normalize_host,
@@ -39,8 +47,8 @@ from monitorize.config.validation import (
     valid_port,
 )
 
-def recommended_wifi_bitrate_kbps(width, height, fps):
-    """Return Moonlight's resolution/FPS-derived default bitrate."""
+def recommended_wifi_bitrate_kbps(width, height, fps, video_codec="H.264 (AVC)", audio_enabled=False):
+    """Return Moonlight's resolution/FPS/codec-derived default bitrate."""
     width = max(1, int(width))
     height = max(1, int(height))
     fps = max(1, int(fps))
@@ -62,7 +70,8 @@ def recommended_wifi_bitrate_kbps(width, height, fps):
                 )
             break
     scaled_fps = fps if fps <= 60 else math.sqrt(fps / 60) * 60
-    bitrate = int(resolution_factor * scaled_fps / 30 + 0.5) * 1_000
+    codec_factor = 0.75 if ("h265" in str(video_codec).lower() or "hevc" in str(video_codec).lower()) else 1.0
+    bitrate = int(resolution_factor * scaled_fps / 30 * codec_factor + 0.5) * 1_000
     return max(1_000, min(100_000, bitrate))
 
 
@@ -159,6 +168,10 @@ class MonitorizeBackend(QObject):
     def isWifiStreaming(self):
         return self.streaming.streaming and self.streaming.wifi
 
+    @pyqtProperty(str, notify=isStreamingChanged)
+    def streamingBackend(self):
+        return getattr(self.streaming, "streaming_backend", "Monitorize")
+
     @pyqtProperty(int, notify=countdownChanged)
     def countdown(self):
         return self.streaming.countdown
@@ -245,35 +258,50 @@ class MonitorizeBackend(QObject):
     def setAutostartEnabled(self, enabled):
         return autostart.set_enabled(enabled)
 
-    @pyqtSlot(str, str, str, str, str, str, str, str, str, bool)
+    @pyqtSlot(str, str, str, str, str, str, str, str, str, str, bool)
     def saveUsbSettings(
         self, resolution, custom_w, custom_h, fps, custom_fps, bitrate,
-        display_type, encoder, encoder_profile, enable_audio,
+        display_type, encoder, encoder_profile, video_codec, enable_audio,
     ):
         save_usb_settings(
             resolution=resolution, custom_w=custom_w, custom_h=custom_h,
             fps=fps, custom_fps=custom_fps, bitrate=bitrate,
             display_type=display_type, encoder=encoder,
-            encoder_profile=encoder_profile,
+            encoder_profile=encoder_profile, video_codec=video_codec,
             enable_audio=enable_audio,
         )
 
-    @pyqtSlot(str, str, str, str, str, str, str, str, str, str, bool)
+    @pyqtSlot(str, str, str, str, str, str, str, str, str, str, str, bool)
+    @pyqtSlot(str, str, str, str, str, str, str, str, str, str, str, bool, str)
+    @pyqtSlot(str, str, str, str, str, str, str, str, str, str, str, bool, str, str)
     def saveWifiSettings(
         self, resolution, custom_w, custom_h, fps, custom_fps, bitrate,
-        display_type, encoder, encoder_profile, fec_mode, enable_audio,
+        display_type, encoder, encoder_profile, video_codec, fec_mode, enable_audio,
+        streaming_backend="Monitorize", sunshine_encoder="Auto",
     ):
         save_wifi_settings(
             resolution=resolution, custom_w=custom_w, custom_h=custom_h,
             fps=fps, custom_fps=custom_fps, bitrate=bitrate,
             display_type=display_type, encoder=encoder,
-            encoder_profile=encoder_profile, fec_mode=fec_mode,
-            enable_audio=enable_audio,
+            encoder_profile=encoder_profile, video_codec=video_codec,
+            fec_mode=fec_mode, enable_audio=enable_audio,
+            streaming_backend=streaming_backend,
+            sunshine_encoder=sunshine_encoder,
         )
+        if str(streaming_backend).strip().lower() == "sunshine":
+            set_sunshine_encoder(sunshine_encoder)
 
     @pyqtSlot(int, int, int, result=int)
-    def recommendedWifiBitrateKbps(self, width, height, fps):
-        return recommended_wifi_bitrate_kbps(width, height, fps)
+    @pyqtSlot(int, int, int, str, result=int)
+    @pyqtSlot(int, int, int, str, bool, result=int)
+    def recommendedWifiBitrateKbps(self, width, height, fps, video_codec="H.264 (AVC)", audio_enabled=False):
+        return recommended_wifi_bitrate_kbps(width, height, fps, video_codec, audio_enabled)
+
+    @pyqtSlot(int, int, int, result=int)
+    @pyqtSlot(int, int, int, str, result=int)
+    @pyqtSlot(int, int, int, str, bool, result=int)
+    def recommendedBitrateKbps(self, width, height, fps, video_codec="H.264 (AVC)", audio_enabled=False):
+        return recommended_wifi_bitrate_kbps(width, height, fps, video_codec, audio_enabled)
 
     @pyqtSlot(result="QVariant")
     def loadSecondDisplaySettings(self):
@@ -329,21 +357,63 @@ class MonitorizeBackend(QObject):
     def stopReceiving(self):
         self.receiver.stop()
 
-    @pyqtSlot(str, str, str, str, str, str, bool, str, bool)
+    @pyqtSlot(str, str, str, str, str, str, str, bool, str, bool)
+    @pyqtSlot(str, str, str, str, str, str, str, bool, str, bool, str)
     def startStreaming(
-        self, res, fps, bitrate, display_type, encoder, encoder_profile, wifi,
-        fec_mode, enable_audio,
+        self, res, fps, bitrate, display_type, encoder, encoder_profile,
+        video_codec, wifi, fec_mode, enable_audio, streaming_backend="Monitorize",
     ):
         self._pending_usb_preset = None
+        if str(streaming_backend).strip().lower() == "sunshine":
+            try:
+                enc = load_wifi_settings().get("sunshine_encoder", "Auto")
+                set_sunshine_encoder(enc)
+            except Exception:
+                pass
         self.streaming.start(
             res, fps, bitrate, display_type, encoder, encoder_profile, wifi,
-            fec_mode=fec_mode, enable_audio=enable_audio,
+            video_codec=video_codec, fec_mode=fec_mode, enable_audio=enable_audio,
+            streaming_backend=streaming_backend,
         )
 
     @pyqtSlot()
     def stopStreaming(self):
         self._pending_usb_preset = None
         self.streaming.stop()
+
+    @pyqtSlot()
+    @pyqtSlot(int)
+    def openSunshineWebUi(self, instance: int = 1):
+        open_sunshine_dashboard(instance, "config")
+
+    @pyqtSlot(str, result="QVariantMap")
+    @pyqtSlot(str, int, result="QVariantMap")
+    def pairMoonlightPin(self, pin: str, instance: int = 1):
+        success, message = pair_moonlight_pin(pin, instance=instance)
+        return {"success": success, "message": message}
+
+    @pyqtSlot(result="QVariantMap")
+    @pyqtSlot(int, result="QVariantMap")
+    def restartSunshine(self, instance: int = 1):
+        success, message = restart_sunshine(instance)
+        return {"success": success, "message": message}
+
+    @pyqtSlot(result="QVariantMap")
+    @pyqtSlot(int, result="QVariantMap")
+    def getSunshineConfig(self, instance: int = 1):
+        return get_sunshine_config(instance)
+
+    @pyqtSlot("QVariantMap", result="QVariantMap")
+    @pyqtSlot("QVariantMap", int, result="QVariantMap")
+    def saveSunshineConfig(self, config_data, instance: int = 1):
+        success, message = save_sunshine_config(dict(config_data or {}), instance=instance)
+        return {"success": success, "message": message}
+
+    @pyqtSlot(str, result="QVariantMap")
+    @pyqtSlot(str, int, result="QVariantMap")
+    def setSunshineEncoder(self, encoder_name: str, instance: int = 1):
+        success, message = set_sunshine_encoder(encoder_name, instance=instance)
+        return {"success": success, "message": message}
 
     @pyqtSlot(str, str, str, str, str, str, bool, bool, bool)
     def startSecondStream(

@@ -74,12 +74,14 @@ Item {
 
     function recommendedBitrateKbps() {
         return backend.recommendedWifiBitrateKbps(
-            page.selectedWidth(), page.selectedHeight(), page.selectedFps()
+            page.selectedWidth(), page.selectedHeight(), page.selectedFps(),
+            videoCodecCombo ? videoCodecCombo.currentText : "H.264 (AVC)",
+            audioCheck ? audioCheck.checked : false
         )
     }
 
     function resolutionOrFpsChanged() {
-        if (page.isWifi && page.selectedWidth() > 0 &&
+        if (page.autoBitrate && page.selectedWidth() > 0 &&
                 page.selectedHeight() > 0 && page.selectedFps() > 0) {
             page.setBitrateMbps(page.recommendedBitrateKbps() / 1000, true, true)
         } else {
@@ -109,10 +111,17 @@ Item {
             page.bitrateKbpsText(),
             displayTypeCombo.visible ? displayTypeCombo.currentText : "Extend",
             encoderCombo.currentText,
-            encoderProfileCombo.currentText
+            encoderProfileCombo.currentText,
+            videoCodecCombo ? videoCodecCombo.currentText : "H.264 (AVC)"
         ]
         if (page.isWifi) {
-            backend.saveWifiSettings(...args, fecCombo.currentText, audioCheck.checked)
+            backend.saveWifiSettings(
+                ...args,
+                fecCombo.currentText,
+                audioCheck.checked,
+                backendCombo ? backendCombo.currentText : "Monitorize",
+                sunshineEncoderCombo ? sunshineEncoderCombo.currentText : "Auto"
+            )
         } else {
             backend.saveUsbSettings(...args, audioCheck.checked)
         }
@@ -130,6 +139,12 @@ Item {
     Component.onCompleted: {
         let saved = page.isWifi ? backend.loadWifiSettings() : backend.loadUsbSettings();
         
+        if (page.isWifi && backendCombo) {
+            if (!backendCombo.selectValue(saved["streaming_backend"] || "Monitorize", true)) {
+                backendCombo.selectValue("Monitorize");
+            }
+        }
+
         if (!resCombo.selectValue(saved["resolution"])) {
             resCombo.selectValue("1920x1080");
         }
@@ -145,10 +160,11 @@ Item {
             customFps.text = saved["custom_fps"] || "";
         }
         
-        let savedMbps = Number(saved["bitrate"] || "16000") / 1000;
+        let defaultBitrate = page.isWifi ? "20000" : "16000";
+        let savedMbps = Number(saved["bitrate"] || defaultBitrate) / 1000;
         page.setBitrateMbps(
             savedMbps, false,
-            page.isWifi && Math.abs(savedMbps - page.recommendedBitrateKbps() / 1000) < 0.001
+            Math.abs(savedMbps - page.recommendedBitrateKbps() / 1000) < 0.001
         );
         
         if (displayTypeCombo) {
@@ -168,10 +184,25 @@ Item {
         if (!encoderProfileCombo.selectValue(saved["encoder_profile"] || "Low Latency", true)) {
             encoderProfileCombo.selectValue("Low Latency");
         }
+
+        let savedCodec = saved["video_codec"] || "H.264 (AVC)";
+        if (savedEnc === "Software (CPU / x264enc)") {
+            savedCodec = "H.264 (AVC)";
+        }
+        if (!videoCodecCombo.selectValue(savedCodec, true)) {
+            videoCodecCombo.selectValue("H.264 (AVC)");
+        }
+
         if (!fecCombo.selectValue(saved["fec_mode"] || "Off", true)) {
             fecCombo.selectValue("Off");
         }
         
+        if (sunshineEncoderCombo) {
+            if (!sunshineEncoderCombo.selectValue(saved["sunshine_encoder"] || "Auto", true)) {
+                sunshineEncoderCombo.selectValue("Auto");
+            }
+        }
+
         let gen = backend.loadGeneralSettings();
         let enableTouch = gen["enable_touch"] !== undefined ? gen["enable_touch"] : true;
         page.enableStylusFeatures = gen["enable_stylus_features"] !== undefined ? gen["enable_stylus_features"] : false;
@@ -281,6 +312,21 @@ Item {
                 rowSpacing: 12
                 Layout.alignment: Qt.AlignHCenter
 
+                Text {
+                    text: "Backend Engine:"
+                    color: theme.textSecondary
+                    font.pixelSize: 14
+                    visible: page.isWifi
+                }
+                ChoiceChips {
+                    id: backendCombo
+                    visible: page.isWifi
+                    chipWidth: page.optionChipWidth
+                    model: ["Monitorize", "Sunshine"]
+                    currentIndex: 0
+                    onActivated: page.saveSettings()
+                }
+
                 Text { text: "Resolution:"; color: theme.textSecondary; font.pixelSize: 14 }
                 CustomComboBox {
                     id: resCombo
@@ -319,9 +365,15 @@ Item {
                     Text { text: "(24 - 240)"; color: theme.textMuted; font.pixelSize: 11; font.italic: true }
                 }
 
-                Text { text: "Video Bitrate (Mbps):"; color: theme.textSecondary; font.pixelSize: 14 }
+                Text {
+                    text: "Video Bitrate (Mbps):"
+                    color: theme.textSecondary
+                    font.pixelSize: 14
+                    visible: !page.isWifi || backendCombo.currentText === "Monitorize"
+                }
                 RowLayout {
                     spacing: 8
+                    visible: !page.isWifi || backendCombo.currentText === "Monitorize"
 
                     CustomSlider {
                         id: bitrateSlider
@@ -357,16 +409,8 @@ Item {
                         onEditingFinished: page.setBitrateMbps(parseFloat(text), true, false)
                     }
 
-                    Text {
-                        text: "Mbps"
-                        color: theme.textMuted
-                        font.pixelSize: 12
-                        visible: !page.isWifi
-                    }
-
                     CustomButton {
                         text: "Use auto"
-                        visible: page.isWifi
                         primary: page.autoBitrate
                         implicitWidth: page.optionChipWidth
                         implicitHeight: 30
@@ -381,11 +425,11 @@ Item {
                     text: "Packet-loss recovery:"
                     color: theme.textSecondary
                     font.pixelSize: 14
-                    visible: page.isWifi
+                    visible: page.isWifi && backendCombo.currentText === "Monitorize"
                 }
                 ChoiceChips {
                     id: fecCombo
-                    visible: page.isWifi
+                    visible: page.isWifi && backendCombo.currentText === "Monitorize"
                     chipWidth: page.optionChipWidth
                     model: ["Off", "RS-FEC 10%"]
                     currentIndex: 0
@@ -407,9 +451,15 @@ Item {
                     onActivated: page.saveSettings()
                 }
 
-                Text { text: "Encoder:"; color: theme.textSecondary; font.pixelSize: 14 }
+                Text {
+                    text: "Encoder:"
+                    color: theme.textSecondary
+                    font.pixelSize: 14
+                    visible: !page.isWifi || backendCombo.currentText === "Monitorize"
+                }
                 ChoiceChips {
                     id: encoderCombo
+                    visible: !page.isWifi || backendCombo.currentText === "Monitorize"
                     chipWidth: page.optionChipWidth
                     currentIndex: 2
                     model: [
@@ -417,12 +467,71 @@ Item {
                         "Intel/AMD VA-API (vah264enc)",
                         "Software (CPU / x264enc)"
                     ]
-                    onActivated: page.saveSettings()
+                    onActivated: {
+                        if (encoderCombo.currentText === "Software (CPU / x264enc)" && videoCodecCombo.currentText === "H.265 (HEVC)") {
+                            videoCodecCombo.selectValue("H.264 (AVC)")
+                        }
+                        page.saveSettings()
+                    }
                 }
 
-                Text { text: "Encoder Profile:"; color: theme.textSecondary; font.pixelSize: 14 }
+                Text {
+                    text: "Encoder:"
+                    color: theme.textSecondary
+                    font.pixelSize: 14
+                    visible: page.isWifi && backendCombo.currentText === "Sunshine"
+                }
+                ChoiceChips {
+                    id: sunshineEncoderCombo
+                    visible: page.isWifi && backendCombo.currentText === "Sunshine"
+                    chipWidth: page.optionChipWidth
+                    currentIndex: 0
+                    model: [
+                        "Auto",
+                        "NVIDIA",
+                        "VA-API",
+                        "Software Enc"
+                    ]
+                    onActivated: {
+                        backend.setSunshineEncoder(currentText)
+                        page.saveSettings()
+                    }
+                }
+
+                Text {
+                    text: "Video Codec:"
+                    color: theme.textSecondary
+                    font.pixelSize: 14
+                    visible: !page.isWifi || backendCombo.currentText === "Monitorize"
+                }
+                ChoiceChips {
+                    id: videoCodecCombo
+                    visible: !page.isWifi || backendCombo.currentText === "Monitorize"
+                    chipWidth: page.optionChipWidth
+                    model: ["H.264 (AVC)", "H.265 (HEVC)"]
+                    currentIndex: 0
+                    disabledValues: encoderCombo.currentText === "Software (CPU / x264enc)" ? ["H.265 (HEVC)"] : []
+                    onActivated: {
+                        if (encoderCombo.currentText === "Software (CPU / x264enc)" && videoCodecCombo.currentText === "H.265 (HEVC)") {
+                            videoCodecCombo.selectValue("H.264 (AVC)")
+                        }
+                        if (page.autoBitrate) {
+                            page.setBitrateMbps(page.recommendedBitrateKbps() / 1000, true, true)
+                        } else {
+                            page.saveSettings()
+                        }
+                    }
+                }
+
+                Text {
+                    text: "Encoder Profile:"
+                    color: theme.textSecondary
+                    font.pixelSize: 14
+                    visible: !page.isWifi || backendCombo.currentText === "Monitorize"
+                }
                 ChoiceChips {
                     id: encoderProfileCombo
+                    visible: !page.isWifi || backendCombo.currentText === "Monitorize"
                     chipWidth: page.optionChipWidth
                     model: ["Low Latency", "Balanced", "Quality"]
                     currentIndex: 0
@@ -435,9 +544,42 @@ Item {
                     spacing: 8
                     Layout.alignment: Qt.AlignLeft
 
+                    Rectangle {
+                        visible: page.isWifi && backendCombo.currentText === "Sunshine"
+                        Layout.fillWidth: true
+                        Layout.preferredWidth: page.optionChipWidth * 2.2
+                        color: theme.surfaceCard || "#1E293B"
+                        radius: 8
+                        border.color: theme.accent
+                        border.width: 1
+                        implicitHeight: sunshineCol.implicitHeight + 20
+
+                        ColumnLayout {
+                            id: sunshineCol
+                            anchors.fill: parent
+                            anchors.margins: 10
+                            spacing: 4
+
+                            Text {
+                                text: "✨ Sunshine / Moonlight Mode"
+                                color: theme.accent
+                                font.pixelSize: 13
+                                font.weight: Font.Bold
+                            }
+                            Text {
+                                text: "Monitorize will create & hold the virtual display. Connect via the Moonlight app on your Android or PC to stream with Sunshine."
+                                color: theme.textSecondary
+                                font.pixelSize: 11
+                                wrapMode: Text.WordWrap
+                                Layout.fillWidth: true
+                            }
+                        }
+                    }
+
                     CustomToggle {
                         id: touchCheck
                         text: "Enable Touch Input"
+                        visible: !page.isWifi || backendCombo.currentText === "Monitorize"
                         Layout.alignment: Qt.AlignLeft
                         onCheckedChanged: {
                             page.enableStylusFeatures = stylusCheck.checked
@@ -448,7 +590,7 @@ Item {
                     CustomToggle {
                         id: stylusCheck
                         text: "Enable Stylus Features"
-                        visible: page.stylusControlsVisible
+                        visible: page.stylusControlsVisible && (!page.isWifi || backendCombo.currentText === "Monitorize")
                         Layout.alignment: Qt.AlignLeft
                         onCheckedChanged: {
                             page.enableStylusFeatures = checked
@@ -459,12 +601,22 @@ Item {
                     CustomToggle {
                         id: audioCheck
                         text: "Enable Audio"
+                        visible: true
                         Layout.alignment: Qt.AlignLeft
-                        onCheckedChanged: page.saveSettings()
+                        onCheckedChanged: {
+                            if (backendCombo && backendCombo.currentText === "Sunshine") {
+                                backend.saveSunshineConfig({"stream_audio": checked ? "enabled" : "disabled"})
+                            }
+                            if (page.autoBitrate) {
+                                page.setBitrateMbps(page.recommendedBitrateKbps() / 1000, true, true)
+                            } else {
+                                page.saveSettings()
+                            }
+                        }
                     }
 
                     Text {
-                        visible: page.isWifi
+                        visible: page.isWifi && backendCombo.currentText === "Monitorize"
                         text: "Use Tailscale or WireGuard for encryption."
                         color: theme.textMuted
                         font.pixelSize: 11
@@ -480,8 +632,8 @@ Item {
                 Layout.alignment: Qt.AlignHCenter
 
                 CustomButton {
-                    text: "▶  Start Streaming"
-                    implicitWidth: 200
+                    text: page.isWifi && backendCombo.currentText === "Sunshine" ? "▶  Create Virtual Display" : "▶  Start Streaming"
+                    implicitWidth: 220
                     implicitHeight: 44
                     onClicked: {
                         let cleanRes = resCombo.currentText;
@@ -499,9 +651,11 @@ Item {
                             displayTypeCombo.visible ? displayTypeCombo.currentText : "Extend",
                             encoderCombo.currentText,
                             encoderProfileCombo.currentText,
+                            videoCodecCombo.currentText,
                             page.isWifi,
                             page.isWifi ? fecCombo.currentText : "Off",
-                            audioCheck.checked
+                            audioCheck.checked,
+                            page.isWifi && backendCombo ? backendCombo.currentText : "Monitorize"
                         );
                     }
                 }

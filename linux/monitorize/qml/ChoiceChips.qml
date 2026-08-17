@@ -8,6 +8,7 @@ RowLayout {
     property var model: []
     property int currentIndex: 0
     property int chipWidth: 112
+    property var disabledValues: []
     readonly property string currentText: (
         currentIndex >= 0 && currentIndex < model.length ? model[currentIndex] : ""
     )
@@ -58,7 +59,9 @@ RowLayout {
         Button {
             id: chip
 
-            enabled: chips.enabled
+            readonly property bool isDisabled: chips.disabledValues && chips.disabledValues.indexOf(modelData) !== -1
+            enabled: chips.enabled && !isDisabled
+            opacity: enabled ? 1.0 : 0.4
 
             readonly property bool selected: index === chips.currentIndex
 

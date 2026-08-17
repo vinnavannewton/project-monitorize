@@ -27,6 +27,14 @@ def negotiate_fec_percent(message, requested_percent):
     return 0
 
 
+def negotiate_codec(message, requested_codec):
+    """Return the codec to use, falling back to h264 if client explicitly doesn't support."""
+    supported = message.get("supportedCodecs")
+    if supported is None or requested_codec in supported:
+        return requested_codec
+    return "h264"
+
+
 def parse_hello(data, transport=TRANSPORT):
     if not data.startswith(HELLO_PREFIX):
         return None
@@ -45,7 +53,8 @@ def is_start_message(message):
 
 
 def wait_for_client(video_port, timeout=120, *, width=0, height=0, fps=0, bitrate=0,
-                    transport=TRANSPORT, requested_fec_percent=0):
+                    transport=TRANSPORT, requested_fec_percent=0,
+                    requested_codec="h264"):
     control_port = video_port
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -83,12 +92,13 @@ def wait_for_client(video_port, timeout=120, *, width=0, height=0, fps=0, bitrat
             profiles = message.get("decoderProfiles", [])
             profile = "high" if "high" in profiles else "constrained-baseline"
             fec_percent = negotiate_fec_percent(message, requested_fec_percent)
+            codec = negotiate_codec(message, requested_codec)
             reply = json.dumps({
                 "transport": transport, "status": "ready", "mtu": MTU,
                 "rtpPt": RTP_PAYLOAD_TYPE, "fecPt": FEC_PAYLOAD_TYPE,
                 "fecPercent": fec_percent,
                 "version": 1, "sessionId": session_id, "ssrc": ssrc,
-                "codec": "h264", "profile": profile,
+                "codec": codec, "profile": profile,
                 "width": width, "height": height, "fps": fps,
                 "bitrateKbps": bitrate,
             }, separators=(",", ":")).encode()
@@ -101,7 +111,13 @@ def wait_for_client(video_port, timeout=120, *, width=0, height=0, fps=0, bitrat
                     "advertise RS-FEC support; continuing with FEC Off.",
                     flush=True,
                 )
-            return addr[0], port, ssrc, profile, fec_percent
+            if requested_codec != "h264" and codec != requested_codec:
+                print(
+                    f"[RTP] WARNING: {requested_codec.upper()} requested, but client "
+                    f"does not support it; falling back to H.264.",
+                    flush=True,
+                )
+            return addr[0], port, ssrc, profile, fec_percent, codec
     finally:
         sock.close()
     raise TimeoutError(f"No RTP client on UDP {control_port}")

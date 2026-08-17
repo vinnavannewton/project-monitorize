@@ -27,7 +27,17 @@ HELPER_EVENT_TIMEOUT = 10
 
 def find_helper():
     override = os.environ.get("MONITORIZE_KDE_HELPER", "").strip()
-    candidates = [override, str(Path(sys.executable).with_name(HELPER_NAME))]
+    repo_root = Path(__file__).resolve().parents[2]
+    candidates = [
+        override,
+        str(Path(sys.executable).with_name(HELPER_NAME)),
+        str(repo_root / "venv" / "bin" / HELPER_NAME),
+        str(repo_root / "linux" / "venv" / "bin" / HELPER_NAME),
+        str(repo_root / "native" / "kde_virtual_output" / "build" / HELPER_NAME),
+        str(repo_root / "linux" / "native" / "kde_virtual_output" / "build" / HELPER_NAME),
+        "/usr/local/bin/" + HELPER_NAME,
+        "/usr/bin/" + HELPER_NAME,
+    ]
     from_path = shutil.which(HELPER_NAME)
     if from_path:
         candidates.append(from_path)
@@ -182,9 +192,13 @@ def run_native_streamer(
             "requested_fps": fps,
         })
 
+        codec = os.environ.get("MONITORIZE_VIDEO_CODEC", "h264")
+        if codec not in ("h264", "h265"):
+            codec = "h264"
         rtp_endpoint = prepare_rtp_endpoint(
             width=actual["width"], height=actual["height"], fps=fps,
             bitrate=bitrate, port=port, server_mode=mode == "wifi",
+            codec=codec,
         )
 
         if rtp_endpoint is not None:
@@ -192,7 +206,7 @@ def run_native_streamer(
 
         capture_path = "owner"
         capture = owner
-        if rtp_endpoint is None or fps > 60:
+        if rtp_endpoint is None:
             capture_path = "post-mode"
             helper.stdin.write("capture\n")
             helper.stdin.flush()

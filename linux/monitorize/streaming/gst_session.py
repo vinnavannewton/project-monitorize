@@ -52,7 +52,8 @@ def congestion_bitrate_kbps(current_bitrate, loss_percent):
 class Session:
     def __init__(self, description, control_port, bitrate, target_fps, width, height):
         Gst.init(None)
-        self.pipeline = Gst.parse_launch(description)
+        clean_desc = re.sub(r"['\"]([^'\"]+)['\"]", r"\1", description)
+        self.pipeline = Gst.parse_launch(clean_desc)
         self.exit_code = 0
         self.control_port = control_port
         self.loop = GLib.MainLoop()
@@ -316,8 +317,15 @@ class Session:
     def encoded_access_unit_has_idr(data):
         for match in re.finditer(b"\x00\x00(?:\x00)?\x01", data):
             header = match.end()
-            if header < len(data) and data[header] & 0x1f == 5:
-                return True
+            if header < len(data):
+                
+                if data[header] & 0x1f == 5:
+                    return True
+                
+                if header + 1 < len(data):
+                    hevc_type = (data[header] >> 1) & 0x3f
+                    if hevc_type in (19, 20):
+                        return True
         return False
 
     def record_encoded_idr(self, size, now=None):
@@ -619,7 +627,7 @@ class Session:
         for names, kind in (
             (("monitorize_kwin_source", "pipewiresrc0", "monitorize_source"), "source"),
             (("videorate0", "monitorize_rate"), "paced"),
-            (("h264parse0", "monitorize_parser"), "encoded"),
+            (("h264parse0", "h265parse0", "monitorize_parser"), "encoded"),
             (("rtpulpfecenc0", "rtph264pay0", "monitorize_payloader"), "rtp_packets"),
         ):
             element = self._element(*names)
@@ -627,7 +635,9 @@ class Session:
             if pad is not None:
                 pad.add_probe(Gst.PadProbeType.BUFFER, buffer_probe(kind))
         encoder = self._element(
-            "nvh264enc0", "vah264enc0", "vah264lpenc0", "vaapih264enc0",
+            "nvh264enc0", "nvh265enc0",
+            "vah264enc0", "vah264lpenc0", "vaapih264enc0",
+            "vah265enc0", "vah265lpenc0", "vaapih265enc0",
             "x264enc0", "monitorize_encoder",
         )
         encoder_sink = encoder.get_static_pad("sink") if encoder else None
@@ -706,8 +716,14 @@ class Session:
         bus.connect("message", self.bus_message)
         threading.Thread(target=self.control_loop, daemon=True).start()
         self.install_diagnostics()
-        if self.pipeline.set_state(Gst.State.PLAYING) == Gst.StateChangeReturn.FAILURE:
-            print("[GStreamer] ERROR: pipeline failed to enter PLAYING", flush=True)
+        ret = self.pipeline.set_state(Gst.State.PLAYING)
+        if ret == Gst.StateChangeReturn.FAILURE:
+            msg = bus.timed_pop_filtered(Gst.SECOND, Gst.MessageType.ERROR)
+            if msg:
+                err, dbg = msg.parse_error()
+                print(f"[GStreamer] ERROR: pipeline failed to enter PLAYING: {err} ({dbg or ''})", flush=True)
+            else:
+                print("[GStreamer] ERROR: pipeline failed to enter PLAYING", flush=True)
             self.running = False
             self.stop_sender()
             return 1
