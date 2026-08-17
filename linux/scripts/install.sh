@@ -139,6 +139,12 @@ SUNSHINE_SUBMODULE_DIR="${PROJECT_DIR}/../external/sunshine"
 SUNSHINE_BUILD_BIN="${SUNSHINE_SUBMODULE_DIR}/build/sunshine"
 SUNSHINE_VENV_BIN="${VENV_DIR}/bin/sunshine"
 
+# Auto-initialize submodule if folder is empty or not checked out
+if [[ ! -f "${SUNSHINE_SUBMODULE_DIR}/CMakeLists.txt" ]] && command -v git &>/dev/null && [[ -d "${PROJECT_DIR}/../.git" ]]; then
+    echo "Initializing Sunshine git submodule…"
+    git -C "${PROJECT_DIR}/.." submodule update --init --recursive external/sunshine 2>/dev/null || true
+fi
+
 if [[ -f "${SUNSHINE_BUILD_BIN}" ]]; then
     echo "Installing bundled Sunshine binary to ${SUNSHINE_VENV_BIN}…"
     cp -f "${SUNSHINE_BUILD_BIN}" "${SUNSHINE_VENV_BIN}"
