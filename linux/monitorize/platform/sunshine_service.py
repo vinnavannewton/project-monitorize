@@ -313,10 +313,29 @@ def ensure_sunshine_tray_disabled(instance: int = 1) -> None:
                             pass
 
 
-def start_sunshine(instance: int = 1) -> tuple[bool, str]:
+_SUNSHINE_PIPEWIRE_NODES: dict[int, int] = {}
+
+
+def set_sunshine_pipewire_node(node_id: int | str | None, instance: int = 1) -> None:
+    """Set the PipeWire stream node id for direct capture on GNOME."""
+    if node_id is not None and str(node_id).isdigit() and int(node_id) > 0:
+        _SUNSHINE_PIPEWIRE_NODES[instance] = int(node_id)
+    else:
+        _SUNSHINE_PIPEWIRE_NODES.pop(instance, None)
+
+
+def get_sunshine_pipewire_node(instance: int = 1) -> int | None:
+    """Return the active PipeWire stream node id for an instance if set."""
+    return _SUNSHINE_PIPEWIRE_NODES.get(instance)
+
+
+def start_sunshine(instance: int = 1, pipewire_node: int | str | None = None) -> tuple[bool, str]:
     """Start isolated Sunshine engine binding child process to parent lifetime."""
     global _SUNSHINE_PROCESS, _SUNSHINE_PROCESSES
     ensure_sunshine_tray_disabled(instance)
+    if pipewire_node is not None:
+        set_sunshine_pipewire_node(pipewire_node, instance)
+
     if is_sunshine_running(instance):
         return True, f"Sunshine instance {instance} is already running."
 
@@ -334,6 +353,10 @@ def start_sunshine(instance: int = 1) -> tuple[bool, str]:
     env = dict(os.environ)
     env["SUNSHINE_CONFIG_DIR"] = config_dir
     env["XDG_CONFIG_HOME"] = profile_parent
+
+    node = _SUNSHINE_PIPEWIRE_NODES.get(instance)
+    if node:
+        env["SUNSHINE_PIPEWIRE_NODE"] = str(node)
 
     errors = []
     for cmd in candidates:
@@ -368,6 +391,7 @@ def stop_sunshine(instance: int | None = None) -> tuple[bool, str]:
             instances_to_stop = [1, 2]
 
     for inst in instances_to_stop:
+        set_sunshine_pipewire_node(None, inst)
         proc = _SUNSHINE_PROCESSES.pop(inst, None)
         if proc is None and inst == 1 and _SUNSHINE_PROCESS is not None:
             proc = _SUNSHINE_PROCESS

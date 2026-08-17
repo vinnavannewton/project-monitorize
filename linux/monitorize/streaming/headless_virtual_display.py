@@ -155,8 +155,11 @@ def run_hyprland_headless(width, height, fps):
 def run_gnome_headless(slot, width, height, fps, display_type="Extend"):
     try:
         import dbus
+        from dbus.mainloop.glib import DBusGMainLoop
+        from gi.repository import GLib
         from monitorize.platform import gnome_virtual_monitor
 
+        DBusGMainLoop(set_as_default=True)
         bus = dbus.SessionBus()
         display_config = gnome_virtual_monitor.display_config_interface(bus, dbus)
 
@@ -183,16 +186,36 @@ def run_gnome_headless(slot, width, height, fps, display_type="Extend"):
             mode_val["preferred-scale"] = dbus.Double(float(preferred_scale))
 
         modes = dbus.Array([dbus.Dictionary(mode_val, signature="sv")], signature="a{sv}")
-        session.RecordVirtual({
+        stream_path = session.RecordVirtual({
             "modes": modes,
             "cursor-mode": dbus.UInt32(1),
             "is-platform": dbus.Boolean(True),
         })
 
+        node_id_holder = [0]
+
+        def on_pipewire_stream_added(node_id):
+            try:
+                node_id_holder[0] = int(node_id)
+            except Exception:
+                pass
+
+        stream_obj = bus.get_object("org.gnome.Mutter.ScreenCast", stream_path)
+        stream_obj.connect_to_signal(
+            "PipeWireStreamAdded", on_pipewire_stream_added,
+            dbus_interface="org.gnome.Mutter.ScreenCast.Stream",
+        )
+
         session.Start()
 
         connector = ""
+        context = GLib.main_context_default()
         for _ in range(30):
+            try:
+                while context.pending():
+                    context.iteration(False)
+            except Exception:
+                pass
             try:
                 state = display_config.GetCurrentState()
                 found = gnome_virtual_monitor.new_virtual_connector(
@@ -200,7 +223,8 @@ def run_gnome_headless(slot, width, height, fps, display_type="Extend"):
                 )
                 if found:
                     connector = found
-                    break
+                    if node_id_holder[0] != 0:
+                        break
             except Exception:
                 pass
             time.sleep(0.1)
@@ -232,6 +256,7 @@ def run_gnome_headless(slot, width, height, fps, display_type="Extend"):
         _emit_event({
             "type": "headless_ready",
             "name": connector,
+            "node_id": node_id_holder[0],
             "width": width,
             "height": height,
             "fps": fps,

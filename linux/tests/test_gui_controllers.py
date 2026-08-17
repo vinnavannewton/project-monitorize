@@ -5102,6 +5102,54 @@ class BackendFacadeTest(unittest.TestCase):
                     self.assertIn("encoder = software\n", content_2)
                     self.assertIn("native_pen_touch = disabled\n", content_2)
 
+    def test_sunshine_pipewire_node_tracking_and_direct_grab_env(self):
+        from unittest.mock import MagicMock
+        from monitorize.platform.sunshine_service import (
+            set_sunshine_pipewire_node,
+            get_sunshine_pipewire_node,
+            start_sunshine,
+            stop_sunshine,
+        )
+        set_sunshine_pipewire_node(42, instance=1)
+        set_sunshine_pipewire_node(84, instance=2)
+        self.assertEqual(get_sunshine_pipewire_node(1), 42)
+        self.assertEqual(get_sunshine_pipewire_node(2), 84)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            conf_1 = os.path.join(temp_dir, "sunshine-1", "sunshine.conf")
+            conf_2 = os.path.join(temp_dir, "sunshine-2", "sunshine.conf")
+            os.makedirs(os.path.dirname(conf_1), exist_ok=True)
+            os.makedirs(os.path.dirname(conf_2), exist_ok=True)
+            with open(conf_1, "w") as f: f.write("output_name = Meta-0\n")
+            with open(conf_2, "w") as f: f.write("output_name = Meta-1\n")
+
+            spawned_envs = {}
+            def mock_popen(cmd, env=None, **kwargs):
+                inst = 2 if "sunshine-2" in cmd[1] else 1
+                spawned_envs[inst] = env
+                proc = MagicMock()
+                proc.poll.return_value = None
+                return proc
+
+            with (
+                patch("monitorize.platform.sunshine_service.get_sunshine_config_path", side_effect=lambda inst: conf_2 if inst == 2 else conf_1),
+                patch("monitorize.platform.sunshine_service.get_sunshine_config_dir", side_effect=lambda inst: os.path.dirname(conf_2) if inst == 2 else os.path.dirname(conf_1)),
+                patch("monitorize.platform.sunshine_service.get_sunshine_candidates", side_effect=lambda inst: [["sunshine", conf_2 if inst == 2 else conf_1]]),
+                patch("monitorize.platform.sunshine_service.is_sunshine_running", return_value=False),
+                patch("subprocess.Popen", side_effect=mock_popen),
+            ):
+                ok1, _ = start_sunshine(1, pipewire_node=42)
+                ok2, _ = start_sunshine(2, pipewire_node=84)
+                self.assertTrue(ok1)
+                self.assertTrue(ok2)
+                self.assertEqual(spawned_envs[1].get("SUNSHINE_PIPEWIRE_NODE"), "42")
+                self.assertEqual(spawned_envs[2].get("SUNSHINE_PIPEWIRE_NODE"), "84")
+
+                stop_sunshine(1)
+                stop_sunshine(2)
+                self.assertIsNone(get_sunshine_pipewire_node(1))
+                self.assertIsNone(get_sunshine_pipewire_node(2))
+
     def test_wifi_usb_settings_page_uses_toggles(self):
         qml_dir = Path(__file__).resolve().parents[1] / "monitorize" / "qml"
         qml = (qml_dir / "WifiPage.qml").read_text(encoding="utf-8")

@@ -602,8 +602,12 @@ class StreamingController(QObject):
                     codec = wifi_settings.get("sunshine_codec", "Auto")
                     pen_touch = wifi_settings.get("sunshine_native_pen_touch", True)
                     sync_sunshine_stream_config(output_name, enc, codec, pen_touch, instance=1)
+                    node_id = event.get("node_id") if self.de == "gnome" else None
                     if not is_sunshine_running(1):
-                        start_sunshine(1)
+                        if node_id is not None:
+                            start_sunshine(1, pipewire_node=node_id)
+                        else:
+                            start_sunshine(1)
                     QTimer.singleShot(1500, self.sunshine_watchdog_timer.start)
                 except Exception as exc:
                     app_log.warning(f"Could not auto-configure Sunshine output: {exc}")
@@ -1270,8 +1274,12 @@ class StreamingController(QObject):
                         getattr(self, "third_sunshine_native_pen_touch", True),
                         instance=2,
                     )
+                    node_id = event.get("node_id") if self.de == "gnome" else None
                     if not is_sunshine_running(instance=2):
-                        start_sunshine(instance=2)
+                        if node_id is not None:
+                            start_sunshine(instance=2, pipewire_node=node_id)
+                        else:
+                            start_sunshine(instance=2)
                     QTimer.singleShot(1500, self.sunshine_watchdog_timer.start)
                 except Exception as exc:
                     app_log.warning(f"Could not auto-configure Sunshine instance 2 output: {exc}")
