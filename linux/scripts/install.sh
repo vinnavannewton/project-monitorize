@@ -139,32 +139,36 @@ SUNSHINE_SUBMODULE_DIR="${PROJECT_DIR}/../external/sunshine"
 SUNSHINE_BUILD_BIN="${SUNSHINE_SUBMODULE_DIR}/build/sunshine"
 SUNSHINE_VENV_BIN="${VENV_DIR}/bin/sunshine"
 
-# Auto-initialize submodule if folder is empty or not checked out
-if [[ ! -f "${SUNSHINE_SUBMODULE_DIR}/CMakeLists.txt" ]] && command -v git &>/dev/null && [[ -d "${PROJECT_DIR}/../.git" ]]; then
-    echo "Initializing Sunshine git submodule…"
-    git -C "${PROJECT_DIR}/.." submodule update --init --recursive external/sunshine 2>/dev/null || true
-fi
-
 if [[ -f "${SUNSHINE_BUILD_BIN}" ]]; then
     echo "Installing bundled Sunshine binary to ${SUNSHINE_VENV_BIN}…"
     cp -f "${SUNSHINE_BUILD_BIN}" "${SUNSHINE_VENV_BIN}"
     chmod +x "${SUNSHINE_VENV_BIN}"
     echo "✓ Bundled Sunshine binary installed to ${SUNSHINE_VENV_BIN}"
-elif [[ -f "${SUNSHINE_SUBMODULE_DIR}/CMakeLists.txt" ]]; then
-    if command -v cmake &>/dev/null; then
-        echo "Building Sunshine from submodule at ${SUNSHINE_SUBMODULE_DIR}…"
-        mkdir -p "${SUNSHINE_SUBMODULE_DIR}/build"
-        if cmake -B "${SUNSHINE_SUBMODULE_DIR}/build" -S "${SUNSHINE_SUBMODULE_DIR}" \
-                 -DCMAKE_BUILD_TYPE=Release -DSUNSHINE_ENABLE_TRAY=OFF -DBUILD_TESTS=OFF -DBUILD_DOCS=OFF && \
-           cmake --build "${SUNSHINE_SUBMODULE_DIR}/build" -j"$(nproc 2>/dev/null || echo 2)"; then
-            cp -f "${SUNSHINE_BUILD_BIN}" "${SUNSHINE_VENV_BIN}"
-            chmod +x "${SUNSHINE_VENV_BIN}"
-            echo "✓ Sunshine compiled and installed to ${SUNSHINE_VENV_BIN}"
+else
+    # Auto-initialize submodule if folder is empty or not checked out
+    if [[ ! -f "${SUNSHINE_SUBMODULE_DIR}/CMakeLists.txt" ]] && command -v git &>/dev/null && [[ -d "${PROJECT_DIR}/../.git" ]]; then
+        NPROC="$(nproc 2>/dev/null || echo 4)"
+        echo "Fetching Sunshine submodule in parallel (${NPROC} jobs, shallow)…"
+        git -C "${PROJECT_DIR}/.." submodule update --init --recursive --depth 1 --jobs "${NPROC}" external/sunshine 2>/dev/null || true
+    fi
+
+    if [[ -f "${SUNSHINE_SUBMODULE_DIR}/CMakeLists.txt" ]]; then
+        if command -v cmake &>/dev/null; then
+            NPROC="$(nproc 2>/dev/null || echo 2)"
+            echo "Building isolated Sunshine from submodule at ${SUNSHINE_SUBMODULE_DIR} (-j${NPROC})…"
+            mkdir -p "${SUNSHINE_SUBMODULE_DIR}/build"
+            if cmake -B "${SUNSHINE_SUBMODULE_DIR}/build" -S "${SUNSHINE_SUBMODULE_DIR}" \
+                     -DCMAKE_BUILD_TYPE=Release -DSUNSHINE_ENABLE_TRAY=OFF -DBUILD_TESTS=OFF -DBUILD_DOCS=OFF && \
+               cmake --build "${SUNSHINE_SUBMODULE_DIR}/build" -j"${NPROC}"; then
+                cp -f "${SUNSHINE_BUILD_BIN}" "${SUNSHINE_VENV_BIN}"
+                chmod +x "${SUNSHINE_VENV_BIN}"
+                echo "✓ Isolated Sunshine compiled and installed to ${SUNSHINE_VENV_BIN}"
+            else
+                echo "Note: Sunshine submodule compilation failed. Check build dependencies."
+            fi
         else
-            echo "Note: Sunshine submodule compilation failed. Monitorize will use system Sunshine or GStreamer fallback."
+            echo "Note: 'cmake' was not found. Install cmake and build tools to compile the bundled Sunshine submodule."
         fi
-    else
-        echo "Note: 'cmake' was not found. If you wish to build the bundled Sunshine submodule, install cmake and re-run install.sh."
     fi
 fi
 
