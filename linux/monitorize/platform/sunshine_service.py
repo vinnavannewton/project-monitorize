@@ -89,6 +89,69 @@ def is_sunshine_running(instance: int = 1, timeout: float = 0.5) -> bool:
     return False
 
 
+def get_sunshine_process(instance: int = 1) -> subprocess.Popen | None:
+    """Return the underlying subprocess.Popen for a Sunshine instance if managed by Monitorize."""
+    proc = _SUNSHINE_PROCESSES.get(instance)
+    if proc is None and instance == 1:
+        proc = _SUNSHINE_PROCESS
+    return proc
+
+
+def get_sunshine_exit_code(instance: int = 1) -> int | None:
+    """Return the exit code of Sunshine if terminated, or None if still running / not tracked."""
+    proc = get_sunshine_process(instance)
+    if proc is not None:
+        return proc.poll()
+    return None
+
+
+def get_sunshine_last_error(instance: int = 1, max_lines: int = 5) -> str:
+    """Read the last Fatal/Error line from sunshine.log for user diagnostics."""
+    config_dir = get_sunshine_config_dir(instance)
+    log_file = os.path.join(config_dir, "sunshine.log")
+    if not os.path.isfile(log_file):
+        return ""
+    errors = []
+    try:
+        with open(log_file, "r", encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+            for line in reversed(lines[-60:]):
+                stripped = line.strip()
+                if "Fatal:" in stripped or "Error:" in stripped or "SIGABRT" in stripped:
+                    errors.append(stripped)
+                    if len(errors) >= max_lines:
+                        break
+    except OSError:
+        pass
+    if errors:
+        return " | ".join(reversed(errors))
+    return ""
+
+
+def check_sunshine_health(instance: int = 1) -> tuple[bool, int | None, str]:
+    """Check if Sunshine instance is alive.
+
+    Returns:
+        tuple[bool, int | None, str]: (is_alive, exit_code, last_error_message)
+    """
+    proc = get_sunshine_process(instance)
+    if proc is not None:
+        code = proc.poll()
+        if code is None:
+            return True, None, ""
+        # If the tracked initial child process exited, verify if Sunshine is still running
+        # (e.g. after internal daemonization or restart)
+        if is_sunshine_running(instance):
+            return True, None, ""
+        err = get_sunshine_last_error(instance)
+        return False, code, err
+
+    if is_sunshine_running(instance):
+        return True, None, ""
+
+    return False, None, get_sunshine_last_error(instance)
+
+
 def get_sunshine_candidates(instance: int = 1) -> list[list[str]]:
     """Return an ordered list of candidate commands to launch Monitorize's Sunshine engine."""
     candidates: list[list[str]] = []
@@ -417,11 +480,130 @@ def pair_moonlight_pin(pin: str, name: str = "Monitorize Display", instance: int
 
 
 
-def set_sunshine_output_name(output_name: str, instance: int = 1) -> tuple[bool, str]:
-    """Configure Sunshine to capture a specific virtual display output name.
+def sync_sunshine_stream_config(
+    output_name: str,
+    encoder: str = "Auto",
+    codec: str = "Auto",
+    instance: int = 1,
+) -> tuple[bool, str]:
+    """Atomically synchronize all active streaming parameters to sunshine.conf in a single pass."""
+    clean_out = str(output_name or "").strip()
 
-    Updates sunshine.conf and notifies Sunshine's REST API if running.
-    """
+    clean_enc = str(encoder or "").strip()
+    mapping = {
+        "auto": "",
+        "nvidia": "nvenc",
+        "nvidia nvenc": "nvenc",
+        "nvidia nvenc (nvh264enc)": "nvenc",
+        "nvenc": "nvenc",
+        "va-api": "vaapi",
+        "vaapi": "vaapi",
+        "intel/amd va-api (vah264enc)": "vaapi",
+        "software": "software",
+        "software enc": "software",
+        "software (cpu)": "software",
+        "software (cpu / x264enc)": "software",
+    }
+    target_encoder = mapping.get(clean_enc.lower(), clean_enc)
+
+    clean_codec = str(codec or "").strip().lower()
+    if "h.264" in clean_codec or "avc" in clean_codec or clean_codec == "h264":
+        hevc_val, av1_val = 1, 1
+    elif "h.265" in clean_codec or "hevc" in clean_codec or clean_codec == "h265":
+        hevc_val, av1_val = 2, 1
+    elif "av1" in clean_codec:
+        hevc_val, av1_val = 1, 2
+    else:
+        hevc_val, av1_val = 0, 0
+
+    config_path = get_sunshine_config_path(instance)
+    try:
+        os.makedirs(os.path.dirname(config_path), exist_ok=True)
+    except OSError:
+        pass
+
+    lines = []
+    found_output = False
+    found_encoder = False
+    found_hevc = False
+    found_av1 = False
+    found_tray = False
+
+    if os.path.isfile(config_path):
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    stripped = line.strip()
+                    if stripped.startswith("output_name"):
+                        lines.append(f"output_name = {clean_out}\n")
+                        found_output = True
+                    elif stripped.startswith("encoder"):
+                        lines.append(f"encoder = {target_encoder}\n")
+                        found_encoder = True
+                    elif stripped.startswith("hevc_mode"):
+                        lines.append(f"hevc_mode = {hevc_val}\n")
+                        found_hevc = True
+                    elif stripped.startswith("av1_mode"):
+                        lines.append(f"av1_mode = {av1_val}\n")
+                        found_av1 = True
+                    elif stripped.startswith("system_tray"):
+                        lines.append("system_tray = disabled\n")
+                        found_tray = True
+                    else:
+                        lines.append(line)
+        except OSError:
+            pass
+
+    if not found_output:
+        lines.append(f"output_name = {clean_out}\n")
+    if not found_encoder:
+        lines.append(f"encoder = {target_encoder}\n")
+    if not found_hevc:
+        lines.append(f"hevc_mode = {hevc_val}\n")
+    if not found_av1:
+        lines.append(f"av1_mode = {av1_val}\n")
+    if not found_tray:
+        lines.append("system_tray = disabled\n")
+
+    try:
+        with open(config_path, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+    except OSError as exc:
+        return False, f"Could not write sunshine.conf: {exc}"
+
+    if is_sunshine_running(instance):
+        import json
+        import ssl
+        import urllib.request
+
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+
+        url = get_sunshine_web_url(instance)
+        payload = json.dumps({
+            "output_name": clean_out,
+            "encoder": target_encoder,
+            "hevc_mode": hevc_val,
+            "av1_mode": av1_val,
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            f"{url}/api/config",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, context=ctx, timeout=3.0) as _resp:
+                pass
+        except Exception:
+            pass
+
+    return True, f"Synchronized Sunshine instance {instance} config"
+
+
+def set_sunshine_output_name(output_name: str, instance: int = 1) -> tuple[bool, str]:
+    """Configure Sunshine to capture a specific virtual display output name."""
     clean_name = str(output_name or "").strip()
     config_path = get_sunshine_config_path(instance)
     try:
@@ -429,7 +611,6 @@ def set_sunshine_output_name(output_name: str, instance: int = 1) -> tuple[bool,
     except OSError:
         pass
 
-    
     lines = []
     found_output = False
     found_tray = False
@@ -460,7 +641,6 @@ def set_sunshine_output_name(output_name: str, instance: int = 1) -> tuple[bool,
     except OSError as exc:
         return False, f"Could not write sunshine.conf: {exc}"
 
-    
     if is_sunshine_running(instance):
         import json
         import ssl
@@ -483,9 +663,6 @@ def set_sunshine_output_name(output_name: str, instance: int = 1) -> tuple[bool,
                 pass
         except Exception:
             pass
-
-        
-        restart_sunshine(instance)
 
     return True, f"Configured Sunshine instance {instance} output_name = {clean_name}"
 
@@ -593,10 +770,82 @@ def set_sunshine_encoder(encoder_name: str, instance: int = 1) -> tuple[bool, st
         except Exception:
             pass
 
-        
-        restart_sunshine(instance)
-
     return True, f"Sunshine instance {instance} encoder set to '{target_value or 'auto'}'."
+
+
+def set_sunshine_codec(codec_name: str, instance: int = 1) -> tuple[bool, str]:
+    """Configure Sunshine's forced video codec mode in sunshine.conf and REST API."""
+    clean = str(codec_name or "").strip().lower()
+    if "h.264" in clean or "avc" in clean or clean == "h264":
+        hevc_val, av1_val, label = 1, 1, "H.264 (AVC)"
+    elif "h.265" in clean or "hevc" in clean or clean == "h265":
+        hevc_val, av1_val, label = 2, 1, "H.265 (HEVC)"
+    elif "av1" in clean:
+        hevc_val, av1_val, label = 1, 2, "AV1"
+    else:
+        hevc_val, av1_val, label = 0, 0, "Auto"
+
+    config_path = get_sunshine_config_path(instance)
+    try:
+        os.makedirs(os.path.dirname(config_path), exist_ok=True)
+    except OSError:
+        pass
+
+    lines = []
+    found_hevc = False
+    found_av1 = False
+    if os.path.isfile(config_path):
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    stripped = line.strip()
+                    if stripped.startswith("hevc_mode"):
+                        lines.append(f"hevc_mode = {hevc_val}\n")
+                        found_hevc = True
+                    elif stripped.startswith("av1_mode"):
+                        lines.append(f"av1_mode = {av1_val}\n")
+                        found_av1 = True
+                    else:
+                        lines.append(line)
+        except OSError:
+            pass
+
+    if not found_hevc:
+        lines.append(f"hevc_mode = {hevc_val}\n")
+    if not found_av1:
+        lines.append(f"av1_mode = {av1_val}\n")
+
+    try:
+        with open(config_path, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+    except OSError as exc:
+        return False, f"Could not write sunshine.conf: {exc}"
+
+    if is_sunshine_running(instance):
+        import json
+        import ssl
+        import urllib.request
+
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+
+        url = get_sunshine_web_url(instance)
+        payload = json.dumps({"hevc_mode": hevc_val, "av1_mode": av1_val}).encode("utf-8")
+        req = urllib.request.Request(
+            f"{url}/api/config",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, context=ctx, timeout=3.0) as _resp:
+                pass
+        except Exception:
+            pass
+
+    return True, f"Sunshine instance {instance} video codec set to '{label}'."
+
 
 
 DEFAULT_SUNSHINE_CONFIG = {

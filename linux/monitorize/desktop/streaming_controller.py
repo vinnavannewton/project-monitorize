@@ -119,6 +119,9 @@ class StreamingController(QObject):
         self.countdown_timer = QTimer(self)
         self.countdown_timer.setInterval(1000)
         self.countdown_timer.timeout.connect(self._countdown_tick)
+        self.sunshine_watchdog_timer = QTimer(self)
+        self.sunshine_watchdog_timer.setInterval(1000)
+        self.sunshine_watchdog_timer.timeout.connect(self._check_sunshine_health)
         self.gnome_layout_change_timer = QTimer(self)
         self.gnome_layout_change_timer.setSingleShot(True)
         self.gnome_layout_change_timer.setInterval(GNOME_LAYOUT_CHANGE_DEBOUNCE_MS)
@@ -126,6 +129,7 @@ class StreamingController(QObject):
         self.gnome_display_config_bus = None
         self.gnome_display_config_connected = False
         self._gnome_monitors_changed_slot = self._on_gnome_monitors_changed
+        self._is_stopping = False
 
     @staticmethod
     def _empty_telemetry():
@@ -382,14 +386,19 @@ class StreamingController(QObject):
             if self.display_type == "Mirror":
                 self.streamer = None
                 try:
+                    from monitorize.config.settings import load_wifi_settings
                     from monitorize.platform.sunshine_service import (
-                        clear_sunshine_output_name,
                         is_sunshine_running,
                         start_sunshine,
+                        sync_sunshine_stream_config,
                     )
-                    clear_sunshine_output_name()
-                    if not is_sunshine_running():
-                        start_sunshine()
+                    wifi_settings = load_wifi_settings()
+                    enc = wifi_settings.get("sunshine_encoder", "Auto")
+                    codec = wifi_settings.get("sunshine_codec", "Auto")
+                    sync_sunshine_stream_config("", enc, codec, instance=1)
+                    if not is_sunshine_running(1):
+                        start_sunshine(1)
+                    QTimer.singleShot(1500, self.sunshine_watchdog_timer.start)
                 except Exception as exc:
                     app_log.warning(f"Could not initialize Sunshine mirror mode: {exc}")
                 self.streamer_was_ready = True
@@ -577,14 +586,19 @@ class StreamingController(QObject):
                 self.streamer_was_ready = True
                 self._set_primary_ready(True)
                 try:
+                    from monitorize.config.settings import load_wifi_settings
                     from monitorize.platform.sunshine_service import (
                         is_sunshine_running,
-                        set_sunshine_output_name,
                         start_sunshine,
+                        sync_sunshine_stream_config,
                     )
-                    set_sunshine_output_name(output_name)
-                    if not is_sunshine_running():
-                        start_sunshine()
+                    wifi_settings = load_wifi_settings()
+                    enc = wifi_settings.get("sunshine_encoder", "Auto")
+                    codec = wifi_settings.get("sunshine_codec", "Auto")
+                    sync_sunshine_stream_config(output_name, enc, codec, instance=1)
+                    if not is_sunshine_running(1):
+                        start_sunshine(1)
+                    QTimer.singleShot(1500, self.sunshine_watchdog_timer.start)
                 except Exception as exc:
                     app_log.warning(f"Could not auto-configure Sunshine output: {exc}")
                 self._set_status(
@@ -751,6 +765,43 @@ class StreamingController(QObject):
             message = self.status or "KDE streaming setup failed — see logs"
             self.stop()
             self._set_status(message)
+
+    def _check_sunshine_health(self):
+        try:
+            if not self.streaming or getattr(self, "streaming_backend", "Monitorize") != "Sunshine":
+                self.sunshine_watchdog_timer.stop()
+                return
+
+            from monitorize.platform.sunshine_service import check_sunshine_health
+            alive, exit_code, last_error = check_sunshine_health(instance=1)
+            if not alive:
+                self.sunshine_watchdog_timer.stop()
+                err_msg = "Sunshine backend terminated unexpectedly"
+                if exit_code is not None:
+                    err_msg += f" (exit code {exit_code})"
+                if last_error:
+                    err_msg += f": {last_error}"
+                self.logAppended.emit("STREAMER", f"ERROR: {err_msg}")
+                app_log.error(f"Watchdog detected Sunshine failure: {err_msg}")
+                status_msg = f"Sunshine backend crashed (code {exit_code}) — see logs" if exit_code is not None else "Sunshine backend crashed — see logs"
+                self._set_status(status_msg)
+                QTimer.singleShot(0, self.stop)
+                return
+
+            if self.third_streaming:
+                alive2, exit_code2, last_error2 = check_sunshine_health(instance=2)
+                if not alive2:
+                    err_msg2 = "Sunshine Instance 2 terminated unexpectedly"
+                    if exit_code2 is not None:
+                        err_msg2 += f" (exit code {exit_code2})"
+                    if last_error2:
+                        err_msg2 += f": {last_error2}"
+                    self.logAppended.emit("THIRD_STREAMER", f"ERROR: {err_msg2}")
+                    app_log.error(f"Watchdog detected Sunshine Instance 2 failure: {err_msg2}")
+                    self._set_status("Sunshine Instance 2 crashed — see logs")
+                    QTimer.singleShot(0, self.stop_third)
+        except Exception as exc:
+            app_log.error(f"Error in Sunshine watchdog callback: {exc}")
 
     def _restart_wifi_streamer(self, generation):
         if (
@@ -1202,6 +1253,7 @@ class StreamingController(QObject):
                     set_sunshine_output_name(output_name, instance=2)
                     if not is_sunshine_running(instance=2):
                         start_sunshine(instance=2)
+                    self.sunshine_watchdog_timer.start()
                 except Exception as exc:
                     app_log.warning(f"Could not auto-configure Sunshine instance 2 output: {exc}")
                 self._set_status(
@@ -1385,49 +1437,56 @@ class StreamingController(QObject):
             self.discovery.advertise(*args)
 
     def stop(self):
-        should_track_layout = self._should_track_gnome_virtual_layout()
-        saved_layout = self._save_gnome_virtual_layout()
-        if should_track_layout and not saved_layout:
-            self.logAppended.emit(
-                "STREAMER",
-                "GNOME virtual layout save failed before stop; using last saved layout.",
+        if getattr(self, "_is_stopping", False):
+            return
+        self._is_stopping = True
+        try:
+            should_track_layout = self._should_track_gnome_virtual_layout()
+            saved_layout = self._save_gnome_virtual_layout()
+            if should_track_layout and not saved_layout:
+                self.logAppended.emit(
+                    "STREAMER",
+                    "GNOME virtual layout save failed before stop; using last saved layout.",
+                )
+            self._stop_gnome_layout_tracking()
+            self.generation += 1
+            self.countdown_timer.stop()
+            self.sunshine_watchdog_timer.stop()
+            self.streamer_has_pipewire_node = False
+            self.kde_event_buffer = ""
+            self.gnome_event_buffer = ""
+            self._reset_telemetry()
+            self.streamer_was_ready = False
+            self._set_primary_ready(False)
+            self.runtime_general = None
+            if (
+                self.third_streaming
+                or self.third_streamer is not None
+                or self.third_input_bridge is not None
+                or self.third_audio_process is not None
+            ):
+                self.stop_third()
+            stop_processes(self.streamer, self.input_bridge, self.audio_process)
+            self.streamer = self.input_bridge = self.audio_process = None
+            kill_tracked_pids(set(self.gst_pids))
+            self.gst_pids.clear()
+            kill_patterns(
+                "gst-launch-1.0.*port=7110", "gst-launch-1.0.*port=7112",
+                "gst-launch-1.0.*port=7114", "gst-launch-1.0.*port=7115",
+                "monitorize\\.streaming\\.Streamer_.*",
+                "monitorize\\.input_bridge\\.touch_daemon",
+                "monitorize\\.streaming\\.audio_sender",
+                "monitorize-kde-virtual-output",
             )
-        self._stop_gnome_layout_tracking()
-        self.generation += 1
-        self.countdown_timer.stop()
-        self.streamer_has_pipewire_node = False
-        self.kde_event_buffer = ""
-        self.gnome_event_buffer = ""
-        self._reset_telemetry()
-        self.streamer_was_ready = False
-        self._set_primary_ready(False)
-        self.runtime_general = None
-        if (
-            self.third_streaming
-            or self.third_streamer is not None
-            or self.third_input_bridge is not None
-            or self.third_audio_process is not None
-        ):
-            self.stop_third()
-        stop_processes(self.streamer, self.input_bridge, self.audio_process)
-        self.streamer = self.input_bridge = self.audio_process = None
-        kill_tracked_pids(set(self.gst_pids))
-        self.gst_pids.clear()
-        kill_patterns(
-            "gst-launch-1.0.*port=7110", "gst-launch-1.0.*port=7112",
-            "gst-launch-1.0.*port=7114", "gst-launch-1.0.*port=7115",
-            "monitorize\\.streaming\\.Streamer_.*",
-            "monitorize\\.input_bridge\\.touch_daemon",
-            "monitorize\\.streaming\\.audio_sender",
-            "monitorize-kde-virtual-output",
-        )
-        self.display.cleanup()
-        self.gnome_outputs.clear()
-        self.discovery.stop_advertising()
-        if getattr(self, "streaming_backend", "Monitorize") == "Sunshine":
-            try:
-                from monitorize.platform.sunshine_service import stop_sunshine
-                stop_sunshine()
-            except Exception:
-                pass
-        self._set_streaming(False)
+            self.display.cleanup()
+            self.gnome_outputs.clear()
+            self.discovery.stop_advertising()
+            if getattr(self, "streaming_backend", "Monitorize") == "Sunshine":
+                try:
+                    from monitorize.platform.sunshine_service import stop_sunshine
+                    stop_sunshine()
+                except Exception:
+                    pass
+            self._set_streaming(False)
+        finally:
+            self._is_stopping = False

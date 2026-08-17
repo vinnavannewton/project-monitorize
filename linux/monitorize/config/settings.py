@@ -98,6 +98,8 @@ def _normalize_stream_settings(data: dict) -> dict:
         data["streaming_backend"] = sanitize_streaming_backend(data.get("streaming_backend"))
     if "sunshine_encoder" in data:
         data["sunshine_encoder"] = str(data.get("sunshine_encoder") or "Auto")
+    if "sunshine_codec" in data:
+        data["sunshine_codec"] = str(data.get("sunshine_codec") or "Auto")
     data["fps"] = str(sanitize_fps(data["fps"]))
     data["custom_fps"] = (
         str(sanitize_fps(data["custom_fps"]))
@@ -115,7 +117,8 @@ def save_wifi_settings(*, resolution: str, custom_w: str, custom_h: str,
                        video_codec: str = "H.264 (AVC)",
                        fec_mode: str = "Off", enable_audio: bool = False,
                        streaming_backend: str = "Monitorize",
-                       sunshine_encoder: str = "Auto"):
+                       sunshine_encoder: str = "Auto",
+                       sunshine_codec: str = "Auto"):
     values = locals()
     values["display_type"] = sanitize_display_type(display_type)
     values["encoder"] = sanitize_encoder(encoder)
@@ -127,6 +130,7 @@ def save_wifi_settings(*, resolution: str, custom_w: str, custom_h: str,
     values["enable_audio"] = bool(enable_audio)
     values["streaming_backend"] = sanitize_streaming_backend(streaming_backend)
     values["sunshine_encoder"] = str(sunshine_encoder or "Auto")
+    values["sunshine_codec"] = str(sunshine_codec or "Auto")
     values["fps"] = str(sanitize_fps(fps))
     values["custom_fps"] = str(sanitize_fps(custom_fps)) if custom_fps else ""
     values["bitrate"] = str(sanitize_bitrate(bitrate))
@@ -196,6 +200,8 @@ WIFI_DEFAULTS = {
     "bitrate": "20000",
     "fec_mode": "Off",
     "streaming_backend": "Monitorize",
+    "sunshine_encoder": "Auto",
+    "sunshine_codec": "Auto",
 }
 
 

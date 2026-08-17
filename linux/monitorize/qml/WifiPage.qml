@@ -120,7 +120,8 @@ Item {
                 fecCombo.currentText,
                 audioCheck.checked,
                 backendCombo ? backendCombo.currentText : "Monitorize",
-                sunshineEncoderCombo ? sunshineEncoderCombo.currentText : "Auto"
+                sunshineEncoderCombo ? sunshineEncoderCombo.currentText : "Auto",
+                sunshineCodecCombo ? sunshineCodecCombo.currentText : "Auto"
             )
         } else {
             backend.saveUsbSettings(...args, audioCheck.checked)
@@ -200,6 +201,12 @@ Item {
         if (sunshineEncoderCombo) {
             if (!sunshineEncoderCombo.selectValue(saved["sunshine_encoder"] || "Auto", true)) {
                 sunshineEncoderCombo.selectValue("Auto");
+            }
+        }
+
+        if (sunshineCodecCombo) {
+            if (!sunshineCodecCombo.selectValue(saved["sunshine_codec"] || "Auto", true)) {
+                sunshineCodecCombo.selectValue("Auto");
             }
         }
 
@@ -494,6 +501,29 @@ Item {
                     ]
                     onActivated: {
                         backend.setSunshineEncoder(currentText)
+                        page.saveSettings()
+                    }
+                }
+
+                Text {
+                    text: "Video Codec:"
+                    color: theme.textSecondary
+                    font.pixelSize: 14
+                    visible: page.isWifi && backendCombo.currentText === "Sunshine"
+                }
+                ChoiceChips {
+                    id: sunshineCodecCombo
+                    visible: page.isWifi && backendCombo.currentText === "Sunshine"
+                    chipWidth: page.optionChipWidth
+                    currentIndex: 0
+                    model: [
+                        "Auto",
+                        "H.264 (AVC)",
+                        "H.265 (HEVC)",
+                        "AV1"
+                    ]
+                    onActivated: {
+                        backend.setSunshineCodec(currentText)
                         page.saveSettings()
                     }
                 }

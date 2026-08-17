@@ -36,6 +36,7 @@ from monitorize.platform.sunshine_service import (
     pair_moonlight_pin,
     restart_sunshine,
     save_sunshine_config,
+    set_sunshine_codec,
     set_sunshine_encoder,
 )
 from monitorize.platform.utils import get_local_ip
@@ -274,10 +275,11 @@ class MonitorizeBackend(QObject):
     @pyqtSlot(str, str, str, str, str, str, str, str, str, str, str, bool)
     @pyqtSlot(str, str, str, str, str, str, str, str, str, str, str, bool, str)
     @pyqtSlot(str, str, str, str, str, str, str, str, str, str, str, bool, str, str)
+    @pyqtSlot(str, str, str, str, str, str, str, str, str, str, str, bool, str, str, str)
     def saveWifiSettings(
         self, resolution, custom_w, custom_h, fps, custom_fps, bitrate,
         display_type, encoder, encoder_profile, video_codec, fec_mode, enable_audio,
-        streaming_backend="Monitorize", sunshine_encoder="Auto",
+        streaming_backend="Monitorize", sunshine_encoder="Auto", sunshine_codec="Auto",
     ):
         save_wifi_settings(
             resolution=resolution, custom_w=custom_w, custom_h=custom_h,
@@ -287,9 +289,11 @@ class MonitorizeBackend(QObject):
             fec_mode=fec_mode, enable_audio=enable_audio,
             streaming_backend=streaming_backend,
             sunshine_encoder=sunshine_encoder,
+            sunshine_codec=sunshine_codec,
         )
         if str(streaming_backend).strip().lower() == "sunshine":
             set_sunshine_encoder(sunshine_encoder)
+            set_sunshine_codec(sunshine_codec)
 
     @pyqtSlot(int, int, int, result=int)
     @pyqtSlot(int, int, int, str, result=int)
@@ -366,8 +370,11 @@ class MonitorizeBackend(QObject):
         self._pending_usb_preset = None
         if str(streaming_backend).strip().lower() == "sunshine":
             try:
-                enc = load_wifi_settings().get("sunshine_encoder", "Auto")
-                set_sunshine_encoder(enc)
+                from monitorize.platform.sunshine_service import sync_sunshine_stream_config
+                wifi_settings = load_wifi_settings()
+                enc = wifi_settings.get("sunshine_encoder", "Auto")
+                codec = wifi_settings.get("sunshine_codec", "Auto")
+                sync_sunshine_stream_config("", enc, codec, instance=1)
             except Exception:
                 pass
         self.streaming.start(
@@ -413,6 +420,12 @@ class MonitorizeBackend(QObject):
     @pyqtSlot(str, int, result="QVariantMap")
     def setSunshineEncoder(self, encoder_name: str, instance: int = 1):
         success, message = set_sunshine_encoder(encoder_name, instance=instance)
+        return {"success": success, "message": message}
+
+    @pyqtSlot(str, result="QVariantMap")
+    @pyqtSlot(str, int, result="QVariantMap")
+    def setSunshineCodec(self, codec_name: str, instance: int = 1):
+        success, message = set_sunshine_codec(codec_name, instance=instance)
         return {"success": success, "message": message}
 
     @pyqtSlot(str, str, str, str, str, str, bool, bool, bool)

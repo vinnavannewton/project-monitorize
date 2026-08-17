@@ -4454,8 +4454,8 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertNotIn("Wi-Fi video uses direct RTP/UDP", qml)
         self.assertNotIn("MUST EXACTLY MATCH", qml)
         self.assertNotIn("WarningCard", qml)
-        self.assertEqual(qml.count("ChoiceChips {"), 7)
-        self.assertEqual(qml.count("chipWidth: page.optionChipWidth"), 7)
+        self.assertEqual(qml.count("ChoiceChips {"), 8)
+        self.assertEqual(qml.count("chipWidth: page.optionChipWidth"), 8)
         self.assertEqual(qml.count("CustomComboBox {"), 2)
         self.assertIn("RowLayout {", chips_qml)
         self.assertIn("property int chipWidth: 112", chips_qml)
@@ -4670,7 +4670,7 @@ class BackendFacadeTest(unittest.TestCase):
         controller.streaming_backend = "Sunshine"
 
         with (
-            patch("monitorize.platform.sunshine_service.set_sunshine_output_name") as mock_set,
+            patch("monitorize.platform.sunshine_service.sync_sunshine_stream_config") as mock_sync,
             patch("monitorize.platform.sunshine_service.is_sunshine_running", return_value=True),
         ):
             raw = 'MONITORIZE_EVENT {"type":"headless_ready","name":"Virtual-1","width":1920,"height":1080,"fps":60,"backend":"Sunshine"}\n'
@@ -4678,7 +4678,8 @@ class BackendFacadeTest(unittest.TestCase):
             proc.readAllStandardOutput.return_value = raw.encode("utf-8")
             controller.streamer = proc
             controller._read_streamer(controller.generation, proc)
-            mock_set.assert_called_once_with("Virtual-1")
+            mock_sync.assert_called_once()
+            self.assertEqual(mock_sync.call_args[0][0], "Virtual-1")
             self.assertIn("Virtual-1 linked to Sunshine", controller.status)
 
         with patch("monitorize.platform.sunshine_service.stop_sunshine") as mock_stop:
@@ -4691,7 +4692,7 @@ class BackendFacadeTest(unittest.TestCase):
         controller = StreamingController("kde", "10.0.0.1", discovery)
 
         with (
-            patch("monitorize.platform.sunshine_service.clear_sunshine_output_name") as mock_clear,
+            patch("monitorize.platform.sunshine_service.sync_sunshine_stream_config") as mock_sync,
             patch("monitorize.platform.sunshine_service.is_sunshine_running", return_value=False),
             patch("monitorize.platform.sunshine_service.start_sunshine") as mock_start,
         ):
@@ -4699,7 +4700,8 @@ class BackendFacadeTest(unittest.TestCase):
                 "1920x1080", "60", "20000", "Mirror", "Software (CPU / x264enc)",
                 "Low Latency", True, streaming_backend="Sunshine",
             )
-            mock_clear.assert_called_once()
+            mock_sync.assert_called_once()
+            self.assertEqual(mock_sync.call_args[0][0], "")
             mock_start.assert_called_once()
             self.assertTrue(controller.primary_ready)
             self.assertIn("mirroring primary display", controller.status.lower())
@@ -4846,6 +4848,81 @@ class BackendFacadeTest(unittest.TestCase):
                 res = backend.setSunshineEncoder("NVIDIA")
                 self.assertTrue(res["success"])
                 self.assertIn("nvenc", res["message"])
+
+    def test_sunshine_codec_settings_and_backend_slot(self):
+        import tempfile
+        from unittest.mock import patch
+        from monitorize.platform.sunshine_service import set_sunshine_codec
+        from monitorize.desktop.backend import MonitorizeBackend
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            conf_path = os.path.join(tmpdir, "sunshine", "sunshine.conf")
+            with (
+                patch("monitorize.platform.sunshine_service.get_sunshine_config_path", return_value=conf_path),
+                patch("monitorize.platform.sunshine_service.is_sunshine_running", return_value=False),
+            ):
+                ok, msg = set_sunshine_codec("Auto")
+                self.assertTrue(ok)
+                with open(conf_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                    self.assertIn("hevc_mode = 0\n", content)
+                    self.assertIn("av1_mode = 0\n", content)
+
+                ok, msg = set_sunshine_codec("H.264 (AVC)")
+                self.assertTrue(ok)
+                with open(conf_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                    self.assertIn("hevc_mode = 1\n", content)
+                    self.assertIn("av1_mode = 1\n", content)
+
+                ok, msg = set_sunshine_codec("H.265 (HEVC)")
+                self.assertTrue(ok)
+                with open(conf_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                    self.assertIn("hevc_mode = 2\n", content)
+                    self.assertIn("av1_mode = 1\n", content)
+
+                ok, msg = set_sunshine_codec("AV1")
+                self.assertTrue(ok)
+                with open(conf_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                    self.assertIn("hevc_mode = 1\n", content)
+                    self.assertIn("av1_mode = 2\n", content)
+
+                discovery = Mock()
+                backend = MonitorizeBackend(discovery)
+                res = backend.setSunshineCodec("H.264 (AVC)")
+                self.assertTrue(res["success"])
+                self.assertIn("H.264 (AVC)", res["message"])
+
+    def test_sync_sunshine_stream_config(self):
+        import tempfile
+        from unittest.mock import patch
+        from monitorize.platform.sunshine_service import sync_sunshine_stream_config, check_sunshine_health
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            conf_path = os.path.join(tmpdir, "sunshine", "sunshine.conf")
+            with (
+                patch("monitorize.platform.sunshine_service.get_sunshine_config_path", return_value=conf_path),
+                patch("monitorize.platform.sunshine_service.is_sunshine_running", return_value=False),
+            ):
+                ok, msg = sync_sunshine_stream_config("Virtual-1", "VA-API", "H.264 (AVC)", instance=1)
+                self.assertTrue(ok)
+                with open(conf_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                    self.assertIn("output_name = Virtual-1\n", content)
+                    self.assertIn("encoder = vaapi\n", content)
+                    self.assertIn("hevc_mode = 1\n", content)
+                    self.assertIn("av1_mode = 1\n", content)
+
+            mock_proc = Mock()
+            mock_proc.poll.return_value = 0
+            with (
+                patch("monitorize.platform.sunshine_service.get_sunshine_process", return_value=mock_proc),
+                patch("monitorize.platform.sunshine_service.is_sunshine_running", return_value=True),
+            ):
+                alive, code, err = check_sunshine_health(instance=1)
+                self.assertTrue(alive)
 
     def test_wifi_usb_settings_page_uses_toggles(self):
         qml_dir = Path(__file__).resolve().parents[1] / "monitorize" / "qml"
