@@ -4545,17 +4545,33 @@ class BackendFacadeTest(unittest.TestCase):
             mock_open.assert_called_once_with("https://localhost:48990/config")
 
     def test_sunshine_isolation_paths_and_port(self):
+        from unittest.mock import patch
         from monitorize.platform.sunshine_service import (
             SUNSHINE_BASE_PORT,
             SUNSHINE_HTTPS_PORT,
             get_sunshine_config_dir,
             get_sunshine_config_path,
+            get_sunshine_port,
+            get_sunshine_https_port,
+            get_sunshine_web_url,
+            get_sunshine_device_name,
         )
         self.assertEqual(SUNSHINE_BASE_PORT, 48989)
         self.assertEqual(SUNSHINE_HTTPS_PORT, 48990)
+        self.assertEqual(get_sunshine_port(1), 48989)
+        self.assertEqual(get_sunshine_https_port(1), 48990)
+        self.assertEqual(get_sunshine_port(2), 49089)
+        self.assertEqual(get_sunshine_https_port(2), 49090)
+        self.assertEqual(get_sunshine_web_url(1), "https://localhost:48990")
+        self.assertEqual(get_sunshine_web_url(2), "https://localhost:49090")
         self.assertTrue(get_sunshine_config_dir(1).endswith(os.path.join("monitorize", "sunshine-1")))
         self.assertTrue(get_sunshine_config_dir(2).endswith(os.path.join("monitorize", "sunshine-2")))
         self.assertTrue(get_sunshine_config_path(1).endswith(os.path.join("monitorize", "sunshine-1", "sunshine.conf")))
+        self.assertTrue(get_sunshine_config_path(2).endswith(os.path.join("monitorize", "sunshine-2", "sunshine.conf")))
+
+        with patch("socket.gethostname", return_value="Ledora.local"):
+            self.assertEqual(get_sunshine_device_name(1), "Ledora Monitor 1")
+            self.assertEqual(get_sunshine_device_name(2), "Ledora Monitor 2")
 
     def test_pair_moonlight_pin_and_backend_slot(self):
         from unittest.mock import patch, MagicMock
@@ -4719,7 +4735,7 @@ class BackendFacadeTest(unittest.TestCase):
             ):
                 
                 cfg = get_sunshine_config()
-                self.assertEqual(cfg["sunshine_name"], "Monitorize Display")
+                self.assertTrue(cfg["sunshine_name"].endswith("Monitor 1"))
                 self.assertEqual(cfg["vk_tune"], "0")
                 self.assertEqual(cfg["amd_usage"], "ultralowlatency")
                 self.assertEqual(cfg["qsv_preset"], "medium")

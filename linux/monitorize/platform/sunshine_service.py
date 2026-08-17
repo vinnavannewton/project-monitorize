@@ -5,6 +5,7 @@ Detects, launches, and checks the status of the Sunshine GameStream server.
 
 import atexit
 import ctypes
+import json
 import os
 import shutil
 import signal
@@ -14,6 +15,7 @@ import webbrowser
 
 PR_SET_PDEATHSIG = 1
 _SUNSHINE_PROCESS: subprocess.Popen | None = None
+_SUNSHINE_PROCESSES: dict[int, subprocess.Popen] = {}
 
 
 def _set_pdeathsig() -> None:
@@ -35,10 +37,26 @@ SUNSHINE_HTTP_PORT = 48989
 SUNSHINE_WEB_URL = f"https://localhost:{SUNSHINE_HTTPS_PORT}"
 
 
+def get_sunshine_port(instance: int = 1) -> int:
+    """Return the base TCP port for a given Sunshine instance."""
+    inst = int(instance) if isinstance(instance, (int, str)) and str(instance).isdigit() else 1
+    return SUNSHINE_BASE_PORT if inst == 1 else SUNSHINE_BASE_PORT + (inst - 1) * 100
+
+
+def get_sunshine_https_port(instance: int = 1) -> int:
+    """Return the HTTPS Web UI port for a given Sunshine instance."""
+    return get_sunshine_port(instance) + 1
+
+
+def get_sunshine_web_url(instance: int = 1) -> str:
+    """Return the local HTTPS URL for a given Sunshine instance."""
+    return f"https://localhost:{get_sunshine_https_port(instance)}"
+
+
 def get_sunshine_config_dir(instance: int = 1) -> str:
     """Return the isolated configuration directory for Monitorize's Sunshine engine."""
     override = os.environ.get("SUNSHINE_CONFIG_DIR")
-    if override:
+    if override and instance == 1:
         return override
     config_home = os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config"))
     return os.path.join(config_home, "monitorize", f"sunshine-{instance}")
@@ -49,13 +67,17 @@ def get_sunshine_config_path(instance: int = 1) -> str:
     return os.path.join(get_sunshine_config_dir(instance), "sunshine.conf")
 
 
-def is_sunshine_running(timeout: float = 0.5) -> bool:
+def is_sunshine_running(instance: int = 1, timeout: float = 0.5) -> bool:
     """Check whether Monitorize's Sunshine instance is currently running."""
-    global _SUNSHINE_PROCESS
-    if _SUNSHINE_PROCESS is not None and _SUNSHINE_PROCESS.poll() is None:
+    proc = _SUNSHINE_PROCESSES.get(instance)
+    if proc is None and instance == 1:
+        proc = _SUNSHINE_PROCESS
+    if proc is not None and proc.poll() is None:
         return True
 
-    for port in (SUNSHINE_HTTPS_PORT, SUNSHINE_HTTP_PORT):
+    https_port = get_sunshine_https_port(instance)
+    http_port = get_sunshine_port(instance)
+    for port in (https_port, http_port):
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
                 sock.settimeout(timeout)
@@ -111,9 +133,21 @@ def find_sunshine_command(instance: int = 1) -> list[str] | None:
     return candidates[0] if candidates else None
 
 
+def get_sunshine_device_name(instance: int = 1) -> str:
+    """Return the advertised Sunshine host name formatted as '<Hostname> Monitor <Instance>'."""
+    try:
+        raw_host = socket.gethostname().strip()
+        host = raw_host.split(".")[0] if raw_host else "Monitorize"
+    except Exception:
+        host = "Monitorize"
+    return f"{host} Monitor {instance}"
+
+
 def ensure_sunshine_tray_disabled(instance: int = 1) -> None:
     """Ensure sunshine.conf has dedicated non-clashing port and permanently disabled tray."""
     config_path = get_sunshine_config_path(instance)
+    base_port = get_sunshine_port(instance)
+    name_val = get_sunshine_device_name(instance)
     try:
         os.makedirs(os.path.dirname(config_path), exist_ok=True)
     except OSError:
@@ -122,6 +156,7 @@ def ensure_sunshine_tray_disabled(instance: int = 1) -> None:
     has_tray = False
     has_port = False
     has_origin = False
+    has_name = False
     if os.path.isfile(config_path):
         try:
             with open(config_path, "r", encoding="utf-8") as f:
@@ -131,8 +166,11 @@ def ensure_sunshine_tray_disabled(instance: int = 1) -> None:
                         lines.append("system_tray = disabled\n")
                         has_tray = True
                     elif stripped.startswith("port"):
-                        lines.append(f"port = {SUNSHINE_BASE_PORT}\n")
+                        lines.append(f"port = {base_port}\n")
                         has_port = True
+                    elif stripped.startswith("sunshine_name"):
+                        lines.append(f"sunshine_name = {name_val}\n")
+                        has_name = True
                     elif stripped.startswith("origin_pin_allowed"):
                         lines.append("origin_pin_allowed = pc,lan,wan\n")
                         has_origin = True
@@ -140,10 +178,12 @@ def ensure_sunshine_tray_disabled(instance: int = 1) -> None:
                         lines.append(line)
         except OSError:
             pass
+    if not has_name:
+        lines.append(f"sunshine_name = {name_val}\n")
     if not has_tray:
         lines.append("system_tray = disabled\n")
     if not has_port:
-        lines.append(f"port = {SUNSHINE_BASE_PORT}\n")
+        lines.append(f"port = {base_port}\n")
     if not has_origin:
         lines.append("origin_pin_allowed = pc,lan,wan\n")
     try:
@@ -152,13 +192,33 @@ def ensure_sunshine_tray_disabled(instance: int = 1) -> None:
     except OSError:
         pass
 
+    
+    apps_json_path = os.path.join(get_sunshine_config_dir(instance), "apps.json")
+    if not os.path.exists(apps_json_path):
+        try:
+            default_apps = {
+                "apps": [
+                    {
+                        "image-path": "desktop.png",
+                        "name": "Desktop",
+                    }
+                ],
+                "env": {
+                    "PATH": "$(PATH):$(HOME)/.local/bin"
+                }
+            }
+            with open(apps_json_path, "w", encoding="utf-8") as f:
+                json.dump(default_apps, f, indent=4)
+        except OSError:
+            pass
+
 
 def start_sunshine(instance: int = 1) -> tuple[bool, str]:
     """Start isolated Sunshine engine binding child process to parent lifetime."""
-    global _SUNSHINE_PROCESS
+    global _SUNSHINE_PROCESS, _SUNSHINE_PROCESSES
     ensure_sunshine_tray_disabled(instance)
-    if is_sunshine_running():
-        return True, "Sunshine is already running."
+    if is_sunshine_running(instance):
+        return True, f"Sunshine instance {instance} is already running."
 
     candidates = get_sunshine_candidates(instance)
     if not candidates:
@@ -179,35 +239,44 @@ def start_sunshine(instance: int = 1) -> tuple[bool, str]:
                 stderr=subprocess.DEVNULL,
                 preexec_fn=_set_pdeathsig,
             )
-            _SUNSHINE_PROCESS = proc
-            return True, f"Launched isolated Sunshine process ({cmd[0]})."
+            _SUNSHINE_PROCESSES[instance] = proc
+            if instance == 1:
+                _SUNSHINE_PROCESS = proc
+            return True, f"Launched isolated Sunshine instance {instance} ({cmd[0]})."
         except (FileNotFoundError, OSError) as exc:
             errors.append(f"{cmd[0]}: {exc}")
 
-    return False, f"Failed to start Sunshine ({'; '.join(errors)})"
+    return False, f"Failed to start Sunshine instance {instance} ({'; '.join(errors)})"
 
 
-def stop_sunshine() -> tuple[bool, str]:
+def stop_sunshine(instance: int | None = None) -> tuple[bool, str]:
     """Gracefully stop Monitorize's Sunshine child process without affecting user's personal Sunshine."""
-    global _SUNSHINE_PROCESS
-    stopped = False
+    global _SUNSHINE_PROCESS, _SUNSHINE_PROCESSES
+    instances_to_stop = [instance] if instance is not None else list(_SUNSHINE_PROCESSES.keys())
+    if _SUNSHINE_PROCESS is not None and 1 not in instances_to_stop:
+        instances_to_stop.append(1)
+    if not instances_to_stop:
+        instances_to_stop = [1, 2]
 
-    
-    if _SUNSHINE_PROCESS is not None:
-        try:
-            if _SUNSHINE_PROCESS.poll() is None:
-                _SUNSHINE_PROCESS.terminate()
-                try:
-                    _SUNSHINE_PROCESS.wait(timeout=2.0)
-                except subprocess.TimeoutExpired:
-                    _SUNSHINE_PROCESS.kill()
-            stopped = True
-        except Exception:
-            pass
+    for inst in instances_to_stop:
+        proc = _SUNSHINE_PROCESSES.pop(inst, None)
+        if proc is None and inst == 1 and _SUNSHINE_PROCESS is not None:
+            proc = _SUNSHINE_PROCESS
+            _SUNSHINE_PROCESS = None
+        if proc is not None:
+            try:
+                if proc.poll() is None:
+                    proc.terminate()
+                    try:
+                        proc.wait(timeout=2.0)
+                    except subprocess.TimeoutExpired:
+                        proc.kill()
+            except Exception:
+                pass
+        clear_sunshine_output_name(inst)
+
+    if instance is None or instance == 1:
         _SUNSHINE_PROCESS = None
-
-    
-    clear_sunshine_output_name()
 
     return True, "Sunshine stopped successfully."
 
@@ -215,15 +284,24 @@ def stop_sunshine() -> tuple[bool, str]:
 atexit.register(stop_sunshine)
 
 
-def open_sunshine_dashboard(path: str = "") -> bool:
+def open_sunshine_dashboard(path_or_instance: str | int = "", path: str = "", instance: int = 1) -> bool:
     """Open Sunshine Web UI in the default browser, auto-starting Sunshine if needed."""
-    if not is_sunshine_running():
-        start_sunshine()
-
-    url = SUNSHINE_WEB_URL
-    if path:
+    if isinstance(path_or_instance, int):
+        target_instance = path_or_instance
         clean_path = path.strip("/")
-        url = f"{SUNSHINE_WEB_URL}/{clean_path}"
+    elif isinstance(path_or_instance, str):
+        clean_path = path_or_instance.strip("/")
+        target_instance = instance
+    else:
+        target_instance = instance
+        clean_path = path.strip("/")
+
+    if not is_sunshine_running(target_instance):
+        start_sunshine(target_instance)
+
+    url = get_sunshine_web_url(target_instance)
+    if clean_path:
+        url = f"{url}/{clean_path}"
 
     try:
         return webbrowser.open(url)
@@ -231,7 +309,7 @@ def open_sunshine_dashboard(path: str = "") -> bool:
         return False
 
 
-def pair_moonlight_pin(pin: str, name: str = "Monitorize Display") -> tuple[bool, str]:
+def pair_moonlight_pin(pin: str, name: str = "Monitorize Display", instance: int = 1) -> tuple[bool, str]:
     """Submit a 4-digit Moonlight pairing PIN to Sunshine's local API.
 
     Returns:
@@ -250,9 +328,10 @@ def pair_moonlight_pin(pin: str, name: str = "Monitorize Display") -> tuple[bool
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
 
+    url = get_sunshine_web_url(instance)
     payload = json.dumps({"pin": clean_pin, "name": name}).encode("utf-8")
     req = urllib.request.Request(
-        f"{SUNSHINE_WEB_URL}/api/pin",
+        f"{url}/api/pin",
         data=payload,
         headers={"Content-Type": "application/json"},
         method="POST",
@@ -276,13 +355,13 @@ def pair_moonlight_pin(pin: str, name: str = "Monitorize Display") -> tuple[bool
 
 
 
-def set_sunshine_output_name(output_name: str) -> tuple[bool, str]:
+def set_sunshine_output_name(output_name: str, instance: int = 1) -> tuple[bool, str]:
     """Configure Sunshine to capture a specific virtual display output name.
 
     Updates sunshine.conf and notifies Sunshine's REST API if running.
     """
     clean_name = str(output_name or "").strip()
-    config_path = get_sunshine_config_path()
+    config_path = get_sunshine_config_path(instance)
     try:
         os.makedirs(os.path.dirname(config_path), exist_ok=True)
     except OSError:
@@ -320,7 +399,7 @@ def set_sunshine_output_name(output_name: str) -> tuple[bool, str]:
         return False, f"Could not write sunshine.conf: {exc}"
 
     
-    if is_sunshine_running():
+    if is_sunshine_running(instance):
         import json
         import ssl
         import urllib.request
@@ -329,9 +408,10 @@ def set_sunshine_output_name(output_name: str) -> tuple[bool, str]:
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
 
+        url = get_sunshine_web_url(instance)
         payload = json.dumps({"output_name": clean_name}).encode("utf-8")
         req = urllib.request.Request(
-            f"{SUNSHINE_WEB_URL}/api/config",
+            f"{url}/api/config",
             data=payload,
             headers={"Content-Type": "application/json"},
             method="POST",
@@ -343,15 +423,15 @@ def set_sunshine_output_name(output_name: str) -> tuple[bool, str]:
             pass
 
         
-        restart_sunshine()
+        restart_sunshine(instance)
 
-    return True, f"Configured Sunshine output_name = {clean_name}"
+    return True, f"Configured Sunshine instance {instance} output_name = {clean_name}"
 
 
-def restart_sunshine() -> tuple[bool, str]:
+def restart_sunshine(instance: int = 1) -> tuple[bool, str]:
     """Request Sunshine to restart its process and stream capture via local REST API."""
-    if not is_sunshine_running():
-        return start_sunshine()
+    if not is_sunshine_running(instance):
+        return start_sunshine(instance)
 
     import ssl
     import urllib.request
@@ -360,33 +440,27 @@ def restart_sunshine() -> tuple[bool, str]:
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
 
+    url = get_sunshine_web_url(instance)
     req = urllib.request.Request(
-        f"{SUNSHINE_WEB_URL}/api/restart",
+        f"{url}/api/restart",
         data=b"{}",
         headers={"Content-Type": "application/json"},
         method="POST",
     )
     try:
         with urllib.request.urlopen(req, context=ctx, timeout=4.0) as _resp:
-            return True, "Sunshine restarted successfully."
+            return True, f"Sunshine instance {instance} restarted successfully."
     except Exception as exc:
-        return False, f"Could not restart Sunshine via API: {exc}"
+        return False, f"Could not restart Sunshine instance {instance} via API: {exc}"
 
 
-def clear_sunshine_output_name() -> tuple[bool, str]:
+def clear_sunshine_output_name(instance: int = 1) -> tuple[bool, str]:
     """Reset Sunshine output_name configuration back to default."""
-    return set_sunshine_output_name("")
+    return set_sunshine_output_name("", instance=instance)
 
 
-def set_sunshine_encoder(encoder_name: str) -> tuple[bool, str]:
-    """Configure Sunshine's forced video encoder option in sunshine.conf and REST API.
-
-    Options mapped:
-        'Auto' / '' -> '' (auto-detect)
-        'NVIDIA' / 'NVIDIA NVENC' / 'nvenc' -> 'nvenc'
-        'VA-API' / 'Intel/AMD VA-API' / 'vaapi' -> 'vaapi'
-        'Software' / 'Software Enc' / 'Software (CPU)' / 'software' -> 'software'
-    """
+def set_sunshine_encoder(encoder_name: str, instance: int = 1) -> tuple[bool, str]:
+    """Configure Sunshine's forced video encoder option in sunshine.conf and REST API."""
     clean = str(encoder_name or "").strip()
     mapping = {
         "auto": "",
@@ -404,7 +478,7 @@ def set_sunshine_encoder(encoder_name: str) -> tuple[bool, str]:
     }
     target_value = mapping.get(clean.lower(), clean)
 
-    config_path = get_sunshine_config_path()
+    config_path = get_sunshine_config_path(instance)
     try:
         os.makedirs(os.path.dirname(config_path), exist_ok=True)
     except OSError:
@@ -434,7 +508,7 @@ def set_sunshine_encoder(encoder_name: str) -> tuple[bool, str]:
     except OSError as exc:
         return False, f"Could not write sunshine.conf: {exc}"
 
-    if is_sunshine_running():
+    if is_sunshine_running(instance):
         import json
         import ssl
         import urllib.request
@@ -443,9 +517,10 @@ def set_sunshine_encoder(encoder_name: str) -> tuple[bool, str]:
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
 
+        url = get_sunshine_web_url(instance)
         payload = json.dumps({"encoder": target_value}).encode("utf-8")
         req = urllib.request.Request(
-            f"{SUNSHINE_WEB_URL}/api/config",
+            f"{url}/api/config",
             data=payload,
             headers={"Content-Type": "application/json"},
             method="POST",
@@ -457,9 +532,9 @@ def set_sunshine_encoder(encoder_name: str) -> tuple[bool, str]:
             pass
 
         
-        restart_sunshine()
+        restart_sunshine(instance)
 
-    return True, f"Sunshine encoder set to '{target_value or 'auto'}'."
+    return True, f"Sunshine instance {instance} encoder set to '{target_value or 'auto'}'."
 
 
 DEFAULT_SUNSHINE_CONFIG = {
@@ -559,12 +634,14 @@ DEFAULT_SUNSHINE_CONFIG = {
 }
 
 
-def get_sunshine_config() -> dict[str, str]:
+def get_sunshine_config(instance: int = 1) -> dict[str, str]:
     """Retrieve Sunshine configuration dictionary from REST API or local config file."""
     config = dict(DEFAULT_SUNSHINE_CONFIG)
+    config["port"] = str(get_sunshine_port(instance))
+    config["sunshine_name"] = get_sunshine_device_name(instance)
 
     
-    config_path = get_sunshine_config_path()
+    config_path = get_sunshine_config_path(instance)
     if os.path.isfile(config_path):
         try:
             with open(config_path, "r", encoding="utf-8") as f:
@@ -581,7 +658,7 @@ def get_sunshine_config() -> dict[str, str]:
             pass
 
     
-    if is_sunshine_running():
+    if is_sunshine_running(instance):
         import json
         import ssl
         import urllib.request
@@ -590,8 +667,9 @@ def get_sunshine_config() -> dict[str, str]:
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
 
+        url = get_sunshine_web_url(instance)
         req = urllib.request.Request(
-            f"{SUNSHINE_WEB_URL}/api/config",
+            f"{url}/api/config",
             headers={"Accept": "application/json"},
             method="GET",
         )
@@ -607,15 +685,15 @@ def get_sunshine_config() -> dict[str, str]:
     return config
 
 
-def save_sunshine_config(new_config: dict[str, str]) -> tuple[bool, str]:
+def save_sunshine_config(new_config: dict[str, str], instance: int = 1) -> tuple[bool, str]:
     """Save configuration dictionary to sunshine.conf and push to running Sunshine instance."""
-    config_path = get_sunshine_config_path()
+    config_path = get_sunshine_config_path(instance)
     try:
         os.makedirs(os.path.dirname(config_path), exist_ok=True)
     except OSError:
         pass
 
-    current_config = get_sunshine_config()
+    current_config = get_sunshine_config(instance)
     current_config.update({str(k): str(v) for k, v in new_config.items() if v is not None})
 
     
@@ -633,7 +711,7 @@ def save_sunshine_config(new_config: dict[str, str]) -> tuple[bool, str]:
         return False, f"Could not write sunshine.conf: {exc}"
 
     
-    if is_sunshine_running():
+    if is_sunshine_running(instance):
         import json
         import ssl
         import urllib.request
@@ -642,9 +720,10 @@ def save_sunshine_config(new_config: dict[str, str]) -> tuple[bool, str]:
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
 
+        url = get_sunshine_web_url(instance)
         payload = json.dumps(current_config).encode("utf-8")
         req = urllib.request.Request(
-            f"{SUNSHINE_WEB_URL}/api/config",
+            f"{url}/api/config",
             data=payload,
             headers={"Content-Type": "application/json"},
             method="POST",
@@ -655,9 +734,9 @@ def save_sunshine_config(new_config: dict[str, str]) -> tuple[bool, str]:
         except Exception:
             pass
 
-        restart_sunshine()
+        restart_sunshine(instance)
 
-    return True, "Sunshine settings saved and applied successfully."
+    return True, f"Sunshine instance {instance} settings saved and applied successfully."
 
 
 

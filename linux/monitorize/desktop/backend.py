@@ -382,31 +382,37 @@ class MonitorizeBackend(QObject):
         self.streaming.stop()
 
     @pyqtSlot()
-    def openSunshineWebUi(self):
-        open_sunshine_dashboard("config")
+    @pyqtSlot(int)
+    def openSunshineWebUi(self, instance: int = 1):
+        open_sunshine_dashboard(instance, "config")
 
     @pyqtSlot(str, result="QVariantMap")
-    def pairMoonlightPin(self, pin: str):
-        success, message = pair_moonlight_pin(pin)
+    @pyqtSlot(str, int, result="QVariantMap")
+    def pairMoonlightPin(self, pin: str, instance: int = 1):
+        success, message = pair_moonlight_pin(pin, instance=instance)
         return {"success": success, "message": message}
 
     @pyqtSlot(result="QVariantMap")
-    def restartSunshine(self):
-        success, message = restart_sunshine()
+    @pyqtSlot(int, result="QVariantMap")
+    def restartSunshine(self, instance: int = 1):
+        success, message = restart_sunshine(instance)
         return {"success": success, "message": message}
 
     @pyqtSlot(result="QVariantMap")
-    def getSunshineConfig(self):
-        return get_sunshine_config()
+    @pyqtSlot(int, result="QVariantMap")
+    def getSunshineConfig(self, instance: int = 1):
+        return get_sunshine_config(instance)
 
     @pyqtSlot("QVariantMap", result="QVariantMap")
-    def saveSunshineConfig(self, config_data):
-        success, message = save_sunshine_config(dict(config_data or {}))
+    @pyqtSlot("QVariantMap", int, result="QVariantMap")
+    def saveSunshineConfig(self, config_data, instance: int = 1):
+        success, message = save_sunshine_config(dict(config_data or {}), instance=instance)
         return {"success": success, "message": message}
 
     @pyqtSlot(str, result="QVariantMap")
-    def setSunshineEncoder(self, encoder_name: str):
-        success, message = set_sunshine_encoder(encoder_name)
+    @pyqtSlot(str, int, result="QVariantMap")
+    def setSunshineEncoder(self, encoder_name: str, instance: int = 1):
+        success, message = set_sunshine_encoder(encoder_name, instance=instance)
         return {"success": success, "message": message}
 
     @pyqtSlot(str, str, str, str, str, str, bool, bool, bool)

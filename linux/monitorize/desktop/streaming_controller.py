@@ -998,6 +998,20 @@ class StreamingController(QObject):
         process.errorOccurred.connect(
             lambda _error: self._third_process_error(generation, process)
         )
+        if getattr(self, "streaming_backend", "Monitorize") == "Sunshine":
+            args = [
+                "-m", "monitorize.streaming.headless_virtual_display",
+                str(width), str(height), str(third_fps), "additional", str(self.de),
+            ]
+            process.start(sys.executable, args)
+            self.secondStreamChanged.emit(True)
+            self._set_status("Starting additional virtual display for Sunshine (Instance 2)…")
+            self.logAppended.emit(
+                "STREAMER",
+                "[Third display] Starting virtual display for Sunshine Instance 2 on port 49089.",
+            )
+            return
+
         module = {
             "kde": "monitorize.streaming.Streamer_kde",
             "gnome": "monitorize.streaming.Streamer_gnome",
@@ -1170,7 +1184,31 @@ class StreamingController(QObject):
         for line in lines:
             self._track_third_gst_pid(line)
             event = self._structured_event(line)
-            if event and event.get("type") == "kde_output_ready":
+            if event and event.get("type") == "headless_ready":
+                output_name = str(event.get("name") or "Virtual-Monitorize-2")
+                if hasattr(self, "third_env") and self.third_env is not None:
+                    self.third_env.insert("MONITORIZE_OUTPUT", output_name)
+                self.third_output = output_name
+                self.third_width = int(event.get("width") or self.third_width)
+                self.third_height = int(event.get("height") or self.third_height)
+                refresh = float(event.get("fps") or self.third_fps)
+                self.third_ready = True
+                try:
+                    from monitorize.platform.sunshine_service import (
+                        is_sunshine_running,
+                        set_sunshine_output_name,
+                        start_sunshine,
+                    )
+                    set_sunshine_output_name(output_name, instance=2)
+                    if not is_sunshine_running(instance=2):
+                        start_sunshine(instance=2)
+                except Exception as exc:
+                    app_log.warning(f"Could not auto-configure Sunshine instance 2 output: {exc}")
+                self._set_status(
+                    f"Additional virtual display {output_name} linked to Sunshine Instance 2 "
+                    f"({self.third_width}x{self.third_height}@{refresh:g}Hz) — Ready for Moonlight (Port 49089)"
+                )
+            elif event and event.get("type") == "kde_output_ready":
                 self.third_output = str(event.get("name") or self.third_output)
                 if self.third_env is not None and self.third_output:
                     self.third_env.insert("MONITORIZE_OUTPUT", self.third_output)
@@ -1316,6 +1354,12 @@ class StreamingController(QObject):
         if self.de == "hyprland":
             self.display.remove_hyprland_output("additional")
         self.gnome_outputs.pop("additional", None)
+        if getattr(self, "streaming_backend", "Monitorize") == "Sunshine":
+            try:
+                from monitorize.platform.sunshine_service import stop_sunshine
+                stop_sunshine(instance=2)
+            except Exception:
+                pass
         self._advertise()
         self.secondStreamChanged.emit(False)
         self.logAppended.emit("STREAMER", "[Third display] Stopped.")
