@@ -188,11 +188,11 @@ else
             else
                 echo "Note: Sunshine submodule compilation failed. To install missing build dependencies, run:"
                 if command -v dnf &>/dev/null; then
-                    echo "  sudo dnf install -y --skip-unavailable openssl-devel opus-devel pipewire-devel glib2-devel wayland-protocols-devel mesa-libgbm-devel libdrm-devel libva-devel libvdpau-devel pulseaudio-libs-devel libcap-devel libevdev-devel libcurl-devel miniupnpc-devel boost-devel glslang libX11-devel libXfixes-devel libXrandr-devel libXtst-devel libXi-devel"
+                    echo "  sudo dnf install -y --skip-unavailable openssl-devel opus-devel pipewire-devel glib2-devel wayland-protocols-devel mesa-libgbm-devel libdrm-devel libva-devel libvdpau-devel pulseaudio-libs-devel libcap-devel libevdev-devel libcurl-devel miniupnpc-devel boost-devel numactl-devel glslang libX11-devel libXfixes-devel libXrandr-devel libXtst-devel libXi-devel"
                 elif command -v apt-get &>/dev/null; then
-                    echo "  sudo apt install -y libssl-dev libopus-dev libpipewire-0.3-dev libglib2.0-dev libwayland-dev wayland-protocols libgbm-dev libdrm-dev libva-dev libvdpau-dev libpulse-dev libcap-dev libevdev-dev libcurl4-openssl-dev libminiupnpc-dev libboost-all-dev glslang-tools libx11-dev libxfixes-dev libxrandr-dev libxtst-dev libxi-dev"
+                    echo "  sudo apt install -y libssl-dev libopus-dev libpipewire-0.3-dev libglib2.0-dev libwayland-dev wayland-protocols libgbm-dev libdrm-dev libva-dev libvdpau-dev libpulse-dev libcap-dev libevdev-dev libcurl4-openssl-dev libminiupnpc-dev libboost-all-dev libnuma-dev glslang-tools libx11-dev libxfixes-dev libxrandr-dev libxtst-dev libxi-dev"
                 elif command -v pacman &>/dev/null; then
-                    echo "  sudo pacman -S --needed base-devel openssl opus pipewire glib2 wayland wayland-protocols mesa libdrm libva libvdpau libpulse libcap libevdev curl miniupnpc boost glslang libx11 libxfixes libxrandr libxtst libxi"
+                    echo "  sudo pacman -S --needed base-devel openssl opus pipewire glib2 wayland wayland-protocols mesa libdrm libva libvdpau libpulse libcap libevdev curl miniupnpc boost numactl glslang libx11 libxfixes libxrandr libxtst libxi"
                 fi
             fi
         else
