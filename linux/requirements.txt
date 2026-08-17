@@ -1,3 +1,4 @@
 PyQt6
 zeroconf
 evdev
+jinja2
