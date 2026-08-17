@@ -156,12 +156,17 @@ else
         if command -v cmake &>/dev/null; then
             NPROC="$(nproc 2>/dev/null || echo 2)"
             echo "Building isolated Sunshine from submodule at ${SUNSHINE_SUBMODULE_DIR} (-j${NPROC})…"
-            "${VENV_DIR}/bin/pip" install jinja2 --quiet 2>/dev/null || true
+            CMAKE_EXTRA_FLAGS=()
+            if ! command -v glslc &>/dev/null && ! command -v glslangValidator &>/dev/null; then
+                CMAKE_EXTRA_FLAGS+=("-DSUNSHINE_ENABLE_VULKAN=OFF")
+            fi
+
             mkdir -p "${SUNSHINE_SUBMODULE_DIR}/build"
             if cmake -B "${SUNSHINE_SUBMODULE_DIR}/build" -S "${SUNSHINE_SUBMODULE_DIR}" \
                      -DCMAKE_BUILD_TYPE=Release -DSUNSHINE_ENABLE_TRAY=OFF -DBUILD_TESTS=OFF -DBUILD_DOCS=OFF \
                      -DCUDA_FAIL_ON_MISSING=OFF \
-                     -DPython_EXECUTABLE="${VENV_DIR}/bin/python3" -DGLAD_SKIP_PIP_INSTALL=ON && \
+                     -DPython_EXECUTABLE="${VENV_DIR}/bin/python3" -DGLAD_SKIP_PIP_INSTALL=ON \
+                     "${CMAKE_EXTRA_FLAGS[@]}" && \
                cmake --build "${SUNSHINE_SUBMODULE_DIR}/build" -j"${NPROC}"; then
                 cp -f "${SUNSHINE_BUILD_BIN}" "${SUNSHINE_VENV_BIN}"
                 chmod +x "${SUNSHINE_VENV_BIN}"
