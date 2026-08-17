@@ -532,6 +532,7 @@ def sync_sunshine_stream_config(
     found_av1 = False
     found_tray = False
     found_pen_touch = False
+    prev_output = ""
 
     if os.path.isfile(config_path):
         try:
@@ -539,6 +540,9 @@ def sync_sunshine_stream_config(
                 for line in f:
                     stripped = line.strip()
                     if stripped.startswith("output_name"):
+                        parts = stripped.split("=", 1)
+                        if len(parts) == 2:
+                            prev_output = parts[1].strip()
                         lines.append(f"output_name = {clean_out}\n")
                         found_output = True
                     elif stripped.startswith("encoder"):
@@ -581,33 +585,36 @@ def sync_sunshine_stream_config(
         return False, f"Could not write sunshine.conf: {exc}"
 
     if is_sunshine_running(instance):
-        import json
-        import ssl
-        import urllib.request
+        if prev_output and clean_out and prev_output != clean_out:
+            restart_sunshine(instance)
+        else:
+            import json
+            import ssl
+            import urllib.request
 
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
 
-        url = get_sunshine_web_url(instance)
-        payload = json.dumps({
-            "output_name": clean_out,
-            "encoder": target_encoder,
-            "hevc_mode": hevc_val,
-            "av1_mode": av1_val,
-            "native_pen_touch": pen_touch_val,
-        }).encode("utf-8")
-        req = urllib.request.Request(
-            f"{url}/api/config",
-            data=payload,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        try:
-            with urllib.request.urlopen(req, context=ctx, timeout=3.0) as _resp:
+            url = get_sunshine_web_url(instance)
+            payload = json.dumps({
+                "output_name": clean_out,
+                "encoder": target_encoder,
+                "hevc_mode": hevc_val,
+                "av1_mode": av1_val,
+                "native_pen_touch": pen_touch_val,
+            }).encode("utf-8")
+            req = urllib.request.Request(
+                f"{url}/api/config",
+                data=payload,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            try:
+                with urllib.request.urlopen(req, context=ctx, timeout=3.0) as _resp:
+                    pass
+            except Exception:
                 pass
-        except Exception:
-            pass
 
     return True, f"Synchronized Sunshine instance {instance} config"
 

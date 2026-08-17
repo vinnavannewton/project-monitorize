@@ -158,20 +158,30 @@ def run_gnome_headless(slot, width, height, fps, display_type="Extend"):
         from monitorize.platform import gnome_virtual_monitor
 
         bus = dbus.SessionBus()
+        display_config = gnome_virtual_monitor.display_config_interface(bus, dbus)
+
+        before = set(gnome_virtual_monitor.virtual_connectors_from_state(
+            display_config.GetCurrentState()
+        ))
+
         screencast_obj = bus.get_object(
             "org.gnome.Mutter.ScreenCast",
             "/org/gnome/Mutter/ScreenCast",
         )
         screencast = dbus.Interface(screencast_obj, "org.gnome.Mutter.ScreenCast")
-        session_path = screencast.CreateSession()
+        session_path = screencast.CreateSession({})
         session_obj = bus.get_object("org.gnome.Mutter.ScreenCast", session_path)
         session = dbus.Interface(session_obj, "org.gnome.Mutter.ScreenCast.Session")
 
+        preferred_scale = gnome_virtual_monitor.load_saved_virtual_scale(slot)
         mode_val = {
             "size": dbus.Struct([dbus.UInt32(width), dbus.UInt32(height)], signature="uu"),
             "refresh-rate": dbus.Double(float(fps)),
             "is-preferred": dbus.Boolean(True),
         }
+        if preferred_scale:
+            mode_val["preferred-scale"] = dbus.Double(float(preferred_scale))
+
         modes = dbus.Array([dbus.Dictionary(mode_val, signature="sv")], signature="a{sv}")
         session.RecordVirtual({
             "modes": modes,
@@ -179,21 +189,49 @@ def run_gnome_headless(slot, width, height, fps, display_type="Extend"):
             "is-platform": dbus.Boolean(True),
         })
 
-        
-        display_config = gnome_virtual_monitor.display_config_interface(bus, dbus)
-        gnome_virtual_monitor.restore_virtual_layout(
-            slot=slot,
-            display_config=display_config,
-            dbus=dbus,
-        )
+        session.Start()
 
-        state = display_config.GetCurrentState()
-        virtual_connectors = gnome_virtual_monitor.virtual_connectors_from_state(state)
-        output_name = virtual_connectors[0] if virtual_connectors else "Meta-0"
+        connector = ""
+        for _ in range(30):
+            try:
+                state = display_config.GetCurrentState()
+                found = gnome_virtual_monitor.new_virtual_connector(
+                    state, before, width, height
+                )
+                if found:
+                    connector = found
+                    break
+            except Exception:
+                pass
+            time.sleep(0.1)
+
+        if not connector:
+            state = display_config.GetCurrentState()
+            virtual_connectors = gnome_virtual_monitor.virtual_connectors_from_state(state)
+            remaining = [c for c in virtual_connectors if c not in before]
+            connector = remaining[0] if remaining else (virtual_connectors[0] if virtual_connectors else "Virtual-1")
+
+        roles = {slot: connector}
+        primary = os.environ.get("MONITORIZE_GNOME_PRIMARY_OUTPUT", "")
+        if primary:
+            roles["primary"] = primary
+        topology = "+".join(role for role in ("primary", "additional") if role in roles)
+
+        try:
+            gnome_virtual_monitor.restore_virtual_layout(
+                slot=topology,
+                display_config=display_config,
+                dbus=dbus,
+                attempts=1,
+                delay=0,
+                role_connectors=roles,
+            )
+        except Exception as exc:
+            print(f"[Headless] GNOME layout restore skipped: {exc}", flush=True)
 
         _emit_event({
             "type": "headless_ready",
-            "name": output_name,
+            "name": connector,
             "width": width,
             "height": height,
             "fps": fps,
@@ -201,7 +239,7 @@ def run_gnome_headless(slot, width, height, fps, display_type="Extend"):
         })
 
         print(
-            f"[Headless] GNOME Virtual display {output_name} ({width}x{height}@{fps}Hz) is active. "
+            f"[Headless] GNOME Virtual display {connector} ({width}x{height}@{fps}Hz) is active. "
             "Ready for Sunshine / Moonlight.",
             flush=True,
         )
@@ -215,13 +253,16 @@ def run_gnome_headless(slot, width, height, fps, display_type="Extend"):
         signal.signal(signal.SIGINT, cleanup)
         signal.signal(signal.SIGTERM, cleanup)
 
-        while True:
-            ready, _, _ = select.select([sys.stdin], [], [], 0.5)
-            if ready:
-                line = sys.stdin.readline()
-                if not line or line.strip() == "quit":
-                    break
-        return 0
+        try:
+            while True:
+                ready, _, _ = select.select([sys.stdin], [], [], 0.5)
+                if ready:
+                    line = sys.stdin.readline()
+                    if not line or line.strip() == "quit":
+                        break
+            return 0
+        finally:
+            cleanup()
     except Exception as exc:
         print(f"[ERROR] GNOME headless virtual display failed: {exc}", flush=True)
         return 1

@@ -412,6 +412,8 @@ class StreamingController(QObject):
                 str(self.width), str(self.height), str(self.fps), "primary", str(self.de),
             ]
             self.streamer.start(sys.executable, args)
+            if self.de == "gnome":
+                self._start_gnome_layout_tracking()
             self._set_status("Starting virtual display for Sunshine…")
             return
 
@@ -581,6 +583,8 @@ class StreamingController(QObject):
                 output_name = str(event.get("name") or "Virtual-Monitorize-1")
                 if hasattr(self, "env") and self.env is not None:
                     self.env.insert("MONITORIZE_OUTPUT", output_name)
+                if self.de == "gnome" and output_name:
+                    self.gnome_outputs["primary"] = output_name
                 self.width = int(event.get("width") or self.width)
                 self.height = int(event.get("height") or self.height)
                 refresh = float(event.get("fps") or self.fps)
@@ -1246,9 +1250,12 @@ class StreamingController(QObject):
                 if hasattr(self, "third_env") and self.third_env is not None:
                     self.third_env.insert("MONITORIZE_OUTPUT", output_name)
                 self.third_output = output_name
+                if self.de == "gnome" and output_name:
+                    self.gnome_outputs["additional"] = output_name
+                    self._connect_gnome_display_config_signal()
                 self.third_width = int(event.get("width") or self.third_width)
                 self.third_height = int(event.get("height") or self.third_height)
-                refresh = float(event.get("fps") or self.third_fps)
+                refresh = float(event.get("fps") or self.fps)
                 self.third_ready = True
                 try:
                     from monitorize.platform.sunshine_service import (

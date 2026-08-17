@@ -4998,6 +4998,110 @@ class BackendFacadeTest(unittest.TestCase):
                 controller.stop_third()
                 controller.stop()
 
+    def test_gnome_headless_virtual_display_single_and_dual_holding(self):
+        import select
+        from unittest.mock import patch, Mock, MagicMock
+        from monitorize.streaming.headless_virtual_display import run_gnome_headless
+        from monitorize.desktop.streaming_controller import StreamingController
+
+        mock_bus = Mock()
+        mock_screencast = Mock()
+        mock_session = Mock()
+        mock_display_config = Mock()
+
+        mock_screencast.CreateSession.return_value = "/org/gnome/Mutter/ScreenCast/Session/1"
+        mock_display_config.GetCurrentState.side_effect = [
+            (1, [["DP-1", "Vendor", "Product", "123", True, 0, 0, 1920, 1080]], [], {}),  # before
+            (1, [
+                [["DP-1", "Vendor", "Product", "123"], [("1920x1080", 1920, 1080, 60.0, 1.0, [], {"is-current": True})]],
+                [["Virtual-1", "Mutter", "Virtual", "001"], [("1920x1080", 1920, 1080, 60.0, 1.0, [], {"is-current": True})]],
+            ], [], {}),  # after
+        ]
+
+        with (
+            patch("dbus.SessionBus", return_value=mock_bus),
+            patch("monitorize.platform.gnome_virtual_monitor.display_config_interface", return_value=mock_display_config),
+            patch("monitorize.platform.gnome_virtual_monitor.restore_virtual_layout") as mock_restore,
+            patch("select.select", side_effect=[([sys.stdin], [], [])]),
+            patch("sys.stdin.readline", return_value="quit\n"),
+        ):
+            mock_bus.get_object.side_effect = lambda s, p: Mock()
+            with patch("dbus.Interface", side_effect=lambda obj, iface: mock_session if "Session" in iface else mock_screencast):
+                ret = run_gnome_headless("primary", 1920, 1080, 60)
+                self.assertEqual(ret, 0)
+                mock_session.RecordVirtual.assert_called_once()
+                mock_session.Start.assert_called_once()
+                mock_restore.assert_called_once()
+                mock_session.Stop.assert_called_once()
+
+        # Test streaming controller captures GNOME outputs in Sunshine mode
+        discovery = Mock()
+        controller = StreamingController("gnome", "10.0.0.1", discovery)
+        controller.streaming = True
+        controller.streaming_backend = "Sunshine"
+
+        raw_primary = 'MONITORIZE_EVENT {"type":"headless_ready","name":"Virtual-1","width":1920,"height":1080,"fps":60,"backend":"Sunshine"}\n'
+        proc_primary = Mock()
+        proc_primary.readAllStandardOutput.return_value = raw_primary.encode("utf-8")
+        controller.streamer = proc_primary
+        controller._read_streamer(controller.generation, proc_primary)
+        self.assertEqual(controller.gnome_outputs.get("primary"), "Virtual-1")
+
+        raw_third = 'MONITORIZE_EVENT {"type":"headless_ready","name":"Virtual-2","width":1920,"height":1080,"fps":60,"backend":"Sunshine"}\n'
+        proc_third = Mock()
+        proc_third.readAllStandardOutput.return_value = raw_third.encode("utf-8")
+        controller.third_streamer = proc_third
+        controller._read_third_streamer(controller.third_generation, proc_third)
+        self.assertEqual(controller.gnome_outputs.get("additional"), "Virtual-2")
+
+        controller.stop_third()
+        controller.stop()
+
+    def test_sunshine_stream_config_output_rebind_and_instance_separation(self):
+        import tempfile
+        from unittest.mock import patch
+        from monitorize.platform.sunshine_service import (
+            sync_sunshine_stream_config,
+            get_sunshine_port,
+            get_sunshine_device_name,
+        )
+
+        self.assertEqual(get_sunshine_port(1), 47989)
+        self.assertEqual(get_sunshine_port(2), 49089)
+        self.assertIn("Monitor 1", get_sunshine_device_name(1))
+        self.assertIn("Monitor 2", get_sunshine_device_name(2))
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            conf_1 = os.path.join(tmpdir, "sunshine-1", "sunshine.conf")
+            conf_2 = os.path.join(tmpdir, "sunshine-2", "sunshine.conf")
+
+            with (
+                patch("monitorize.platform.sunshine_service.get_sunshine_config_path", side_effect=lambda inst: conf_1 if inst == 1 else conf_2),
+                patch("monitorize.platform.sunshine_service.is_sunshine_running", return_value=True),
+                patch("monitorize.platform.sunshine_service.restart_sunshine") as mock_restart,
+            ):
+                # First sync: writes Meta-0
+                sync_sunshine_stream_config("Meta-0", "VA-API", "H.264 (AVC)", True, instance=1)
+                with open(conf_1, "r", encoding="utf-8") as f:
+                    content_1 = f.read()
+                    self.assertIn("output_name = Meta-0\n", content_1)
+                mock_restart.assert_not_called()
+
+                # Second sync: output changed to Meta-1 on running Sunshine -> triggers restart
+                sync_sunshine_stream_config("Meta-1", "VA-API", "H.264 (AVC)", True, instance=1)
+                with open(conf_1, "r", encoding="utf-8") as f:
+                    content_1_updated = f.read()
+                    self.assertIn("output_name = Meta-1\n", content_1_updated)
+                mock_restart.assert_called_once_with(1)
+
+                # Instance 2 sync: writes Meta-1 to conf_2
+                sync_sunshine_stream_config("Meta-1", "Software Enc", "AV1", False, instance=2)
+                with open(conf_2, "r", encoding="utf-8") as f:
+                    content_2 = f.read()
+                    self.assertIn("output_name = Meta-1\n", content_2)
+                    self.assertIn("encoder = software\n", content_2)
+                    self.assertIn("native_pen_touch = disabled\n", content_2)
+
     def test_wifi_usb_settings_page_uses_toggles(self):
         qml_dir = Path(__file__).resolve().parents[1] / "monitorize" / "qml"
         qml = (qml_dir / "WifiPage.qml").read_text(encoding="utf-8")
