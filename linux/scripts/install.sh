@@ -144,6 +144,13 @@ if [[ -f "${SUNSHINE_BUILD_BIN}" ]]; then
     cp -f "${SUNSHINE_BUILD_BIN}" "${SUNSHINE_VENV_BIN}"
     chmod +x "${SUNSHINE_VENV_BIN}"
     echo "✓ Bundled Sunshine binary installed to ${SUNSHINE_VENV_BIN}"
+    echo "Installing Sunshine assets to /usr/local/assets…"
+    if command -v sudo &>/dev/null; then
+        sudo cmake --install "${SUNSHINE_SUBMODULE_DIR}/build"
+    else
+        cmake --install "${SUNSHINE_SUBMODULE_DIR}/build"
+    fi
+    echo "✓ Sunshine assets installed"
 else
     # Auto-initialize submodule if folder is empty or not checked out
     if [[ ! -f "${SUNSHINE_SUBMODULE_DIR}/CMakeLists.txt" ]] && command -v git &>/dev/null && [[ -d "${PROJECT_DIR}/../.git" ]]; then
@@ -171,6 +178,13 @@ else
                 cp -f "${SUNSHINE_BUILD_BIN}" "${SUNSHINE_VENV_BIN}"
                 chmod +x "${SUNSHINE_VENV_BIN}"
                 echo "✓ Isolated Sunshine compiled and installed to ${SUNSHINE_VENV_BIN}"
+                echo "Installing Sunshine assets to /usr/local/assets…"
+                if command -v sudo &>/dev/null; then
+                    sudo cmake --install "${SUNSHINE_SUBMODULE_DIR}/build"
+                else
+                    cmake --install "${SUNSHINE_SUBMODULE_DIR}/build"
+                fi
+                echo "✓ Sunshine assets installed"
             else
                 echo "Note: Sunshine submodule compilation failed. Check build dependencies."
             fi
