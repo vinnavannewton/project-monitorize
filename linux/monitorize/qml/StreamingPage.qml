@@ -24,10 +24,12 @@ Item {
     readonly property int streamInfoSpacing: 10
     readonly property bool isSunshineMode: backend.streamingBackend === "Sunshine"
     readonly property var streamInfoBaseItems: isSunshineMode
-        ? ["Backend  Sunshine / Moonlight", "Host  " + backend.localIp, "Port  48989"]
+        ? ["Host  " + backend.localIp, "Display 1  Port 47989"]
         : ["Second Display  Port 7110", "Host  " + backend.localIp]
     readonly property var streamInfoItems: backend.secondStreamActive
-        ? page.streamInfoBaseItems.concat(["Third Display  Port 7114"])
+        ? (page.isSunshineMode
+            ? page.streamInfoBaseItems.concat(["Display 2  " + backend.localIp + ":49089"])
+            : page.streamInfoBaseItems.concat(["Third Display  Port 7114"]))
         : page.streamInfoBaseItems
     readonly property int streamInfoVisibleColumns: Math.max(
         1, Math.min(page.streamInfoColumns, page.streamInfoItems.length)
@@ -326,7 +328,7 @@ Item {
                     backend.stopStreaming()
                 }
                 background: Rectangle {
-                    implicitWidth: page.isSunshineMode ? 190 : page.actionButtonWidth
+                    implicitWidth: page.actionButtonWidth
                     implicitHeight: page.actionButtonHeight
                     color: parent.down ? "#5a1010" : (parent.hovered ? "#c42830" : "#a82028")
                     radius: 8
@@ -379,9 +381,9 @@ Item {
             Button {
                 text: "🔑 Pair Moonlight PIN"
                 visible: page.isSunshineMode
-                Layout.preferredWidth: 165
+                Layout.preferredWidth: page.actionButtonWidth
                 Layout.preferredHeight: page.actionButtonHeight
-                implicitWidth: 165
+                implicitWidth: page.actionButtonWidth
                 implicitHeight: page.actionButtonHeight
                 padding: 0
                 scale: hovered ? theme.hoverScale : 1.0
@@ -390,7 +392,7 @@ Item {
                     pairMoonlightPopup.open()
                 }
                 background: Rectangle {
-                    implicitWidth: 165
+                    implicitWidth: page.actionButtonWidth
                     implicitHeight: page.actionButtonHeight
                     color: parent.down ? theme.surfaceAlt : (parent.hovered ? theme.borderHover : theme.surface)
                     border.color: theme.accent
@@ -410,18 +412,18 @@ Item {
             Button {
                 text: "⚙ Sunshine Settings"
                 visible: page.isSunshineMode
-                Layout.preferredWidth: 165
+                Layout.preferredWidth: page.actionButtonWidth
                 Layout.preferredHeight: page.actionButtonHeight
-                implicitWidth: 165
+                implicitWidth: page.actionButtonWidth
                 implicitHeight: page.actionButtonHeight
                 padding: 0
                 scale: hovered ? theme.hoverScale : 1.0
                 Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
                 onClicked: {
-                    backend.openSunshineWebUi()
+                    sunshineSettingsPopup.open()
                 }
                 background: Rectangle {
-                    implicitWidth: 165
+                    implicitWidth: page.actionButtonWidth
                     implicitHeight: page.actionButtonHeight
                     color: parent.down ? theme.surfaceAlt : (parent.hovered ? theme.borderHover : theme.surface)
                     border.color: theme.border
@@ -443,8 +445,10 @@ Item {
             // Add / Remove Third Display button
             Button {
                 id: displayActionButton
-                text: backend.secondStreamActive ? "Remove Third Display" : "Add Another Display"
-                visible: !page.isSunshineMode && (backend.detectedDe === "kde" || backend.detectedDe === "gnome" || backend.detectedDe === "hyprland")
+                text: backend.secondStreamActive
+                    ? (page.isSunshineMode ? "Remove Second Display" : "Remove Third Display")
+                    : "Add Another Display"
+                visible: (backend.detectedDe === "kde" || backend.detectedDe === "gnome" || backend.detectedDe === "hyprland")
                 Layout.preferredWidth: page.actionButtonWidth
                 Layout.preferredHeight: page.actionButtonHeight
                 implicitWidth: page.actionButtonWidth
@@ -745,6 +749,194 @@ Item {
     }
 
     Popup {
+        id: sunshineSettingsPopup
+        modal: true
+        focus: true
+        x: Math.round((page.width - width) / 2)
+        y: Math.round((page.height - height) / 2)
+        width: 400
+        height: sunshineSettingsContent.implicitHeight + 48
+        padding: 0
+        background: Rectangle {
+            color: theme.surface
+            border.color: theme.border
+            border.width: 1
+            radius: theme.cardRadius
+        }
+        Overlay.modal: Rectangle { color: "#80000000" }
+
+        ColumnLayout {
+            id: sunshineSettingsContent
+            anchors.fill: parent
+            anchors.margins: 24
+            spacing: 16
+
+            Text {
+                text: "⚙ Sunshine Web Dashboard"
+                color: theme.cardTextPrimary
+                font.pixelSize: 18
+                font.weight: Font.Bold
+            }
+
+            Text {
+                Layout.fillWidth: true
+                text: "Select which virtual monitor's Sunshine dashboard to open in your browser:"
+                color: theme.cardTextMuted
+                font.pixelSize: 12
+                wrapMode: Text.WordWrap
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 10
+
+                // Monitor 1 option card
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: 60
+                    radius: 8
+                    color: mon1Mouse.containsMouse ? (mon1Mouse.pressed ? theme.surfaceAlt : theme.borderHover) : theme.surfaceAlt
+                    border.color: mon1Mouse.containsMouse ? theme.accent : theme.border
+                    border.width: 1
+                    Behavior on color { ColorAnimation { duration: 120 } }
+                    Behavior on border.color { ColorAnimation { duration: 120 } }
+
+                    MouseArea {
+                        id: mon1Mouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            sunshineSettingsPopup.close()
+                            backend.openSunshineWebUi(1)
+                        }
+                    }
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 16
+                        anchors.rightMargin: 16
+                        spacing: 12
+
+                        Text {
+                            text: "🖥️"
+                            font.pixelSize: 22
+                        }
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 2
+                            Text {
+                                text: "Monitor 1 (Primary Display)"
+                                color: theme.cardTextPrimary
+                                font.pixelSize: 14
+                                font.weight: Font.Bold
+                            }
+                            Text {
+                                text: "Port 47989 · Web UI https://localhost:47990"
+                                color: theme.cardTextMuted
+                                font.pixelSize: 11
+                            }
+                        }
+
+                        Text {
+                            text: "➜"
+                            color: mon1Mouse.containsMouse ? theme.accent : theme.cardTextMuted
+                            font.pixelSize: 16
+                            font.weight: Font.Bold
+                        }
+                    }
+                }
+
+                // Monitor 2 option card
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: 60
+                    radius: 8
+                    color: mon2Mouse.containsMouse ? (mon2Mouse.pressed ? theme.surfaceAlt : theme.borderHover) : theme.surfaceAlt
+                    border.color: mon2Mouse.containsMouse ? theme.accent : theme.border
+                    border.width: 1
+                    Behavior on color { ColorAnimation { duration: 120 } }
+                    Behavior on border.color { ColorAnimation { duration: 120 } }
+
+                    MouseArea {
+                        id: mon2Mouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            sunshineSettingsPopup.close()
+                            backend.openSunshineWebUi(2)
+                        }
+                    }
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 16
+                        anchors.rightMargin: 16
+                        spacing: 12
+
+                        Text {
+                            text: "🖥️"
+                            font.pixelSize: 22
+                        }
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 2
+                            Text {
+                                text: "Monitor 2 (Secondary Display)"
+                                color: theme.cardTextPrimary
+                                font.pixelSize: 14
+                                font.weight: Font.Bold
+                            }
+                            Text {
+                                text: "Port 49089 · Web UI https://localhost:49090"
+                                color: theme.cardTextMuted
+                                font.pixelSize: 11
+                            }
+                        }
+
+                        Text {
+                            text: "➜"
+                            color: mon2Mouse.containsMouse ? theme.accent : theme.cardTextMuted
+                            font.pixelSize: 16
+                            font.weight: Font.Bold
+                        }
+                    }
+                }
+            }
+
+            RowLayout {
+                Layout.alignment: Qt.AlignRight
+                Layout.topMargin: 4
+                spacing: 10
+
+                Button {
+                    text: "Close"
+                    onClicked: sunshineSettingsPopup.close()
+                    background: Rectangle {
+                        implicitWidth: 80
+                        implicitHeight: 34
+                        color: parent.down ? theme.surfaceAlt : (parent.hovered ? theme.borderHover : theme.surface)
+                        border.color: parent.hovered ? theme.borderHover : theme.border
+                        border.width: 1
+                        radius: theme.controlRadius
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: parent.hovered ? theme.textPrimary : theme.cardTextPrimary
+                        font.pixelSize: 13
+                        font.weight: Font.Bold
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                }
+            }
+        }
+    }
+
+    Popup {
         id: duplicateConfirm
         modal: true
         x: (page.width - width) / 2
@@ -797,7 +989,10 @@ Item {
         minimumHeight: 420
         flags: Qt.Dialog
         modality: Qt.ApplicationModal
-        color: theme.surface
+
+        Theme {
+            id: theme
+        }
 
         Rectangle {
             anchors.fill: parent
@@ -808,41 +1003,43 @@ Item {
                 anchors.margins: 24
                 spacing: 14
 
-            Text {
-                text: "Add Another Display"
-                font.pixelSize: 18
-                font.weight: Font.ExtraBold
-                color: theme.cardTextPrimary
-            }
+                Text {
+                    text: page.isSunshineMode ? "Add Another Display (Sunshine)" : "Add Another Display"
+                    font.pixelSize: 18
+                    font.weight: Font.ExtraBold
+                    color: theme.cardTextPrimary
+                }
 
-            Text {
-                text: backend.detectedDe === "kde"
-                    ? "Creates Monitorize Display 2 in KDE.\nArrange it in System Settings → Display Configuration."
-                    : backend.detectedDe === "gnome"
-                    ? "Creates a second native GNOME virtual display.\nArrange it in Settings → Displays; GNOME may show matching monitor labels."
-                    : "Creates a second Hyprland HEADLESS display.\nWhen the portal opens, select that new display."
-                font.pixelSize: 12
-                color: theme.cardTextMuted
-                wrapMode: Text.Wrap
-                Layout.fillWidth: true
-            }
+                Text {
+                    text: page.isSunshineMode
+                        ? "Creates Monitorize Display 2 and starts Sunshine Instance 2 on port 49089.\nOn your second device, click '+ Add PC' in Moonlight and enter " + backend.localIp + ":49089."
+                        : (backend.detectedDe === "kde"
+                            ? "Creates Monitorize Display 2 in KDE.\nArrange it in System Settings → Display Configuration."
+                            : backend.detectedDe === "gnome"
+                            ? "Creates a second native GNOME virtual display.\nArrange it in Settings → Displays; GNOME may show matching monitor labels."
+                            : "Creates a second Hyprland HEADLESS display.\nWhen the portal opens, select that new display.")
+                    font.pixelSize: 12
+                    color: theme.cardTextMuted
+                    wrapMode: Text.Wrap
+                    Layout.fillWidth: true
+                }
 
-            Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: theme.border }
+                Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: theme.border }
 
                 ScrollView {
                     id: addDisplayScroll
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     clip: true
-                    contentWidth: Math.max(availableWidth, settingsGrid.implicitWidth)
+                    contentWidth: availableWidth
                     contentHeight: settingsGrid.implicitHeight
-                    ScrollBar.horizontal.policy: ScrollBar.AsNeeded
+                    ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
                     ScrollBar.vertical.policy: ScrollBar.AsNeeded
 
                     // Settings grid
                     GridLayout {
                         id: settingsGrid
-                        width: addDisplayScroll.contentWidth
+                        width: addDisplayScroll.availableWidth
                         columns: 2
                         columnSpacing: 16
                         rowSpacing: 10
@@ -923,9 +1120,34 @@ Item {
                     }
                 }
 
-                Text { text: "Bitrate (Mbps):"; color: theme.cardTextSecondary; font.pixelSize: 13 }
+                Text {
+                    text: "Encoder:"
+                    color: theme.cardTextSecondary
+                    font.pixelSize: 13
+                    visible: page.isSunshineMode
+                }
+                ChoiceChips {
+                    id: s2SunshineEncoderCombo
+                    visible: page.isSunshineMode
+                    chipWidth: page.optionChipWidth
+                    currentIndex: 0
+                    model: [
+                        "Auto",
+                        "NVIDIA",
+                        "VA-API",
+                        "Software Enc"
+                    ]
+                }
+
+                Text {
+                    text: "Bitrate (Mbps):"
+                    color: theme.cardTextSecondary
+                    font.pixelSize: 13
+                    visible: !page.isSunshineMode
+                }
                 RowLayout {
                     spacing: 8
+                    visible: !page.isSunshineMode
 
                     CustomSlider {
                         id: s2BitrateSlider
@@ -977,20 +1199,26 @@ Item {
                     text: "Packet-loss recovery:"
                     color: theme.cardTextSecondary
                     font.pixelSize: 13
-                    visible: backend.isWifiStreaming
+                    visible: !page.isSunshineMode && backend.isWifiStreaming
                 }
                 ChoiceChips {
                     id: s2FecCombo
-                    visible: backend.isWifiStreaming
+                    visible: !page.isSunshineMode && backend.isWifiStreaming
                     chipWidth: page.optionChipWidth
                     model: ["Off", "RS-FEC 10%"]
                     currentIndex: 0
                     onActivated: page.saveSecondDisplaySettings()
                 }
 
-                Text { text: "Encoder:"; color: theme.cardTextSecondary; font.pixelSize: 13 }
+                Text {
+                    text: "Encoder:"
+                    color: theme.cardTextSecondary
+                    font.pixelSize: 13
+                    visible: !page.isSunshineMode
+                }
                 ChoiceChips {
                     id: s2EncoderCombo
+                    visible: !page.isSunshineMode
                     chipWidth: page.optionChipWidth
                     currentIndex: 2
                     model: [
@@ -1001,18 +1229,30 @@ Item {
                     onActivated: page.saveSecondDisplaySettings()
                 }
 
-                Text { text: "Encoder Profile:"; color: theme.cardTextSecondary; font.pixelSize: 13 }
+                Text {
+                    text: "Encoder Profile:"
+                    color: theme.cardTextSecondary
+                    font.pixelSize: 13
+                    visible: !page.isSunshineMode
+                }
                 ChoiceChips {
                     id: s2EncoderProfileCombo
+                    visible: !page.isSunshineMode
                     chipWidth: page.optionChipWidth
                     currentIndex: 0
                     model: ["Low Latency", "Balanced", "Quality"]
                     onActivated: page.saveSecondDisplaySettings()
                 }
 
-                Text { text: "Touch:"; color: theme.cardTextSecondary; font.pixelSize: 13 }
+                Text {
+                    text: "Touch:"
+                    color: theme.cardTextSecondary
+                    font.pixelSize: 13
+                    visible: !page.isSunshineMode
+                }
                 CustomToggle {
                     id: s2TouchToggle
+                    visible: !page.isSunshineMode
                     text: "Enable touch for this display"
                     Layout.alignment: Qt.AlignLeft
                     checked: page.secondTouchEnabled
@@ -1022,9 +1262,15 @@ Item {
                     }
                 }
 
-                Text { text: "Stylus:"; color: theme.cardTextSecondary; font.pixelSize: 13 }
+                Text {
+                    text: "Stylus:"
+                    color: theme.cardTextSecondary
+                    font.pixelSize: 13
+                    visible: !page.isSunshineMode
+                }
                 CustomToggle {
                     id: s2StylusToggle
+                    visible: !page.isSunshineMode
                     text: "Enable stylus features for this display"
                     Layout.alignment: Qt.AlignLeft
                     checked: page.secondStylusEnabled
@@ -1034,14 +1280,58 @@ Item {
                     }
                 }
 
-                Text { text: "Audio:"; color: theme.cardTextSecondary; font.pixelSize: 13; visible: backend.isWifiStreaming }
+                Text {
+                    text: "Audio:"
+                    color: theme.cardTextSecondary
+                    font.pixelSize: 13
+                    visible: backend.isWifiStreaming
+                }
                 CustomToggle {
                     id: s2AudioToggle
                     text: "Enable Audio"
                     visible: backend.isWifiStreaming
                     Layout.alignment: Qt.AlignLeft
                     checked: page.secondAudioEnabled
-                    onToggled: { page.secondAudioEnabled = checked; page.saveSecondDisplaySettings() }
+                    onToggled: {
+                        page.secondAudioEnabled = checked
+                        if (page.isSunshineMode) {
+                            backend.saveSunshineConfig({"stream_audio": checked ? "enabled" : "disabled"}, 2)
+                        }
+                        page.saveSecondDisplaySettings()
+                    }
+                }
+
+                Text { text: ""; visible: page.isSunshineMode }
+                Rectangle {
+                    visible: page.isSunshineMode
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: page.optionChipWidth * 2.2
+                    color: theme.surfaceCard || "#1E293B"
+                    radius: 8
+                    border.color: theme.accent
+                    border.width: 1
+                    implicitHeight: sunshineCol2.implicitHeight + 20
+
+                    ColumnLayout {
+                        id: sunshineCol2
+                        anchors.fill: parent
+                        anchors.margins: 10
+                        spacing: 4
+
+                        Text {
+                            text: "✨ Sunshine Instance 2 (Port 49089)"
+                            color: theme.accent
+                            font.pixelSize: 13
+                            font.weight: Font.Bold
+                        }
+                        Text {
+                            text: "Monitorize will create the second virtual display and launch Sunshine Instance 2. In Moonlight on your second device, connect to " + backend.localIp + ":49089."
+                            color: theme.textSecondary
+                            font.pixelSize: 11
+                            wrapMode: Text.WordWrap
+                            Layout.fillWidth: true
+                        }
+                    }
                 }
 
                     }
@@ -1084,6 +1374,9 @@ Item {
                     implicitWidth: 170
                     implicitHeight: 36
                     onClicked: {
+                        if (page.isSunshineMode && typeof s2SunshineEncoderCombo !== "undefined") {
+                            backend.setSunshineEncoder(s2SunshineEncoderCombo.currentText, 2)
+                        }
                         backend.startSecondStream(
                             page.secondResolutionValue(),
                             page.secondFpsValue(),
@@ -1100,9 +1393,9 @@ Item {
                     }
                 }
             }
-            }
         }
     }
+}
 
     Rectangle {
         visible: page.telemetry.available === true

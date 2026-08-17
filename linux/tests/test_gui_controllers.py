@@ -4541,8 +4541,12 @@ class BackendFacadeTest(unittest.TestCase):
             patch("monitorize.platform.sunshine_service.is_sunshine_running", return_value=True),
             patch("webbrowser.open", return_value=True) as mock_open,
         ):
-            self.assertTrue(open_sunshine_dashboard("config"))
-            mock_open.assert_called_once_with("https://localhost:48990/config")
+            self.assertTrue(open_sunshine_dashboard("config", instance=1))
+            mock_open.assert_called_with("https://localhost:47990/config")
+
+            mock_open.reset_mock()
+            self.assertTrue(open_sunshine_dashboard("config", instance=2))
+            mock_open.assert_called_with("https://localhost:49090/config")
 
     def test_sunshine_isolation_paths_and_port(self):
         from unittest.mock import patch
@@ -4556,13 +4560,13 @@ class BackendFacadeTest(unittest.TestCase):
             get_sunshine_web_url,
             get_sunshine_device_name,
         )
-        self.assertEqual(SUNSHINE_BASE_PORT, 48989)
-        self.assertEqual(SUNSHINE_HTTPS_PORT, 48990)
-        self.assertEqual(get_sunshine_port(1), 48989)
-        self.assertEqual(get_sunshine_https_port(1), 48990)
+        self.assertEqual(SUNSHINE_BASE_PORT, 47989)
+        self.assertEqual(SUNSHINE_HTTPS_PORT, 47990)
+        self.assertEqual(get_sunshine_port(1), 47989)
+        self.assertEqual(get_sunshine_https_port(1), 47990)
         self.assertEqual(get_sunshine_port(2), 49089)
         self.assertEqual(get_sunshine_https_port(2), 49090)
-        self.assertEqual(get_sunshine_web_url(1), "https://localhost:48990")
+        self.assertEqual(get_sunshine_web_url(1), "https://localhost:47990")
         self.assertEqual(get_sunshine_web_url(2), "https://localhost:49090")
         self.assertTrue(get_sunshine_config_dir(1).endswith(os.path.join("monitorize", "sunshine-1")))
         self.assertTrue(get_sunshine_config_dir(2).endswith(os.path.join("monitorize", "sunshine-2")))
@@ -4706,16 +4710,31 @@ class BackendFacadeTest(unittest.TestCase):
         from monitorize.platform.sunshine_service import stop_sunshine
         import monitorize.platform.sunshine_service as ss
 
-        mock_proc = MagicMock()
-        mock_proc.poll.return_value = None
-        ss._SUNSHINE_PROCESS = mock_proc
+        mock_proc1 = MagicMock()
+        mock_proc1.poll.return_value = None
+        mock_proc2 = MagicMock()
+        mock_proc2.poll.return_value = None
+        ss._SUNSHINE_PROCESS = mock_proc1
+        ss._SUNSHINE_PROCESSES = {1: mock_proc1, 2: mock_proc2}
 
         with patch("monitorize.platform.sunshine_service.clear_sunshine_output_name") as mock_clear:
+            
+            ok, msg = stop_sunshine(instance=2)
+            self.assertTrue(ok)
+            mock_proc2.terminate.assert_called_once()
+            mock_proc1.terminate.assert_not_called()
+            mock_clear.assert_called_once_with(2)
+            self.assertEqual(ss._SUNSHINE_PROCESS, mock_proc1)
+            self.assertEqual(ss._SUNSHINE_PROCESSES, {1: mock_proc1})
+
+            
+            mock_clear.reset_mock()
             ok, msg = stop_sunshine()
             self.assertTrue(ok)
-            mock_proc.terminate.assert_called_once()
-            mock_clear.assert_called_once()
+            mock_proc1.terminate.assert_called_once()
+            mock_clear.assert_called_once_with(1)
             self.assertIsNone(ss._SUNSHINE_PROCESS)
+            self.assertEqual(ss._SUNSHINE_PROCESSES, {})
 
     def test_sunshine_advanced_config_service_and_backend_slots(self):
         import tempfile
@@ -4871,7 +4890,9 @@ class BackendFacadeTest(unittest.TestCase):
         streaming_qml = (qml_dir / "StreamingPage.qml").read_text(encoding="utf-8")
         main_qml = (qml_dir / "main.qml").read_text(encoding="utf-8")
         self.assertIn('text: "⚙ Sunshine Settings"', streaming_qml)
-        self.assertIn("backend.openSunshineWebUi()", streaming_qml)
+        self.assertIn("sunshineSettingsPopup.open()", streaming_qml)
+        self.assertIn("backend.openSunshineWebUi(1)", streaming_qml)
+        self.assertIn("backend.openSunshineWebUi(2)", streaming_qml)
         self.assertNotIn('text: "⚙ Sunshine Settings"', main_qml)
 
 
@@ -4947,7 +4968,7 @@ class BackendFacadeTest(unittest.TestCase):
         )
         stop_index = qml.index('text: "⏹ Stop Streaming"')
         save_index = qml.index('text: "Save Preset"')
-        add_index = qml.index('backend.secondStreamActive ? "Remove Third Display" : "Add Another Display"')
+        add_index = qml.index('id: displayActionButton')
         self.assertLess(stop_index, save_index)
         self.assertLess(save_index, add_index)
         self.assertNotIn("Add Third Display", qml)
@@ -4957,7 +4978,7 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn('visible: backend.detectedDe === "hyprland"', display_config)
         self.assertIn("readonly property int actionButtonWidth: 160", qml)
         self.assertIn("readonly property int actionButtonHeight: 38", qml)
-        self.assertEqual(qml.count("Layout.preferredWidth: page.actionButtonWidth"), 3)
+        self.assertEqual(qml.count("Layout.preferredWidth: page.actionButtonWidth"), 5)
         self.assertEqual(qml.count("Layout.preferredHeight: page.actionButtonHeight"), 5)
         self.assertNotIn("activeIndicator", qml)
         self.assertNotIn("OpacityAnimator", qml)
@@ -5026,7 +5047,7 @@ class BackendFacadeTest(unittest.TestCase):
         self.assertIn("id: s2StylusToggle", qml)
         self.assertIn("Enable stylus features for this display", qml)
         self.assertNotIn("backend.thirdEncryptionStatus", qml)
-        self.assertEqual(qml.count("ChoiceChips {"), 3)
+        self.assertEqual(qml.count("ChoiceChips {"), 4)
         self.assertIn("width: 720", window_block)
         self.assertIn("height: 640", window_block)
         self.assertIn("Creates a second Hyprland HEADLESS display.", qml)

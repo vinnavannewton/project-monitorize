@@ -1330,6 +1330,12 @@ class StreamingController(QObject):
         self._stop_third_input()
         self._stop_third_audio()
         if self.third_streamer is not None:
+            try:
+                if self.third_streamer.state() == QProcess.ProcessState.Running:
+                    self.third_streamer.write(b"quit\n")
+                    self.third_streamer.waitForBytesWritten(500)
+            except Exception:
+                pass
             stop_processes(self.third_streamer)
         self.third_streamer = None
         if self.third_gst_pids:

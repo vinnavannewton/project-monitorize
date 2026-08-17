@@ -168,7 +168,7 @@ if [[ -z "${HOST_NAME}" ]]; then
     HOST_NAME="Monitorize"
 fi
 
-# Instance 1 (Primary Display - Port 48989)
+# Instance 1 (Primary Display - Port 47989)
 SUNSHINE_PROFILE_DIR_1="${HOME}/.config/monitorize/sunshine-1"
 mkdir -p "${SUNSHINE_PROFILE_DIR_1}"
 SUNSHINE_CONF_1="${SUNSHINE_PROFILE_DIR_1}/sunshine.conf"
@@ -176,7 +176,7 @@ if [[ ! -f "${SUNSHINE_CONF_1}" ]]; then
     cat > "${SUNSHINE_CONF_1}" <<EOF
 # Sunshine configuration isolated for Monitorize Display 1
 sunshine_name = ${HOST_NAME} Monitor 1
-port = 48989
+port = 47989
 system_tray = disabled
 origin_pin_allowed = pc,lan,wan
 encoder = 

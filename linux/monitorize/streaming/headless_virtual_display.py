@@ -17,7 +17,23 @@ from monitorize.platform.kde_virtual_monitor import (
     virtual_slot,
     wait_for_output_absent,
 )
+import ctypes
 from monitorize.streaming.kde_native_streamer import find_helper, _read_helper_event, _stop_helper
+
+PR_SET_PDEATHSIG = 1
+
+
+def _set_pdeathsig() -> None:
+    """Set Linux parent-death signal to guarantee termination if Monitorize dies."""
+    try:
+        libc = ctypes.CDLL(None)
+        libc.prctl(PR_SET_PDEATHSIG, signal.SIGTERM)
+    except Exception:
+        try:
+            libc = ctypes.CDLL("libc.so.6")
+            libc.prctl(PR_SET_PDEATHSIG, signal.SIGTERM)
+        except Exception:
+            pass
 
 
 def _emit_event(event: dict):
@@ -50,6 +66,7 @@ def run_kde_headless(slot, width, height, fps):
         stderr=subprocess.STDOUT,
         text=True,
         bufsize=1,
+        preexec_fn=_set_pdeathsig,
     )
 
     def cleanup(*_args):

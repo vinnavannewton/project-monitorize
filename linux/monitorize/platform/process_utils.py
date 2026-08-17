@@ -41,7 +41,7 @@ def kill_patterns(*patterns):
         if not raw:
             continue
         cmdline = raw.replace(b"\0", b" ").decode("utf-8", errors="replace")
-        if LINUX_DIR not in cmdline:
+        if LINUX_DIR not in cmdline and "monitorize" not in cmdline.lower():
             continue
         if any(pattern.search(cmdline) for pattern in compiled):
             owned.append(pid)
