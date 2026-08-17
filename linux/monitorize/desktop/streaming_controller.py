@@ -395,7 +395,8 @@ class StreamingController(QObject):
                     wifi_settings = load_wifi_settings()
                     enc = wifi_settings.get("sunshine_encoder", "Auto")
                     codec = wifi_settings.get("sunshine_codec", "Auto")
-                    sync_sunshine_stream_config("", enc, codec, instance=1)
+                    pen_touch = wifi_settings.get("sunshine_native_pen_touch", True)
+                    sync_sunshine_stream_config("", enc, codec, pen_touch, instance=1)
                     if not is_sunshine_running(1):
                         start_sunshine(1)
                     QTimer.singleShot(1500, self.sunshine_watchdog_timer.start)
@@ -595,7 +596,8 @@ class StreamingController(QObject):
                     wifi_settings = load_wifi_settings()
                     enc = wifi_settings.get("sunshine_encoder", "Auto")
                     codec = wifi_settings.get("sunshine_codec", "Auto")
-                    sync_sunshine_stream_config(output_name, enc, codec, instance=1)
+                    pen_touch = wifi_settings.get("sunshine_native_pen_touch", True)
+                    sync_sunshine_stream_config(output_name, enc, codec, pen_touch, instance=1)
                     if not is_sunshine_running(1):
                         start_sunshine(1)
                     QTimer.singleShot(1500, self.sunshine_watchdog_timer.start)

@@ -38,6 +38,7 @@ from monitorize.platform.sunshine_service import (
     save_sunshine_config,
     set_sunshine_codec,
     set_sunshine_encoder,
+    set_sunshine_native_pen_touch,
 )
 from monitorize.platform.utils import get_local_ip
 from monitorize.config.validation import (
@@ -276,10 +277,12 @@ class MonitorizeBackend(QObject):
     @pyqtSlot(str, str, str, str, str, str, str, str, str, str, str, bool, str)
     @pyqtSlot(str, str, str, str, str, str, str, str, str, str, str, bool, str, str)
     @pyqtSlot(str, str, str, str, str, str, str, str, str, str, str, bool, str, str, str)
+    @pyqtSlot(str, str, str, str, str, str, str, str, str, str, str, bool, str, str, str, bool)
     def saveWifiSettings(
         self, resolution, custom_w, custom_h, fps, custom_fps, bitrate,
         display_type, encoder, encoder_profile, video_codec, fec_mode, enable_audio,
         streaming_backend="Monitorize", sunshine_encoder="Auto", sunshine_codec="Auto",
+        sunshine_native_pen_touch=True,
     ):
         save_wifi_settings(
             resolution=resolution, custom_w=custom_w, custom_h=custom_h,
@@ -290,10 +293,12 @@ class MonitorizeBackend(QObject):
             streaming_backend=streaming_backend,
             sunshine_encoder=sunshine_encoder,
             sunshine_codec=sunshine_codec,
+            sunshine_native_pen_touch=sunshine_native_pen_touch,
         )
         if str(streaming_backend).strip().lower() == "sunshine":
             set_sunshine_encoder(sunshine_encoder)
             set_sunshine_codec(sunshine_codec)
+            set_sunshine_native_pen_touch(sunshine_native_pen_touch)
 
     @pyqtSlot(int, int, int, result=int)
     @pyqtSlot(int, int, int, str, result=int)
@@ -374,7 +379,8 @@ class MonitorizeBackend(QObject):
                 wifi_settings = load_wifi_settings()
                 enc = wifi_settings.get("sunshine_encoder", "Auto")
                 codec = wifi_settings.get("sunshine_codec", "Auto")
-                sync_sunshine_stream_config("", enc, codec, instance=1)
+                pen_touch = wifi_settings.get("sunshine_native_pen_touch", True)
+                sync_sunshine_stream_config("", enc, codec, pen_touch, instance=1)
             except Exception:
                 pass
         self.streaming.start(
@@ -426,6 +432,12 @@ class MonitorizeBackend(QObject):
     @pyqtSlot(str, int, result="QVariantMap")
     def setSunshineCodec(self, codec_name: str, instance: int = 1):
         success, message = set_sunshine_codec(codec_name, instance=instance)
+        return {"success": success, "message": message}
+
+    @pyqtSlot(bool, result="QVariantMap")
+    @pyqtSlot(bool, int, result="QVariantMap")
+    def setSunshineNativePenTouch(self, enabled: bool, instance: int = 1):
+        success, message = set_sunshine_native_pen_touch(enabled, instance=instance)
         return {"success": success, "message": message}
 
     @pyqtSlot(str, str, str, str, str, str, bool, bool, bool)

@@ -484,6 +484,7 @@ def sync_sunshine_stream_config(
     output_name: str,
     encoder: str = "Auto",
     codec: str = "Auto",
+    native_pen_touch: bool = True,
     instance: int = 1,
 ) -> tuple[bool, str]:
     """Atomically synchronize all active streaming parameters to sunshine.conf in a single pass."""
@@ -516,6 +517,8 @@ def sync_sunshine_stream_config(
     else:
         hevc_val, av1_val = 0, 0
 
+    pen_touch_val = "enabled" if native_pen_touch else "disabled"
+
     config_path = get_sunshine_config_path(instance)
     try:
         os.makedirs(os.path.dirname(config_path), exist_ok=True)
@@ -528,6 +531,7 @@ def sync_sunshine_stream_config(
     found_hevc = False
     found_av1 = False
     found_tray = False
+    found_pen_touch = False
 
     if os.path.isfile(config_path):
         try:
@@ -546,6 +550,9 @@ def sync_sunshine_stream_config(
                     elif stripped.startswith("av1_mode"):
                         lines.append(f"av1_mode = {av1_val}\n")
                         found_av1 = True
+                    elif stripped.startswith("native_pen_touch"):
+                        lines.append(f"native_pen_touch = {pen_touch_val}\n")
+                        found_pen_touch = True
                     elif stripped.startswith("system_tray"):
                         lines.append("system_tray = disabled\n")
                         found_tray = True
@@ -562,6 +569,8 @@ def sync_sunshine_stream_config(
         lines.append(f"hevc_mode = {hevc_val}\n")
     if not found_av1:
         lines.append(f"av1_mode = {av1_val}\n")
+    if not found_pen_touch:
+        lines.append(f"native_pen_touch = {pen_touch_val}\n")
     if not found_tray:
         lines.append("system_tray = disabled\n")
 
@@ -586,6 +595,7 @@ def sync_sunshine_stream_config(
             "encoder": target_encoder,
             "hevc_mode": hevc_val,
             "av1_mode": av1_val,
+            "native_pen_touch": pen_touch_val,
         }).encode("utf-8")
         req = urllib.request.Request(
             f"{url}/api/config",
@@ -845,6 +855,66 @@ def set_sunshine_codec(codec_name: str, instance: int = 1) -> tuple[bool, str]:
             pass
 
     return True, f"Sunshine instance {instance} video codec set to '{label}'."
+
+
+def set_sunshine_native_pen_touch(enabled: bool, instance: int = 1) -> tuple[bool, str]:
+    """Configure native_pen_touch (enabled/disabled) in sunshine.conf and sync via REST API."""
+    val_str = "enabled" if enabled else "disabled"
+    config_path = get_sunshine_config_path(instance)
+    try:
+        os.makedirs(os.path.dirname(config_path), exist_ok=True)
+    except OSError:
+        pass
+
+    lines = []
+    found = False
+    if os.path.isfile(config_path):
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    stripped = line.strip()
+                    if stripped.startswith("native_pen_touch"):
+                        lines.append(f"native_pen_touch = {val_str}\n")
+                        found = True
+                    else:
+                        lines.append(line)
+        except OSError:
+            pass
+
+    if not found:
+        lines.append(f"native_pen_touch = {val_str}\n")
+
+    try:
+        with open(config_path, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+    except OSError as exc:
+        return False, f"Could not write sunshine.conf: {exc}"
+
+    if is_sunshine_running(instance):
+        import json
+        import ssl
+        import urllib.request
+
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+
+        url = get_sunshine_web_url(instance)
+        payload = json.dumps({"native_pen_touch": val_str}).encode("utf-8")
+        req = urllib.request.Request(
+            f"{url}/api/config",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, context=ctx, timeout=3.0) as _resp:
+                pass
+        except Exception:
+            pass
+
+    status = "enabled" if enabled else "disabled"
+    return True, f"Sunshine instance {instance} touch & stylus input set to '{status}'."
 
 
 

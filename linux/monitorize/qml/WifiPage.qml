@@ -121,7 +121,8 @@ Item {
                 audioCheck.checked,
                 backendCombo ? backendCombo.currentText : "Monitorize",
                 sunshineEncoderCombo ? sunshineEncoderCombo.currentText : "Auto",
-                sunshineCodecCombo ? sunshineCodecCombo.currentText : "Auto"
+                sunshineCodecCombo ? sunshineCodecCombo.currentText : "Auto",
+                sunshineTouchStylusCheck ? sunshineTouchStylusCheck.checked : true
             )
         } else {
             backend.saveUsbSettings(...args, audioCheck.checked)
@@ -208,6 +209,10 @@ Item {
             if (!sunshineCodecCombo.selectValue(saved["sunshine_codec"] || "Auto", true)) {
                 sunshineCodecCombo.selectValue("Auto");
             }
+        }
+
+        if (sunshineTouchStylusCheck) {
+            sunshineTouchStylusCheck.checked = saved["sunshine_native_pen_touch"] !== undefined ? saved["sunshine_native_pen_touch"] : true;
         }
 
         let gen = backend.loadGeneralSettings();
@@ -602,6 +607,19 @@ Item {
                                 font.pixelSize: 11
                                 wrapMode: Text.WordWrap
                                 Layout.fillWidth: true
+                            }
+                        }
+                    }
+
+                    CustomToggle {
+                        id: sunshineTouchStylusCheck
+                        text: "Touch and Stylus Input"
+                        visible: page.isWifi && backendCombo && backendCombo.currentText === "Sunshine"
+                        Layout.alignment: Qt.AlignLeft
+                        onCheckedChanged: {
+                            if (!page.loadingSettings) {
+                                backend.setSunshineNativePenTouch(checked)
+                                page.saveSettings()
                             }
                         }
                     }

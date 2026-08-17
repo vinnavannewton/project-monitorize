@@ -4898,7 +4898,8 @@ class BackendFacadeTest(unittest.TestCase):
     def test_sync_sunshine_stream_config(self):
         import tempfile
         from unittest.mock import patch
-        from monitorize.platform.sunshine_service import sync_sunshine_stream_config, check_sunshine_health
+        from monitorize.platform.sunshine_service import sync_sunshine_stream_config, check_sunshine_health, set_sunshine_native_pen_touch
+        from monitorize.desktop.backend import MonitorizeBackend
 
         with tempfile.TemporaryDirectory() as tmpdir:
             conf_path = os.path.join(tmpdir, "sunshine", "sunshine.conf")
@@ -4906,7 +4907,7 @@ class BackendFacadeTest(unittest.TestCase):
                 patch("monitorize.platform.sunshine_service.get_sunshine_config_path", return_value=conf_path),
                 patch("monitorize.platform.sunshine_service.is_sunshine_running", return_value=False),
             ):
-                ok, msg = sync_sunshine_stream_config("Virtual-1", "VA-API", "H.264 (AVC)", instance=1)
+                ok, msg = sync_sunshine_stream_config("Virtual-1", "VA-API", "H.264 (AVC)", native_pen_touch=True, instance=1)
                 self.assertTrue(ok)
                 with open(conf_path, "r", encoding="utf-8") as f:
                     content = f.read()
@@ -4914,6 +4915,19 @@ class BackendFacadeTest(unittest.TestCase):
                     self.assertIn("encoder = vaapi\n", content)
                     self.assertIn("hevc_mode = 1\n", content)
                     self.assertIn("av1_mode = 1\n", content)
+                    self.assertIn("native_pen_touch = enabled\n", content)
+
+                ok, msg = set_sunshine_native_pen_touch(False, instance=1)
+                self.assertTrue(ok)
+                with open(conf_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                    self.assertIn("native_pen_touch = disabled\n", content)
+
+                discovery = Mock()
+                backend = MonitorizeBackend(discovery)
+                res = backend.setSunshineNativePenTouch(True)
+                self.assertTrue(res["success"])
+                self.assertIn("enabled", res["message"])
 
             mock_proc = Mock()
             mock_proc.poll.return_value = 0
@@ -4929,7 +4943,8 @@ class BackendFacadeTest(unittest.TestCase):
         qml = (qml_dir / "WifiPage.qml").read_text(encoding="utf-8")
         toggle_qml = (qml_dir / "CustomToggle.qml").read_text(encoding="utf-8")
         checkbox_qml = (qml_dir / "CustomCheckBox.qml").read_text(encoding="utf-8")
-        self.assertEqual(qml.count("CustomToggle {"), 3)
+        self.assertEqual(qml.count("CustomToggle {"), 4)
+        self.assertIn('text: "Touch and Stylus Input"', qml)
         self.assertIn('text: "Enable Audio"', qml)
         self.assertIn("audioBandwidthMbps()", qml)
         self.assertNotIn("CustomCheckBox {", qml)
