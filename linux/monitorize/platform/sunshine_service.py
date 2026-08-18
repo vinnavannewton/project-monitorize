@@ -139,8 +139,8 @@ def check_sunshine_health(instance: int = 1) -> tuple[bool, int | None, str]:
         code = proc.poll()
         if code is None:
             return True, None, ""
-        # If the tracked initial child process exited, verify if Sunshine is still running
-        # (e.g. after internal daemonization or restart)
+        
+        
         if is_sunshine_running(instance):
             return True, None, ""
         err = get_sunshine_last_error(instance)
