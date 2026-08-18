@@ -76,7 +76,10 @@ class DisplayController:
         output = self.additional_output if slot == "additional" else self.created_output
         if not output or self.de != "hyprland":
             return
-        subprocess.run(["hyprctl", "output", "remove", output], capture_output=True)
+        try:
+            subprocess.run(["hyprctl", "output", "remove", output], capture_output=True)
+        except Exception:
+            pass
         if slot == "additional":
             self.additional_output = None
         else:

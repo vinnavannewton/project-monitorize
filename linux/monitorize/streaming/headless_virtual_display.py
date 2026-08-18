@@ -116,18 +116,23 @@ def run_kde_headless(slot, width, height, fps):
         cleanup()
 
 
-def run_hyprland_headless(width, height, fps):
-    cmd = ["hyprctl", "output", "create", "headless", f"{width}x{height}@{fps}"]
-    res = subprocess.run(cmd, capture_output=True, text=True)
-    if res.returncode != 0:
-        print(f"[ERROR] Hyprland headless output creation failed: {res.stderr}", flush=True)
+def run_hyprland_headless(slot, width, height, fps):
+    from monitorize.platform.display_controller import DisplayController
+
+    controller = DisplayController("hyprland")
+    output, error = controller.prepare_hyprland(width, height, fps, slot=slot)
+    if error or not output:
+        print(f"[ERROR] Hyprland headless output creation failed: {error}", flush=True)
         return 1
 
-    output_name = res.stdout.strip() or "HEADLESS-1"
-    print(f"[Headless] Created Hyprland output: {output_name}", flush=True)
+    print(
+        f"[Headless] Hyprland Virtual display {output} ({width}x{height}@{fps}Hz) is active. "
+        "Ready for Sunshine / Moonlight.",
+        flush=True,
+    )
     _emit_event({
         "type": "headless_ready",
-        "name": output_name,
+        "name": output,
         "width": width,
         "height": height,
         "fps": fps,
@@ -135,7 +140,7 @@ def run_hyprland_headless(width, height, fps):
     })
 
     def cleanup(*_args):
-        subprocess.run(["hyprctl", "output", "remove", output_name], capture_output=True)
+        controller.remove_hyprland_output(slot=slot)
 
     signal.signal(signal.SIGINT, cleanup)
     signal.signal(signal.SIGTERM, cleanup)
@@ -305,7 +310,7 @@ def main():
     elif "gnome" in de or "ubuntu" in de:
         sys.exit(run_gnome_headless(slot, width, height, fps))
     elif "hyprland" in de:
-        sys.exit(run_hyprland_headless(width, height, fps))
+        sys.exit(run_hyprland_headless(slot, width, height, fps))
     else:
         sys.exit(run_kde_headless(slot, width, height, fps))
 

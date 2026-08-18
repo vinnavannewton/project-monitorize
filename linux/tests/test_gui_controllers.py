@@ -5057,6 +5057,58 @@ class BackendFacadeTest(unittest.TestCase):
         controller.stop_third()
         controller.stop()
 
+    def test_hyprland_headless_virtual_display_single_and_dual_holding(self):
+        import select
+        from unittest.mock import patch, Mock
+        from monitorize.streaming.headless_virtual_display import run_hyprland_headless
+        from monitorize.desktop.streaming_controller import StreamingController
+
+        with (
+            patch("monitorize.platform.display_controller.DisplayController.prepare_hyprland", return_value=("HEADLESS-1", "")) as mock_prep,
+            patch("monitorize.platform.display_controller.DisplayController.remove_hyprland_output") as mock_remove,
+            patch("select.select", side_effect=[([sys.stdin], [], [])]),
+            patch("sys.stdin.readline", return_value="quit\n"),
+        ):
+            ret = run_hyprland_headless("primary", 1920, 1080, 60)
+            self.assertEqual(ret, 0)
+            mock_prep.assert_called_once_with(1920, 1080, 60, slot="primary")
+            mock_remove.assert_called_once_with(slot="primary")
+
+        
+        discovery = Mock()
+        controller = StreamingController("hyprland", "10.0.0.1", discovery)
+        controller.streaming = True
+        controller.streaming_backend = "Sunshine"
+
+        with (
+            patch("monitorize.config.settings.load_wifi_settings", return_value={}),
+            patch("monitorize.platform.sunshine_service.sync_sunshine_stream_config") as mock_sync,
+            patch("monitorize.platform.sunshine_service.is_sunshine_running", return_value=False),
+            patch("monitorize.platform.sunshine_service.start_sunshine") as mock_start,
+        ):
+            
+            raw_primary = 'MONITORIZE_EVENT {"type":"headless_ready","name":"HEADLESS-1","width":1920,"height":1080,"fps":60,"backend":"Sunshine"}\n'
+            proc_primary = Mock()
+            proc_primary.readAllStandardOutput.return_value = raw_primary.encode("utf-8")
+            controller.streamer = proc_primary
+            controller._read_streamer(controller.generation, proc_primary)
+            self.assertEqual(controller.display.created_output, "HEADLESS-1")
+            mock_sync.assert_called_with("HEADLESS-1", "Auto", "Auto", True, instance=1)
+            mock_start.assert_called_with(1)
+
+            
+            raw_third = 'MONITORIZE_EVENT {"type":"headless_ready","name":"HEADLESS-2","width":1920,"height":1080,"fps":60,"backend":"Sunshine"}\n'
+            proc_third = Mock()
+            proc_third.readAllStandardOutput.return_value = raw_third.encode("utf-8")
+            controller.third_streamer = proc_third
+            controller._read_third_streamer(controller.third_generation, proc_third)
+            self.assertEqual(controller.display.additional_output, "HEADLESS-2")
+            mock_sync.assert_called_with("HEADLESS-2", "Auto", "Auto", True, instance=2)
+            mock_start.assert_called_with(instance=2)
+
+        controller.stop_third()
+        controller.stop()
+
     def test_sunshine_stream_config_output_rebind_and_instance_separation(self):
         import tempfile
         from unittest.mock import patch

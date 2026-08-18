@@ -89,6 +89,7 @@ class StreamingController(QObject):
         self.input_launched = False
         self.generation = 0
         self.streamer_has_pipewire_node = False
+        self.streamer_buffer = ""
         self.kde_event_buffer = ""
         self.gnome_event_buffer = ""
         self.gnome_outputs = {}
@@ -287,6 +288,15 @@ class StreamingController(QObject):
     def _prepare_display(self):
         if self.display_type == "Mirror" and self.de in ("kde", "hyprland"):
             self._launch_streamer()
+        elif getattr(self, "streaming_backend", "Monitorize") == "Sunshine":
+            if self.de == "kde":
+                self._prepare_kde_native_virtual_display()
+            elif self.de in ("hyprland", "gnome"):
+                self._set_status(f"Starting virtual display for Sunshine on {self.de.capitalize()}…")
+                self._set_streaming(True)
+                self._launch_streamer()
+            else:
+                self._launch_streamer()
         elif self.de == "kde":
             self._prepare_kde_native_virtual_display()
         elif self.de == "hyprland":
@@ -580,11 +590,13 @@ class StreamingController(QObject):
             self._track_gst_pid(line)
             event = self._structured_event(line)
             if event and event.get("type") == "headless_ready":
-                output_name = str(event.get("name") or "Virtual-Monitorize-1")
+                output_name = str(event.get("name") or ("HEADLESS-1" if self.de == "hyprland" else "Virtual-Monitorize-1"))
                 if hasattr(self, "env") and self.env is not None:
                     self.env.insert("MONITORIZE_OUTPUT", output_name)
                 if self.de == "gnome" and output_name:
                     self.gnome_outputs["primary"] = output_name
+                elif self.de == "hyprland" and output_name:
+                    self.display.created_output = output_name
                 self.width = int(event.get("width") or self.width)
                 self.height = int(event.get("height") or self.height)
                 refresh = float(event.get("fps") or self.fps)
@@ -714,6 +726,8 @@ class StreamingController(QObject):
         QTimer.singleShot(500, lambda: self._launch_input(generation))
 
     def _maybe_start_wlroots_input(self, raw, generation):
+        if getattr(self, "streaming_backend", "Monitorize") == "Sunshine":
+            return
         if self.de == "hyprland" and not self.input_launched:
             self.streamer_buffer += raw
             if "[Portal] Got PipeWire node=" in self.streamer_buffer:
@@ -957,7 +971,7 @@ class StreamingController(QObject):
                 third_bitrate = available
 
         third_output = ""
-        if self.de == "hyprland":
+        if getattr(self, "streaming_backend", "Monitorize") != "Sunshine" and self.de == "hyprland":
             self._set_status("Creating additional Hyprland headless display…")
             third_output, error = self.display.prepare_hyprland(
                 width, height, third_fps, "additional"
@@ -1250,13 +1264,15 @@ class StreamingController(QObject):
             self._track_third_gst_pid(line)
             event = self._structured_event(line)
             if event and event.get("type") == "headless_ready":
-                output_name = str(event.get("name") or "Virtual-Monitorize-2")
+                output_name = str(event.get("name") or ("HEADLESS-2" if self.de == "hyprland" else "Virtual-Monitorize-2"))
                 if hasattr(self, "third_env") and self.third_env is not None:
                     self.third_env.insert("MONITORIZE_OUTPUT", output_name)
                 self.third_output = output_name
                 if self.de == "gnome" and output_name:
                     self.gnome_outputs["additional"] = output_name
                     self._connect_gnome_display_config_signal()
+                elif self.de == "hyprland" and output_name:
+                    self.display.additional_output = output_name
                 self.third_width = int(event.get("width") or self.third_width)
                 self.third_height = int(event.get("height") or self.third_height)
                 refresh = float(event.get("fps") or self.fps)
