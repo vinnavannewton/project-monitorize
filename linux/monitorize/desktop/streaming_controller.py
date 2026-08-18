@@ -412,6 +412,8 @@ class StreamingController(QObject):
                 str(self.width), str(self.height), str(self.fps), "primary", str(self.de),
             ]
             self.streamer.start(sys.executable, args)
+            if self.de == "gnome":
+                self._start_gnome_layout_tracking()
             self._set_status("Starting virtual display for Sunshine…")
             return
 
@@ -581,6 +583,8 @@ class StreamingController(QObject):
                 output_name = str(event.get("name") or "Virtual-Monitorize-1")
                 if hasattr(self, "env") and self.env is not None:
                     self.env.insert("MONITORIZE_OUTPUT", output_name)
+                if self.de == "gnome" and output_name:
+                    self.gnome_outputs["primary"] = output_name
                 self.width = int(event.get("width") or self.width)
                 self.height = int(event.get("height") or self.height)
                 refresh = float(event.get("fps") or self.fps)
@@ -598,8 +602,12 @@ class StreamingController(QObject):
                     codec = wifi_settings.get("sunshine_codec", "Auto")
                     pen_touch = wifi_settings.get("sunshine_native_pen_touch", True)
                     sync_sunshine_stream_config(output_name, enc, codec, pen_touch, instance=1)
+                    node_id = event.get("node_id") if self.de == "gnome" else None
                     if not is_sunshine_running(1):
-                        start_sunshine(1)
+                        if node_id is not None:
+                            start_sunshine(1, pipewire_node=node_id)
+                        else:
+                            start_sunshine(1)
                     QTimer.singleShot(1500, self.sunshine_watchdog_timer.start)
                 except Exception as exc:
                     app_log.warning(f"Could not auto-configure Sunshine output: {exc}")
@@ -1246,9 +1254,12 @@ class StreamingController(QObject):
                 if hasattr(self, "third_env") and self.third_env is not None:
                     self.third_env.insert("MONITORIZE_OUTPUT", output_name)
                 self.third_output = output_name
+                if self.de == "gnome" and output_name:
+                    self.gnome_outputs["additional"] = output_name
+                    self._connect_gnome_display_config_signal()
                 self.third_width = int(event.get("width") or self.third_width)
                 self.third_height = int(event.get("height") or self.third_height)
-                refresh = float(event.get("fps") or self.third_fps)
+                refresh = float(event.get("fps") or self.fps)
                 self.third_ready = True
                 try:
                     from monitorize.platform.sunshine_service import (
@@ -1263,8 +1274,12 @@ class StreamingController(QObject):
                         getattr(self, "third_sunshine_native_pen_touch", True),
                         instance=2,
                     )
+                    node_id = event.get("node_id") if self.de == "gnome" else None
                     if not is_sunshine_running(instance=2):
-                        start_sunshine(instance=2)
+                        if node_id is not None:
+                            start_sunshine(instance=2, pipewire_node=node_id)
+                        else:
+                            start_sunshine(instance=2)
                     QTimer.singleShot(1500, self.sunshine_watchdog_timer.start)
                 except Exception as exc:
                     app_log.warning(f"Could not auto-configure Sunshine instance 2 output: {exc}")

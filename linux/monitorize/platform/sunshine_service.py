@@ -313,10 +313,29 @@ def ensure_sunshine_tray_disabled(instance: int = 1) -> None:
                             pass
 
 
-def start_sunshine(instance: int = 1) -> tuple[bool, str]:
+_SUNSHINE_PIPEWIRE_NODES: dict[int, int] = {}
+
+
+def set_sunshine_pipewire_node(node_id: int | str | None, instance: int = 1) -> None:
+    """Set the PipeWire stream node id for direct capture on GNOME."""
+    if node_id is not None and str(node_id).isdigit() and int(node_id) > 0:
+        _SUNSHINE_PIPEWIRE_NODES[instance] = int(node_id)
+    else:
+        _SUNSHINE_PIPEWIRE_NODES.pop(instance, None)
+
+
+def get_sunshine_pipewire_node(instance: int = 1) -> int | None:
+    """Return the active PipeWire stream node id for an instance if set."""
+    return _SUNSHINE_PIPEWIRE_NODES.get(instance)
+
+
+def start_sunshine(instance: int = 1, pipewire_node: int | str | None = None) -> tuple[bool, str]:
     """Start isolated Sunshine engine binding child process to parent lifetime."""
     global _SUNSHINE_PROCESS, _SUNSHINE_PROCESSES
     ensure_sunshine_tray_disabled(instance)
+    if pipewire_node is not None:
+        set_sunshine_pipewire_node(pipewire_node, instance)
+
     if is_sunshine_running(instance):
         return True, f"Sunshine instance {instance} is already running."
 
@@ -334,6 +353,10 @@ def start_sunshine(instance: int = 1) -> tuple[bool, str]:
     env = dict(os.environ)
     env["SUNSHINE_CONFIG_DIR"] = config_dir
     env["XDG_CONFIG_HOME"] = profile_parent
+
+    node = _SUNSHINE_PIPEWIRE_NODES.get(instance)
+    if node:
+        env["SUNSHINE_PIPEWIRE_NODE"] = str(node)
 
     errors = []
     for cmd in candidates:
@@ -368,6 +391,7 @@ def stop_sunshine(instance: int | None = None) -> tuple[bool, str]:
             instances_to_stop = [1, 2]
 
     for inst in instances_to_stop:
+        set_sunshine_pipewire_node(None, inst)
         proc = _SUNSHINE_PROCESSES.pop(inst, None)
         if proc is None and inst == 1 and _SUNSHINE_PROCESS is not None:
             proc = _SUNSHINE_PROCESS
@@ -532,6 +556,7 @@ def sync_sunshine_stream_config(
     found_av1 = False
     found_tray = False
     found_pen_touch = False
+    prev_output = ""
 
     if os.path.isfile(config_path):
         try:
@@ -539,6 +564,9 @@ def sync_sunshine_stream_config(
                 for line in f:
                     stripped = line.strip()
                     if stripped.startswith("output_name"):
+                        parts = stripped.split("=", 1)
+                        if len(parts) == 2:
+                            prev_output = parts[1].strip()
                         lines.append(f"output_name = {clean_out}\n")
                         found_output = True
                     elif stripped.startswith("encoder"):
@@ -581,33 +609,36 @@ def sync_sunshine_stream_config(
         return False, f"Could not write sunshine.conf: {exc}"
 
     if is_sunshine_running(instance):
-        import json
-        import ssl
-        import urllib.request
+        if prev_output and clean_out and prev_output != clean_out:
+            restart_sunshine(instance)
+        else:
+            import json
+            import ssl
+            import urllib.request
 
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
 
-        url = get_sunshine_web_url(instance)
-        payload = json.dumps({
-            "output_name": clean_out,
-            "encoder": target_encoder,
-            "hevc_mode": hevc_val,
-            "av1_mode": av1_val,
-            "native_pen_touch": pen_touch_val,
-        }).encode("utf-8")
-        req = urllib.request.Request(
-            f"{url}/api/config",
-            data=payload,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        try:
-            with urllib.request.urlopen(req, context=ctx, timeout=3.0) as _resp:
+            url = get_sunshine_web_url(instance)
+            payload = json.dumps({
+                "output_name": clean_out,
+                "encoder": target_encoder,
+                "hevc_mode": hevc_val,
+                "av1_mode": av1_val,
+                "native_pen_touch": pen_touch_val,
+            }).encode("utf-8")
+            req = urllib.request.Request(
+                f"{url}/api/config",
+                data=payload,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            try:
+                with urllib.request.urlopen(req, context=ctx, timeout=3.0) as _resp:
+                    pass
+            except Exception:
                 pass
-        except Exception:
-            pass
 
     return True, f"Synchronized Sunshine instance {instance} config"
 
