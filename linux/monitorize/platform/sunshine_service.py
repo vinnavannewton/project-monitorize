@@ -314,14 +314,28 @@ def ensure_sunshine_tray_disabled(instance: int = 1) -> None:
 
 
 _SUNSHINE_PIPEWIRE_NODES: dict[int, int] = {}
+_SUNSHINE_PIPEWIRE_OFFSETS: dict[int, tuple[int, int]] = {}
+_SUNSHINE_PIPEWIRE_DIMS: dict[int, tuple[int, int]] = {}
 
 
-def set_sunshine_pipewire_node(node_id: int | str | None, instance: int = 1) -> None:
-    """Set the PipeWire stream node id for direct capture on GNOME."""
+def set_sunshine_pipewire_node(
+    node_id: int | str | None,
+    instance: int = 1,
+    offset_x: int = 0,
+    offset_y: int = 0,
+    width: int | None = None,
+    height: int | None = None,
+) -> None:
+    """Set the PipeWire stream node id, offset, and dimensions for direct capture on GNOME."""
     if node_id is not None and str(node_id).isdigit() and int(node_id) > 0:
         _SUNSHINE_PIPEWIRE_NODES[instance] = int(node_id)
+        _SUNSHINE_PIPEWIRE_OFFSETS[instance] = (int(offset_x), int(offset_y))
+        if width and height:
+            _SUNSHINE_PIPEWIRE_DIMS[instance] = (int(width), int(height))
     else:
         _SUNSHINE_PIPEWIRE_NODES.pop(instance, None)
+        _SUNSHINE_PIPEWIRE_OFFSETS.pop(instance, None)
+        _SUNSHINE_PIPEWIRE_DIMS.pop(instance, None)
 
 
 def get_sunshine_pipewire_node(instance: int = 1) -> int | None:
@@ -329,15 +343,35 @@ def get_sunshine_pipewire_node(instance: int = 1) -> int | None:
     return _SUNSHINE_PIPEWIRE_NODES.get(instance)
 
 
-def start_sunshine(instance: int = 1, pipewire_node: int | str | None = None) -> tuple[bool, str]:
+def start_sunshine(
+    instance: int = 1,
+    pipewire_node: int | str | None = None,
+    offset_x: int = 0,
+    offset_y: int = 0,
+    width: int | None = None,
+    height: int | None = None,
+) -> tuple[bool, str]:
     """Start isolated Sunshine engine binding child process to parent lifetime."""
     global _SUNSHINE_PROCESS, _SUNSHINE_PROCESSES
     ensure_sunshine_tray_disabled(instance)
-    if pipewire_node is not None:
-        set_sunshine_pipewire_node(pipewire_node, instance)
+    if pipewire_node is not None or offset_x != 0 or offset_y != 0:
+        set_sunshine_pipewire_node(
+            pipewire_node,
+            instance,
+            offset_x=offset_x,
+            offset_y=offset_y,
+            width=width,
+            height=height,
+        )
 
     if is_sunshine_running(instance):
         return True, f"Sunshine instance {instance} is already running."
+
+    try:
+        from monitorize.platform.gnome_virtual_monitor import map_sunshine_gnome_peripherals
+        map_sunshine_gnome_peripherals()
+    except Exception:
+        pass
 
     candidates = get_sunshine_candidates(instance)
     if not candidates:
@@ -357,6 +391,18 @@ def start_sunshine(instance: int = 1, pipewire_node: int | str | None = None) ->
     node = _SUNSHINE_PIPEWIRE_NODES.get(instance)
     if node:
         env["SUNSHINE_PIPEWIRE_NODE"] = str(node)
+
+    offset = _SUNSHINE_PIPEWIRE_OFFSETS.get(instance, (int(offset_x), int(offset_y)))
+    env["SUNSHINE_PIPEWIRE_OFFSET_X"] = str(offset[0])
+    env["SUNSHINE_PIPEWIRE_OFFSET_Y"] = str(offset[1])
+
+    dims = _SUNSHINE_PIPEWIRE_DIMS.get(instance)
+    if dims and dims[0] and dims[1]:
+        env["SUNSHINE_PIPEWIRE_WIDTH"] = str(dims[0])
+        env["SUNSHINE_PIPEWIRE_HEIGHT"] = str(dims[1])
+    elif width and height:
+        env["SUNSHINE_PIPEWIRE_WIDTH"] = str(int(width))
+        env["SUNSHINE_PIPEWIRE_HEIGHT"] = str(int(height))
 
     errors = []
     for cmd in candidates:

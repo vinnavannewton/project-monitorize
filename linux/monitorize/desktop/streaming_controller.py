@@ -615,11 +615,17 @@ class StreamingController(QObject):
                     pen_touch = wifi_settings.get("sunshine_native_pen_touch", True)
                     sync_sunshine_stream_config(output_name, enc, codec, pen_touch, instance=1)
                     node_id = event.get("node_id") if self.de == "gnome" else None
+                    offset_x = int(event.get("offset_x") or 0)
+                    offset_y = int(event.get("offset_y") or 0)
                     if not is_sunshine_running(1):
-                        if node_id is not None:
-                            start_sunshine(1, pipewire_node=node_id)
-                        else:
-                            start_sunshine(1)
+                        start_sunshine(
+                            1,
+                            pipewire_node=node_id,
+                            offset_x=offset_x,
+                            offset_y=offset_y,
+                            width=self.width,
+                            height=self.height,
+                        )
                     QTimer.singleShot(1500, self.sunshine_watchdog_timer.start)
                 except Exception as exc:
                     app_log.warning(f"Could not auto-configure Sunshine output: {exc}")
@@ -1291,11 +1297,17 @@ class StreamingController(QObject):
                         instance=2,
                     )
                     node_id = event.get("node_id") if self.de == "gnome" else None
+                    offset_x = int(event.get("offset_x") or 0)
+                    offset_y = int(event.get("offset_y") or 0)
                     if not is_sunshine_running(instance=2):
-                        if node_id is not None:
-                            start_sunshine(instance=2, pipewire_node=node_id)
-                        else:
-                            start_sunshine(instance=2)
+                        start_sunshine(
+                            instance=2,
+                            pipewire_node=node_id,
+                            offset_x=offset_x,
+                            offset_y=offset_y,
+                            width=self.third_width,
+                            height=self.third_height,
+                        )
                     QTimer.singleShot(1500, self.sunshine_watchdog_timer.start)
                 except Exception as exc:
                     app_log.warning(f"Could not auto-configure Sunshine instance 2 output: {exc}")

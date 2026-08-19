@@ -258,10 +258,26 @@ def run_gnome_headless(slot, width, height, fps, display_type="Extend"):
         except Exception as exc:
             print(f"[Headless] GNOME layout restore skipped: {exc}", flush=True)
 
+        offset_x, offset_y = 0, 0
+        try:
+            state = display_config.GetCurrentState()
+            gnome_virtual_monitor.map_sunshine_gnome_peripherals(state, connector)
+            logical_monitors = state[2]
+            for lm in logical_monitors:
+                lm_connectors = [str(c[0]) for c in lm[5] if c]
+                if connector in lm_connectors:
+                    offset_x = int(float(lm[0]))
+                    offset_y = int(float(lm[1]))
+                    break
+        except Exception as exc:
+            print(f"[Headless] Could not determine offset/mapping for {connector}: {exc}", flush=True)
+
         _emit_event({
             "type": "headless_ready",
             "name": connector,
             "node_id": node_id_holder[0],
+            "offset_x": offset_x,
+            "offset_y": offset_y,
             "width": width,
             "height": height,
             "fps": fps,
