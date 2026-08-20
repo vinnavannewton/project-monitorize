@@ -4,6 +4,7 @@ import QtQuick.Layouts
 
 Item {
     id: page
+    property int renamePresetIndex: -1
 
     ColumnLayout {
         anchors.centerIn: parent
@@ -118,7 +119,7 @@ Item {
 
                     Column {
                         anchors.left: parent.left
-                        anchors.right: deleteButton.left
+                        anchors.right: presetMenuButton.left
                         anchors.verticalCenter: parent.verticalCenter
                         anchors.leftMargin: 12
                         spacing: 5
@@ -142,21 +143,77 @@ Item {
                     }
 
                     Button {
-                        id: deleteButton
+                        id: presetMenuButton
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
                         anchors.rightMargin: 6
                         width: 32
                         height: 32
-                        text: "×"
+                        text: "⋮"
                         flat: true
-                        onClicked: backend.deletePreset(index)
+                        onClicked: presetMenu.open()
                         contentItem: Text {
                             text: parent.text
                             color: theme.textMuted
-                            font.pixelSize: 18
+                            font.pixelSize: 20
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
+                        }
+                    }
+
+                    Menu {
+                        id: presetMenu
+                        x: presetMenuButton.width - width
+                        y: presetMenuButton.height
+                        width: 132
+                        padding: 6
+                        background: Rectangle { color: theme.surface; border.color: theme.border; radius: theme.controlRadius }
+
+                        MenuItem {
+                            text: "Rename"
+                            onTriggered: {
+                                renamePresetIndex = index
+                                renamePresetName.text = modelData["name"]
+                                renamePresetMessage.text = ""
+                                renamePresetPopup.open()
+                            }
+                            contentItem: Text { text: parent.text; color: theme.cardTextPrimary; font.pixelSize: 12; verticalAlignment: Text.AlignVCenter }
+                        }
+                        MenuItem {
+                            text: "Remove"
+                            onTriggered: backend.deletePreset(index)
+                            contentItem: Text { text: parent.text; color: "#fca5a5"; font.pixelSize: 12; verticalAlignment: Text.AlignVCenter }
+                        }
+                    }
+                }
+            }
+        }
+
+        Popup {
+            id: renamePresetPopup
+            modal: true
+            anchors.centerIn: parent
+            width: 380
+            padding: 22
+            background: Rectangle { color: theme.surface; border.color: theme.border; radius: theme.cardRadius }
+
+            ColumnLayout {
+                width: parent.width
+                spacing: 12
+                Text { text: "Rename Preset"; color: theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
+                CustomTextField { id: renamePresetName; Layout.fillWidth: true; maximumLength: 32; onAccepted: renamePresetButton.clicked() }
+                Text { id: renamePresetMessage; color: "#fca5a5"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                RowLayout {
+                    Layout.alignment: Qt.AlignRight
+                    CustomButton { text: "Cancel"; onClicked: renamePresetPopup.close() }
+                    CustomButton {
+                        id: renamePresetButton
+                        text: "Rename"
+                        primary: true
+                        onClicked: {
+                            let result = backend.renamePreset(renamePresetIndex, renamePresetName.text)
+                            if (result === "") renamePresetPopup.close()
+                            else renamePresetMessage.text = result
                         }
                     }
                 }

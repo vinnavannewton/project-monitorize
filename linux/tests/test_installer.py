@@ -35,6 +35,16 @@ class SunshineOnlyPackagingTest(unittest.TestCase):
         for legacy in ("USB Mode", "Receiver Mode", 'model: ["Monitorize", "Sunshine"]'):
             self.assertNotIn(legacy, qml)
 
+    def test_choice_chips_and_preset_menu_use_the_requested_layout(self):
+        chips = (ROOT / "linux/monitorize/qml/ChoiceChips.qml").read_text()
+        menu = (ROOT / "linux/monitorize/qml/MainMenuPage.qml").read_text()
+        self.assertIn("columns: 3", chips)
+        self.assertIn('text: "⋮"', menu)
+        self.assertIn('text: "Rename"', menu)
+        self.assertIn('text: "Remove"', menu)
+        self.assertIn("backend.renamePreset", menu)
+        self.assertNotIn('text: "×"', menu)
+
     def test_successful_pairing_closes_the_pin_popup(self):
         qml = (ROOT / "linux/monitorize/qml/StreamingPage.qml").read_text()
         self.assertIn("interval: 2000", qml)
@@ -45,7 +55,7 @@ class SunshineOnlyPackagingTest(unittest.TestCase):
         chips = (ROOT / "linux/monitorize/qml/ChoiceChips.qml").read_text()
         menu = (ROOT / "linux/monitorize/qml/MainMenuPage.qml").read_text()
         self.assertIn("GridLayout", chips)
-        self.assertIn("columns: 2", chips)
+        self.assertIn("columns: 3", chips)
         self.assertIn("rowSpacing: 8", chips)
         self.assertIn("Layout.preferredWidth: Math.min(440, page.width - 40)", menu)
 

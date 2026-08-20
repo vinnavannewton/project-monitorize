@@ -58,7 +58,7 @@ Item {
             spacing: 18
 
             Text {
-                text: "Create a Sunshine Display"
+                text: "Create a Display"
                 color: theme.textPrimary
                 font.pixelSize: 26
                 font.weight: Font.Bold

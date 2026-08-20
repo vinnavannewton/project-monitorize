@@ -15,7 +15,7 @@ GridLayout {
 
     signal activated(int index)
 
-    columns: 2
+    columns: 3
     columnSpacing: 8
     rowSpacing: 8
     Layout.fillWidth: true
