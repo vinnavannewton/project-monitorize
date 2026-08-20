@@ -2,8 +2,6 @@
 
 import os
 import re
-import shutil
-import subprocess
 import time
 from pathlib import Path
 
@@ -12,18 +10,12 @@ from PyQt6.QtCore import QProcess
 LINUX_DIR = str(Path(__file__).resolve().parents[2])
 
 
-def gst_has_element(name):
-    return shutil.which("gst-inspect-1.0") is not None and subprocess.run(
-        ["gst-inspect-1.0", name], capture_output=True
-    ).returncode == 0
-
-
 def kill_patterns(*patterns):
     """Best-effort cleanup for Monitorize-owned orphan processes.
 
     This intentionally does not call broad `pkill -f`: a matching command line
-    must also contain this checkout's linux directory, so unrelated GStreamer or
-    Python processes are not killed.
+    must also contain this checkout's linux directory, so unrelated processes
+    are not killed.
     """
     proc_dir = Path("/proc")
     if not proc_dir.exists():
@@ -41,7 +33,7 @@ def kill_patterns(*patterns):
         if not raw:
             continue
         cmdline = raw.replace(b"\0", b" ").decode("utf-8", errors="replace")
-        if LINUX_DIR not in cmdline:
+        if LINUX_DIR not in cmdline and "monitorize" not in cmdline.lower():
             continue
         if any(pattern.search(cmdline) for pattern in compiled):
             owned.append(pid)
@@ -78,16 +70,6 @@ def _pid_exists(pid):
         return False
 
 
-def unsafe_kill_patterns(*patterns):
-    """Explicit legacy escape hatch for diagnostics; normal code must not use it."""
-    for pattern in patterns:
-        subprocess.run(
-            ["pkill", "-9", "-f", pattern],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-
-
 def stop_processes(*processes, timeout_ms=3000):
     clean = True
     for process in processes:
@@ -98,12 +80,3 @@ def stop_processes(*processes, timeout_ms=3000):
             clean = False
             process.kill()
     return clean
-
-
-def kill_tracked_pids(pids):
-    for pid in list(pids):
-        try:
-            os.kill(pid, 9)
-        except OSError:
-            pass
-    pids.clear()

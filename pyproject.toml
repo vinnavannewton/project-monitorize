@@ -5,18 +5,16 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "monitorize"
 version = "0.2.8"
-description = "Turn an Android or Linux device into a secondary monitor for Linux"
+description = "Create Sunshine-backed virtual displays for Moonlight clients"
 readme = "README.md"
 requires-python = ">=3.11"
-license = "AGPL-3.0-only"
+license = "GPL-3.0-only"
 authors = [{ name = "Monitorize contributors" }]
 dependencies = [
     "PyQt6",
-    "cryptography",
+    "Jinja2",
     "dbus-python",
-    "evdev",
     "PyGObject",
-    "zeroconf",
 ]
 
 [project.scripts]

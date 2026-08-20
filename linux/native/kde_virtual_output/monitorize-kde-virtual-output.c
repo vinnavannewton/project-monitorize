@@ -16,7 +16,6 @@
 #include "zkde-screencast-unstable-v1-client-protocol.h"
 
 enum {
-    CURSOR_HIDDEN = 1,
     CURSOR_EMBEDDED = 2,
 };
 
@@ -480,7 +479,7 @@ int main(int argc, char **argv)
     app.owner.proxy =
         zkde_screencast_unstable_v1_stream_virtual_output_with_description(
             app.screencast, app.base_name, app.description,
-            app.width, app.height, wl_fixed_from_double(1.0), CURSOR_HIDDEN);
+            app.width, app.height, wl_fixed_from_double(1.0), CURSOR_EMBEDDED);
     zkde_screencast_stream_unstable_v1_add_listener(
         app.owner.proxy, &stream_listener, &app.owner);
     wl_display_flush(app.display);

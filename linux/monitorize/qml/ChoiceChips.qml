@@ -2,26 +2,25 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-RowLayout {
+GridLayout {
     id: chips
 
     property var model: []
     property int currentIndex: 0
     property int chipWidth: 112
+    property var disabledValues: []
     readonly property string currentText: (
         currentIndex >= 0 && currentIndex < model.length ? model[currentIndex] : ""
     )
 
     signal activated(int index)
 
-    spacing: 8
+    columns: 3
+    columnSpacing: 8
+    rowSpacing: 8
     Layout.fillWidth: true
-    implicitHeight: 34
 
     function chipLabel(value) {
-        if (value.indexOf("NVIDIA") === 0) return "NVIDIA NVENC"
-        if (value.indexOf("Intel/AMD") === 0) return "VA-API"
-        if (value.indexOf("Software") === 0) return "CPU"
         return value
     }
 
@@ -56,6 +55,10 @@ RowLayout {
 
         Button {
             id: chip
+
+            readonly property bool isDisabled: chips.disabledValues && chips.disabledValues.indexOf(modelData) !== -1
+            enabled: chips.enabled && !isDisabled
+            opacity: enabled ? 1.0 : 0.4
 
             readonly property bool selected: index === chips.currentIndex
 

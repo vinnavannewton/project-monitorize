@@ -7,9 +7,6 @@ from monitorize.config.settings import (
     load_gnome_virtual_layout,
     save_gnome_virtual_layout,
 )
-from monitorize.input_bridge.geometry import _physical_contains_virtual_marker
-
-
 log = logging.getLogger(__name__)
 APPLY_METHOD_TEMPORARY = 1
 WAIT_ATTEMPTS = 20
@@ -22,6 +19,25 @@ MONITOR_CONFIG_PROPERTY_KEYS = {
 GLOBAL_CONFIG_PROPERTY_KEYS = {
     "layout-mode",
 }
+
+
+def _physical_contains_virtual_marker(entry):
+    """Return whether a Mutter monitor tuple describes a virtual output."""
+    try:
+        values = entry[0]
+    except (TypeError, IndexError):
+        return False
+    if isinstance(values, str):
+        values = [values]
+    try:
+        values = list(values)
+    except TypeError:
+        values = [values]
+    return any(
+        marker in str(value).lower()
+        for value in values
+        for marker in ("meta", "virtual")
+    )
 
 
 def _dbus():
@@ -520,3 +536,38 @@ def save_current_virtual_layout(slot="primary", role_connectors=None):
         return False
     save_gnome_virtual_layout(slot, logical_monitors)
     return True
+
+
+def map_sunshine_gnome_peripherals(state=None, connector=None):
+    """Register Sunshine uinput devices (0xBEEF:0xDEAD) to the virtual monitor's EDID in GNOME."""
+    try:
+        if state is None:
+            state = _mutter_state()
+        if not connector:
+            connector = virtual_connector_from_state(state)
+        if not connector:
+            return False
+        info = monitor_info_from_state(state, connector)
+        if not info:
+            return False
+        edid = [str(info["vendor"]), str(info["product"]), str(info["serial"])]
+        if not all(edid):
+            return False
+        from gi.repository import Gio
+        touch = Gio.Settings.new_with_path(
+            "org.gnome.desktop.peripherals.touchscreen",
+            "/org/gnome/desktop/peripherals/touchscreens/beef:dead/",
+        )
+        touch.set_strv("output", edid)
+
+        tablet = Gio.Settings.new_with_path(
+            "org.gnome.desktop.peripherals.tablet",
+            "/org/gnome/desktop/peripherals/tablets/beef:dead/",
+        )
+        tablet.set_strv("output", edid)
+        tablet.set_string("mapping", "absolute")
+        log.info("Mapped Sunshine input devices (beef:dead) to GNOME output %s (%s)", connector, edid)
+        return True
+    except Exception as exc:
+        log.debug("Failed to map Sunshine input devices to GNOME output: %s", exc)
+        return False

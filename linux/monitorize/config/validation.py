@@ -6,7 +6,6 @@ import re
 DEFAULT_PRIMARY_RESOLUTION = (1920, 1080)
 DEFAULT_SECONDARY_RESOLUTION = (1920, 1080)
 DEFAULT_FPS = 60
-DEFAULT_BITRATE = 8000
 
 MIN_WIDTH = 320
 MIN_HEIGHT = 240
@@ -14,18 +13,7 @@ MAX_WIDTH = 7680
 MAX_HEIGHT = 4320
 MIN_FPS = 24
 MAX_FPS = 240
-MIN_BITRATE = 250
-MAX_BITRATE = 100000
-
-VALID_DECODERS = {"Software", "Hardware"}
 VALID_DISPLAY_TYPES = {"Extend", "Mirror"}
-VALID_STREAM_TYPES = {"Speed", "Stability"}
-VALID_ENCODER_PROFILES = {"Low Latency", "Balanced", "Quality"}
-VALID_ENCODERS = {
-    "NVIDIA NVENC (nvh264enc)",
-    "Intel/AMD VA-API (vah264enc)",
-    "Software (CPU / x264enc)",
-}
 
 
 def clamp_int(value, default, minimum, maximum):
@@ -60,49 +48,5 @@ def sanitize_fps(value, default=DEFAULT_FPS):
     return clamp_int(value, default, MIN_FPS, MAX_FPS)
 
 
-def sanitize_bitrate(value, default=DEFAULT_BITRATE):
-    return clamp_int(value, default, MIN_BITRATE, MAX_BITRATE)
-
-
-def normalize_host(host):
-    return str(host or "").strip()
-
-
-def credential_host_key(host):
-    return normalize_host(host).lower()
-
-
-def valid_host(host):
-    return bool(normalize_host(host))
-
-
-def sanitize_port(port, default=7110, minimum=1, maximum=65535):
-    return clamp_int(port, default, minimum, maximum)
-
-
-def valid_port(port, minimum=1, maximum=65535):
-    try:
-        number = int(str(port).strip())
-    except (TypeError, ValueError):
-        return False
-    return minimum <= number <= maximum
-
-
-def sanitize_decoder(value):
-    return value if value in VALID_DECODERS else "Software"
-
-
 def sanitize_display_type(value):
     return value if value in VALID_DISPLAY_TYPES else "Extend"
-
-
-def sanitize_stream_type(value):
-    return value if value in VALID_STREAM_TYPES else "Speed"
-
-
-def sanitize_encoder_profile(value):
-    return value if value in VALID_ENCODER_PROFILES else "Low Latency"
-
-
-def sanitize_encoder(value):
-    return value if value in VALID_ENCODERS else "Software (CPU / x264enc)"

@@ -1,4 +1,2 @@
 PyQt6
-zeroconf
-evdev
-cryptography
+Jinja2

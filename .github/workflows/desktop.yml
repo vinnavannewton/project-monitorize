@@ -62,6 +62,7 @@ jobs:
             pyproject-rpm-macros \
             python3 \
             python3-cryptography \
+            python3-cairo \
             python3-dbus \
             python3-devel \
             python3-evdev \
@@ -175,9 +176,7 @@ jobs:
         run: |
           RPM=$(find dist -type f -name 'monitorize-[0-9]*.x86_64.rpm' -print -quit)
           test -n "$RPM"
-          rpm -qp --requires "$RPM" | grep -Fx 'gstreamer1-plugin-libav'
-          rpm -qp --requires "$RPM" | grep -Fx 'gstreamer1-plugin-openh264'
-          dnf -y install "$RPM" desktop-file-utils
+          dnf -y install "$RPM"
 
       - name: Verify runtime and package integration
         env:
@@ -186,7 +185,21 @@ jobs:
           set -euo pipefail
           gst-inspect-1.0 pipewiresrc >/dev/null
           gst-inspect-1.0 x264enc >/dev/null
-          gst-inspect-1.0 openh264dec >/dev/null
+          gst-inspect-1.0 avdec_h264 >/dev/null
+          gst-inspect-1.0 cairooverlay >/dev/null
+          gst-inspect-1.0 glupload >/dev/null
+          gst-inspect-1.0 glcolorconvert >/dev/null
+          gst-inspect-1.0 glcolorscale >/dev/null
+          gst-inspect-1.0 pulsesrc >/dev/null
+          gst-inspect-1.0 audiobuffersplit >/dev/null
+          gst-inspect-1.0 opusenc >/dev/null
+          gst-inspect-1.0 rtpopuspay >/dev/null
+          gst-inspect-1.0 rtpjitterbuffer >/dev/null
+          gst-inspect-1.0 rtpopusdepay >/dev/null
+          gst-inspect-1.0 opusdec >/dev/null
+          gst-inspect-1.0 pulsesink >/dev/null
+          gst-inspect-1.0 autoaudiosink >/dev/null
+          python3 -c 'import cairo'
           test -x /usr/bin/monitorize-kde-virtual-output
           ! ldd /usr/bin/monitorize-kde-virtual-output | grep -q 'not found'
           desktop-file-validate /usr/share/applications/monitorize.desktop
@@ -231,6 +244,7 @@ jobs:
             pkgconf \
             python \
             python-cryptography \
+            python-cairo \
             python-dbus \
             python-evdev \
             python-gobject \
@@ -253,10 +267,24 @@ jobs:
           gst-inspect-1.0 pipewiresrc >/dev/null
           gst-inspect-1.0 x264enc >/dev/null
           gst-inspect-1.0 avdec_h264 >/dev/null
+          gst-inspect-1.0 cairooverlay >/dev/null
+          gst-inspect-1.0 glupload >/dev/null
+          gst-inspect-1.0 glcolorconvert >/dev/null
+          gst-inspect-1.0 glcolorscale >/dev/null
+          gst-inspect-1.0 pulsesrc >/dev/null
+          gst-inspect-1.0 audiobuffersplit >/dev/null
+          gst-inspect-1.0 opusenc >/dev/null
+          gst-inspect-1.0 rtpopuspay >/dev/null
+          gst-inspect-1.0 rtpjitterbuffer >/dev/null
+          gst-inspect-1.0 rtpopusdepay >/dev/null
+          gst-inspect-1.0 opusdec >/dev/null
+          gst-inspect-1.0 pulsesink >/dev/null
+          gst-inspect-1.0 autoaudiosink >/dev/null
+          python3 -c 'import cairo'
           test -x linux/venv/bin/monitorize-kde-virtual-output
           ! ldd linux/venv/bin/monitorize-kde-virtual-output | grep -q 'not found'
-          desktop-file-validate "$HOME/.local/share/applications/monitorize.desktop"
-          desktop-file-validate "$HOME/.local/share/applications/monitorize-kde-virtual-output.desktop"
+          desktop-file-validate /root/.local/share/applications/monitorize.desktop
+          desktop-file-validate /root/.local/share/applications/monitorize-kde-virtual-output.desktop
           PYTHONPATH=linux linux/venv/bin/python3 - <<'PY'
           from PyQt6.QtCore import QUrl
           from PyQt6.QtGui import QGuiApplication
