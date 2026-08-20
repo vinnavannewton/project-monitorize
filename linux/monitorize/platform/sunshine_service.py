@@ -11,6 +11,7 @@ import shutil
 import signal
 import socket
 import subprocess
+import time
 import webbrowser
 
 PR_SET_PDEATHSIG = 1
@@ -157,23 +158,26 @@ def get_sunshine_candidates(instance: int = 1) -> list[list[str]]:
     candidates: list[list[str]] = []
     config_file = get_sunshine_config_path(instance)
 
-    
+    explicit_bin = os.environ.get("MONITORIZE_SUNSHINE_BIN", "").strip()
+    if explicit_bin and os.path.isfile(explicit_bin) and os.access(explicit_bin, os.X_OK):
+        candidates.append([explicit_bin, config_file])
+
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
     venv_sunshine = os.path.join(project_root, "linux", "venv", "bin", "sunshine")
     build_sunshine = os.path.join(project_root, "external", "sunshine", "build", "sunshine")
 
     for local_bin in (venv_sunshine, build_sunshine):
         if os.path.isfile(local_bin) and os.access(local_bin, os.X_OK):
-            candidates.append([local_bin, config_file])
+            cmd = [local_bin, config_file]
+            if cmd not in candidates:
+                candidates.append(cmd)
 
-    
     sunshine_bin = shutil.which("sunshine")
     if sunshine_bin:
         cmd = [sunshine_bin, config_file]
         if cmd not in candidates:
             candidates.append(cmd)
 
-    
     for common_path in (
         "/usr/bin/sunshine",
         "/usr/local/bin/sunshine",
@@ -188,6 +192,28 @@ def get_sunshine_candidates(instance: int = 1) -> list[list[str]]:
                 candidates.append(cmd)
 
     return candidates
+
+
+def get_sunshine_assets_dir(command: str = "") -> str | None:
+    """Resolve assets for the packaged, installed, or development Sunshine binary."""
+    explicit_assets = os.environ.get("MONITORIZE_SUNSHINE_ASSETS_DIR", "").strip()
+    if explicit_assets and os.path.isdir(explicit_assets):
+        return explicit_assets
+
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+    venv_bin = os.path.join(project_root, "linux", "venv", "bin", "sunshine")
+    venv_assets = os.path.join(project_root, "linux", "venv", "share", "monitorize", "sunshine", "assets")
+    build_bin = os.path.join(project_root, "external", "sunshine", "build", "sunshine")
+    build_assets = os.path.join(project_root, "external", "sunshine", "build", "assets")
+
+    ordered = ((venv_bin, venv_assets), (build_bin, build_assets))
+    for binary, assets in ordered:
+        if command == binary and os.path.isdir(assets):
+            return assets
+    for _, assets in ordered:
+        if os.path.isdir(assets):
+            return assets
+    return None
 
 
 def find_sunshine_command(instance: int = 1) -> list[str] | None:
@@ -406,10 +432,14 @@ def start_sunshine(
 
     errors = []
     for cmd in candidates:
+        candidate_env = dict(env)
+        assets_dir = get_sunshine_assets_dir(cmd[0])
+        if assets_dir:
+            candidate_env["SUNSHINE_ASSETS_DIR"] = assets_dir
         try:
             proc = subprocess.Popen(
                 cmd,
-                env=env,
+                env=candidate_env,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 preexec_fn=_set_pdeathsig,
@@ -417,6 +447,16 @@ def start_sunshine(
             _SUNSHINE_PROCESSES[instance] = proc
             if instance == 1:
                 _SUNSHINE_PROCESS = proc
+            time.sleep(0.35)
+            exit_code = proc.poll()
+            if exit_code is not None:
+                _SUNSHINE_PROCESSES.pop(instance, None)
+                if instance == 1:
+                    _SUNSHINE_PROCESS = None
+                detail = get_sunshine_last_error(instance)
+                suffix = f": {detail}" if detail else ""
+                errors.append(f"{cmd[0]} exited with code {exit_code}{suffix}")
+                continue
             return True, f"Launched isolated Sunshine instance {instance} ({cmd[0]})."
         except (FileNotFoundError, OSError) as exc:
             errors.append(f"{cmd[0]}: {exc}")
@@ -1195,6 +1235,3 @@ def save_sunshine_config(new_config: dict[str, str], instance: int = 1) -> tuple
         restart_sunshine(instance)
 
     return True, f"Sunshine instance {instance} settings saved and applied successfully."
-
-
-

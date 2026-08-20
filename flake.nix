@@ -2,6 +2,7 @@
   description = "Monitorize – turn your Android / Linux laptop into a secondary monitor for your Linux desktop";
 
   inputs = {
+    self.submodules = true;
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
   };
@@ -13,7 +14,7 @@
         monitorize = final.callPackage ./nix/package.nix { };
       };
     in
-    flake-utils.lib.eachDefaultSystem (system:
+    flake-utils.lib.eachSystem [ "x86_64-linux" "aarch64-linux" ] (system:
       let
         pkgs = import nixpkgs {
           inherit system;
@@ -52,7 +53,7 @@
             openFirewall = lib.mkOption {
               type = lib.types.bool;
               default = true;
-              description = "Whether to automatically open required firewall ports for Monitorize streaming and input.";
+              description = "Whether to open the two embedded Sunshine port ranges and mDNS.";
             };
           };
 
@@ -75,11 +76,10 @@
             '';
 
             networking.firewall = lib.mkIf cfg.openFirewall {
-              allowedTCPPorts = [ 7110 7114 47989 47990 48989 49089 49090 ];
-              allowedUDPPorts = [ 5353 7113 7117 ];
+              allowedTCPPorts = [ 47984 47989 47990 48010 49084 49089 49090 49110 ];
+              allowedUDPPorts = [ 5353 ];
               allowedUDPPortRanges = [
                 { from = 47998; to = 48010; }
-                { from = 48998; to = 49010; }
                 { from = 49098; to = 49110; }
               ];
             };

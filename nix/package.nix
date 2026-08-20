@@ -15,10 +15,69 @@
 , bash
 , pkg-config
 , wayland
+, stdenv
+, sunshine
+, buildNpmPackage
+, importNpmLock
+, fetchurl
+, runCommand
+, gnutar
+, gzip
 }:
 
 let
   python = python3Packages.python;
+  sunshineSource = lib.cleanSource ../external/sunshine;
+  sunshineVersion = "0-unstable-2026-08-19";
+  ffmpegArch = {
+    x86_64-linux = "Linux-x86_64";
+    aarch64-linux = "Linux-aarch64";
+  }.${stdenv.hostPlatform.system};
+  ffmpegArchive = fetchurl {
+    url = "https://github.com/LizardByte/build-deps/releases/download/v2026.724.203728/${ffmpegArch}-ffmpeg.tar.gz";
+    hash = {
+      x86_64-linux = "sha256-LCfUaUtO0Oc09JfUvWLxs2Ysu8Te0qafLcS3A0Qe67M=";
+      aarch64-linux = "sha256-/WSS9V15rheNuX5I1jlbTKwqLhCy8Vew1ANVz9fBYOg=";
+    }.${stdenv.hostPlatform.system};
+  };
+  ffmpegPrepared = runCommand "monitorize-sunshine-ffmpeg" {
+    nativeBuildInputs = [ gnutar gzip ];
+  } ''
+    mkdir -p "$out"
+    tar -xzf ${ffmpegArchive} -C "$out" --strip-components=1
+  '';
+  sunshineUi = buildNpmPackage {
+    pname = "monitorize-sunshine-ui";
+    version = sunshineVersion;
+    src = sunshineSource;
+    npmDeps = importNpmLock { npmRoot = sunshineSource; };
+    npmConfigHook = importNpmLock.npmConfigHook;
+    installPhase = ''
+      runHook preInstall
+      mkdir -p "$out"
+      cp -r build "$out/build"
+      runHook postInstall
+    '';
+  };
+  monitorizeSunshine = sunshine.overrideAttrs (finalAttrs: previousAttrs: {
+    pname = "monitorize-sunshine";
+    version = sunshineVersion;
+    src = sunshineSource;
+    ui = sunshineUi;
+    cmakeFlags = builtins.filter
+      (flag: !(lib.hasPrefix "-DFFMPEG_PREPARED_BINARIES=" flag))
+      previousAttrs.cmakeFlags ++ [
+        (lib.cmakeFeature "FFMPEG_PREPARED_BINARIES" "${ffmpegPrepared}")
+        (lib.cmakeBool "SUNSHINE_ENABLE_TRAY" false)
+        (lib.cmakeBool "BUILD_TESTS" false)
+        (lib.cmakeBool "BUILD_DOCS" false)
+      ];
+    env = previousAttrs.env // {
+      BUILD_VERSION = finalAttrs.version;
+      BRANCH = "monitorize";
+      COMMIT = "569480fb749411432261cc0fd617d385ddefd468";
+    };
+  });
 in
 python3Packages.buildPythonApplication rec {
   pname = "monitorize";
@@ -58,6 +117,7 @@ python3Packages.buildPythonApplication rec {
     python3Packages.zeroconf
     python3Packages.evdev
     python3Packages.cryptography
+    python3Packages.pycairo
     # GStreamer runtime
     gst_all_1.gstreamer
     gst_all_1.gst-plugins-base
@@ -149,7 +209,10 @@ python3Packages.buildPythonApplication rec {
         xdg-desktop-portal-hyprland
         xdg-desktop-portal-gtk
         pipewire
+        monitorizeSunshine
       ]}" \
+      --set MONITORIZE_SUNSHINE_BIN "${monitorizeSunshine}/bin/sunshine" \
+      --set MONITORIZE_SUNSHINE_ASSETS_DIR "${monitorizeSunshine}/assets" \
       --prefix GST_PLUGIN_SYSTEM_PATH_1_0 : "${lib.makeSearchPathOutput "lib" "lib/gstreamer-1.0" [
         gst_all_1.gstreamer
         gst_all_1.gst-plugins-base

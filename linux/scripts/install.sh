@@ -29,6 +29,13 @@ HELPER_DESKTOP_FILE="${APP_ID}-kde-virtual-output.desktop"
 RTP_SENDER_NAME="monitorize-rtp-sender"
 RTP_SENDER_BUILD="${PROJECT_DIR}/native/rtp_sender/build.sh"
 RTP_SENDER_PATH="${VENV_DIR}/bin/${RTP_SENDER_NAME}"
+REPOSITORY_DIR="$(cd "${PROJECT_DIR}/.." && pwd)"
+SUNSHINE_SUBMODULE_DIR="${REPOSITORY_DIR}/external/sunshine"
+SUNSHINE_BUILD_DIR="${SUNSHINE_SUBMODULE_DIR}/build"
+SUNSHINE_BUILD_BIN="${SUNSHINE_BUILD_DIR}/sunshine"
+SUNSHINE_BUILD_ASSETS="${SUNSHINE_BUILD_DIR}/assets"
+SUNSHINE_VENV_BIN="${VENV_DIR}/bin/sunshine"
+SUNSHINE_VENV_ASSETS="${VENV_DIR}/share/monitorize/sunshine/assets"
 
 # XDG standard locations
 DESKTOP_DIR="${HOME}/.local/share/applications"
@@ -47,17 +54,61 @@ desktop_quote() {
     printf '"%s"' "${value}"
 }
 
+version_at_least() {
+    [[ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | head -n1)" == "$2" ]]
+}
+
+require_command() {
+    if ! command -v "$1" &>/dev/null; then
+        echo "Error: '$1' is required. Install the dependencies listed in the project wiki and try again." >&2
+        exit 1
+    fi
+}
+
+select_sunshine_compiler() {
+    local cc_cxx cc cxx version
+    for cc_cxx in "gcc-14:g++-14" "gcc:g++" "clang:clang++"; do
+        cc="${cc_cxx%%:*}"
+        cxx="${cc_cxx##*:}"
+        command -v "${cc}" &>/dev/null && command -v "${cxx}" &>/dev/null || continue
+        version="$("${cxx}" -dumpfullversion -dumpversion 2>/dev/null || "${cxx}" --version | head -n1 | grep -oE '[0-9]+' | head -n1)"
+        [[ -n "${version}" ]] || continue
+        if [[ "${cc}" == clang* ]]; then
+            version_at_least "${version}" "17" || continue
+        else
+            version_at_least "${version}" "14" || continue
+        fi
+        SUNSHINE_CC="$(command -v "${cc}")"
+        SUNSHINE_CXX="$(command -v "${cxx}")"
+        return 0
+    done
+    echo "Error: Sunshine requires GCC 14+ or Clang 17+. Install a supported compiler and try again." >&2
+    exit 1
+}
+
+configure_build_jobs() {
+    local detected
+    detected="$(nproc 2>/dev/null || echo 1)"
+    if [[ -n "${MONITORIZE_BUILD_JOBS:-}" ]]; then
+        if [[ ! "${MONITORIZE_BUILD_JOBS}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "Error: MONITORIZE_BUILD_JOBS must be a positive integer." >&2
+            exit 1
+        fi
+        BUILD_JOBS="${MONITORIZE_BUILD_JOBS}"
+    elif (( detected > 4 )); then
+        BUILD_JOBS=4
+    else
+        BUILD_JOBS="${detected}"
+    fi
+}
+
 # ── Uninstall ────────────────────────────────────────────────────────
 if [[ "${1:-}" == "remove" || "${1:-}" == "uninstall" ]]; then
     echo "Removing ${APP_NAME} desktop entry…"
     rm -f "${DESKTOP_DIR}/${DESKTOP_FILE}"
     rm -f "${DESKTOP_DIR}/${HELPER_DESKTOP_FILE}"
-    rm -f "${DESKTOP_DIR}/dev.lizardbyte.app.Sunshine*.desktop"
     rm -f "${ICON_DEST}"
     remove_legacy_udp_entries
-    if command -v sudo &>/dev/null; then
-        sudo rm -f /usr/local/share/applications/dev.lizardbyte.app.Sunshine*.desktop 2>/dev/null || true
-    fi
     rm -rf "${PROJECT_DIR}/venv"
     find "${PROJECT_DIR}" -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
     # Refresh desktop database if available
@@ -85,11 +136,42 @@ if [[ ! -d "${PROJECT_DIR}/monitorize" ]]; then
     exit 1
 fi
 
-# Check for python3
-if ! command -v python3 &>/dev/null; then
-    echo "Error: python3 is not installed." >&2
+require_command python3
+require_command git
+require_command cmake
+require_command node
+require_command npm
+
+PYTHON_VERSION="$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:3])))')"
+if ! version_at_least "${PYTHON_VERSION}" "3.11"; then
+    echo "Error: Python 3.11+ is required; found ${PYTHON_VERSION}." >&2
     exit 1
 fi
+
+CMAKE_VERSION="$(cmake --version | head -n1 | awk '{print $3}')"
+if ! version_at_least "${CMAKE_VERSION}" "3.26"; then
+    echo "Error: CMake newer than 3.25 is required; found ${CMAKE_VERSION}." >&2
+    exit 1
+fi
+
+select_sunshine_compiler
+configure_build_jobs
+
+if [[ -d "${REPOSITORY_DIR}/.git" ]]; then
+    echo "Initializing the bundled Sunshine submodule…"
+    if ! git -C "${REPOSITORY_DIR}" submodule update --init --recursive external/sunshine; then
+        echo "Error: Sunshine submodule initialization failed. Fix the Git error above and retry." >&2
+        exit 1
+    fi
+fi
+
+for required_path in CMakeLists.txt package.json package-lock.json third-party/moonlight-common-c/CMakeLists.txt; do
+    if [[ ! -e "${SUNSHINE_SUBMODULE_DIR}/${required_path}" ]]; then
+        echo "Error: Sunshine submodule is incomplete (missing ${required_path})." >&2
+        echo "Run: git submodule update --init --recursive" >&2
+        exit 1
+    fi
+done
 
 # ── Setup Virtual Environment ────────────────────────────────────────
 echo "Setting up Python virtual environment at ${VENV_DIR}…"
@@ -138,83 +220,51 @@ if ! "${RTP_SENDER_BUILD}" "${RTP_SENDER_PATH}"; then
 fi
 echo "✓ Deterministic RTP sender installed to ${RTP_SENDER_PATH}"
 
-# ── Setup Isolated Sunshine Submodule & Profile ──────────────────────
-SUNSHINE_SUBMODULE_DIR="${PROJECT_DIR}/../external/sunshine"
-SUNSHINE_BUILD_BIN="${SUNSHINE_SUBMODULE_DIR}/build/sunshine"
-SUNSHINE_VENV_BIN="${VENV_DIR}/bin/sunshine"
-
-if [[ -f "${SUNSHINE_BUILD_BIN}" ]]; then
-    echo "Installing bundled Sunshine binary to ${SUNSHINE_VENV_BIN}…"
-    cp -f "${SUNSHINE_BUILD_BIN}" "${SUNSHINE_VENV_BIN}"
-    chmod +x "${SUNSHINE_VENV_BIN}"
-    echo "✓ Bundled Sunshine binary installed to ${SUNSHINE_VENV_BIN}"
-    echo "Installing Sunshine assets to /usr/local/assets…"
-    if command -v sudo &>/dev/null; then
-        sudo cmake --install "${SUNSHINE_SUBMODULE_DIR}/build"
-        # Sunshine is an embedded headless backend for Monitorize. Remove standalone desktop launchers so it never pollutes the application menu.
-        sudo rm -f /usr/local/share/applications/dev.lizardbyte.app.Sunshine*.desktop 2>/dev/null || true
-        if command -v update-desktop-database &>/dev/null; then
-            sudo update-desktop-database /usr/local/share/applications 2>/dev/null || true
-        fi
-    else
-        cmake --install "${SUNSHINE_SUBMODULE_DIR}/build"
-        rm -f /usr/local/share/applications/dev.lizardbyte.app.Sunshine*.desktop 2>/dev/null || true
-    fi
-    echo "✓ Sunshine assets installed"
-else
-    # Auto-initialize submodule if folder is empty or not checked out
-    if [[ ! -f "${SUNSHINE_SUBMODULE_DIR}/CMakeLists.txt" ]] && command -v git &>/dev/null && [[ -d "${PROJECT_DIR}/../.git" ]]; then
-        NPROC="$(nproc 2>/dev/null || echo 4)"
-        echo "Fetching Sunshine submodule in parallel (${NPROC} jobs, shallow)…"
-        git -C "${PROJECT_DIR}/.." submodule update --init --recursive --depth 1 --jobs "${NPROC}" external/sunshine 2>/dev/null || true
-    fi
-
-    if [[ -f "${SUNSHINE_SUBMODULE_DIR}/CMakeLists.txt" ]]; then
-        if command -v cmake &>/dev/null; then
-            NPROC="$(nproc 2>/dev/null || echo 2)"
-            echo "Building isolated Sunshine from submodule at ${SUNSHINE_SUBMODULE_DIR} (-j${NPROC})…"
-            CMAKE_EXTRA_FLAGS=()
-            if ! command -v glslc &>/dev/null && ! command -v glslangValidator &>/dev/null; then
-                CMAKE_EXTRA_FLAGS+=("-DSUNSHINE_ENABLE_VULKAN=OFF")
-            fi
-
-            mkdir -p "${SUNSHINE_SUBMODULE_DIR}/build"
-            if cmake -B "${SUNSHINE_SUBMODULE_DIR}/build" -S "${SUNSHINE_SUBMODULE_DIR}" \
-                     -DCMAKE_BUILD_TYPE=Release -DSUNSHINE_ENABLE_TRAY=OFF -DBUILD_TESTS=OFF -DBUILD_DOCS=OFF \
-                     -DCUDA_FAIL_ON_MISSING=OFF \
-                     -DPython_EXECUTABLE="${VENV_DIR}/bin/python3" -DGLAD_SKIP_PIP_INSTALL=ON \
-                     "${CMAKE_EXTRA_FLAGS[@]}" && \
-               cmake --build "${SUNSHINE_SUBMODULE_DIR}/build" -j"${NPROC}"; then
-                cp -f "${SUNSHINE_BUILD_BIN}" "${SUNSHINE_VENV_BIN}"
-                chmod +x "${SUNSHINE_VENV_BIN}"
-                echo "✓ Isolated Sunshine compiled and installed to ${SUNSHINE_VENV_BIN}"
-                echo "Installing Sunshine assets to /usr/local/assets…"
-                if command -v sudo &>/dev/null; then
-                    sudo cmake --install "${SUNSHINE_SUBMODULE_DIR}/build"
-                    sudo rm -f /usr/local/share/applications/dev.lizardbyte.app.Sunshine*.desktop 2>/dev/null || true
-                    if command -v update-desktop-database &>/dev/null; then
-                        sudo update-desktop-database /usr/local/share/applications 2>/dev/null || true
-                    fi
-                else
-                    cmake --install "${SUNSHINE_SUBMODULE_DIR}/build"
-                    rm -f /usr/local/share/applications/dev.lizardbyte.app.Sunshine*.desktop 2>/dev/null || true
-                fi
-                echo "✓ Sunshine assets installed"
-            else
-                echo "Note: Sunshine submodule compilation failed. To install missing build dependencies, run:"
-                if command -v dnf &>/dev/null; then
-                    echo "  sudo dnf install -y --skip-unavailable openssl-devel opus-devel pipewire-devel glib2-devel wayland-protocols-devel mesa-libgbm-devel libdrm-devel libva-devel libvdpau-devel pulseaudio-libs-devel libcap-devel libevdev-devel libcurl-devel miniupnpc-devel boost-devel numactl-devel glslang libX11-devel libXfixes-devel libXrandr-devel libXtst-devel libXi-devel"
-                elif command -v apt-get &>/dev/null; then
-                    echo "  sudo apt install -y libssl-dev libopus-dev libpipewire-0.3-dev libglib2.0-dev libwayland-dev wayland-protocols libgbm-dev libdrm-dev libva-dev libvdpau-dev libpulse-dev libcap-dev libevdev-dev libcurl4-openssl-dev libminiupnpc-dev libboost-all-dev libnuma-dev glslang-tools libx11-dev libxfixes-dev libxrandr-dev libxtst-dev libxi-dev"
-                elif command -v pacman &>/dev/null; then
-                    echo "  sudo pacman -S --needed base-devel openssl opus pipewire glib2 wayland wayland-protocols mesa libdrm libva libvdpau libpulse libcap libevdev curl miniupnpc boost numactl glslang libx11 libxfixes libxrandr libxtst libxi"
-                fi
-            fi
-        else
-            echo "Note: 'cmake' was not found. Install cmake and build tools to compile the bundled Sunshine submodule."
-        fi
-    fi
+# ── Build and install the project-local Sunshine backend ─────────────
+echo "Building bundled Sunshine with ${SUNSHINE_CXX} (-j${BUILD_JOBS})…"
+CMAKE_EXTRA_FLAGS=()
+if ! command -v glslc &>/dev/null && ! command -v glslangValidator &>/dev/null; then
+    CMAKE_EXTRA_FLAGS+=("-DSUNSHINE_ENABLE_VULKAN=OFF")
+    echo "Warning: Vulkan shader tools were not found; building Sunshine without Vulkan encoding." >&2
 fi
+
+mkdir -p "${SUNSHINE_BUILD_DIR}"
+if ! cmake -B "${SUNSHINE_BUILD_DIR}" -S "${SUNSHINE_SUBMODULE_DIR}" \
+         -DCMAKE_BUILD_TYPE=Release \
+         -DCMAKE_C_COMPILER="${SUNSHINE_CC}" \
+         -DCMAKE_CXX_COMPILER="${SUNSHINE_CXX}" \
+         -DSUNSHINE_ENABLE_TRAY=OFF -DBUILD_TESTS=OFF -DBUILD_DOCS=OFF \
+         -DCUDA_FAIL_ON_MISSING=OFF \
+         -DPython_EXECUTABLE="${VENV_DIR}/bin/python3" -DGLAD_SKIP_PIP_INSTALL=ON \
+         "${CMAKE_EXTRA_FLAGS[@]}"; then
+    echo "Error: Sunshine configuration failed. Check the missing dependency above and retry." >&2
+    exit 1
+fi
+if ! cmake --build "${SUNSHINE_BUILD_DIR}" -j"${BUILD_JOBS}"; then
+    echo "Error: Sunshine compilation failed. Check the compiler output above and retry." >&2
+    exit 1
+fi
+if [[ ! -x "${SUNSHINE_BUILD_BIN}" || ! -d "${SUNSHINE_BUILD_ASSETS}/web" ]]; then
+    echo "Error: Sunshine build completed without the required binary or web assets." >&2
+    exit 1
+fi
+
+install -m 0755 "${SUNSHINE_BUILD_BIN}" "${SUNSHINE_VENV_BIN}"
+rm -rf "${SUNSHINE_VENV_ASSETS}"
+mkdir -p "${SUNSHINE_VENV_ASSETS}"
+cp -aL "${SUNSHINE_BUILD_ASSETS}/." "${SUNSHINE_VENV_ASSETS}/"
+echo "✓ Bundled Sunshine installed inside ${VENV_DIR}"
+
+normalize_sunshine_config() {
+    local config_path="$1"
+    sed -i \
+        -e '/^[[:space:]]*origin_pin_allowed[[:space:]]*=/d' \
+        -e 's/^[[:space:]]*origin_web_ui_allowed[[:space:]]*=.*/origin_web_ui_allowed = lan/' \
+        "${config_path}"
+    if ! grep -q '^[[:space:]]*origin_web_ui_allowed[[:space:]]*=' "${config_path}"; then
+        printf '\norigin_web_ui_allowed = lan\n' >> "${config_path}"
+    fi
+}
 
 # Hostname for advertised Sunshine device entries (Option A)
 HOST_NAME="$(hostname 2>/dev/null | cut -d. -f1 || echo "Monitorize")"
@@ -232,11 +282,12 @@ if [[ ! -f "${SUNSHINE_CONF_1}" ]]; then
 sunshine_name = ${HOST_NAME} Monitor 1
 port = 47989
 system_tray = disabled
-origin_pin_allowed = pc,lan,wan
+origin_web_ui_allowed = lan
 encoder = 
 EOF
     echo "✓ Isolated Sunshine profile 1 (${HOST_NAME} Monitor 1) initialized at ${SUNSHINE_PROFILE_DIR_1}"
 fi
+normalize_sunshine_config "${SUNSHINE_CONF_1}"
 SUNSHINE_APPS_1="${SUNSHINE_PROFILE_DIR_1}/apps.json"
 if [[ ! -f "${SUNSHINE_APPS_1}" ]]; then
     cat > "${SUNSHINE_APPS_1}" <<EOF
@@ -264,11 +315,12 @@ if [[ ! -f "${SUNSHINE_CONF_2}" ]]; then
 sunshine_name = ${HOST_NAME} Monitor 2
 port = 49089
 system_tray = disabled
-origin_pin_allowed = pc,lan,wan
+origin_web_ui_allowed = lan
 encoder = 
 EOF
     echo "✓ Isolated Sunshine profile 2 (${HOST_NAME} Monitor 2) initialized at ${SUNSHINE_PROFILE_DIR_2}"
 fi
+normalize_sunshine_config "${SUNSHINE_CONF_2}"
 SUNSHINE_APPS_2="${SUNSHINE_PROFILE_DIR_2}/apps.json"
 if [[ ! -f "${SUNSHINE_APPS_2}" ]]; then
     cat > "${SUNSHINE_APPS_2}" <<EOF
@@ -344,12 +396,39 @@ if command -v gtk-update-icon-cache &>/dev/null; then
     echo "✓ Icon cache updated"
 fi
 
+# ── Post-install validation ──────────────────────────────────────────
+if ! "${VENV_DIR}/bin/python3" -c 'import PyQt6, cryptography, dbus, evdev, gi, jinja2, zeroconf'; then
+    echo "Error: An installed Python dependency could not be imported." >&2
+    echo "Install the distro packages listed in the wiki, then rerun this installer." >&2
+    exit 1
+fi
+for required_path in \
+    "${SUNSHINE_VENV_BIN}" \
+    "${SUNSHINE_VENV_ASSETS}/web/index.html" \
+    "${SUNSHINE_CONF_1}" \
+    "${SUNSHINE_CONF_2}" \
+    "${DESKTOP_DIR}/${DESKTOP_FILE}"; do
+    if [[ ! -e "${required_path}" ]]; then
+        echo "Error: Post-install validation failed; missing ${required_path}." >&2
+        exit 1
+    fi
+done
+echo "✓ Python, Sunshine, assets, profiles, and desktop entry validated"
+
+if [[ ! -e /dev/uinput || ! -r /dev/uinput || ! -w /dev/uinput ]]; then
+    echo "Warning: /dev/uinput is not accessible to this user." >&2
+    echo "Streaming will work, but touch/input needs the monitorize-input setup from the wiki and a new login session." >&2
+fi
+
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  ${APP_NAME} has been installed!"
 echo "  It should now appear in your application menu."
 echo ""
 echo "  KDE native virtual-display support is installed and authorized."
+echo ""
+echo "  Keep this source folder at: ${REPOSITORY_DIR}"
+echo "  Moving or deleting it will break the installed launcher."
 echo ""
 echo "  To uninstall:  ./install.sh remove"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
