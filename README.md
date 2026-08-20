@@ -14,17 +14,15 @@ Receiving is handled by the standard [Moonlight](https://moonlight-stream.org/) 
 - Stream up to two virtual displays to any Moonlight-compatible device.
 
 - All Sunshine features such as encoder, codec, audio, touch, and stylus configuration.
-- KDE, GNOME, and Hyprland virtual-display lifecycle management.
-- Saved Sunshine display presets.
-- Project-local Sunshine installation without modifying `/usr/local`.
+- KDE, GNOME, and Hyprland native virtual monitors.
+
+- Doesn't interfere with existing user's sunshine.
 
 ## Supported desktops
 
 - KDE Plasma 6.7+
 - GNOME 50+
-- Supported Hyprland releases
-
-The dependency flow supports Ubuntu 24.04 and Debian 13, but their default desktop versions may be older than the versions above.
+- Supported Hyprland releases.
 
 ## Installation
 
@@ -49,21 +47,13 @@ Keep the clone in place after installing. The desktop entry and bundled Sunshine
 
 ## Usage
 
-1. Open Monitorize and choose **Create a Virtual Display**.
-2. Select resolution, refresh rate, Extend or Mirror, and Sunshine options.
-3. Start the display.
-4. Open Moonlight on the receiving device and select the advertised host.
+1. Open Monitorize and click **Create a Virtual Display**.
+2. Select resolution, refresh rate, and Extend to create virtual monitor or Mirror to just mirror primary monitor.
+3. By default choose auto in encoder and codec unless it doesn't work then manually select based on your hardware compatibility then click start.
+4. Open Moonlight on the receiving device and select the advertised host if not found add manaully using the ip shown in monitorize app.
 5. Enter Moonlight's four-digit PIN in Monitorize when pairing.
+6. When setting up two moonlight devices to use as lets say second and third monitor , as usual create the first virtual monitor, then click add display option to create second virtual monitor and start it, most of the time the second virtual monitor wont show in moonlight, in that case add it manually in moonlight using the ip along with respective port of that virtual monitor shown in the monitorize app. 
 
-Sunshine instance 1 uses base port `47989`. An optional second display uses base port `49089`.
 
-## Development checks
-
-```bash
-cd linux
-./venv/bin/python3 -m unittest discover -s tests
-./venv/bin/python3 -m compileall monitorize tests
-bash -n scripts/install.sh
-```
 
 Monitorize is licensed under GPL-3.0-only.
