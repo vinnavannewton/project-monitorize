@@ -35,6 +35,12 @@ class SunshineOnlyPackagingTest(unittest.TestCase):
         for legacy in ("USB Mode", "Receiver Mode", 'model: ["Monitorize", "Sunshine"]'):
             self.assertNotIn(legacy, qml)
 
+    def test_successful_pairing_closes_the_pin_popup(self):
+        qml = (ROOT / "linux/monitorize/qml/StreamingPage.qml").read_text()
+        self.assertIn("interval: 2000", qml)
+        self.assertIn('if (result["success"]) pinSuccessCloseTimer.restart()', qml)
+        self.assertIn("onTriggered: pinPopup.close()", qml)
+
     def test_retired_runtime_modules_are_absent(self):
         package = ROOT / "linux/monitorize"
         retired = (

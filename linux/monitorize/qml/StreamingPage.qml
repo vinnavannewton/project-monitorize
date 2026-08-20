@@ -173,6 +173,12 @@ Item {
         width: 380
         padding: 22
         background: Rectangle { color: theme.surface; border.color: theme.border; radius: theme.cardRadius }
+        onClosed: pinSuccessCloseTimer.stop()
+        Timer {
+            id: pinSuccessCloseTimer
+            interval: 2000
+            onTriggered: pinPopup.close()
+        }
         ColumnLayout {
             width: parent.width
             spacing: 12
@@ -197,6 +203,7 @@ Item {
                         let result = backend.pairMoonlightPin(pinField.text)
                         pinMessage.text = result["message"]
                         pinMessage.color = result["success"] ? "#86efac" : "#fca5a5"
+                        if (result["success"]) pinSuccessCloseTimer.restart()
                     }
                 }
             }
