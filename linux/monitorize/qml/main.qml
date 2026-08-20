@@ -8,18 +8,14 @@ Rectangle {
     height: 580
     property bool settingsLoading: true
     property bool settingsMinimizeToTray: false
-    property bool settingsEnableTouch: true
-    property bool settingsEnableStylusFeatures: false
     property bool settingsAutostartEnabled: false
     property string settingsError: ""
-    readonly property bool showGlobalBack: stack.depth > 1 && !backend.isStreaming && !backend.isReceiving
+    readonly property bool showGlobalBack: stack.depth > 1 && !backend.isStreaming
 
     function loadAppSettings() {
         settingsLoading = true
         let gen = backend.loadGeneralSettings()
         settingsMinimizeToTray = gen["minimize_to_tray"] !== undefined ? gen["minimize_to_tray"] : false
-        settingsEnableTouch = gen["enable_touch"] !== undefined ? gen["enable_touch"] : true
-        settingsEnableStylusFeatures = gen["enable_stylus_features"] !== undefined ? gen["enable_stylus_features"] : false
         settingsAutostartEnabled = backend.isAutostartEnabled()
         minimizeTrayCheck.checked = settingsMinimizeToTray
         autostartCheck.checked = settingsAutostartEnabled
@@ -30,11 +26,7 @@ Rectangle {
     function saveAppSettings() {
         if (settingsLoading) return
         settingsMinimizeToTray = minimizeTrayCheck.checked
-        backend.saveGeneralSettings(
-            settingsMinimizeToTray,
-            settingsEnableTouch,
-            settingsEnableStylusFeatures
-        )
+        backend.saveGeneralSettings(settingsMinimizeToTray)
     }
 
     function saveAutostartSettings() {
@@ -148,7 +140,7 @@ Rectangle {
         z: 2
         width: 36
         height: 36
-        visible: !backend.isReceiving
+        visible: true
         onClicked: {
             root.loadAppSettings()
             settingsPopup.open()

@@ -41,28 +41,7 @@ coverage.xml
 *.cover
 
 # ==============================
-#  Android / Gradle
-# ==============================
-.gradle/
-**/build/
-local.properties
-captures/
-.externalNativeBuild/
-.cxx/
-
-# Signing
-*.jks
-*.keystore
-
-# APK / AAB outputs
-*.apk
-*.aab
-
-# Proguard mapping (generated, can be huge)
-**/mapping/
-
-# ==============================
-#  IntelliJ / Android Studio / PyCharm
+#  IntelliJ / PyCharm
 # ==============================
 .idea/
 *.iml

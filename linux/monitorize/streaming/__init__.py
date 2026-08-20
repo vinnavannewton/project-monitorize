@@ -1,1 +1,1 @@
-"""PipeWire, portal, and GStreamer streaming helpers."""
+"""Virtual-display holder used by the Sunshine session controller."""

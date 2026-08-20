@@ -26,9 +26,6 @@ HELPER_NAME="monitorize-kde-virtual-output"
 HELPER_BUILD="${PROJECT_DIR}/native/kde_virtual_output/build.sh"
 HELPER_PATH="${VENV_DIR}/bin/${HELPER_NAME}"
 HELPER_DESKTOP_FILE="${APP_ID}-kde-virtual-output.desktop"
-RTP_SENDER_NAME="monitorize-rtp-sender"
-RTP_SENDER_BUILD="${PROJECT_DIR}/native/rtp_sender/build.sh"
-RTP_SENDER_PATH="${VENV_DIR}/bin/${RTP_SENDER_NAME}"
 REPOSITORY_DIR="$(cd "${PROJECT_DIR}/.." && pwd)"
 SUNSHINE_SUBMODULE_DIR="${REPOSITORY_DIR}/external/sunshine"
 SUNSHINE_BUILD_DIR="${SUNSHINE_SUBMODULE_DIR}/build"
@@ -213,13 +210,6 @@ if ! "${HELPER_BUILD}" "${HELPER_PATH}"; then
 fi
 echo "✓ KDE virtual-output helper installed to ${HELPER_PATH}"
 
-if ! "${RTP_SENDER_BUILD}" "${RTP_SENDER_PATH}"; then
-    echo "Error: Could not build the deterministic RTP sender." >&2
-    echo "Install a C compiler (gcc or clang) and re-run the installer." >&2
-    exit 1
-fi
-echo "✓ Deterministic RTP sender installed to ${RTP_SENDER_PATH}"
-
 # ── Build and install the project-local Sunshine backend ─────────────
 echo "Building bundled Sunshine with ${SUNSHINE_CXX} (-j${BUILD_JOBS})…"
 CMAKE_EXTRA_FLAGS=()
@@ -352,12 +342,12 @@ cat > "${DESKTOP_DIR}/${DESKTOP_FILE}" <<EOF
 [Desktop Entry]
 Type=Application
 Name=${APP_NAME}
-Comment=Linux to Android Display Bridge — extend or mirror your desktop to a tablet
+Comment=Create Sunshine virtual displays for Moonlight clients
 Exec=${EXEC_PY} -m monitorize
 Icon=${APP_ID}
 Terminal=false
 Categories=Utility;System;
-Keywords=monitor;display;tablet;android;screen;extend;mirror;streaming;
+Keywords=monitor;display;moonlight;sunshine;screen;extend;mirror;streaming;
 StartupNotify=true
 Path=${PROJECT_DIR}
 EOF
@@ -397,7 +387,7 @@ if command -v gtk-update-icon-cache &>/dev/null; then
 fi
 
 # ── Post-install validation ──────────────────────────────────────────
-if ! "${VENV_DIR}/bin/python3" -c 'import PyQt6, cryptography, dbus, evdev, gi, jinja2, zeroconf'; then
+if ! "${VENV_DIR}/bin/python3" -c 'import PyQt6, dbus, gi'; then
     echo "Error: An installed Python dependency could not be imported." >&2
     echo "Install the distro packages listed in the wiki, then rerun this installer." >&2
     exit 1

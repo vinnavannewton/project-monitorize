@@ -1,11 +1,11 @@
 [Desktop Entry]
 Type=Application
 Name=Monitorize
-Comment=Linux to Android display bridge
+Comment=Create Sunshine virtual displays for Moonlight clients
 Exec=monitorize
 Icon=monitorize
 Terminal=false
 Categories=Utility;
-Keywords=monitor;display;tablet;android;screen;extend;mirror;streaming;
+Keywords=monitor;display;moonlight;sunshine;screen;extend;mirror;streaming;
 StartupNotify=true
 StartupWMClass=monitorize

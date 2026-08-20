@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <service>
   <short>Monitorize</short>
-  <description>Stream Monitorize displays and receive touch or stylus input over the local network.</description>
+  <description>Sunshine virtual displays for Moonlight clients.</description>
   <include service="mdns"/>
-  <port protocol="tcp" port="7110"/>
-  <port protocol="udp" port="7110"/>
-  <port protocol="tcp" port="7114"/>
-  <port protocol="udp" port="7114"/>
-  <port protocol="udp" port="7113"/>
-  <port protocol="udp" port="7117"/>
-  <port protocol="tcp" port="7120"/>
-  <port protocol="udp" port="7120"/>
-  <port protocol="tcp" port="7121"/>
-  <port protocol="udp" port="7121"/>
+  <port protocol="tcp" port="47984"/>
+  <port protocol="tcp" port="47989"/>
+  <port protocol="tcp" port="47990"/>
+  <port protocol="tcp" port="48010"/>
+  <port protocol="udp" port="47998-48010"/>
+  <port protocol="tcp" port="49084"/>
+  <port protocol="tcp" port="49089"/>
+  <port protocol="tcp" port="49090"/>
+  <port protocol="tcp" port="49110"/>
+  <port protocol="udp" port="49098-49110"/>
 </service>

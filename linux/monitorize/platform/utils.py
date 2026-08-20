@@ -21,7 +21,7 @@ def detect_desktop_environment() -> str:
     """
     xdg   = os.environ.get("XDG_CURRENT_DESKTOP", "").lower()
     dsess = os.environ.get("DESKTOP_SESSION",      "").lower()
-    
+
     hypr  = os.environ.get("HYPRLAND_INSTANCE_SIGNATURE", "")
     combined = xdg + " " + dsess
 
@@ -50,12 +50,9 @@ def get_local_ip():
     except (OSError, subprocess.SubprocessError, IndexError):
         pass
 
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        s.connect(('10.255.255.255', 1))
-        IP = s.getsockname()[0]
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.connect(("10.255.255.255", 1))
+            return sock.getsockname()[0]
     except Exception:
-        IP = '127.0.0.1'
-    finally:
-        s.close()
-    return IP
+        return "127.0.0.1"

@@ -1,15 +1,8 @@
 { lib
 , python3Packages
 , qt6
-, gst_all_1
-, pipewire
 , gobject-introspection
-, android-tools
 , kdePackages
-, wlr-randr
-, xdg-desktop-portal
-, xdg-desktop-portal-hyprland
-, xdg-desktop-portal-gtk
 , copyDesktopItems
 , makeDesktopItem
 , bash
@@ -114,17 +107,6 @@ python3Packages.buildPythonApplication rec {
     python3Packages.pyqt6-sip
     python3Packages.dbus-python
     python3Packages.pygobject3
-    python3Packages.zeroconf
-    python3Packages.evdev
-    python3Packages.cryptography
-    python3Packages.pycairo
-    # GStreamer runtime
-    gst_all_1.gstreamer
-    gst_all_1.gst-plugins-base
-    gst_all_1.gst-plugins-good
-    gst_all_1.gst-plugins-bad
-    gst_all_1.gst-plugins-ugly
-    # Introspection typelibs for Gst
     gobject-introspection
   ];
 
@@ -153,8 +135,6 @@ python3Packages.buildPythonApplication rec {
     # this exact executable access to KWin's restricted screencast protocol.
     native/kde_virtual_output/build.sh \
       "$out/bin/monitorize-kde-virtual-output"
-    native/rtp_sender/build.sh "$out/bin/monitorize-rtp-sender"
-
     mkdir -p "$out/share/applications"
     cat > "$out/share/applications/monitorize-kde-virtual-output.desktop" <<EOF
     [Desktop Entry]
@@ -178,12 +158,12 @@ python3Packages.buildPythonApplication rec {
     (makeDesktopItem {
       name = "monitorize";
       desktopName = "Monitorize";
-      comment = "Linux to Android Display Bridge – extend or mirror your desktop to a tablet";
+      comment = "Create Sunshine virtual displays for Moonlight clients";
       exec = "monitorize";
       icon = "monitorize";
       terminal = false;
       categories = [ "Utility" "System" ];
-      keywords = [ "monitor" "display" "tablet" "android" "screen" "extend" "mirror" "streaming" ];
+      keywords = [ "monitor" "display" "moonlight" "sunshine" "screen" "extend" "mirror" "streaming" ];
       startupNotify = true;
       startupWMClass = "monitorize";
     })
@@ -201,38 +181,18 @@ python3Packages.buildPythonApplication rec {
       "''${qtWrapperArgs[@]}" \
       --prefix PYTHONPATH : "$pythonPath" \
       --prefix PATH : "${lib.makeBinPath [
-        gst_all_1.gstreamer
-        android-tools
         kdePackages.libkscreen
-        wlr-randr
-        xdg-desktop-portal
-        xdg-desktop-portal-hyprland
-        xdg-desktop-portal-gtk
-        pipewire
         monitorizeSunshine
       ]}" \
       --set MONITORIZE_SUNSHINE_BIN "${monitorizeSunshine}/bin/sunshine" \
-      --set MONITORIZE_SUNSHINE_ASSETS_DIR "${monitorizeSunshine}/assets" \
-      --prefix GST_PLUGIN_SYSTEM_PATH_1_0 : "${lib.makeSearchPathOutput "lib" "lib/gstreamer-1.0" [
-        gst_all_1.gstreamer
-        gst_all_1.gst-plugins-base
-        gst_all_1.gst-plugins-good
-        gst_all_1.gst-plugins-bad
-        gst_all_1.gst-plugins-ugly
-        pipewire
-      ]}" \
-      --prefix GI_TYPELIB_PATH : "${lib.makeSearchPathOutput "out" "lib/girepository-1.0" [
-        gst_all_1.gstreamer
-        gst_all_1.gst-plugins-base
-        gobject-introspection
-      ]}"
+      --set MONITORIZE_SUNSHINE_ASSETS_DIR "${monitorizeSunshine}/assets"
   '';
 
   # Skip automatic tests (they need a running display server)
   doCheck = false;
 
   meta = with lib; {
-    description = "Turn your Android / Linux laptop into a secondary monitor for your Linux desktop";
+    description = "Create Sunshine-backed virtual displays for Moonlight clients";
     homepage = "https://github.com/vinnavannewton/project-monitorize";
     license = licenses.gpl3Only;
     platforms = platforms.linux;

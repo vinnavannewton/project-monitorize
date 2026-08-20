@@ -42,12 +42,7 @@ class MonitorizeWindow(QMainWindow):
         else:
             self.app_icon = QIcon()
         kill_patterns(
-            "gst-launch-1.0.*port=7110",
-            "gst-launch-1.0.*port=7112",
-            "gst-launch-1.0.*port=7114",
-            "gst-launch-1.0.*port=7115",
-            "monitorize\\.streaming\\.Streamer_.*",
-            "monitorize\\.input_bridge\\.touch_daemon",
+            "monitorize\\.streaming\\.headless_virtual_display",
             "monitorize-kde-virtual-output",
         )
         self.de = detect_desktop_environment() or self._ask_desktop_environment()
@@ -141,7 +136,7 @@ class MonitorizeWindow(QMainWindow):
     def closeEvent(self, event):
         minimize = self.backend.should_minimize_to_tray()
         if minimize and QSystemTrayIcon.isSystemTrayAvailable():
-            idle = not self.backend.isStreaming and not self.backend.isReceiving
+            idle = not self.backend.isStreaming
             if idle and self._quit_to_tray_agent():
                 event.accept()
                 return

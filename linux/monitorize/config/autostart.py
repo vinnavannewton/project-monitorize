@@ -45,7 +45,7 @@ def _fallback_entry():
         "[Desktop Entry]",
         "Type=Application",
         "Name=Monitorize",
-        "Comment=Linux to Android Display Bridge",
+        "Comment=Sunshine virtual displays for Moonlight clients",
         f"Exec={_desktop_quote(python)} -m monitorize {TRAY_AGENT_ARG}",
         "Icon=monitorize",
         "Terminal=false",

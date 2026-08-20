@@ -7,9 +7,6 @@ from monitorize.config.settings import (
     load_gnome_virtual_layout,
     save_gnome_virtual_layout,
 )
-from monitorize.input_bridge.geometry import _physical_contains_virtual_marker
-
-
 log = logging.getLogger(__name__)
 APPLY_METHOD_TEMPORARY = 1
 WAIT_ATTEMPTS = 20
@@ -22,6 +19,25 @@ MONITOR_CONFIG_PROPERTY_KEYS = {
 GLOBAL_CONFIG_PROPERTY_KEYS = {
     "layout-mode",
 }
+
+
+def _physical_contains_virtual_marker(entry):
+    """Return whether a Mutter monitor tuple describes a virtual output."""
+    try:
+        values = entry[0]
+    except (TypeError, IndexError):
+        return False
+    if isinstance(values, str):
+        values = [values]
+    try:
+        values = list(values)
+    except TypeError:
+        values = [values]
+    return any(
+        marker in str(value).lower()
+        for value in values
+        for marker in ("meta", "virtual")
+    )
 
 
 def _dbus():
@@ -555,4 +571,3 @@ def map_sunshine_gnome_peripherals(state=None, connector=None):
     except Exception as exc:
         log.debug("Failed to map Sunshine input devices to GNOME output: %s", exc)
         return False
-

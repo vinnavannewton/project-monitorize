@@ -1,5 +1,5 @@
 {
-  description = "Monitorize – turn your Android / Linux laptop into a secondary monitor for your Linux desktop";
+  description = "Monitorize – Sunshine virtual displays for Moonlight clients";
 
   inputs = {
     self.submodules = true;
@@ -49,7 +49,7 @@
         in
         {
           options.programs.monitorize = {
-            enable = lib.mkEnableOption "Monitorize – Android / Linux secondary monitor";
+            enable = lib.mkEnableOption "Monitorize Sunshine virtual displays";
             openFirewall = lib.mkOption {
               type = lib.types.bool;
               default = true;

@@ -1,69 +1,48 @@
-"""
-Monitorize GUI — Persistent settings stored in ~/.config/monitorize/settings.ini
-"""
+"""Persistent settings for Monitorize's Sunshine display sessions."""
 
-import os
 import json
+import os
+
 from PyQt6.QtCore import QSettings
 
 from monitorize.config.validation import (
+    DEFAULT_PRIMARY_RESOLUTION,
     DEFAULT_SECONDARY_RESOLUTION,
-    normalize_host,
-    sanitize_bitrate,
-    sanitize_decoder,
     sanitize_display_type,
-    sanitize_encoder,
-    sanitize_encoder_profile,
-    sanitize_fec_mode,
     sanitize_fps,
-    sanitize_port,
     sanitize_resolution,
-    sanitize_streaming_backend,
-    sanitize_video_codec,
 )
+
 
 CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".config", "monitorize")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "settings.ini")
 MAX_PRESETS = 4
-PRESET_VERSION = 1
+PRESET_VERSION = 2
 
 
 def _get_settings() -> QSettings:
-    """Return a QSettings object backed by the INI file."""
     os.makedirs(CONFIG_DIR, exist_ok=True)
     try:
         os.chmod(CONFIG_DIR, 0o700)
     except OSError:
         pass
     settings = QSettings(CONFIG_FILE, QSettings.Format.IniFormat)
-
     if any(key.startswith("General/") for key in settings.allKeys()):
-        values = {
-            key: settings.value(f"General/{key}", default, type=bool)
-            for key, default in (
-                ("minimize_to_tray", False),
-                ("enable_touch", True),
-                ("enable_stylus_features", False),
-            )
-        }
+        minimize = settings.value("General/minimize_to_tray", False, type=bool)
         settings.remove("General")
-        settings.beginGroup("general")
-        for key, value in values.items():
-            settings.setValue(key, value)
-        settings.endGroup()
+        settings.setValue("general/minimize_to_tray", minimize)
         settings.sync()
-
     return settings
 
 
 def _save_group(group: str, values: dict) -> None:
-    s = _get_settings()
-    s.beginGroup(group)
+    settings = _get_settings()
+    settings.beginGroup(group)
     for key, value in values.items():
         if value is not None:
-            s.setValue(key, value)
-    s.endGroup()
-    s.sync()
+            settings.setValue(key, value)
+    settings.endGroup()
+    settings.sync()
     try:
         os.chmod(CONFIG_FILE, 0o600)
     except OSError:
@@ -71,327 +50,187 @@ def _save_group(group: str, values: dict) -> None:
 
 
 def _load_group(group: str, defaults: dict, bool_keys=()) -> dict:
-    s = _get_settings()
-    s.beginGroup(group)
-    data = {
-        key: s.value(key, default, type=bool) if key in bool_keys
-        else s.value(key, default)
+    settings = _get_settings()
+    settings.beginGroup(group)
+    values = {
+        key: settings.value(key, default, type=bool)
+        if key in bool_keys
+        else settings.value(key, default)
         for key, default in defaults.items()
     }
-    s.endGroup()
-    return data
+    settings.endGroup()
+    return values
 
 
-def _normalize_stream_settings(data: dict) -> dict:
-    if data["display_type"] == "Extend Right":
-        data["display_type"] = "Extend"
-    if data["encoder"] in ("Auto-detect", "Auto-detect (Recommended)"):
-        data["encoder"] = "Software (CPU / x264enc)"
-    data["display_type"] = sanitize_display_type(data["display_type"])
-    data["encoder"] = sanitize_encoder(data["encoder"])
-    data["encoder_profile"] = sanitize_encoder_profile(
-        data.get("encoder_profile", "Low Latency")
+def save_general_settings(*, minimize_to_tray: bool = False):
+    _save_group("general", {"minimize_to_tray": bool(minimize_to_tray)})
+
+
+def load_general_settings() -> dict:
+    return _load_group(
+        "general", {"minimize_to_tray": False}, ("minimize_to_tray",)
     )
-    if "fec_mode" in data:
-        data["fec_mode"] = sanitize_fec_mode(data.get("fec_mode"))
-    if "streaming_backend" in data:
-        data["streaming_backend"] = sanitize_streaming_backend(data.get("streaming_backend"))
-    if "sunshine_encoder" in data:
-        data["sunshine_encoder"] = str(data.get("sunshine_encoder") or "Auto")
-    if "sunshine_codec" in data:
-        data["sunshine_codec"] = str(data.get("sunshine_codec") or "Auto")
-    if "sunshine_native_pen_touch" in data:
-        data["sunshine_native_pen_touch"] = bool(data.get("sunshine_native_pen_touch", True))
-    data["fps"] = str(sanitize_fps(data["fps"]))
-    data["custom_fps"] = (
-        str(sanitize_fps(data["custom_fps"]))
-        if data.get("custom_fps") else ""
-    )
-    data["bitrate"] = str(sanitize_bitrate(data["bitrate"]))
-    data["video_codec"] = sanitize_video_codec(data.get("video_codec", "H.264 (AVC)"))
-    if data["encoder"] == "Software (CPU / x264enc)":
-        data["video_codec"] = "H.264 (AVC)"
-    return data
-
-def save_wifi_settings(*, resolution: str, custom_w: str, custom_h: str,
-                       fps: str, custom_fps: str, bitrate: str,
-                       display_type: str, encoder: str, encoder_profile: str,
-                       video_codec: str = "H.264 (AVC)",
-                       fec_mode: str = "Off", enable_audio: bool = False,
-                       streaming_backend: str = "Monitorize",
-                       sunshine_encoder: str = "Auto",
-                       sunshine_codec: str = "Auto",
-                       sunshine_native_pen_touch: bool = True):
-    values = locals()
-    values["display_type"] = sanitize_display_type(display_type)
-    values["encoder"] = sanitize_encoder(encoder)
-    values["encoder_profile"] = sanitize_encoder_profile(encoder_profile)
-    values["video_codec"] = sanitize_video_codec(video_codec)
-    if values["encoder"] == "Software (CPU / x264enc)":
-        values["video_codec"] = "H.264 (AVC)"
-    values["fec_mode"] = sanitize_fec_mode(fec_mode)
-    values["enable_audio"] = bool(enable_audio)
-    values["streaming_backend"] = sanitize_streaming_backend(streaming_backend)
-    values["sunshine_encoder"] = str(sunshine_encoder or "Auto")
-    values["sunshine_codec"] = str(sunshine_codec or "Auto")
-    values["sunshine_native_pen_touch"] = bool(sunshine_native_pen_touch)
-    values["fps"] = str(sanitize_fps(fps))
-    values["custom_fps"] = str(sanitize_fps(custom_fps)) if custom_fps else ""
-    values["bitrate"] = str(sanitize_bitrate(bitrate))
-    if resolution == "Custom...":
-        width, height = sanitize_resolution(f"{custom_w}x{custom_h}")
-        values["custom_w"] = str(width)
-        values["custom_h"] = str(height)
-    else:
-        values["custom_w"] = ""
-        values["custom_h"] = ""
-    _save_group("wifi", values)
 
 
-def save_usb_settings(*, resolution: str, custom_w: str, custom_h: str,
-                      fps: str, custom_fps: str, bitrate: str,
-                      display_type: str, encoder: str, encoder_profile: str,
-                      video_codec: str = "H.264 (AVC)",
-                      enable_audio: bool = False):
-    values = locals()
-    values["display_type"] = sanitize_display_type(display_type)
-    values["encoder"] = sanitize_encoder(encoder)
-    values["encoder_profile"] = sanitize_encoder_profile(encoder_profile)
-    values["video_codec"] = sanitize_video_codec(video_codec)
-    if values["encoder"] == "Software (CPU / x264enc)":
-        values["video_codec"] = "H.264 (AVC)"
-    values["enable_audio"] = bool(enable_audio)
-    values["fps"] = str(sanitize_fps(fps))
-    values["custom_fps"] = str(sanitize_fps(custom_fps)) if custom_fps else ""
-    values["bitrate"] = str(sanitize_bitrate(bitrate))
-    if resolution == "Custom...":
-        width, height = sanitize_resolution(f"{custom_w}x{custom_h}")
-        values["custom_w"] = str(width)
-        values["custom_h"] = str(height)
-    else:
-        values["custom_w"] = ""
-        values["custom_h"] = ""
-    _save_group("usb", values)
-
-
-def save_general_settings(*, minimize_to_tray: bool = None, enable_touch: bool = None,
-                          enable_stylus_features: bool = None):
-    _save_group("general", locals())
-    s = _get_settings()
-    s.beginGroup("general")
-    s.remove("stylus_only")
-    s.endGroup()
-    s.sync()
-
-
-
-
-STREAM_DEFAULTS = {
+DISPLAY_DEFAULTS = {
     "resolution": "1920x1080",
     "custom_w": "",
     "custom_h": "",
     "fps": "60",
     "custom_fps": "",
-    "bitrate": "16000",
     "display_type": "Extend",
-    "encoder": "Software (CPU / x264enc)",
-    "encoder_profile": "Low Latency",
-    "video_codec": "H.264 (AVC)",
-    "enable_audio": False,
-}
-WIFI_DEFAULTS = {
-    **STREAM_DEFAULTS,
-    "bitrate": "20000",
-    "fec_mode": "Off",
-    "streaming_backend": "Monitorize",
     "sunshine_encoder": "Auto",
     "sunshine_codec": "Auto",
     "sunshine_native_pen_touch": True,
+    "enable_audio": False,
 }
 
 
-def load_wifi_settings() -> dict:
-    values = _normalize_stream_settings(_load_group(
-        "wifi",
-        WIFI_DEFAULTS,
-        ("enable_audio", "sunshine_native_pen_touch"),
-    ))
-    settings = _get_settings()
-    settings.beginGroup("wifi")
-    settings.remove("use_encryption")
-    settings.remove("transport_mode")
-    settings.remove("stream_type")
-    settings.endGroup()
-    settings.sync()
-    return values
-
-
-def load_usb_settings() -> dict:
-    return _normalize_stream_settings(_load_group(
-        "usb", STREAM_DEFAULTS, ("enable_audio",)
-    ))
-
-
-def load_general_settings() -> dict:
-    data = _load_group(
-        "general",
-        {
-            "minimize_to_tray": False,
-            "enable_touch": True,
-            "enable_stylus_features": False,
-            "stylus_only": False,
-        },
-        ("minimize_to_tray", "enable_touch", "enable_stylus_features", "stylus_only"),
+def _normalize_display_settings(data, fallback=DEFAULT_PRIMARY_RESOLUTION):
+    data = dict(data)
+    data["display_type"] = sanitize_display_type(data.get("display_type"))
+    data["fps"] = str(sanitize_fps(data.get("fps")))
+    data["custom_fps"] = (
+        str(sanitize_fps(data["custom_fps"])) if data.get("custom_fps") else ""
     )
-    enable_stylus = data.pop("enable_stylus_features")
-    enable_touch = data.pop("enable_touch")
-    if enable_stylus and data.pop("stylus_only"):
-        enable_touch = False
-    data.update(enable_touch=enable_touch, enable_stylus_features=enable_stylus)
-    return data
-
-
-def save_second_display_settings(*, resolution: str, fps: str, bitrate: str,
-                                 encoder: str, encoder_profile: str,
-                                 fec_mode: str = "Off",
-                                 enable_touch: bool = True,
-                                 enable_stylus_features: bool = False,
-                                 enable_audio: bool = False,
-                                 custom_w: str = "", custom_h: str = "",
-                                 custom_fps: str = "",
-                                 sunshine_encoder: str = "Auto",
-                                 sunshine_codec: str = "Auto",
-                                 sunshine_native_pen_touch: bool = True):
-    values = {
-        "resolution": resolution,
-        "custom_w": "",
-        "custom_h": "",
-        "fps": fps,
-        "custom_fps": "",
-        "bitrate": str(sanitize_bitrate(bitrate)),
-        "encoder": sanitize_encoder(encoder),
-        "encoder_profile": sanitize_encoder_profile(encoder_profile),
-        "fec_mode": sanitize_fec_mode(fec_mode),
-        "enable_touch": bool(enable_touch),
-        "enable_stylus_features": bool(enable_stylus_features),
-        "enable_audio": bool(enable_audio),
-        "sunshine_encoder": str(sunshine_encoder or "Auto"),
-        "sunshine_codec": str(sunshine_codec or "Auto"),
-        "sunshine_native_pen_touch": bool(sunshine_native_pen_touch),
-    }
-    if resolution == "Custom...":
+    if data.get("resolution") == "Custom...":
         width, height = sanitize_resolution(
-            f"{custom_w}x{custom_h}", DEFAULT_SECONDARY_RESOLUTION
-        )
-        values["custom_w"], values["custom_h"] = str(width), str(height)
-    if fps == "Custom...":
-        values["custom_fps"] = str(sanitize_fps(custom_fps))
-    else:
-        values["fps"] = str(sanitize_fps(fps))
-    _save_group("second_display", values)
-
-
-def load_second_display_settings() -> dict:
-    data = _load_group("second_display", {
-        "resolution": "1920x1080 (16:9)",
-        "custom_w": "",
-        "custom_h": "",
-        "fps": "60",
-        "custom_fps": "",
-        "bitrate": "8000",
-        "encoder": "Software (CPU / x264enc)",
-        "encoder_profile": "Low Latency",
-        "fec_mode": "Off",
-        "enable_touch": True,
-        "enable_stylus_features": False,
-        "enable_audio": False,
-        "sunshine_encoder": "Auto",
-        "sunshine_codec": "Auto",
-        "sunshine_native_pen_touch": True,
-    }, ("enable_touch", "enable_stylus_features", "enable_audio", "sunshine_native_pen_touch"))
-    if data["resolution"] == "Custom...":
-        width, height = sanitize_resolution(
-            f"{data.get('custom_w', '')}x{data.get('custom_h', '')}",
-            DEFAULT_SECONDARY_RESOLUTION,
+            f"{data.get('custom_w', '')}x{data.get('custom_h', '')}", fallback
         )
         data["custom_w"], data["custom_h"] = str(width), str(height)
     else:
+        width, height = sanitize_resolution(data.get("resolution"), fallback)
+        data["resolution"] = f"{width}x{height}"
         data["custom_w"] = data["custom_h"] = ""
-    if data["fps"] == "Custom...":
-        data["custom_fps"] = str(sanitize_fps(data.get("custom_fps", "")))
-    else:
-        data["fps"] = str(sanitize_fps(data["fps"]))
-        data["custom_fps"] = ""
-    data["bitrate"] = str(sanitize_bitrate(data["bitrate"]))
-    data["encoder"] = sanitize_encoder(data["encoder"])
-    data["encoder_profile"] = sanitize_encoder_profile(data["encoder_profile"])
-    data["fec_mode"] = sanitize_fec_mode(data.get("fec_mode"))
     data["sunshine_encoder"] = str(data.get("sunshine_encoder") or "Auto")
     data["sunshine_codec"] = str(data.get("sunshine_codec") or "Auto")
-    data["sunshine_native_pen_touch"] = bool(data.get("sunshine_native_pen_touch", True))
+    data["sunshine_native_pen_touch"] = bool(
+        data.get("sunshine_native_pen_touch", True)
+    )
+    data["enable_audio"] = bool(data.get("enable_audio", False))
     return data
 
 
+def save_display_settings(
+    *,
+    resolution,
+    custom_w="",
+    custom_h="",
+    fps="60",
+    custom_fps="",
+    display_type="Extend",
+    sunshine_encoder="Auto",
+    sunshine_codec="Auto",
+    sunshine_native_pen_touch=True,
+    enable_audio=False,
+):
+    values = _normalize_display_settings(locals())
+    _save_group("display", values)
+
+
+def load_display_settings() -> dict:
+    settings = _get_settings()
+    group = "display"
+    if not any(key.startswith("display/") for key in settings.allKeys()):
+        legacy = _load_group(
+            "wifi",
+            DISPLAY_DEFAULTS,
+            ("sunshine_native_pen_touch", "enable_audio"),
+        )
+        values = _normalize_display_settings(legacy)
+        _save_group("display", values)
+        group = "display"
+    return _normalize_display_settings(
+        _load_group(
+            group,
+            DISPLAY_DEFAULTS,
+            ("sunshine_native_pen_touch", "enable_audio"),
+        )
+    )
+
+
+SECOND_DISPLAY_DEFAULTS = {
+    **DISPLAY_DEFAULTS,
+    "resolution": "1920x1080",
+}
+
+
+def save_second_display_settings(**values):
+    normalized = _normalize_display_settings(values, DEFAULT_SECONDARY_RESOLUTION)
+    normalized.pop("display_type", None)
+    _save_group("second_display", normalized)
+
+
+def load_second_display_settings() -> dict:
+    values = _load_group(
+        "second_display",
+        SECOND_DISPLAY_DEFAULTS,
+        ("sunshine_native_pen_touch", "enable_audio"),
+    )
+    return _normalize_display_settings(values, DEFAULT_SECONDARY_RESOLUTION)
+
+
+def _normalize_session(raw: dict, fallback=DEFAULT_PRIMARY_RESOLUTION):
+    if not isinstance(raw, dict):
+        return None
+    width, height = sanitize_resolution(raw.get("resolution", ""), fallback)
+    return {
+        "resolution": f"{width}x{height}",
+        "fps": str(sanitize_fps(raw.get("fps", 60))),
+        "display_type": sanitize_display_type(raw.get("display_type", "Extend")),
+        "sunshine_encoder": str(raw.get("sunshine_encoder") or "Auto"),
+        "sunshine_codec": str(raw.get("sunshine_codec") or "Auto"),
+        "sunshine_native_pen_touch": bool(
+            raw.get("sunshine_native_pen_touch", True)
+        ),
+        "enable_audio": bool(raw.get("enable_audio", False)),
+    }
+
+
 def _normalize_preset(raw: dict) -> dict | None:
-    if not isinstance(raw, dict) or raw.get("version") != PRESET_VERSION:
+    if not isinstance(raw, dict):
         return None
     name = str(raw.get("name", "")).strip()[:32]
-    mode = raw.get("mode")
-    primary = raw.get("primary")
-    general = raw.get("general")
-    third = raw.get("third", {})
-    if not name or mode not in ("wifi", "usb"):
+    if not name:
         return None
-    if not isinstance(primary, dict) or not isinstance(general, dict):
+
+    if raw.get("version") == 1:
+        if raw.get("mode") != "wifi":
+            return None
+        current = load_display_settings()
+        primary_raw = dict(raw.get("primary") or {})
+        primary_raw.update(
+            sunshine_encoder=current["sunshine_encoder"],
+            sunshine_codec=current["sunshine_codec"],
+            sunshine_native_pen_touch=current["sunshine_native_pen_touch"],
+        )
+        old_second = raw.get("third") or {}
+        second_raw = dict(old_second)
+        second_raw.update(
+            sunshine_encoder=current["sunshine_encoder"],
+            sunshine_codec=current["sunshine_codec"],
+            sunshine_native_pen_touch=current["sunshine_native_pen_touch"],
+        )
+    elif raw.get("version") == PRESET_VERSION:
+        primary_raw = raw.get("primary") or {}
+        second_raw = raw.get("second") or {}
+    else:
         return None
-    width, height = sanitize_resolution(primary.get("resolution", ""))
-    preset = {
+
+    primary = _normalize_session(primary_raw)
+    if primary is None:
+        return None
+    second = {"enabled": bool(second_raw.get("enabled", False))}
+    if second["enabled"]:
+        normalized = _normalize_session(second_raw, DEFAULT_SECONDARY_RESOLUTION)
+        normalized.pop("display_type", None)
+        second.update(normalized)
+    return {
         "version": PRESET_VERSION,
         "name": name,
-        "mode": mode,
-        "primary": {
-            "resolution": f"{width}x{height}",
-            "fps": str(sanitize_fps(primary.get("fps", 60))),
-            "bitrate": str(sanitize_bitrate(primary.get("bitrate", 8000))),
-            "display_type": sanitize_display_type(
-                primary.get("display_type", "Extend")
-            ),
-            "encoder": sanitize_encoder(primary.get("encoder", "")),
-            "encoder_profile": sanitize_encoder_profile(
-                primary.get("encoder_profile", "Low Latency")
-            ),
-            "fec_mode": sanitize_fec_mode(primary.get("fec_mode")),
-            "enable_audio": bool(primary.get("enable_audio", False)),
-        },
-        "general": {
-            "minimize_to_tray": bool(general.get("minimize_to_tray", False)),
-            "enable_touch": bool(general.get("enable_touch", True)),
-            "enable_stylus_features": bool(
-                general.get("enable_stylus_features", False)
-            ),
-        },
-        "third": {"enabled": bool(third.get("enabled", False))},
+        "primary": primary,
+        "second": second,
     }
-    if preset["third"]["enabled"]:
-        width, height = sanitize_resolution(
-            third.get("resolution", ""), (1920, 1080)
-        )
-        preset["third"].update({
-            "resolution": f"{width}x{height}",
-            "fps": str(sanitize_fps(third.get("fps", 60))),
-            "bitrate": str(sanitize_bitrate(third.get("bitrate", 8000))),
-            "encoder": sanitize_encoder(third.get("encoder", "")),
-            "encoder_profile": sanitize_encoder_profile(
-                third.get("encoder_profile", "Low Latency")
-            ),
-            "fec_mode": sanitize_fec_mode(third.get("fec_mode")),
-            "enable_touch": bool(third.get("enable_touch", True)),
-            "enable_stylus_features": bool(
-                third.get("enable_stylus_features", False)
-            ),
-            "enable_audio": bool(third.get("enable_audio", False)),
-        })
-    return preset
 
 
 def load_presets() -> list[dict]:
@@ -403,12 +242,16 @@ def load_presets() -> list[dict]:
     if not isinstance(values, list):
         return []
     presets = []
+    migrated = False
     for value in values:
         preset = _normalize_preset(value)
         if preset is not None:
             presets.append(preset)
+            migrated = migrated or value.get("version") != PRESET_VERSION
         if len(presets) == MAX_PRESETS:
             break
+    if migrated or len(presets) != len(values):
+        save_presets(presets)
     return presets
 
 
@@ -423,37 +266,7 @@ def save_presets(presets: list[dict]) -> None:
     _save_group("presets", {"items": json.dumps(normalized, separators=(",", ":"))})
 
 
-def save_receiver_settings(*, ip: str, port: str, decoder: str = "Software"):
-    _save_group("receiver", {
-        "manual_ip": normalize_host(ip),
-        "manual_port": str(sanitize_port(port)),
-        "decoder": sanitize_decoder(decoder),
-    })
-
-def load_receiver_settings() -> dict:
-    data = _load_group("receiver", {
-        "manual_ip": "",
-        "manual_port": "7110",
-        "decoder": "Software",
-        "show_stats": False,
-    }, bool_keys=("show_stats",))
-    data["manual_ip"] = normalize_host(data["manual_ip"])
-    data["manual_port"] = str(sanitize_port(data["manual_port"]))
-    data["decoder"] = sanitize_decoder(data["decoder"])
-    settings = _get_settings()
-    settings.beginGroup("receiver")
-    settings.remove("use_encryption")
-    settings.endGroup()
-    settings.remove("receiver_trust")
-    settings.sync()
-    return data
-
-
-def save_receiver_stats_visible(enabled: bool) -> None:
-    _save_group("receiver", {"show_stats": bool(enabled)})
-
-
-def _gnome_virtual_group(slot: str = "primary") -> str:
+def _gnome_virtual_group(_slot: str = "primary") -> str:
     return "gnome_virtual_primary"
 
 
@@ -488,48 +301,7 @@ def save_gnome_virtual_layout(slot: str, logical_monitors: list) -> None:
     if not isinstance(topologies, dict):
         topologies = stored["topologies"] = {}
     topologies[slot] = logical_monitors
-    _save_group(_gnome_virtual_group(), {
-        "layout": json.dumps(stored, separators=(",", ":")),
-    })
-
-
-def load_recent_usb_devices() -> list[dict]:
-    s = _get_settings()
-    raw = s.value("recent/usb_devices", "[]")
-    try:
-        devices = json.loads(raw)
-        return devices if isinstance(devices, list) else []
-    except Exception:
-        return []
-
-
-def add_recent_usb_device(device: dict) -> None:
-    s = _get_settings()
-    devices = load_recent_usb_devices()
-    devices = [d for d in devices if isinstance(d, dict) and d.get("serial") != device.get("serial")]
-    devices.insert(0, device)
-    devices = devices[:5]
-    s.setValue("recent/usb_devices", json.dumps(devices))
-    s.sync()
-    os.chmod(CONFIG_FILE, 0o600)
-
-
-def load_recent_wifi_devices() -> list[dict]:
-    s = _get_settings()
-    raw = s.value("recent/wifi_devices", "[]")
-    try:
-        devices = json.loads(raw)
-        return devices if isinstance(devices, list) else []
-    except Exception:
-        return []
-
-
-def add_recent_wifi_device(device: dict) -> None:
-    s = _get_settings()
-    devices = load_recent_wifi_devices()
-    devices = [d for d in devices if isinstance(d, dict) and d.get("ip") != device.get("ip")]
-    devices.insert(0, device)
-    devices = devices[:5]
-    s.setValue("recent/wifi_devices", json.dumps(devices))
-    s.sync()
-    os.chmod(CONFIG_FILE, 0o600)
+    _save_group(
+        _gnome_virtual_group(),
+        {"layout": json.dumps(stored, separators=(",", ":"))},
+    )

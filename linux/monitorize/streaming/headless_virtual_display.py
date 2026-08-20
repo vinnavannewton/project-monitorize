@@ -4,6 +4,7 @@ Creates and holds a virtual monitor active in the compositor (KWin/Hyprland)
 without starting any GStreamer, encoding, or RTP streaming processes.
 """
 
+import ctypes
 import json
 import os
 import select
@@ -17,8 +18,7 @@ from monitorize.platform.kde_virtual_monitor import (
     virtual_slot,
     wait_for_output_absent,
 )
-import ctypes
-from monitorize.streaming.kde_native_streamer import find_helper, _read_helper_event, _stop_helper
+from monitorize.platform.kde_helper import find_helper, read_helper_event, stop_helper
 
 PR_SET_PDEATHSIG = 1
 
@@ -70,13 +70,13 @@ def run_kde_headless(slot, width, height, fps):
     )
 
     def cleanup(*_args):
-        _stop_helper(helper)
+        stop_helper(helper)
 
     signal.signal(signal.SIGINT, cleanup)
     signal.signal(signal.SIGTERM, cleanup)
 
     try:
-        owner = _read_helper_event(helper, "owner_ready")
+        owner = read_helper_event(helper, "owner_ready")
         actual_name = owner.get("name") or output_name
 
         ok, actual, message = configure_native_virtual_output(
@@ -101,7 +101,7 @@ def run_kde_headless(slot, width, height, fps):
             flush=True,
         )
 
-        
+
         while helper.poll() is None:
             ready, _, _ = select.select([sys.stdin], [], [], 0.5)
             if ready:
@@ -333,4 +333,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
