@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-RowLayout {
+GridLayout {
     id: chips
 
     property var model: []
@@ -15,9 +15,10 @@ RowLayout {
 
     signal activated(int index)
 
-    spacing: 8
+    columns: 2
+    columnSpacing: 8
+    rowSpacing: 8
     Layout.fillWidth: true
-    implicitHeight: 34
 
     function chipLabel(value) {
         return value

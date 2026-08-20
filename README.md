@@ -1,19 +1,19 @@
 <div align="center">
   <img src="linux/monitorize/assets/monitorize_desktop_logo.png" alt="Monitorize logo" width="160" />
   <h1>Monitorize</h1>
-  <p><strong>Create Sunshine-backed virtual displays and use them from any Moonlight client.</strong></p>
+  <p><strong>Use any Moonlight-compatible device as an extra monitor for your Linux desktop.</strong></p>
 </div>
 
-Monitorize is a Linux host application for KDE Plasma, GNOME, and Hyprland. It creates and preserves compositor-native virtual displays, configures an isolated bundled Sunshine server for each display, and keeps the complete session alive until you stop it.
+Monitorize is a Linux host application for KDE Plasma, GNOME, and Hyprland. It creates and preserves compositor-native virtual displays, and streams using an isolated Sunshine server for each display.
 
-Receiving is handled by the standard [Moonlight](https://moonlight-stream.org/) application on Android, Linux, Windows, macOS, iOS, and other supported clients. Monitorize no longer ships a receiver, USB/ADB transport, or its former GStreamer streaming backend.
+Receiving is handled by the standard [Moonlight](https://moonlight-stream.org/) application on Android, Linux, Windows, macOS, iOS, and other supported clients.
 
 ## Features
 
 - Extend or mirror a Linux desktop.
-- One or two isolated Sunshine instances.
-- Moonlight PIN pairing from the Monitorize window.
-- Sunshine encoder, codec, audio, touch, and stylus configuration.
+- Stream up to two virtual displays to any Moonlight-compatible device.
+
+- All Sunshine features such as encoder, codec, audio, touch, and stylus configuration.
 - KDE, GNOME, and Hyprland virtual-display lifecycle management.
 - Saved Sunshine display presets.
 - Project-local Sunshine installation without modifying `/usr/local`.

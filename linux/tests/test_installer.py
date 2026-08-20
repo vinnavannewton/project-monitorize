@@ -41,6 +41,14 @@ class SunshineOnlyPackagingTest(unittest.TestCase):
         self.assertIn('if (result["success"]) pinSuccessCloseTimer.restart()', qml)
         self.assertIn("onTriggered: pinPopup.close()", qml)
 
+    def test_choice_chips_and_start_card_fit_their_containers(self):
+        chips = (ROOT / "linux/monitorize/qml/ChoiceChips.qml").read_text()
+        menu = (ROOT / "linux/monitorize/qml/MainMenuPage.qml").read_text()
+        self.assertIn("GridLayout", chips)
+        self.assertIn("columns: 2", chips)
+        self.assertIn("rowSpacing: 8", chips)
+        self.assertIn("Layout.preferredWidth: Math.min(440, page.width - 40)", menu)
+
     def test_retired_runtime_modules_are_absent(self):
         package = ROOT / "linux/monitorize"
         retired = (

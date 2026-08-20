@@ -45,7 +45,8 @@ Item {
         }
 
         Rectangle {
-            Layout.fillWidth: true
+            Layout.preferredWidth: Math.min(440, page.width - 40)
+            Layout.alignment: Qt.AlignHCenter
             implicitHeight: 150
             radius: theme.cardRadius
             color: startMouse.containsMouse ? theme.surfaceAlt : theme.surface
