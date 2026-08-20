@@ -31,6 +31,7 @@ The dependency flow supports Ubuntu 24.04 and Debian 13, but their default deskt
 - [Fedora](https://github.com/vinnavannewton/project-monitorize/wiki/Fedora-installation)
 - [Arch Linux](https://github.com/vinnavannewton/project-monitorize/wiki/Arch-installation)
 - [Ubuntu / Debian](https://github.com/vinnavannewton/project-monitorize/wiki/Ubuntu-Debian-installation)
+- [openSUSE Tumbleweed (experimental)](https://github.com/vinnavannewton/project-monitorize/wiki/openSUSE-Tumbleweed-installation)
 - [NixOS / Nix](https://github.com/vinnavannewton/project-monitorize/wiki/Nix-installation)
 
 Source installation uses the repository and all submodules:
