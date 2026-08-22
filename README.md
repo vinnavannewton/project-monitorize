@@ -22,7 +22,7 @@ Receiving is handled by the standard [Moonlight](https://moonlight-stream.org/) 
 
 - KDE Plasma 6.7+
 - GNOME 50+
-- Supported Hyprland releases.
+- Hyprland
 
 ## Installation
 
