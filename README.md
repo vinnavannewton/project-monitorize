@@ -53,7 +53,3 @@ Keep the clone in place after installing. The desktop entry and bundled Sunshine
 4. Open Moonlight on the receiving device and select the advertised host if not found add manaully using the ip shown in monitorize app.
 5. Enter Moonlight's four-digit PIN in Monitorize when pairing.
 6. When setting up two moonlight devices to use as lets say second and third monitor , as usual create the first virtual monitor, then click add display option to create second virtual monitor and start it, most of the time the second virtual monitor wont show in moonlight, in that case add it manually in moonlight using the ip along with respective port of that virtual monitor shown in the monitorize app. 
-
-
-
-Monitorize is licensed under GPL-3.0-only.
