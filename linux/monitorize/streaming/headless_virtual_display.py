@@ -40,6 +40,54 @@ def _emit_event(event: dict):
     print(f"MONITORIZE_EVENT {json.dumps(event, separators=(',', ':'))}", flush=True)
 
 
+def _find_kwin_screencast_node(output_name, timeout=5.0):
+    """Find the PipeWire node ID for KWin's screencast of the given output.
+
+    KWin creates PipeWire screencast nodes named ``kwin-screencast-<output>``
+    for each active output. This function polls ``pw-dump`` until the node
+    appears or *timeout* seconds elapse.
+
+    Returns the integer node ID, or 0 if not found.
+    """
+    exact_media_name = f"kwin-screencast-{output_name}".lower()
+    deadline = time.monotonic() + timeout
+
+    while time.monotonic() < deadline:
+        try:
+            result = subprocess.run(
+                ["pw-dump"],
+                capture_output=True, text=True, timeout=3,
+            )
+            if result.returncode == 0:
+                nodes = json.loads(result.stdout)
+                # First pass: look for exact media.name match with Stream/Output/Video
+                for obj in nodes:
+                    if obj.get("type") != "PipeWire:Interface:Node":
+                        continue
+                    props = obj.get("info", {}).get("props", {})
+                    media_name = str(props.get("media.name") or "").lower()
+                    media_class = str(props.get("media.class") or "")
+                    if media_name == exact_media_name and media_class == "Stream/Output/Video":
+                        return int(obj.get("id", 0))
+
+                # Second pass: look for partial match in media.name or node.description
+                for obj in nodes:
+                    if obj.get("type") != "PipeWire:Interface:Node":
+                        continue
+                    props = obj.get("info", {}).get("props", {})
+                    media_name = str(props.get("media.name") or "").lower()
+                    media_class = str(props.get("media.class") or "")
+                    node_desc = str(props.get("node.description") or "").lower()
+                    if media_class == "Stream/Output/Video":
+                        if output_name.lower() in media_name or output_name.lower() in node_desc:
+                            return int(obj.get("id", 0))
+        except Exception:
+            pass
+        time.sleep(0.3)
+
+    return 0
+
+
 def run_kde_headless(slot, width, height, fps):
     slot_info = virtual_slot(slot)
     output_name = slot_info["output_name"]
@@ -86,9 +134,15 @@ def run_kde_headless(slot, width, height, fps):
             raise RuntimeError(message)
 
         print(f"[Headless] {message}", flush=True)
+        node_id = _find_kwin_screencast_node(actual_name)
+        if node_id:
+            print(f"[Headless] Found PipeWire screencast node {node_id} for {actual_name}", flush=True)
+        else:
+            print(f"[Headless] Warning: no PipeWire screencast node found for {actual_name}", flush=True)
         _emit_event({
             "type": "headless_ready",
             "name": actual_name,
+            "node_id": node_id,
             "width": actual.get("width", width),
             "height": actual.get("height", height),
             "fps": actual.get("refresh_rate", fps),

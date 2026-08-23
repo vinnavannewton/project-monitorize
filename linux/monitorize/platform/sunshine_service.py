@@ -393,7 +393,24 @@ def start_sunshine(
         )
 
     if is_sunshine_running(instance):
-        return True, f"Sunshine instance {instance} is already running."
+        target_node = _SUNSHINE_PIPEWIRE_NODES.get(instance)
+        running_proc = _SUNSHINE_PROCESSES.get(instance) or (_SUNSHINE_PROCESS if instance == 1 else None)
+        needs_restart = False
+        if target_node:
+            if running_proc and running_proc.pid:
+                try:
+                    with open(f"/proc/{running_proc.pid}/environ", "rb") as f:
+                        env_data = f.read().decode("utf-8", errors="ignore")
+                        if f"SUNSHINE_PIPEWIRE_NODE={target_node}" not in env_data:
+                            needs_restart = True
+                except Exception:
+                    needs_restart = True
+            else:
+                needs_restart = True
+        if needs_restart:
+            stop_sunshine(instance)
+        else:
+            return True, f"Sunshine instance {instance} is already running."
 
     try:
         from monitorize.platform.gnome_virtual_monitor import map_sunshine_gnome_peripherals
