@@ -250,7 +250,7 @@ class StreamingController(QObject):
             output_name,
             width,
             height,
-            pipewire_node=event.get("node_id") if self.de == "gnome" else None,
+            pipewire_node=event.get("node_id"),
             offset_x=int(event.get("offset_x") or 0),
             offset_y=int(event.get("offset_y") or 0),
         ):
@@ -299,20 +299,19 @@ class StreamingController(QObject):
         save_sunshine_config(
             {"stream_audio": "enabled" if audio else "disabled"}, instance=instance
         )
-        if not is_sunshine_running(instance):
-            ok, message = start_sunshine(
-                instance,
-                pipewire_node=pipewire_node,
-                offset_x=offset_x,
-                offset_y=offset_y,
-                width=width,
-                height=height,
-            )
-            if not ok:
-                self._set_status(message)
-                self.logAppended.emit("SUNSHINE", f"ERROR: {message}")
-                return False
-            self.logAppended.emit("SUNSHINE", message)
+        ok, message = start_sunshine(
+            instance,
+            pipewire_node=pipewire_node,
+            offset_x=offset_x,
+            offset_y=offset_y,
+            width=width,
+            height=height,
+        )
+        if not ok:
+            self._set_status(message)
+            self.logAppended.emit("SUNSHINE", f"ERROR: {message}")
+            return False
+        self.logAppended.emit("SUNSHINE", message)
         QTimer.singleShot(1500, self.sunshine_watchdog_timer.start)
         return True
 
