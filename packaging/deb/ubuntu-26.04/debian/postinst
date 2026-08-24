@@ -1,0 +1,15 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    configure)
+        if ! getent group monitorize-input >/dev/null 2>&1; then
+            addgroup --system monitorize-input
+        fi
+        udevadm control --reload-rules >/dev/null 2>&1 || true
+        udevadm trigger --subsystem-match=misc --sysname-match=uinput >/dev/null 2>&1 || true
+        modprobe uinput >/dev/null 2>&1 || true
+        ;;
+esac
+
+#DEBHELPER#

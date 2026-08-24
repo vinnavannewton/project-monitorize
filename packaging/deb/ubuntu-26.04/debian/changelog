@@ -1,0 +1,5 @@
+monitorize (0.2.8) resolute; urgency=medium
+
+  * Initial Ubuntu 26.04 AMD64 package with bundled Sunshine.
+
+ -- Monitorize contributors <noreply@example.com>  Mon, 24 Aug 2026 12:00:00 +0000

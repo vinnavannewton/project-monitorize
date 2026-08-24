@@ -1,0 +1,85 @@
+Source: monitorize
+Section: utils
+Priority: optional
+Maintainer: Monitorize contributors <noreply@example.com>
+Build-Depends: debhelper-compat (= 13),
+               dh-python,
+               dpkg-dev,
+               gcc-14,
+               g++-14,
+               cmake (>= 3.26),
+               curl,
+               desktop-file-utils,
+               git,
+               glslang-tools,
+               libboost-filesystem-dev,
+               libboost-locale-dev,
+               libboost-log-dev,
+               libboost-program-options-dev,
+               libcap-dev,
+               libcurl4-openssl-dev,
+               libdrm-dev,
+               libevdev-dev,
+               libgbm-dev,
+               libglib2.0-dev,
+               libminiupnpc-dev,
+               libnuma-dev,
+               libopus-dev,
+               libpipewire-0.3-dev,
+               libpulse-dev,
+               libssl-dev,
+               libva-dev,
+               libvdpau-dev,
+               libvulkan-dev,
+               libwayland-dev,
+               libx11-dev,
+               libxcb1-dev,
+               libxcb-shm0-dev,
+               libxcb-xfixes0-dev,
+               libxcursor-dev,
+               libxfixes-dev,
+               libxi-dev,
+               libxinerama-dev,
+               libxrandr-dev,
+               libxtst-dev,
+               make,
+               nlohmann-json3-dev,
+               npm,
+               pkg-config,
+               python3-all,
+               python3-cairo,
+               python3-dbus,
+               python3-dev,
+               python3-gi,
+               python3-jinja2,
+               python3-pyqt6,
+               python3-pyqt6.qtquick,
+               pybuild-plugin-pyproject,
+               python3-setuptools,
+               python3-wheel,
+               wayland-protocols
+Standards-Version: 4.7.2
+Rules-Requires-Root: no
+Homepage: https://github.com/vinnavannewton/project-monitorize
+
+Package: monitorize
+Architecture: amd64
+Depends: ${misc:Depends},
+         ${python3:Depends},
+         ${shlibs:Depends},
+         adduser,
+         avahi-daemon,
+         kmod,
+         python3-cairo,
+         python3-dbus,
+         python3-gi,
+         python3-jinja2,
+         python3-pyqt6,
+         python3-pyqt6.qtquick,
+         udev,
+         xdg-desktop-portal
+Recommends: firewalld
+Description: Sunshine-backed virtual displays for Moonlight clients
+ Monitorize creates compositor-native virtual displays on KDE Plasma, GNOME,
+ and Hyprland and streams them to Moonlight clients through isolated, bundled
+ Sunshine instances.
