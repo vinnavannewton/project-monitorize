@@ -11,9 +11,11 @@ Receiving is handled by the standard [Moonlight](https://moonlight-stream.org/) 
 ## Features
 
 - Extend or mirror a Linux desktop.
+
 - Stream upto two virtual displays to any Moonlight-compatible device.
 
 - All Sunshine features such as encoder, codec, audio, touch, and stylus configuration.
+
 - KDE, GNOME, and Hyprland native virtual monitors.
 
 - Doesn't interfere with existing user's sunshine.
@@ -32,18 +34,7 @@ Receiving is handled by the standard [Moonlight](https://moonlight-stream.org/) 
 - [openSUSE Tumbleweed](https://github.com/vinnavannewton/project-monitorize/wiki/openSUSE-Tumbleweed-installation)
 - [NixOS / Nix](https://github.com/vinnavannewton/project-monitorize/wiki/Nix-installation)
 
-Source installation uses the repository and all submodules:
 
-```bash
-git clone --recurse-submodules https://github.com/vinnavannewton/project-monitorize.git
-cd project-monitorize
-git submodule update --init --recursive
-cd linux/scripts
-chmod +x install.sh
-./install.sh
-```
-
-Keep the clone in place after installing. The desktop entry and bundled Sunshine installation use files inside that checkout.
 
 ## Usage
 
