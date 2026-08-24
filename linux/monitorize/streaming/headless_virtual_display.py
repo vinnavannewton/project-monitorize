@@ -60,7 +60,7 @@ def _find_kwin_screencast_node(output_name, timeout=5.0):
             )
             if result.returncode == 0:
                 nodes = json.loads(result.stdout)
-                # First pass: look for exact media.name match with Stream/Output/Video
+                
                 for obj in nodes:
                     if obj.get("type") != "PipeWire:Interface:Node":
                         continue
@@ -70,7 +70,7 @@ def _find_kwin_screencast_node(output_name, timeout=5.0):
                     if media_name == exact_media_name and media_class == "Stream/Output/Video":
                         return int(obj.get("id", 0))
 
-                # Second pass: look for partial match in media.name or node.description
+                
                 for obj in nodes:
                     if obj.get("type") != "PipeWire:Interface:Node":
                         continue

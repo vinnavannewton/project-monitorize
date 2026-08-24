@@ -354,7 +354,7 @@ def set_sunshine_pipewire_node(
     width: int | None = None,
     height: int | None = None,
 ) -> None:
-    """Set the PipeWire stream node id, offset, and dimensions for direct capture on GNOME."""
+    """Set the PipeWire stream node id, offset, and dimensions for direct capture."""
     if node_id is not None and str(node_id).isdigit() and int(node_id) > 0:
         _SUNSHINE_PIPEWIRE_NODES[instance] = int(node_id)
         _SUNSHINE_PIPEWIRE_OFFSETS[instance] = (int(offset_x), int(offset_y))
@@ -382,33 +382,33 @@ def start_sunshine(
     """Start isolated Sunshine engine binding child process to parent lifetime."""
     global _SUNSHINE_PROCESS, _SUNSHINE_PROCESSES
     ensure_sunshine_tray_disabled(instance)
-    if pipewire_node is not None or offset_x != 0 or offset_y != 0:
-        set_sunshine_pipewire_node(
-            pipewire_node,
-            instance,
-            offset_x=offset_x,
-            offset_y=offset_y,
-            width=width,
-            height=height,
-        )
+    set_sunshine_pipewire_node(
+        pipewire_node,
+        instance,
+        offset_x=offset_x,
+        offset_y=offset_y,
+        width=width,
+        height=height,
+    )
 
     if is_sunshine_running(instance):
         target_node = _SUNSHINE_PIPEWIRE_NODES.get(instance)
         running_proc = _SUNSHINE_PROCESSES.get(instance) or (_SUNSHINE_PROCESS if instance == 1 else None)
         needs_restart = False
-        if target_node:
-            if running_proc and running_proc.pid:
-                try:
-                    with open(f"/proc/{running_proc.pid}/environ", "rb") as f:
-                        env_data = f.read().decode("utf-8", errors="ignore")
-                        if f"SUNSHINE_PIPEWIRE_NODE={target_node}" not in env_data:
-                            needs_restart = True
-                except Exception:
-                    needs_restart = True
-            else:
+        if running_proc and running_proc.pid:
+            try:
+                with open(f"/proc/{running_proc.pid}/environ", "rb") as f:
+                    env_data = f.read().split(b"\0")
+                requested_node = f"SUNSHINE_PIPEWIRE_NODE={target_node}".encode()
+                needs_restart = (
+                    requested_node not in env_data
+                    if target_node
+                    else any(entry.startswith(b"SUNSHINE_PIPEWIRE_NODE=") for entry in env_data)
+                )
+            except OSError:
                 needs_restart = True
         if needs_restart:
-            stop_sunshine(instance)
+            stop_sunshine(instance, clear_pipewire_node=False)
         else:
             return True, f"Sunshine instance {instance} is already running."
 
@@ -483,7 +483,9 @@ def start_sunshine(
     return False, f"Failed to start Sunshine instance {instance} ({'; '.join(errors)})"
 
 
-def stop_sunshine(instance: int | None = None) -> tuple[bool, str]:
+def stop_sunshine(
+    instance: int | None = None, clear_pipewire_node: bool = True
+) -> tuple[bool, str]:
     """Gracefully stop Monitorize's Sunshine child process without affecting user's personal Sunshine."""
     global _SUNSHINE_PROCESS, _SUNSHINE_PROCESSES
     if instance is not None:
@@ -496,7 +498,8 @@ def stop_sunshine(instance: int | None = None) -> tuple[bool, str]:
             instances_to_stop = [1, 2]
 
     for inst in instances_to_stop:
-        set_sunshine_pipewire_node(None, inst)
+        if clear_pipewire_node:
+            set_sunshine_pipewire_node(None, inst)
         proc = _SUNSHINE_PROCESSES.pop(inst, None)
         if proc is None and inst == 1 and _SUNSHINE_PROCESS is not None:
             proc = _SUNSHINE_PROCESS

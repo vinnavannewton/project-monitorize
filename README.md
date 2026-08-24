@@ -32,6 +32,59 @@ Receiving is handled by the standard [Moonlight](https://moonlight-stream.org/) 
 - [openSUSE Tumbleweed](https://github.com/vinnavannewton/project-monitorize/wiki/openSUSE-Tumbleweed-installation)
 - [NixOS / Nix](https://github.com/vinnavannewton/project-monitorize/wiki/Nix-installation)
 
+Source installation uses the repository and all submodules:
+
+```bash
+git clone --recurse-submodules https://github.com/vinnavannewton/project-monitorize.git
+cd project-monitorize
+git submodule update --init --recursive
+cd linux/scripts
+chmod +x install.sh
+./install.sh
+```
+
+Keep the clone in place after installing. The desktop entry and bundled Sunshine installation use files inside that checkout.
+
+### Build a Fedora 44 RPM
+
+On an x86_64 system with Git and rootless Podman, use a clean checkout with all
+submodules initialized:
+
+```bash
+./packaging/rpm/build.sh
+```
+
+The command writes the binary RPM to `dist/rpm/fedora-44/x86_64/`, the SRPM to
+`dist/rpm/fedora-44/source/`, and the full build log to
+`dist/rpm/fedora-44/build.log`. It then test-installs the package in a fresh
+Fedora 44 container. The installed package contains Monitorize and its pinned
+Sunshine fork and does not depend on the source checkout.
+
+Install the generated RPM and enable touch/input access and the Sunshine
+firewall ports:
+
+```bash
+sudo dnf install ./dist/rpm/fedora-44/x86_64/monitorize-[0-9]*.fc44.x86_64.rpm
+sudo usermod -aG monitorize-input "$USER"
+sudo firewall-cmd --permanent --add-service=monitorize
+sudo firewall-cmd --reload
+```
+
+Log out and back in after joining `monitorize-input`. For later local builds:
+
+```bash
+sudo dnf upgrade ./dist/rpm/fedora-44/x86_64/monitorize-[0-9]*.fc44.x86_64.rpm
+sudo dnf reinstall ./dist/rpm/fedora-44/x86_64/monitorize-[0-9]*.fc44.x86_64.rpm
+sudo dnf remove monitorize
+```
+
+Use `upgrade` for a newer version and `reinstall` when rebuilding the same
+version. Uninstalling removes package-owned files but keeps
+`~/.config/monitorize`.
+
+The local RPM is unsigned and does not configure an update repository. Set
+`MONITORIZE_BUILD_JOBS` to a positive integer to override the default build
+limit of four jobs or the available CPU count, whichever is lower.
 ## Usage
 
 1. Open Monitorize and click **Create a Virtual Display**.

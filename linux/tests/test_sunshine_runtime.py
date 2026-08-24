@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, mock_open, patch
 
 from monitorize.platform import sunshine_service as service
 
@@ -11,6 +11,9 @@ class SunshineRuntimeTest(unittest.TestCase):
     def tearDown(self):
         service._SUNSHINE_PROCESS = None
         service._SUNSHINE_PROCESSES.clear()
+        service._SUNSHINE_PIPEWIRE_NODES.clear()
+        service._SUNSHINE_PIPEWIRE_OFFSETS.clear()
+        service._SUNSHINE_PIPEWIRE_DIMS.clear()
 
     def test_explicit_binary_and_assets_take_precedence(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -68,6 +71,66 @@ class SunshineRuntimeTest(unittest.TestCase):
             self.assertFalse(ok)
             self.assertIn("code 7", message)
             self.assertIn("encoder unavailable", message)
+
+    def test_start_restarts_managed_process_when_pipewire_node_changes(self):
+        running = MagicMock(pid=123)
+        launched = MagicMock()
+        launched.poll.return_value = None
+        service._SUNSHINE_PROCESSES[1] = running
+
+        with (
+            patch.object(service, "ensure_sunshine_tray_disabled"),
+            patch.object(service, "is_sunshine_running", return_value=True),
+            patch("builtins.open", mock_open(read_data=b"SUNSHINE_PIPEWIRE_NODE=42\0")),
+            patch.object(service, "stop_sunshine") as stop,
+            patch.object(service, "get_sunshine_config_dir", return_value="/tmp/config"),
+            patch.object(service, "get_sunshine_candidates", return_value=[["/tmp/sunshine", "/tmp/config/sunshine.conf"]]),
+            patch.object(service, "get_sunshine_assets_dir", return_value=None),
+            patch.object(service.time, "sleep"),
+            patch.object(service.subprocess, "Popen", return_value=launched) as popen,
+        ):
+            ok, _ = service.start_sunshine(pipewire_node=84)
+
+        self.assertTrue(ok)
+        stop.assert_called_once_with(1, clear_pipewire_node=False)
+        self.assertEqual(popen.call_args.kwargs["env"]["SUNSHINE_PIPEWIRE_NODE"], "84")
+
+    def test_start_restarts_managed_process_to_clear_pipewire_node(self):
+        running = MagicMock(pid=123)
+        launched = MagicMock()
+        launched.poll.return_value = None
+        service._SUNSHINE_PROCESSES[1] = running
+        service.set_sunshine_pipewire_node(42)
+
+        with (
+            patch.object(service, "ensure_sunshine_tray_disabled"),
+            patch.object(service, "is_sunshine_running", return_value=True),
+            patch("builtins.open", mock_open(read_data=b"SUNSHINE_PIPEWIRE_NODE=42\0")),
+            patch.object(service, "stop_sunshine") as stop,
+            patch.object(service, "get_sunshine_config_dir", return_value="/tmp/config"),
+            patch.object(service, "get_sunshine_candidates", return_value=[["/tmp/sunshine", "/tmp/config/sunshine.conf"]]),
+            patch.object(service, "get_sunshine_assets_dir", return_value=None),
+            patch.object(service.time, "sleep"),
+            patch.object(service.subprocess, "Popen", return_value=launched) as popen,
+        ):
+            ok, _ = service.start_sunshine()
+
+        self.assertTrue(ok)
+        stop.assert_called_once_with(1, clear_pipewire_node=False)
+        self.assertNotIn("SUNSHINE_PIPEWIRE_NODE", popen.call_args.kwargs["env"])
+
+    def test_start_does_not_restart_untracked_sunshine(self):
+        with (
+            patch.object(service, "ensure_sunshine_tray_disabled"),
+            patch.object(service, "is_sunshine_running", return_value=True),
+            patch.object(service, "stop_sunshine") as stop,
+            patch.object(service.subprocess, "Popen") as popen,
+        ):
+            ok, _ = service.start_sunshine(pipewire_node=84)
+
+        self.assertTrue(ok)
+        stop.assert_not_called()
+        popen.assert_not_called()
 
 
 if __name__ == "__main__":

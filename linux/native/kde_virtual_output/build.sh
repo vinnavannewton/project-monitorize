@@ -7,7 +7,9 @@ if [[ $# -ne 1 ]]; then
     exit 2
 fi
 
-for command in wayland-scanner cc pkg-config; do
+CC="${CC:-cc}"
+
+for command in wayland-scanner "${CC}" pkg-config; do
     if ! command -v "${command}" >/dev/null 2>&1; then
         echo "Missing KDE helper build dependency: ${command}" >&2
         exit 1
@@ -36,7 +38,7 @@ read -r -a CFLAGS <<< "$(pkg-config --cflags wayland-client)"
 read -r -a LIBS <<< "$(pkg-config --libs wayland-client)"
 read -r -a BUILD_CFLAGS <<< "${RPM_OPT_FLAGS:-${CFLAGS_EXTRA:-}}"
 read -r -a BUILD_LDFLAGS <<< "${RPM_LD_FLAGS:-${LDFLAGS:-}}"
-cc -std=c11 -O2 -Wall -Wextra -Werror -I"${TMP_DIR}" \
+"${CC}" -std=c11 -O2 -Wall -Wextra -Werror -I"${TMP_DIR}" \
     "${SCRIPT_DIR}/monitorize-kde-virtual-output.c" "${CODE}" \
     "${CFLAGS[@]}" "${BUILD_CFLAGS[@]}" "${LIBS[@]}" \
     "${BUILD_LDFLAGS[@]}" -o "${OUTPUT}"
