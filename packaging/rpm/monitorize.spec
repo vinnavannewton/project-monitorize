@@ -4,7 +4,7 @@
 
 Name:           monitorize
 Version:        0.2.8
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Sunshine-backed virtual displays for Moonlight clients
 
 License:        GPL-3.0-only
@@ -80,7 +80,7 @@ Requires:       python3-pyqt6
 Requires:       systemd-udev
 Requires:       which
 Requires:       xdg-desktop-portal
-Recommends:     kmod
+Requires(post): kmod
 %{?sysusers_requires_compat}
 
 %description
@@ -178,6 +178,8 @@ install -Dpm 0644 packaging/fedora/70-monitorize-uinput.rules \
     %{buildroot}%{_udevrulesdir}/70-monitorize-uinput.rules
 install -Dpm 0644 %{SOURCE2} \
     %{buildroot}%{_sysusersdir}/monitorize.conf
+install -dpm 0755 %{buildroot}%{_modulesloaddir}
+printf 'uinput\n' > %{buildroot}%{_modulesloaddir}/monitorize.conf
 install -Dpm 0644 LICENSE \
     %{buildroot}%{_licensedir}/%{name}/Monitorize-LICENSE
 install -Dpm 0644 external/sunshine/LICENSE \
@@ -217,6 +219,7 @@ PYTHON
 
 %post
 %udev_rules_update
+/usr/sbin/modprobe uinput >/dev/null 2>&1 || :
 %firewalld_reload
 
 
@@ -241,8 +244,12 @@ PYTHON
 %{_prefix}/lib/firewalld/services/monitorize.xml
 %{_udevrulesdir}/70-monitorize-uinput.rules
 %{_sysusersdir}/monitorize.conf
+%{_modulesloaddir}/monitorize.conf
 
 
 %changelog
+* Mon Aug 24 2026 Monitorize contributors <noreply@example.com> - 0.2.8-2
+- Load uinput during installation and request it automatically at boot.
+
 * Sun Aug 23 2026 Monitorize contributors <noreply@example.com> - 0.2.8-1
 - Add the Fedora 44 package with the bundled Monitorize Sunshine fork.
