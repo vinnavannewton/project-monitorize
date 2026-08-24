@@ -30,7 +30,7 @@ Receiving is handled by the standard [Moonlight](https://moonlight-stream.org/) 
 
 - [Fedora](https://github.com/vinnavannewton/project-monitorize/wiki/Fedora-installation)
 - [Arch Linux](https://github.com/vinnavannewton/project-monitorize/wiki/Arch-installation)
-- [Ubuntu / Debian](https://github.com/vinnavannewton/project-monitorize/wiki/Ubuntu-Debian-installation)
+- [Ubuntu](https://github.com/vinnavannewton/project-monitorize/wiki/Ubuntu-installation)
 - [openSUSE Tumbleweed](https://github.com/vinnavannewton/project-monitorize/wiki/openSUSE-Tumbleweed-installation)
 - [NixOS / Nix](https://github.com/vinnavannewton/project-monitorize/wiki/Nix-installation)
 
