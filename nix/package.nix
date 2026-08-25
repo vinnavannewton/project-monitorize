@@ -93,7 +93,6 @@ python3Packages.buildPythonApplication rec {
   buildInputs = [
     qt6.qtbase
     qt6.qtdeclarative                   # QML engine
-    qt6.qtquickcontrols2
     qt6.qtsvg
     qt6.qtwayland
     wayland
