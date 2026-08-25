@@ -1,4 +1,4 @@
-%global sunshine_commit 353e21e2df659cfe54ce280f5893a3262e0eb5fe
+%global sunshine_commit e3ce79f3b966df388e905a3c6b3784832a328e34
 %global sunshine_ffmpeg_tag v2026.724.203728
 %global sunshine_ffmpeg_sha256 2c27d4694b4ed0e734f497d4bd62f1b3662cbbc4ded2a69f2dc4b703441eebb3
 
