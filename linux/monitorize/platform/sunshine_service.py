@@ -618,11 +618,13 @@ def sync_sunshine_stream_config(
     codec: str = "Auto",
     native_pen_touch: bool = True,
     instance: int = 1,
+    capture: str = "",
 ) -> tuple[bool, str]:
     """Atomically synchronize all active streaming parameters to sunshine.conf in a single pass."""
     clean_out = str(output_name or "").strip()
 
     clean_enc = str(encoder or "").strip()
+    clean_capture = str(capture or "").strip()
     mapping = {
         "auto": "",
         "nvidia": "nvenc",
@@ -664,6 +666,7 @@ def sync_sunshine_stream_config(
     found_av1 = False
     found_tray = False
     found_pen_touch = False
+    found_capture = False
     prev_output = ""
 
     if os.path.isfile(config_path):
@@ -689,6 +692,9 @@ def sync_sunshine_stream_config(
                     elif stripped.startswith("native_pen_touch"):
                         lines.append(f"native_pen_touch = {pen_touch_val}\n")
                         found_pen_touch = True
+                    elif stripped.startswith("capture"):
+                        lines.append(f"capture = {clean_capture}\n")
+                        found_capture = True
                     elif stripped.startswith("system_tray"):
                         lines.append("system_tray = disabled\n")
                         found_tray = True
@@ -707,6 +713,8 @@ def sync_sunshine_stream_config(
         lines.append(f"av1_mode = {av1_val}\n")
     if not found_pen_touch:
         lines.append(f"native_pen_touch = {pen_touch_val}\n")
+    if not found_capture:
+        lines.append(f"capture = {clean_capture}\n")
     if not found_tray:
         lines.append("system_tray = disabled\n")
 
@@ -735,6 +743,7 @@ def sync_sunshine_stream_config(
                 "hevc_mode": hevc_val,
                 "av1_mode": av1_val,
                 "native_pen_touch": pen_touch_val,
+                "capture": clean_capture,
             }).encode("utf-8")
             req = urllib.request.Request(
                 f"{url}/api/config",

@@ -32,7 +32,7 @@ class SunshineControllerTest(unittest.TestCase):
         self.assertTrue(controller.primary_ready)
         self.assertIsNone(controller.streamer)
         sync.assert_called_once_with(
-            "", "VA-API", "H.265 (HEVC)", True, instance=1
+            "", "VA-API", "H.265 (HEVC)", True, instance=1, capture="kwin"
         )
         save.assert_called_once_with({"stream_audio": "enabled"}, instance=1)
         start.assert_called_once_with(
@@ -76,6 +76,44 @@ class SunshineControllerTest(unittest.TestCase):
             height=800,
         )
         self.assertEqual(controller.gnome_outputs["primary"], "Meta-0")
+        self.assertTrue(controller.primary_ready)
+
+        _sync.assert_called_once_with(
+            "Meta-0", "Auto", "Auto", True, instance=1, capture=""
+        )
+
+    @patch("monitorize.desktop.streaming_controller.stop_sunshine")
+    @patch("monitorize.desktop.streaming_controller.start_sunshine", return_value=(True, "started"))
+    @patch("monitorize.desktop.streaming_controller.is_sunshine_running", return_value=False)
+    @patch("monitorize.desktop.streaming_controller.save_sunshine_config", return_value=(True, "saved"))
+    @patch("monitorize.desktop.streaming_controller.sync_sunshine_stream_config", return_value=(True, "synced"))
+    def test_kde_event_uses_native_kwin_capture_instead_of_direct_pipewire_node(
+        self, _sync, _save, _running, start, _stop
+    ):
+        controller = self.controller("kde")
+        controller.streaming = True
+        controller._display_ready(
+            "primary",
+            {
+                "type": "headless_ready",
+                "name": "Virtual-Monitorize-1",
+                "node_id": 42,
+                "width": 1920,
+                "height": 1200,
+                "fps": 60,
+            },
+        )
+        start.assert_called_once_with(
+            1,
+            pipewire_node=None,
+            offset_x=0,
+            offset_y=0,
+            width=1920,
+            height=1200,
+        )
+        _sync.assert_called_once_with(
+            "Virtual-Monitorize-1", "Auto", "Auto", True, instance=1, capture="kwin"
+        )
         self.assertTrue(controller.primary_ready)
 
     @patch.object(StreamingController, "_start_display_process", return_value=Mock())

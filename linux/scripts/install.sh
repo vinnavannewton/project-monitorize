@@ -99,6 +99,22 @@ configure_build_jobs() {
     fi
 }
 
+check_sunshine_node_modules_permissions() {
+    local node_modules blocked_path
+    node_modules="${SUNSHINE_SUBMODULE_DIR}/node_modules"
+    [[ -d "${node_modules}" ]] || return 0
+
+    blocked_path="$(find "${node_modules}" -type d ! -writable -print -quit 2>/dev/null)"
+    if [[ -n "${blocked_path}" ]]; then
+        echo "Error: Sunshine's generated npm cache is not writable: ${blocked_path}" >&2
+        echo "This is normally left behind by an earlier sudo or container build." >&2
+        echo "Repair it with:" >&2
+        echo "  sudo chown -R \"$(id -un)\":\"$(id -gn)\" \"${node_modules}\"" >&2
+        echo "Then rerun this installer without sudo." >&2
+        exit 1
+    fi
+}
+
 # ── Uninstall ────────────────────────────────────────────────────────
 if [[ "${1:-}" == "remove" || "${1:-}" == "uninstall" ]]; then
     echo "Removing ${APP_NAME} desktop entry…"
@@ -169,6 +185,7 @@ for required_path in CMakeLists.txt package.json package-lock.json third-party/m
         exit 1
     fi
 done
+check_sunshine_node_modules_permissions
 
 # ── Setup Virtual Environment ────────────────────────────────────────
 echo "Setting up Python virtual environment at ${VENV_DIR}…"

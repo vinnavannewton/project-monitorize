@@ -36,6 +36,20 @@ class SunshineRuntimeTest(unittest.TestCase):
                 )
                 self.assertEqual(service.get_sunshine_assets_dir(str(binary)), str(assets))
 
+    def test_sync_persists_requested_capture_backend(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config_path = Path(tmp) / "sunshine.conf"
+            with (
+                patch.object(service, "get_sunshine_config_path", return_value=str(config_path)),
+                patch.object(service, "is_sunshine_running", return_value=False),
+            ):
+                ok, _ = service.sync_sunshine_stream_config(
+                    "Virtual-Monitorize-1", instance=1, capture="kwin"
+                )
+
+            self.assertTrue(ok)
+            self.assertIn("capture = kwin\n", config_path.read_text())
+
     def test_start_passes_assets_and_rejects_immediate_exit(self):
         alive = MagicMock()
         alive.poll.return_value = None

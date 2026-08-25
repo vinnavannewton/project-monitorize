@@ -250,7 +250,7 @@ class StreamingController(QObject):
             output_name,
             width,
             height,
-            pipewire_node=event.get("node_id"),
+            pipewire_node=event.get("node_id") if self.de == "gnome" else None,
             offset_x=int(event.get("offset_x") or 0),
             offset_y=int(event.get("offset_y") or 0),
         ):
@@ -290,7 +290,12 @@ class StreamingController(QObject):
         )
         audio = self.audio_enabled if instance == 1 else self.third_audio_enabled
         ok, message = sync_sunshine_stream_config(
-            output_name, encoder, codec, native_pen_touch, instance=instance
+            output_name,
+            encoder,
+            codec,
+            native_pen_touch,
+            instance=instance,
+            capture="kwin" if self.de == "kde" else "",
         )
         if not ok:
             self._set_status(message)
