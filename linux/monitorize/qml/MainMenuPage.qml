@@ -86,6 +86,31 @@ Item {
             }
         }
 
+        Rectangle {
+            visible: backend.systemSetupAvailable
+            Layout.preferredWidth: Math.min(440, page.width - 40)
+            Layout.alignment: Qt.AlignHCenter
+            implicitHeight: 54
+            radius: theme.controlRadius
+            color: setupMouse.containsMouse ? theme.surfaceAlt : theme.surface
+            border.color: setupMouse.containsMouse ? theme.borderHover : theme.border
+
+            Text {
+                anchors.centerIn: parent
+                text: "Finish system setup"
+                color: theme.cardTextPrimary
+                font.pixelSize: 13
+                font.weight: Font.DemiBold
+            }
+
+            MouseArea {
+                id: setupMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                onClicked: page.StackView.view.push("SystemSetupPage.qml")
+            }
+        }
+
         Text {
             text: "Saved presets"
             visible: backend.presets.length > 0

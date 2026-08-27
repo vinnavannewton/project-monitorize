@@ -149,8 +149,10 @@ podman run --rm \
         test -x /usr/bin/monitorize
         test -x /usr/bin/monitorize-kde-virtual-output
         test -x /usr/libexec/monitorize/sunshine
+        test -x /usr/libexec/monitorize/monitorize-system-setup
         test -d /usr/share/monitorize/sunshine/assets/web
         test -f /usr/lib/firewalld/services/monitorize.xml
+        test -f /usr/share/polkit-1/actions/io.github.vinnavannewton.monitorize.system-setup.policy
         test -f /usr/lib/udev/rules.d/70-monitorize-uinput.rules
         test -f /usr/lib/sysusers.d/monitorize.conf
         test -f /usr/lib/modules-load.d/monitorize.conf
@@ -176,6 +178,7 @@ PYTHON
         test ! -e /usr/bin/monitorize
         test ! -e /usr/bin/monitorize-kde-virtual-output
         test ! -e /usr/libexec/monitorize/sunshine
+        test ! -e /usr/libexec/monitorize/monitorize-system-setup
         test ! -e /usr/share/monitorize
         test ! -e /usr/share/applications/monitorize.desktop
     '

@@ -71,6 +71,7 @@ BuildRequires:  wayland-protocols-devel
 Requires:       avahi
 Requires:       firewalld
 Requires:       iproute2
+Requires:       polkit
 Requires:       python3-Jinja2
 Requires:       python3-PyQt6
 Requires:       python3-cairo
@@ -141,6 +142,8 @@ install -Dpm 0755 monitorize-kde-virtual-output \
     %{buildroot}%{_bindir}/monitorize-kde-virtual-output
 install -Dpm 0755 sunshine-build/sunshine \
     %{buildroot}%{_libexecdir}/monitorize/sunshine
+install -Dpm 0755 packaging/common/monitorize-system-setup \
+    %{buildroot}%{_libexecdir}/monitorize/monitorize-system-setup
 mkdir -p %{buildroot}%{_datadir}/monitorize/sunshine/assets
 cp -aL sunshine-build/assets/. \
     %{buildroot}%{_datadir}/monitorize/sunshine/assets/
@@ -161,6 +164,8 @@ install -Dpm 0644 linux/monitorize/assets/monitorize_desktop_logo.png \
     %{buildroot}%{_datadir}/icons/hicolor/512x512/apps/monitorize.png
 install -Dpm 0644 packaging/fedora/monitorize.xml \
     %{buildroot}%{_firewalld_dir}/services/monitorize.xml
+install -Dpm 0644 packaging/common/io.github.vinnavannewton.monitorize.system-setup.policy \
+    %{buildroot}%{_datadir}/polkit-1/actions/io.github.vinnavannewton.monitorize.system-setup.policy
 install -Dpm 0644 packaging/fedora/70-monitorize-uinput.rules \
     %{buildroot}%{_udevrulesdir}/70-monitorize-uinput.rules
 install -Dpm 0644 %{SOURCE2} \
@@ -178,6 +183,8 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/monitorize-kde-virtua
 bash -n %{buildroot}%{_bindir}/monitorize
 test -x %{buildroot}%{_bindir}/monitorize-kde-virtual-output
 test -x %{buildroot}%{_libexecdir}/monitorize/sunshine
+test -x %{buildroot}%{_libexecdir}/monitorize/monitorize-system-setup
+python3 -c 'from pathlib import Path; compile(Path("%{buildroot}%{_libexecdir}/monitorize/monitorize-system-setup").read_text(), "monitorize-system-setup", "exec")'
 test -d %{buildroot}%{_datadir}/monitorize/sunshine/assets/web
 test ! -e %{buildroot}%{_bindir}/sunshine
 test ! -e %{buildroot}/usr/local
@@ -218,6 +225,7 @@ PYTHON
 %{_bindir}/monitorize
 %{_bindir}/monitorize-kde-virtual-output
 %{_libexecdir}/monitorize/sunshine
+%{_libexecdir}/monitorize/monitorize-system-setup
 %dir %{_datadir}/monitorize
 %dir %{_datadir}/monitorize/sunshine
 %{_datadir}/monitorize/sunshine/assets/
@@ -227,6 +235,7 @@ PYTHON
 %dir %{_firewalld_dir}
 %dir %{_firewalld_dir}/services
 %{_firewalld_dir}/services/monitorize.xml
+%{_datadir}/polkit-1/actions/io.github.vinnavannewton.monitorize.system-setup.policy
 %{_udevrulesdir}/70-monitorize-uinput.rules
 %{_sysusersdir}/monitorize.conf
 %{_modulesloaddir}/monitorize.conf

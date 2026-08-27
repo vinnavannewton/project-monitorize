@@ -25,6 +25,7 @@ from monitorize.platform.sunshine_service import (
     set_sunshine_encoder,
     set_sunshine_native_pen_touch,
 )
+from monitorize.platform.system_setup import apply_system_setup, get_system_setup_status
 from monitorize.platform.utils import get_local_ip
 
 
@@ -38,6 +39,7 @@ class MonitorizeBackend(QObject):
     configureDisplayRequested = pyqtSignal()
     presetsChanged = pyqtSignal()
     presetLaunchStatusChanged = pyqtSignal(str)
+    systemSetupAvailableChanged = pyqtSignal(bool)
 
     def __init__(self, de, parent=None):
         super().__init__(parent)
@@ -46,6 +48,7 @@ class MonitorizeBackend(QObject):
         self.streaming = StreamingController(de, self._local_ip, self)
         self._presets = load_presets()
         self._preset_launch_status = ""
+        self._system_setup_available = bool(get_system_setup_status()["available"])
         self.streaming.streamingChanged.connect(self.isStreamingChanged)
         self.streaming.statusChanged.connect(self.streamingStatusChanged)
         self.streaming.secondStreamChanged.connect(self.secondStreamActiveChanged)
@@ -83,6 +86,23 @@ class MonitorizeBackend(QObject):
     @pyqtProperty(str, notify=presetLaunchStatusChanged)
     def presetLaunchStatus(self):
         return self._preset_launch_status
+
+    @pyqtProperty(bool, notify=systemSetupAvailableChanged)
+    def systemSetupAvailable(self):
+        return self._system_setup_available
+
+    @pyqtSlot(result="QVariantMap")
+    def getSystemSetupStatus(self):
+        return get_system_setup_status()
+
+    @pyqtSlot(bool, bool, result="QVariantMap")
+    def applySystemSetup(self, enable_input: bool, enable_firewall: bool):
+        result = apply_system_setup(enable_input, enable_firewall)
+        updated = bool(get_system_setup_status()["available"])
+        if updated != self._system_setup_available:
+            self._system_setup_available = updated
+            self.systemSetupAvailableChanged.emit(updated)
+        return result
 
     @pyqtSlot(result="QVariant")
     def loadDisplaySettings(self):

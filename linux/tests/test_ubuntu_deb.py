@@ -49,14 +49,21 @@ def test_ubuntu_deb_runtime_is_private_and_sets_sunshine_overrides() -> None:
     wrapper = (PACKAGE_ROOT / "monitorize-wrapper").read_text()
     control = (PACKAGE_ROOT / "debian" / "control").read_text()
     postinst = (PACKAGE_ROOT / "debian" / "postinst").read_text()
+    ufw_profile = (PACKAGE_ROOT / "monitorize.ufw.profile").read_text()
 
     assert "/usr/libexec/monitorize/sunshine" in rules
     assert "/usr/share/monitorize/sunshine/assets" in rules
     assert "MONITORIZE_SUNSHINE_BIN=/usr/libexec/monitorize/sunshine" in wrapper
     assert "MONITORIZE_SUNSHINE_ASSETS_DIR=/usr/share/monitorize/sunshine/assets" in wrapper
     assert "python3-pyqt6.qtquick" in control
+    assert "policykit-1" in control
     assert "pybuild-plugin-pyproject" in control
     assert "libxcb-shm0-dev" in control
     assert "addgroup --system monitorize-input" in postinst
     assert "modprobe uinput" in postinst
     assert "cmake --install" not in rules
+    assert "/usr/libexec/monitorize/monitorize-system-setup" in rules
+    assert "io.github.vinnavannewton.monitorize.system-setup.policy" in rules
+    assert "debian/monitorize/etc/ufw/applications.d/monitorize" in rules
+    assert "[Monitorize]" in ufw_profile
+    assert "5353,47998:48010,49098:49110/udp" in ufw_profile

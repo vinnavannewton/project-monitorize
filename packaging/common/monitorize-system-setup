@@ -1,0 +1,99 @@
+#!/usr/bin/python3
+"""Root-only helper for the two Monitorize first-run setup actions."""
+
+import argparse
+import grp
+import json
+import os
+import pwd
+import subprocess
+import sys
+
+
+def command_path(*candidates):
+    for candidate in candidates:
+        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            return candidate
+    return None
+
+
+def run(command):
+    result = subprocess.run(command, text=True, capture_output=True, check=False)
+    if result.returncode:
+        detail = result.stderr.strip() or result.stdout.strip() or "command failed"
+        raise RuntimeError(f"{' '.join(command[:2])}: {detail}")
+    return result.stdout
+
+
+def invoking_user():
+    raw_uid = os.environ.get("PKEXEC_UID", "")
+    if not raw_uid.isdigit():
+        raise RuntimeError("This helper must be started through polkit.")
+    try:
+        return pwd.getpwuid(int(raw_uid)).pw_name
+    except KeyError as exc:
+        raise RuntimeError("The authorizing user no longer exists.") from exc
+
+
+def enable_input(username):
+    try:
+        group = grp.getgrnam("monitorize-input")
+        user = pwd.getpwnam(username)
+    except KeyError as exc:
+        raise RuntimeError("The monitorize-input group is not installed.") from exc
+    if user.pw_gid == group.gr_gid or username in group.gr_mem:
+        return False, "Touch and input access is already enabled."
+    usermod = command_path("/usr/sbin/usermod", "/usr/bin/usermod")
+    if not usermod:
+        raise RuntimeError("usermod is not available.")
+    run([usermod, "-aG", "monitorize-input", username])
+    return True, "Touch and input access enabled. Log out and back in to use it."
+
+
+def enable_firewall():
+    firewall_cmd = command_path("/usr/bin/firewall-cmd", "/usr/sbin/firewall-cmd")
+    if firewall_cmd:
+        state = subprocess.run([firewall_cmd, "--state"], text=True, capture_output=True, check=False)
+        if state.returncode == 0:
+            run([firewall_cmd, "--permanent", "--add-service=monitorize"])
+            run([firewall_cmd, "--reload"])
+            return "Firewalld now allows Monitorize."
+
+    ufw = command_path("/usr/sbin/ufw", "/usr/bin/ufw")
+    if ufw:
+        state = subprocess.run([ufw, "status"], text=True, capture_output=True, check=False)
+        if "Status: active" in state.stdout:
+            run([ufw, "allow", "Monitorize"])
+            return "UFW now allows Monitorize."
+
+    return "No active supported firewall was detected; no firewall changes were needed."
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Configure Monitorize input and firewall access.")
+    parser.add_argument("--input", action="store_true", help="grant the authorizing user uinput access")
+    parser.add_argument("--firewall", action="store_true", help="allow Monitorize through an active firewall")
+    args = parser.parse_args()
+    if not args.input and not args.firewall:
+        parser.error("select --input and/or --firewall")
+    if os.geteuid() != 0:
+        raise RuntimeError("This helper requires root privileges.")
+
+    username = invoking_user()
+    messages = []
+    logout_required = False
+    if args.input:
+        input_changed, input_message = enable_input(username)
+        messages.append(input_message)
+        logout_required = input_changed
+    if args.firewall:
+        messages.append(enable_firewall())
+    print(json.dumps({"success": True, "message": " ".join(messages), "logout_required": logout_required}))
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except RuntimeError as exc:
+        print(json.dumps({"success": False, "message": str(exc)}))
+        sys.exit(1)

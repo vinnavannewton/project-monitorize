@@ -95,6 +95,9 @@ class SunshineOnlyPackagingTest(unittest.TestCase):
             builder.index("from monitorize.desktop import main_window"),
         )
         self.assertIn("%{_libexecdir}/monitorize/sunshine", spec)
+        self.assertIn("%{_libexecdir}/monitorize/monitorize-system-setup", spec)
+        self.assertIn("io.github.vinnavannewton.monitorize.system-setup.policy", spec)
+        self.assertIn("Requires:       polkit", spec)
         self.assertIn("%dir %{_datadir}/monitorize", spec)
         self.assertIn("%dir %{_datadir}/monitorize/sunshine", spec)
         self.assertIn("MONITORIZE_SUNSHINE_BIN", spec)
@@ -109,6 +112,7 @@ class SunshineOnlyPackagingTest(unittest.TestCase):
         self.assertNotIn("Source3:", spec)
         self.assertIn("%sysusers_create_compat", spec)
         self.assertNotIn("cmake --install", spec)
+        self.assertNotIn("-m py_compile %{buildroot}%{_libexecdir}/monitorize/monitorize-system-setup", spec)
         self.assertNotRegex(spec, r"install .*%\{_bindir\}/sunshine")
         self.assertNotRegex(spec, r"install .*?/usr/local")
         for retired_dependency in ("gstreamer", "android-tools", "zeroconf", "python3-evdev"):
