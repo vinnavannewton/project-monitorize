@@ -87,8 +87,8 @@ override_dh_auto_test:
 	desktop-file-validate packaging/fedora/monitorize-kde-virtual-output.desktop
 	test -x monitorize-kde-virtual-output
 	test -x sunshine-build/sunshine
-	test -x debian/monitorize/usr/libexec/monitorize/monitorize-system-setup
-	python3 -c 'from pathlib import Path; compile(Path("debian/monitorize/usr/libexec/monitorize/monitorize-system-setup").read_text(), "monitorize-system-setup", "exec")'
+	test -f packaging/common/monitorize-system-setup
+	python3 -c 'from pathlib import Path; compile(Path("packaging/common/monitorize-system-setup").read_text(), "monitorize-system-setup", "exec")'
 	test -d sunshine-build/assets/web
 	test ! -e sunshine-build/usr/local
 	./sunshine-build/sunshine --version

@@ -64,6 +64,9 @@ def test_ubuntu_deb_runtime_is_private_and_sets_sunshine_overrides() -> None:
     assert "cmake --install" not in rules
     assert "/usr/libexec/monitorize/monitorize-system-setup" in rules
     assert "io.github.vinnavannewton.monitorize.system-setup.policy" in rules
+    assert "packaging/common/monitorize-system-setup" in rules
+    assert "test -f packaging/common/monitorize-system-setup" in rules
+    assert "debian/monitorize/usr/libexec/monitorize/monitorize-system-setup" not in rules.split("override_dh_auto_test:", 1)[1]
     assert "debian/monitorize/etc/ufw/applications.d/monitorize" in rules
     assert "[Monitorize]" in ufw_profile
     assert "5353,47998:48010,49098:49110/udp" in ufw_profile
