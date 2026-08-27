@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Monitorize
+Comment=Create Sunshine virtual displays for Moonlight clients
+Exec=monitorize
+Icon=com.vinnavan.Monitorize
+Terminal=false
+Categories=Utility;
+Keywords=monitor;display;moonlight;sunshine;screen;extend;mirror;streaming;
+StartupNotify=true
+StartupWMClass=monitorize

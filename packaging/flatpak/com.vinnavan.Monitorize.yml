@@ -1,0 +1,121 @@
+# Mirror-only first milestone. Sunshine is added after the desktop app starts.
+app-id: com.vinnavan.Monitorize
+runtime: org.kde.Platform
+runtime-version: "6.10"
+sdk: org.kde.Sdk
+base: com.riverbankcomputing.PyQt.BaseApp
+base-version: "6.10"
+add-build-extensions:
+  org.freedesktop.Sdk.Extension.node20:
+    directory: lib/sdk/node20
+    version: "25.08"
+    no-autodownload: true
+    autodelete: false
+command: monitorize
+
+finish-args:
+  - --device=all
+  - --env=MONITORIZE_SUNSHINE_ASSETS_DIR=/app/share/sunshine
+  - --env=MONITORIZE_SUNSHINE_BIN=/app/bin/sunshine
+  - --env=PULSE_PROP_media.category=Manager
+  - --filesystem=xdg-run/pipewire-0
+  - --share=ipc
+  - --share=network
+  - --socket=pulseaudio
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --system-talk-name=org.freedesktop.Avahi
+
+modules:
+  - ../../external/sunshine/packaging/linux/flatpak/modules/nlohmann_json.json
+  - ../../external/sunshine/packaging/linux/flatpak/modules/avahi.json
+  # Boost's b2 ignores Flatpak Builder's --jobs setting, so cap it explicitly
+  # to keep local builds within ordinary desktop memory limits.
+  - name: boost
+    buildsystem: simple
+    build-commands:
+      - cd tools/build && bison -y -d -o src/engine/jamgram.cpp src/engine/jamgram.y
+      - ./bootstrap.sh --prefix=$FLATPAK_DEST --with-libraries=filesystem,locale,log,program_options
+      - ./b2 -j2 install variant=release link=shared runtime-link=shared cxxflags="$CXXFLAGS"
+    sources:
+      - type: archive
+        url: https://github.com/boostorg/boost/releases/download/boost-1.89.0/boost-1.89.0-cmake.tar.xz
+        sha256: 67acec02d0d118b5de9eb441f5fb707b3a1cdd884be00ca24b9a73c995511f74
+  - ../../external/sunshine/packaging/linux/flatpak/modules/libevdev.json
+  - ../../external/sunshine/packaging/linux/flatpak/modules/miniupnpc.json
+  - ../../external/sunshine/packaging/linux/flatpak/modules/numactl.json
+  - ../../external/sunshine/packaging/linux/flatpak/modules/ffmpeg.json
+
+  - name: python3-jinja2
+    buildsystem: simple
+    build-commands:
+      - pip3 install --ignore-installed --no-deps --no-build-isolation --prefix=${FLATPAK_DEST} ./markupsafe ./jinja2
+    sources:
+      - type: archive
+        url: https://files.pythonhosted.org/packages/df/bf/f7da0350254c0ed7c72f3e33cef02e048281fec7ecec5f032d4aac52226b/jinja2-3.1.6.tar.gz
+        sha256: 0137fb05990d35f1275a587e9aee6d56da821fc83491a0fb838183be43f66d6d
+        dest: jinja2
+      - type: archive
+        url: https://files.pythonhosted.org/packages/7e/99/7690b6d4034fffd95959cbe0c02de8deb3098cc577c67bb6a24fe5d7caa7/markupsafe-3.0.3.tar.gz
+        sha256: 722695808f4b6457b320fdc131280796bdceb04ab50fe1795cd540799ebe1698
+        dest: markupsafe
+
+  - name: sunshine
+    buildsystem: cmake-ninja
+    builddir: true
+    build-options:
+      append-path: /usr/lib/sdk/node20/bin
+      env:
+        BUILD_VERSION: 0.2.8
+        BRANCH: monitorize
+        COMMIT: e3ce79f3b966df388e905a3c6b3784832a328e34
+        PYTHONPATH: /app/lib/python3.13/site-packages
+        XDG_CACHE_HOME: /run/build/sunshine/flatpak-node/cache
+        npm_config_cache: /run/build/sunshine/flatpak-node/npm-cache
+        npm_config_nodedir: /usr/lib/sdk/node20
+        npm_config_offline: "true"
+    config-opts:
+      - -DBOOST_USE_STATIC=OFF
+      - -DBUILD_DOCS=OFF
+      - -DBUILD_TESTS=OFF
+      - -DBUILD_WERROR=ON
+      - -DCMAKE_BUILD_TYPE=Release
+      - -DFFMPEG_PREPARED_BINARIES=/app/ffmpeg
+      - -DGLAD_SKIP_PIP_INSTALL=ON
+      - -DSUNSHINE_ASSETS_DIR=share/sunshine
+      - -DSUNSHINE_BUILD_FLATPAK=ON
+      - -DSUNSHINE_ENABLE_CUDA=OFF
+      - -DSUNSHINE_ENABLE_DRM=ON
+      - -DSUNSHINE_ENABLE_KWIN=ON
+      - -DSUNSHINE_ENABLE_PORTAL=ON
+      - -DSUNSHINE_ENABLE_WAYLAND=ON
+      - -DSUNSHINE_ENABLE_X11=ON
+      - -DSUNSHINE_EXECUTABLE_PATH=/app/bin/sunshine
+    post-install:
+      - install -Dm644 $FLATPAK_BUILDER_BUILDDIR/packaging/linux/flatpak/apps.json /app/share/sunshine/apps.json
+    sources:
+      - sunshine-node-sources.json
+      - type: git
+        url: https://github.com/vinnavannewton/sunshine.git
+        commit: e3ce79f3b966df388e905a3c6b3784832a328e34
+
+  - name: monitorize
+    buildsystem: simple
+    build-commands:
+      - pip3 install --no-deps --no-build-isolation --prefix=${FLATPAK_DEST} .
+      - install -Dm644 com.vinnavan.Monitorize.desktop -t ${FLATPAK_DEST}/share/applications
+      - install -Dm644 com.vinnavan.Monitorize.png ${FLATPAK_DEST}/share/icons/hicolor/512x512/apps/${FLATPAK_ID}.png
+    sources:
+      - type: file
+        path: ../../pyproject.toml
+      - type: file
+        path: ../../README.md
+      - type: file
+        path: ../../LICENSE
+      - type: dir
+        path: ../../linux
+        dest: linux
+      - type: file
+        path: com.vinnavan.Monitorize.desktop
+      - type: file
+        path: com.vinnavan.Monitorize.png
