@@ -56,7 +56,8 @@ def test_ubuntu_deb_runtime_is_private_and_sets_sunshine_overrides() -> None:
     assert "MONITORIZE_SUNSHINE_BIN=/usr/libexec/monitorize/sunshine" in wrapper
     assert "MONITORIZE_SUNSHINE_ASSETS_DIR=/usr/share/monitorize/sunshine/assets" in wrapper
     assert "python3-pyqt6.qtquick" in control
-    assert "policykit-1" in control
+    assert "         pkexec," in control
+    assert "policykit-1" not in control
     assert "pybuild-plugin-pyproject" in control
     assert "libxcb-shm0-dev" in control
     assert "addgroup --system monitorize-input" in postinst
