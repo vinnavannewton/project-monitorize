@@ -23,6 +23,7 @@ from monitorize.config.validation import (
 from monitorize.platform.gnome_virtual_monitor import (
     save_current_virtual_layout as save_current_gnome_virtual_layout,
 )
+from monitorize.platform.gpu_discovery import normalize_pci_id, resolve_encoding_gpu
 from monitorize.platform.process_utils import stop_processes
 from monitorize.platform.sunshine_service import (
     check_sunshine_health,
@@ -69,12 +70,14 @@ class StreamingController(QObject):
         self.fps = DEFAULT_FPS
         self.display_type = "Extend"
         self.encoder = "Auto"
+        self.gpu_id = ""
         self.codec = "Auto"
         self.native_pen_touch = True
         self.audio_enabled = False
         self.third_width, self.third_height = DEFAULT_SECONDARY_RESOLUTION
         self.third_fps = DEFAULT_FPS
         self.third_encoder = "Auto"
+        self.third_gpu_id = ""
         self.third_codec = "Auto"
         self.third_native_pen_touch = True
         self.third_audio_enabled = False
@@ -124,6 +127,7 @@ class StreamingController(QObject):
         native_pen_touch=True,
         enable_audio=False,
         options=None,
+        gpu_id="",
     ):
         self.stop()
         self.generation += 1
@@ -131,6 +135,7 @@ class StreamingController(QObject):
         self.fps = sanitize_fps(fps)
         self.display_type = sanitize_display_type(display_type)
         self.encoder = str(encoder or "Auto")
+        self.gpu_id = normalize_pci_id(gpu_id)
         self.codec = str(codec or "Auto")
         self.native_pen_touch = bool(native_pen_touch)
         self.audio_enabled = bool(enable_audio)
@@ -285,6 +290,7 @@ class StreamingController(QObject):
         offset_y=0,
     ):
         encoder = self.encoder if instance == 1 else self.third_encoder
+        gpu_id = self.gpu_id if instance == 1 else self.third_gpu_id
         codec = self.codec if instance == 1 else self.third_codec
         native_pen_touch = (
             self.native_pen_touch if instance == 1 else self.third_native_pen_touch
@@ -294,6 +300,23 @@ class StreamingController(QObject):
             capture = "portal"
         else:
             capture = "kwin" if self.de == "kde" else ""
+        selected_gpu = resolve_encoding_gpu(encoder, gpu_id)
+        if gpu_id and not selected_gpu:
+            self.logAppended.emit(
+                "SUNSHINE",
+                f"Selected encoding GPU {gpu_id} is unavailable; using Sunshine automatic selection",
+            )
+        elif selected_gpu:
+            self.logAppended.emit(
+                "SUNSHINE",
+                f"Using encoding GPU {selected_gpu['label']}",
+            )
+        adapter_name = selected_gpu.get("render_node", "") if selected_gpu else ""
+        sunshine_environment = None
+        if selected_gpu and str(encoder).strip().lower() in ("nvidia", "nvenc"):
+            cuda_index = selected_gpu.get("cuda_index", "")
+            if cuda_index:
+                sunshine_environment = {"CUDA_VISIBLE_DEVICES": str(cuda_index)}
         ok, message = sync_sunshine_stream_config(
             output_name,
             encoder,
@@ -301,6 +324,7 @@ class StreamingController(QObject):
             native_pen_touch,
             instance=instance,
             capture=capture,
+            adapter_name=adapter_name,
         )
         if not ok:
             self._set_status(message)
@@ -309,14 +333,16 @@ class StreamingController(QObject):
         save_sunshine_config(
             {"stream_audio": "enabled" if audio else "disabled"}, instance=instance
         )
-        ok, message = start_sunshine(
-            instance,
-            pipewire_node=pipewire_node,
-            offset_x=offset_x,
-            offset_y=offset_y,
-            width=width,
-            height=height,
-        )
+        start_kwargs = {
+            "pipewire_node": pipewire_node,
+            "offset_x": offset_x,
+            "offset_y": offset_y,
+            "width": width,
+            "height": height,
+        }
+        if sunshine_environment:
+            start_kwargs["extra_environment"] = sunshine_environment
+        ok, message = start_sunshine(instance, **start_kwargs)
         if not ok:
             self._set_status(message)
             self.logAppended.emit("SUNSHINE", f"ERROR: {message}")
@@ -360,6 +386,7 @@ class StreamingController(QObject):
         codec="Auto",
         native_pen_touch=True,
         enable_audio=False,
+        gpu_id="",
     ):
         if not self.streaming or not self.primary_ready:
             self._set_status("Start the primary display before adding another display")
@@ -374,6 +401,7 @@ class StreamingController(QObject):
         )
         self.third_fps = sanitize_fps(fps)
         self.third_encoder = str(encoder or "Auto")
+        self.third_gpu_id = normalize_pci_id(gpu_id)
         self.third_codec = str(codec or "Auto")
         self.third_native_pen_touch = bool(native_pen_touch)
         self.third_audio_enabled = bool(enable_audio)
@@ -424,6 +452,7 @@ class StreamingController(QObject):
                 "fps": str(self.fps),
                 "display_type": self.display_type,
                 "sunshine_encoder": self.encoder,
+                "sunshine_gpu": self.gpu_id,
                 "sunshine_codec": self.codec,
                 "sunshine_native_pen_touch": self.native_pen_touch,
                 "enable_audio": self.audio_enabled,
@@ -435,6 +464,7 @@ class StreamingController(QObject):
                 resolution=f"{self.third_width}x{self.third_height}",
                 fps=str(self.third_fps),
                 sunshine_encoder=self.third_encoder,
+                sunshine_gpu=self.third_gpu_id,
                 sunshine_codec=self.third_codec,
                 sunshine_native_pen_touch=self.third_native_pen_touch,
                 enable_audio=self.third_audio_enabled,
@@ -454,6 +484,7 @@ class StreamingController(QObject):
                 second.get("sunshine_codec", "Auto"),
                 second.get("sunshine_native_pen_touch", True),
                 second.get("enable_audio", False),
+                gpu_id=second.get("sunshine_gpu", ""),
             ),
         )
 

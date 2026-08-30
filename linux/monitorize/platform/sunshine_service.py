@@ -378,6 +378,7 @@ def start_sunshine(
     offset_y: int = 0,
     width: int | None = None,
     height: int | None = None,
+    extra_environment: dict[str, str] | None = None,
 ) -> tuple[bool, str]:
     """Start isolated Sunshine engine binding child process to parent lifetime."""
     global _SUNSHINE_PROCESS, _SUNSHINE_PROCESSES
@@ -405,6 +406,11 @@ def start_sunshine(
                     if target_node
                     else any(entry.startswith(b"SUNSHINE_PIPEWIRE_NODE=") for entry in env_data)
                 )
+                for key, value in (extra_environment or {}).items():
+                    requested_value = f"{key}={value}".encode()
+                    if requested_value not in env_data:
+                        needs_restart = True
+                        break
             except OSError:
                 needs_restart = True
         if needs_restart:
@@ -430,6 +436,7 @@ def start_sunshine(
     except OSError:
         pass
     env = dict(os.environ)
+    env.update({str(key): str(value) for key, value in (extra_environment or {}).items()})
     env["SUNSHINE_CONFIG_DIR"] = config_dir
     env["XDG_CONFIG_HOME"] = profile_parent
 
@@ -619,12 +626,14 @@ def sync_sunshine_stream_config(
     native_pen_touch: bool = True,
     instance: int = 1,
     capture: str = "",
+    adapter_name: str = "",
 ) -> tuple[bool, str]:
     """Atomically synchronize all active streaming parameters to sunshine.conf in a single pass."""
     clean_out = str(output_name or "").strip()
 
     clean_enc = str(encoder or "").strip()
     clean_capture = str(capture or "").strip()
+    clean_adapter = str(adapter_name or "").strip()
     mapping = {
         "auto": "",
         "nvidia": "nvenc",
@@ -667,6 +676,7 @@ def sync_sunshine_stream_config(
     found_tray = False
     found_pen_touch = False
     found_capture = False
+    found_adapter = False
     prev_output = ""
 
     if os.path.isfile(config_path):
@@ -695,6 +705,9 @@ def sync_sunshine_stream_config(
                     elif stripped.startswith("capture"):
                         lines.append(f"capture = {clean_capture}\n")
                         found_capture = True
+                    elif stripped.startswith("adapter_name"):
+                        lines.append(f"adapter_name = {clean_adapter}\n")
+                        found_adapter = True
                     elif stripped.startswith("system_tray"):
                         lines.append("system_tray = disabled\n")
                         found_tray = True
@@ -715,6 +728,8 @@ def sync_sunshine_stream_config(
         lines.append(f"native_pen_touch = {pen_touch_val}\n")
     if not found_capture:
         lines.append(f"capture = {clean_capture}\n")
+    if not found_adapter:
+        lines.append(f"adapter_name = {clean_adapter}\n")
     if not found_tray:
         lines.append("system_tray = disabled\n")
 
@@ -744,6 +759,7 @@ def sync_sunshine_stream_config(
                 "av1_mode": av1_val,
                 "native_pen_touch": pen_touch_val,
                 "capture": clean_capture,
+                "adapter_name": clean_adapter,
             }).encode("utf-8")
             req = urllib.request.Request(
                 f"{url}/api/config",

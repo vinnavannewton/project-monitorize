@@ -44,17 +44,17 @@ class SunshineRuntimeTest(unittest.TestCase):
                 patch.object(service, "is_sunshine_running", return_value=False),
             ):
                 ok, _ = service.sync_sunshine_stream_config(
-                    "Virtual-Monitorize-1", instance=1, capture="kwin"
+                    "Virtual-Monitorize-1", instance=1, capture="kwin",
+                    adapter_name="/dev/dri/renderD129",
                 )
 
             self.assertTrue(ok)
             self.assertIn("capture = kwin\n", config_path.read_text())
+            self.assertIn("adapter_name = /dev/dri/renderD129\n", config_path.read_text())
 
     def test_start_passes_assets_and_rejects_immediate_exit(self):
         alive = MagicMock()
         alive.poll.return_value = None
-        exited = MagicMock()
-        exited.poll.return_value = 7
 
         with (
             patch.object(service, "ensure_sunshine_tray_disabled"),
@@ -71,6 +71,8 @@ class SunshineRuntimeTest(unittest.TestCase):
 
         service._SUNSHINE_PROCESS = None
         service._SUNSHINE_PROCESSES.clear()
+        exited = MagicMock()
+        exited.poll.return_value = 7
         with (
             patch.object(service, "ensure_sunshine_tray_disabled"),
             patch.object(service, "is_sunshine_running", return_value=False),
@@ -85,6 +87,27 @@ class SunshineRuntimeTest(unittest.TestCase):
             self.assertFalse(ok)
             self.assertIn("code 7", message)
             self.assertIn("encoder unavailable", message)
+
+    def test_start_passes_selected_nvidia_device_environment(self):
+        alive = MagicMock()
+        alive.poll.return_value = None
+        with (
+            patch.object(service, "ensure_sunshine_tray_disabled"),
+            patch.object(service, "is_sunshine_running", return_value=False),
+            patch.object(service, "get_sunshine_config_dir", return_value="/tmp/config"),
+            patch.object(service, "get_sunshine_candidates", return_value=[["/tmp/sunshine"]]),
+            patch.object(service, "get_sunshine_assets_dir", return_value=None),
+            patch.object(service.time, "sleep"),
+            patch.object(service.subprocess, "Popen", return_value=alive) as popen,
+        ):
+            ok, _ = service.start_sunshine(
+                extra_environment={"CUDA_VISIBLE_DEVICES": "1"}
+            )
+
+        self.assertTrue(ok)
+        self.assertEqual(
+            popen.call_args.kwargs["env"]["CUDA_VISIBLE_DEVICES"], "1"
+        )
 
     def test_start_restarts_managed_process_when_pipewire_node_changes(self):
         running = MagicMock(pid=123)

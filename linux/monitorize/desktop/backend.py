@@ -15,6 +15,7 @@ from monitorize.config.settings import (
     save_second_display_settings,
 )
 from monitorize.desktop.streaming_controller import StreamingController
+from monitorize.platform.gpu_discovery import encoding_gpu_options
 from monitorize.platform.sunshine_service import (
     get_sunshine_config,
     open_sunshine_dashboard,
@@ -131,8 +132,12 @@ class MonitorizeBackend(QObject):
     def loadDisplaySettings(self):
         return load_display_settings()
 
+    @pyqtSlot(str, result="QVariant")
+    def getEncodingGpuOptions(self, encoder):
+        return encoding_gpu_options(encoder)
+
     @pyqtSlot(
-        str, str, str, str, str, str, str, str, bool, bool
+        str, str, str, str, str, str, str, str, str, bool, bool
     )
     def saveDisplaySettings(
         self,
@@ -143,6 +148,7 @@ class MonitorizeBackend(QObject):
         custom_fps,
         display_type,
         sunshine_encoder,
+        sunshine_gpu,
         sunshine_codec,
         sunshine_native_pen_touch,
         enable_audio,
@@ -155,6 +161,7 @@ class MonitorizeBackend(QObject):
             custom_fps=custom_fps,
             display_type=display_type,
             sunshine_encoder=sunshine_encoder,
+            sunshine_gpu=sunshine_gpu,
             sunshine_codec=sunshine_codec,
             sunshine_native_pen_touch=sunshine_native_pen_touch,
             enable_audio=enable_audio,
@@ -176,13 +183,14 @@ class MonitorizeBackend(QObject):
     def setAutostartEnabled(self, enabled):
         return autostart.set_enabled(enabled)
 
-    @pyqtSlot(str, str, str, str, str, bool, bool)
+    @pyqtSlot(str, str, str, str, str, str, bool, bool)
     def startStreaming(
         self,
         res,
         fps,
         display_type,
         encoder,
+        gpu_id,
         codec,
         native_pen_touch,
         enable_audio,
@@ -195,6 +203,7 @@ class MonitorizeBackend(QObject):
             codec,
             native_pen_touch,
             enable_audio,
+            gpu_id=gpu_id,
         )
 
     @pyqtSlot()
@@ -253,7 +262,7 @@ class MonitorizeBackend(QObject):
     def loadSecondDisplaySettings(self):
         return load_second_display_settings()
 
-    @pyqtSlot(str, str, str, str, str, str, str, bool, bool)
+    @pyqtSlot(str, str, str, str, str, str, str, str, bool, bool)
     def saveSecondDisplaySettings(
         self,
         resolution,
@@ -262,6 +271,7 @@ class MonitorizeBackend(QObject):
         fps,
         custom_fps,
         encoder,
+        gpu_id,
         codec,
         native_pen_touch,
         enable_audio,
@@ -273,17 +283,18 @@ class MonitorizeBackend(QObject):
             fps=fps,
             custom_fps=custom_fps,
             sunshine_encoder=encoder,
+            sunshine_gpu=gpu_id,
             sunshine_codec=codec,
             sunshine_native_pen_touch=native_pen_touch,
             enable_audio=enable_audio,
         )
 
-    @pyqtSlot(str, str, str, str, bool, bool)
+    @pyqtSlot(str, str, str, str, str, bool, bool)
     def startSecondStream(
-        self, res, fps, encoder, codec, native_pen_touch, enable_audio
+        self, res, fps, encoder, gpu_id, codec, native_pen_touch, enable_audio
     ):
         self.streaming.start_third(
-            res, fps, encoder, codec, native_pen_touch, enable_audio
+            res, fps, encoder, codec, native_pen_touch, enable_audio, gpu_id=gpu_id
         )
 
     @pyqtSlot()
@@ -348,6 +359,7 @@ class MonitorizeBackend(QObject):
             primary["sunshine_native_pen_touch"],
             primary["enable_audio"],
             {"second": preset["second"]},
+            gpu_id=primary.get("sunshine_gpu", ""),
         )
 
     @pyqtSlot(int, str, result=str)

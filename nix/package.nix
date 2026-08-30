@@ -16,6 +16,7 @@
 , runCommand
 , gnutar
 , gzip
+, libva-utils
 }:
 
 let
@@ -181,6 +182,7 @@ python3Packages.buildPythonApplication rec {
       --prefix PYTHONPATH : "$pythonPath" \
       --prefix PATH : "${lib.makeBinPath [
         kdePackages.libkscreen
+        libva-utils
         monitorizeSunshine
       ]}" \
       --set MONITORIZE_SUNSHINE_BIN "${monitorizeSunshine}/bin/sunshine" \

@@ -155,6 +155,11 @@ require_command cmake
 require_command node
 require_command npm
 
+if ! command -v vainfo &>/dev/null; then
+    echo "Warning: 'vainfo' is not installed; multi-GPU VA-API selection will be unavailable." >&2
+    echo "Install vainfo (Ubuntu) or libva-utils (Arch/Fedora/openSUSE) to enable it." >&2
+fi
+
 PYTHON_VERSION="$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:3])))')"
 if ! version_at_least "${PYTHON_VERSION}" "3.11"; then
     echo "Error: Python 3.11+ is required; found ${PYTHON_VERSION}." >&2

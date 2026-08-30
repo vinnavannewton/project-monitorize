@@ -72,6 +72,7 @@ BuildRequires:  wayland-protocols-devel
 Requires:       avahi
 Requires:       firewalld-filesystem
 Requires:       iproute
+Requires:       libva-utils
 Requires:       polkit
 Requires:       python3-cairo
 Requires:       python3-dbus

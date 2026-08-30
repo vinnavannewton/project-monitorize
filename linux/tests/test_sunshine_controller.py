@@ -32,7 +32,8 @@ class SunshineControllerTest(unittest.TestCase):
         self.assertTrue(controller.primary_ready)
         self.assertIsNone(controller.streamer)
         sync.assert_called_once_with(
-            "", "VA-API", "H.265 (HEVC)", True, instance=1, capture="kwin"
+            "", "VA-API", "H.265 (HEVC)", True, instance=1, capture="kwin",
+            adapter_name="",
         )
         save.assert_called_once_with({"stream_audio": "enabled"}, instance=1)
         start.assert_called_once_with(
@@ -91,7 +92,8 @@ class SunshineControllerTest(unittest.TestCase):
         self.assertTrue(controller.primary_ready)
 
         _sync.assert_called_once_with(
-            "Meta-0", "Auto", "Auto", True, instance=1, capture=""
+            "Meta-0", "Auto", "Auto", True, instance=1, capture="",
+            adapter_name="",
         )
 
     @patch("monitorize.desktop.streaming_controller.stop_sunshine")
@@ -124,7 +126,8 @@ class SunshineControllerTest(unittest.TestCase):
             height=1200,
         )
         _sync.assert_called_once_with(
-            "Virtual-Monitorize-1", "Auto", "Auto", True, instance=1, capture="kwin"
+            "Virtual-Monitorize-1", "Auto", "Auto", True, instance=1,
+            capture="kwin", adapter_name="",
         )
         self.assertTrue(controller.primary_ready)
 
@@ -150,6 +153,34 @@ class SunshineControllerTest(unittest.TestCase):
         self.assertEqual(config["primary"]["sunshine_encoder"], "VA-API")
         self.assertNotIn("bitrate", config["primary"])
         self.assertNotIn("mode", config)
+
+    @patch("monitorize.desktop.streaming_controller.stop_sunshine")
+    @patch("monitorize.desktop.streaming_controller.start_sunshine", return_value=(True, "started"))
+    @patch("monitorize.desktop.streaming_controller.is_sunshine_running", return_value=False)
+    @patch("monitorize.desktop.streaming_controller.save_sunshine_config", return_value=(True, "saved"))
+    @patch("monitorize.desktop.streaming_controller.sync_sunshine_stream_config", return_value=(True, "synced"))
+    @patch("monitorize.desktop.streaming_controller.resolve_encoding_gpu")
+    def test_selected_nvidia_gpu_reaches_config_and_process_environment(
+        self, resolve, sync, _save, _running, start, _stop
+    ):
+        resolve.return_value = {
+            "id": "0000:03:00.0",
+            "label": "NVIDIA RTX (0000:03:00.0)",
+            "render_node": "/dev/dri/renderD129",
+            "cuda_index": "1",
+        }
+        controller = self.controller()
+        controller.start(
+            "1920x1080", "60", "Mirror", "NVIDIA", "H.264 (AVC)",
+            True, False, gpu_id="0000:03:00.0",
+        )
+
+        resolve.assert_called_once_with("NVIDIA", "0000:03:00.0")
+        self.assertEqual(sync.call_args.kwargs["adapter_name"], "/dev/dri/renderD129")
+        self.assertEqual(
+            start.call_args.kwargs["extra_environment"],
+            {"CUDA_VISIBLE_DEVICES": "1"},
+        )
 
 
 if __name__ == "__main__":

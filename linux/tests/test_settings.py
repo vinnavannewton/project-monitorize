@@ -28,6 +28,7 @@ class SettingsTest(unittest.TestCase):
             fps="90",
             display_type="Extend",
             sunshine_encoder="NVIDIA",
+            sunshine_gpu="0000:03:00.0",
             sunshine_codec="AV1",
             sunshine_native_pen_touch=False,
             enable_audio=True,
@@ -35,6 +36,7 @@ class SettingsTest(unittest.TestCase):
         saved = settings.load_display_settings()
         self.assertEqual(saved["resolution"], "2560x1440")
         self.assertEqual(saved["sunshine_codec"], "AV1")
+        self.assertEqual(saved["sunshine_gpu"], "0000:03:00.0")
         self.assertFalse(saved["sunshine_native_pen_touch"])
         self.assertTrue(saved["enable_audio"])
 
@@ -71,6 +73,31 @@ class SettingsTest(unittest.TestCase):
         self.assertEqual(presets[0]["version"], 2)
         self.assertIn("sunshine_encoder", presets[0]["primary"])
         self.assertNotIn("mode", presets[0])
+
+    def test_gpu_selection_round_trips_through_presets_and_rejects_bad_ids(self):
+        settings.save_presets([{
+            "version": 2,
+            "name": "Hybrid",
+            "primary": {
+                "resolution": "1920x1080",
+                "fps": "60",
+                "display_type": "Extend",
+                "sunshine_encoder": "VA-API",
+                "sunshine_gpu": "0000:03:00.0",
+            },
+            "second": {"enabled": False},
+        }])
+        self.assertEqual(
+            settings.load_presets()[0]["primary"]["sunshine_gpu"],
+            "0000:03:00.0",
+        )
+
+        settings.save_display_settings(
+            resolution="1920x1080",
+            sunshine_encoder="VA-API",
+            sunshine_gpu="../../dev/dri/renderD128",
+        )
+        self.assertEqual(settings.load_display_settings()["sunshine_gpu"], "")
 
 
 if __name__ == "__main__":

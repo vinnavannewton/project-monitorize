@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 
 from PyQt6.QtCore import QSettings
 
@@ -18,6 +19,12 @@ CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".config", "monitorize")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "settings.ini")
 MAX_PRESETS = 4
 PRESET_VERSION = 2
+_GPU_PCI_ID = re.compile(r"^[0-9a-f]{4}:[0-9a-f]{2}:[0-9a-f]{2}\.[0-7]$")
+
+
+def _normalize_gpu_id(value) -> str:
+    value = str(value or "").strip().lower()
+    return value if _GPU_PCI_ID.fullmatch(value) else ""
 
 
 def _get_settings() -> QSettings:
@@ -90,6 +97,7 @@ DISPLAY_DEFAULTS = {
     "custom_fps": "",
     "display_type": "Extend",
     "sunshine_encoder": "Auto",
+    "sunshine_gpu": "",
     "sunshine_codec": "Auto",
     "sunshine_native_pen_touch": True,
     "enable_audio": False,
@@ -113,6 +121,7 @@ def _normalize_display_settings(data, fallback=DEFAULT_PRIMARY_RESOLUTION):
         data["resolution"] = f"{width}x{height}"
         data["custom_w"] = data["custom_h"] = ""
     data["sunshine_encoder"] = str(data.get("sunshine_encoder") or "Auto")
+    data["sunshine_gpu"] = _normalize_gpu_id(data.get("sunshine_gpu"))
     data["sunshine_codec"] = str(data.get("sunshine_codec") or "Auto")
     data["sunshine_native_pen_touch"] = bool(
         data.get("sunshine_native_pen_touch", True)
@@ -130,6 +139,7 @@ def save_display_settings(
     custom_fps="",
     display_type="Extend",
     sunshine_encoder="Auto",
+    sunshine_gpu="",
     sunshine_codec="Auto",
     sunshine_native_pen_touch=True,
     enable_audio=False,
@@ -189,6 +199,7 @@ def _normalize_session(raw: dict, fallback=DEFAULT_PRIMARY_RESOLUTION):
         "fps": str(sanitize_fps(raw.get("fps", 60))),
         "display_type": sanitize_display_type(raw.get("display_type", "Extend")),
         "sunshine_encoder": str(raw.get("sunshine_encoder") or "Auto"),
+        "sunshine_gpu": _normalize_gpu_id(raw.get("sunshine_gpu")),
         "sunshine_codec": str(raw.get("sunshine_codec") or "Auto"),
         "sunshine_native_pen_touch": bool(
             raw.get("sunshine_native_pen_touch", True)
@@ -211,6 +222,7 @@ def _normalize_preset(raw: dict) -> dict | None:
         primary_raw = dict(raw.get("primary") or {})
         primary_raw.update(
             sunshine_encoder=current["sunshine_encoder"],
+            sunshine_gpu=current["sunshine_gpu"],
             sunshine_codec=current["sunshine_codec"],
             sunshine_native_pen_touch=current["sunshine_native_pen_touch"],
         )
@@ -218,6 +230,7 @@ def _normalize_preset(raw: dict) -> dict | None:
         second_raw = dict(old_second)
         second_raw.update(
             sunshine_encoder=current["sunshine_encoder"],
+            sunshine_gpu=current["sunshine_gpu"],
             sunshine_codec=current["sunshine_codec"],
             sunshine_native_pen_touch=current["sunshine_native_pen_touch"],
         )

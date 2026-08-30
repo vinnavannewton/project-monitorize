@@ -6,6 +6,7 @@ Item {
     id: page
     property string returnPageSource: "DisplaySetupPage.qml"
     property bool loading: true
+    property var gpuOptions: []
 
     function resolutionValue() {
         return resCombo.currentText === "Custom..."
@@ -15,6 +16,23 @@ Item {
 
     function fpsValue() {
         return fpsCombo.currentText === "Custom..." ? customFps.text : fpsCombo.currentText
+    }
+
+    function selectedGpuId() {
+        if (gpuCombo.currentIndex < 0 || gpuCombo.currentIndex >= gpuOptions.length) return ""
+        return gpuOptions[gpuCombo.currentIndex]["id"] || ""
+    }
+
+    function refreshGpuOptions(savedId) {
+        gpuOptions = backend.getEncodingGpuOptions(encoder.currentText)
+        let labels = []
+        let selected = 0
+        for (let i = 0; i < gpuOptions.length; i++) {
+            labels.push(gpuOptions[i]["label"])
+            if (savedId && gpuOptions[i]["id"] === savedId) selected = i
+        }
+        gpuCombo.model = labels
+        gpuCombo.currentIndex = labels.length > 0 ? selected : -1
     }
 
     function saveSettings() {
@@ -27,6 +45,7 @@ Item {
             fpsCombo.currentText === "Custom..." ? customFps.text : "",
             displayType.currentText,
             encoder.currentText,
+            page.selectedGpuId(),
             codec.currentText,
             nativeInput.checked,
             audio.checked
@@ -42,6 +61,7 @@ Item {
         customFps.text = saved["custom_fps"] || "60"
         displayType.selectValue(saved["display_type"] || "Extend")
         encoder.selectValue(saved["sunshine_encoder"] || "Auto")
+        page.refreshGpuOptions(saved["sunshine_gpu"] || "")
         codec.selectValue(saved["sunshine_codec"] || "Auto")
         nativeInput.checked = saved["sunshine_native_pen_touch"] !== false
         audio.checked = saved["enable_audio"] === true
@@ -140,8 +160,21 @@ Item {
                         chipWidth: 112
                         onActivated: {
                             backend.setSunshineEncoder(currentText)
+                            page.refreshGpuOptions("")
                             page.saveSettings()
                         }
+                    }
+
+                    Text {
+                        text: "Encoding GPU"
+                        color: theme.textSecondary
+                        visible: gpuOptions.length > 0
+                    }
+                    CustomComboBox {
+                        id: gpuCombo
+                        Layout.preferredWidth: 260
+                        visible: gpuOptions.length > 0
+                        onActivated: page.saveSettings()
                     }
 
                     Text { text: "Video codec"; color: theme.textSecondary }
@@ -187,7 +220,7 @@ Item {
                     page.saveSettings()
                     backend.startStreaming(
                         page.resolutionValue(), page.fpsValue(), displayType.currentText,
-                        encoder.currentText, codec.currentText,
+                        encoder.currentText, page.selectedGpuId(), codec.currentText,
                         nativeInput.checked, audio.checked
                     )
                 }

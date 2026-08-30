@@ -78,6 +78,7 @@ Depends: ${misc:Depends},
          python3-pyqt6,
          python3-pyqt6.qtquick,
          udev,
+         vainfo,
          xdg-desktop-portal
 Recommends: firewalld
 Description: Sunshine-backed virtual displays for Moonlight clients

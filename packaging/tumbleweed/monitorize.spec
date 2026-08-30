@@ -71,6 +71,7 @@ BuildRequires:  wayland-protocols-devel
 Requires:       avahi
 Requires:       firewalld
 Requires:       iproute2
+Requires:       libva-utils
 Requires:       polkit
 Requires:       python3-Jinja2
 Requires:       python3-PyQt6

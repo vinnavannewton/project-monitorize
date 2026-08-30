@@ -5,6 +5,7 @@ import QtQuick.Layouts
 Item {
     id: page
     property bool secondLoading: true
+    property var secondGpuOptions: []
 
     function appendLog(type, message) {
         let lines = String(message).split(/\r?\n/)
@@ -23,6 +24,23 @@ Item {
         return secondFps.currentText === "Custom..." ? secondCustomFps.text : secondFps.currentText
     }
 
+    function selectedSecondGpuId() {
+        if (secondGpu.currentIndex < 0 || secondGpu.currentIndex >= secondGpuOptions.length) return ""
+        return secondGpuOptions[secondGpu.currentIndex]["id"] || ""
+    }
+
+    function refreshSecondGpuOptions(savedId) {
+        secondGpuOptions = backend.getEncodingGpuOptions(secondEncoder.currentText)
+        let labels = []
+        let selected = 0
+        for (let i = 0; i < secondGpuOptions.length; i++) {
+            labels.push(secondGpuOptions[i]["label"])
+            if (savedId && secondGpuOptions[i]["id"] === savedId) selected = i
+        }
+        secondGpu.model = labels
+        secondGpu.currentIndex = labels.length > 0 ? selected : -1
+    }
+
     function loadSecondSettings() {
         secondLoading = true
         let saved = backend.loadSecondDisplaySettings()
@@ -32,6 +50,7 @@ Item {
         secondFps.selectValue(saved["fps"] || "60")
         secondCustomFps.text = saved["custom_fps"] || "60"
         secondEncoder.selectValue(saved["sunshine_encoder"] || "Auto")
+        page.refreshSecondGpuOptions(saved["sunshine_gpu"] || "")
         secondCodec.selectValue(saved["sunshine_codec"] || "Auto")
         secondInput.checked = saved["sunshine_native_pen_touch"] !== false
         secondAudio.checked = saved["enable_audio"] === true
@@ -47,6 +66,7 @@ Item {
             secondFps.currentText,
             secondFps.currentText === "Custom..." ? secondCustomFps.text : "",
             secondEncoder.currentText,
+            page.selectedSecondGpuId(),
             secondCodec.currentText,
             secondInput.checked,
             secondAudio.checked
@@ -291,7 +311,22 @@ Item {
                     Text { text: ""; visible: secondFps.currentText === "Custom..." }
                     CustomTextField { id: secondCustomFps; visible: secondFps.currentText === "Custom..."; placeholderText: "24–240"; maximumLength: 3; onEditingFinished: page.saveSecondSettings() }
                     Text { text: "Encoder"; color: theme.textSecondary }
-                    ChoiceChips { id: secondEncoder; model: ["Auto", "NVIDIA", "VA-API", "Software Enc"]; chipWidth: 112; onActivated: page.saveSecondSettings() }
+                    ChoiceChips {
+                        id: secondEncoder
+                        model: ["Auto", "NVIDIA", "VA-API", "Software Enc"]
+                        chipWidth: 112
+                        onActivated: {
+                            page.refreshSecondGpuOptions("")
+                            page.saveSecondSettings()
+                        }
+                    }
+                    Text { text: "Encoding GPU"; color: theme.textSecondary; visible: secondGpuOptions.length > 0 }
+                    CustomComboBox {
+                        id: secondGpu
+                        Layout.preferredWidth: 260
+                        visible: secondGpuOptions.length > 0
+                        onActivated: page.saveSecondSettings()
+                    }
                     Text { text: "Codec"; color: theme.textSecondary }
                     ChoiceChips { id: secondCodec; model: ["Auto", "H.264 (AVC)", "H.265 (HEVC)", "AV1"]; chipWidth: 112; onActivated: page.saveSecondSettings() }
                     Text { text: "" }
@@ -314,7 +349,7 @@ Item {
                         backend.setSunshineNativePenTouch(secondInput.checked, 2)
                         backend.startSecondStream(
                             page.secondResolution(), page.secondFpsValue(),
-                            secondEncoder.currentText, secondCodec.currentText,
+                            secondEncoder.currentText, page.selectedSecondGpuId(), secondCodec.currentText,
                             secondInput.checked, secondAudio.checked
                         )
                         secondPopup.close()

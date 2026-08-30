@@ -15,6 +15,7 @@ class SunshineOnlyPackagingTest(unittest.TestCase):
         self.assertIn("check_sunshine_node_modules_permissions", script)
         self.assertIn("Sunshine's generated npm cache is not writable", script)
         self.assertIn("Then rerun this installer without sudo.", script)
+        self.assertIn("multi-GPU VA-API selection will be unavailable", script)
         self.assertIn("Jinja2", requirements)
         self.assertNotIn("monitorize-rtp-sender", script)
         self.assertNotIn("cmake --install", script)
