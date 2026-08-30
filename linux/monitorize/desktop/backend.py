@@ -40,6 +40,7 @@ class MonitorizeBackend(QObject):
     presetsChanged = pyqtSignal()
     presetLaunchStatusChanged = pyqtSignal(str)
     systemSetupAvailableChanged = pyqtSignal(bool)
+    systemSetupPendingChanged = pyqtSignal(bool)
 
     def __init__(self, de, parent=None):
         super().__init__(parent)
@@ -49,6 +50,9 @@ class MonitorizeBackend(QObject):
         self._presets = load_presets()
         self._preset_launch_status = ""
         self._system_setup_available = bool(get_system_setup_status()["available"])
+        self._system_setup_decided = bool(
+            load_general_settings().get("system_setup_decided", False)
+        )
         self.streaming.streamingChanged.connect(self.isStreamingChanged)
         self.streaming.statusChanged.connect(self.streamingStatusChanged)
         self.streaming.secondStreamChanged.connect(self.secondStreamActiveChanged)
@@ -91,18 +95,37 @@ class MonitorizeBackend(QObject):
     def systemSetupAvailable(self):
         return self._system_setup_available
 
+    @pyqtProperty(bool, notify=systemSetupPendingChanged)
+    def systemSetupPending(self):
+        return self._system_setup_available and not self._system_setup_decided
+
+    @pyqtProperty(bool, constant=True)
+    def canConfigureDisplay(self):
+        return self._detected_de in ("hyprland", "sway")
+
     @pyqtSlot(result="QVariantMap")
     def getSystemSetupStatus(self):
         return get_system_setup_status()
 
     @pyqtSlot(bool, bool, result="QVariantMap")
     def applySystemSetup(self, enable_input: bool, enable_firewall: bool):
+        was_pending = self.systemSetupPending
         result = apply_system_setup(enable_input, enable_firewall)
         updated = bool(get_system_setup_status()["available"])
         if updated != self._system_setup_available:
             self._system_setup_available = updated
             self.systemSetupAvailableChanged.emit(updated)
+        if was_pending != self.systemSetupPending:
+            self.systemSetupPendingChanged.emit(self.systemSetupPending)
         return result
+
+    @pyqtSlot()
+    def markSystemSetupDecided(self):
+        if self._system_setup_decided:
+            return
+        self._system_setup_decided = True
+        save_general_settings(system_setup_decided=True)
+        self.systemSetupPendingChanged.emit(self.systemSetupPending)
 
     @pyqtSlot(result="QVariant")
     def loadDisplaySettings(self):
@@ -269,6 +292,8 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot()
     def configureDisplay(self):
+        if not self.canConfigureDisplay:
+            return
         self.configureDisplayRequested.emit()
 
     @pyqtSlot(str, int, result=str)

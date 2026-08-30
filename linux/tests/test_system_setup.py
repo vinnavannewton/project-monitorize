@@ -54,6 +54,8 @@ class SystemSetupTest(unittest.TestCase):
         self.assertEqual(page.count("checked: true"), 2)
         self.assertIn("Authorize and finish setup", page)
         self.assertIn('statusSucceeded = result["success"] === true', page)
+        self.assertIn("signal setupCompleted()", page)
+        self.assertIn("signal cancellationRequested()", page)
 
 
 if __name__ == "__main__":

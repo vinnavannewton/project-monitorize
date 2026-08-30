@@ -364,8 +364,8 @@ class StreamingController(QObject):
         if not self.streaming or not self.primary_ready:
             self._set_status("Start the primary display before adding another display")
             return
-        if self.de not in ("kde", "gnome", "hyprland"):
-            self._set_status("Additional displays require KDE, GNOME, or Hyprland")
+        if self.de not in ("kde", "gnome", "hyprland", "sway"):
+            self._set_status("Additional displays require KDE, GNOME, Hyprland, or Sway")
             return
         if self.third_streaming:
             self.stop_third()

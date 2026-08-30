@@ -38,7 +38,8 @@ Item {
                 anchors.centerIn: parent
                 text: "Desktop: " + (backend.detectedDe === "kde" ? "KDE Plasma" :
                     backend.detectedDe === "gnome" ? "GNOME" :
-                    backend.detectedDe === "hyprland" ? "Hyprland" : backend.detectedDe)
+                    backend.detectedDe === "hyprland" ? "Hyprland" :
+                    backend.detectedDe === "sway" ? "Sway" : backend.detectedDe)
                 color: theme.cardTextPrimary
                 font.pixelSize: 12
                 font.weight: Font.DemiBold
@@ -83,31 +84,6 @@ Item {
                 anchors.fill: parent
                 hoverEnabled: true
                 onClicked: page.StackView.view.push("DisplaySetupPage.qml")
-            }
-        }
-
-        Rectangle {
-            visible: backend.systemSetupAvailable
-            Layout.preferredWidth: Math.min(440, page.width - 40)
-            Layout.alignment: Qt.AlignHCenter
-            implicitHeight: 54
-            radius: theme.controlRadius
-            color: setupMouse.containsMouse ? theme.surfaceAlt : theme.surface
-            border.color: setupMouse.containsMouse ? theme.borderHover : theme.border
-
-            Text {
-                anchors.centerIn: parent
-                text: "Finish system setup"
-                color: theme.cardTextPrimary
-                font.pixelSize: 13
-                font.weight: Font.DemiBold
-            }
-
-            MouseArea {
-                id: setupMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                onClicked: page.StackView.view.push("SystemSetupPage.qml")
             }
         }
 
