@@ -173,7 +173,7 @@ class MonitorizeWindow(QMainWindow):
             layout.addLayout(row)
 
         add_row((("KDE Plasma", "kde"), ("GNOME", "gnome")))
-        add_row((("Hyprland", "hyprland"),))
+        add_row((("Hyprland", "hyprland"), ("Sway", "sway")))
         other = QPushButton("Other (WIP)")
         other.clicked.connect(
             lambda: (selected.update(value="other"), dialog.accept())

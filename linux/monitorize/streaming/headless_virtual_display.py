@@ -211,6 +211,47 @@ def run_hyprland_headless(slot, width, height, fps):
         cleanup()
 
 
+def run_sway_headless(slot, width, height, fps):
+    from monitorize.platform.display_controller import DisplayController
+
+    controller = DisplayController("sway")
+    output, error = controller.prepare_sway(width, height, fps, slot=slot)
+    if error or not output:
+        print(f"[ERROR] Sway virtual output creation failed: {error}", flush=True)
+        return 1
+
+    print(
+        f"[Headless] Sway virtual display {output} ({width}x{height}@{fps}Hz) is active. "
+        "Ready for Sunshine / Moonlight.",
+        flush=True,
+    )
+    _emit_event({
+        "type": "headless_ready",
+        "name": output,
+        "width": width,
+        "height": height,
+        "fps": fps,
+        "backend": "Sunshine",
+    })
+
+    def cleanup(*_args):
+        controller.remove_sway_output(slot=slot)
+
+    signal.signal(signal.SIGINT, cleanup)
+    signal.signal(signal.SIGTERM, cleanup)
+
+    try:
+        while True:
+            ready, _, _ = select.select([sys.stdin], [], [], 0.5)
+            if ready:
+                line = sys.stdin.readline()
+                if not line or line.strip() == "quit":
+                    break
+        return 0
+    finally:
+        cleanup()
+
+
 def run_gnome_headless(slot, width, height, fps, display_type="Extend"):
     try:
         import dbus
@@ -381,6 +422,8 @@ def main():
         sys.exit(run_gnome_headless(slot, width, height, fps))
     elif "hyprland" in de:
         sys.exit(run_hyprland_headless(slot, width, height, fps))
+    elif "sway" in de:
+        sys.exit(run_sway_headless(slot, width, height, fps))
     else:
         sys.exit(run_kde_headless(slot, width, height, fps))
 

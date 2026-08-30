@@ -1,6 +1,7 @@
 """Sunshine-backed virtual-display session lifecycle."""
 
 import json
+import os
 import sys
 
 from PyQt6.QtCore import QObject, QProcess, QProcessEnvironment, QTimer, pyqtSignal, pyqtSlot
@@ -289,13 +290,17 @@ class StreamingController(QObject):
             self.native_pen_touch if instance == 1 else self.third_native_pen_touch
         )
         audio = self.audio_enabled if instance == 1 else self.third_audio_enabled
+        if self.de == "kde" and not output_name and os.path.isfile("/.flatpak-info"):
+            capture = "portal"
+        else:
+            capture = "kwin" if self.de == "kde" else ""
         ok, message = sync_sunshine_stream_config(
             output_name,
             encoder,
             codec,
             native_pen_touch,
             instance=instance,
-            capture="kwin" if self.de == "kde" else "",
+            capture=capture,
         )
         if not ok:
             self._set_status(message)
@@ -359,8 +364,8 @@ class StreamingController(QObject):
         if not self.streaming or not self.primary_ready:
             self._set_status("Start the primary display before adding another display")
             return
-        if self.de not in ("kde", "gnome", "hyprland"):
-            self._set_status("Additional displays require KDE, GNOME, or Hyprland")
+        if self.de not in ("kde", "gnome", "hyprland", "sway"):
+            self._set_status("Additional displays require KDE, GNOME, Hyprland, or Sway")
             return
         if self.third_streaming:
             self.stop_third()

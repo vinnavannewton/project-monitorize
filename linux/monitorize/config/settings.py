@@ -29,8 +29,10 @@ def _get_settings() -> QSettings:
     settings = QSettings(CONFIG_FILE, QSettings.Format.IniFormat)
     if any(key.startswith("General/") for key in settings.allKeys()):
         minimize = settings.value("General/minimize_to_tray", False, type=bool)
+        setup_decided = settings.value("General/system_setup_decided", False, type=bool)
         settings.remove("General")
         settings.setValue("general/minimize_to_tray", minimize)
+        settings.setValue("general/system_setup_decided", setup_decided)
         settings.sync()
     return settings
 
@@ -62,13 +64,21 @@ def _load_group(group: str, defaults: dict, bool_keys=()) -> dict:
     return values
 
 
-def save_general_settings(*, minimize_to_tray: bool = False):
-    _save_group("general", {"minimize_to_tray": bool(minimize_to_tray)})
+def save_general_settings(*, minimize_to_tray: bool | None = None,
+                          system_setup_decided: bool | None = None):
+    _save_group("general", {
+        "minimize_to_tray": (
+            bool(minimize_to_tray) if minimize_to_tray is not None else None
+        ),
+        "system_setup_decided": system_setup_decided,
+    })
 
 
 def load_general_settings() -> dict:
     return _load_group(
-        "general", {"minimize_to_tray": False}, ("minimize_to_tray",)
+        "general",
+        {"minimize_to_tray": False, "system_setup_decided": False},
+        ("minimize_to_tray", "system_setup_decided"),
     )
 
 

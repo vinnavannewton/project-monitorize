@@ -71,6 +71,10 @@ Rectangle {
         }
     }
 
+    Component.onCompleted: {
+        if (backend.systemSetupPending) firstRunSetupPopup.open()
+    }
+
     // --- Main StackView for page navigation ---
     StackView {
         id: stack
@@ -98,6 +102,98 @@ Rectangle {
         popExit: Transition {
             PropertyAnimation { property: "x"; to: stack.width; duration: 300; easing.type: Easing.OutCubic }
             PropertyAnimation { property: "opacity"; to: 0; duration: 250 }
+        }
+    }
+
+    Popup {
+        id: firstRunSetupPopup
+        modal: true
+        focus: true
+        closePolicy: Popup.NoAutoClose
+        anchors.centerIn: parent
+        width: Math.min(560, root.width - 40)
+        height: Math.min(500, root.height - 40)
+        padding: 0
+        background: Rectangle {
+            color: theme.background
+            border.color: theme.border
+            border.width: 1
+            radius: theme.cardRadius
+        }
+        Overlay.modal: Rectangle { color: "#80000000" }
+
+        Loader {
+            id: firstRunSetupLoader
+            anchors.fill: parent
+            source: "SystemSetupPage.qml"
+            onLoaded: item.firstRun = true
+        }
+
+        Connections {
+            target: firstRunSetupLoader.item
+            ignoreUnknownSignals: true
+            function onSetupCompleted() { firstRunSetupPopup.close() }
+            function onCancellationRequested() { firstRunCancelPopup.open() }
+        }
+    }
+
+    Popup {
+        id: firstRunCancelPopup
+        modal: true
+        focus: true
+        closePolicy: Popup.NoAutoClose
+        anchors.centerIn: parent
+        width: 380
+        height: firstRunCancelContent.implicitHeight + 44
+        padding: 22
+        background: Rectangle {
+            color: theme.surface
+            border.color: theme.border
+            border.width: 1
+            radius: theme.cardRadius
+        }
+        Overlay.modal: Rectangle { color: "#99000000" }
+
+        ColumnLayout {
+            id: firstRunCancelContent
+            anchors.fill: parent
+            spacing: 14
+
+            Text {
+                text: "Skip system setup?"
+                color: theme.textPrimary
+                font.pixelSize: 18
+                font.weight: Font.Bold
+                Layout.fillWidth: true
+            }
+
+            Text {
+                text: "Touch input or Moonlight connections may not work until you complete setup."
+                color: theme.textSecondary
+                font.pixelSize: 12
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+
+            RowLayout {
+                Layout.alignment: Qt.AlignRight
+                spacing: 10
+
+                CustomButton {
+                    text: "Finish setup"
+                    primary: false
+                    onClicked: firstRunCancelPopup.close()
+                }
+
+                CustomButton {
+                    text: "I know what I’m doing"
+                    onClicked: {
+                        backend.markSystemSetupDecided()
+                        firstRunCancelPopup.close()
+                        firstRunSetupPopup.close()
+                    }
+                }
+            }
         }
     }
 
@@ -222,9 +318,18 @@ Rectangle {
 
             RowLayout {
                 Layout.fillWidth: true
+                CustomButton {
+                    visible: backend.systemSetupAvailable
+                    text: "Run system setup again"
+                    primary: false
+                    onClicked: {
+                        settingsPopup.close()
+                        stack.push("SystemSetupPage.qml")
+                    }
+                }
+                Item { Layout.fillWidth: true }
                 Button {
                     text: "Close"
-                    Layout.alignment: Qt.AlignRight
                     onClicked: settingsPopup.close()
                     background: Rectangle {
                         implicitWidth: 92

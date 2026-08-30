@@ -119,7 +119,11 @@ Item {
                 text: backend.secondStreamActive ? "Remove Second Display" : "Add Second Display"
                 onClicked: backend.secondStreamActive ? backend.stopSecondStream() : secondPopup.open()
             }
-            CustomButton { text: "Display Settings"; onClicked: backend.configureDisplay() }
+            CustomButton {
+                visible: backend.canConfigureDisplay
+                text: "Display Settings"
+                onClicked: backend.configureDisplay()
+            }
             Item { Layout.fillWidth: true }
             CustomButton {
                 text: "Save Preset"

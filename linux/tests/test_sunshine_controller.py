@@ -44,6 +44,18 @@ class SunshineControllerTest(unittest.TestCase):
             height=1080,
         )
 
+    @patch("monitorize.desktop.streaming_controller.os.path.isfile", return_value=True)
+    @patch("monitorize.desktop.streaming_controller.stop_sunshine")
+    @patch("monitorize.desktop.streaming_controller.start_sunshine", return_value=(True, "started"))
+    @patch("monitorize.desktop.streaming_controller.is_sunshine_running", return_value=False)
+    @patch("monitorize.desktop.streaming_controller.save_sunshine_config", return_value=(True, "saved"))
+    @patch("monitorize.desktop.streaming_controller.sync_sunshine_stream_config", return_value=(True, "synced"))
+    def test_flatpak_kde_mirror_uses_portal_capture(
+        self, sync, _save, _running, _start, _stop, _flatpak
+    ):
+        self.controller().start("1920x1080", "60", "Mirror")
+        self.assertEqual(sync.call_args.kwargs["capture"], "portal")
+
     @patch("monitorize.desktop.streaming_controller.stop_sunshine")
     @patch("monitorize.desktop.streaming_controller.start_sunshine", return_value=(True, "started"))
     @patch("monitorize.desktop.streaming_controller.is_sunshine_running", return_value=False)

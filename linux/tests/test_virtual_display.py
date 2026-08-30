@@ -37,6 +37,20 @@ class VirtualDisplayTest(unittest.TestCase):
         )
         controller.remove_hyprland_output.assert_called_once_with(slot="additional")
 
+    @patch("monitorize.platform.display_controller.DisplayController")
+    @patch("monitorize.streaming.headless_virtual_display.select.select", return_value=([object()], [], []))
+    @patch.object(headless_virtual_display.sys, "stdin", io.StringIO("quit\n"))
+    def test_sway_holder_creates_and_removes_requested_slot(
+        self, _select, display_controller
+    ):
+        controller = display_controller.return_value
+        controller.prepare_sway.return_value = ("HEADLESS-2", "")
+        self.assertEqual(
+            headless_virtual_display.run_sway_headless("additional", 1920, 1080, 60),
+            0,
+        )
+        controller.remove_sway_output.assert_called_once_with(slot="additional")
+
 
 if __name__ == "__main__":
     unittest.main()

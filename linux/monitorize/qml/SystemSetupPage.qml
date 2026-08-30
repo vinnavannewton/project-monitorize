@@ -8,6 +8,9 @@ Item {
     property bool applying: false
     property bool statusSucceeded: false
     property string statusMessage: ""
+    property bool firstRun: false
+    signal setupCompleted()
+    signal cancellationRequested()
 
     function refreshStatus() {
         let status = backend.getSystemSetupStatus()
@@ -108,9 +111,12 @@ Item {
             spacing: 10
 
             CustomButton {
-                text: "Back"
+                text: page.firstRun ? "Cancel" : "Back"
                 primary: false
-                onClicked: page.StackView.view.pop()
+                onClicked: {
+                    if (page.firstRun) page.cancellationRequested()
+                    else page.StackView.view.pop()
+                }
             }
 
             CustomButton {
@@ -122,6 +128,10 @@ Item {
                     applying = false
                     statusSucceeded = result["success"] === true
                     statusMessage = result["message"] || "System setup failed."
+                    if (statusSucceeded && page.firstRun) {
+                        backend.markSystemSetupDecided()
+                        page.setupCompleted()
+                    }
                 }
             }
         }
