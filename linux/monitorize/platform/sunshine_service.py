@@ -232,6 +232,21 @@ def get_sunshine_device_name(instance: int = 1) -> str:
     return f"{host} Monitor {instance}"
 
 
+def clear_sunshine_portal_token(instance: int = 1) -> None:
+    """Clear any cached XDG portal restore token so KDE prompts for screen share afresh."""
+    config_dir = get_sunshine_config_dir(instance)
+    config_home = os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config"))
+    profile_parent = os.path.join(config_home, "monitorize", f"sunshine-profile-{instance}")
+    profile_sunshine_dir = os.path.join(profile_parent, "sunshine")
+    for d in (config_dir, profile_parent, profile_sunshine_dir):
+        token_file = os.path.join(d, "portal_token")
+        if os.path.isfile(token_file):
+            try:
+                os.remove(token_file)
+            except OSError:
+                pass
+
+
 def ensure_sunshine_tray_disabled(instance: int = 1) -> None:
     """Ensure sunshine.conf has dedicated non-clashing port and permanently disabled tray."""
     config_dir = get_sunshine_config_dir(instance)
@@ -507,6 +522,7 @@ def stop_sunshine(
     for inst in instances_to_stop:
         if clear_pipewire_node:
             set_sunshine_pipewire_node(None, inst)
+            clear_sunshine_portal_token(inst)
         proc = _SUNSHINE_PROCESSES.pop(inst, None)
         if proc is None and inst == 1 and _SUNSHINE_PROCESS is not None:
             proc = _SUNSHINE_PROCESS
