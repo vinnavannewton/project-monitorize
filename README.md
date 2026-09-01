@@ -35,7 +35,7 @@ Receiving is handled by the standard [Moonlight](https://moonlight-stream.org/) 
 - [NixOS / Nix](https://github.com/vinnavannewton/project-monitorize/wiki/Nix-installation)
 
 ## Contributing
-Want to contribute? See the [Contributing guide](https://github.com/vinnavannewton/project-monitorize/wiki/Contribute).
+Want to contribute? See the [Contributing guide](https://github.com/vinnavannewton/project-monitorize/wiki/Contributing).
 
 ## Usage
 
