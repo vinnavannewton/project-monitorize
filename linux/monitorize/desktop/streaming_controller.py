@@ -1,6 +1,7 @@
 """Sunshine-backed virtual-display session lifecycle."""
 
 import json
+import logging
 import os
 import sys
 
@@ -492,29 +493,38 @@ class StreamingController(QObject):
         if not self.streaming:
             self.sunshine_watchdog_timer.stop()
             return
-        alive, exit_code, error = check_sunshine_health(1)
-        if not alive:
-            message = "Sunshine instance 1 stopped unexpectedly"
-            if exit_code is not None:
-                message += f" (exit code {exit_code})"
-            if error:
-                message += f": {error}"
-            app_log.error(message)
-            self.logAppended.emit("SUNSHINE", f"ERROR: {message}")
-            self._set_status(message)
-            QTimer.singleShot(0, self.stop)
-            return
-        if self.third_streaming:
-            alive, exit_code, error = check_sunshine_health(2)
+        try:
+            alive, exit_code, error = check_sunshine_health(1)
             if not alive:
-                message = "Sunshine instance 2 stopped unexpectedly"
+                self.sunshine_watchdog_timer.stop()
+                message = "Sunshine instance 1 stopped unexpectedly"
                 if exit_code is not None:
                     message += f" (exit code {exit_code})"
                 if error:
                     message += f": {error}"
+                app_log.write("SUNSHINE", message, level=logging.ERROR)
                 self.logAppended.emit("SUNSHINE", f"ERROR: {message}")
                 self._set_status(message)
-                QTimer.singleShot(0, self.stop_third)
+                QTimer.singleShot(0, self.stop)
+                return
+            if self.third_streaming:
+                alive, exit_code, error = check_sunshine_health(2)
+                if not alive:
+                    message = "Sunshine instance 2 stopped unexpectedly"
+                    if exit_code is not None:
+                        message += f" (exit code {exit_code})"
+                    if error:
+                        message += f": {error}"
+                    app_log.write("SUNSHINE", message, level=logging.ERROR)
+                    self.logAppended.emit("SUNSHINE", f"ERROR: {message}")
+                    self._set_status(message)
+                    QTimer.singleShot(0, self.stop_third)
+        except Exception as exc:
+            app_log.write(
+                "SUNSHINE",
+                f"Failed to check Sunshine health: {exc}",
+                level=logging.ERROR,
+            )
 
     def _should_track_gnome_virtual_layout(self):
         return self.de == "gnome" and self.streaming and bool(self.gnome_outputs)

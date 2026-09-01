@@ -1,3 +1,4 @@
+import logging
 import unittest
 from unittest.mock import Mock, patch
 
@@ -180,6 +181,84 @@ class SunshineControllerTest(unittest.TestCase):
         self.assertEqual(
             start.call_args.kwargs["extra_environment"],
             {"CUDA_VISIBLE_DEVICES": "1"},
+        )
+
+    @patch("monitorize.desktop.streaming_controller.app_log.write")
+    @patch("monitorize.desktop.streaming_controller.QTimer.singleShot")
+    @patch("monitorize.desktop.streaming_controller.check_sunshine_health")
+    def test_sunshine_watchdog_instance_1_failure(
+        self, mock_health, mock_singleshot, mock_log_write
+    ):
+        mock_health.return_value = (False, 1, "VAAPI init failed")
+        controller = self.controller()
+        controller.streaming = True
+        controller.sunshine_watchdog_timer.start(1000)
+
+        controller._check_sunshine_health()
+
+        self.assertFalse(controller.sunshine_watchdog_timer.isActive())
+        mock_log_write.assert_called_once_with(
+            "SUNSHINE",
+            "Sunshine instance 1 stopped unexpectedly (exit code 1): VAAPI init failed",
+            level=logging.ERROR,
+        )
+        mock_singleshot.assert_called_once_with(0, controller.stop)
+        self.assertIn("stopped unexpectedly", controller.status)
+
+    @patch("monitorize.desktop.streaming_controller.app_log.write")
+    @patch("monitorize.desktop.streaming_controller.QTimer.singleShot")
+    @patch("monitorize.desktop.streaming_controller.check_sunshine_health")
+    def test_sunshine_watchdog_instance_2_failure(
+        self, mock_health, mock_singleshot, mock_log_write
+    ):
+        def health_side_effect(instance):
+            if instance == 1:
+                return (True, None, "")
+            return (False, 2, "Encoder crash")
+
+        mock_health.side_effect = health_side_effect
+        controller = self.controller()
+        controller.streaming = True
+        controller.third_streaming = True
+        controller.sunshine_watchdog_timer.start(1000)
+
+        controller._check_sunshine_health()
+
+        mock_log_write.assert_called_once_with(
+            "SUNSHINE",
+            "Sunshine instance 2 stopped unexpectedly (exit code 2): Encoder crash",
+            level=logging.ERROR,
+        )
+        mock_singleshot.assert_called_once_with(0, controller.stop_third)
+
+    @patch("monitorize.desktop.streaming_controller.app_log.write")
+    @patch("monitorize.desktop.streaming_controller.QTimer.singleShot")
+    @patch("monitorize.desktop.streaming_controller.check_sunshine_health", return_value=(True, None, ""))
+    def test_sunshine_watchdog_healthy(
+        self, mock_health, mock_singleshot, mock_log_write
+    ):
+        controller = self.controller()
+        controller.streaming = True
+        controller.sunshine_watchdog_timer.start(1000)
+
+        controller._check_sunshine_health()
+
+        self.assertTrue(controller.sunshine_watchdog_timer.isActive())
+        mock_log_write.assert_not_called()
+        mock_singleshot.assert_not_called()
+
+    @patch("monitorize.desktop.streaming_controller.app_log.write")
+    @patch("monitorize.desktop.streaming_controller.check_sunshine_health", side_effect=RuntimeError("disk error"))
+    def test_sunshine_watchdog_handles_exception_defensively(
+        self, mock_health, mock_log_write
+    ):
+        controller = self.controller()
+        controller.streaming = True
+        controller._check_sunshine_health()
+        mock_log_write.assert_called_once_with(
+            "SUNSHINE",
+            "Failed to check Sunshine health: disk error",
+            level=logging.ERROR,
         )
 
 
