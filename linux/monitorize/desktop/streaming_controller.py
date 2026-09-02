@@ -84,6 +84,7 @@ class StreamingController(QObject):
         self.third_audio_enabled = False
         self.pending_options = None
         self._is_stopping = False
+        self.streaming_backend = "sunshine"
 
         self.sunshine_watchdog_timer = QTimer(self)
         self.sunshine_watchdog_timer.setInterval(1000)
@@ -146,6 +147,10 @@ class StreamingController(QObject):
         self._set_primary_ready(False)
 
         if self.display_type == "Mirror":
+            if self.streaming_backend == "none":
+                self._set_streaming(False)
+                self._set_status("Mirror mode requires the Sunshine backend")
+                return
             if not self._start_instance(1, "", self.width, self.height):
                 self._set_streaming(False)
                 return
@@ -251,6 +256,21 @@ class StreamingController(QObject):
             self.width, self.height = width, height
         else:
             self.third_width, self.third_height = width, height
+
+        if self.streaming_backend == "none":
+            if instance == 1:
+                self._set_primary_ready(True)
+                self._set_status(
+                    f"Virtual display {output_name} ({width}x{height}@{fps:g}Hz) is active (no streaming backend)"
+                )
+                self._start_pending_second(self.pending_options)
+            else:
+                self.third_ready = True
+                self._set_status(
+                    f"Second display {output_name} ({width}x{height}@{fps:g}Hz) is active (no streaming backend)"
+                )
+                self.secondStreamChanged.emit(True)
+            return
 
         if not self._start_instance(
             instance,

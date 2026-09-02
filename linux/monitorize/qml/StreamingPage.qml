@@ -96,7 +96,7 @@ Item {
                 anchors.margins: 16
                 spacing: 8
                 Text {
-                    text: "Sunshine Session Active"
+                    text: backend.streamingBackend === "none" ? "Virtual Display Active" : "Sunshine Session Active"
                     color: theme.textPrimary
                     font.pixelSize: 20
                     font.weight: Font.Bold
@@ -110,10 +110,20 @@ Item {
                 }
                 RowLayout {
                     spacing: 16
-                    Text { text: "Host  " + backend.localIp; color: theme.textSecondary; font.pixelSize: 12 }
-                    Text { text: "Display 1  port 47989"; color: theme.textSecondary; font.pixelSize: 12 }
                     Text {
-                        visible: backend.secondStreamActive
+                        visible: backend.streamingBackend !== "none"
+                        text: "Host  " + backend.localIp
+                        color: theme.textSecondary
+                        font.pixelSize: 12
+                    }
+                    Text {
+                        visible: backend.streamingBackend !== "none"
+                        text: "Display 1  port 47989"
+                        color: theme.textSecondary
+                        font.pixelSize: 12
+                    }
+                    Text {
+                        visible: backend.secondStreamActive && backend.streamingBackend !== "none"
                         text: "Display 2  " + backend.localIp + ":49089"
                         color: theme.textSecondary
                         font.pixelSize: 12
@@ -126,6 +136,7 @@ Item {
             Layout.fillWidth: true
             spacing: 10
             CustomButton {
+                visible: backend.streamingBackend !== "none"
                 text: "Pair Moonlight PIN"
                 onClicked: {
                     pinField.text = ""
@@ -134,8 +145,13 @@ Item {
                     pinField.forceActiveFocus()
                 }
             }
-            CustomButton { text: "Sunshine Settings"; onClicked: backend.openSunshineWebUi(1) }
             CustomButton {
+                visible: backend.streamingBackend !== "none"
+                text: "Sunshine Settings"
+                onClicked: backend.openSunshineWebUi(1)
+            }
+            CustomButton {
+                visible: backend.streamingBackend !== "none"
                 text: backend.secondStreamActive ? "Remove Second Display" : "Add Second Display"
                 onClicked: backend.secondStreamActive ? backend.stopSecondStream() : secondPopup.open()
             }
@@ -146,6 +162,7 @@ Item {
             }
             Item { Layout.fillWidth: true }
             CustomButton {
+                visible: backend.streamingBackend !== "none"
                 text: "Save Preset"
                 onClicked: {
                     presetName.text = ""
