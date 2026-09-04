@@ -147,9 +147,10 @@ Item {
                         onEditingFinished: page.saveSettings()
                     }
 
-                    Text { text: "Streaming backend"; color: theme.textSecondary }
+                    Text { text: "Streaming backend"; color: theme.textSecondary; visible: backend.sunshineAvailable }
                     ChoiceChips {
                         id: backendChips
+                        visible: backend.sunshineAvailable
                         model: ["None", "Sunshine"]
                         chipWidth: 124
                         onActivated: {

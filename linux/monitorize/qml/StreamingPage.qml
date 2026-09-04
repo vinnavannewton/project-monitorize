@@ -132,6 +132,33 @@ Item {
             }
         }
 
+        Rectangle {
+            visible: backend.streamingBackend === "none"
+            Layout.fillWidth: true
+            implicitHeight: noneHint.implicitHeight + 20
+            radius: theme.controlRadius
+            color: "#1a3b82f6"
+            border.color: "#3b82f6"
+            RowLayout {
+                id: noneHint
+                anchors.fill: parent
+                anchors.margins: 10
+                spacing: 8
+                Text {
+                    text: "ℹ"
+                    color: "#3b82f6"
+                    font.pixelSize: 14
+                }
+                Text {
+                    text: "Virtual display is active. Use your preferred streaming tool to capture the output shown above."
+                    color: theme.textSecondary
+                    font.pixelSize: 12
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+            }
+        }
+
         RowLayout {
             Layout.fillWidth: true
             spacing: 10

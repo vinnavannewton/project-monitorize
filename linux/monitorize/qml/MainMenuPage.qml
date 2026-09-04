@@ -72,7 +72,9 @@ Item {
                     Layout.alignment: Qt.AlignHCenter
                 }
                 Text {
-                    text: "Connect from Moonlight on Android, Linux, Windows, macOS or iOS"
+                    text: backend.sunshineAvailable
+                        ? "Connect from Moonlight on Android, Linux, Windows, macOS or iOS"
+                        : "Create a virtual display for your Linux desktop"
                     color: theme.cardTextSecondary
                     font.pixelSize: 12
                     Layout.alignment: Qt.AlignHCenter

@@ -115,6 +115,75 @@ check_sunshine_node_modules_permissions() {
     fi
 }
 
+select_install_mode() {
+    # Pure bash TUI menu: arrow-key navigable install mode selector.
+    local options=("Complete Install  (Recommended)|Virtual monitor creation + Sunshine streaming"
+                   "Partial Install|Virtual monitor creation only")
+    local selected=0
+    local key
+
+    # Draw the menu frame and options.
+    draw_menu() {
+        local i label desc
+        printf '\033[?25l'  # hide cursor
+        printf '\n'
+        printf '  ╭──────────────────────────────────────────────────────────╮\n'
+        printf '  │  Monitorize — Choose Installation Type                   │\n'
+        printf '  ├──────────────────────────────────────────────────────────┤\n'
+        for i in "${!options[@]}"; do
+            label="${options[$i]%%|*}"
+            desc="${options[$i]##*|}"
+            if (( i == selected )); then
+                printf '  │  \033[38;5;111m› %-53s\033[0m │\n' "${label}"
+            else
+                printf '  │    %-53s │\n' "${label}"
+            fi
+            printf '  │    \033[2m%-53s\033[0m │\n' "${desc}"
+            if (( i < ${#options[@]} - 1 )); then
+                printf '  │                                                          │\n'
+            fi
+        done
+        printf '  ╰──────────────────────── ↑↓ Navigate · Enter Select ──────╯\n'
+        printf '\033[?25h'  # show cursor
+    }
+
+    # Move cursor up to overwrite the previous menu.
+    clear_menu() {
+        local lines=$(( 4 + ${#options[@]} * 2 + (${#options[@]} - 1) + 1 ))
+        printf '\033[%dA' "${lines}"
+    }
+
+    draw_menu
+
+    while true; do
+        IFS= read -rsn1 key
+        case "${key}" in
+            $'\x1b')
+                read -rsn2 key
+                case "${key}" in
+                    '[A') if (( selected > 0 )); then selected=$((selected - 1)); fi ;;
+                    '[B') if (( selected < ${#options[@]} - 1 )); then selected=$((selected + 1)); fi ;;
+                esac
+                clear_menu
+                draw_menu
+                ;;
+            '')
+                # Enter key
+                break
+                ;;
+        esac
+    done
+    printf '\n'
+
+    if (( selected == 0 )); then
+        INSTALL_MODE="complete"
+        echo "Selected: Complete Install (virtual monitor + Sunshine streaming)"
+    else
+        INSTALL_MODE="partial"
+        echo "Selected: Partial Install (virtual monitor creation only)"
+    fi
+}
+
 # ── Uninstall ────────────────────────────────────────────────────────
 if [[ "${1:-}" == "remove" || "${1:-}" == "uninstall" ]]; then
     echo "Removing ${APP_NAME} desktop entry…"
@@ -139,6 +208,8 @@ if [[ "${1:-}" == "remove" || "${1:-}" == "uninstall" ]]; then
 fi
 
 # ── Pre-flight checks ────────────────────────────────────────────────
+select_install_mode
+
 if [[ ! -f "${ICON_SRC}" ]]; then
     echo "Error: Icon not found at ${ICON_SRC}" >&2
     exit 1
@@ -151,13 +222,16 @@ fi
 
 require_command python3
 require_command git
-require_command cmake
-require_command node
-require_command npm
 
-if ! command -v vainfo &>/dev/null; then
-    echo "Warning: 'vainfo' is not installed; multi-GPU VA-API selection will be unavailable." >&2
-    echo "Install vainfo (Ubuntu) or libva-utils (Arch/Fedora/openSUSE) to enable it." >&2
+if [[ "${INSTALL_MODE}" == "complete" ]]; then
+    require_command cmake
+    require_command node
+    require_command npm
+
+    if ! command -v vainfo &>/dev/null; then
+        echo "Warning: 'vainfo' is not installed; multi-GPU VA-API selection will be unavailable." >&2
+        echo "Install vainfo (Ubuntu) or libva-utils (Arch/Fedora/openSUSE) to enable it." >&2
+    fi
 fi
 
 PYTHON_VERSION="$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:3])))')"
@@ -166,31 +240,33 @@ if ! version_at_least "${PYTHON_VERSION}" "3.11"; then
     exit 1
 fi
 
-CMAKE_VERSION="$(cmake --version | head -n1 | awk '{print $3}')"
-if ! version_at_least "${CMAKE_VERSION}" "3.26"; then
-    echo "Error: CMake newer than 3.25 is required; found ${CMAKE_VERSION}." >&2
-    exit 1
-fi
-
-select_sunshine_compiler
-configure_build_jobs
-
-if [[ -d "${REPOSITORY_DIR}/.git" ]]; then
-    echo "Initializing the bundled Sunshine submodule…"
-    if ! git -C "${REPOSITORY_DIR}" submodule update --init --recursive external/sunshine; then
-        echo "Error: Sunshine submodule initialization failed. Fix the Git error above and retry." >&2
+if [[ "${INSTALL_MODE}" == "complete" ]]; then
+    CMAKE_VERSION="$(cmake --version | head -n1 | awk '{print $3}')"
+    if ! version_at_least "${CMAKE_VERSION}" "3.26"; then
+        echo "Error: CMake newer than 3.25 is required; found ${CMAKE_VERSION}." >&2
         exit 1
     fi
-fi
 
-for required_path in CMakeLists.txt package.json package-lock.json third-party/moonlight-common-c/CMakeLists.txt; do
-    if [[ ! -e "${SUNSHINE_SUBMODULE_DIR}/${required_path}" ]]; then
-        echo "Error: Sunshine submodule is incomplete (missing ${required_path})." >&2
-        echo "Run: git submodule update --init --recursive" >&2
-        exit 1
+    select_sunshine_compiler
+    configure_build_jobs
+
+    if [[ -d "${REPOSITORY_DIR}/.git" ]]; then
+        echo "Initializing the bundled Sunshine submodule…"
+        if ! git -C "${REPOSITORY_DIR}" submodule update --init --recursive external/sunshine; then
+            echo "Error: Sunshine submodule initialization failed. Fix the Git error above and retry." >&2
+            exit 1
+        fi
     fi
-done
-check_sunshine_node_modules_permissions
+
+    for required_path in CMakeLists.txt package.json package-lock.json third-party/moonlight-common-c/CMakeLists.txt; do
+        if [[ ! -e "${SUNSHINE_SUBMODULE_DIR}/${required_path}" ]]; then
+            echo "Error: Sunshine submodule is incomplete (missing ${required_path})." >&2
+            echo "Run: git submodule update --init --recursive" >&2
+            exit 1
+        fi
+    done
+    check_sunshine_node_modules_permissions
+fi
 
 # ── Setup Virtual Environment ────────────────────────────────────────
 echo "Setting up Python virtual environment at ${VENV_DIR}…"
@@ -232,6 +308,7 @@ if ! "${HELPER_BUILD}" "${HELPER_PATH}"; then
 fi
 echo "✓ KDE virtual-output helper installed to ${HELPER_PATH}"
 
+if [[ "${INSTALL_MODE}" == "complete" ]]; then
 # ── Build and install the project-local Sunshine backend ─────────────
 echo "Building bundled Sunshine with ${SUNSHINE_CXX} (-j${BUILD_JOBS})…"
 CMAKE_EXTRA_FLAGS=()
@@ -349,6 +426,7 @@ if [[ ! -f "${SUNSHINE_APPS_2}" ]]; then
 }
 EOF
 fi
+fi  # end INSTALL_MODE == complete
 
 # ── Install icon ─────────────────────────────────────────────────────
 mkdir -p "${ICON_DIR}"
@@ -414,30 +492,50 @@ if ! "${VENV_DIR}/bin/python3" -c 'import PyQt6, dbus, gi'; then
     echo "Install the distro packages listed in the wiki, then rerun this installer." >&2
     exit 1
 fi
-for required_path in \
-    "${SUNSHINE_VENV_BIN}" \
-    "${SUNSHINE_VENV_ASSETS}/web/index.html" \
-    "${SUNSHINE_CONF_1}" \
-    "${SUNSHINE_CONF_2}" \
-    "${DESKTOP_DIR}/${DESKTOP_FILE}"; do
-    if [[ ! -e "${required_path}" ]]; then
-        echo "Error: Post-install validation failed; missing ${required_path}." >&2
+
+if [[ "${INSTALL_MODE}" == "complete" ]]; then
+    for required_path in \
+        "${SUNSHINE_VENV_BIN}" \
+        "${SUNSHINE_VENV_ASSETS}/web/index.html" \
+        "${SUNSHINE_CONF_1}" \
+        "${SUNSHINE_CONF_2}" \
+        "${DESKTOP_DIR}/${DESKTOP_FILE}"; do
+        if [[ ! -e "${required_path}" ]]; then
+            echo "Error: Post-install validation failed; missing ${required_path}." >&2
+            exit 1
+        fi
+    done
+    echo "✓ Python, Sunshine, assets, profiles, and desktop entry validated"
+else
+    if [[ ! -e "${DESKTOP_DIR}/${DESKTOP_FILE}" ]]; then
+        echo "Error: Post-install validation failed; missing ${DESKTOP_DIR}/${DESKTOP_FILE}." >&2
         exit 1
     fi
-done
-echo "✓ Python, Sunshine, assets, profiles, and desktop entry validated"
+    echo "✓ Python and desktop entry validated"
+fi
 
 if [[ ! -e /dev/uinput || ! -r /dev/uinput || ! -w /dev/uinput ]]; then
     echo "Warning: /dev/uinput is not accessible to this user." >&2
-    echo "Streaming will work, but touch/input needs the monitorize-input setup from the wiki and a new login session." >&2
+    echo "Touch/input needs the monitorize-input setup from the wiki and a new login session." >&2
 fi
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  ${APP_NAME} has been installed!"
-echo "  It should now appear in your application menu."
-echo ""
-echo "  KDE native virtual-display support is installed and authorized."
+if [[ "${INSTALL_MODE}" == "complete" ]]; then
+    echo "  ${APP_NAME} has been installed!  (Complete Install)"
+    echo "  It should now appear in your application menu."
+    echo ""
+    echo "  Sunshine streaming backend and KDE virtual-display"
+    echo "  support are installed and ready."
+else
+    echo "  ${APP_NAME} has been installed!  (Partial Install)"
+    echo "  It should now appear in your application menu."
+    echo ""
+    echo "  Virtual monitor creation is ready. Sunshine streaming"
+    echo "  was not installed — use your own streaming backend."
+    echo ""
+    echo "  To upgrade to a complete install, rerun:  ./install.sh"
+fi
 echo ""
 echo "  Keep this source folder at: ${REPOSITORY_DIR}"
 echo "  Moving or deleting it will break the installed launcher."

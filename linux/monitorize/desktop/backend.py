@@ -17,6 +17,7 @@ from monitorize.config.settings import (
 from monitorize.desktop.streaming_controller import StreamingController
 from monitorize.platform.gpu_discovery import encoding_gpu_options
 from monitorize.platform.sunshine_service import (
+    find_sunshine_command,
     get_sunshine_config,
     open_sunshine_dashboard,
     pair_moonlight_pin,
@@ -48,8 +49,11 @@ class MonitorizeBackend(QObject):
         super().__init__(parent)
         self._detected_de = de
         self._local_ip = get_local_ip()
+        self._sunshine_available = find_sunshine_command(1) is not None
         general = load_general_settings()
         self._streaming_backend = general.get("streaming_backend", "sunshine")
+        if not self._sunshine_available:
+            self._streaming_backend = "none"
         self.streaming = StreamingController(de, self._local_ip, self)
         self.streaming.streaming_backend = self._streaming_backend
         self._presets = load_presets()
@@ -108,6 +112,10 @@ class MonitorizeBackend(QObject):
     def canConfigureDisplay(self):
         return self._detected_de in ("hyprland", "sway")
 
+    @pyqtProperty(bool, constant=True)
+    def sunshineAvailable(self):
+        return self._sunshine_available
+
     @pyqtProperty(str, notify=streamingBackendChanged)
     def streamingBackend(self):
         return self._streaming_backend
@@ -115,6 +123,8 @@ class MonitorizeBackend(QObject):
     @pyqtSlot(str)
     def setStreamingBackend(self, value):
         value = value if value in ("sunshine", "none") else "sunshine"
+        if value == "sunshine" and not self._sunshine_available:
+            value = "none"
         if value == self._streaming_backend:
             return
         self._streaming_backend = value
