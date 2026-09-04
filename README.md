@@ -4,6 +4,8 @@
   <p><strong>Use any Moonlight-compatible device as an extra monitor for your Linux desktop.</strong></p>
 </div>
 
+https://github.com/user-attachments/assets/14a21a68-011b-43bf-9f26-fc9ea731d80b
+
 Monitorize is a Linux host application for KDE Plasma, GNOME, and Hyprland. It creates and preserves compositor-native virtual displays, and streams using an isolated Sunshine server for each display.
 
 Receiving is handled by the standard [Moonlight](https://moonlight-stream.org/) application on Android, Linux, Windows, macOS, iOS, and other supported clients.
