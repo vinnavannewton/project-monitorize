@@ -58,6 +58,25 @@ class SunshineControllerTest(unittest.TestCase):
         self.controller().start("1920x1080", "60", "Mirror")
         self.assertEqual(sync.call_args.kwargs["capture"], "portal")
 
+    @patch("monitorize.desktop.streaming_controller.os.path.isfile", return_value=True)
+    @patch("monitorize.desktop.streaming_controller.stop_sunshine")
+    @patch("monitorize.desktop.streaming_controller.start_sunshine", return_value=(True, "started"))
+    @patch("monitorize.desktop.streaming_controller.is_sunshine_running", return_value=False)
+    @patch("monitorize.desktop.streaming_controller.save_sunshine_config", return_value=(True, "saved"))
+    @patch("monitorize.desktop.streaming_controller.sync_sunshine_stream_config", return_value=(True, "synced"))
+    def test_flatpak_kde_extend_uses_portal_virtual(
+        self, sync, _save, _running, start, _stop, _flatpak
+    ):
+        controller = self.controller("kde")
+        controller.start("1920x1080", "60", "Extend")
+        self.assertEqual(sync.call_args.kwargs["capture"], "portal")
+        self.assertEqual(
+            start.call_args.kwargs.get("extra_environment", {}).get("SUNSHINE_PORTAL_SOURCE_TYPE"),
+            "virtual",
+        )
+        self.assertIsNone(controller.streamer)
+        self.assertTrue(controller.primary_ready)
+
     @patch("monitorize.desktop.streaming_controller.stop_sunshine")
     @patch("monitorize.desktop.streaming_controller.start_sunshine", return_value=(True, "started"))
     @patch("monitorize.desktop.streaming_controller.is_sunshine_running", return_value=False)
