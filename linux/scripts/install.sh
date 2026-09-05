@@ -90,7 +90,6 @@ configure_build_jobs() {
     local detected
     detected="$(nproc 2>/dev/null || echo 1)"
     [[ "${detected}" =~ ^[1-9][0-9]*$ ]] || detected=1
-    GIT_JOBS="${detected}"
     if [[ -n "${MONITORIZE_BUILD_JOBS:-}" ]]; then
         if [[ ! "${MONITORIZE_BUILD_JOBS}" =~ ^[1-9][0-9]*$ ]]; then
             echo "Error: MONITORIZE_BUILD_JOBS must be a positive integer." >&2
@@ -102,6 +101,42 @@ configure_build_jobs() {
     else
         BUILD_JOBS="${detected}"
     fi
+}
+
+detect_git_jobs() {
+    local jobs
+    if command -v nproc &>/dev/null; then
+        jobs="$(nproc)"
+    elif command -v getconf &>/dev/null; then
+        jobs="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)"
+    else
+        jobs=4
+    fi
+    [[ "${jobs}" =~ ^[0-9]+$ ]] || jobs=4
+    (( jobs < 1 )) && jobs=1
+    (( jobs > 8 )) && jobs=8
+    printf '%s\n' "${jobs}"
+}
+
+update_sunshine_submodules() {
+    local jobs="$1"
+
+    if ! git -C "${REPOSITORY_DIR}" submodule sync --recursive; then
+        echo "Error: Could not synchronize Sunshine submodule URLs." >&2
+        return 1
+    fi
+    echo "[Monitorize] Updating Sunshine submodules (shallow, parallel: ${jobs} jobs)…"
+    if git -C "${REPOSITORY_DIR}" submodule update --init --recursive --depth 1 --jobs "${jobs}" external/sunshine; then
+        echo "[Monitorize] Sunshine submodules updated successfully."
+        return 0
+    fi
+
+    echo "Warning: shallow Sunshine submodule checkout failed; retrying with full history." >&2
+    if git -C "${REPOSITORY_DIR}" submodule update --init --recursive --jobs "${jobs}" external/sunshine; then
+        echo "[Monitorize] Sunshine submodules updated successfully using fallback."
+        return 0
+    fi
+    return 1
 }
 
 configure_sunshine_build_tools() {
@@ -318,15 +353,16 @@ if [[ "${INSTALL_MODE}" == "complete" ]]; then
     select_sunshine_compiler
     configure_build_jobs
 
-    if [[ -d "${REPOSITORY_DIR}/.git" ]]; then
-        echo "[Monitorize] Updating Sunshine submodules (shallow, parallel: ${GIT_JOBS} jobs)…"
-        if ! git -C "${REPOSITORY_DIR}" submodule update --init --recursive --depth 1 --jobs "${GIT_JOBS}" external/sunshine; then
-            echo "Warning: shallow Sunshine submodule checkout failed; retrying with full history." >&2
-            if ! git -C "${REPOSITORY_DIR}" submodule update --init --recursive --jobs "${GIT_JOBS}" external/sunshine; then
-                echo "Error: Sunshine submodule initialization failed. Fix the Git error above and retry." >&2
-                exit 1
-            fi
+    if git -C "${REPOSITORY_DIR}" rev-parse --is-inside-work-tree &>/dev/null; then
+        GIT_JOBS="$(detect_git_jobs)"
+        if ! update_sunshine_submodules "${GIT_JOBS}"; then
+            echo "Error: Sunshine submodule initialization failed. Fix the Git error above and retry." >&2
+            exit 1
         fi
+    fi
+    if ! git -C "${SUNSHINE_SUBMODULE_DIR}" rev-parse --verify HEAD &>/dev/null; then
+        echo "Error: Sunshine submodule checkout is invalid or incomplete. Run the installer again to repair it." >&2
+        exit 1
     fi
 
     for required_path in CMakeLists.txt package.json package-lock.json third-party/moonlight-common-c/CMakeLists.txt; do
