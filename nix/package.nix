@@ -58,6 +58,9 @@ let
     version = sunshineVersion;
     src = sunshineSource;
     ui = sunshineUi;
+    patches = (previousAttrs.patches or []) ++ [
+      ../packaging/sunshine-strict-selection.patch
+    ];
     cmakeFlags = builtins.filter
       (flag: !(lib.hasPrefix "-DFFMPEG_PREPARED_BINARIES=" flag))
       previousAttrs.cmakeFlags ++ [

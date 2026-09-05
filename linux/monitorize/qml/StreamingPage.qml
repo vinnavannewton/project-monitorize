@@ -357,7 +357,7 @@ Item {
                     Text { text: "Encoder"; color: theme.textSecondary }
                     ChoiceChips {
                         id: secondEncoder
-                        model: ["Auto", "NVIDIA", "VA-API", "Software Enc"]
+                        model: ["Auto", "NVIDIA", "VA-API", "Vulkan", "Software Enc"]
                         chipWidth: 112
                         onActivated: {
                             page.refreshSecondGpuOptions("")

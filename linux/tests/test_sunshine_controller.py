@@ -58,6 +58,25 @@ class SunshineControllerTest(unittest.TestCase):
         self.controller().start("1920x1080", "60", "Mirror")
         self.assertEqual(sync.call_args.kwargs["capture"], "portal")
 
+    @patch("monitorize.desktop.streaming_controller.os.path.isfile", return_value=True)
+    @patch("monitorize.desktop.streaming_controller.stop_sunshine")
+    @patch("monitorize.desktop.streaming_controller.start_sunshine", return_value=(True, "started"))
+    @patch("monitorize.desktop.streaming_controller.is_sunshine_running", return_value=False)
+    @patch("monitorize.desktop.streaming_controller.save_sunshine_config", return_value=(True, "saved"))
+    @patch("monitorize.desktop.streaming_controller.sync_sunshine_stream_config", return_value=(True, "synced"))
+    def test_flatpak_kde_extend_uses_portal_virtual(
+        self, sync, _save, _running, start, _stop, _flatpak
+    ):
+        controller = self.controller("kde")
+        controller.start("1920x1080", "60", "Extend")
+        self.assertEqual(sync.call_args.kwargs["capture"], "portal")
+        self.assertEqual(
+            start.call_args.kwargs.get("extra_environment", {}).get("SUNSHINE_PORTAL_SOURCE_TYPE"),
+            "virtual",
+        )
+        self.assertIsNone(controller.streamer)
+        self.assertTrue(controller.primary_ready)
+
     @patch("monitorize.desktop.streaming_controller.stop_sunshine")
     @patch("monitorize.desktop.streaming_controller.start_sunshine", return_value=(True, "started"))
     @patch("monitorize.desktop.streaming_controller.is_sunshine_running", return_value=False)
@@ -183,6 +202,28 @@ class SunshineControllerTest(unittest.TestCase):
             {"CUDA_VISIBLE_DEVICES": "1"},
         )
 
+    @patch("monitorize.desktop.streaming_controller.start_sunshine")
+    @patch("monitorize.desktop.streaming_controller.sync_sunshine_stream_config")
+    @patch("monitorize.desktop.streaming_controller.resolve_encoding_gpu", return_value=None)
+    @patch("monitorize.desktop.streaming_controller.stop_sunshine")
+    def test_unavailable_selected_gpu_does_not_fall_back(
+        self, _stop, resolve, sync, start
+    ):
+        controller = self.controller()
+        failures = []
+        controller.startFailed.connect(lambda: failures.append(True))
+        controller.start(
+            "1920x1080", "60", "Mirror", "NVIDIA", "Auto", True,
+            gpu_id="0000:03:00.0",
+        )
+
+        resolve.assert_called_once_with("NVIDIA", "0000:03:00.0")
+        sync.assert_not_called()
+        start.assert_not_called()
+        self.assertFalse(controller.streaming)
+        self.assertIn("unavailable", controller.status)
+        self.assertEqual(failures, [True])
+
     @patch("monitorize.desktop.streaming_controller.app_log.write")
     @patch("monitorize.desktop.streaming_controller.QTimer.singleShot")
     @patch("monitorize.desktop.streaming_controller.check_sunshine_health")
@@ -246,6 +287,29 @@ class SunshineControllerTest(unittest.TestCase):
         self.assertTrue(controller.sunshine_watchdog_timer.isActive())
         mock_log_write.assert_not_called()
         mock_singleshot.assert_not_called()
+
+    @patch("monitorize.desktop.streaming_controller.app_log.write")
+    @patch("monitorize.desktop.streaming_controller.QTimer.singleShot")
+    @patch(
+        "monitorize.desktop.streaming_controller.get_sunshine_strict_selection_error",
+        return_value="Error: MONITORIZE_STRICT_CODEC_REJECTED",
+    )
+    @patch(
+        "monitorize.desktop.streaming_controller.check_sunshine_health",
+        return_value=(True, None, ""),
+    )
+    def test_sunshine_watchdog_reports_strict_selection_error(
+        self, _health, strict_error, mock_singleshot, mock_log_write
+    ):
+        controller = self.controller()
+        controller.streaming = True
+
+        controller._check_sunshine_health()
+
+        strict_error.assert_called_once_with(1, 0)
+        self.assertIn("rejected the selected encoder or codec", controller.status)
+        mock_log_write.assert_called_once()
+        mock_singleshot.assert_called_once_with(0, controller.stop)
 
     @patch("monitorize.desktop.streaming_controller.app_log.write")
     @patch("monitorize.desktop.streaming_controller.check_sunshine_health", side_effect=RuntimeError("disk error"))

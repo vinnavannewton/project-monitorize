@@ -8,6 +8,7 @@
 # Usage:
 #   cd linux/scripts
 #   ./install.sh          # install
+#   ./install.sh --rebuild-sunshine  # clean and rebuild Sunshine
 #   ./install.sh remove   # uninstall
 # ──────────────────────────────────────────────────────────────────────
 
@@ -31,8 +32,10 @@ SUNSHINE_SUBMODULE_DIR="${REPOSITORY_DIR}/external/sunshine"
 SUNSHINE_BUILD_DIR="${SUNSHINE_SUBMODULE_DIR}/build"
 SUNSHINE_BUILD_BIN="${SUNSHINE_BUILD_DIR}/sunshine"
 SUNSHINE_BUILD_ASSETS="${SUNSHINE_BUILD_DIR}/assets"
+SUNSHINE_BUILD_STAMP="${SUNSHINE_BUILD_DIR}/.monitorize-built-fingerprint"
 SUNSHINE_VENV_BIN="${VENV_DIR}/bin/sunshine"
 SUNSHINE_VENV_ASSETS="${VENV_DIR}/share/monitorize/sunshine/assets"
+SUNSHINE_STRICT_SELECTION_PATCH="${REPOSITORY_DIR}/packaging/sunshine-strict-selection.patch"
 
 # XDG standard locations
 DESKTOP_DIR="${HOME}/.local/share/applications"
@@ -86,17 +89,112 @@ select_sunshine_compiler() {
 configure_build_jobs() {
     local detected
     detected="$(nproc 2>/dev/null || echo 1)"
+    [[ "${detected}" =~ ^[1-9][0-9]*$ ]] || detected=1
     if [[ -n "${MONITORIZE_BUILD_JOBS:-}" ]]; then
         if [[ ! "${MONITORIZE_BUILD_JOBS}" =~ ^[1-9][0-9]*$ ]]; then
             echo "Error: MONITORIZE_BUILD_JOBS must be a positive integer." >&2
             exit 1
         fi
         BUILD_JOBS="${MONITORIZE_BUILD_JOBS}"
-    elif (( detected > 4 )); then
-        BUILD_JOBS=4
+    elif (( detected > 8 )); then
+        BUILD_JOBS=8
     else
         BUILD_JOBS="${detected}"
     fi
+}
+
+detect_git_jobs() {
+    local jobs
+    if command -v nproc &>/dev/null; then
+        jobs="$(nproc)"
+    elif command -v getconf &>/dev/null; then
+        jobs="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)"
+    else
+        jobs=4
+    fi
+    [[ "${jobs}" =~ ^[0-9]+$ ]] || jobs=4
+    (( jobs < 1 )) && jobs=1
+    (( jobs > 8 )) && jobs=8
+    printf '%s\n' "${jobs}"
+}
+
+update_sunshine_submodules() {
+    local jobs="$1"
+
+    if ! git -C "${REPOSITORY_DIR}" submodule sync --recursive; then
+        echo "Error: Could not synchronize Sunshine submodule URLs." >&2
+        return 1
+    fi
+    echo "[Monitorize] Updating Sunshine submodules (shallow, parallel: ${jobs} jobs)…"
+    if git -C "${REPOSITORY_DIR}" submodule update --init --recursive --depth 1 --jobs "${jobs}" external/sunshine; then
+        echo "[Monitorize] Sunshine submodules updated successfully."
+        return 0
+    fi
+
+    echo "Warning: shallow Sunshine submodule checkout failed; retrying with full history." >&2
+    if git -C "${REPOSITORY_DIR}" submodule update --init --recursive --jobs "${jobs}" external/sunshine; then
+        echo "[Monitorize] Sunshine submodules updated successfully using fallback."
+        return 0
+    fi
+    return 1
+}
+
+configure_sunshine_build_tools() {
+    local existing_generator
+    CMAKE_GENERATOR_FLAGS=()
+    CMAKE_CCACHE_FLAGS=()
+    SUNSHINE_BUILD_GENERATOR="default"
+    SUNSHINE_CCACHE="off"
+
+    if [[ -f "${SUNSHINE_BUILD_DIR}/CMakeCache.txt" ]]; then
+        existing_generator="$(sed -n 's/^CMAKE_GENERATOR:INTERNAL=//p' "${SUNSHINE_BUILD_DIR}/CMakeCache.txt" | head -n1)"
+        if [[ "${existing_generator}" == "Ninja" ]]; then
+            if command -v ninja &>/dev/null; then
+                CMAKE_GENERATOR_FLAGS=(-G Ninja)
+                SUNSHINE_BUILD_GENERATOR="Ninja"
+            else
+                echo "Warning: the existing Sunshine build needs Ninja, which is unavailable; rebuilding with CMake's default generator." >&2
+                rm -rf "${SUNSHINE_BUILD_DIR}"
+            fi
+        fi
+    elif command -v ninja &>/dev/null; then
+        CMAKE_GENERATOR_FLAGS=(-G Ninja)
+        SUNSHINE_BUILD_GENERATOR="Ninja"
+    fi
+
+    if command -v ccache &>/dev/null; then
+        CMAKE_CCACHE_FLAGS=(
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+        )
+        SUNSHINE_CCACHE="on"
+    else
+        # Clear a launcher retained in an existing CMake cache so a removed
+        # ccache never makes a normal rebuild fail.
+        CMAKE_CCACHE_FLAGS=(
+            -DCMAKE_C_COMPILER_LAUNCHER=
+            -DCMAKE_CXX_COMPILER_LAUNCHER=
+        )
+    fi
+
+    echo "[Monitorize] Sunshine build generator: ${SUNSHINE_BUILD_GENERATOR}"
+    [[ "${SUNSHINE_CCACHE}" == "on" ]] && echo "[Monitorize] ccache enabled"
+}
+
+configure_sunshine_build_fingerprint() {
+    local commit patch_checksum vulkan
+    commit="$(git -C "${SUNSHINE_SUBMODULE_DIR}" rev-parse HEAD)"
+    patch_checksum="$(cksum "${SUNSHINE_STRICT_SELECTION_PATCH}" | awk '{print $1 ":" $2}')"
+    vulkan="on"
+    [[ " ${CMAKE_EXTRA_FLAGS[*]} " == *" -DSUNSHINE_ENABLE_VULKAN=OFF "* ]] && vulkan="off"
+    SUNSHINE_BUILD_FINGERPRINT="commit=${commit}|type=Release|tray=off|tests=off|docs=off|cuda=auto|vulkan=${vulkan}|generator=${SUNSHINE_BUILD_GENERATOR}|ccache=${SUNSHINE_CCACHE}|cc=${SUNSHINE_CC}|cxx=${SUNSHINE_CXX}|strict-patch=${patch_checksum}"
+}
+
+sunshine_build_is_current() {
+    [[ -f "${SUNSHINE_BUILD_STAMP}" ]] &&
+        [[ -x "${SUNSHINE_BUILD_BIN}" ]] &&
+        [[ -f "${SUNSHINE_BUILD_ASSETS}/web/index.html" ]] &&
+        [[ "$(<"${SUNSHINE_BUILD_STAMP}")" == "${SUNSHINE_BUILD_FINGERPRINT}" ]]
 }
 
 check_sunshine_node_modules_permissions() {
@@ -185,6 +283,11 @@ select_install_mode() {
 }
 
 # ── Uninstall ────────────────────────────────────────────────────────
+FORCE_SUNSHINE_REBUILD=0
+if [[ "${1:-}" == "--rebuild-sunshine" || "${MONITORIZE_REBUILD_SUNSHINE:-}" == "1" ]]; then
+    FORCE_SUNSHINE_REBUILD=1
+fi
+
 if [[ "${1:-}" == "remove" || "${1:-}" == "uninstall" ]]; then
     echo "Removing ${APP_NAME} desktop entry…"
     rm -f "${DESKTOP_DIR}/${DESKTOP_FILE}"
@@ -250,12 +353,16 @@ if [[ "${INSTALL_MODE}" == "complete" ]]; then
     select_sunshine_compiler
     configure_build_jobs
 
-    if [[ -d "${REPOSITORY_DIR}/.git" ]]; then
-        echo "Initializing the bundled Sunshine submodule…"
-        if ! git -C "${REPOSITORY_DIR}" submodule update --init --recursive external/sunshine; then
+    if git -C "${REPOSITORY_DIR}" rev-parse --is-inside-work-tree &>/dev/null; then
+        GIT_JOBS="$(detect_git_jobs)"
+        if ! update_sunshine_submodules "${GIT_JOBS}"; then
             echo "Error: Sunshine submodule initialization failed. Fix the Git error above and retry." >&2
             exit 1
         fi
+    fi
+    if ! git -C "${SUNSHINE_SUBMODULE_DIR}" rev-parse --verify HEAD &>/dev/null; then
+        echo "Error: Sunshine submodule checkout is invalid or incomplete. Run the installer again to repair it." >&2
+        exit 1
     fi
 
     for required_path in CMakeLists.txt package.json package-lock.json third-party/moonlight-common-c/CMakeLists.txt; do
@@ -265,6 +372,13 @@ if [[ "${INSTALL_MODE}" == "complete" ]]; then
             exit 1
         fi
     done
+    if ! grep -q "MONITORIZE_STRICT_SELECTION_FAILED" "${SUNSHINE_SUBMODULE_DIR}/src/video.cpp"; then
+        echo "Applying Monitorize strict Sunshine encoder and codec selection patch…"
+        if ! patch --batch --forward -d "${SUNSHINE_SUBMODULE_DIR}" -p1 < "${SUNSHINE_STRICT_SELECTION_PATCH}"; then
+            echo "Error: Could not apply the Monitorize Sunshine strict-selection patch." >&2
+            exit 1
+        fi
+    fi
     check_sunshine_node_modules_permissions
 fi
 
@@ -310,32 +424,47 @@ echo "✓ KDE virtual-output helper installed to ${HELPER_PATH}"
 
 if [[ "${INSTALL_MODE}" == "complete" ]]; then
 # ── Build and install the project-local Sunshine backend ─────────────
-echo "Building bundled Sunshine with ${SUNSHINE_CXX} (-j${BUILD_JOBS})…"
 CMAKE_EXTRA_FLAGS=()
 if ! command -v glslc &>/dev/null && ! command -v glslangValidator &>/dev/null; then
     CMAKE_EXTRA_FLAGS+=("-DSUNSHINE_ENABLE_VULKAN=OFF")
     echo "Warning: Vulkan shader tools were not found; building Sunshine without Vulkan encoding." >&2
 fi
 
-mkdir -p "${SUNSHINE_BUILD_DIR}"
-if ! cmake -B "${SUNSHINE_BUILD_DIR}" -S "${SUNSHINE_SUBMODULE_DIR}" \
-         -DCMAKE_BUILD_TYPE=Release \
-         -DCMAKE_C_COMPILER="${SUNSHINE_CC}" \
-         -DCMAKE_CXX_COMPILER="${SUNSHINE_CXX}" \
-         -DSUNSHINE_ENABLE_TRAY=OFF -DBUILD_TESTS=OFF -DBUILD_DOCS=OFF \
-         -DCUDA_FAIL_ON_MISSING=OFF \
-         -DPython_EXECUTABLE="${VENV_DIR}/bin/python3" -DGLAD_SKIP_PIP_INSTALL=ON \
-         "${CMAKE_EXTRA_FLAGS[@]}"; then
-    echo "Error: Sunshine configuration failed. Check the missing dependency above and retry." >&2
-    exit 1
+if (( FORCE_SUNSHINE_REBUILD )); then
+    echo "[Monitorize] Forcing a clean Sunshine rebuild…"
+    rm -rf "${SUNSHINE_BUILD_DIR}"
 fi
-if ! cmake --build "${SUNSHINE_BUILD_DIR}" -j"${BUILD_JOBS}"; then
-    echo "Error: Sunshine compilation failed. Check the compiler output above and retry." >&2
-    exit 1
-fi
-if [[ ! -x "${SUNSHINE_BUILD_BIN}" || ! -d "${SUNSHINE_BUILD_ASSETS}/web" ]]; then
-    echo "Error: Sunshine build completed without the required binary or web assets." >&2
-    exit 1
+configure_sunshine_build_tools
+configure_sunshine_build_fingerprint
+
+if sunshine_build_is_current && (( ! FORCE_SUNSHINE_REBUILD )); then
+    echo "[Monitorize] Sunshine build unchanged; reusing existing backend."
+else
+    echo "[Monitorize] Sunshine build jobs: ${BUILD_JOBS}"
+    echo "Building bundled Sunshine with ${SUNSHINE_CXX} (-j${BUILD_JOBS})…"
+    mkdir -p "${SUNSHINE_BUILD_DIR}"
+    if ! cmake -B "${SUNSHINE_BUILD_DIR}" -S "${SUNSHINE_SUBMODULE_DIR}" \
+             "${CMAKE_GENERATOR_FLAGS[@]}" \
+             -DCMAKE_BUILD_TYPE=Release \
+             -DCMAKE_C_COMPILER="${SUNSHINE_CC}" \
+             -DCMAKE_CXX_COMPILER="${SUNSHINE_CXX}" \
+             "${CMAKE_CCACHE_FLAGS[@]}" \
+             -DSUNSHINE_ENABLE_TRAY=OFF -DBUILD_TESTS=OFF -DBUILD_DOCS=OFF \
+             -DCUDA_FAIL_ON_MISSING=OFF \
+             -DPython_EXECUTABLE="${VENV_DIR}/bin/python3" -DGLAD_SKIP_PIP_INSTALL=ON \
+             "${CMAKE_EXTRA_FLAGS[@]}"; then
+        echo "Error: Sunshine configuration failed. Check the missing dependency above and retry." >&2
+        exit 1
+    fi
+    if ! cmake --build "${SUNSHINE_BUILD_DIR}" -j"${BUILD_JOBS}"; then
+        echo "Error: Sunshine compilation failed. Check the compiler output above and retry." >&2
+        exit 1
+    fi
+    if [[ ! -x "${SUNSHINE_BUILD_BIN}" || ! -f "${SUNSHINE_BUILD_ASSETS}/web/index.html" ]]; then
+        echo "Error: Sunshine build completed without the required binary or web assets." >&2
+        exit 1
+    fi
+    printf '%s\n' "${SUNSHINE_BUILD_FINGERPRINT}" > "${SUNSHINE_BUILD_STAMP}"
 fi
 
 install -m 0755 "${SUNSHINE_BUILD_BIN}" "${SUNSHINE_VENV_BIN}"
