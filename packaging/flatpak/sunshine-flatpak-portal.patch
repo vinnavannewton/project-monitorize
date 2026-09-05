@@ -1,0 +1,185 @@
+--- a/src/platform/linux/pipewire.cpp
++++ b/src/platform/linux/pipewire.cpp
+@@ -3,6 +3,8 @@
+  * @brief Shared classes for pipewire-based capture methods.
+  */
+ // standard includes
++#include <cstdlib>
++#include <cstring>
+ #include <fstream>
+ 
+ // lib includes
+@@ -256,12 +258,22 @@
+       if (context) {
+         BOOST_LOG(debug) << "[pipewire] Connect PW context to fd"sv;
+         if (fd >= 0) {
++          // pw_context_connect_fd() owns and closes this socket on disconnect
++          // or error. Do not close it a second time from this wrapper.
+           core = pw_context_connect_fd(context, fd, nullptr, 0);
++          fd = -1;
+         } else {
+           core = pw_context_connect(context, nullptr, 0);
+         }
+         if (core) {
+           pw_core_add_listener(core, &core_listener, &core_events, nullptr);
++#ifdef SUNSHINE_BUILD_FLATPAK
++          registry = pw_core_get_registry(core, PW_VERSION_REGISTRY, 0);
++          if (registry) {
++            pw_registry_add_listener(registry, &registry_listener, &registry_events, this);
++            BOOST_LOG(info) << "[portal-debug] Inspecting the restricted PipeWire registry"sv;
++          }
++#endif
+         } else {
+           BOOST_LOG(debug) << "[pipewire] Failed to connect to PW core. Error: "sv << errno << "(" << strerror(errno) << ")"sv;
+           return -1;
+@@ -300,12 +312,23 @@
+         struct pw_properties *props = pw_properties_new(PW_KEY_MEDIA_TYPE, "Video", PW_KEY_MEDIA_CATEGORY, "Capture", PW_KEY_MEDIA_ROLE, "Screen", nullptr);
+         if (object_serial != 0 && (object_serial & SPA_ID_INVALID) != SPA_ID_INVALID) {
+           pw_properties_setf(props, PW_KEY_TARGET_OBJECT, "%" PRIu64, object_serial);
++#ifdef SUNSHINE_BUILD_FLATPAK
++          // ScreenCast v6 defines pipewire-serial as object.serial. It belongs
++          // in target.object only; node.target takes a legacy node id.
++          BOOST_LOG(info) << "[portal-debug] Targeting object.serial "sv << object_serial << " through target.object and PW_ID_ANY"sv;
++#else
+           pw_properties_setf(props, "node.target", "%" PRIu64, object_serial);
+           BOOST_LOG(info) << "[pipewire] Targeting PipeWire object serial: "sv << object_serial;
++#endif
+         } else if (node != PW_ID_ANY && node != 0) {
++#ifdef SUNSHINE_BUILD_FLATPAK
++          // A legacy node id is passed directly to pw_stream_connect() below.
++          BOOST_LOG(info) << "[portal-debug] Targeting legacy PipeWire node id "sv << node << " through pw_stream_connect"sv;
++#else
+           pw_properties_setf(props, PW_KEY_TARGET_OBJECT, "%u", node);
+           pw_properties_setf(props, "node.target", "%u", node);
+           BOOST_LOG(info) << "[pipewire] Targeting PipeWire node id: "sv << node;
++#endif
+         }
+ 
+         BOOST_LOG(debug) << "[pipewire] Create PW stream"sv;
+@@ -467,6 +490,10 @@
+     struct pw_context *context;
+     struct pw_core *core;
+     struct spa_hook core_listener;
++#ifdef SUNSHINE_BUILD_FLATPAK
++    struct pw_registry *registry = nullptr;
++    struct spa_hook registry_listener;
++#endif
+     struct stream_data_t stream_data;
+     int fd;
+     uint32_t node;
+@@ -532,6 +559,37 @@
+       .error = on_core_error_cb,
+     };
+ 
++#ifdef SUNSHINE_BUILD_FLATPAK
++    static void on_registry_global(void *user_data, uint32_t global_id, [[maybe_unused]] uint32_t permissions, const char *type, [[maybe_unused]] uint32_t version, const struct spa_dict *props) {
++      auto *pipewire = static_cast<pipewire_t *>(user_data);
++      if (std::strcmp(type, PW_TYPE_INTERFACE_Node) != 0) {
++        return;
++      }
++
++      const char *object_id = spa_dict_lookup(props, PW_KEY_OBJECT_ID);
++      const char *object_serial = spa_dict_lookup(props, PW_KEY_OBJECT_SERIAL);
++      const char *node_name = spa_dict_lookup(props, PW_KEY_NODE_NAME);
++      const char *node_description = spa_dict_lookup(props, PW_KEY_NODE_DESCRIPTION);
++      const char *media_class = spa_dict_lookup(props, PW_KEY_MEDIA_CLASS);
++      const bool serial_match = object_serial && pipewire->object_serial != 0 &&
++                                (pipewire->object_serial & SPA_ID_INVALID) != SPA_ID_INVALID &&
++                                std::strtoull(object_serial, nullptr, 10) == pipewire->object_serial;
++
++      BOOST_LOG(info) << "[portal-debug] restricted PW node global_id="sv << global_id
++                      << " object.id=" << (object_id ? object_id : "<none>")
++                      << " object.serial=" << (object_serial ? object_serial : "<none>")
++                      << " node.name=" << (node_name ? node_name : "<none>")
++                      << " node.description=" << (node_description ? node_description : "<none>")
++                      << " media.class=" << (media_class ? media_class : "<none>")
++                      << " SERIAL MATCH: " << (serial_match ? "YES" : "NO");
++    }
++
++    constexpr static const struct pw_registry_events registry_events = {
++      .version = PW_VERSION_REGISTRY_EVENTS,
++      .global = on_registry_global,
++    };
++#endif
++
+     static void on_stream_state_changed(void *user_data, enum pw_stream_state old, enum pw_stream_state state, const char *err_msg) {
+       if (err_msg != nullptr) {
+         BOOST_LOG(info) << "[pipewire] PipeWire stream error '" << err_msg << "' on state: " << pw_stream_state_as_string(old)
+@@ -593,6 +651,19 @@
+         return;
+       }
+ 
++#ifdef SUNSHINE_BUILD_FLATPAK
++      static uint32_t logged_frames = 0;
++      if (logged_frames++ < 5) {
++        const auto &data = b->buffer->datas[0];
++        const auto *chunk = data.chunk;
++        BOOST_LOG(info) << "[portal-debug] frame "sv << logged_frames
++                        << " n_datas=" << b->buffer->n_datas << " type=" << data.type
++                        << " ptr=" << data.data << " fd=" << data.fd
++                        << " chunk.size=" << (chunk ? chunk->size : 0)
++                        << " chunk.stride=" << (chunk ? chunk->stride : 0);
++      }
++#endif
++
+       // 2. Fast Path: DMA-BUF
+       if (b->buffer->datas[0].type == SPA_DATA_DmaBuf) {
+         std::scoped_lock lock(d->frame_mutex);
+--- a/src/platform/linux/portalgrab.cpp
++++ b/src/platform/linux/portalgrab.cpp
+@@ -342,7 +342,7 @@
+     }
+ 
+     std::vector<pipewire_streaminfo_t> pipewire_streams;  ///< Pipewire streams.
+-    int pipewire_fd;  ///< Pipewire fd.
++    int pipewire_fd = -1;  ///< Pipewire fd.
+ 
+   private:
+     GDBusConnection *conn;
+@@ -480,7 +480,11 @@
+       g_variant_builder_add(&builder, "{sv}", "handle_token", g_variant_new_string(request_token));
+       g_variant_builder_add(&builder, "{sv}", "types", g_variant_new_uint32(SOURCE_TYPE_MONITOR));
+       g_variant_builder_add(&builder, "{sv}", "cursor_mode", g_variant_new_uint32(CURSOR_MODE_EMBEDDED));
++#ifdef SUNSHINE_BUILD_FLATPAK
++      g_variant_builder_add(&builder, "{sv}", "multiple", g_variant_new_boolean(FALSE));
++#else
+       g_variant_builder_add(&builder, "{sv}", "multiple", g_variant_new_boolean(TRUE));
++#endif
+       if (persist) {
+         g_variant_builder_add(&builder, "{sv}", "persist_mode", g_variant_new_uint32(PERSIST_UNTIL_REVOKED));
+         if (!restore_token_t::empty()) {
+@@ -608,6 +612,9 @@
+           out_pipewire_object_serial = SPA_ID_INVALID;
+         }
+ 
++        BOOST_LOG(info) << "[portal-debug] Start stream node_id="sv << out_pipewire_node << " object.serial=" << out_pipewire_object_serial
++                        << " position=" << out_pos_x << "x" << out_pos_y << " size=" << out_width << "x" << out_height;
++
+         auto stream = pipewire_streaminfo_t {out_pipewire_node, out_pipewire_object_serial, out_width, out_height, out_pos_x, out_pos_y};
+ 
+         // Try to match the stream to a monitor_name by position/resolution and update stream info
+@@ -644,6 +651,11 @@
+       int fd_handle;
+       g_variant_get(reply, "(h)", &fd_handle);
+       fd = g_unix_fd_list_get(fd_list, fd_handle, nullptr);
++      if (fd < 0) {
++        BOOST_LOG(error) << "[portal-debug] OpenPipeWireRemote returned an invalid file descriptor"sv;
++        return -1;
++      }
++      BOOST_LOG(info) << "[portal-debug] OpenPipeWireRemote returned fd "sv << fd;
+       return 0;
+     }
+ 
+@@ -744,6 +756,12 @@
+ 
+       // Return values for pipewire init
+       out_pipewire_fd = dbus.pipewire_fd;
++      if (out_pipewire_fd < 0) {
++        BOOST_LOG(error) << "[portal-debug] Portal capture requires OpenPipeWireRemote; refusing default PipeWire fallback"sv;
++        return -1;
++      }
++      // pw_context_connect_fd() now owns this descriptor.
++      dbus.pipewire_fd = -1;
+       out_pipewire_node = stream.pipewire_node;
+       out_pipewire_object_serial = stream.pipewire_object_serial;
+       // Set/update basic stream parameters on display_t
