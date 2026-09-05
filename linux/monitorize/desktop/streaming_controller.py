@@ -28,7 +28,6 @@ from monitorize.platform.gpu_discovery import normalize_pci_id, resolve_encoding
 from monitorize.platform.process_utils import stop_processes
 from monitorize.platform.sunshine_service import (
     check_sunshine_health,
-    clear_sunshine_portal_token,
     is_sunshine_running,
     save_sunshine_config,
     start_sunshine,
@@ -320,7 +319,6 @@ class StreamingController(QObject):
         audio = self.audio_enabled if instance == 1 else self.third_audio_enabled
         if self.de == "kde" and not output_name and os.path.isfile("/.flatpak-info"):
             capture = "portal"
-            clear_sunshine_portal_token(instance)
         else:
             capture = "kwin" if self.de == "kde" else ""
         selected_gpu = resolve_encoding_gpu(encoder, gpu_id)

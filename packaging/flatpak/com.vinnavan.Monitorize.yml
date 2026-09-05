@@ -1,16 +1,10 @@
 # Mirror-only first milestone. Sunshine is added after the desktop app starts.
 app-id: com.vinnavan.Monitorize
-runtime: org.kde.Platform
-runtime-version: "6.10"
-sdk: org.kde.Sdk
-base: com.riverbankcomputing.PyQt.BaseApp
-base-version: "6.10"
-add-build-extensions:
-  org.freedesktop.Sdk.Extension.node20:
-    directory: lib/sdk/node20
-    version: "25.08"
-    no-autodownload: true
-    autodelete: false
+runtime: org.freedesktop.Platform
+runtime-version: "24.08"
+sdk: org.freedesktop.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.node20
 command: monitorize
 
 finish-args:
@@ -18,15 +12,19 @@ finish-args:
   - --env=MONITORIZE_SUNSHINE_ASSETS_DIR=/app/share/sunshine
   - --env=MONITORIZE_SUNSHINE_BIN=/app/bin/sunshine
   - --env=PULSE_PROP_media.category=Manager
+  - --env=QT_PLUGIN_PATH=/app/lib/python3.12/site-packages/PyQt6/Qt6/plugins
+  - --env=QML2_IMPORT_PATH=/app/lib/python3.12/site-packages/PyQt6/Qt6/qml
+  # Matches the working Flathub Sunshine Portal security context.
   - --filesystem=home
   - --filesystem=xdg-run/pipewire-0
   - --share=ipc
   - --share=network
   - --socket=pulseaudio
   - --socket=wayland
+  - --socket=x11
   - --socket=fallback-x11
-  - --system-talk-name=org.freedesktop.Avahi
   - --talk-name=org.freedesktop.Flatpak
+  - --system-talk-name=org.freedesktop.Avahi
 
 modules:
   - ../../external/sunshine/packaging/linux/flatpak/modules/nlohmann_json.json
@@ -48,19 +46,51 @@ modules:
   - ../../external/sunshine/packaging/linux/flatpak/modules/numactl.json
   - ../../external/sunshine/packaging/linux/flatpak/modules/ffmpeg.json
 
+  # QtNetwork in the PyQt6 wheel requires MIT Kerberos at load time.
+  - name: krb5
+    buildsystem: simple
+    build-commands:
+      - cd src && ./configure --prefix=${FLATPAK_DEST} --disable-static --without-keyutils
+      - make -C src -j2
+      - make -C src install
+    sources:
+      - type: archive
+        url: https://kerberos.org/dist/krb5/1.21/krb5-1.21.3.tar.gz
+        sha256: b7a4cd5ead67fb08b980b21abd150ff7217e85ea320c9ed0c6dadd304840ad35
+
   - name: python3-jinja2
     buildsystem: simple
     build-commands:
-      - pip3 install --ignore-installed --no-deps --no-build-isolation --prefix=${FLATPAK_DEST} ./markupsafe ./jinja2
+      - pip3 install --ignore-installed --no-deps --no-build-isolation --prefix=${FLATPAK_DEST} ./markupsafe ./jinja2-3.1.6-py3-none-any.whl
     sources:
-      - type: archive
-        url: https://files.pythonhosted.org/packages/df/bf/f7da0350254c0ed7c72f3e33cef02e048281fec7ecec5f032d4aac52226b/jinja2-3.1.6.tar.gz
-        sha256: 0137fb05990d35f1275a587e9aee6d56da821fc83491a0fb838183be43f66d6d
-        dest: jinja2
+      - type: file
+        url: https://files.pythonhosted.org/packages/62/a1/3d680cbfd5f4b8f15abc1d571870c5fc3e594bb582bc3b64ea099db13e56/jinja2-3.1.6-py3-none-any.whl
+        sha256: 85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67
       - type: archive
         url: https://files.pythonhosted.org/packages/7e/99/7690b6d4034fffd95959cbe0c02de8deb3098cc577c67bb6a24fe5d7caa7/markupsafe-3.0.3.tar.gz
         sha256: 722695808f4b6457b320fdc131280796bdceb04ab50fe1795cd540799ebe1698
         dest: markupsafe
+
+  # Freedesktop does not ship Qt or PyQt. These wheels provide the unchanged
+  # PyQt6/Qt Quick UI for this x86_64 Mirror milestone.
+  - name: pyqt6
+    buildsystem: simple
+    build-commands:
+      - >-
+        pip3 install --no-deps --no-index --prefix=${FLATPAK_DEST}
+        ./pyqt6-6.11.0-cp310-abi3-manylinux_2_34_x86_64.whl
+        ./pyqt6_qt6-6.11.2-py3-none-manylinux_2_34_x86_64.whl
+        ./pyqt6_sip-13.12.0-cp312-cp312-manylinux1_x86_64.manylinux_2_5_x86_64.whl
+    sources:
+      - type: file
+        url: https://files.pythonhosted.org/packages/c3/a0/bd1399740dfa80c0a94d20b02d89962a31458233dcf70eaa09bfbccf3d0f/pyqt6-6.11.0-cp310-abi3-manylinux_2_34_x86_64.whl
+        sha256: 8555277989fa7d114cb3c3443fd261d566909f7268ceedd41d93a5f02d37ec05
+      - type: file
+        url: https://files.pythonhosted.org/packages/69/ef/e34054e814c874f5230326ffc791f602a13b2f5590ca9599ba45b5fc4bc0/pyqt6_qt6-6.11.2-py3-none-manylinux_2_34_x86_64.whl
+        sha256: da7d747ad917f044d841ff834f17d2c50a0cc5d0e3b16479d8662544207d0567
+      - type: file
+        url: https://files.pythonhosted.org/packages/63/4c/3d4217383269153a3026e825dd109968561638d20394671e4dc8e13c6a95/pyqt6_sip-13.12.0-cp312-cp312-manylinux1_x86_64.manylinux_2_5_x86_64.whl
+        sha256: 3476132fc5c85d7136eb14cb7d9e1909e9f5ee94a85d892e4ac244990ba541b3
 
   - name: sunshine
     buildsystem: cmake-ninja
@@ -71,7 +101,7 @@ modules:
         BUILD_VERSION: 0.2.8
         BRANCH: monitorize
         COMMIT: e3ce79f3b966df388e905a3c6b3784832a328e34
-        PYTHONPATH: /app/lib/python3.13/site-packages
+        PYTHONPATH: /app/lib/python3.12/site-packages
         XDG_CACHE_HOME: /run/build/sunshine/flatpak-node/cache
         npm_config_cache: /run/build/sunshine/flatpak-node/npm-cache
         npm_config_nodedir: /usr/lib/sdk/node20
@@ -90,6 +120,8 @@ modules:
       - -DSUNSHINE_ENABLE_DRM=ON
       - -DSUNSHINE_ENABLE_KWIN=ON
       - -DSUNSHINE_ENABLE_PORTAL=ON
+      # Monitorize owns the UI; Sunshine's optional Qt system tray is unused.
+      - -DSUNSHINE_ENABLE_TRAY=OFF
       - -DSUNSHINE_ENABLE_WAYLAND=ON
       - -DSUNSHINE_ENABLE_X11=ON
       - -DSUNSHINE_EXECUTABLE_PATH=/app/bin/sunshine
