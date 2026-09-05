@@ -128,7 +128,7 @@ index d1e32dca..eb7998ea 100644
        if (b->buffer->datas[0].type == SPA_DATA_DmaBuf) {
          std::scoped_lock lock(d->frame_mutex);
 diff --git a/src/platform/linux/portalgrab.cpp b/src/platform/linux/portalgrab.cpp
-index 83f5afdc..922ac58a 100644
+index 83f5afdc..a5bfc3cf 100644
 --- a/src/platform/linux/portalgrab.cpp
 +++ b/src/platform/linux/portalgrab.cpp
 @@ -8,6 +8,7 @@
@@ -158,7 +158,41 @@ index 83f5afdc..922ac58a 100644
  using namespace std::literals;
  
  namespace portal {
-@@ -231,6 +244,23 @@ namespace portal {
+@@ -80,6 +93,15 @@ namespace portal {
+       }
+     }
+ 
++    /**
++     * @brief Clear persisted token state from memory and disk.
++     */
++    static void clear() {
++      token_->clear();
++      std::remove(get_file_path().c_str());
++      BOOST_LOG(info) << "[portalgrab] Cleared portal restore token from disk"sv;
++    }
++
+     /**
+      * @brief Save current state to its backing store.
+      */
+@@ -100,6 +122,9 @@ namespace portal {
+     static inline const std::unique_ptr<std::string> token_ = std::make_unique<std::string>();
+ 
+     static std::string get_file_path() {
++      if (get_portal_source_type() == SOURCE_TYPE_VIRTUAL) {
++        return platf::appdata().string() + "/portal_token_virtual";
++      }
+       return platf::appdata().string() + "/portal_token";
+     }
+   };
+@@ -119,6 +144,7 @@ namespace portal {
+   struct pipewire_streaminfo_t {
+     uint32_t pipewire_node = PW_ID_ANY;  ///< PipeWire node ID selected by the portal.
+     uint64_t pipewire_object_serial = SPA_ID_INVALID;  ///< PipeWire object serial selected by the portal.
++    uint32_t source_type = 0;  ///< Source type (1=monitor, 2=window, 4=virtual).
+     int width = 0;  ///< Stream width in pixels.
+     int height = 0;  ///< Stream height in pixels.
+     int pos_x = 0;  ///< Output X position reported by the portal.
+@@ -231,6 +257,23 @@ namespace portal {
       * @return 0 when a portal session is ready; nonzero when D-Bus or portal setup fails.
       */
      int connect_to_portal() {
@@ -182,7 +216,48 @@ index 83f5afdc..922ac58a 100644
        g_autoptr(GMainLoop) loop = g_main_loop_new(nullptr, FALSE);
        g_autofree gchar *session_path = nullptr;
        g_autofree gchar *session_token = nullptr;
-@@ -342,13 +372,14 @@ namespace portal {
+@@ -239,9 +282,15 @@ namespace portal {
+       // Try combined RemoteDesktop + ScreenCast session first
+       bool use_screencast_only = !try_remote_desktop_session(loop, &session_path, session_token);
+ 
+-      // Fall back to ScreenCast-only if RemoteDesktop failed
+-      if (use_screencast_only && try_screencast_only_session(loop, &session_path) < 0) {
+-        return -1;
++      // Fall back to ScreenCast-only if RemoteDesktop failed (only for physical monitor mirror; Extend requires RemoteDesktop input)
++      if (use_screencast_only) {
++        if (source_type_ == SOURCE_TYPE_VIRTUAL) {
++          BOOST_LOG(error) << "[portalgrab] RemoteDesktop session setup failed; refusing ScreenCast-only fallback for Extend mode"sv;
++          return -1;
++        }
++        if (try_screencast_only_session(loop, &session_path) < 0) {
++          return -1;
++        }
+       }
+ 
+       if (start_portal_session(loop, session_path, pipewire_streams, use_screencast_only) < 0) {
+@@ -271,12 +320,21 @@ namespace portal {
+       }
+ 
+       if (select_remote_desktop_devices(loop, *session_path) < 0) {
++        // If SelectDevices failed with a cached restore token, clear it and retry once to prompt authorization
++        if (!restore_token_t::empty()) {
++          BOOST_LOG(warning) << "[portalgrab] RemoteDesktop.SelectDevices failed with restore token; clearing token and retrying"sv;
++          restore_token_t::clear();
++          if (select_remote_desktop_devices(loop, *session_path) == 0) {
++            goto devices_ready;
++          }
++        }
+         BOOST_LOG(warning) << "[portalgrab] RemoteDesktop.SelectDevices failed, falling back to ScreenCast-only mode"sv;
+         g_free(*session_path);
+         *session_path = nullptr;
+         return false;
+       }
+ 
++devices_ready:
+       if (select_screencast_sources(loop, *session_path, false) < 0) {
+         BOOST_LOG(warning) << "[portalgrab] ScreenCast.SelectSources failed with RemoteDesktop session, trying ScreenCast-only mode"sv;
+         g_free(*session_path);
+@@ -342,13 +400,14 @@ namespace portal {
      }
  
      std::vector<pipewire_streaminfo_t> pipewire_streams;  ///< Pipewire streams.
@@ -198,7 +273,7 @@ index 83f5afdc..922ac58a 100644
  
      int create_portal_session(GMainLoop *loop, gchar **session_path_out, const gchar *session_token, bool use_screencast) {
        GDBusProxy *proxy = use_screencast ? screencast_proxy : remote_desktop_proxy;
-@@ -478,9 +509,14 @@ namespace portal {
+@@ -478,9 +537,14 @@ namespace portal {
        g_variant_builder_add(&builder, "o", session_path);
        g_variant_builder_open(&builder, G_VARIANT_TYPE("a{sv}"));
        g_variant_builder_add(&builder, "{sv}", "handle_token", g_variant_new_string(request_token));
@@ -215,17 +290,29 @@ index 83f5afdc..922ac58a 100644
        if (persist) {
          g_variant_builder_add(&builder, "{sv}", "persist_mode", g_variant_new_uint32(PERSIST_UNTIL_REVOKED));
          if (!restore_token_t::empty()) {
-@@ -608,6 +644,9 @@ namespace portal {
+@@ -608,7 +672,20 @@ namespace portal {
            out_pipewire_object_serial = SPA_ID_INVALID;
          }
  
-+        BOOST_LOG(info) << "[portal-debug] Start stream node_id="sv << out_pipewire_node << " object.serial=" << out_pipewire_object_serial
-+                        << " position=" << out_pos_x << "x" << out_pos_y << " size=" << out_width << "x" << out_height;
+-        auto stream = pipewire_streaminfo_t {out_pipewire_node, out_pipewire_object_serial, out_width, out_height, out_pos_x, out_pos_y};
++        uint32_t stream_source_type = 0;
++        g_variant_lookup(value, "source_type", "u", &stream_source_type);
 +
-         auto stream = pipewire_streaminfo_t {out_pipewire_node, out_pipewire_object_serial, out_width, out_height, out_pos_x, out_pos_y};
++        const gchar *mapping_id = nullptr;
++        g_variant_lookup(value, "mapping_id", "&s", &mapping_id);
++
++        BOOST_LOG(info) << "[portal-debug] Start stream node_id="sv << out_pipewire_node
++                        << " object.serial=" << out_pipewire_object_serial
++                        << " source_type=" << stream_source_type
++                        << " mapping_id=" << (mapping_id ? mapping_id : "<none>")
++                        << " position=" << out_pos_x << "x" << out_pos_y
++                        << " size=" << out_width << "x" << out_height;
++
++        auto stream = pipewire_streaminfo_t {out_pipewire_node, out_pipewire_object_serial, stream_source_type, out_width, out_height, out_pos_x, out_pos_y};
  
          // Try to match the stream to a monitor_name by position/resolution and update stream info
-@@ -644,6 +683,11 @@ namespace portal {
+         for (const auto &monitor : wl_monitors) {
+@@ -644,6 +721,11 @@ namespace portal {
        int fd_handle;
        g_variant_get(reply, "(h)", &fd_handle);
        fd = g_unix_fd_list_get(fd_list, fd_handle, nullptr);
@@ -237,7 +324,28 @@ index 83f5afdc..922ac58a 100644
        return 0;
      }
  
-@@ -744,6 +788,12 @@ namespace portal {
+@@ -733,6 +815,20 @@ namespace portal {
+           break;
+         }
+       }
++      // If VIRTUAL source was requested and multiple streams are present, prefer the virtual one
++      if (get_portal_source_type() == SOURCE_TYPE_VIRTUAL && use_fallback) {
++        if (streams.size() > 1) {
++          BOOST_LOG(warning) << "[portalgrab] Multiple streams returned for virtual portal session; searching for VIRTUAL source stream"sv;
++        }
++        for (auto &stream_ : streams) {
++          if (stream_.source_type == SOURCE_TYPE_VIRTUAL) {
++            stream = stream_;
++            use_fallback = false;
++            BOOST_LOG(info) << "[portalgrab] Selected VIRTUAL stream on PipeWire node "sv << stream.pipewire_node;
++            break;
++          }
++        }
++      }
+       // Fall back to first stream if we cannot match the given display_name to a stream in currently available streams.
+       if (use_fallback) {
+         BOOST_LOG(info) << "[portalgrab] Using first available stream as no matching stream was found for: '"sv << display_name << "'";
+@@ -744,6 +840,12 @@ namespace portal {
  
        // Return values for pipewire init
        out_pipewire_fd = dbus.pipewire_fd;

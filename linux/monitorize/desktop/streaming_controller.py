@@ -135,6 +135,13 @@ class StreamingController(QObject):
         options=None,
         gpu_id="",
     ):
+        if self._is_stopping:
+            self._set_status("Previous session is still stopping — please wait")
+            return
+        if self.streaming and not self.primary_ready:
+            self._set_status("Session startup is already in progress — please wait")
+            return
+
         self.stop()
         self.generation += 1
         self.width, self.height = sanitize_resolution(res, DEFAULT_PRIMARY_RESOLUTION)
@@ -165,11 +172,10 @@ class StreamingController(QObject):
             self._start_pending_second(options)
             return
 
-        self._set_status(f"Creating a virtual display on {self.de.capitalize()}…")
-
         
         
         if self.de == "kde" and os.path.isfile("/.flatpak-info"):
+            self._set_status("Creating portal virtual display on KDE…")
             if not self._start_instance(
                 1, "", self.width, self.height, portal_source_type="virtual"
             ):
@@ -177,11 +183,18 @@ class StreamingController(QObject):
                 self.startFailed.emit()
                 return
             self._set_primary_ready(True)
-            self._set_status(
-                f"Portal virtual display ({self.width}x{self.height}) — ready for Moonlight"
-            )
+            if (self.width, self.height) != (1920, 1080):
+                self._set_status(
+                    "Portal virtual display created (1920x1080@60Hz). Custom resolution on KDE Flatpak requires newer KWin support."
+                )
+            else:
+                self._set_status(
+                    "Portal virtual display (1920x1080@60Hz) — ready for Moonlight"
+                )
             self._start_pending_second(options)
             return
+
+        self._set_status(f"Creating a virtual display on {self.de.capitalize()}…")
 
         self.streamer = self._start_display_process(
             "primary", self.width, self.height, self.fps, self.generation
