@@ -17,6 +17,7 @@ from monitorize.config.settings import (
 from monitorize.desktop.streaming_controller import StreamingController
 from monitorize.platform.gpu_discovery import encoding_gpu_options
 from monitorize.platform.sunshine_service import (
+    find_sunshine_command,
     get_sunshine_config,
     open_sunshine_dashboard,
     pair_moonlight_pin,
@@ -42,17 +43,24 @@ class MonitorizeBackend(QObject):
     presetLaunchStatusChanged = pyqtSignal(str)
     systemSetupAvailableChanged = pyqtSignal(bool)
     systemSetupPendingChanged = pyqtSignal(bool)
+    streamingBackendChanged = pyqtSignal(str)
 
     def __init__(self, de, parent=None):
         super().__init__(parent)
         self._detected_de = de
         self._local_ip = get_local_ip()
+        self._sunshine_available = find_sunshine_command(1) is not None
+        general = load_general_settings()
+        self._streaming_backend = general.get("streaming_backend", "sunshine")
+        if not self._sunshine_available:
+            self._streaming_backend = "none"
         self.streaming = StreamingController(de, self._local_ip, self)
+        self.streaming.streaming_backend = self._streaming_backend
         self._presets = load_presets()
         self._preset_launch_status = ""
         self._system_setup_available = bool(get_system_setup_status()["available"])
         self._system_setup_decided = bool(
-            load_general_settings().get("system_setup_decided", False)
+            general.get("system_setup_decided", False)
         )
         self.streaming.streamingChanged.connect(self.isStreamingChanged)
         self.streaming.statusChanged.connect(self.streamingStatusChanged)
@@ -103,6 +111,26 @@ class MonitorizeBackend(QObject):
     @pyqtProperty(bool, constant=True)
     def canConfigureDisplay(self):
         return self._detected_de in ("hyprland", "sway")
+
+    @pyqtProperty(bool, constant=True)
+    def sunshineAvailable(self):
+        return self._sunshine_available
+
+    @pyqtProperty(str, notify=streamingBackendChanged)
+    def streamingBackend(self):
+        return self._streaming_backend
+
+    @pyqtSlot(str)
+    def setStreamingBackend(self, value):
+        value = value if value in ("sunshine", "none") else "sunshine"
+        if value == "sunshine" and not self._sunshine_available:
+            value = "none"
+        if value == self._streaming_backend:
+            return
+        self._streaming_backend = value
+        self.streaming.streaming_backend = value
+        save_general_settings(streaming_backend=value)
+        self.streamingBackendChanged.emit(value)
 
     @pyqtSlot(result="QVariantMap")
     def getSystemSetupStatus(self):

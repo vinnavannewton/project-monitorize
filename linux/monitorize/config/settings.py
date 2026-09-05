@@ -72,21 +72,31 @@ def _load_group(group: str, defaults: dict, bool_keys=()) -> dict:
 
 
 def save_general_settings(*, minimize_to_tray: bool | None = None,
-                          system_setup_decided: bool | None = None):
-    _save_group("general", {
+                          system_setup_decided: bool | None = None,
+                          streaming_backend: str | None = None):
+    values = {
         "minimize_to_tray": (
             bool(minimize_to_tray) if minimize_to_tray is not None else None
         ),
         "system_setup_decided": system_setup_decided,
-    })
+    }
+    if streaming_backend is not None:
+        values["streaming_backend"] = (
+            streaming_backend if streaming_backend in ("sunshine", "none") else "sunshine"
+        )
+    _save_group("general", values)
 
 
 def load_general_settings() -> dict:
-    return _load_group(
+    data = _load_group(
         "general",
-        {"minimize_to_tray": False, "system_setup_decided": False},
+        {"minimize_to_tray": False, "system_setup_decided": False,
+         "streaming_backend": "sunshine"},
         ("minimize_to_tray", "system_setup_decided"),
     )
+    if data.get("streaming_backend") not in ("sunshine", "none"):
+        data["streaming_backend"] = "sunshine"
+    return data
 
 
 DISPLAY_DEFAULTS = {

@@ -86,7 +86,9 @@ Item {
             }
 
             Text {
-                text: "Monitorize creates the display and supervises its bundled Sunshine instance. Connect with Moonlight."
+                text: backendChips.currentText === "None"
+                    ? "Create a virtual display managed by Monitorize. No streaming server is attached."
+                    : "Monitorize creates the display and supervises its bundled Sunshine instance. Connect with Moonlight."
                 color: theme.textSecondary
                 font.pixelSize: 13
                 wrapMode: Text.WordWrap
@@ -145,17 +147,35 @@ Item {
                         onEditingFinished: page.saveSettings()
                     }
 
+                    Text { text: "Streaming backend"; color: theme.textSecondary; visible: backend.sunshineAvailable }
+                    ChoiceChips {
+                        id: backendChips
+                        visible: backend.sunshineAvailable
+                        model: ["None", "Sunshine"]
+                        chipWidth: 124
+                        onActivated: {
+                            backend.setStreamingBackend(currentText.toLowerCase())
+                            if (currentText === "None" && displayType.currentText === "Mirror") {
+                                displayType.selectValue("Extend")
+                            }
+                            page.saveSettings()
+                        }
+                        Component.onCompleted: selectValue(backend.streamingBackend === "none" ? "None" : "Sunshine")
+                    }
+
                     Text { text: "Display type"; color: theme.textSecondary }
                     ChoiceChips {
                         id: displayType
                         model: ["Extend", "Mirror"]
                         chipWidth: 124
+                        disabledValues: backendChips.currentText === "None" ? ["Mirror"] : []
                         onActivated: page.saveSettings()
                     }
 
-                    Text { text: "Sunshine encoder"; color: theme.textSecondary }
+                    Text { text: "Sunshine encoder"; color: theme.textSecondary; visible: backendChips.currentText === "Sunshine" }
                     ChoiceChips {
                         id: encoder
+                        visible: backendChips.currentText === "Sunshine"
                         model: ["Auto", "NVIDIA", "VA-API", "Software Enc"]
                         chipWidth: 112
                         onActivated: {
@@ -168,18 +188,19 @@ Item {
                     Text {
                         text: "Encoding GPU"
                         color: theme.textSecondary
-                        visible: gpuOptions.length > 0
+                        visible: gpuOptions.length > 0 && backendChips.currentText === "Sunshine"
                     }
                     CustomComboBox {
                         id: gpuCombo
                         Layout.preferredWidth: 260
-                        visible: gpuOptions.length > 0
+                        visible: gpuOptions.length > 0 && backendChips.currentText === "Sunshine"
                         onActivated: page.saveSettings()
                     }
 
-                    Text { text: "Video codec"; color: theme.textSecondary }
+                    Text { text: "Video codec"; color: theme.textSecondary; visible: backendChips.currentText === "Sunshine" }
                     ChoiceChips {
                         id: codec
+                        visible: backendChips.currentText === "Sunshine"
                         model: ["Auto", "H.264 (AVC)", "H.265 (HEVC)", "AV1"]
                         chipWidth: 112
                         onActivated: {
@@ -188,8 +209,9 @@ Item {
                         }
                     }
 
-                    Text { text: "" }
+                    Text { text: ""; visible: backendChips.currentText === "Sunshine" }
                     ColumnLayout {
+                        visible: backendChips.currentText === "Sunshine"
                         CustomToggle {
                             id: nativeInput
                             text: "Moonlight touch and stylus input"
@@ -211,7 +233,9 @@ Item {
             }
 
             CustomButton {
-                text: displayType.currentText === "Mirror" ? "Start Sunshine Mirror" : "Create Virtual Display"
+                text: displayType.currentText === "Mirror"
+                    ? "Start Sunshine Mirror"
+                    : (backendChips.currentText === "None" ? "Create Virtual Display" : "Create Virtual Display")
                 primary: true
                 implicitWidth: 240
                 implicitHeight: 44
@@ -227,7 +251,9 @@ Item {
             }
 
             Text {
-                text: "Moonlight will discover the Sunshine host on your network. For a manual connection use " + backend.localIp + "."
+                text: backendChips.currentText === "None"
+                    ? "Virtual display will be created without a streaming backend."
+                    : "Moonlight will discover the Sunshine host on your network. For a manual connection use " + backend.localIp + "."
                 color: theme.textMuted
                 font.pixelSize: 11
                 wrapMode: Text.WordWrap

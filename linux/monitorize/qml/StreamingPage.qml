@@ -96,7 +96,7 @@ Item {
                 anchors.margins: 16
                 spacing: 8
                 Text {
-                    text: "Sunshine Session Active"
+                    text: backend.streamingBackend === "none" ? "Virtual Display Active" : "Sunshine Session Active"
                     color: theme.textPrimary
                     font.pixelSize: 20
                     font.weight: Font.Bold
@@ -110,10 +110,20 @@ Item {
                 }
                 RowLayout {
                     spacing: 16
-                    Text { text: "Host  " + backend.localIp; color: theme.textSecondary; font.pixelSize: 12 }
-                    Text { text: "Display 1  port 47989"; color: theme.textSecondary; font.pixelSize: 12 }
                     Text {
-                        visible: backend.secondStreamActive
+                        visible: backend.streamingBackend !== "none"
+                        text: "Host  " + backend.localIp
+                        color: theme.textSecondary
+                        font.pixelSize: 12
+                    }
+                    Text {
+                        visible: backend.streamingBackend !== "none"
+                        text: "Display 1  port 47989"
+                        color: theme.textSecondary
+                        font.pixelSize: 12
+                    }
+                    Text {
+                        visible: backend.secondStreamActive && backend.streamingBackend !== "none"
                         text: "Display 2  " + backend.localIp + ":49089"
                         color: theme.textSecondary
                         font.pixelSize: 12
@@ -122,10 +132,38 @@ Item {
             }
         }
 
+        Rectangle {
+            visible: backend.streamingBackend === "none"
+            Layout.fillWidth: true
+            implicitHeight: noneHint.implicitHeight + 20
+            radius: theme.controlRadius
+            color: "#1a3b82f6"
+            border.color: "#3b82f6"
+            RowLayout {
+                id: noneHint
+                anchors.fill: parent
+                anchors.margins: 10
+                spacing: 8
+                Text {
+                    text: "ℹ"
+                    color: "#3b82f6"
+                    font.pixelSize: 14
+                }
+                Text {
+                    text: "Virtual display is active. Use your preferred streaming tool to capture the output shown above."
+                    color: theme.textSecondary
+                    font.pixelSize: 12
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+            }
+        }
+
         RowLayout {
             Layout.fillWidth: true
             spacing: 10
             CustomButton {
+                visible: backend.streamingBackend !== "none"
                 text: "Pair Moonlight PIN"
                 onClicked: {
                     pinField.text = ""
@@ -134,8 +172,13 @@ Item {
                     pinField.forceActiveFocus()
                 }
             }
-            CustomButton { text: "Sunshine Settings"; onClicked: backend.openSunshineWebUi(1) }
             CustomButton {
+                visible: backend.streamingBackend !== "none"
+                text: "Sunshine Settings"
+                onClicked: backend.openSunshineWebUi(1)
+            }
+            CustomButton {
+                visible: backend.streamingBackend !== "none"
                 text: backend.secondStreamActive ? "Remove Second Display" : "Add Second Display"
                 onClicked: backend.secondStreamActive ? backend.stopSecondStream() : secondPopup.open()
             }
@@ -146,6 +189,7 @@ Item {
             }
             Item { Layout.fillWidth: true }
             CustomButton {
+                visible: backend.streamingBackend !== "none"
                 text: "Save Preset"
                 onClicked: {
                     presetName.text = ""
