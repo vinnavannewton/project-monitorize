@@ -44,6 +44,9 @@ modules:
   - ../../external/sunshine/packaging/linux/flatpak/modules/libevdev.json
   - ../../external/sunshine/packaging/linux/flatpak/modules/miniupnpc.json
   - ../../external/sunshine/packaging/linux/flatpak/modules/numactl.json
+  # Sunshine's upstream build-only CUDA toolkit module enables NVENC. The host
+  # NVIDIA driver remains supplied by Flatpak's matching GL runtime extension.
+  - ../../external/sunshine/packaging/linux/flatpak/modules/cuda.json
   - ../../external/sunshine/packaging/linux/flatpak/modules/ffmpeg.json
 
   # QtNetwork in the PyQt6 wheel requires MIT Kerberos at load time.
@@ -112,11 +115,12 @@ modules:
       - -DBUILD_TESTS=OFF
       - -DBUILD_WERROR=ON
       - -DCMAKE_BUILD_TYPE=Release
+      - -DCMAKE_CUDA_COMPILER=/app/cuda/bin/nvcc
       - -DFFMPEG_PREPARED_BINARIES=/app/ffmpeg
       - -DGLAD_SKIP_PIP_INSTALL=ON
       - -DSUNSHINE_ASSETS_DIR=share/sunshine
       - -DSUNSHINE_BUILD_FLATPAK=ON
-      - -DSUNSHINE_ENABLE_CUDA=OFF
+      - -DSUNSHINE_ENABLE_CUDA=ON
       - -DSUNSHINE_ENABLE_DRM=ON
       - -DSUNSHINE_ENABLE_KWIN=ON
       - -DSUNSHINE_ENABLE_PORTAL=ON
