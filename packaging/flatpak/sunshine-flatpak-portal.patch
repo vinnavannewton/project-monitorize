@@ -1,3 +1,5 @@
+diff --git a/src/platform/linux/pipewire.cpp b/src/platform/linux/pipewire.cpp
+index d1e32dca..eb7998ea 100644
 --- a/src/platform/linux/pipewire.cpp
 +++ b/src/platform/linux/pipewire.cpp
 @@ -3,6 +3,8 @@
@@ -9,7 +11,7 @@
  #include <fstream>
  
  // lib includes
-@@ -256,12 +258,22 @@
+@@ -256,12 +258,22 @@ namespace pipewire {
        if (context) {
          BOOST_LOG(debug) << "[pipewire] Connect PW context to fd"sv;
          if (fd >= 0) {
@@ -32,7 +34,7 @@
          } else {
            BOOST_LOG(debug) << "[pipewire] Failed to connect to PW core. Error: "sv << errno << "(" << strerror(errno) << ")"sv;
            return -1;
-@@ -300,12 +312,23 @@
+@@ -300,12 +312,23 @@ namespace pipewire {
          struct pw_properties *props = pw_properties_new(PW_KEY_MEDIA_TYPE, "Video", PW_KEY_MEDIA_CATEGORY, "Capture", PW_KEY_MEDIA_ROLE, "Screen", nullptr);
          if (object_serial != 0 && (object_serial & SPA_ID_INVALID) != SPA_ID_INVALID) {
            pw_properties_setf(props, PW_KEY_TARGET_OBJECT, "%" PRIu64, object_serial);
@@ -56,7 +58,7 @@
          }
  
          BOOST_LOG(debug) << "[pipewire] Create PW stream"sv;
-@@ -467,6 +490,10 @@
+@@ -467,6 +490,10 @@ namespace pipewire {
      struct pw_context *context;
      struct pw_core *core;
      struct spa_hook core_listener;
@@ -67,7 +69,7 @@
      struct stream_data_t stream_data;
      int fd;
      uint32_t node;
-@@ -532,6 +559,37 @@
+@@ -532,6 +559,37 @@ namespace pipewire {
        .error = on_core_error_cb,
      };
  
@@ -105,7 +107,7 @@
      static void on_stream_state_changed(void *user_data, enum pw_stream_state old, enum pw_stream_state state, const char *err_msg) {
        if (err_msg != nullptr) {
          BOOST_LOG(info) << "[pipewire] PipeWire stream error '" << err_msg << "' on state: " << pw_stream_state_as_string(old)
-@@ -593,6 +651,19 @@
+@@ -593,6 +651,19 @@ namespace pipewire {
          return;
        }
  
@@ -125,9 +127,62 @@
        // 2. Fast Path: DMA-BUF
        if (b->buffer->datas[0].type == SPA_DATA_DmaBuf) {
          std::scoped_lock lock(d->frame_mutex);
+diff --git a/src/platform/linux/portalgrab.cpp b/src/platform/linux/portalgrab.cpp
+index 83f5afdc..922ac58a 100644
 --- a/src/platform/linux/portalgrab.cpp
 +++ b/src/platform/linux/portalgrab.cpp
-@@ -342,7 +342,7 @@
+@@ -8,6 +8,7 @@
+ namespace {
+   // Portal configuration constants
+   constexpr uint32_t SOURCE_TYPE_MONITOR = 1;
++  constexpr uint32_t SOURCE_TYPE_VIRTUAL = 4;
+   constexpr uint32_t CURSOR_MODE_EMBEDDED = 2;
+ 
+   constexpr uint32_t PERSIST_FORGET = 0;
+@@ -29,6 +30,18 @@ namespace {
+   constexpr const char SESSION_PREFIX[] = "/org/freedesktop/portal/desktop/session/";
+ }  // namespace
+ 
++/**
++ * @brief Determine the portal source type from the SUNSHINE_PORTAL_SOURCE_TYPE environment variable.
++ * @return SOURCE_TYPE_VIRTUAL (4) if env is "virtual", SOURCE_TYPE_MONITOR (1) otherwise.
++ */
++static uint32_t get_portal_source_type() {
++  const char *env = std::getenv("SUNSHINE_PORTAL_SOURCE_TYPE");
++  if (env && std::string_view(env) == "virtual") {
++    return SOURCE_TYPE_VIRTUAL;
++  }
++  return SOURCE_TYPE_MONITOR;
++}
++
+ using namespace std::literals;
+ 
+ namespace portal {
+@@ -231,6 +244,23 @@ namespace portal {
+      * @return 0 when a portal session is ready; nonzero when D-Bus or portal setup fails.
+      */
+     int connect_to_portal() {
++      source_type_ = get_portal_source_type();
++
++      // Feature-detect VIRTUAL source support before attempting to create a virtual display
++      if (source_type_ == SOURCE_TYPE_VIRTUAL) {
++        g_autoptr(GVariant) prop = g_dbus_proxy_get_cached_property(screencast_proxy, "AvailableSourceTypes");
++        if (prop) {
++          uint32_t available = g_variant_get_uint32(prop);
++          BOOST_LOG(info) << "[portalgrab] AvailableSourceTypes = "sv << available << " (VIRTUAL bit = "sv << ((available & SOURCE_TYPE_VIRTUAL) ? "yes" : "no") << ")"sv;
++          if (!(available & SOURCE_TYPE_VIRTUAL)) {
++            BOOST_LOG(error) << "[portalgrab] KDE portal does not advertise ScreenCast VIRTUAL support (AvailableSourceTypes="sv << available << ")"sv;
++            return -1;
++          }
++        } else {
++          BOOST_LOG(warning) << "[portalgrab] Could not query AvailableSourceTypes property; proceeding with VIRTUAL request anyway"sv;
++        }
++      }
++
+       g_autoptr(GMainLoop) loop = g_main_loop_new(nullptr, FALSE);
+       g_autofree gchar *session_path = nullptr;
+       g_autofree gchar *session_token = nullptr;
+@@ -342,13 +372,14 @@ namespace portal {
      }
  
      std::vector<pipewire_streaminfo_t> pipewire_streams;  ///< Pipewire streams.
@@ -136,19 +191,31 @@
  
    private:
      GDBusConnection *conn;
-@@ -480,7 +480,11 @@
+     GDBusProxy *screencast_proxy;
+     GDBusProxy *remote_desktop_proxy;
+     std::string session_handle;
++    uint32_t source_type_ = SOURCE_TYPE_MONITOR;  ///< ScreenCast source type (MONITOR or VIRTUAL).
+ 
+     int create_portal_session(GMainLoop *loop, gchar **session_path_out, const gchar *session_token, bool use_screencast) {
+       GDBusProxy *proxy = use_screencast ? screencast_proxy : remote_desktop_proxy;
+@@ -478,9 +509,14 @@ namespace portal {
+       g_variant_builder_add(&builder, "o", session_path);
+       g_variant_builder_open(&builder, G_VARIANT_TYPE("a{sv}"));
        g_variant_builder_add(&builder, "{sv}", "handle_token", g_variant_new_string(request_token));
-       g_variant_builder_add(&builder, "{sv}", "types", g_variant_new_uint32(SOURCE_TYPE_MONITOR));
+-      g_variant_builder_add(&builder, "{sv}", "types", g_variant_new_uint32(SOURCE_TYPE_MONITOR));
++      g_variant_builder_add(&builder, "{sv}", "types", g_variant_new_uint32(source_type_));
        g_variant_builder_add(&builder, "{sv}", "cursor_mode", g_variant_new_uint32(CURSOR_MODE_EMBEDDED));
+-      g_variant_builder_add(&builder, "{sv}", "multiple", g_variant_new_boolean(TRUE));
++      BOOST_LOG(info) << "[portalgrab] SelectSources types="sv << source_type_ << (source_type_ == SOURCE_TYPE_VIRTUAL ? " (VIRTUAL)"sv : " (MONITOR)"sv);
 +#ifdef SUNSHINE_BUILD_FLATPAK
 +      g_variant_builder_add(&builder, "{sv}", "multiple", g_variant_new_boolean(FALSE));
 +#else
-       g_variant_builder_add(&builder, "{sv}", "multiple", g_variant_new_boolean(TRUE));
++      g_variant_builder_add(&builder, "{sv}", "multiple", g_variant_new_boolean(source_type_ == SOURCE_TYPE_VIRTUAL ? FALSE : TRUE));
 +#endif
        if (persist) {
          g_variant_builder_add(&builder, "{sv}", "persist_mode", g_variant_new_uint32(PERSIST_UNTIL_REVOKED));
          if (!restore_token_t::empty()) {
-@@ -608,6 +612,9 @@
+@@ -608,6 +644,9 @@ namespace portal {
            out_pipewire_object_serial = SPA_ID_INVALID;
          }
  
@@ -158,7 +225,7 @@
          auto stream = pipewire_streaminfo_t {out_pipewire_node, out_pipewire_object_serial, out_width, out_height, out_pos_x, out_pos_y};
  
          // Try to match the stream to a monitor_name by position/resolution and update stream info
-@@ -644,6 +651,11 @@
+@@ -644,6 +683,11 @@ namespace portal {
        int fd_handle;
        g_variant_get(reply, "(h)", &fd_handle);
        fd = g_unix_fd_list_get(fd_list, fd_handle, nullptr);
@@ -170,7 +237,7 @@
        return 0;
      }
  
-@@ -744,6 +756,12 @@
+@@ -744,6 +788,12 @@ namespace portal {
  
        // Return values for pipewire init
        out_pipewire_fd = dbus.pipewire_fd;

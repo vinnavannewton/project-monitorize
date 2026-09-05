@@ -166,6 +166,23 @@ class StreamingController(QObject):
             return
 
         self._set_status(f"Creating a virtual display on {self.de.capitalize()}…")
+
+        
+        
+        if self.de == "kde" and os.path.isfile("/.flatpak-info"):
+            if not self._start_instance(
+                1, "", self.width, self.height, portal_source_type="virtual"
+            ):
+                self._set_streaming(False)
+                self.startFailed.emit()
+                return
+            self._set_primary_ready(True)
+            self._set_status(
+                f"Portal virtual display ({self.width}x{self.height}) — ready for Moonlight"
+            )
+            self._start_pending_second(options)
+            return
+
         self.streamer = self._start_display_process(
             "primary", self.width, self.height, self.fps, self.generation
         )
@@ -316,6 +333,7 @@ class StreamingController(QObject):
         pipewire_node=None,
         offset_x=0,
         offset_y=0,
+        portal_source_type="",
     ):
         encoder = self.encoder if instance == 1 else self.third_encoder
         gpu_id = self.gpu_id if instance == 1 else self.third_gpu_id
@@ -324,7 +342,8 @@ class StreamingController(QObject):
             self.native_pen_touch if instance == 1 else self.third_native_pen_touch
         )
         audio = self.audio_enabled if instance == 1 else self.third_audio_enabled
-        if self.de == "kde" and not output_name and os.path.isfile("/.flatpak-info"):
+        if self.de == "kde" and os.path.isfile("/.flatpak-info"):
+            
             capture = "portal"
         else:
             capture = "kwin" if self.de == "kde" else ""
@@ -345,6 +364,11 @@ class StreamingController(QObject):
             cuda_index = selected_gpu.get("cuda_index", "")
             if cuda_index:
                 sunshine_environment = {"CUDA_VISIBLE_DEVICES": str(cuda_index)}
+        
+        if portal_source_type:
+            if sunshine_environment is None:
+                sunshine_environment = {}
+            sunshine_environment["SUNSHINE_PORTAL_SOURCE_TYPE"] = portal_source_type
         ok, message = sync_sunshine_stream_config(
             output_name,
             encoder,
