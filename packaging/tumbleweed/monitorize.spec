@@ -93,6 +93,7 @@ Sunshine instances.
 
 %prep
 %autosetup
+patch --batch --forward -d external/sunshine -p1 < packaging/sunshine-strict-selection.patch
 mkdir .ffmpeg-prepared
 tar -xzf %{SOURCE1} -C .ffmpeg-prepared --strip-components=1 --no-same-owner
 # Tumbleweed can ship a newer compatible Boost than Sunshine's exact request.

@@ -28,6 +28,8 @@ from monitorize.platform.gpu_discovery import normalize_pci_id, resolve_encoding
 from monitorize.platform.process_utils import stop_processes
 from monitorize.platform.sunshine_service import (
     check_sunshine_health,
+    get_sunshine_log_size,
+    get_sunshine_strict_selection_error,
     is_sunshine_running,
     save_sunshine_config,
     start_sunshine,
@@ -46,6 +48,7 @@ GNOME_DISPLAY_CONFIG_SIGNAL = "MonitorsChanged"
 
 class StreamingController(QObject):
     streamingChanged = pyqtSignal(bool)
+    startFailed = pyqtSignal()
     statusChanged = pyqtSignal(str)
     secondStreamChanged = pyqtSignal(bool)
     primaryReadyChanged = pyqtSignal(bool)
@@ -85,6 +88,7 @@ class StreamingController(QObject):
         self.pending_options = None
         self._is_stopping = False
         self.streaming_backend = "sunshine"
+        self._sunshine_log_offsets = {1: 0, 2: 0}
 
         self.sunshine_watchdog_timer = QTimer(self)
         self.sunshine_watchdog_timer.setInterval(1000)
@@ -150,9 +154,11 @@ class StreamingController(QObject):
             if self.streaming_backend == "none":
                 self._set_streaming(False)
                 self._set_status("Mirror mode requires the Sunshine backend")
+                self.startFailed.emit()
                 return
             if not self._start_instance(1, "", self.width, self.height):
                 self._set_streaming(False)
+                self.startFailed.emit()
                 return
             self._set_primary_ready(True)
             self._set_status("Sunshine is mirroring the primary display — ready for Moonlight")
@@ -283,6 +289,7 @@ class StreamingController(QObject):
         ):
             if instance == 1:
                 QTimer.singleShot(0, self.stop)
+                self.startFailed.emit()
             else:
                 QTimer.singleShot(0, self.stop_third)
             return
@@ -323,10 +330,10 @@ class StreamingController(QObject):
             capture = "kwin" if self.de == "kde" else ""
         selected_gpu = resolve_encoding_gpu(encoder, gpu_id)
         if gpu_id and not selected_gpu:
-            self.logAppended.emit(
-                "SUNSHINE",
-                f"Selected encoding GPU {gpu_id} is unavailable; using Sunshine automatic selection",
-            )
+            message = f"Selected encoding GPU {gpu_id} is unavailable; stream was not started."
+            self.logAppended.emit("SUNSHINE", f"ERROR: {message}")
+            self._set_status(message)
+            return False
         elif selected_gpu:
             self.logAppended.emit(
                 "SUNSHINE",
@@ -363,6 +370,7 @@ class StreamingController(QObject):
         }
         if sunshine_environment:
             start_kwargs["extra_environment"] = sunshine_environment
+        self._sunshine_log_offsets[instance] = get_sunshine_log_size(instance)
         ok, message = start_sunshine(instance, **start_kwargs)
         if not ok:
             self._set_status(message)
@@ -527,6 +535,17 @@ class StreamingController(QObject):
                 self._set_status(message)
                 QTimer.singleShot(0, self.stop)
                 return
+            strict_error = get_sunshine_strict_selection_error(
+                1, self._sunshine_log_offsets[1]
+            )
+            if strict_error:
+                message = f"Sunshine rejected the selected encoder or codec: {strict_error}"
+                app_log.write("SUNSHINE", message, level=logging.ERROR)
+                self.logAppended.emit("SUNSHINE", f"ERROR: {message}")
+                self._set_status(message)
+                self.startFailed.emit()
+                QTimer.singleShot(0, self.stop)
+                return
             if self.third_streaming:
                 alive, exit_code, error = check_sunshine_health(2)
                 if not alive:
@@ -535,6 +554,16 @@ class StreamingController(QObject):
                         message += f" (exit code {exit_code})"
                     if error:
                         message += f": {error}"
+                    app_log.write("SUNSHINE", message, level=logging.ERROR)
+                    self.logAppended.emit("SUNSHINE", f"ERROR: {message}")
+                    self._set_status(message)
+                    QTimer.singleShot(0, self.stop_third)
+                    return
+                strict_error = get_sunshine_strict_selection_error(
+                    2, self._sunshine_log_offsets[2]
+                )
+                if strict_error:
+                    message = f"Second Sunshine instance rejected the selected encoder or codec: {strict_error}"
                     app_log.write("SUNSHINE", message, level=logging.ERROR)
                     self.logAppended.emit("SUNSHINE", f"ERROR: {message}")
                     self._set_status(message)

@@ -69,6 +69,7 @@ Rectangle {
                 stack.replace(stack.lastStreamingSetupPage, StackView.PopTransition)
             }
         }
+        function onStreamingStartFailed() { startFailedToast.open() }
     }
 
     Component.onCompleted: {
@@ -102,6 +103,35 @@ Rectangle {
         popExit: Transition {
             PropertyAnimation { property: "x"; to: stack.width; duration: 300; easing.type: Easing.OutCubic }
             PropertyAnimation { property: "opacity"; to: 0; duration: 250 }
+        }
+    }
+
+    Popup {
+        id: startFailedToast
+        parent: Overlay.overlay
+        x: (parent.width - width) / 2
+        y: parent.height - height - 28
+        width: 220
+        height: 48
+        modal: false
+        focus: false
+        padding: 12
+        closePolicy: Popup.NoAutoClose
+        background: Rectangle {
+            color: "#b91c1c"
+            radius: 8
+        }
+        contentItem: Text {
+            text: "Failed to start stream"
+            color: "white"
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+        }
+        onOpened: startFailedToastTimer.restart()
+        Timer {
+            id: startFailedToastTimer
+            interval: 2800
+            onTriggered: startFailedToast.close()
         }
     }
 

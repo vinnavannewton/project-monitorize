@@ -176,7 +176,7 @@ Item {
                     ChoiceChips {
                         id: encoder
                         visible: backendChips.currentText === "Sunshine"
-                        model: ["Auto", "NVIDIA", "VA-API", "Software Enc"]
+                        model: ["Auto", "NVIDIA", "VA-API", "Vulkan", "Software Enc"]
                         chipWidth: 112
                         onActivated: {
                             backend.setSunshineEncoder(currentText)

@@ -33,6 +33,7 @@ SUNSHINE_BUILD_BIN="${SUNSHINE_BUILD_DIR}/sunshine"
 SUNSHINE_BUILD_ASSETS="${SUNSHINE_BUILD_DIR}/assets"
 SUNSHINE_VENV_BIN="${VENV_DIR}/bin/sunshine"
 SUNSHINE_VENV_ASSETS="${VENV_DIR}/share/monitorize/sunshine/assets"
+SUNSHINE_STRICT_SELECTION_PATCH="${REPOSITORY_DIR}/packaging/sunshine-strict-selection.patch"
 
 # XDG standard locations
 DESKTOP_DIR="${HOME}/.local/share/applications"
@@ -265,6 +266,13 @@ if [[ "${INSTALL_MODE}" == "complete" ]]; then
             exit 1
         fi
     done
+    if ! grep -q "MONITORIZE_STRICT_SELECTION_FAILED" "${SUNSHINE_SUBMODULE_DIR}/src/video.cpp"; then
+        echo "Applying Monitorize strict Sunshine encoder and codec selection patch…"
+        if ! patch --batch --forward -d "${SUNSHINE_SUBMODULE_DIR}" -p1 < "${SUNSHINE_STRICT_SELECTION_PATCH}"; then
+            echo "Error: Could not apply the Monitorize Sunshine strict-selection patch." >&2
+            exit 1
+        fi
+    fi
     check_sunshine_node_modules_permissions
 fi
 

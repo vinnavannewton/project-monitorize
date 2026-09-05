@@ -52,6 +52,32 @@ class SunshineRuntimeTest(unittest.TestCase):
             self.assertIn("capture = kwin\n", config_path.read_text())
             self.assertIn("adapter_name = /dev/dri/renderD129\n", config_path.read_text())
 
+    def test_sync_persists_vulkan_encoder(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config_path = Path(tmp) / "sunshine.conf"
+            with (
+                patch.object(service, "get_sunshine_config_path", return_value=str(config_path)),
+                patch.object(service, "is_sunshine_running", return_value=False),
+            ):
+                ok, _ = service.sync_sunshine_stream_config("", encoder="Vulkan")
+
+            self.assertTrue(ok)
+            self.assertIn("encoder = vulkan\n", config_path.read_text())
+
+    def test_reads_only_new_strict_selection_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            log_path = Path(tmp) / "sunshine.log"
+            log_path.write_text("old MONITORIZE_STRICT_SELECTION_FAILED\n")
+            offset = log_path.stat().st_size
+            log_path.write_text(
+                log_path.read_text() + "new MONITORIZE_STRICT_CODEC_REJECTED\n"
+            )
+            with patch.object(service, "get_sunshine_config_dir", return_value=tmp):
+                self.assertEqual(
+                    service.get_sunshine_strict_selection_error(offset=offset),
+                    "new MONITORIZE_STRICT_CODEC_REJECTED",
+                )
+
     def test_start_passes_assets_and_rejects_immediate_exit(self):
         alive = MagicMock()
         alive.poll.return_value = None

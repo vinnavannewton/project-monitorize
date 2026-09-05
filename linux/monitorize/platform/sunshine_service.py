@@ -38,6 +38,32 @@ SUNSHINE_HTTP_PORT = 47989
 SUNSHINE_WEB_URL = f"https://localhost:{SUNSHINE_HTTPS_PORT}"
 
 
+def get_sunshine_log_size(instance: int = 1) -> int:
+    """Return the current Sunshine log size for reading only new diagnostics."""
+    try:
+        return os.path.getsize(os.path.join(get_sunshine_config_dir(instance), "sunshine.log"))
+    except OSError:
+        return 0
+
+
+def get_sunshine_strict_selection_error(instance: int = 1, offset: int = 0) -> str:
+    """Return a Monitorize strict-selection failure written after ``offset``."""
+    log_file = os.path.join(get_sunshine_config_dir(instance), "sunshine.log")
+    try:
+        with open(log_file, "rb") as f:
+            if offset > 0 and f.seek(0, os.SEEK_END) >= offset:
+                f.seek(offset)
+            else:
+                f.seek(0)
+            lines = f.read().decode("utf-8", errors="replace").splitlines()
+    except OSError:
+        return ""
+    for line in reversed(lines):
+        if "MONITORIZE_STRICT_" in line:
+            return line.strip()
+    return ""
+
+
 def get_sunshine_port(instance: int = 1) -> int:
     """Return the base TCP port for a given Sunshine instance."""
     inst = int(instance) if isinstance(instance, (int, str)) and str(instance).isdigit() else 1
@@ -643,6 +669,7 @@ def sync_sunshine_stream_config(
         "va-api": "vaapi",
         "vaapi": "vaapi",
         "intel/amd va-api (vah264enc)": "vaapi",
+        "vulkan": "vulkan",
         "software": "software",
         "software enc": "software",
         "software (cpu)": "software",
@@ -884,6 +911,7 @@ def set_sunshine_encoder(encoder_name: str, instance: int = 1) -> tuple[bool, st
         "va-api": "vaapi",
         "vaapi": "vaapi",
         "intel/amd va-api (vah264enc)": "vaapi",
+        "vulkan": "vulkan",
         "software": "software",
         "software enc": "software",
         "software (cpu)": "software",

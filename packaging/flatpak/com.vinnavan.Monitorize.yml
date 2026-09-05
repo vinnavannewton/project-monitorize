@@ -134,6 +134,8 @@ modules:
         commit: e3ce79f3b966df388e905a3c6b3784832a328e34
       - type: patch
         path: sunshine-flatpak-portal.patch
+      - type: patch
+        path: ../sunshine-strict-selection.patch
 
   - name: monitorize
     buildsystem: simple

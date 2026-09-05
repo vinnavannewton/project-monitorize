@@ -1,0 +1,61 @@
+--- a/src/rtsp.cpp
++++ b/src/rtsp.cpp
+@@ -1275,6 +1275,18 @@
+       config.monitor.bitrate = (int) configuredBitrateKbps;
+     }
+ 
++    const auto forced_video_format = config::video.av1_mode >= 2 ? 2 :
++                                      config::video.hevc_mode >= 2 ? 1 :
++                                                                          -1;
++    if (forced_video_format >= 0 && config.monitor.videoFormat != forced_video_format) {
++      BOOST_LOG(error) << "MONITORIZE_STRICT_CODEC_REJECTED: configured codec "sv
++                       << forced_video_format << " but client requested "sv
++                       << config.monitor.videoFormat;
++
++      respond(sock, session, &option, 400, "BAD REQUEST", req->sequenceNumber, {});
++      return;
++    }
++
+     if (config.monitor.videoFormat == 1 && video::active_hevc_mode == 1) {
+       BOOST_LOG(warning) << "HEVC is disabled, yet the client requested HEVC"sv;
+ 
+--- a/src/video.cpp
++++ b/src/video.cpp
+@@ -3272,6 +3272,13 @@
+             break;
+           }
+ 
++          if ((config::video.hevc_mode >= 2 && !encoder->hevc[encoder_t::PASSED]) ||
++              (config::video.av1_mode >= 2 && !encoder->av1[encoder_t::PASSED])) {
++            BOOST_LOG(error) << "MONITORIZE_STRICT_SELECTION_FAILED: encoder ["sv
++                             << encoder->name << "] does not support the requested codec"sv;
++            break;
++          }
++
+           // We will return an encoder here even if it fails one of the codec requirements specified by the user
+           adjust_encoder_constraints_hevc(encoder);
+           adjust_encoder_constraints_av1(encoder);
+@@ -3287,6 +3294,11 @@
+         BOOST_LOG(error) << "Couldn't find any working encoder matching ["sv << config::video.encoder << ']';
+       }
+     }
++    if (chosen_encoder == nullptr && !config::video.encoder.empty()) {
++      BOOST_LOG(fatal) << "MONITORIZE_STRICT_SELECTION_FAILED: requested encoder ["sv
++                       << config::video.encoder << "] is unavailable"sv;
++      return -1;
++    }
+ 
+     BOOST_LOG(info) << "// Testing for available encoders, this may generate errors. You can safely ignore those errors. //"sv;
+ 
+@@ -3334,6 +3346,11 @@
+       }
+     }
+ 
++    if (chosen_encoder == nullptr && (config::video.hevc_mode >= 2 || config::video.av1_mode >= 2)) {
++      BOOST_LOG(fatal) << "MONITORIZE_STRICT_SELECTION_FAILED: no encoder supports the requested codec"sv;
++      return -1;
++    }
++
+     // If no encoder was specified or the specified encoder was unusable, keep trying
+     // the remaining encoders until we find one that passes validation.
+     if (chosen_encoder == nullptr) {
