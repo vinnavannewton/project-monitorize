@@ -128,7 +128,7 @@ index d1e32dca..eb7998ea 100644
        if (b->buffer->datas[0].type == SPA_DATA_DmaBuf) {
          std::scoped_lock lock(d->frame_mutex);
 diff --git a/src/platform/linux/portalgrab.cpp b/src/platform/linux/portalgrab.cpp
-index 83f5afdc..25eaff63 100644
+index 83f5afdc..065f3852 100644
 --- a/src/platform/linux/portalgrab.cpp
 +++ b/src/platform/linux/portalgrab.cpp
 @@ -5,9 +5,12 @@
@@ -436,7 +436,7 @@ index 83f5afdc..25eaff63 100644
 +    }
 +
 +  private:
-+    std::mutex mutex_;
++    mutable std::mutex mutex_;
 +    std::unique_ptr<dbus_t> dbus_;
 +    pipewire_streaminfo_t selected_stream_;
 +    bool ready_ = false;
