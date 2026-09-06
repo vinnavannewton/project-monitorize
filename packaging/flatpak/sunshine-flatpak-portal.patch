@@ -1,5 +1,5 @@
-diff --git a/src/platform/linux/pipewire.cpp b/src/platform/linux/pipewire.cpp
-index d1e32dca..eb7998ea 100644
+diff --git a/a/src/platform/linux/pipewire.cpp b/b/src/platform/linux/pipewire.cpp
+index d1e32dc..3d0db2a 100644
 --- a/src/platform/linux/pipewire.cpp
 +++ b/src/platform/linux/pipewire.cpp
 @@ -3,6 +3,8 @@
@@ -69,7 +69,7 @@ index d1e32dca..eb7998ea 100644
      struct stream_data_t stream_data;
      int fd;
      uint32_t node;
-@@ -532,6 +559,37 @@ namespace pipewire {
+@@ -532,6 +559,38 @@ namespace pipewire {
        .error = on_core_error_cb,
      };
  
@@ -104,10 +104,11 @@ index d1e32dca..eb7998ea 100644
 +    };
 +#endif
 +
++
      static void on_stream_state_changed(void *user_data, enum pw_stream_state old, enum pw_stream_state state, const char *err_msg) {
        if (err_msg != nullptr) {
          BOOST_LOG(info) << "[pipewire] PipeWire stream error '" << err_msg << "' on state: " << pw_stream_state_as_string(old)
-@@ -593,6 +651,19 @@ namespace pipewire {
+@@ -593,6 +652,19 @@ namespace pipewire {
          return;
        }
  
@@ -127,8 +128,55 @@ index d1e32dca..eb7998ea 100644
        // 2. Fast Path: DMA-BUF
        if (b->buffer->datas[0].type == SPA_DATA_DmaBuf) {
          std::scoped_lock lock(d->frame_mutex);
-diff --git a/src/platform/linux/portalgrab.cpp b/src/platform/linux/portalgrab.cpp
-index 83f5afdc..065f3852 100644
+@@ -879,19 +951,27 @@ namespace pipewire {
+         timeout_ms -= 10;
+       }
+       // Set width and height to the values negotiated by pipewire
+-      if (negotiated_w > 0 && negotiated_h > 0 && (negotiated_w != width || negotiated_h != height)) {
+-        width = negotiated_w;
+-        height = negotiated_h;
+-        BOOST_LOG(info) << "[pipewire] Using negotiated Resolution: "sv << width << "x" << height;
++      if (negotiated_w > 0 && negotiated_h > 0) {
++        const bool dimensions_changed = (negotiated_w != width || negotiated_h != height);
++        if (dimensions_changed) {
++          width = negotiated_w;
++          height = negotiated_h;
++          BOOST_LOG(info) << "[pipewire] Using negotiated Resolution: "sv << width << "x" << height;
++        }
+ 
+-        // Reset and update display parameters for negotiated resolution
+-        env_width = 0;
+-        env_height = 0;
+-        logical_height = 0;
+-        logical_width = 0;
+-        env_logical_height = 0;
+-        env_logical_width = 0;
+-        verify_and_update_display_parameters();
++        if (refresh_geometry_after_negotiation || dimensions_changed) {
++          // Reset and update display parameters for negotiated resolution
++          env_width = 0;
++          env_height = 0;
++          logical_height = 0;
++          logical_width = 0;
++          env_logical_height = 0;
++          env_logical_width = 0;
++          verify_and_update_display_parameters();
++          if (refresh_geometry_after_negotiation) {
++            BOOST_LOG(info) << "[portal-virtual] Virtual monitor geometry refreshed after negotiation"sv;
++          }
++        }
+       }
+ 
+       return 0;
+@@ -1297,5 +1377,6 @@ namespace pipewire {
+     // Allow subclasses to access for pipewire requirements setup and stream dead checks
+     pipewire_t pipewire;  ///< Pipewire.
+     std::shared_ptr<shared_state_t> shared_state;  ///< Shared state.
++    bool refresh_geometry_after_negotiation = false;
+   };
+ }  // namespace pipewire
+diff --git a/a/src/platform/linux/portalgrab.cpp b/b/src/platform/linux/portalgrab.cpp
+index 83f5afd..2ebf832 100644
 --- a/src/platform/linux/portalgrab.cpp
 +++ b/src/platform/linux/portalgrab.cpp
 @@ -5,9 +5,12 @@
@@ -144,27 +192,27 @@ index 83f5afdc..065f3852 100644
    constexpr uint32_t CURSOR_MODE_EMBEDDED = 2;
  
    constexpr uint32_t PERSIST_FORGET = 0;
-@@ -29,6 +32,18 @@ namespace {
+@@ -27,6 +30,18 @@ namespace {
+ 
+   constexpr const char REQUEST_PREFIX[] = "/org/freedesktop/portal/desktop/request/";
    constexpr const char SESSION_PREFIX[] = "/org/freedesktop/portal/desktop/session/";
++
++  /**
++   * @brief Determine the portal source type from the SUNSHINE_PORTAL_SOURCE_TYPE environment variable.
++   * @return SOURCE_TYPE_VIRTUAL (4) if env is "virtual", SOURCE_TYPE_MONITOR (1) otherwise.
++   */
++  static uint32_t get_portal_source_type() {
++    const char *env = std::getenv("SUNSHINE_PORTAL_SOURCE_TYPE");
++    if (env && std::string_view(env) == "virtual") {
++      return SOURCE_TYPE_VIRTUAL;
++    }
++    return SOURCE_TYPE_MONITOR;
++  }
  }  // namespace
  
-+/**
-+ * @brief Determine the portal source type from the SUNSHINE_PORTAL_SOURCE_TYPE environment variable.
-+ * @return SOURCE_TYPE_VIRTUAL (4) if env is "virtual", SOURCE_TYPE_MONITOR (1) otherwise.
-+ */
-+static uint32_t get_portal_source_type() {
-+  const char *env = std::getenv("SUNSHINE_PORTAL_SOURCE_TYPE");
-+  if (env && std::string_view(env) == "virtual") {
-+    return SOURCE_TYPE_VIRTUAL;
-+  }
-+  return SOURCE_TYPE_MONITOR;
-+}
-+
  using namespace std::literals;
- 
- namespace portal {
-@@ -80,6 +95,15 @@ namespace portal {
-       }
+@@ -58,6 +73,15 @@ namespace portal {
+       *token_ = value;
      }
  
 +    /**
@@ -177,8 +225,8 @@ index 83f5afdc..065f3852 100644
 +    }
 +
      /**
-      * @brief Save current state to its backing store.
-      */
+      * @brief Return whether the persisted value is empty.
+      *
 @@ -100,6 +124,9 @@ namespace portal {
      static inline const std::unique_ptr<std::string> token_ = std::make_unique<std::string>();
  
@@ -189,7 +237,7 @@ index 83f5afdc..065f3852 100644
        return platf::appdata().string() + "/portal_token";
      }
    };
-@@ -119,6 +146,7 @@ namespace portal {
+@@ -119,10 +146,12 @@ namespace portal {
    struct pipewire_streaminfo_t {
      uint32_t pipewire_node = PW_ID_ANY;  ///< PipeWire node ID selected by the portal.
      uint64_t pipewire_object_serial = SPA_ID_INVALID;  ///< PipeWire object serial selected by the portal.
@@ -197,7 +245,12 @@ index 83f5afdc..065f3852 100644
      int width = 0;  ///< Stream width in pixels.
      int height = 0;  ///< Stream height in pixels.
      int pos_x = 0;  ///< Output X position reported by the portal.
-@@ -130,7 +158,7 @@ namespace portal {
+     int pos_y = 0;  ///< Output Y position reported by the portal.
++    std::string mapping_id;  ///< ScreenCast mapping ID.
+     std::string monitor_name;  ///< Monitor name.
+ 
+     /**
+@@ -130,7 +159,7 @@ namespace portal {
       *
       * @return Value converted to display name.
       */
@@ -206,7 +259,7 @@ index 83f5afdc..065f3852 100644
        if (!monitor_name.empty()) {
          return monitor_name;
        }
-@@ -143,7 +171,7 @@ namespace portal {
+@@ -143,7 +172,7 @@ namespace portal {
       * @param display_name Display name.
       * @return True when the portal display id matches the requested display name.
       */
@@ -215,7 +268,7 @@ index 83f5afdc..065f3852 100644
        // Check the given non-empty display name matches the display name for this struct
        return !display_name.empty() && display_name == to_display_name();
      }
-@@ -231,6 +259,23 @@ namespace portal {
+@@ -231,6 +260,23 @@ namespace portal {
       * @return 0 when a portal session is ready; nonzero when D-Bus or portal setup fails.
       */
      int connect_to_portal() {
@@ -239,7 +292,7 @@ index 83f5afdc..065f3852 100644
        g_autoptr(GMainLoop) loop = g_main_loop_new(nullptr, FALSE);
        g_autofree gchar *session_path = nullptr;
        g_autofree gchar *session_token = nullptr;
-@@ -239,9 +284,15 @@ namespace portal {
+@@ -239,9 +285,15 @@ namespace portal {
        // Try combined RemoteDesktop + ScreenCast session first
        bool use_screencast_only = !try_remote_desktop_session(loop, &session_path, session_token);
  
@@ -258,7 +311,7 @@ index 83f5afdc..065f3852 100644
        }
  
        if (start_portal_session(loop, session_path, pipewire_streams, use_screencast_only) < 0) {
-@@ -271,12 +322,21 @@ namespace portal {
+@@ -271,12 +323,21 @@ namespace portal {
        }
  
        if (select_remote_desktop_devices(loop, *session_path) < 0) {
@@ -280,7 +333,7 @@ index 83f5afdc..065f3852 100644
        if (select_screencast_sources(loop, *session_path, false) < 0) {
          BOOST_LOG(warning) << "[portalgrab] ScreenCast.SelectSources failed with RemoteDesktop session, trying ScreenCast-only mode"sv;
          g_free(*session_path);
-@@ -342,13 +402,21 @@ namespace portal {
+@@ -342,13 +403,21 @@ namespace portal {
      }
  
      std::vector<pipewire_streaminfo_t> pipewire_streams;  ///< Pipewire streams.
@@ -303,7 +356,7 @@ index 83f5afdc..065f3852 100644
  
      int create_portal_session(GMainLoop *loop, gchar **session_path_out, const gchar *session_token, bool use_screencast) {
        GDBusProxy *proxy = use_screencast ? screencast_proxy : remote_desktop_proxy;
-@@ -478,9 +546,14 @@ namespace portal {
+@@ -478,9 +547,14 @@ namespace portal {
        g_variant_builder_add(&builder, "o", session_path);
        g_variant_builder_open(&builder, G_VARIANT_TYPE("a{sv}"));
        g_variant_builder_add(&builder, "{sv}", "handle_token", g_variant_new_string(request_token));
@@ -320,29 +373,122 @@ index 83f5afdc..065f3852 100644
        if (persist) {
          g_variant_builder_add(&builder, "{sv}", "persist_mode", g_variant_new_uint32(PERSIST_UNTIL_REVOKED));
          if (!restore_token_t::empty()) {
-@@ -608,7 +681,20 @@ namespace portal {
-           out_pipewire_object_serial = SPA_ID_INVALID;
-         }
- 
--        auto stream = pipewire_streaminfo_t {out_pipewire_node, out_pipewire_object_serial, out_width, out_height, out_pos_x, out_pos_y};
+@@ -584,41 +658,92 @@ namespace portal {
+       g_autoptr(GVariant) value = nullptr;
+       g_variant_iter_init(&iter, streams);
+       while (g_variant_iter_next(&iter, "(u@a{sv})", &out_pipewire_node, &value)) {
+-        int out_width;
+-        int out_height;
+-        bool result = g_variant_lookup(value, "size", "(ii)", &out_width, &out_height, nullptr);
+-        if (!result) {
+-          BOOST_LOG(warning) << "[portalgrab] Ignoring stream without proper resolution on pipewire node "sv << out_pipewire_node;
+-          continue;
 +        uint32_t stream_source_type = 0;
-+        g_variant_lookup(value, "source_type", "u", &stream_source_type);
++        g_variant_lookup(
++            value,
++            "source_type",
++            "u",
++            &stream_source_type
++        );
 +
 +        const gchar *mapping_id = nullptr;
 +        g_variant_lookup(value, "mapping_id", "&s", &mapping_id);
 +
++        int out_width = 0;
++        int out_height = 0;
++        const bool has_size =
++            g_variant_lookup(
++                value,
++                "size",
++                "(ii)",
++                &out_width,
++                &out_height,
++                nullptr
++            );
++
++        if (!has_size) {
++          if (stream_source_type == SOURCE_TYPE_VIRTUAL || source_type_ == SOURCE_TYPE_VIRTUAL) {
++            BOOST_LOG(info)
++                << "[portal-virtual] VIRTUAL stream has no static size; "
++                   "deferring resolution to PipeWire negotiation on node "
++                << out_pipewire_node;
++
++            out_width = 0;
++            out_height = 0;
++          } else {
++            BOOST_LOG(warning)
++                << "[portalgrab] Ignoring non-VIRTUAL stream without proper resolution on node "
++                << out_pipewire_node;
++
++            continue;
++          }
+         }
+ 
+-        int out_pos_x;
+-        int out_pos_y;
+-        result = g_variant_lookup(value, "position", "(ii)", &out_pos_x, &out_pos_y, nullptr);
+-        if (!result) {
+-          BOOST_LOG(warning) << "[portalgrab] Falling back to position 0x0 for stream with resolution "sv << out_width << "x"sv << out_height << "on pipewire node "sv << out_pipewire_node;
++        int out_pos_x = 0;
++        int out_pos_y = 0;
++        bool has_pos = g_variant_lookup(value, "position", "(ii)", &out_pos_x, &out_pos_y, nullptr);
++        if (!has_pos) {
++          if (stream_source_type != SOURCE_TYPE_VIRTUAL && source_type_ != SOURCE_TYPE_VIRTUAL) {
++            BOOST_LOG(warning) << "[portalgrab] Falling back to position 0x0 for stream with resolution "sv << out_width << "x"sv << out_height << "on pipewire node "sv << out_pipewire_node;
++          }
+           out_pos_x = 0;
+           out_pos_y = 0;
+         }
+ 
+-        uint64_t out_pipewire_object_serial;
+-        result = g_variant_lookup(value, "pipewire-serial", "t", &out_pipewire_object_serial);
+-        if (!result) {
+-          // If pipewire-serial was not present explicitly set to invalid value.
+-          out_pipewire_object_serial = SPA_ID_INVALID;
++        uint64_t out_pipewire_object_serial = SPA_ID_INVALID;
++        g_variant_lookup(value, "pipewire-serial", "t", &out_pipewire_object_serial);
++
++        pipewire_streaminfo_t stream {};
++        stream.pipewire_node = out_pipewire_node;
++        stream.pipewire_object_serial = out_pipewire_object_serial;
++        stream.source_type = stream_source_type;
++        stream.width = out_width;
++        stream.height = out_height;
++        stream.pos_x = out_pos_x;
++        stream.pos_y = out_pos_y;
++
++        if (mapping_id) {
++          stream.mapping_id = mapping_id;
+         }
+ 
+-        auto stream = pipewire_streaminfo_t {out_pipewire_node, out_pipewire_object_serial, out_width, out_height, out_pos_x, out_pos_y};
 +        BOOST_LOG(info) << "[portal-debug] Start stream node_id="sv << out_pipewire_node
 +                        << " object.serial=" << out_pipewire_object_serial
 +                        << " source_type=" << stream_source_type
 +                        << " mapping_id=" << (mapping_id ? mapping_id : "<none>")
 +                        << " position=" << out_pos_x << "x" << out_pos_y
-+                        << " size=" << out_width << "x" << out_height;
-+
-+        auto stream = pipewire_streaminfo_t {out_pipewire_node, out_pipewire_object_serial, stream_source_type, out_width, out_height, out_pos_x, out_pos_y};
++                        << " size=" << (has_size ? (std::to_string(out_width) + "x" + std::to_string(out_height)) : "absent"s);
  
          // Try to match the stream to a monitor_name by position/resolution and update stream info
-         for (const auto &monitor : wl_monitors) {
-@@ -644,6 +730,11 @@ namespace portal {
+-        for (const auto &monitor : wl_monitors) {
+-          if (monitor->viewport.offset_x == out_pos_x && monitor->viewport.offset_y == out_pos_y && monitor->viewport.logical_width == out_width && monitor->viewport.logical_height == out_height) {
+-            stream.monitor_name = monitor->name;
+-            break;
++        if (has_size && out_width > 0 && out_height > 0) {
++          for (const auto &monitor : wl_monitors) {
++            if (monitor->viewport.offset_x == out_pos_x && monitor->viewport.offset_y == out_pos_y && monitor->viewport.logical_width == out_width && monitor->viewport.logical_height == out_height) {
++              stream.monitor_name = monitor->name;
++              break;
++            }
+           }
+         }
+ 
+-        out_pipewire_streams.emplace_back(stream);
++        out_pipewire_streams.emplace_back(std::move(stream));
+       }
+ 
+       // The portal call returns the streams sorted by out_pipewire_node which can shuffle displays around, so
+@@ -644,6 +769,11 @@ namespace portal {
        int fd_handle;
        g_variant_get(reply, "(h)", &fd_handle);
        fd = g_unix_fd_list_get(fd_list, fd_handle, nullptr);
@@ -354,7 +500,7 @@ index 83f5afdc..065f3852 100644
        return 0;
      }
  
-@@ -702,12 +793,138 @@ namespace portal {
+@@ -702,12 +832,169 @@ namespace portal {
      }
    };
  
@@ -452,12 +598,31 @@ index 83f5afdc..065f3852 100644
 +    });
 +    return session;
 +  }
-+
    /**
     * @brief Portal screencast backend that negotiates PipeWire streams over DBus.
     */
    class portal_t: public pipewire::pipewire_display_t {
    public:
++    int requested_width_ = 1920;
++    int requested_height_ = 1080;
++    int requested_framerate_ = 60;
++
++    int init(
++        platf::mem_type_e hwdevice_type,
++        const std::string &display_name,
++        const ::video::config_t &config
++    ) {
++      requested_width_ = config.width;
++      requested_height_ = config.height;
++      requested_framerate_ = config.framerate;
++
++      return pipewire::pipewire_display_t::init(
++          hwdevice_type,
++          display_name,
++          config
++      );
++    }
++
 +    ~portal_t() override {
 +      if (get_portal_source_type() == SOURCE_TYPE_VIRTUAL) {
 +        BOOST_LOG(info) << "[portal-virtual] Capture connection closed; VIRTUAL session retained"sv;
@@ -466,6 +631,7 @@ index 83f5afdc..065f3852 100644
 +
      int configure_stream(const std::string &display_name, int &out_pipewire_fd, uint32_t &out_pipewire_node, uint64_t &out_pipewire_object_serial [[maybe_unused]]) override {
 +      if (get_portal_source_type() == SOURCE_TYPE_VIRTUAL) {
++        refresh_geometry_after_negotiation = true;
 +        auto &vsession = get_persistent_virtual_session();
 +        if (vsession.ensure_ready() < 0) {
 +          BOOST_LOG(error) << "[portal-virtual] Persistent virtual session not ready"sv;
@@ -481,19 +647,30 @@ index 83f5afdc..065f3852 100644
 +        out_pipewire_object_serial = stream.pipewire_object_serial;
 +        this->offset_x = stream.pos_x;
 +        this->offset_y = stream.pos_y;
-+        this->width = stream.width;
-+        this->height = stream.height;
++        if (stream.width > 0 && stream.height > 0) {
++          // KDE, physical screens, etc.
++          this->width = stream.width;
++          this->height = stream.height;
++          BOOST_LOG(info) << "[portal-virtual] Portal supplied fixed stream size "sv << this->width << "x" << this->height;
++        } else {
++          // GNOME RecordVirtual()
++          this->width = requested_width_ > 0 ? requested_width_ : 1920;
++          this->height = requested_height_ > 0 ? requested_height_ : 1080;
++
++          BOOST_LOG(info)
++              << "[portal-virtual] Portal size unknown; using requested PipeWire negotiation size "sv
++              << this->width << "x" << this->height << " @"sv << requested_framerate_ << "Hz"sv;
++        }
 +        this->logical_width = 0;
 +        this->logical_height = 0;
 +        BOOST_LOG(info) << "[portal-virtual] Reusing persistent VIRTUAL session (node="sv << out_pipewire_node << " fd=" << out_pipewire_fd << ")"sv;
 +        return 0;
 +      }
 +
-+      // Existing MONITOR (Mirror) flow:
        // Connect DBus portal session
        if (dbus.init() < 0) {
          BOOST_LOG(error) << "[portalgrab] Failed to connect to dbus. portal_t setup failed.";
-@@ -744,6 +961,12 @@ namespace portal {
+@@ -744,6 +1031,12 @@ namespace portal {
  
        // Return values for pipewire init
        out_pipewire_fd = dbus.pipewire_fd;
@@ -506,7 +683,7 @@ index 83f5afdc..065f3852 100644
        out_pipewire_node = stream.pipewire_node;
        out_pipewire_object_serial = stream.pipewire_object_serial;
        // Set/update basic stream parameters on display_t
-@@ -765,7 +988,7 @@ namespace portal {
+@@ -765,7 +1058,7 @@ namespace portal {
       */
      bool check_stream_dead(platf::capture_e &out_status) override {
        // If the pipewire stream stopped due to closed portal session stop the capture with an error
@@ -515,7 +692,7 @@ index 83f5afdc..065f3852 100644
          BOOST_LOG(warning) << "[portalgrab] PipeWire stream stopped by closed portal session."sv;
          pipewire.frame_cv().notify_all();
          out_status = platf::capture_e::error;
-@@ -825,6 +1048,15 @@ namespace platf {
+@@ -825,6 +1118,15 @@ namespace platf {
     * @return Portal display names, or an empty list when portal discovery fails.
     */
    std::vector<std::string> portal_display_names() {
