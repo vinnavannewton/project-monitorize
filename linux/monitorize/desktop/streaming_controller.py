@@ -184,7 +184,11 @@ class StreamingController(QObject):
                 self.startFailed.emit()
                 return
             self._set_primary_ready(True)
-            if (self.width, self.height) != (1920, 1080):
+            if self.de == "gnome":
+                self._set_status(
+                    f"Portal virtual display ({self.width}x{self.height}@{self.fps}Hz) — ready for Moonlight"
+                )
+            elif (self.width, self.height) != (1920, 1080):
                 self._set_status(
                     f"Portal virtual display created (1920x1080@60Hz). Custom resolution on {de_label} Flatpak requires newer compositor support."
                 )
@@ -383,6 +387,13 @@ class StreamingController(QObject):
             if sunshine_environment is None:
                 sunshine_environment = {}
             sunshine_environment["SUNSHINE_PORTAL_SOURCE_TYPE"] = portal_source_type
+            if portal_source_type == "virtual":
+                if width and height:
+                    sunshine_environment["MONITORIZE_VIRTUAL_WIDTH"] = str(int(width))
+                    sunshine_environment["MONITORIZE_VIRTUAL_HEIGHT"] = str(int(height))
+                fps = getattr(self, "fps", 60) if instance == 1 else getattr(self, "third_fps", 60)
+                if fps:
+                    sunshine_environment["MONITORIZE_VIRTUAL_FPS"] = str(int(fps))
         ok, message = sync_sunshine_stream_config(
             output_name,
             encoder,

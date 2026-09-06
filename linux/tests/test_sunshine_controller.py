@@ -87,12 +87,13 @@ class SunshineControllerTest(unittest.TestCase):
         self, sync, _save, _running, start, _stop, _flatpak
     ):
         controller = self.controller("gnome")
-        controller.start("1920x1080", "60", "Extend")
+        controller.start("2560x1440", "60", "Extend")
         self.assertEqual(sync.call_args.kwargs["capture"], "portal")
-        self.assertEqual(
-            start.call_args.kwargs.get("extra_environment", {}).get("SUNSHINE_PORTAL_SOURCE_TYPE"),
-            "virtual",
-        )
+        extra_env = start.call_args.kwargs.get("extra_environment", {})
+        self.assertEqual(extra_env.get("SUNSHINE_PORTAL_SOURCE_TYPE"), "virtual")
+        self.assertEqual(extra_env.get("MONITORIZE_VIRTUAL_WIDTH"), "2560")
+        self.assertEqual(extra_env.get("MONITORIZE_VIRTUAL_HEIGHT"), "1440")
+        self.assertEqual(extra_env.get("MONITORIZE_VIRTUAL_FPS"), "60")
         self.assertIsNone(controller.streamer)
         self.assertTrue(controller.primary_ready)
 
