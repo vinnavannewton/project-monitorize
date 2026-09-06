@@ -228,7 +228,7 @@ index 83f5afdc..065f3852 100644
 +          uint32_t available = g_variant_get_uint32(prop);
 +          BOOST_LOG(info) << "[portalgrab] AvailableSourceTypes = "sv << available << " (VIRTUAL bit = "sv << ((available & SOURCE_TYPE_VIRTUAL) ? "yes" : "no") << ")"sv;
 +          if (!(available & SOURCE_TYPE_VIRTUAL)) {
-+            BOOST_LOG(error) << "[portalgrab] KDE portal does not advertise ScreenCast VIRTUAL support (AvailableSourceTypes="sv << available << ")"sv;
++            BOOST_LOG(error) << "[portalgrab] Desktop portal does not advertise ScreenCast VIRTUAL support (AvailableSourceTypes="sv << available << ")"sv;
 +            return -1;
 +          }
 +        } else {
@@ -397,7 +397,7 @@ index 83f5afdc..065f3852 100644
 +        }
 +      }
 +      ready_ = true;
-+      BOOST_LOG(info) << "[portal-virtual] KDE virtual portal session READY (node_id="sv
++      BOOST_LOG(info) << "[portal-virtual] Virtual portal session READY (node_id="sv
 +                      << selected_stream_.pipewire_node << " serial=" << selected_stream_.pipewire_object_serial << ")"sv;
 +      return 0;
 +    }
