@@ -11,6 +11,7 @@ log = logging.getLogger(__name__)
 APPLY_METHOD_TEMPORARY = 1
 WAIT_ATTEMPTS = 20
 WAIT_DELAY = 0.1
+REFRESH_RATE_TOLERANCE_HZ = 0.75
 MONITOR_CONFIG_PROPERTY_KEYS = {
     "color-mode",
     "rgb-range",
@@ -152,6 +153,55 @@ def new_virtual_connector(state, before, width=None, height=None):
     return candidates[0]
 
 
+def verified_new_virtual_monitor(
+    state,
+    before,
+    width,
+    height,
+    refresh_rate,
+    refresh_tolerance=REFRESH_RATE_TOLERANCE_HZ,
+):
+    """Return an exact new virtual monitor and a useful readiness error.
+
+    Mutter state can briefly expose a connector before its current mode is
+    populated.  Callers may therefore retry when ``info`` is ``None`` and use
+    the returned message if their readiness deadline expires.
+    """
+    candidates = sorted(
+        connector
+        for connector in virtual_connectors_from_state(state)
+        if connector not in set(before or ())
+    )
+    if len(candidates) != 1:
+        return "", None, (
+            "expected exactly one new Mutter virtual connector; "
+            f"found {len(candidates)} ({', '.join(candidates) or 'none'})"
+        )
+
+    connector = candidates[0]
+    info = monitor_info_from_state(state, connector)
+    if not info:
+        return "", None, f"{connector} has no current mode yet"
+
+    expected_width = int(width)
+    expected_height = int(height)
+    expected_refresh = float(refresh_rate)
+    actual_width = int(info["width"])
+    actual_height = int(info["height"])
+    actual_refresh = float(info["refresh_rate"])
+    if (actual_width, actual_height) != (expected_width, expected_height):
+        return "", info, (
+            f"{connector} mode is {actual_width}x{actual_height}, expected "
+            f"{expected_width}x{expected_height}"
+        )
+    if abs(actual_refresh - expected_refresh) > float(refresh_tolerance):
+        return "", info, (
+            f"{connector} refresh rate is {actual_refresh:g}Hz, expected "
+            f"{expected_refresh:g}Hz"
+        )
+    return connector, info, ""
+
+
 def virtual_connector_from_state(state):
     _serial, physical_monitors, _logical_monitors, _properties = state
     return next(iter(_virtual_connectors(physical_monitors)), "")
@@ -222,10 +272,15 @@ def virtual_scale_from_layout(logical_monitors, slot="primary"):
     return None
 
 
-def load_saved_virtual_scale(slot="primary"):
+def load_saved_virtual_scale(slot="primary", role=None):
+    role = role or slot
     return virtual_scale_from_layout(
-        load_gnome_virtual_layout(slot).get("logical_monitors"), slot
+        load_gnome_virtual_layout(slot).get("logical_monitors"), role
     )
+
+
+def has_saved_virtual_layout(slot="primary"):
+    return bool(load_gnome_virtual_layout(slot).get("logical_monitors"))
 
 
 def _scale_supported(scale, supported_scales):

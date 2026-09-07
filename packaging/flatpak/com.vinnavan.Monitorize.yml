@@ -1,4 +1,4 @@
-# Mirror-only first milestone. Sunshine is added after the desktop app starts.
+# Monitorize desktop with its bundled Sunshine streaming engine.
 app-id: com.vinnavan.Monitorize
 runtime: org.freedesktop.Platform
 runtime-version: "24.08"
@@ -76,8 +76,21 @@ modules:
         sha256: 722695808f4b6457b320fdc131280796bdceb04ab50fe1795cd540799ebe1698
         dest: markupsafe
 
+  # The GNOME virtual-monitor backend uses dbus-python to call Mutter's
+  # ScreenCast and DisplayConfig services. PyGObject/GLib is in the runtime,
+  # but dbus-python is not.
+  - name: dbus-python
+    buildsystem: meson
+    config-opts:
+      - -Dtests=disabled
+      - -Ddoc=disabled
+    sources:
+      - type: archive
+        url: https://files.pythonhosted.org/packages/ff/24/63118050c7dd7be04b1ccd60eab53fef00abe844442e1b6dec92dae505d6/dbus-python-1.4.0.tar.gz
+        sha256: 991666e498f60dbf3e49b8b7678f5559b8a65034fdf61aae62cdecdb7d89c770
+
   # Freedesktop does not ship Qt or PyQt. These wheels provide the unchanged
-  # PyQt6/Qt Quick UI for this x86_64 Mirror milestone.
+  # PyQt6/Qt Quick UI.
   - name: pyqt6
     buildsystem: simple
     build-commands:

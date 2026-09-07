@@ -21,6 +21,7 @@ from monitorize.platform.kde_virtual_monitor import (
 from monitorize.platform.kde_helper import find_helper, read_helper_event, stop_helper
 
 PR_SET_PDEATHSIG = 1
+GNOME_VIRTUAL_READY_TIMEOUT = 10.0
 
 
 def _set_pdeathsig() -> None:
@@ -253,6 +254,20 @@ def run_sway_headless(slot, width, height, fps):
 
 
 def run_gnome_headless(slot, width, height, fps, display_type="Extend"):
+    session = None
+    session_stopped = [False]
+    stopping = [False]
+
+    def cleanup(*_args):
+        stopping[0] = True
+        if session is None or session_stopped[0]:
+            return
+        session_stopped[0] = True
+        try:
+            session.Stop()
+        except Exception:
+            pass
+
     try:
         import dbus
         from dbus.mainloop.glib import DBusGMainLoop
@@ -276,12 +291,28 @@ def run_gnome_headless(slot, width, height, fps, display_type="Extend"):
         screencast = dbus.Interface(screencast_obj, "org.gnome.Mutter.ScreenCast")
         print("[gnome-direct] Mutter ScreenCast service reachable", flush=True)
         print("[gnome-direct] Creating Mutter ScreenCast session", flush=True)
-        session_path = screencast.CreateSession({})
+        try:
+            session_path = screencast.CreateSession({})
+        except Exception as exc:
+            raise RuntimeError(f"Mutter rejected CreateSession: {exc}") from exc
         print(f"[gnome-direct] Created ScreenCast session: {session_path}", flush=True)
         session_obj = bus.get_object("org.gnome.Mutter.ScreenCast", session_path)
         session = dbus.Interface(session_obj, "org.gnome.Mutter.ScreenCast.Session")
 
-        preferred_scale = gnome_virtual_monitor.load_saved_virtual_scale(slot)
+        signal.signal(signal.SIGINT, cleanup)
+        signal.signal(signal.SIGTERM, cleanup)
+
+        roles = {slot: ""}
+        primary = os.environ.get("MONITORIZE_GNOME_PRIMARY_OUTPUT", "")
+        if primary:
+            roles["primary"] = primary
+        topology = "+".join(
+            role for role in ("primary", "additional") if role in roles
+        )
+
+        preferred_scale = gnome_virtual_monitor.load_saved_virtual_scale(
+            topology, role=slot
+        )
         mode_val = {
             "size": dbus.Struct([dbus.UInt32(width), dbus.UInt32(height)], signature="uu"),
             "refresh-rate": dbus.Double(float(fps)),
@@ -292,11 +323,17 @@ def run_gnome_headless(slot, width, height, fps, display_type="Extend"):
 
         modes = dbus.Array([dbus.Dictionary(mode_val, signature="sv")], signature="a{sv}")
         print(f"[gnome-direct] Calling RecordVirtual with: size={width}x{height} refresh={fps} preferred_scale={preferred_scale}", flush=True)
-        stream_path = session.RecordVirtual({
-            "modes": modes,
-            "cursor-mode": dbus.UInt32(1),
-            "is-platform": dbus.Boolean(True),
-        })
+        try:
+            stream_path = session.RecordVirtual({
+                "modes": modes,
+                "cursor-mode": dbus.UInt32(1),
+                "is-platform": dbus.Boolean(True),
+            })
+        except Exception as exc:
+            raise RuntimeError(
+                "Mutter RecordVirtual rejected the requested "
+                f"{width}x{height}@{fps:g}Hz mode: {exc}"
+            ) from exc
 
         node_id_holder = [0]
 
@@ -313,11 +350,18 @@ def run_gnome_headless(slot, width, height, fps, display_type="Extend"):
             dbus_interface="org.gnome.Mutter.ScreenCast.Stream",
         )
 
-        session.Start()
+        try:
+            session.Start()
+        except Exception as exc:
+            raise RuntimeError(f"Mutter ScreenCast session failed to start: {exc}") from exc
 
         connector = ""
+        info = None
+        readiness_error = "Mutter virtual monitor did not appear"
+        state = None
         context = GLib.main_context_default()
-        for _ in range(30):
+        deadline = time.monotonic() + GNOME_VIRTUAL_READY_TIMEOUT
+        while time.monotonic() < deadline and not stopping[0]:
             try:
                 while context.pending():
                     context.iteration(False)
@@ -325,51 +369,63 @@ def run_gnome_headless(slot, width, height, fps, display_type="Extend"):
                 pass
             try:
                 state = display_config.GetCurrentState()
-                found = gnome_virtual_monitor.new_virtual_connector(
-                    state, before, width, height
+                found, found_info, error = (
+                    gnome_virtual_monitor.verified_new_virtual_monitor(
+                        state, before, width, height, fps
+                    )
                 )
+                readiness_error = error or readiness_error
                 if found:
                     connector = found
-                    if node_id_holder[0] != 0:
+                    info = found_info
+                    if node_id_holder[0] > 0:
                         break
-            except Exception:
-                pass
+            except Exception as exc:
+                readiness_error = f"could not read Mutter display state: {exc}"
             time.sleep(0.1)
 
+        if stopping[0]:
+            return 0
         if not connector:
-            state = display_config.GetCurrentState()
-            virtual_connectors = gnome_virtual_monitor.virtual_connectors_from_state(state)
-            remaining = [c for c in virtual_connectors if c not in before]
-            connector = remaining[0] if remaining else (virtual_connectors[0] if virtual_connectors else "Virtual-1")
+            raise RuntimeError(
+                "Mutter did not create the requested virtual monitor within "
+                f"{GNOME_VIRTUAL_READY_TIMEOUT:g}s: {readiness_error}"
+            )
+        if node_id_holder[0] <= 0:
+            raise RuntimeError(
+                f"Mutter created {connector}, but did not publish a valid "
+                f"PipeWire node within {GNOME_VIRTUAL_READY_TIMEOUT:g}s"
+            )
 
-        actual_mode = f"{width}x{height}@{fps}Hz"
-        try:
-            info = gnome_virtual_monitor.monitor_info_from_state(state, connector)
-            if info:
-                actual_mode = f"{info['width']}x{info['height']}@{info['refresh_rate']:.0f}Hz"
-        except Exception:
-            pass
+        actual_mode = (
+            f"{info['width']}x{info['height']}@{info['refresh_rate']:g}Hz"
+        )
         print(f"[gnome-direct] New virtual connector: {connector}", flush=True)
         print(f"[gnome-direct] Actual Mutter mode: {actual_mode}", flush=True)
-        print(f"[gnome-direct] Starting Sunshine capture: node={node_id_holder[0]} connector={connector}", flush=True)
+        print(
+            f"[gnome-direct] PipeWire node ready: {node_id_holder[0]}",
+            flush=True,
+        )
 
-        roles = {slot: connector}
-        primary = os.environ.get("MONITORIZE_GNOME_PRIMARY_OUTPUT", "")
-        if primary:
-            roles["primary"] = primary
-        topology = "+".join(role for role in ("primary", "additional") if role in roles)
-
-        try:
-            gnome_virtual_monitor.restore_virtual_layout(
-                slot=topology,
-                display_config=display_config,
-                dbus=dbus,
-                attempts=1,
-                delay=0,
-                role_connectors=roles,
+        roles[slot] = connector
+        saved_layout = gnome_virtual_monitor.has_saved_virtual_layout(topology)
+        restored = gnome_virtual_monitor.restore_virtual_layout(
+            slot=topology,
+            display_config=display_config,
+            dbus=dbus,
+            attempts=1,
+            delay=0,
+            role_connectors=roles,
+        )
+        if restored:
+            print(f"[gnome-direct] Restored saved GNOME layout: {topology}", flush=True)
+        elif saved_layout:
+            print(
+                f"[gnome-direct] Saved GNOME layout is incompatible with the current topology: {topology}",
+                flush=True,
             )
-        except Exception as exc:
-            print(f"[Headless] GNOME layout restore skipped: {exc}", flush=True)
+        else:
+            print(f"[gnome-direct] No saved GNOME layout for: {topology}", flush=True)
 
         offset_x, offset_y = 0, 0
         try:
@@ -391,40 +447,30 @@ def run_gnome_headless(slot, width, height, fps, display_type="Extend"):
             "node_id": node_id_holder[0],
             "offset_x": offset_x,
             "offset_y": offset_y,
-            "width": width,
-            "height": height,
-            "fps": fps,
+            "width": info["width"],
+            "height": info["height"],
+            "fps": info["refresh_rate"],
             "backend": "Sunshine",
         })
 
         print(
-            f"[Headless] GNOME Virtual display {connector} ({width}x{height}@{fps}Hz) is active. "
+            f"[Headless] GNOME Virtual display {connector} ({actual_mode}) is active. "
             "Ready for Sunshine / Moonlight.",
             flush=True,
         )
 
-        def cleanup(*_args):
-            try:
-                session.Stop()
-            except Exception:
-                pass
-
-        signal.signal(signal.SIGINT, cleanup)
-        signal.signal(signal.SIGTERM, cleanup)
-
-        try:
-            while True:
-                ready, _, _ = select.select([sys.stdin], [], [], 0.5)
-                if ready:
-                    line = sys.stdin.readline()
-                    if not line or line.strip() == "quit":
-                        break
-            return 0
-        finally:
-            cleanup()
+        while not stopping[0]:
+            ready, _, _ = select.select([sys.stdin], [], [], 0.5)
+            if ready:
+                line = sys.stdin.readline()
+                if not line or line.strip() == "quit":
+                    break
+        return 0
     except Exception as exc:
         print(f"[ERROR] GNOME headless virtual display failed: {exc}", flush=True)
         return 1
+    finally:
+        cleanup()
 
 
 def main():

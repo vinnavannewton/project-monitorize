@@ -286,6 +286,22 @@ class StreamingController(QObject):
         width = int(event.get("width") or (self.width if instance == 1 else self.third_width))
         height = int(event.get("height") or (self.height if instance == 1 else self.third_height))
         fps = float(event.get("fps") or (self.fps if instance == 1 else self.third_fps))
+        pipewire_node = None
+        if self.de == "gnome" and self.streaming_backend != "none":
+            try:
+                pipewire_node = int(event.get("node_id"))
+            except (TypeError, ValueError):
+                pipewire_node = 0
+            if pipewire_node <= 0:
+                self._set_status(
+                    f"GNOME virtual display {output_name} has no valid PipeWire capture node"
+                )
+                if instance == 1:
+                    QTimer.singleShot(0, self.stop)
+                    self.startFailed.emit()
+                else:
+                    QTimer.singleShot(0, self.stop_third)
+                return
         if self.de == "gnome":
             self.gnome_outputs[slot] = output_name
 
@@ -314,7 +330,7 @@ class StreamingController(QObject):
             output_name,
             width,
             height,
-            pipewire_node=event.get("node_id") if self.de == "gnome" else None,
+            pipewire_node=pipewire_node,
             offset_x=int(event.get("offset_x") or 0),
             offset_y=int(event.get("offset_y") or 0),
         ):
@@ -359,6 +375,8 @@ class StreamingController(QObject):
         if (self.display_type == "Mirror" or self.de == "kde") and os.path.isfile("/.flatpak-info"):
             # Flatpak KDE Extend & Flatpak Mirror: use portal capture
             capture = "portal"
+        elif self.de == "gnome" and pipewire_node is not None:
+            capture = "pipewire_node"
         else:
             capture = "kwin" if self.de == "kde" else ""
         selected_gpu = resolve_encoding_gpu(encoder, gpu_id)
@@ -498,6 +516,7 @@ class StreamingController(QObject):
             return
         self._save_gnome_virtual_layout()
         self.third_generation += 1
+        stop_sunshine(instance=2)
         process = self.third_streamer
         self.third_streamer = None
         if process is not None:
@@ -508,7 +527,6 @@ class StreamingController(QObject):
             except Exception:
                 pass
             stop_processes(process)
-        stop_sunshine(instance=2)
         self.gnome_outputs.pop("additional", None)
         self.third_streaming = False
         self.third_ready = False
@@ -684,6 +702,7 @@ class StreamingController(QObject):
             self.generation += 1
             if self.third_streaming or self.third_streamer is not None:
                 self.stop_third()
+            stop_sunshine()
             process = self.streamer
             self.streamer = None
             if process is not None:
@@ -694,7 +713,6 @@ class StreamingController(QObject):
                 except Exception:
                     pass
                 stop_processes(process)
-            stop_sunshine()
             self.gnome_outputs.clear()
             self._set_primary_ready(False)
             self._set_streaming(False)

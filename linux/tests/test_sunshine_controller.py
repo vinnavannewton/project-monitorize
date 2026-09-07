@@ -2,7 +2,7 @@ import logging
 import unittest
 from unittest.mock import Mock, patch
 
-from PyQt6.QtCore import QCoreApplication
+from PyQt6.QtCore import QCoreApplication, QProcess
 
 from monitorize.desktop.streaming_controller import StreamingController
 
@@ -64,7 +64,7 @@ class SunshineControllerTest(unittest.TestCase):
     @patch("monitorize.desktop.streaming_controller.is_sunshine_running", return_value=False)
     @patch("monitorize.desktop.streaming_controller.save_sunshine_config", return_value=(True, "saved"))
     @patch("monitorize.desktop.streaming_controller.sync_sunshine_stream_config", return_value=(True, "synced"))
-    def test_flatpak_kde_extend_uses_portal_virtual(
+    def test_flatpak_kde_extend_uses_portal_virtual_capture_and_marks_ready(
         self, sync, _save, _running, start, _stop, _flatpak
     ):
         controller = self.controller("kde")
@@ -156,9 +156,82 @@ class SunshineControllerTest(unittest.TestCase):
         self.assertTrue(controller.primary_ready)
 
         _sync.assert_called_once_with(
-            "Meta-0", "Auto", "Auto", True, instance=1, capture="",
+            "Meta-0", "Auto", "Auto", True, instance=1, capture="pipewire_node",
             adapter_name="",
         )
+
+    @patch("monitorize.desktop.streaming_controller.QTimer.singleShot")
+    def test_gnome_event_without_pipewire_node_fails_closed(self, single_shot):
+        controller = self.controller("gnome")
+        controller.streaming = True
+        controller._start_instance = Mock()
+        failures = []
+        controller.startFailed.connect(lambda: failures.append(True))
+
+        controller._display_ready(
+            "primary",
+            {
+                "type": "headless_ready",
+                "name": "Meta-0",
+                "width": 1920,
+                "height": 1080,
+                "fps": 60,
+            },
+        )
+
+        controller._start_instance.assert_not_called()
+        self.assertIn("no valid PipeWire capture node", controller.status)
+        self.assertEqual(failures, [True])
+        single_shot.assert_called_once_with(0, controller.stop)
+
+    @patch("monitorize.desktop.streaming_controller.stop_processes")
+    @patch("monitorize.desktop.streaming_controller.stop_sunshine")
+    def test_stop_keeps_gnome_display_alive_until_sunshine_stops(
+        self, stop_sunshine_mock, stop_processes_mock
+    ):
+        order = []
+        stop_sunshine_mock.side_effect = lambda *args, **kwargs: order.append("sunshine")
+        stop_processes_mock.side_effect = lambda process: order.append("display")
+        controller = self.controller("gnome")
+        controller.streaming = True
+        controller.gnome_outputs = {"primary": "Meta-0"}
+        controller._save_gnome_virtual_layout = Mock(
+            side_effect=lambda: order.append("layout")
+        )
+        process = Mock()
+        process.state.return_value = QProcess.ProcessState.NotRunning
+        controller.streamer = process
+
+        controller.stop()
+
+        self.assertEqual(order, ["layout", "sunshine", "display"])
+
+    @patch("monitorize.desktop.streaming_controller.stop_processes")
+    @patch("monitorize.desktop.streaming_controller.stop_sunshine")
+    def test_stop_third_keeps_display_alive_until_sunshine_stops(
+        self, stop_sunshine_mock, stop_processes_mock
+    ):
+        order = []
+        stop_sunshine_mock.side_effect = lambda *args, **kwargs: order.append("sunshine")
+        stop_processes_mock.side_effect = lambda process: order.append("display")
+        controller = self.controller("gnome")
+        controller.streaming = True
+        controller.third_streaming = True
+        controller.gnome_outputs = {
+            "primary": "Meta-0",
+            "additional": "Meta-1",
+        }
+        controller._save_gnome_virtual_layout = Mock(
+            side_effect=lambda: order.append("layout")
+        )
+        process = Mock()
+        process.state.return_value = QProcess.ProcessState.NotRunning
+        controller.third_streamer = process
+
+        controller.stop_third()
+
+        self.assertEqual(order, ["layout", "sunshine", "display"])
+        stop_sunshine_mock.assert_called_once_with(instance=2)
 
     @patch("monitorize.desktop.streaming_controller.stop_sunshine")
     @patch("monitorize.desktop.streaming_controller.start_sunshine", return_value=(True, "started"))

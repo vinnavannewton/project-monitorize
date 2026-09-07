@@ -1,6 +1,7 @@
 """Compositor-specific virtual output management."""
 
 import json
+import os
 import re
 import subprocess
 import time
@@ -12,12 +13,36 @@ class DisplayController:
         self.created_output = None
         self.additional_output = None
 
+    @staticmethod
+    def _hyprctl_command(*args):
+        command = ["hyprctl", *map(str, args)]
+        if os.path.isfile("/.flatpak-info"):
+            return ["flatpak-spawn", "--host", *command]
+        return command
+
+    @classmethod
+    def _run_hyprctl(cls, *args):
+        """Run the host-matching hyprctl when Monitorize is sandboxed."""
+        return subprocess.run(
+            cls._hyprctl_command(*args),
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+
+    @staticmethod
+    def _command_error(action, result=None, exc=None):
+        detail = ""
+        if result is not None:
+            detail = str(result.stderr or result.stdout or "").strip()
+        elif exc is not None:
+            detail = str(exc).strip()
+        message = f"Hyprland could not {action}"
+        return f"{message}: {detail}" if detail else message
+
     def headless_monitors(self):
         try:
-            result = subprocess.run(
-                ["hyprctl", "monitors", "all", "-j"],
-                capture_output=True, text=True,
-            )
+            result = self._run_hyprctl("monitors", "all", "-j")
             if result.returncode == 0:
                 return [
                     item.get("name") for item in json.loads(result.stdout)
@@ -26,21 +51,23 @@ class DisplayController:
         except Exception:
             pass
         try:
-            result = subprocess.run(
-                ["hyprctl", "monitors", "all"],
-                capture_output=True, text=True,
-            )
+            result = self._run_hyprctl("monitors", "all")
             return list(set(re.findall(r"\bHEADLESS-\d+\b", result.stdout)))
         except Exception:
             return []
 
     def prepare_hyprland(self, width, height, fps, slot="primary"):
         old = set(self.headless_monitors())
-        result = subprocess.run(
-            ["hyprctl", "output", "create", "headless"], capture_output=True
-        )
+        try:
+            result = self._run_hyprctl("output", "create", "headless")
+        except (OSError, subprocess.SubprocessError) as exc:
+            return "", self._command_error(
+                "launch host hyprctl" if os.path.isfile("/.flatpak-info")
+                else "launch hyprctl",
+                exc=exc,
+            )
         if result.returncode != 0:
-            return "", "Hyprland could not create a headless output"
+            return "", self._command_error("create a headless output", result=result)
         deadline = time.monotonic() + 2.0
         created = []
         while time.monotonic() < deadline:
@@ -52,34 +79,51 @@ class DisplayController:
             return "", "Hyprland did not expose one new headless output"
         output = created[0]
         mode = f"{width}x{height}@{fps}"
-        configured = subprocess.run(
-            ["hyprctl", "keyword", "monitor", f"{output},{mode},auto,1"],
-            capture_output=True,
-        )
+        try:
+            configured = self._run_hyprctl(
+                "keyword", "monitor", f"{output},{mode},auto,1"
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            self._remove_hyprland_output(output)
+            return "", self._command_error(f"configure {output}", exc=exc)
         if configured.returncode != 0:
-            subprocess.run(["hyprctl", "output", "remove", output], capture_output=True)
-            return "", f"Hyprland could not configure {output}"
-        configured = subprocess.run(
-            ["hyprctl", "eval", f"hl.monitor({{ output = '{output}', mode = '{mode}', position = 'auto', scale = 1.0 }})"],
-            capture_output=True,
-        )
+            self._remove_hyprland_output(output)
+            return "", self._command_error(f"configure {output}", result=configured)
+        try:
+            configured = self._run_hyprctl(
+                "eval",
+                f"hl.monitor({{ output = '{output}', mode = '{mode}', "
+                "position = 'auto', scale = 1.0 }})",
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            self._remove_hyprland_output(output)
+            return "", self._command_error(f"configure {output}", exc=exc)
         if configured.returncode != 0:
-            subprocess.run(["hyprctl", "output", "remove", output], capture_output=True)
-            return "", f"Hyprland could not configure {output}"
+            self._remove_hyprland_output(output)
+            return "", self._command_error(f"configure {output}", result=configured)
+        if not self.wait_for_headless_ready(output, width, height, fps=fps):
+            self._remove_hyprland_output(output)
+            return "", (
+                f"Hyprland did not activate {output} at the requested "
+                f"{width}x{height}@{fps}Hz mode"
+            )
         if slot == "additional":
             self.additional_output = output
         else:
             self.created_output = output
         return output, ""
 
+    def _remove_hyprland_output(self, output):
+        try:
+            return self._run_hyprctl("output", "remove", output).returncode == 0
+        except (OSError, subprocess.SubprocessError):
+            return False
+
     def remove_hyprland_output(self, slot="primary"):
         output = self.additional_output if slot == "additional" else self.created_output
         if not output or self.de != "hyprland":
             return
-        try:
-            subprocess.run(["hyprctl", "output", "remove", output], capture_output=True)
-        except Exception:
-            pass
+        self._remove_hyprland_output(output)
         if slot == "additional":
             self.additional_output = None
         else:
@@ -199,7 +243,7 @@ class DisplayController:
         else:
             self.created_output = None
 
-    def wait_for_headless_ready(self, output_name, width, height,
+    def wait_for_headless_ready(self, output_name, width, height, fps=None,
                                 timeout_s=2.0, poll_interval_s=0.1):
         """Poll hyprctl until *output_name* appears with the expected resolution.
 
@@ -209,15 +253,23 @@ class DisplayController:
         deadline = time.monotonic() + timeout_s
         while time.monotonic() < deadline:
             try:
-                result = subprocess.run(
-                    ["hyprctl", "monitors", "all", "-j"],
-                    capture_output=True, text=True, timeout=2,
-                )
+                result = self._run_hyprctl("monitors", "all", "-j")
                 if result.returncode == 0:
                     for mon in json.loads(result.stdout):
                         if mon.get("name") == output_name:
-                            if (mon.get("width", 0) == width
-                                    and mon.get("height", 0) == height):
+                            mode_matches = (
+                                mon.get("width", 0) == width
+                                and mon.get("height", 0) == height
+                            )
+                            refresh = mon.get("refreshRate")
+                            refresh_matches = (
+                                fps is None
+                                or (
+                                    refresh is not None
+                                    and abs(float(refresh) - float(fps)) <= 0.75
+                                )
+                            )
+                            if mode_matches and refresh_matches:
                                 return True
             except Exception:
                 pass
