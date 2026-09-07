@@ -267,12 +267,17 @@ def run_gnome_headless(slot, width, height, fps, display_type="Extend"):
             display_config.GetCurrentState()
         ))
 
+        print("[gnome-direct] Using direct Mutter GNOME backend", flush=True)
+        print(f"[gnome-direct] Requested mode: {width}x{height}@{fps}", flush=True)
         screencast_obj = bus.get_object(
             "org.gnome.Mutter.ScreenCast",
             "/org/gnome/Mutter/ScreenCast",
         )
         screencast = dbus.Interface(screencast_obj, "org.gnome.Mutter.ScreenCast")
+        print("[gnome-direct] Mutter ScreenCast service reachable", flush=True)
+        print("[gnome-direct] Creating Mutter ScreenCast session", flush=True)
         session_path = screencast.CreateSession({})
+        print(f"[gnome-direct] Created ScreenCast session: {session_path}", flush=True)
         session_obj = bus.get_object("org.gnome.Mutter.ScreenCast", session_path)
         session = dbus.Interface(session_obj, "org.gnome.Mutter.ScreenCast.Session")
 
@@ -286,6 +291,7 @@ def run_gnome_headless(slot, width, height, fps, display_type="Extend"):
             mode_val["preferred-scale"] = dbus.Double(float(preferred_scale))
 
         modes = dbus.Array([dbus.Dictionary(mode_val, signature="sv")], signature="a{sv}")
+        print(f"[gnome-direct] Calling RecordVirtual with: size={width}x{height} refresh={fps} preferred_scale={preferred_scale}", flush=True)
         stream_path = session.RecordVirtual({
             "modes": modes,
             "cursor-mode": dbus.UInt32(1),
@@ -297,6 +303,7 @@ def run_gnome_headless(slot, width, height, fps, display_type="Extend"):
         def on_pipewire_stream_added(node_id):
             try:
                 node_id_holder[0] = int(node_id)
+                print(f"[gnome-direct] PipeWireStreamAdded: node_id={node_id}", flush=True)
             except Exception:
                 pass
 
@@ -334,6 +341,17 @@ def run_gnome_headless(slot, width, height, fps, display_type="Extend"):
             virtual_connectors = gnome_virtual_monitor.virtual_connectors_from_state(state)
             remaining = [c for c in virtual_connectors if c not in before]
             connector = remaining[0] if remaining else (virtual_connectors[0] if virtual_connectors else "Virtual-1")
+
+        actual_mode = f"{width}x{height}@{fps}Hz"
+        try:
+            info = gnome_virtual_monitor.monitor_info_from_state(state, connector)
+            if info:
+                actual_mode = f"{info['width']}x{info['height']}@{info['refresh_rate']:.0f}Hz"
+        except Exception:
+            pass
+        print(f"[gnome-direct] New virtual connector: {connector}", flush=True)
+        print(f"[gnome-direct] Actual Mutter mode: {actual_mode}", flush=True)
+        print(f"[gnome-direct] Starting Sunshine capture: node={node_id_holder[0]} connector={connector}", flush=True)
 
         roles = {slot: connector}
         primary = os.environ.get("MONITORIZE_GNOME_PRIMARY_OUTPUT", "")

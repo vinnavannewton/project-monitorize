@@ -174,8 +174,8 @@ class StreamingController(QObject):
 
         
         
-        if self.de in ("kde", "gnome") and os.path.isfile("/.flatpak-info"):
-            de_label = self.de.upper() if self.de == "kde" else "GNOME"
+        if self.de == "kde" and os.path.isfile("/.flatpak-info"):
+            de_label = "KDE"
             self._set_status(f"Creating portal virtual display on {de_label}…")
             if not self._start_instance(
                 1, "", self.width, self.height, portal_source_type="virtual"
@@ -184,11 +184,7 @@ class StreamingController(QObject):
                 self.startFailed.emit()
                 return
             self._set_primary_ready(True)
-            if self.de == "gnome":
-                self._set_status(
-                    f"Portal virtual display ({self.width}x{self.height}@{self.fps}Hz) — ready for Moonlight"
-                )
-            elif (self.width, self.height) != (1920, 1080):
+            if (self.width, self.height) != (1920, 1080):
                 self._set_status(
                     f"Portal virtual display created (1920x1080@60Hz). Custom resolution on {de_label} Flatpak requires newer compositor support."
                 )
@@ -360,8 +356,8 @@ class StreamingController(QObject):
             self.native_pen_touch if instance == 1 else self.third_native_pen_touch
         )
         audio = self.audio_enabled if instance == 1 else self.third_audio_enabled
-        if self.de in ("kde", "gnome") and os.path.isfile("/.flatpak-info"):
-            # Flatpak KDE & GNOME: always use portal capture (Mirror and Extend)
+        if (self.display_type == "Mirror" or self.de == "kde") and os.path.isfile("/.flatpak-info"):
+            # Flatpak KDE Extend & Flatpak Mirror: use portal capture
             capture = "portal"
         else:
             capture = "kwin" if self.de == "kde" else ""

@@ -83,19 +83,24 @@ class SunshineControllerTest(unittest.TestCase):
     @patch("monitorize.desktop.streaming_controller.is_sunshine_running", return_value=False)
     @patch("monitorize.desktop.streaming_controller.save_sunshine_config", return_value=(True, "saved"))
     @patch("monitorize.desktop.streaming_controller.sync_sunshine_stream_config", return_value=(True, "synced"))
-    def test_flatpak_gnome_extend_uses_portal_virtual(
+    def test_flatpak_kde_extend_uses_portal_virtual(
         self, sync, _save, _running, start, _stop, _flatpak
     ):
-        controller = self.controller("gnome")
-        controller.start("2560x1440", "60", "Extend")
+        controller = self.controller("kde")
+        controller.start("1920x1080", "60", "Extend")
         self.assertEqual(sync.call_args.kwargs["capture"], "portal")
         extra_env = start.call_args.kwargs.get("extra_environment", {})
         self.assertEqual(extra_env.get("SUNSHINE_PORTAL_SOURCE_TYPE"), "virtual")
-        self.assertEqual(extra_env.get("MONITORIZE_VIRTUAL_WIDTH"), "2560")
-        self.assertEqual(extra_env.get("MONITORIZE_VIRTUAL_HEIGHT"), "1440")
-        self.assertEqual(extra_env.get("MONITORIZE_VIRTUAL_FPS"), "60")
         self.assertIsNone(controller.streamer)
         self.assertTrue(controller.primary_ready)
+
+    @patch.object(StreamingController, "_start_display_process", return_value=Mock())
+    @patch("monitorize.desktop.streaming_controller.os.path.isfile", return_value=True)
+    @patch("monitorize.desktop.streaming_controller.stop_sunshine")
+    def test_flatpak_gnome_extend_uses_headless_process(self, _stop, _flatpak, launch):
+        controller = self.controller("gnome")
+        controller.start("2560x1440", "60", "Extend")
+        launch.assert_called_once_with("primary", 2560, 1440, 60, controller.generation)
 
     @patch("monitorize.desktop.streaming_controller.os.path.isfile", return_value=True)
     @patch("monitorize.desktop.streaming_controller.stop_sunshine")

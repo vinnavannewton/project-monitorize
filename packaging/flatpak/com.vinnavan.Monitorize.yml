@@ -24,6 +24,8 @@ finish-args:
   - --socket=x11
   - --socket=fallback-x11
   - --talk-name=org.freedesktop.Flatpak
+  - --talk-name=org.gnome.Mutter.ScreenCast
+  - --talk-name=org.gnome.Mutter.DisplayConfig
   - --system-talk-name=org.freedesktop.Avahi
 
 modules:
