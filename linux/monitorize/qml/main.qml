@@ -10,6 +10,10 @@ Rectangle {
     property bool settingsMinimizeToTray: false
     property bool settingsAutostartEnabled: false
     property string settingsError: ""
+    property bool stagnantCleanupSucceeded: false
+    property string stagnantCleanupMessage: ""
+    property bool restoreTokenClearSucceeded: false
+    property string restoreTokenClearMessage: ""
     readonly property bool showGlobalBack: stack.depth > 1 && !backend.isStreaming
 
     function loadAppSettings() {
@@ -39,6 +43,20 @@ Rectangle {
             autostartCheck.checked = settingsAutostartEnabled
             settingsLoading = false
         }
+    }
+
+    function removeStagnantVirtualDisplays() {
+        let result = backend.removeStagnantVirtualDisplays()
+        stagnantCleanupSucceeded = result["success"] === true
+        stagnantCleanupMessage = result["message"] || "No stagnant displays were found"
+        stagnantCleanupToast.open()
+    }
+
+    function clearRestoreTokens() {
+        let result = backend.clearRestoreTokens()
+        restoreTokenClearSucceeded = result["success"] === true
+        restoreTokenClearMessage = result["message"] || "No restore tokens were found"
+        restoreTokenClearToast.open()
     }
 
     Theme {
@@ -132,6 +150,66 @@ Rectangle {
             id: startFailedToastTimer
             interval: 2800
             onTriggered: startFailedToast.close()
+        }
+    }
+
+    Popup {
+        id: stagnantCleanupToast
+        parent: Overlay.overlay
+        x: (parent.width - width) / 2
+        y: parent.height - height - 28
+        z: 1000
+        width: 330
+        height: 48
+        modal: false
+        focus: false
+        padding: 12
+        closePolicy: Popup.NoAutoClose
+        background: Rectangle {
+            color: root.stagnantCleanupSucceeded ? "#15803d" : "#b91c1c"
+            radius: 8
+        }
+        contentItem: Text {
+            text: root.stagnantCleanupMessage
+            color: "white"
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+        }
+        onOpened: stagnantCleanupToastTimer.restart()
+        Timer {
+            id: stagnantCleanupToastTimer
+            interval: 2800
+            onTriggered: stagnantCleanupToast.close()
+        }
+    }
+
+    Popup {
+        id: restoreTokenClearToast
+        parent: Overlay.overlay
+        x: (parent.width - width) / 2
+        y: parent.height - height - 28
+        z: 1000
+        width: 380
+        height: 48
+        modal: false
+        focus: false
+        padding: 12
+        closePolicy: Popup.NoAutoClose
+        background: Rectangle {
+            color: root.restoreTokenClearSucceeded ? "#15803d" : "#b91c1c"
+            radius: 8
+        }
+        contentItem: Text {
+            text: root.restoreTokenClearMessage
+            color: "white"
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+        }
+        onOpened: restoreTokenClearToastTimer.restart()
+        Timer {
+            id: restoreTokenClearToastTimer
+            interval: 3200
+            onTriggered: restoreTokenClearToast.close()
         }
     }
 
@@ -344,6 +422,23 @@ Rectangle {
                 font.pixelSize: 11
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
+            }
+
+            CustomButton {
+                visible: backend.canConfigureDisplay
+                text: "Remove stagnant virtual displays"
+                primary: false
+                Layout.fillWidth: true
+                onClicked: root.removeStagnantVirtualDisplays()
+            }
+
+            CustomButton {
+                visible: backend.sunshineAvailable
+                enabled: !backend.isStreaming
+                text: "Clear restore tokens"
+                primary: false
+                Layout.fillWidth: true
+                onClicked: root.clearRestoreTokens()
             }
 
             RowLayout {

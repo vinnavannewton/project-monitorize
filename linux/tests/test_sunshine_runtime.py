@@ -36,6 +36,39 @@ class SunshineRuntimeTest(unittest.TestCase):
                 )
                 self.assertEqual(service.get_sunshine_assets_dir(str(binary)), str(assets))
 
+    def test_clear_restore_tokens_only_removes_monitorize_managed_tokens(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config_home = Path(tmp) / "config"
+            managed_dirs = [
+                config_home / "monitorize" / "sunshine-1",
+                config_home / "monitorize" / "sunshine-2",
+                config_home / "monitorize" / "sunshine-profile-1" / "sunshine",
+                config_home / "monitorize" / "sunshine-profile-2" / "sunshine",
+                config_home / "monitorize" / "sunshine",
+            ]
+            token_paths = []
+            for directory in managed_dirs:
+                directory.mkdir(parents=True, exist_ok=True)
+                for filename in service.PORTAL_RESTORE_TOKEN_FILES:
+                    path = directory / filename
+                    path.write_text("token")
+                    token_paths.append(path)
+            personal = config_home / "sunshine" / "portal_token"
+            personal.parent.mkdir(parents=True)
+            personal.write_text("personal-token")
+
+            with patch.dict(
+                os.environ,
+                {"XDG_CONFIG_HOME": str(config_home)},
+                clear=True,
+            ):
+                removed, errors = service.clear_sunshine_portal_restore_tokens()
+
+            self.assertEqual(removed, len(token_paths))
+            self.assertEqual(errors, [])
+            self.assertTrue(all(not path.exists() for path in token_paths))
+            self.assertEqual(personal.read_text(), "personal-token")
+
     def test_sync_persists_requested_capture_backend(self):
         with tempfile.TemporaryDirectory() as tmp:
             config_path = Path(tmp) / "sunshine.conf"

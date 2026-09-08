@@ -15,8 +15,10 @@ from monitorize.config.settings import (
     save_second_display_settings,
 )
 from monitorize.desktop.streaming_controller import StreamingController
+from monitorize.platform.display_controller import DisplayController
 from monitorize.platform.gpu_discovery import encoding_gpu_options
 from monitorize.platform.sunshine_service import (
+    clear_sunshine_portal_restore_tokens,
     find_sunshine_command,
     get_sunshine_config,
     open_sunshine_dashboard,
@@ -212,6 +214,42 @@ class MonitorizeBackend(QObject):
     @pyqtSlot(bool, result=str)
     def setAutostartEnabled(self, enabled):
         return autostart.set_enabled(enabled)
+
+    @pyqtSlot(result="QVariantMap")
+    def removeStagnantVirtualDisplays(self):
+        removed = DisplayController(self._detected_de).remove_stagnant_virtual_displays()
+        if removed:
+            return {
+                "success": True,
+                "message": "Successfully removed stagnant virtual displays",
+            }
+        return {
+            "success": False,
+            "message": "No stagnant displays were found",
+        }
+
+    @pyqtSlot(result="QVariantMap")
+    def clearRestoreTokens(self):
+        if self.isStreaming:
+            return {
+                "success": False,
+                "message": "Stop streaming before clearing restore tokens",
+            }
+        removed, errors = clear_sunshine_portal_restore_tokens()
+        if errors:
+            return {
+                "success": False,
+                "message": "Some restore tokens could not be cleared",
+            }
+        if removed:
+            return {
+                "success": True,
+                "message": "Restore tokens cleared — select the displays again",
+            }
+        return {
+            "success": False,
+            "message": "No restore tokens were found",
+        }
 
     @pyqtSlot(str, str, str, str, str, str, bool, bool)
     def startStreaming(

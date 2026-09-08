@@ -154,6 +154,8 @@ modules:
       - type: patch
         path: sunshine-flatpak-portal.patch
       - type: patch
+        path: sunshine-flatpak-session-reuse.patch
+      - type: patch
         path: ../sunshine-strict-selection.patch
 
   - name: monitorize

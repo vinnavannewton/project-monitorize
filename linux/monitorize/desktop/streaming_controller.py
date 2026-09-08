@@ -372,8 +372,10 @@ class StreamingController(QObject):
             self.native_pen_touch if instance == 1 else self.third_native_pen_touch
         )
         audio = self.audio_enabled if instance == 1 else self.third_audio_enabled
-        if (self.display_type == "Mirror" or self.de == "kde") and os.path.isfile("/.flatpak-info"):
-            # Flatpak KDE Extend & Flatpak Mirror: use portal capture
+        if os.path.isfile("/.flatpak-info") and (
+            self.display_type == "Mirror" or self.de in ("kde", "hyprland", "sway")
+        ):
+            # Flatpak cannot use KMS capture; Wayland compositor outputs use the portal.
             capture = "portal"
         elif self.de == "gnome" and pipewire_node is not None:
             capture = "pipewire_node"
@@ -396,6 +398,13 @@ class StreamingController(QObject):
             cuda_index = selected_gpu.get("cuda_index", "")
             if cuda_index:
                 sunshine_environment = {"CUDA_VISIBLE_DEVICES": str(cuda_index)}
+
+        if capture == "portal":
+            if sunshine_environment is None:
+                sunshine_environment = {}
+            sunshine_environment["SUNSHINE_PORTAL_TOKEN_SCOPE"] = (
+                "mirror" if self.display_type == "Mirror" else "extend"
+            )
         
         if portal_source_type:
             if sunshine_environment is None:

@@ -11,6 +11,21 @@ class SwaySupportTest(unittest.TestCase):
         with patch.dict(os.environ, {"SWAYSOCK": "/run/user/1000/sway-ipc.sock"}, clear=True):
             self.assertEqual(detect_desktop_environment(), "sway")
 
+    @patch("monitorize.platform.display_controller.os.path.isfile", return_value=True)
+    def test_flatpak_uses_host_swaymsg(self, _flatpak):
+        self.assertEqual(
+            DisplayController._swaymsg_command("-t", "get_outputs", "-r"),
+            [
+                "flatpak-spawn",
+                "--host",
+                "--directory=/",
+                "swaymsg",
+                "-t",
+                "get_outputs",
+                "-r",
+            ],
+        )
+
     @patch.object(DisplayController, "_wait_for_sway_output_ready", return_value=True)
     @patch.object(
         DisplayController,
@@ -48,9 +63,38 @@ class SwaySupportTest(unittest.TestCase):
         controller.additional_output = "HEADLESS-2"
         controller.remove_sway_output("additional")
         run.assert_called_once_with(
-            ["swaymsg", "output", "HEADLESS-2", "unplug"], capture_output=True
+            ["swaymsg", "output", "HEADLESS-2", "unplug"],
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         self.assertIsNone(controller.additional_output)
+
+    def test_removes_all_exact_stagnant_headless_outputs(self):
+        controller = DisplayController("sway")
+        controller.sway_outputs = Mock(return_value=[
+            {"name": "HEADLESS-1"},
+            {"name": "HEADLESS-old"},
+            {"name": "HEADLESS-22"},
+            {"name": "Monitorize-2"},
+            {"name": "Monitorize-old"},
+            {"name": "DP-1"},
+        ])
+        controller._run_swaymsg = Mock(
+            return_value=Mock(returncode=0, stdout='[{"success":true}]', stderr="")
+        )
+
+        removed = controller.remove_stagnant_virtual_displays()
+
+        self.assertEqual(removed, 3)
+        self.assertEqual(
+            [call.args for call in controller._run_swaymsg.call_args_list],
+            [
+                ("output", "HEADLESS-1", "unplug"),
+                ("output", "HEADLESS-22", "unplug"),
+                ("output", "Monitorize-2", "unplug"),
+            ],
+        )
 
 
 if __name__ == "__main__":

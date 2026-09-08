@@ -36,6 +36,12 @@ SUNSHINE_BASE_PORT = 47989
 SUNSHINE_HTTPS_PORT = 47990
 SUNSHINE_HTTP_PORT = 47989
 SUNSHINE_WEB_URL = f"https://localhost:{SUNSHINE_HTTPS_PORT}"
+PORTAL_RESTORE_TOKEN_FILES = (
+    "portal_token",
+    "portal_token_virtual",
+    "portal_token_mirror",
+    "portal_token_extend",
+)
 
 
 def get_sunshine_log_size(instance: int = 1) -> int:
@@ -92,6 +98,37 @@ def get_sunshine_config_dir(instance: int = 1) -> str:
 def get_sunshine_config_path(instance: int = 1) -> str:
     """Return the absolute path to the active isolated sunshine.conf file."""
     return os.path.join(get_sunshine_config_dir(instance), "sunshine.conf")
+
+
+def clear_sunshine_portal_restore_tokens() -> tuple[int, list[str]]:
+    """Delete restore tokens belonging to Monitorize-managed Sunshine profiles.
+
+    Both ScreenCast token variants are removed from the current isolated
+    instance directories as well as Monitorize's older profile locations.
+    Personal Sunshine configuration outside Monitorize is never touched.
+    """
+    config_home = os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config"))
+    monitorize_dir = os.path.join(config_home, "monitorize")
+    data_dirs = {
+        get_sunshine_config_dir(1),
+        get_sunshine_config_dir(2),
+        os.path.join(monitorize_dir, "sunshine-profile-1", "sunshine"),
+        os.path.join(monitorize_dir, "sunshine-profile-2", "sunshine"),
+        os.path.join(monitorize_dir, "sunshine"),
+    }
+    removed = 0
+    errors = []
+    for data_dir in sorted(data_dirs):
+        for filename in PORTAL_RESTORE_TOKEN_FILES:
+            path = os.path.join(data_dir, filename)
+            try:
+                os.unlink(path)
+                removed += 1
+            except FileNotFoundError:
+                continue
+            except OSError as exc:
+                errors.append(f"{path}: {exc}")
+    return removed, errors
 
 
 def is_sunshine_running(instance: int = 1, timeout: float = 0.5) -> bool:

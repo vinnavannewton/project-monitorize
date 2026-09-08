@@ -193,7 +193,7 @@ index 83f5afd..5881557 100644
    constexpr uint32_t CURSOR_MODE_EMBEDDED = 2;
  
    constexpr uint32_t PERSIST_FORGET = 0;
-@@ -27,6 +31,18 @@ namespace {
+@@ -27,6 +31,34 @@ namespace {
  
    constexpr const char REQUEST_PREFIX[] = "/org/freedesktop/portal/desktop/request/";
    constexpr const char SESSION_PREFIX[] = "/org/freedesktop/portal/desktop/session/";
@@ -209,10 +209,26 @@ index 83f5afd..5881557 100644
 +    }
 +    return SOURCE_TYPE_MONITOR;
 +  }
++
++  /**
++   * @brief Determine the isolated restore-token scope requested by Monitorize.
++   * @return "mirror" or "extend" when explicitly requested, otherwise an empty view.
++   */
++  static std::string_view get_portal_token_scope() {
++    const char *env = std::getenv("SUNSHINE_PORTAL_TOKEN_SCOPE");
++    if (!env) {
++      return {};
++    }
++    const std::string_view scope {env};
++    if (scope == "mirror" || scope == "extend") {
++      return scope;
++    }
++    return {};
++  }
  }  // namespace
  
  using namespace std::literals;
-@@ -58,6 +74,15 @@ namespace portal {
+@@ -58,6 +90,15 @@ namespace portal {
        *token_ = value;
      }
  
@@ -228,17 +244,21 @@ index 83f5afd..5881557 100644
      /**
       * @brief Return whether the persisted value is empty.
       *
-@@ -100,6 +125,9 @@ namespace portal {
+@@ -100,6 +141,13 @@ namespace portal {
      static inline const std::unique_ptr<std::string> token_ = std::make_unique<std::string>();
  
      static std::string get_file_path() {
++      const auto scope = get_portal_token_scope();
++      if (!scope.empty()) {
++        return platf::appdata().string() + "/portal_token_" + std::string(scope);
++      }
 +      if (get_portal_source_type() == SOURCE_TYPE_VIRTUAL) {
 +        return platf::appdata().string() + "/portal_token_virtual";
 +      }
        return platf::appdata().string() + "/portal_token";
      }
    };
-@@ -119,10 +147,12 @@ namespace portal {
+@@ -119,10 +167,12 @@ namespace portal {
    struct pipewire_streaminfo_t {
      uint32_t pipewire_node = PW_ID_ANY;  ///< PipeWire node ID selected by the portal.
      uint64_t pipewire_object_serial = SPA_ID_INVALID;  ///< PipeWire object serial selected by the portal.
@@ -251,7 +271,7 @@ index 83f5afd..5881557 100644
      std::string monitor_name;  ///< Monitor name.
  
      /**
-@@ -130,7 +160,7 @@ namespace portal {
+@@ -130,7 +180,7 @@ namespace portal {
       *
       * @return Value converted to display name.
       */
@@ -260,7 +280,7 @@ index 83f5afd..5881557 100644
        if (!monitor_name.empty()) {
          return monitor_name;
        }
-@@ -143,7 +173,7 @@ namespace portal {
+@@ -143,7 +193,7 @@ namespace portal {
       * @param display_name Display name.
       * @return True when the portal display id matches the requested display name.
       */
@@ -269,7 +289,7 @@ index 83f5afd..5881557 100644
        // Check the given non-empty display name matches the display name for this struct
        return !display_name.empty() && display_name == to_display_name();
      }
-@@ -231,6 +261,23 @@ namespace portal {
+@@ -231,6 +281,23 @@ namespace portal {
       * @return 0 when a portal session is ready; nonzero when D-Bus or portal setup fails.
       */
      int connect_to_portal() {
@@ -293,7 +313,7 @@ index 83f5afd..5881557 100644
        g_autoptr(GMainLoop) loop = g_main_loop_new(nullptr, FALSE);
        g_autofree gchar *session_path = nullptr;
        g_autofree gchar *session_token = nullptr;
-@@ -239,9 +286,15 @@ namespace portal {
+@@ -239,9 +306,15 @@ namespace portal {
        // Try combined RemoteDesktop + ScreenCast session first
        bool use_screencast_only = !try_remote_desktop_session(loop, &session_path, session_token);
  
@@ -312,7 +332,7 @@ index 83f5afd..5881557 100644
        }
  
        if (start_portal_session(loop, session_path, pipewire_streams, use_screencast_only) < 0) {
-@@ -271,12 +324,21 @@ namespace portal {
+@@ -271,12 +344,21 @@ namespace portal {
        }
  
        if (select_remote_desktop_devices(loop, *session_path) < 0) {
@@ -334,7 +354,7 @@ index 83f5afd..5881557 100644
        if (select_screencast_sources(loop, *session_path, false) < 0) {
          BOOST_LOG(warning) << "[portalgrab] ScreenCast.SelectSources failed with RemoteDesktop session, trying ScreenCast-only mode"sv;
          g_free(*session_path);
-@@ -342,13 +404,21 @@ namespace portal {
+@@ -342,13 +424,21 @@ namespace portal {
      }
  
      std::vector<pipewire_streaminfo_t> pipewire_streams;  ///< Pipewire streams.
@@ -357,7 +377,7 @@ index 83f5afd..5881557 100644
  
      int create_portal_session(GMainLoop *loop, gchar **session_path_out, const gchar *session_token, bool use_screencast) {
        GDBusProxy *proxy = use_screencast ? screencast_proxy : remote_desktop_proxy;
-@@ -478,9 +548,14 @@ namespace portal {
+@@ -478,9 +568,14 @@ namespace portal {
        g_variant_builder_add(&builder, "o", session_path);
        g_variant_builder_open(&builder, G_VARIANT_TYPE("a{sv}"));
        g_variant_builder_add(&builder, "{sv}", "handle_token", g_variant_new_string(request_token));
@@ -374,7 +394,7 @@ index 83f5afd..5881557 100644
        if (persist) {
          g_variant_builder_add(&builder, "{sv}", "persist_mode", g_variant_new_uint32(PERSIST_UNTIL_REVOKED));
          if (!restore_token_t::empty()) {
-@@ -584,41 +659,92 @@ namespace portal {
+@@ -584,41 +679,92 @@ namespace portal {
        g_autoptr(GVariant) value = nullptr;
        g_variant_iter_init(&iter, streams);
        while (g_variant_iter_next(&iter, "(u@a{sv})", &out_pipewire_node, &value)) {
@@ -489,7 +509,7 @@ index 83f5afd..5881557 100644
        }
  
        // The portal call returns the streams sorted by out_pipewire_node which can shuffle displays around, so
-@@ -644,6 +770,11 @@ namespace portal {
+@@ -644,6 +790,11 @@ namespace portal {
        int fd_handle;
        g_variant_get(reply, "(h)", &fd_handle);
        fd = g_unix_fd_list_get(fd_list, fd_handle, nullptr);
@@ -501,7 +521,7 @@ index 83f5afd..5881557 100644
        return 0;
      }
  
-@@ -702,12 +833,204 @@ namespace portal {
+@@ -702,12 +853,204 @@ namespace portal {
      }
    };
  
@@ -706,7 +726,7 @@ index 83f5afd..5881557 100644
        // Connect DBus portal session
        if (dbus.init() < 0) {
          BOOST_LOG(error) << "[portalgrab] Failed to connect to dbus. portal_t setup failed.";
-@@ -744,6 +1067,12 @@ namespace portal {
+@@ -744,6 +1087,12 @@ namespace portal {
  
        // Return values for pipewire init
        out_pipewire_fd = dbus.pipewire_fd;
@@ -719,7 +739,7 @@ index 83f5afd..5881557 100644
        out_pipewire_node = stream.pipewire_node;
        out_pipewire_object_serial = stream.pipewire_object_serial;
        // Set/update basic stream parameters on display_t
-@@ -765,7 +1094,7 @@ namespace portal {
+@@ -765,7 +1114,7 @@ namespace portal {
       */
      bool check_stream_dead(platf::capture_e &out_status) override {
        // If the pipewire stream stopped due to closed portal session stop the capture with an error
@@ -728,7 +748,7 @@ index 83f5afd..5881557 100644
          BOOST_LOG(warning) << "[portalgrab] PipeWire stream stopped by closed portal session."sv;
          pipewire.frame_cv().notify_all();
          out_status = platf::capture_e::error;
-@@ -825,6 +1154,15 @@ namespace platf {
+@@ -825,6 +1174,15 @@ namespace platf {
     * @return Portal display names, or an empty list when portal discovery fails.
     */
    std::vector<std::string> portal_display_names() {
