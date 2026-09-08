@@ -10,7 +10,7 @@ class GpuDiscoveryTest(unittest.TestCase):
         gpu.discover_vaapi_h264_gpus.cache_clear()
         gpu.discover_nvidia_h264_gpus.cache_clear()
 
-    def test_vaapi_lists_only_h264_high_encode_devices(self):
+    def test_vaapi_lists_only_h264_encode_devices(self):
         with (
             patch.object(gpu, "_render_nodes_by_pci", return_value={
                 "0000:03:00.0": "/dev/dri/renderD129",
@@ -27,6 +27,26 @@ class GpuDiscoveryTest(unittest.TestCase):
 
         self.assertEqual([device["id"] for device in devices], ["0000:03:00.0"])
         self.assertEqual(devices[0]["render_node"], "/dev/dri/renderD129")
+
+    def test_vaapi_accepts_low_power_and_non_high_h264_profiles(self):
+        with (
+            patch.object(gpu, "_render_nodes_by_pci", return_value={
+                "0000:00:02.0": "/dev/dri/renderD128",
+                "0000:04:00.0": "/dev/dri/renderD129",
+            }),
+            patch.object(gpu, "_run", side_effect=[
+                "Driver version: Intel iHD\n"
+                "VAProfileH264Main : VAEntrypointEncSliceLP",
+                "Driver version: Mesa Gallium driver\n"
+                "VAProfileH264ConstrainedBaseline : VAEntrypointEncPicture",
+            ]),
+        ):
+            devices = gpu.discover_vaapi_h264_gpus()
+
+        self.assertEqual(
+            [device["id"] for device in devices],
+            ["0000:00:02.0", "0000:04:00.0"],
+        )
 
     def test_nvidia_filters_devices_without_an_encoder_engine(self):
         with (

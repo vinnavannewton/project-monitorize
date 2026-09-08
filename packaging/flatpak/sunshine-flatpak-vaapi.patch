@@ -1,0 +1,37 @@
+diff --git a/src/platform/linux/pipewire.cpp b/src/platform/linux/pipewire.cpp
+index 3d0db2a..063c766 100644
+--- a/src/platform/linux/pipewire.cpp
++++ b/src/platform/linux/pipewire.cpp
+@@ -48,6 +48,15 @@ namespace {
+   constexpr int MAX_PARAMS = 200;
+   constexpr int MAX_DMABUF_FORMATS = 200;
+   constexpr int MAX_DMABUF_MODIFIERS = 200;
++
++  // A portal DMA-BUF belongs to the GPU used by the compositor.  Importing it
++  // into a VA-API EGL context on another GPU is not portable, and some portal
++  // implementations omit modifier information required by the encoder GPU.
++  // Both cases fail with EGL_BAD_MATCH.  Flatpak portal capture therefore uses
++  // mapped PipeWire memory for VA-API and uploads the frame to the selected VA
++  // device.  Encoding remains hardware accelerated, while Intel/AMD and hybrid
++  // systems no longer depend on cross-device DMA-BUF interoperability.
++  constexpr bool FLATPAK_VAAPI_USE_DMABUF = false;
+ }  // namespace
+ 
+ using namespace std::literals;
+@@ -324,6 +333,6 @@ namespace pipewire {
+         // so the selected encoder receives an actual data pointer.
+         const bool use_dmabuf = n_dmabuf_infos > 0 &&
+-                                (mem_type == platf::mem_type_e::vaapi ||
++                                ((mem_type == platf::mem_type_e::vaapi && FLATPAK_VAAPI_USE_DMABUF) ||
+                                  mem_type == platf::mem_type_e::vulkan
+ #ifdef SUNSHINE_BUILD_CUDA
+                                  || (mem_type == platf::mem_type_e::cuda && display_is_nvidia)
+@@ -1045,7 +1054,7 @@ namespace pipewire {
+     std::unique_ptr<platf::avcodec_encode_device_t> make_avcodec_encode_device(platf::pix_fmt_e pix_fmt) override {
+ #ifdef SUNSHINE_BUILD_VAAPI
+       if (mem_type == platf::mem_type_e::vaapi) {
+-        return va::make_avcodec_encode_device(width, height, n_dmabuf_infos > 0);
++        return va::make_avcodec_encode_device(width, height, FLATPAK_VAAPI_USE_DMABUF && n_dmabuf_infos > 0);
+       }
+ #endif
+ 

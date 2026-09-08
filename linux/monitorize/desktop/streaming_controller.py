@@ -399,16 +399,16 @@ class StreamingController(QObject):
             if cuda_index:
                 sunshine_environment = {"CUDA_VISIBLE_DEVICES": str(cuda_index)}
 
-        if capture == "portal":
-            if sunshine_environment is None:
-                sunshine_environment = {}
-            sunshine_environment["SUNSHINE_PORTAL_TOKEN_SCOPE"] = (
-                "mirror" if self.display_type == "Mirror" else "extend"
-            )
-        
+        if sunshine_environment is None:
+            sunshine_environment = {}
+        # Always scope a possible portal fallback. Native capture normally
+        # selects the compositor output directly, but packaged Sunshine builds
+        # can still fall back to the portal on systems without direct capture.
+        sunshine_environment["SUNSHINE_PORTAL_TOKEN_SCOPE"] = (
+            "mirror" if self.display_type == "Mirror" else "extend"
+        )
+
         if portal_source_type:
-            if sunshine_environment is None:
-                sunshine_environment = {}
             sunshine_environment["SUNSHINE_PORTAL_SOURCE_TYPE"] = portal_source_type
             if portal_source_type == "virtual":
                 if width and height:

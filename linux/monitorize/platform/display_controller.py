@@ -20,16 +20,20 @@ class DisplayController:
         self._hyprland_diagnostics_logged = False
 
     @staticmethod
+    def _host_command(*args):
+        command = list(map(str, args))
+        if os.path.isfile("/.flatpak-info"):
+            return ["flatpak-spawn", "--host", "--directory=/", *command]
+        return command
+
+    @staticmethod
     def _hyprctl_command(*args, instance=None):
         command = ["hyprctl", *map(str, args)]
         if instance is not None:
             command[1:1] = ["-i", str(instance)]
-        if os.path.isfile("/.flatpak-info"):
-            # The packaged helper runs from /app, which does not exist on the
-            # host.  flatpak-spawn otherwise forwards that cwd and the portal
-            # rejects the command before hyprctl can start.
-            return ["flatpak-spawn", "--host", "--directory=/", *command]
-        return command
+        # The packaged helper runs from /app, which does not exist on the
+        # host. flatpak-spawn must therefore use a host-visible directory.
+        return DisplayController._host_command(*command)
 
     def _run_hyprctl(self, *args, instance=None):
         """Run the host-matching hyprctl when Monitorize is sandboxed."""
@@ -296,12 +300,59 @@ class DisplayController:
         else:
             self.created_output = None
 
+    def launch_host_display_settings(self):
+        """Launch host nwg-displays from a Flatpak compositor session.
+
+        The compositor performs the final launch so the GUI inherits the real
+        host Wayland, IPC, PATH, and XDG configuration environment.
+
+        Returns an empty string on success, otherwise a user-facing error.
+        """
+        if not os.path.isfile("/.flatpak-info"):
+            return "Host display-settings launch is only needed inside Flatpak"
+        try:
+            probe = subprocess.run(
+                self._host_command("nwg-displays", "--version"),
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return "nwg-displays is not installed on the host"
+        if probe.returncode != 0:
+            return "nwg-displays is not installed on the host"
+
+        try:
+            if self.de == "hyprland":
+                ipc_error = self._verify_hyprland_ipc()
+                if ipc_error:
+                    return ipc_error
+                # Hyprland 0.56+ accepts a Lua dispatcher expression. Older
+                # releases used the legacy ``dispatch exec <command>`` form.
+                result = self._run_hyprctl(
+                    "dispatch", 'hl.dsp.exec_cmd("nwg-displays")'
+                )
+                if result.returncode != 0:
+                    result = self._run_hyprctl(
+                        "dispatch", "exec", "nwg-displays"
+                    )
+            elif self.de == "sway":
+                result = self._run_swaymsg("exec", "nwg-displays")
+            else:
+                return "Display settings are only available on Hyprland and Sway"
+        except (OSError, subprocess.SubprocessError) as exc:
+            return f"Failed to launch nwg-displays: {exc}"
+        if result.returncode != 0:
+            detail = str(result.stderr or result.stdout or "").strip()
+            return (
+                f"Failed to launch nwg-displays: {detail}"
+                if detail else "Failed to launch nwg-displays"
+            )
+        return ""
+
     @staticmethod
     def _swaymsg_command(*args):
-        command = ["swaymsg", *map(str, args)]
-        if os.path.isfile("/.flatpak-info"):
-            return ["flatpak-spawn", "--host", "--directory=/", *command]
-        return command
+        return DisplayController._host_command("swaymsg", *args)
 
     def _run_swaymsg(self, *args, timeout=5):
         """Run the host Sway IPC client when Monitorize is sandboxed."""

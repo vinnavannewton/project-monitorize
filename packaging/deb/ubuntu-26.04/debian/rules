@@ -12,6 +12,7 @@ export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 override_dh_auto_build:
 	dh_auto_build
 	patch --batch --forward -d external/sunshine -p1 < packaging/sunshine-strict-selection.patch
+	patch --batch --forward -d external/sunshine -p1 < packaging/sunshine-portal-token-scope.patch
 	CC=/usr/bin/gcc-14 \
 	RPM_OPT_FLAGS="$$(dpkg-buildflags --get CFLAGS)" \
 	RPM_LD_FLAGS="$$(dpkg-buildflags --get LDFLAGS)" \

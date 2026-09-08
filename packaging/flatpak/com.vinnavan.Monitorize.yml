@@ -49,7 +49,10 @@ modules:
   # Sunshine's upstream build-only CUDA toolkit module enables NVENC. The host
   # NVIDIA driver remains supplied by Flatpak's matching GL runtime extension.
   # - ../../external/sunshine/packaging/linux/flatpak/modules/cuda.json
-  - ../../external/sunshine/packaging/linux/flatpak/modules/ffmpeg.json
+  # Keep this local override in sync with LizardByte's current build-deps
+  # release. The older FFmpeg 8.1 bundle aborts while tearing down some
+  # VA-API HEVC sessions; FFmpeg 9 handles sustained HEVC on the same GPU.
+  - modules/ffmpeg.json
 
   # QtNetwork in the PyQt6 wheel requires MIT Kerberos at load time.
   - name: krb5
@@ -153,6 +156,11 @@ modules:
         commit: e3ce79f3b966df388e905a3c6b3784832a328e34
       - type: patch
         path: sunshine-flatpak-portal.patch
+      # Portal DMA-BUFs are not reliably importable by a different Intel/AMD
+      # encode GPU. Keep VA-API hardware encoding but bridge capture via mapped
+      # PipeWire memory for cross-vendor and hybrid-GPU reliability.
+      - type: patch
+        path: sunshine-flatpak-vaapi.patch
       - type: patch
         path: sunshine-flatpak-session-reuse.patch
       - type: patch

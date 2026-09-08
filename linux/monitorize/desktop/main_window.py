@@ -25,6 +25,7 @@ from PyQt6.QtWidgets import (
 
 from monitorize.config import app_log
 from monitorize.desktop.backend import MonitorizeBackend
+from monitorize.platform.display_controller import DisplayController
 from monitorize.platform.process_utils import kill_patterns
 from monitorize.platform.utils import ASSETS_DIR, LINUX_DIR, QML_DIR, detect_desktop_environment
 
@@ -125,6 +126,16 @@ class MonitorizeWindow(QMainWindow):
         return False
 
     def _configure_display(self):
+        if os.path.isfile("/.flatpak-info"):
+            error = DisplayController(self.de).launch_host_display_settings()
+            if error:
+                title = (
+                    "nwg-displays Not Installed"
+                    if "not installed" in error.lower()
+                    else "Error"
+                )
+                QMessageBox.warning(self, title, error)
+            return
         if shutil.which("nwg-displays") is None:
             QMessageBox.warning(
                 self, "nwg-displays Not Installed", "nwg-displays is not installed."

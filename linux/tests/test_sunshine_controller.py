@@ -44,6 +44,7 @@ class SunshineControllerTest(unittest.TestCase):
             offset_y=0,
             width=1920,
             height=1080,
+            extra_environment={"SUNSHINE_PORTAL_TOKEN_SCOPE": "mirror"},
         )
 
     @patch("monitorize.desktop.streaming_controller.os.path.isfile", return_value=True)
@@ -181,6 +182,7 @@ class SunshineControllerTest(unittest.TestCase):
             offset_y=120,
             width=1280,
             height=800,
+            extra_environment={"SUNSHINE_PORTAL_TOKEN_SCOPE": "extend"},
         )
         self.assertEqual(controller.gnome_outputs["primary"], "Meta-0")
         self.assertTrue(controller.primary_ready)
@@ -291,6 +293,7 @@ class SunshineControllerTest(unittest.TestCase):
             offset_y=0,
             width=1920,
             height=1200,
+            extra_environment={"SUNSHINE_PORTAL_TOKEN_SCOPE": "extend"},
         )
         _sync.assert_called_once_with(
             "Virtual-Monitorize-1", "Auto", "Auto", True, instance=1,
@@ -346,7 +349,10 @@ class SunshineControllerTest(unittest.TestCase):
         self.assertEqual(sync.call_args.kwargs["adapter_name"], "/dev/dri/renderD129")
         self.assertEqual(
             start.call_args.kwargs["extra_environment"],
-            {"CUDA_VISIBLE_DEVICES": "1"},
+            {
+                "CUDA_VISIBLE_DEVICES": "1",
+                "SUNSHINE_PORTAL_TOKEN_SCOPE": "mirror",
+            },
         )
 
     @patch("monitorize.desktop.streaming_controller.start_sunshine")

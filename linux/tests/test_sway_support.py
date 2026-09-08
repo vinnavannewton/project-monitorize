@@ -7,6 +7,21 @@ from monitorize.platform.utils import detect_desktop_environment
 
 
 class SwaySupportTest(unittest.TestCase):
+    @patch("monitorize.platform.display_controller.os.path.isfile", return_value=True)
+    def test_flatpak_launches_host_nwg_displays_through_sway(self, _flatpak):
+        controller = DisplayController("sway")
+        controller._run_swaymsg = Mock(
+            return_value=Mock(returncode=0, stdout='[{"success":true}]', stderr="")
+        )
+        with patch(
+            "monitorize.platform.display_controller.subprocess.run",
+            return_value=Mock(returncode=0, stdout="nwg-displays 0.4.4", stderr=""),
+        ):
+            error = controller.launch_host_display_settings()
+
+        self.assertEqual(error, "")
+        controller._run_swaymsg.assert_called_once_with("exec", "nwg-displays")
+
     def test_detects_sway_from_its_session_socket(self):
         with patch.dict(os.environ, {"SWAYSOCK": "/run/user/1000/sway-ipc.sock"}, clear=True):
             self.assertEqual(detect_desktop_environment(), "sway")

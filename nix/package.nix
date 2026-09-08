@@ -60,6 +60,7 @@ let
     ui = sunshineUi;
     patches = (previousAttrs.patches or []) ++ [
       ../packaging/sunshine-strict-selection.patch
+      ../packaging/sunshine-portal-token-scope.patch
     ];
     cmakeFlags = builtins.filter
       (flag: !(lib.hasPrefix "-DFFMPEG_PREPARED_BINARIES=" flag))

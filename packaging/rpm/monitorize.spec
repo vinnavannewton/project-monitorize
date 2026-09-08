@@ -94,6 +94,7 @@ Sunshine instances.
 %prep
 %autosetup
 patch --batch --forward -d external/sunshine -p1 < packaging/sunshine-strict-selection.patch
+patch --batch --forward -d external/sunshine -p1 < packaging/sunshine-portal-token-scope.patch
 mkdir .ffmpeg-prepared
 tar -xzf %{SOURCE1} -C .ffmpeg-prepared --strip-components=1 --no-same-owner
 # Fedora 44 ships a newer compatible Boost. Sunshine requests 1.89 EXACT and

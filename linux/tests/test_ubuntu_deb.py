@@ -55,6 +55,7 @@ def test_ubuntu_deb_runtime_is_private_and_sets_sunshine_overrides() -> None:
     assert "/usr/share/monitorize/sunshine/assets" in rules
     assert "MONITORIZE_SUNSHINE_BIN=/usr/libexec/monitorize/sunshine" in wrapper
     assert "MONITORIZE_SUNSHINE_ASSETS_DIR=/usr/share/monitorize/sunshine/assets" in wrapper
+    assert "sunshine-portal-token-scope.patch" in rules
     assert "python3-pyqt6.qtquick" in control
     assert "         pkexec," in control
     assert "policykit-1" not in control

@@ -36,6 +36,7 @@ SUNSHINE_BUILD_STAMP="${SUNSHINE_BUILD_DIR}/.monitorize-built-fingerprint"
 SUNSHINE_VENV_BIN="${VENV_DIR}/bin/sunshine"
 SUNSHINE_VENV_ASSETS="${VENV_DIR}/share/monitorize/sunshine/assets"
 SUNSHINE_STRICT_SELECTION_PATCH="${REPOSITORY_DIR}/packaging/sunshine-strict-selection.patch"
+SUNSHINE_PORTAL_TOKEN_PATCH="${REPOSITORY_DIR}/packaging/sunshine-portal-token-scope.patch"
 
 # XDG standard locations
 DESKTOP_DIR="${HOME}/.local/share/applications"
@@ -182,12 +183,13 @@ configure_sunshine_build_tools() {
 }
 
 configure_sunshine_build_fingerprint() {
-    local commit patch_checksum vulkan
+    local commit patch_checksum portal_patch_checksum vulkan
     commit="$(git -C "${SUNSHINE_SUBMODULE_DIR}" rev-parse HEAD)"
     patch_checksum="$(cksum "${SUNSHINE_STRICT_SELECTION_PATCH}" | awk '{print $1 ":" $2}')"
+    portal_patch_checksum="$(cksum "${SUNSHINE_PORTAL_TOKEN_PATCH}" | awk '{print $1 ":" $2}')"
     vulkan="on"
     [[ " ${CMAKE_EXTRA_FLAGS[*]} " == *" -DSUNSHINE_ENABLE_VULKAN=OFF "* ]] && vulkan="off"
-    SUNSHINE_BUILD_FINGERPRINT="commit=${commit}|type=Release|tray=off|tests=off|docs=off|cuda=auto|vulkan=${vulkan}|generator=${SUNSHINE_BUILD_GENERATOR}|ccache=${SUNSHINE_CCACHE}|cc=${SUNSHINE_CC}|cxx=${SUNSHINE_CXX}|strict-patch=${patch_checksum}"
+    SUNSHINE_BUILD_FINGERPRINT="commit=${commit}|type=Release|tray=off|tests=off|docs=off|cuda=auto|vulkan=${vulkan}|generator=${SUNSHINE_BUILD_GENERATOR}|ccache=${SUNSHINE_CCACHE}|cc=${SUNSHINE_CC}|cxx=${SUNSHINE_CXX}|strict-patch=${patch_checksum}|portal-token-patch=${portal_patch_checksum}"
 }
 
 sunshine_build_is_current() {
@@ -376,6 +378,13 @@ if [[ "${INSTALL_MODE}" == "complete" ]]; then
         echo "Applying Monitorize strict Sunshine encoder and codec selection patch…"
         if ! patch --batch --forward -d "${SUNSHINE_SUBMODULE_DIR}" -p1 < "${SUNSHINE_STRICT_SELECTION_PATCH}"; then
             echo "Error: Could not apply the Monitorize Sunshine strict-selection patch." >&2
+            exit 1
+        fi
+    fi
+    if ! grep -q "SUNSHINE_PORTAL_TOKEN_SCOPE" "${SUNSHINE_SUBMODULE_DIR}/src/platform/linux/portalgrab.cpp"; then
+        echo "Applying Monitorize portal restore-token scope patch…"
+        if ! patch --batch --forward -d "${SUNSHINE_SUBMODULE_DIR}" -p1 < "${SUNSHINE_PORTAL_TOKEN_PATCH}"; then
+            echo "Error: Could not apply the Monitorize portal restore-token scope patch." >&2
             exit 1
         fi
     fi

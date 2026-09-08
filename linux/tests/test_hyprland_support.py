@@ -10,6 +10,78 @@ class HyprlandSupportTest(unittest.TestCase):
         "monitorize.platform.display_controller.os.path.isfile",
         return_value=True,
     )
+    @patch("monitorize.platform.display_controller.subprocess.run")
+    def test_flatpak_launches_host_nwg_displays_through_hyprland(
+        self, run, _flatpak
+    ):
+        run.return_value = Mock(
+            returncode=0, stdout="nwg-displays version 0.4.4", stderr=""
+        )
+        controller = DisplayController("hyprland")
+        controller._verify_hyprland_ipc = Mock(return_value="")
+        controller._run_hyprctl = Mock(
+            return_value=Mock(returncode=0, stdout="ok", stderr="")
+        )
+
+        error = controller.launch_host_display_settings()
+
+        self.assertEqual(error, "")
+        run.assert_called_once_with(
+            [
+                "flatpak-spawn", "--host", "--directory=/",
+                "nwg-displays", "--version",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        controller._run_hyprctl.assert_called_once_with(
+            "dispatch", 'hl.dsp.exec_cmd("nwg-displays")'
+        )
+
+    @patch(
+        "monitorize.platform.display_controller.os.path.isfile",
+        return_value=True,
+    )
+    @patch("monitorize.platform.display_controller.subprocess.run")
+    def test_nwg_displays_launch_falls_back_for_legacy_hyprland(
+        self, run, _flatpak
+    ):
+        run.return_value = Mock(returncode=0, stdout="nwg-displays 0.4.4", stderr="")
+        controller = DisplayController("hyprland")
+        controller._verify_hyprland_ipc = Mock(return_value="")
+        controller._run_hyprctl = Mock(side_effect=[
+            Mock(returncode=1, stdout="", stderr="unknown Lua dispatcher"),
+            Mock(returncode=0, stdout="ok", stderr=""),
+        ])
+
+        error = controller.launch_host_display_settings()
+
+        self.assertEqual(error, "")
+        self.assertEqual(
+            [call.args for call in controller._run_hyprctl.call_args_list],
+            [
+                ("dispatch", 'hl.dsp.exec_cmd("nwg-displays")'),
+                ("dispatch", "exec", "nwg-displays"),
+            ],
+        )
+
+    @patch(
+        "monitorize.platform.display_controller.os.path.isfile",
+        return_value=True,
+    )
+    @patch("monitorize.platform.display_controller.subprocess.run")
+    def test_flatpak_reports_missing_host_nwg_displays(self, run, _flatpak):
+        run.return_value = Mock(returncode=1, stdout="", stderr="not found")
+
+        error = DisplayController("hyprland").launch_host_display_settings()
+
+        self.assertEqual(error, "nwg-displays is not installed on the host")
+
+    @patch(
+        "monitorize.platform.display_controller.os.path.isfile",
+        return_value=True,
+    )
     def test_flatpak_uses_host_hyprctl(self, _flatpak):
         self.assertEqual(
             DisplayController._hyprctl_command("-j", "monitors", "all"),

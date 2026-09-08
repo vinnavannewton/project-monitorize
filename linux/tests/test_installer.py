@@ -7,6 +7,33 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class SunshineOnlyPackagingTest(unittest.TestCase):
+    def test_flatpak_uses_ffmpeg_9_build_deps_bundle(self):
+        manifest = (ROOT / "packaging/flatpak/com.vinnavan.Monitorize.yml").read_text()
+        ffmpeg_module = (ROOT / "packaging/flatpak/modules/ffmpeg.json").read_text()
+        self.assertIn("modules/ffmpeg.json", manifest)
+        self.assertNotIn(
+            "external/sunshine/packaging/linux/flatpak/modules/ffmpeg.json",
+            manifest,
+        )
+        self.assertIn("v2026.905.170812", ffmpeg_module)
+        self.assertIn(
+            "880f0b9983ea9b55a6cceb2e5afa6388e256751f3cac2baf4ef0cf6eedc57aea",
+            ffmpeg_module,
+        )
+        self.assertIn(
+            "096069f2737a93ff44ba6445b700213708ab1fec01fd015e528a47845b5fde46",
+            ffmpeg_module,
+        )
+
+    def test_forced_codec_participates_in_moonlight_negotiation(self):
+        patch_text = (ROOT / "packaging/sunshine-strict-selection.patch").read_text()
+        self.assertIn("force_non_h264 ? 0 : SCM_H264", patch_text)
+        self.assertIn(
+            "!force_non_h264 && video::last_encoder_probe_supported_yuv444_for_codec[0]",
+            patch_text,
+        )
+        self.assertIn("MONITORIZE_STRICT_CODEC_REJECTED", patch_text)
+
     def test_installer_builds_only_project_local_sunshine_backend(self):
         script = (ROOT / "linux/scripts/install.sh").read_text()
         requirements = (ROOT / "linux/requirements.txt").read_text()
@@ -24,6 +51,8 @@ class SunshineOnlyPackagingTest(unittest.TestCase):
         self.assertIn("-G Ninja", script)
         self.assertIn("check_sunshine_node_modules_permissions", script)
         self.assertIn("Sunshine's generated npm cache is not writable", script)
+        self.assertIn("sunshine-portal-token-scope.patch", script)
+        self.assertIn("SUNSHINE_PORTAL_TOKEN_SCOPE", script)
         self.assertIn("Then rerun this installer without sudo.", script)
         self.assertIn("multi-GPU VA-API selection will be unavailable", script)
         self.assertIn("Jinja2", requirements)
@@ -37,6 +66,7 @@ class SunshineOnlyPackagingTest(unittest.TestCase):
     def test_nix_closure_has_no_monitorize_gstreamer_or_adb_runtime(self):
         package = (ROOT / "nix/package.nix").read_text()
         self.assertIn("monitorizeSunshine", package)
+        self.assertIn("sunshine-portal-token-scope.patch", package)
         self.assertNotIn("gst_all_1", package)
         self.assertNotIn("android-tools", package)
         self.assertNotIn("monitorize-rtp-sender", package)
@@ -113,6 +143,7 @@ class SunshineOnlyPackagingTest(unittest.TestCase):
         self.assertIn("%dir %{_datadir}/monitorize/sunshine", spec)
         self.assertIn("MONITORIZE_SUNSHINE_BIN", spec)
         self.assertIn("MONITORIZE_SUNSHINE_ASSETS_DIR", spec)
+        self.assertIn("sunshine-portal-token-scope.patch", spec)
         self.assertIn("sunshine_ffmpeg_sha256", spec)
         self.assertIn("BuildRequires:  boost-devel >= 1.89.0", spec)
         self.assertIn("BuildRequires:  firewalld-filesystem", spec)
