@@ -14,6 +14,7 @@ Rectangle {
     property string stagnantCleanupMessage: ""
     property bool restoreTokenClearSucceeded: false
     property string restoreTokenClearMessage: ""
+    property string startFailureMessage: "Failed to start stream"
     readonly property bool showGlobalBack: stack.depth > 1 && !backend.isStreaming
 
     function loadAppSettings() {
@@ -87,7 +88,14 @@ Rectangle {
                 stack.replace(stack.lastStreamingSetupPage, StackView.PopTransition)
             }
         }
-        function onStreamingStartFailed() { startFailedToast.open() }
+        function onStreamingStartFailed() {
+            root.startFailureMessage = "Failed to start stream"
+            startFailedToast.open()
+        }
+        function onStreamingCodecMismatch(message) {
+            root.startFailureMessage = message
+            startFailedToast.open()
+        }
     }
 
     Component.onCompleted: {
@@ -129,7 +137,7 @@ Rectangle {
         parent: Overlay.overlay
         x: (parent.width - width) / 2
         y: parent.height - height - 28
-        width: 220
+        width: 340
         height: 48
         modal: false
         focus: false
@@ -140,7 +148,7 @@ Rectangle {
             radius: 8
         }
         contentItem: Text {
-            text: "Failed to start stream"
+            text: root.startFailureMessage
             color: "white"
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter

@@ -48,7 +48,7 @@ modules:
   - ../../external/sunshine/packaging/linux/flatpak/modules/numactl.json
   # Sunshine's upstream build-only CUDA toolkit module enables NVENC. The host
   # NVIDIA driver remains supplied by Flatpak's matching GL runtime extension.
-  # - ../../external/sunshine/packaging/linux/flatpak/modules/cuda.json
+  - ../../external/sunshine/packaging/linux/flatpak/modules/cuda.json
   # Keep this local override in sync with LizardByte's current build-deps
   # release. The older FFmpeg 8.1 bundle aborts while tearing down some
   # VA-API HEVC sessions; FFmpeg 9 handles sustained HEVC on the same GPU.
@@ -133,12 +133,12 @@ modules:
       - -DBUILD_TESTS=OFF
       - -DBUILD_WERROR=ON
       - -DCMAKE_BUILD_TYPE=Release
-      # - -DCMAKE_CUDA_COMPILER=/app/cuda/bin/nvcc
+      - -DCMAKE_CUDA_COMPILER=/app/cuda/bin/nvcc
       - -DFFMPEG_PREPARED_BINARIES=/app/ffmpeg
       - -DGLAD_SKIP_PIP_INSTALL=ON
       - -DSUNSHINE_ASSETS_DIR=share/sunshine
       - -DSUNSHINE_BUILD_FLATPAK=ON
-      - -DSUNSHINE_ENABLE_CUDA=OFF
+      - -DSUNSHINE_ENABLE_CUDA=ON
       - -DSUNSHINE_ENABLE_DRM=ON
       - -DSUNSHINE_ENABLE_KWIN=ON
       - -DSUNSHINE_ENABLE_PORTAL=ON
@@ -161,6 +161,10 @@ modules:
       # PipeWire memory for cross-vendor and hybrid-GPU reliability.
       - type: patch
         path: sunshine-flatpak-vaapi.patch
+      # FFmpeg 9 renumbered NVENC's P1-P7 preset values. Sunshine's older
+      # legacy mapping otherwise passes 12-18, outside FFmpeg 9's 0-9 range.
+      - type: patch
+        path: sunshine-flatpak-ffmpeg9-nvenc-preset.patch
       - type: patch
         path: sunshine-flatpak-session-reuse.patch
       - type: patch

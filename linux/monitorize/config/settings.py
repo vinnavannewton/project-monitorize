@@ -109,6 +109,7 @@ DISPLAY_DEFAULTS = {
     "sunshine_encoder": "Auto",
     "sunshine_gpu": "",
     "sunshine_codec": "Auto",
+    "streaming_customized": False,
     "sunshine_native_pen_touch": True,
     "enable_audio": False,
 }
@@ -133,6 +134,7 @@ def _normalize_display_settings(data, fallback=DEFAULT_PRIMARY_RESOLUTION):
     data["sunshine_encoder"] = str(data.get("sunshine_encoder") or "Auto")
     data["sunshine_gpu"] = _normalize_gpu_id(data.get("sunshine_gpu"))
     data["sunshine_codec"] = str(data.get("sunshine_codec") or "Auto")
+    data["streaming_customized"] = bool(data.get("streaming_customized", False))
     data["sunshine_native_pen_touch"] = bool(
         data.get("sunshine_native_pen_touch", True)
     )
@@ -151,6 +153,7 @@ def save_display_settings(
     sunshine_encoder="Auto",
     sunshine_gpu="",
     sunshine_codec="Auto",
+    streaming_customized=False,
     sunshine_native_pen_touch=True,
     enable_audio=False,
 ):
@@ -174,7 +177,7 @@ def load_display_settings() -> dict:
         _load_group(
             group,
             DISPLAY_DEFAULTS,
-            ("sunshine_native_pen_touch", "enable_audio"),
+            ("streaming_customized", "sunshine_native_pen_touch", "enable_audio"),
         )
     )
 

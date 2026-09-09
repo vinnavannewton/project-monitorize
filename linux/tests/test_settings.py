@@ -30,6 +30,7 @@ class SettingsTest(unittest.TestCase):
             sunshine_encoder="NVIDIA",
             sunshine_gpu="0000:03:00.0",
             sunshine_codec="AV1",
+            streaming_customized=True,
             sunshine_native_pen_touch=False,
             enable_audio=True,
         )
@@ -37,6 +38,7 @@ class SettingsTest(unittest.TestCase):
         self.assertEqual(saved["resolution"], "2560x1440")
         self.assertEqual(saved["sunshine_codec"], "AV1")
         self.assertEqual(saved["sunshine_gpu"], "0000:03:00.0")
+        self.assertTrue(saved["streaming_customized"])
         self.assertFalse(saved["sunshine_native_pen_touch"])
         self.assertTrue(saved["enable_audio"])
 

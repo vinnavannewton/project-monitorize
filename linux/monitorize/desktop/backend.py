@@ -38,6 +38,7 @@ class MonitorizeBackend(QObject):
     localIpChanged = pyqtSignal(str)
     isStreamingChanged = pyqtSignal(bool)
     streamingStartFailed = pyqtSignal()
+    streamingCodecMismatch = pyqtSignal(str)
     streamingStatusChanged = pyqtSignal(str)
     logAppended = pyqtSignal(str, str)
     secondStreamActiveChanged = pyqtSignal(bool)
@@ -67,6 +68,7 @@ class MonitorizeBackend(QObject):
         )
         self.streaming.streamingChanged.connect(self.isStreamingChanged)
         self.streaming.startFailed.connect(self.streamingStartFailed)
+        self.streaming.codecMismatch.connect(self.streamingCodecMismatch)
         self.streaming.statusChanged.connect(self.streamingStatusChanged)
         self.streaming.secondStreamChanged.connect(self.secondStreamActiveChanged)
         self.streaming.logAppended.connect(app_log.write)
@@ -168,9 +170,7 @@ class MonitorizeBackend(QObject):
     def getEncodingGpuOptions(self, encoder):
         return encoding_gpu_options(encoder)
 
-    @pyqtSlot(
-        str, str, str, str, str, str, str, str, str, bool, bool
-    )
+    @pyqtSlot(str, str, str, str, str, str, str, str, str, bool, bool, bool)
     def saveDisplaySettings(
         self,
         resolution,
@@ -182,6 +182,7 @@ class MonitorizeBackend(QObject):
         sunshine_encoder,
         sunshine_gpu,
         sunshine_codec,
+        streaming_customized,
         sunshine_native_pen_touch,
         enable_audio,
     ):
@@ -195,6 +196,7 @@ class MonitorizeBackend(QObject):
             sunshine_encoder=sunshine_encoder,
             sunshine_gpu=sunshine_gpu,
             sunshine_codec=sunshine_codec,
+            streaming_customized=streaming_customized,
             sunshine_native_pen_touch=sunshine_native_pen_touch,
             enable_audio=enable_audio,
         )

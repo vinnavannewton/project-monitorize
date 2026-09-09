@@ -31,8 +31,8 @@ class DisplayController:
         command = ["hyprctl", *map(str, args)]
         if instance is not None:
             command[1:1] = ["-i", str(instance)]
-        # The packaged helper runs from /app, which does not exist on the
-        # host. flatpak-spawn must therefore use a host-visible directory.
+        
+        
         return DisplayController._host_command(*command)
 
     def _run_hyprctl(self, *args, instance=None):
@@ -327,8 +327,8 @@ class DisplayController:
                 ipc_error = self._verify_hyprland_ipc()
                 if ipc_error:
                     return ipc_error
-                # Hyprland 0.56+ accepts a Lua dispatcher expression. Older
-                # releases used the legacy ``dispatch exec <command>`` form.
+                
+                
                 result = self._run_hyprctl(
                     "dispatch", 'hl.dsp.exec_cmd("nwg-displays")'
                 )

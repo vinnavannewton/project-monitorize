@@ -33,6 +33,10 @@ class SunshineOnlyPackagingTest(unittest.TestCase):
             patch_text,
         )
         self.assertIn("MONITORIZE_STRICT_CODEC_REJECTED", patch_text)
+        self.assertIn(
+            "config::video.hevc_mode == 1 && config::video.av1_mode == 1",
+            patch_text,
+        )
 
     def test_installer_builds_only_project_local_sunshine_backend(self):
         script = (ROOT / "linux/scripts/install.sh").read_text()
@@ -79,6 +83,26 @@ class SunshineOnlyPackagingTest(unittest.TestCase):
         self.assertIn("Create a Virtual Display", qml)
         for legacy in ("USB Mode", "Receiver Mode", 'model: ["Monitorize", "Sunshine"]'):
             self.assertNotIn(legacy, qml)
+
+    def test_display_setup_groups_streaming_and_virtual_only_controls(self):
+        qml = (ROOT / "linux/monitorize/qml/DisplaySetupPage.qml").read_text()
+        headings = ('text: "Display"', 'text: "Streaming"', 'text: "Extras"')
+        for heading in headings:
+            self.assertIn(heading, qml)
+        self.assertLess(qml.index(headings[0]), qml.index(headings[1]))
+        self.assertLess(qml.index(headings[1]), qml.index(headings[2]))
+        self.assertIn('model: ["Automatic (Recommended)", "Customize ›"]', qml)
+        self.assertIn('text: "Create virtual display only"', qml)
+        self.assertIn('text: "Launch"', qml)
+        self.assertNotIn("Moonlight will discover", qml)
+        self.assertIn(
+            "Creates the virtual display without starting Monitorize’s streaming backend.",
+            qml,
+        )
+        self.assertIn(
+            'backend.setStreamingBackend(checked ? "none" : "sunshine")',
+            qml,
+        )
 
     def test_choice_chips_and_preset_menu_use_the_requested_layout(self):
         chips = (ROOT / "linux/monitorize/qml/ChoiceChips.qml").read_text()

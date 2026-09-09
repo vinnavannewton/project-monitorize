@@ -46,9 +46,22 @@ GNOME_DISPLAY_CONFIG_IFACE = "org.gnome.Mutter.DisplayConfig"
 GNOME_DISPLAY_CONFIG_SIGNAL = "MonitorsChanged"
 
 
+def _moonlight_codec_name(codec):
+    """Return the Moonlight codec label for a strict Monitorize selection."""
+    normalized = str(codec or "").strip().lower()
+    if "av1" in normalized:
+        return "AV1"
+    if "h.265" in normalized or "hevc" in normalized or normalized == "h265":
+        return "H.265 (HEVC)"
+    if "h.264" in normalized or "avc" in normalized or normalized == "h264":
+        return "H.264 (AVC)"
+    return ""
+
+
 class StreamingController(QObject):
     streamingChanged = pyqtSignal(bool)
     startFailed = pyqtSignal()
+    codecMismatch = pyqtSignal(str)
     statusChanged = pyqtSignal(str)
     secondStreamChanged = pyqtSignal(bool)
     primaryReadyChanged = pyqtSignal(bool)
@@ -375,7 +388,7 @@ class StreamingController(QObject):
         if os.path.isfile("/.flatpak-info") and (
             self.display_type == "Mirror" or self.de in ("kde", "hyprland", "sway")
         ):
-            # Flatpak cannot use KMS capture; Wayland compositor outputs use the portal.
+            
             capture = "portal"
         elif self.de == "gnome" and pipewire_node is not None:
             capture = "pipewire_node"
@@ -401,9 +414,9 @@ class StreamingController(QObject):
 
         if sunshine_environment is None:
             sunshine_environment = {}
-        # Always scope a possible portal fallback. Native capture normally
-        # selects the compositor output directly, but packaged Sunshine builds
-        # can still fall back to the portal on systems without direct capture.
+        
+        
+        
         sunshine_environment["SUNSHINE_PORTAL_TOKEN_SCOPE"] = (
             "mirror" if self.display_type == "Mirror" else "extend"
         )
@@ -611,11 +624,24 @@ class StreamingController(QObject):
                 1, self._sunshine_log_offsets[1]
             )
             if strict_error:
-                message = f"Sunshine rejected the selected encoder or codec: {strict_error}"
+                codec_name = (
+                    _moonlight_codec_name(self.codec)
+                    if "MONITORIZE_STRICT_CODEC_REJECTED" in strict_error
+                    else ""
+                )
+                if codec_name:
+                    toast_message = f"Select {codec_name} in Moonlight"
+                    message = f"{toast_message}. Sunshine reported: {strict_error}"
+                else:
+                    toast_message = ""
+                    message = f"Sunshine rejected the selected encoder or codec: {strict_error}"
                 app_log.write("SUNSHINE", message, level=logging.ERROR)
                 self.logAppended.emit("SUNSHINE", f"ERROR: {message}")
                 self._set_status(message)
-                self.startFailed.emit()
+                if toast_message:
+                    self.codecMismatch.emit(toast_message)
+                else:
+                    self.startFailed.emit()
                 QTimer.singleShot(0, self.stop)
                 return
             if self.third_streaming:
@@ -635,10 +661,22 @@ class StreamingController(QObject):
                     2, self._sunshine_log_offsets[2]
                 )
                 if strict_error:
-                    message = f"Second Sunshine instance rejected the selected encoder or codec: {strict_error}"
+                    codec_name = (
+                        _moonlight_codec_name(self.third_codec)
+                        if "MONITORIZE_STRICT_CODEC_REJECTED" in strict_error
+                        else ""
+                    )
+                    if codec_name:
+                        toast_message = f"Select {codec_name} in Moonlight"
+                        message = f"Second display: {toast_message}. Sunshine reported: {strict_error}"
+                    else:
+                        toast_message = ""
+                        message = f"Second Sunshine instance rejected the selected encoder or codec: {strict_error}"
                     app_log.write("SUNSHINE", message, level=logging.ERROR)
                     self.logAppended.emit("SUNSHINE", f"ERROR: {message}")
                     self._set_status(message)
+                    if toast_message:
+                        self.codecMismatch.emit(toast_message)
                     QTimer.singleShot(0, self.stop_third)
         except Exception as exc:
             app_log.write(

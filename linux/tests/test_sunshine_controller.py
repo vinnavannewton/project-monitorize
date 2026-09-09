@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 
 from PyQt6.QtCore import QCoreApplication, QProcess
 
-from monitorize.desktop.streaming_controller import StreamingController
+from monitorize.desktop.streaming_controller import StreamingController, _moonlight_codec_name
 
 
 class SunshineControllerTest(unittest.TestCase):
@@ -16,6 +16,12 @@ class SunshineControllerTest(unittest.TestCase):
         controller = StreamingController(de, "192.0.2.1")
         self.addCleanup(controller.sunshine_watchdog_timer.stop)
         return controller
+
+    def test_moonlight_codec_names_cover_all_strict_choices(self):
+        self.assertEqual(_moonlight_codec_name("H.264 (AVC)"), "H.264 (AVC)")
+        self.assertEqual(_moonlight_codec_name("H.265 (HEVC)"), "H.265 (HEVC)")
+        self.assertEqual(_moonlight_codec_name("AV1"), "AV1")
+        self.assertEqual(_moonlight_codec_name("Auto"), "")
 
     @patch("monitorize.desktop.streaming_controller.stop_sunshine")
     @patch("monitorize.desktop.streaming_controller.start_sunshine", return_value=(True, "started"))
@@ -456,11 +462,18 @@ class SunshineControllerTest(unittest.TestCase):
     ):
         controller = self.controller()
         controller.streaming = True
+        controller.codec = "AV1"
+        mismatch_messages = []
+        generic_failures = []
+        controller.codecMismatch.connect(mismatch_messages.append)
+        controller.startFailed.connect(lambda: generic_failures.append(True))
 
         controller._check_sunshine_health()
 
         strict_error.assert_called_once_with(1, 0)
-        self.assertIn("rejected the selected encoder or codec", controller.status)
+        self.assertIn("Select AV1 in Moonlight", controller.status)
+        self.assertEqual(mismatch_messages, ["Select AV1 in Moonlight"])
+        self.assertEqual(generic_failures, [])
         mock_log_write.assert_called_once()
         mock_singleshot.assert_called_once_with(0, controller.stop)
 
