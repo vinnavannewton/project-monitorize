@@ -481,6 +481,9 @@ def main():
     de = (sys.argv[5] if len(sys.argv) > 5 else os.environ.get("XDG_CURRENT_DESKTOP", "")).lower()
 
     if "kde" in de or "plasma" in de:
+        if os.path.isfile("/.flatpak-info"):
+            from monitorize.platform.portal_virtual_display import run_portal_virtual_display
+            sys.exit(run_portal_virtual_display(slot, width, height, fps))
         sys.exit(run_kde_headless(slot, width, height, fps))
     elif "gnome" in de or "ubuntu" in de:
         sys.exit(run_gnome_headless(slot, width, height, fps))

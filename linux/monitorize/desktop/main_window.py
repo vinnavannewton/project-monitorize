@@ -35,7 +35,7 @@ class MonitorizeWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Monitorize")
         self.setMinimumSize(760, 520)
-        self.resize(860, 580)
+        self.resize(860, 820)
         icon = os.path.join(ASSETS_DIR, "monitorize_desktop_logo.png")
         if os.path.exists(icon):
             self.app_icon = QIcon(icon)

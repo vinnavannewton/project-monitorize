@@ -90,16 +90,12 @@ class GpuDiscoveryTest(unittest.TestCase):
                 gpu.resolve_encoding_gpu("VA-API", "../../bad"),
             )
 
-    def test_qml_selectors_are_conditional_and_cover_both_displays(self):
+    def test_configuration_exposes_conditional_gpu_selection(self):
         qml_dir = Path(__file__).parents[1] / "monitorize" / "qml"
         primary = (qml_dir / "DisplaySetupPage.qml").read_text()
-        second = (qml_dir / "StreamingPage.qml").read_text()
         self.assertIn('text: "Encoding GPU"', primary)
         self.assertIn("visible: gpuOptions.length > 0", primary)
         self.assertIn("page.selectedGpuId()", primary)
-        self.assertIn('text: "Encoding GPU"', second)
-        self.assertIn("visible: secondGpuOptions.length > 0", second)
-        self.assertIn("page.selectedSecondGpuId()", second)
 
 
 if __name__ == "__main__":

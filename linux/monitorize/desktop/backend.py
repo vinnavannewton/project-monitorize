@@ -34,6 +34,7 @@ from monitorize.platform.utils import get_local_ip
 
 
 class MonitorizeBackend(QObject):
+    sessionChanged = pyqtSignal()
     detectedDeChanged = pyqtSignal(str)
     localIpChanged = pyqtSignal(str)
     isStreamingChanged = pyqtSignal(bool)
@@ -60,6 +61,11 @@ class MonitorizeBackend(QObject):
             self._streaming_backend = "none"
         self.streaming = StreamingController(de, self._local_ip, self)
         self.streaming.streaming_backend = self._streaming_backend
+        from monitorize.desktop.session import Session
+        self.session = Session(self.streaming, self)
+        self.session.changed.connect(self.sessionChanged)
+        self._session_log = ""
+        self.logAppended.connect(self._remember_session_log)
         self._presets = load_presets()
         self._preset_launch_status = ""
         self._system_setup_available = bool(get_system_setup_status()["available"])
@@ -81,6 +87,53 @@ class MonitorizeBackend(QObject):
     @pyqtProperty(str, notify=detectedDeChanged)
     def detectedDe(self):
         return self._detected_de
+
+    def _remember_session_log(self, category, message):
+        self._session_log = (self._session_log + f"[{category}] {message}\n")[-100000:]
+
+    @pyqtSlot(result=str)
+    def sessionLog(self):
+        return self._session_log
+
+    @pyqtProperty("QVariant", notify=sessionChanged)
+    def sessionDisplays(self):
+        return self.session.cards()
+
+    @pyqtProperty(bool, notify=sessionChanged)
+    def sessionHasDisplays(self):
+        return self.session.count > 0
+
+    @pyqtProperty(bool, notify=sessionChanged)
+    def sessionPendingDisplays(self):
+        return self.session.pending_displays
+
+    @pyqtProperty(bool, notify=sessionChanged)
+    def sessionBusy(self):
+        return self.session.busy
+
+    @pyqtProperty(bool, notify=sessionChanged)
+    def sessionRunning(self):
+        return self.session.running
+
+    @pyqtProperty(str, notify=sessionChanged)
+    def sessionMode(self):
+        return self.session.mode
+
+    @pyqtSlot()
+    def addSessionDisplay(self):
+        self.session.add()
+
+    @pyqtSlot()
+    def startSession(self):
+        self.session.start()
+
+    @pyqtSlot()
+    def stopSession(self):
+        self.session.stop()
+
+    @pyqtSlot(int)
+    def removeSessionDisplay(self, index):
+        self.session.remove(index)
 
     @pyqtProperty(str, notify=localIpChanged)
     def localIp(self):
@@ -170,7 +223,12 @@ class MonitorizeBackend(QObject):
     def getEncodingGpuOptions(self, encoder):
         return encoding_gpu_options(encoder)
 
-    @pyqtSlot(str, str, str, str, str, str, str, str, str, bool, bool, bool)
+    @pyqtSlot(result="QVariant")
+    def getMirrorOutputs(self):
+        from monitorize.platform.mirror_outputs import physical_outputs
+        return physical_outputs()
+
+    @pyqtSlot(str, str, str, str, str, str, str, str, str, bool, bool, bool, str)
     def saveDisplaySettings(
         self,
         resolution,
@@ -185,6 +243,7 @@ class MonitorizeBackend(QObject):
         streaming_customized,
         sunshine_native_pen_touch,
         enable_audio,
+        mirror_output="",
     ):
         save_display_settings(
             resolution=resolution,
@@ -199,7 +258,10 @@ class MonitorizeBackend(QObject):
             streaming_customized=streaming_customized,
             sunshine_native_pen_touch=sunshine_native_pen_touch,
             enable_audio=enable_audio,
+            mirror_output=mirror_output,
         )
+        self.session.preset_configuration = None
+        self.sessionChanged.emit()
 
     @pyqtSlot(result="QVariant")
     def loadGeneralSettings(self):
@@ -418,6 +480,8 @@ class MonitorizeBackend(QObject):
             self._set_preset_launch_status("Preset no longer exists.")
             return
         preset = self._presets[index]
+        import copy
+        self.session.preset_configuration = copy.deepcopy(preset)
         primary = preset["primary"]
         self._set_preset_launch_status("")
         self.streaming.start(
@@ -430,6 +494,7 @@ class MonitorizeBackend(QObject):
             primary["enable_audio"],
             {"second": preset["second"]},
             gpu_id=primary.get("sunshine_gpu", ""),
+            mirror_output=primary.get("mirror_output", ""),
         )
 
     @pyqtSlot(int, str, result=str)

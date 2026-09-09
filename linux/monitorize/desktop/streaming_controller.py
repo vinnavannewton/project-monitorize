@@ -90,6 +90,7 @@ class StreamingController(QObject):
         self.gpu_id = ""
         self.codec = "Auto"
         self.native_pen_touch = True
+        self.mirror_output = ""
         self.audio_enabled = False
         self.third_width, self.third_height = DEFAULT_SECONDARY_RESOLUTION
         self.third_fps = DEFAULT_FPS
@@ -102,6 +103,8 @@ class StreamingController(QObject):
         self._is_stopping = False
         self.streaming_backend = "sunshine"
         self._sunshine_log_offsets = {1: 0, 2: 0}
+        self.prepare_only = False
+        self.display_events = {}
 
         self.sunshine_watchdog_timer = QTimer(self)
         self.sunshine_watchdog_timer.setInterval(1000)
@@ -147,6 +150,7 @@ class StreamingController(QObject):
         enable_audio=False,
         options=None,
         gpu_id="",
+        mirror_output="",
     ):
         if self._is_stopping:
             self._set_status("Previous session is still stopping — please wait")
@@ -156,6 +160,7 @@ class StreamingController(QObject):
             return
 
         self.stop()
+        self.prepare_only = bool((options or {}).get("prepare_only"))
         self.generation += 1
         self.width, self.height = sanitize_resolution(res, DEFAULT_PRIMARY_RESOLUTION)
         self.fps = sanitize_fps(fps)
@@ -164,6 +169,7 @@ class StreamingController(QObject):
         self.gpu_id = normalize_pci_id(gpu_id)
         self.codec = str(codec or "Auto")
         self.native_pen_touch = bool(native_pen_touch)
+        self.mirror_output = str(mirror_output or "")
         self.audio_enabled = bool(enable_audio)
         self.event_buffer = ""
         self.pending_options = options
@@ -176,18 +182,28 @@ class StreamingController(QObject):
                 self._set_status("Mirror mode requires the Sunshine backend")
                 self.startFailed.emit()
                 return
-            if not self._start_instance(1, "", self.width, self.height):
+            from monitorize.platform.mirror_outputs import physical_outputs, select_output
+            try:
+                target = select_output(physical_outputs(), self.mirror_output)
+            except ValueError as exc:
+                self._set_streaming(False)
+                self._set_status(str(exc))
+                self.logAppended.emit("DISPLAY", f"ERROR: {exc}")
+                self.startFailed.emit()
+                return
+            self.mirror_output = target["id"]
+            if not self._start_instance(1, self.mirror_output, self.width, self.height):
                 self._set_streaming(False)
                 self.startFailed.emit()
                 return
             self._set_primary_ready(True)
-            self._set_status("Sunshine is mirroring the primary display — ready for Moonlight")
+            self._set_status(f"Mirroring {self.mirror_output} — ready for Moonlight")
             self._start_pending_second(options)
             return
 
         
         
-        if self.de == "kde" and os.path.isfile("/.flatpak-info"):
+        if self.de == "kde" and os.path.isfile("/.flatpak-info") and not self.prepare_only:
             de_label = "KDE"
             self._set_status(f"Creating portal virtual display on {de_label}…")
             if not self._start_instance(
@@ -291,6 +307,7 @@ class StreamingController(QObject):
                 self._set_status(line.removeprefix("[ERROR]").strip())
 
     def _display_ready(self, slot, event):
+        self.display_events[slot] = dict(event)
         output_name = str(event.get("name") or "")
         instance = 1 if slot == "primary" else 2
         if not output_name:
@@ -300,20 +317,21 @@ class StreamingController(QObject):
         height = int(event.get("height") or (self.height if instance == 1 else self.third_height))
         fps = float(event.get("fps") or (self.fps if instance == 1 else self.third_fps))
         pipewire_node = None
-        if self.de == "gnome" and self.streaming_backend != "none":
+        if (self.de == "gnome" or event.get("portal")) and self.streaming_backend != "none":
             try:
                 pipewire_node = int(event.get("node_id"))
             except (TypeError, ValueError):
                 pipewire_node = 0
             if pipewire_node <= 0:
                 self._set_status(
-                    f"GNOME virtual display {output_name} has no valid PipeWire capture node"
+                    f"Virtual display {output_name} has no valid PipeWire capture node"
                 )
                 if instance == 1:
                     QTimer.singleShot(0, self.stop)
                     self.startFailed.emit()
                 else:
                     QTimer.singleShot(0, self.stop_third)
+                    self.startFailed.emit()
                 return
         if self.de == "gnome":
             self.gnome_outputs[slot] = output_name
@@ -323,17 +341,19 @@ class StreamingController(QObject):
         else:
             self.third_width, self.third_height = width, height
 
-        if self.streaming_backend == "none":
+        if self.streaming_backend == "none" or self.prepare_only:
             if instance == 1:
                 self._set_primary_ready(True)
                 self._set_status(
-                    f"Virtual display {output_name} ({width}x{height}@{fps:g}Hz) is active (no streaming backend)"
+                    f"Virtual display {output_name} ({width}x{height}) is ready"
+                    if event.get("portal") else
+                    f"Virtual display {output_name} ({width}x{height}@{fps:g}Hz) is ready"
                 )
                 self._start_pending_second(self.pending_options)
             else:
                 self.third_ready = True
                 self._set_status(
-                    f"Second display {output_name} ({width}x{height}@{fps:g}Hz) is active (no streaming backend)"
+                    f"Second display {output_name} ({width}x{height}@{fps:g}Hz) is ready"
                 )
                 self.secondStreamChanged.emit(True)
             return
@@ -352,11 +372,14 @@ class StreamingController(QObject):
                 self.startFailed.emit()
             else:
                 QTimer.singleShot(0, self.stop_third)
+                self.startFailed.emit()
             return
 
         if instance == 1:
             self._set_primary_ready(True)
             self._set_status(
+                f"Virtual display {output_name} ({width}x{height}) is ready for Moonlight"
+                if event.get("portal") else
                 f"Virtual display {output_name} ({width}x{height}@{fps:g}Hz) is ready for Moonlight"
             )
             self._start_pending_second(self.pending_options)
@@ -385,7 +408,11 @@ class StreamingController(QObject):
             self.native_pen_touch if instance == 1 else self.third_native_pen_touch
         )
         audio = self.audio_enabled if instance == 1 else self.third_audio_enabled
-        if os.path.isfile("/.flatpak-info") and (
+        if self.display_type == "Mirror":
+            capture = "portal"
+        elif pipewire_node is not None:
+            capture = "pipewire_node"
+        elif os.path.isfile("/.flatpak-info") and (
             self.display_type == "Mirror" or self.de in ("kde", "hyprland", "sway")
         ):
             
@@ -420,6 +447,10 @@ class StreamingController(QObject):
         sunshine_environment["SUNSHINE_PORTAL_TOKEN_SCOPE"] = (
             "mirror" if self.display_type == "Mirror" else "extend"
         )
+        if self.display_type == "Mirror":
+            sunshine_environment["MONITORIZE_CAPTURE_OUTPUT"] = self.mirror_output
+        elif output_name and not portal_source_type:
+            sunshine_environment["MONITORIZE_CAPTURE_OUTPUT"] = output_name
 
         if portal_source_type:
             sunshine_environment["SUNSHINE_PORTAL_SOURCE_TYPE"] = portal_source_type
@@ -472,6 +503,9 @@ class StreamingController(QObject):
             message = f"Virtual display process error: {process.errorString()}"
             self.logAppended.emit("DISPLAY", message)
             self._set_status(message)
+            if process.error() == QProcess.ProcessError.FailedToStart:
+                self.startFailed.emit()
+                QTimer.singleShot(0, self.stop if slot == "primary" else self.stop_third)
 
     def _display_finished(self, slot, code, _status, generation, process):
         current_generation = self.generation if slot == "primary" else self.third_generation
@@ -486,9 +520,10 @@ class StreamingController(QObject):
                 self.logAppended.emit("DISPLAY", f"Process exited with code {code}")
                 self.stop()
                 self._set_status(message)
+                self.startFailed.emit()
         else:
             self.third_streamer = None
-            if self.third_streaming:
+            if self.third_streaming and self.third_ready:
                 self.logAppended.emit("DISPLAY", f"Second display exited with code {code}")
                 self.stop_third()
 
@@ -550,6 +585,7 @@ class StreamingController(QObject):
                 pass
             stop_processes(process)
         self.gnome_outputs.pop("additional", None)
+        self.display_events.pop("additional", None)
         self.third_streaming = False
         self.third_ready = False
         self.secondStreamChanged.emit(False)
@@ -569,6 +605,7 @@ class StreamingController(QObject):
                 "sunshine_gpu": self.gpu_id,
                 "sunshine_codec": self.codec,
                 "sunshine_native_pen_touch": self.native_pen_touch,
+                "mirror_output": self.mirror_output,
                 "enable_audio": self.audio_enabled,
             },
             "second": {"enabled": self.third_streaming},
@@ -749,6 +786,7 @@ class StreamingController(QObject):
             self.generation += 1
             if self.third_streaming or self.third_streamer is not None:
                 self.stop_third()
+                self.startFailed.emit()
             stop_sunshine()
             process = self.streamer
             self.streamer = None
@@ -761,6 +799,7 @@ class StreamingController(QObject):
                     pass
                 stop_processes(process)
             self.gnome_outputs.clear()
+            self.display_events.clear()
             self._set_primary_ready(False)
             self._set_streaming(False)
         finally:

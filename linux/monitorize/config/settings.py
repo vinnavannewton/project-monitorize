@@ -111,6 +111,7 @@ DISPLAY_DEFAULTS = {
     "sunshine_codec": "Auto",
     "streaming_customized": False,
     "sunshine_native_pen_touch": True,
+    "mirror_output": "",
     "enable_audio": False,
 }
 
@@ -139,6 +140,7 @@ def _normalize_display_settings(data, fallback=DEFAULT_PRIMARY_RESOLUTION):
         data.get("sunshine_native_pen_touch", True)
     )
     data["enable_audio"] = bool(data.get("enable_audio", False))
+    data["mirror_output"] = str(data.get("mirror_output") or "")
     return data
 
 
@@ -156,6 +158,7 @@ def save_display_settings(
     streaming_customized=False,
     sunshine_native_pen_touch=True,
     enable_audio=False,
+    mirror_output="",
 ):
     values = _normalize_display_settings(locals())
     _save_group("display", values)
@@ -218,6 +221,7 @@ def _normalize_session(raw: dict, fallback=DEFAULT_PRIMARY_RESOLUTION):
             raw.get("sunshine_native_pen_touch", True)
         ),
         "enable_audio": bool(raw.get("enable_audio", False)),
+        "mirror_output": str(raw.get("mirror_output") or ""),
     }
 
 

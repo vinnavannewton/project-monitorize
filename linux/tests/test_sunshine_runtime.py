@@ -15,7 +15,7 @@ class SunshineRuntimeTest(unittest.TestCase):
         service._SUNSHINE_PIPEWIRE_OFFSETS.clear()
         service._SUNSHINE_PIPEWIRE_DIMS.clear()
 
-    def test_explicit_binary_and_assets_take_precedence(self):
+    def test_arbitrary_binary_and_assets_are_not_adopted(self):
         with tempfile.TemporaryDirectory() as tmp:
             binary = Path(tmp) / "sunshine"
             assets = Path(tmp) / "assets"
@@ -30,11 +30,13 @@ class SunshineRuntimeTest(unittest.TestCase):
                 }, clear=False),
                 patch.object(service, "get_sunshine_config_path", return_value="/tmp/sunshine.conf"),
             ):
-                self.assertEqual(
-                    service.get_sunshine_candidates()[0],
-                    [str(binary), "/tmp/sunshine.conf"],
-                )
-                self.assertEqual(service.get_sunshine_assets_dir(str(binary)), str(assets))
+                self.assertNotIn([str(binary), "/tmp/sunshine.conf"], service.get_sunshine_candidates())
+                self.assertIsNone(service.get_sunshine_assets_dir(str(binary)))
+
+    def test_unmanaged_service_is_not_running_monitorize(self):
+        with patch.object(service.socket, "create_connection") as connect:
+            self.assertFalse(service.is_sunshine_running())
+            connect.assert_not_called()
 
     def test_clear_restore_tokens_only_removes_monitorize_managed_tokens(self):
         with tempfile.TemporaryDirectory() as tmp:

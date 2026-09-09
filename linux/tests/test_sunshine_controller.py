@@ -8,13 +8,17 @@ from monitorize.desktop.streaming_controller import StreamingController, _moonli
 
 
 class SunshineControllerTest(unittest.TestCase):
+    def setUp(self):
+        p = patch("monitorize.platform.mirror_outputs.physical_outputs", return_value=[{"id": "eDP-1"}])
+        p.start()
+        self.addCleanup(p.stop)
     @classmethod
     def setUpClass(cls):
         cls.app = QCoreApplication.instance() or QCoreApplication([])
 
     def controller(self, de="kde"):
         controller = StreamingController(de, "192.0.2.1")
-        self.addCleanup(controller.sunshine_watchdog_timer.stop)
+        self.addCleanup(lambda: controller.sunshine_watchdog_timer.stop())
         return controller
 
     def test_moonlight_codec_names_cover_all_strict_choices(self):
@@ -22,6 +26,17 @@ class SunshineControllerTest(unittest.TestCase):
         self.assertEqual(_moonlight_codec_name("H.265 (HEVC)"), "H.265 (HEVC)")
         self.assertEqual(_moonlight_codec_name("AV1"), "AV1")
         self.assertEqual(_moonlight_codec_name("Auto"), "")
+
+    @patch("monitorize.desktop.streaming_controller.stop_sunshine")
+    def test_mirror_missing_target_fails_before_launch(self, _stop):
+        c = self.controller()
+        failed = Mock()
+        c.startFailed.connect(failed)
+        c._start_instance = Mock()
+        c.start("1920x1080", "60", "Mirror", mirror_output="missing")
+        c._start_instance.assert_not_called()
+        failed.assert_called_once()
+        self.assertFalse(c.streaming)
 
     @patch("monitorize.desktop.streaming_controller.stop_sunshine")
     @patch("monitorize.desktop.streaming_controller.start_sunshine", return_value=(True, "started"))
@@ -39,7 +54,7 @@ class SunshineControllerTest(unittest.TestCase):
         self.assertTrue(controller.primary_ready)
         self.assertIsNone(controller.streamer)
         sync.assert_called_once_with(
-            "", "VA-API", "H.265 (HEVC)", True, instance=1, capture="kwin",
+            "eDP-1", "VA-API", "H.265 (HEVC)", True, instance=1, capture="portal",
             adapter_name="",
         )
         save.assert_called_once_with({"stream_audio": "enabled"}, instance=1)
@@ -50,7 +65,7 @@ class SunshineControllerTest(unittest.TestCase):
             offset_y=0,
             width=1920,
             height=1080,
-            extra_environment={"SUNSHINE_PORTAL_TOKEN_SCOPE": "mirror"},
+            extra_environment={"SUNSHINE_PORTAL_TOKEN_SCOPE": "mirror", "MONITORIZE_CAPTURE_OUTPUT": "eDP-1"},
         )
 
     @patch("monitorize.desktop.streaming_controller.os.path.isfile", return_value=True)
@@ -188,7 +203,7 @@ class SunshineControllerTest(unittest.TestCase):
             offset_y=120,
             width=1280,
             height=800,
-            extra_environment={"SUNSHINE_PORTAL_TOKEN_SCOPE": "extend"},
+            extra_environment={"SUNSHINE_PORTAL_TOKEN_SCOPE": "extend", "MONITORIZE_CAPTURE_OUTPUT": "Meta-0"},
         )
         self.assertEqual(controller.gnome_outputs["primary"], "Meta-0")
         self.assertTrue(controller.primary_ready)
@@ -299,7 +314,7 @@ class SunshineControllerTest(unittest.TestCase):
             offset_y=0,
             width=1920,
             height=1200,
-            extra_environment={"SUNSHINE_PORTAL_TOKEN_SCOPE": "extend"},
+            extra_environment={"SUNSHINE_PORTAL_TOKEN_SCOPE": "extend", "MONITORIZE_CAPTURE_OUTPUT": "Virtual-Monitorize-1"},
         )
         _sync.assert_called_once_with(
             "Virtual-Monitorize-1", "Auto", "Auto", True, instance=1,
@@ -358,6 +373,7 @@ class SunshineControllerTest(unittest.TestCase):
             {
                 "CUDA_VISIBLE_DEVICES": "1",
                 "SUNSHINE_PORTAL_TOKEN_SCOPE": "mirror",
+                "MONITORIZE_CAPTURE_OUTPUT": "eDP-1",
             },
         )
 

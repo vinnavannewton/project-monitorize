@@ -4,236 +4,168 @@ import QtQuick.Layouts
 
 Item {
     id: page
-    property bool secondLoading: true
-    property var secondGpuOptions: []
-
-    function appendLog(type, message) {
-        let lines = String(message).split(/\r?\n/)
-        for (let i = 0; i < lines.length; i++) {
-            if (lines[i].length > 0) logArea.text += "[" + type + "] " + lines[i] + "\n"
-        }
+    property int pairInstance: 1
+    property bool logsExpanded: false
+    function openPair(instance) {
+        pairInstance = instance
+        pinField.text = ""
+        pinMessage.text = ""
+        pinPopup.open()
+        pinField.forceActiveFocus()
     }
-
-    function secondResolution() {
-        return secondRes.currentText === "Custom..."
-            ? secondW.text + "x" + secondH.text
-            : secondRes.currentText.split(" ")[0]
-    }
-
-    function secondFpsValue() {
-        return secondFps.currentText === "Custom..." ? secondCustomFps.text : secondFps.currentText
-    }
-
-    function selectedSecondGpuId() {
-        if (secondGpu.currentIndex < 0 || secondGpu.currentIndex >= secondGpuOptions.length) return ""
-        return secondGpuOptions[secondGpu.currentIndex]["id"] || ""
-    }
-
-    function refreshSecondGpuOptions(savedId) {
-        secondGpuOptions = backend.getEncodingGpuOptions(secondEncoder.currentText)
-        let labels = []
-        let selected = 0
-        for (let i = 0; i < secondGpuOptions.length; i++) {
-            labels.push(secondGpuOptions[i]["label"])
-            if (savedId && secondGpuOptions[i]["id"] === savedId) selected = i
-        }
-        secondGpu.model = labels
-        secondGpu.currentIndex = labels.length > 0 ? selected : -1
-    }
-
-    function loadSecondSettings() {
-        secondLoading = true
-        let saved = backend.loadSecondDisplaySettings()
-        secondRes.selectValue(saved["resolution"] || "1920x1080")
-        secondW.text = saved["custom_w"] || "1920"
-        secondH.text = saved["custom_h"] || "1080"
-        secondFps.selectValue(saved["fps"] || "60")
-        secondCustomFps.text = saved["custom_fps"] || "60"
-        secondEncoder.selectValue(saved["sunshine_encoder"] || "Auto")
-        page.refreshSecondGpuOptions(saved["sunshine_gpu"] || "")
-        secondCodec.selectValue(saved["sunshine_codec"] || "Auto")
-        secondInput.checked = saved["sunshine_native_pen_touch"] !== false
-        secondAudio.checked = saved["enable_audio"] === true
-        secondLoading = false
-    }
-
-    function saveSecondSettings() {
-        if (secondLoading) return
-        backend.saveSecondDisplaySettings(
-            secondRes.currentText,
-            secondRes.currentText === "Custom..." ? secondW.text : "",
-            secondRes.currentText === "Custom..." ? secondH.text : "",
-            secondFps.currentText,
-            secondFps.currentText === "Custom..." ? secondCustomFps.text : "",
-            secondEncoder.currentText,
-            page.selectedSecondGpuId(),
-            secondCodec.currentText,
-            secondInput.checked,
-            secondAudio.checked
-        )
-    }
-
-    Component.onCompleted: page.loadSecondSettings()
-
     Connections {
         target: backend
-        function onLogAppended(type, message) { page.appendLog(type, message) }
+        function onLogAppended(type, message) { logArea.text = backend.sessionLog() }
+        function onStreamingStartFailed() { page.logsExpanded = true }
+        function onStreamingCodecMismatch(message) { page.logsExpanded = true }
     }
-
-    ColumnLayout {
+    ScrollView {
         anchors.fill: parent
-        spacing: 14
-
-        Rectangle {
-            Layout.fillWidth: true
-            implicitHeight: 116
-            radius: theme.cardRadius
-            color: theme.surface
-            border.color: theme.border
-
-            ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: 16
-                spacing: 8
-                Text {
-                    text: backend.streamingBackend === "none" ? "Virtual Display Active" : "Sunshine Session Active"
-                    color: theme.textPrimary
-                    font.pixelSize: 20
-                    font.weight: Font.Bold
-                }
-                Text {
-                    text: backend.streamingStatus
-                    color: theme.accent
-                    font.pixelSize: 13
-                    wrapMode: Text.WordWrap
-                    Layout.fillWidth: true
-                }
-                RowLayout {
-                    spacing: 16
-                    Text {
-                        visible: backend.streamingBackend !== "none"
-                        text: "Host  " + backend.localIp
-                        color: theme.textSecondary
-                        font.pixelSize: 12
-                    }
-                    Text {
-                        visible: backend.streamingBackend !== "none"
-                        text: "Display 1  port 47989"
-                        color: theme.textSecondary
-                        font.pixelSize: 12
-                    }
-                    Text {
-                        visible: backend.secondStreamActive && backend.streamingBackend !== "none"
-                        text: "Display 2  " + backend.localIp + ":49089"
-                        color: theme.textSecondary
-                        font.pixelSize: 12
-                    }
-                }
-            }
-        }
-
-        Rectangle {
-            visible: backend.streamingBackend === "none"
-            Layout.fillWidth: true
-            implicitHeight: noneHint.implicitHeight + 20
-            radius: theme.controlRadius
-            color: "#1a3b82f6"
-            border.color: "#3b82f6"
+        clip: true
+        contentWidth: availableWidth
+        ColumnLayout {
+            width: parent.width
+            spacing: 16
             RowLayout {
-                id: noneHint
-                anchors.fill: parent
-                anchors.margins: 10
-                spacing: 8
-                Text {
-                    text: "ℹ"
-                    color: "#3b82f6"
-                    font.pixelSize: 14
+                Layout.fillWidth: true
+                spacing: 12
+                Rectangle {
+                    width: 12; height: 12; radius: 6
+                    color: backend.sessionRunning ? "#34d681" : (backend.sessionBusy ? "#efbd5a" : theme.textMuted)
                 }
                 Text {
-                    text: "Virtual display is active. Use your preferred streaming tool to capture the output shown above."
-                    color: theme.textSecondary
-                    font.pixelSize: 12
-                    wrapMode: Text.WordWrap
+                    text: backend.sessionBusy ? "Preparing session" : (backend.sessionRunning ? "Session active" : "Session")
+                    color: theme.textPrimary; font.pixelSize: 28; font.weight: Font.Bold
                     Layout.fillWidth: true
                 }
             }
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 10
-            CustomButton {
-                visible: backend.streamingBackend !== "none"
-                text: "Pair Moonlight PIN"
-                onClicked: {
-                    pinField.text = ""
-                    pinMessage.text = ""
-                    pinPopup.open()
-                    pinField.forceActiveFocus()
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: summary.implicitHeight + 40
+                radius: 14; color: theme.surface; border.color: theme.border
+                RowLayout {
+                    id: summary
+                    anchors { left: parent.left; right: parent.right; top: parent.top; margins: 20 }
+                    spacing: 20
+                    LineIcon { symbol: "session"; Layout.preferredWidth: 38; Layout.preferredHeight: 38 }
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Text {
+                            text: backend.sessionMode === "Mirror" ? "Mirror your screen" : (backend.sessionHasDisplays ? "Your virtual displays" : "Extend your workspace")
+                            font.pixelSize: 18; font.weight: Font.DemiBold; color: theme.textPrimary
+                        }
+                        Text {
+                            text: backend.streamingStatus || (backend.sessionMode === "Mirror" ? "Start to share your existing screen with Moonlight." : (backend.sessionHasDisplays ? "Start to recreate your displays and stream." : "Add a display, then start your session."))
+                            Layout.fillWidth: true; wrapMode: Text.WordWrap
+                            color: theme.textSecondary; font.pixelSize: 13
+                        }
+                        Text {
+                            visible: backend.sessionMode === "Mirror" && backend.sessionRunning
+                            text: backend.localIp + ":47989"; color: theme.textSecondary; font.pixelSize: 13
+                        }
+                    }
                 }
             }
-            CustomButton {
-                visible: backend.streamingBackend !== "none"
-                text: "Sunshine Settings"
-                onClicked: backend.openSunshineWebUi(1)
-            }
-            CustomButton {
-                visible: backend.streamingBackend !== "none"
-                text: backend.secondStreamActive ? "Remove Second Display" : "Add Second Display"
-                onClicked: backend.secondStreamActive ? backend.stopSecondStream() : secondPopup.open()
-            }
-            CustomButton {
-                visible: backend.canConfigureDisplay
-                text: "Display Settings"
-                onClicked: backend.configureDisplay()
-            }
-            Item { Layout.fillWidth: true }
-            CustomButton {
-                visible: backend.streamingBackend !== "none"
-                text: "Save Preset"
-                onClicked: {
-                    presetName.text = ""
-                    presetMessage.text = ""
-                    presetPopup.open()
+            Repeater {
+                model: backend.sessionMode === "Extend" ? backend.sessionDisplays : []
+                delegate: Rectangle {
+                    id: displayCard
+                    required property var modelData
+                    required property int index
+                    Layout.fillWidth: true
+                    implicitHeight: 102
+                    radius: 14; color: theme.surface; border.color: theme.border
+                    RowLayout {
+                        anchors.fill: parent; anchors.margins: 20; spacing: 18
+                        LineIcon { symbol: "display"; Layout.preferredWidth: 34; Layout.preferredHeight: 34 }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            Text { text: "Virtual display " + displayCard.modelData.number; color: theme.textPrimary; font.pixelSize: 17; font.weight: Font.DemiBold }
+                            Text {
+                                text: backend.sessionRunning ? displayCard.modelData.address : displayCard.modelData.state
+                                color: theme.textSecondary; font.pixelSize: 13
+                            }
+                        }
+                        Rectangle { width: 9; height: 9; radius: 5; color: displayCard.modelData.live ? "#34d681" : theme.textMuted }
+                        CustomButton {
+                            text: "⋮"; primary: false; implicitWidth: 38
+                            enabled: !backend.sessionBusy
+                            onClicked: displayMenu.open()
+                            Menu {
+                                id: displayMenu
+                                popupType: Popup.Item
+                                width: 220
+                                background: Rectangle { color: theme.surface; border.color: theme.border; radius: 8 }
+                                CardMenuItem { text: "Pair Moonlight PIN"; enabled: backend.sessionRunning && displayCard.modelData.live; onTriggered: page.openPair(displayCard.modelData.number) }
+                                CardMenuItem { text: "Sunshine settings"; enabled: backend.sessionRunning && displayCard.modelData.live; onTriggered: backend.openSunshineWebUi(displayCard.modelData.number) }
+                                CardMenuItem { text: "Remove"; onTriggered: backend.removeSessionDisplay(displayCard.index) }
+                            }
+                        }
+                    }
                 }
             }
-            CustomButton { text: "Stop"; primary: true; onClicked: backend.stopStreaming() }
-        }
-
-        Rectangle {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            radius: theme.cardRadius
-            color: theme.surface
-            border.color: theme.border
-
-            ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: 14
-                Text {
-                    text: "Session log"
-                    color: theme.cardTextPrimary
-                    font.pixelSize: 13
-                    font.weight: Font.DemiBold
+            AbstractButton {
+                visible: backend.sessionMode === "Extend" && backend.sessionDisplays.length < 2
+                enabled: !backend.sessionBusy
+                Layout.fillWidth: true
+                implicitHeight: 90
+                onClicked: backend.addSessionDisplay()
+                background: Rectangle {
+                    radius: 14; color: parent.hovered ? theme.surfaceAlt : "transparent"
+                    border.color: theme.borderHover
                 }
+                contentItem: RowLayout {
+                    spacing: 20
+                    anchors { left: parent.left; right: parent.right; margins: 22 }
+                    LineIcon { symbol: "plus"; Layout.preferredWidth: 30; Layout.preferredHeight: 30 }
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Text { text: "Add Display"; color: "#94caff"; font.pixelSize: 17; font.weight: Font.DemiBold }
+                        Text { text: "Add a display card. Start creates the display."; color: theme.textMuted; font.pixelSize: 13 }
+                    }
+                }
+            }
+            Flow {
+                Layout.fillWidth: true
+                spacing: 10
+                CustomButton { text: "Pair Moonlight PIN"; visible: backend.streamingBackend !== "none"; enabled: backend.sessionRunning && !backend.sessionBusy; onClicked: page.openPair(1) }
+                CustomButton {
+                    text: "Save Preset"; primary: false; enabled: backend.isStreaming
+                    onClicked: { presetName.text = ""; presetMessage.text = ""; presetPopup.open() }
+                }
+                CustomButton {
+                    text: backend.sessionRunning || backend.sessionBusy || (backend.streamingBackend === "none" && backend.isStreaming) ? "Stop" : "Start"
+                    danger: text === "Stop"
+                    enabled: text === "Stop" || backend.sessionMode === "Mirror" || backend.sessionHasDisplays
+                    onClicked: text === "Stop" ? backend.stopSession() : backend.startSession()
+                }
+                CustomButton {
+                    text: "Start added display"
+                    visible: backend.isStreaming && backend.sessionPendingDisplays
+                    enabled: !backend.sessionBusy
+                    onClicked: backend.startSession()
+                }
+                CustomButton { text: "Display Settings"; primary: false; visible: backend.canConfigureDisplay; onClicked: backend.configureDisplay() }
+            }
+            SectionCard {
+                title: "Diagnostics & logs"; symbol: "logs"; expanded: page.logsExpanded
+                onExpandedChanged: page.logsExpanded = expanded
+                Layout.fillWidth: true
                 ScrollView {
                     Layout.fillWidth: true
-                    Layout.fillHeight: true
+                    Layout.preferredHeight: 240
                     TextArea {
                         id: logArea
-                        readOnly: true
-                        wrapMode: TextEdit.Wrap
-                        color: theme.textSecondary
-                        selectionColor: theme.accent
-                        font.family: "monospace"
-                        font.pixelSize: 11
-                        background: Rectangle { color: theme.background; radius: theme.controlRadius }
+                        text: backend.sessionLog()
+                        readOnly: true; wrapMode: TextEdit.Wrap
+                        color: theme.textSecondary; font.family: "monospace"; font.pixelSize: 11
+                        background: Rectangle { color: theme.logBoxBackground; radius: 8 }
                     }
                 }
+                CustomButton { text: "Sunshine settings"; primary: false; enabled: backend.sessionRunning; onClicked: backend.openSunshineWebUi(1) }
             }
         }
     }
-
     Popup {
         id: pinPopup
         modal: true
@@ -268,7 +200,7 @@ Item {
                     text: "Pair"
                     primary: true
                     onClicked: {
-                        let result = backend.pairMoonlightPin(pinField.text)
+                        let result = backend.pairMoonlightPin(pinField.text, page.pairInstance)
                         pinMessage.text = result["message"]
                         pinMessage.color = result["success"] ? "#86efac" : "#fca5a5"
                         if (result["success"]) pinSuccessCloseTimer.restart()
@@ -307,99 +239,4 @@ Item {
         }
     }
 
-    Popup {
-        id: secondPopup
-        modal: true
-        anchors.centerIn: parent
-        width: Math.min(680, page.width - 40)
-        height: Math.min(520, page.height - 30)
-        padding: 22
-        onOpened: page.loadSecondSettings()
-        background: Rectangle { color: theme.surface; border.color: theme.border; radius: theme.cardRadius }
-
-        ColumnLayout {
-            anchors.fill: parent
-            spacing: 14
-            Text { text: "Add a Second Sunshine Display"; color: theme.textPrimary; font.pixelSize: 20; font.weight: Font.Bold }
-            Text {
-                text: "Moonlight connects to the second instance at " + backend.localIp + ":49089."
-                color: theme.textSecondary
-                wrapMode: Text.WordWrap
-                Layout.fillWidth: true
-            }
-            ScrollView {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                contentWidth: availableWidth
-                GridLayout {
-                    width: parent.width
-                    columns: 2
-                    columnSpacing: 16
-                    rowSpacing: 12
-                    Text { text: "Resolution"; color: theme.textSecondary }
-                    CustomComboBox {
-                        id: secondRes
-                        Layout.preferredWidth: 260
-                        model: ["1280x720 (16:9)", "1280x800 (16:10)", "1920x1080 (16:9)", "1920x1200 (16:10)", "2560x1440 (16:9)", "2560x1600 (16:10)", "Custom..."]
-                        onActivated: page.saveSecondSettings()
-                    }
-                    Text { text: ""; visible: secondRes.currentText === "Custom..." }
-                    RowLayout {
-                        visible: secondRes.currentText === "Custom..."
-                        CustomTextField { id: secondW; placeholderText: "Width"; maximumLength: 4; onEditingFinished: page.saveSecondSettings() }
-                        Text { text: "×"; color: theme.textSecondary }
-                        CustomTextField { id: secondH; placeholderText: "Height"; maximumLength: 4; onEditingFinished: page.saveSecondSettings() }
-                    }
-                    Text { text: "Refresh rate"; color: theme.textSecondary }
-                    CustomComboBox { id: secondFps; Layout.preferredWidth: 260; model: ["30", "60", "90", "120", "Custom..."]; onActivated: page.saveSecondSettings() }
-                    Text { text: ""; visible: secondFps.currentText === "Custom..." }
-                    CustomTextField { id: secondCustomFps; visible: secondFps.currentText === "Custom..."; placeholderText: "24–240"; maximumLength: 3; onEditingFinished: page.saveSecondSettings() }
-                    Text { text: "Encoder"; color: theme.textSecondary }
-                    ChoiceChips {
-                        id: secondEncoder
-                        model: ["Auto", "NVIDIA", "VA-API", "Vulkan", "Software Enc"]
-                        chipWidth: 112
-                        onActivated: {
-                            page.refreshSecondGpuOptions("")
-                            page.saveSecondSettings()
-                        }
-                    }
-                    Text { text: "Encoding GPU"; color: theme.textSecondary; visible: secondGpuOptions.length > 0 }
-                    CustomComboBox {
-                        id: secondGpu
-                        Layout.preferredWidth: 260
-                        visible: secondGpuOptions.length > 0
-                        onActivated: page.saveSecondSettings()
-                    }
-                    Text { text: "Codec"; color: theme.textSecondary }
-                    ChoiceChips { id: secondCodec; model: ["Auto", "H.264 (AVC)", "H.265 (HEVC)", "AV1"]; chipWidth: 112; onActivated: page.saveSecondSettings() }
-                    Text { text: "" }
-                    ColumnLayout {
-                        CustomToggle { id: secondInput; text: "Moonlight touch and stylus input"; onCheckedChanged: page.saveSecondSettings() }
-                        CustomToggle { id: secondAudio; text: "Stream audio"; onCheckedChanged: page.saveSecondSettings() }
-                    }
-                }
-            }
-            RowLayout {
-                Layout.alignment: Qt.AlignRight
-                CustomButton { text: "Cancel"; onClicked: secondPopup.close() }
-                CustomButton {
-                    text: "Create Display"
-                    primary: true
-                    onClicked: {
-                        page.saveSecondSettings()
-                        backend.setSunshineEncoder(secondEncoder.currentText, 2)
-                        backend.setSunshineCodec(secondCodec.currentText, 2)
-                        backend.setSunshineNativePenTouch(secondInput.checked, 2)
-                        backend.startSecondStream(
-                            page.secondResolution(), page.secondFpsValue(),
-                            secondEncoder.currentText, page.selectedSecondGpuId(), secondCodec.currentText,
-                            secondInput.checked, secondAudio.checked
-                        )
-                        secondPopup.close()
-                    }
-                }
-            }
-        }
-    }
 }

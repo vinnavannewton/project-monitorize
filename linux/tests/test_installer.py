@@ -86,14 +86,14 @@ class SunshineOnlyPackagingTest(unittest.TestCase):
 
     def test_display_setup_groups_streaming_and_virtual_only_controls(self):
         qml = (ROOT / "linux/monitorize/qml/DisplaySetupPage.qml").read_text()
-        headings = ('text: "Display"', 'text: "Streaming"', 'text: "Extras"')
+        headings = ('title: "DISPLAY"', 'title: "STREAMING"', 'title: "EXTRAS"')
         for heading in headings:
             self.assertIn(heading, qml)
         self.assertLess(qml.index(headings[0]), qml.index(headings[1]))
         self.assertLess(qml.index(headings[1]), qml.index(headings[2]))
         self.assertIn('model: ["Automatic (Recommended)", "Customize ›"]', qml)
         self.assertIn('text: "Create virtual display only"', qml)
-        self.assertIn('text: "Launch"', qml)
+        self.assertNotIn('text: "Launch"', qml)
         self.assertNotIn("Moonlight will discover", qml)
         self.assertIn(
             "Creates the virtual display without starting Monitorize’s streaming backend.",

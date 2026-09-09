@@ -169,10 +169,13 @@ modules:
         path: sunshine-flatpak-session-reuse.patch
       - type: patch
         path: ../sunshine-strict-selection.patch
+      - type: patch
+        path: sunshine-mirror-selection.patch
 
   - name: monitorize
     buildsystem: simple
     build-commands:
+      - cc -O2 -Wall -Wextra linux/native/portal_resize.c -o ${FLATPAK_DEST}/bin/monitorize-pipewire-resize $(pkg-config --cflags --libs libpipewire-0.3)
       - pip3 install --no-deps --no-build-isolation --prefix=${FLATPAK_DEST} .
       - install -Dm644 com.vinnavan.Monitorize.desktop -t ${FLATPAK_DEST}/share/applications
       - install -Dm644 com.vinnavan.Monitorize.png ${FLATPAK_DEST}/share/icons/hicolor/512x512/apps/${FLATPAK_ID}.png
