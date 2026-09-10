@@ -10,7 +10,7 @@ AbstractButton {
     implicitHeight: 88
     background: Rectangle {
         radius: 10
-        color: control.selected ? "#173f70" : (control.hovered ? theme.surfaceAlt : "transparent")
+        color: control.hovered && !control.selected ? theme.surfaceAlt : "transparent"
     }
     contentItem: ColumnLayout {
         spacing: 8

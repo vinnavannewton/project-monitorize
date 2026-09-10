@@ -40,6 +40,7 @@ Item {
                 }
             }
             Rectangle {
+                visible: backend.sessionMode !== "Extend" || backend.sessionHasDisplays
                 Layout.fillWidth: true
                 implicitHeight: summary.implicitHeight + 40
                 radius: 14; color: theme.surface; border.color: theme.border
@@ -96,7 +97,6 @@ Item {
                                 popupType: Popup.Item
                                 width: 220
                                 background: Rectangle { color: theme.surface; border.color: theme.border; radius: 8 }
-                                CardMenuItem { text: "Pair Moonlight PIN"; enabled: backend.sessionRunning && displayCard.modelData.live; onTriggered: page.openPair(displayCard.modelData.number) }
                                 CardMenuItem { text: "Sunshine settings"; enabled: backend.sessionRunning && displayCard.modelData.live; onTriggered: backend.openSunshineWebUi(displayCard.modelData.number) }
                                 CardMenuItem { text: "Remove"; onTriggered: backend.removeSessionDisplay(displayCard.index) }
                             }
@@ -162,7 +162,6 @@ Item {
                         background: Rectangle { color: theme.logBoxBackground; radius: 8 }
                     }
                 }
-                CustomButton { text: "Sunshine settings"; primary: false; enabled: backend.sessionRunning; onClicked: backend.openSunshineWebUi(1) }
             }
         }
     }

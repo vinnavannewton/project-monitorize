@@ -30,7 +30,7 @@ Rectangle {
                 spacing: 12
                 LineIcon { symbol: card.symbol; Layout.preferredWidth: 22; Layout.preferredHeight: 22 }
                 Text { text: card.title; color: "#b1d6ff"; font.pixelSize: 13; font.weight: Font.DemiBold; Layout.fillWidth: true }
-                Text { text: card.expanded ? "⌃" : "⌄"; color: theme.textSecondary; font.pixelSize: 20 }
+                Text { text: card.expanded ? "⌃" : "⌄"; color: theme.textPrimary; font.pixelSize: 20 }
             }
         }
         ColumnLayout {

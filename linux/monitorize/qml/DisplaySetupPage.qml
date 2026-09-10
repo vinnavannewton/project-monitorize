@@ -158,6 +158,7 @@ Item {
                         id: mirrorMonitor
                         visible: displayType.currentText === "Mirror"
                         Layout.fillWidth: true
+                        disabledIndex: 0
                         onActivated: {
                             page.mirrorOutputId = currentIndex > 0 ? page.mirrorOutputs[currentIndex - 1].id : ""
                             page.saveSettings()

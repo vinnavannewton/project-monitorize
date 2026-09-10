@@ -637,6 +637,33 @@ exit 0
         self.assertIn('if (result["success"]) pinSuccessCloseTimer.restart()', qml)
         self.assertIn("onTriggered: pinPopup.close()", qml)
 
+    def test_navigation_direction_and_display_picker_actions_are_unambiguous(self):
+        main = (ROOT / "linux/monitorize/qml/main.qml").read_text()
+        combo = (ROOT / "linux/monitorize/qml/CustomComboBox.qml").read_text()
+        display_setup = (ROOT / "linux/monitorize/qml/DisplaySetupPage.qml").read_text()
+        streaming = (ROOT / "linux/monitorize/qml/StreamingPage.qml").read_text()
+
+        self.assertIn("function pageOrder(page)", main)
+        self.assertIn("property int pageTransitionDirection: 1", main)
+        self.assertIn(
+            "pageTransitionDirection = pageOrder(page) > pageOrder(selectedPage) ? 1 : -1",
+            main,
+        )
+        self.assertIn(
+            "from: root.pageTransitionDirection * stack.height",
+            main,
+        )
+        self.assertIn(
+            "to: -root.pageTransitionDirection * stack.height",
+            main,
+        )
+        self.assertIn("property int disabledIndex: -1", combo)
+        self.assertIn("enabled: index !== cb.disabledIndex", combo)
+        self.assertIn("indicator: Text", combo)
+        self.assertIn("color: theme.textPrimary", combo)
+        self.assertIn("disabledIndex: 0", display_setup)
+        self.assertEqual(streaming.count('text: "Pair Moonlight PIN"'), 1)
+
     def test_choice_chips_and_start_card_fit_their_containers(self):
         chips = (ROOT / "linux/monitorize/qml/ChoiceChips.qml").read_text()
         menu = (ROOT / "linux/monitorize/qml/MainMenuPage.qml").read_text()

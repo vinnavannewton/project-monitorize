@@ -62,7 +62,7 @@ Item {
                 }
             }
             SectionCard {
-                title: "MAINTENANCE"; symbol: "extras"; Layout.fillWidth: true
+                title: "MISCELLANEOUS"; symbol: "extras"; Layout.fillWidth: true
                 CustomButton {
                     visible: backend.canConfigureDisplay
                     text: "Remove stagnant virtual displays"; primary: false

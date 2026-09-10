@@ -17,7 +17,52 @@ Rectangle {
     property string startFailureMessage: "Failed to start stream"
     readonly property bool showGlobalBack: stack.depth > 1 && !backend.isStreaming
     property string selectedPage: "DisplaySetupPage.qml"
+    property string highlightedPage: "DisplaySetupPage.qml"
+    property bool navHighlightFading: false
+    property int pageTransitionDirection: 1
+
+    function pageOrder(page) {
+        if (page === "DisplaySetupPage.qml") return 0
+        if (page === "StreamingPage.qml") return 1
+        if (page === "PresetsPage.qml") return 2
+        return 3
+    }
+
+    function navigationGroup(page) {
+        return (page === "DisplaySetupPage.qml" || page === "StreamingPage.qml")
+            ? "top" : "bottom"
+    }
+
+    function navigationButtonY(page) {
+        if (page === "DisplaySetupPage.qml") return navigationColumn.y + configureButton.y
+        if (page === "StreamingPage.qml") return navigationColumn.y + sessionButton.y
+        if (page === "PresetsPage.qml") return navigationColumn.y + presetsButton.y
+        return navigationColumn.y + settingsButton.y
+    }
+
+    function navigationButtonHeight(page) {
+        if (page === "DisplaySetupPage.qml") return configureButton.height
+        if (page === "StreamingPage.qml") return sessionButton.height
+        if (page === "PresetsPage.qml") return presetsButton.height
+        return settingsButton.height
+    }
+
+    onSelectedPageChanged: {
+        if (highlightedPage === selectedPage) return
+        if (navigationGroup(highlightedPage) === navigationGroup(selectedPage)) {
+            navHighlightFade.stop()
+            navHighlightFading = false
+            navHighlight.opacity = 1
+            highlightedPage = selectedPage
+        } else {
+            navHighlightFading = true
+            navHighlightFade.restart()
+        }
+    }
+
     function navigate(page) {
+        if (page === selectedPage) return
+        pageTransitionDirection = pageOrder(page) > pageOrder(selectedPage) ? 1 : -1
         selectedPage = page
         stack.replace(page)
     }
@@ -82,6 +127,14 @@ Rectangle {
         anchors.bottomMargin: 20
         initialItem: "DisplaySetupPage.qml"
 
+        replaceEnter: Transition {
+            PropertyAnimation { property: "y"; from: root.pageTransitionDirection * stack.height; to: 0; duration: 300; easing.type: Easing.OutCubic }
+            PropertyAnimation { property: "opacity"; from: 0; to: 1; duration: 250 }
+        }
+        replaceExit: Transition {
+            PropertyAnimation { property: "y"; to: -root.pageTransitionDirection * stack.height; duration: 300; easing.type: Easing.OutCubic }
+            PropertyAnimation { property: "opacity"; to: 0; duration: 250 }
+        }
         pushEnter: Transition {
             PropertyAnimation { property: "x"; from: stack.width; to: 0; duration: 300; easing.type: Easing.OutCubic }
             PropertyAnimation { property: "opacity"; from: 0; to: 1; duration: 250 }
@@ -101,34 +154,74 @@ Rectangle {
     }
 
     Rectangle {
+        id: sidebar
         width: 106
         anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
         color: "#101e30"; border.color: theme.border
+
+        Rectangle {
+            id: navHighlight
+            x: navigationColumn.x
+            width: navigationColumn.width
+            y: root.navigationButtonY(root.highlightedPage)
+            height: root.navigationButtonHeight(root.highlightedPage)
+            radius: 10
+            color: theme.buttonBackground
+            z: 0
+
+            Behavior on y {
+                enabled: !root.navHighlightFading
+                NumberAnimation { duration: 260; easing.type: Easing.InOutCubic }
+            }
+            Behavior on height {
+                enabled: !root.navHighlightFading
+                NumberAnimation { duration: 180; easing.type: Easing.InOutCubic }
+            }
+        }
+
         ColumnLayout {
+            id: navigationColumn
             anchors { fill: parent; margins: 8; topMargin: 18; bottomMargin: 14 }
             spacing: 10
+            z: 1
             NavigationButton {
+                id: configureButton
                 label: "Configure"; symbol: "display"; Layout.fillWidth: true
                 selected: root.selectedPage === "DisplaySetupPage.qml"
                 onClicked: root.navigate("DisplaySetupPage.qml")
             }
             NavigationButton {
+                id: sessionButton
                 label: "Session"; symbol: "session"; Layout.fillWidth: true
                 selected: root.selectedPage === "StreamingPage.qml"
                 onClicked: root.navigate("StreamingPage.qml")
             }
             Item { Layout.fillHeight: true }
             NavigationButton {
+                id: presetsButton
                 label: "Presets"; symbol: "logs"; Layout.fillWidth: true
                 selected: root.selectedPage === "PresetsPage.qml"
                 onClicked: root.navigate("PresetsPage.qml")
             }
             NavigationButton {
+                id: settingsButton
                 label: "Settings"; symbol: "settings"; Layout.fillWidth: true
                 selected: root.selectedPage === "SettingsPage.qml"
                 onClicked: root.navigate("SettingsPage.qml")
             }
         }
+    }
+
+    SequentialAnimation {
+        id: navHighlightFade
+        NumberAnimation { target: navHighlight; property: "opacity"; to: 0; duration: 110 }
+        ScriptAction {
+            script: {
+                root.highlightedPage = root.selectedPage
+                root.navHighlightFading = false
+            }
+        }
+        NumberAnimation { target: navHighlight; property: "opacity"; to: 1; duration: 150 }
     }
 
     Popup {
