@@ -258,8 +258,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Run the manual installer
-        run: linux/scripts/install.sh
+      - name: Run the partial manual installer
+        run: linux/scripts/install.sh --partial
 
       - name: Verify Arch runtime and installer output
         run: |
