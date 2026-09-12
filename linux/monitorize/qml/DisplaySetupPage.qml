@@ -10,6 +10,8 @@ Item {
     property var mirrorOutputs: []
     property string mirrorOutputId: ""
     property var nativeResolutionOptions: ["1280x720 (16:9)", "1280x800 (16:10)", "1920x1080 (16:9)", "1920x1200 (16:10)", "2560x1440 (16:9)", "2560x1600 (16:10)", "3840x2160 (16:9)", "Custom..."]
+    property bool vkmsCustomResolutionActive: false
+    property string previousVkmsResolution: ""
     readonly property bool vkmsSelected: displayType.currentText === "Extend"
         && displayCreator.currentText === "VKMS (Experimental)"
 
@@ -60,6 +62,19 @@ Item {
         return fpsCombo.currentText === "Custom..." ? customFps.text : fpsCombo.currentText
     }
 
+    function restoreVkmsNormalResolution() {
+        if (previousVkmsResolution
+                && resCombo.selectValue(previousVkmsResolution, true)) return true
+        for (let i = 0; i < backend.vkmsResolutionOptions.length; ++i) {
+            let option = backend.vkmsResolutionOptions[i]
+            if (option !== "Custom..." && resCombo.selectValue(option, true)) {
+                previousVkmsResolution = option
+                return true
+            }
+        }
+        return false
+    }
+
     function encoderDisplayValue(value) {
         return String(value || "").toLowerCase().indexOf("software") === 0
             ? "Software"
@@ -93,12 +108,14 @@ Item {
 
     function saveSettings() {
         if (loading) return
+        let customResolutionEnabled = resCombo.currentText === "Custom..."
+            && (!page.vkmsSelected || page.vkmsCustomResolutionActive)
         backend.saveDisplaySettings(
             resCombo.currentText,
-            resCombo.currentText === "Custom..." ? customW.text : "",
-            resCombo.currentText === "Custom..." ? customH.text : "",
-            page.vkmsSelected ? "60" : fpsCombo.currentText,
-            !page.vkmsSelected && fpsCombo.currentText === "Custom..." ? customFps.text : "",
+            customResolutionEnabled ? customW.text : "",
+            customResolutionEnabled ? customH.text : "",
+            page.vkmsSelected && !page.vkmsCustomResolutionActive ? "60" : fpsCombo.currentText,
+            customResolutionEnabled && fpsCombo.currentText === "Custom..." ? customFps.text : "",
             displayType.currentText,
             encoder.currentText,
             page.selectedGpuId(),
@@ -125,11 +142,14 @@ Item {
                 ? "VKMS (Experimental)"
                 : "Desktop Native"
         )
+        backend.refreshVkmsResolutionOptions()
         resCombo.selectValue(saved["resolution"] || "1920x1080")
         customW.text = saved["custom_w"] || "1920"
         customH.text = saved["custom_h"] || "1080"
         fpsCombo.selectValue(saved["fps"] || "60")
         customFps.text = saved["custom_fps"] || "60"
+        if (page.vkmsSelected && resCombo.currentText !== "Custom...")
+            previousVkmsResolution = resCombo.currentText
         encoder.selectValue(page.encoderDisplayValue(saved["sunshine_encoder"]))
         page.refreshGpuOptions(saved["sunshine_gpu"] || "")
         codec.selectValue(page.codecDisplayValue(saved["sunshine_codec"]))
@@ -188,8 +208,12 @@ Item {
                             : ["Desktop Native"]
                         onActivated: {
                             if (page.vkmsSelected) {
+                                page.vkmsCustomResolutionActive = false
+                                backend.refreshVkmsResolutionOptions()
                                 if (!resCombo.selectValue(page.resolutionValue(), true))
-                                    resCombo.selectValue("1920x1080")
+                                    resCombo.selectValue(backend.vkmsResolutionOptions[0])
+                                if (resCombo.currentText !== "Custom...")
+                                    page.previousVkmsResolution = resCombo.currentText
                                 fpsCombo.selectValue("60")
                             }
                             page.saveSettings()
@@ -224,30 +248,63 @@ Item {
                     }
                     CustomComboBox {
                         id: resCombo; Layout.fillWidth: true
-                        enabled: displayType.currentText !== "Mirror"
+                        enabled: displayType.currentText !== "Mirror" && !backend.vkmsCustomCapabilityChecking
                         opacity: enabled ? 1 : 0.45
                         displayText: displayType.currentText === "Mirror"
                             ? page.mirrorResolutionLabel() : currentText
                         model: page.vkmsSelected ? backend.vkmsResolutionOptions : page.nativeResolutionOptions
-                        onActivated: page.saveSettings()
+                        onActivated: {
+                            if (page.vkmsSelected && currentText === "Custom...") {
+                                backend.checkVkmsCustomEdidSupport()
+                                return
+                            }
+                            if (page.vkmsSelected) {
+                                page.vkmsCustomResolutionActive = false
+                                page.previousVkmsResolution = currentText
+                            }
+                            page.saveSettings()
+                        }
                     }
-                    Item { visible: displayType.currentText !== "Mirror" && !page.vkmsSelected && resCombo.currentText === "Custom..." }
+                    Text {
+                        visible: page.vkmsSelected && backend.vkmsCustomCapabilityChecking
+                        text: "Checking custom VKMS resolution support…"
+                        color: theme.textMuted; font.pixelSize: 12
+                        Layout.columnSpan: 2; Layout.fillWidth: true
+                    }
+                    Item {
+                        visible: displayType.currentText !== "Mirror" && resCombo.currentText === "Custom..."
+                            && (!page.vkmsSelected || page.vkmsCustomResolutionActive)
+                    }
                     RowLayout {
-                        visible: displayType.currentText !== "Mirror" && !page.vkmsSelected && resCombo.currentText === "Custom..."
+                        visible: displayType.currentText !== "Mirror" && resCombo.currentText === "Custom..."
+                            && (!page.vkmsSelected || page.vkmsCustomResolutionActive)
                         CustomTextField { id: customW; Layout.fillWidth: true; placeholderText: "Width"; maximumLength: 4; onEditingFinished: page.saveSettings() }
                         Text { text: "×"; color: theme.textSecondary }
                         CustomTextField { id: customH; Layout.fillWidth: true; placeholderText: "Height"; maximumLength: 4; onEditingFinished: page.saveSettings() }
                     }
-                    Text { text: "Refresh rate"; color: page.vkmsSelected ? theme.textMuted : theme.textSecondary }
+                    Text {
+                        text: "Refresh rate"
+                        color: page.vkmsSelected && !page.vkmsCustomResolutionActive ? theme.textMuted : theme.textSecondary
+                    }
                     CustomComboBox {
                         id: fpsCombo; Layout.fillWidth: true; model: ["30", "60", "90", "120", "Custom..."]
-                        enabled: !page.vkmsSelected
+                        enabled: !page.vkmsSelected || page.vkmsCustomResolutionActive
                         opacity: enabled ? 1 : 0.45
-                        displayText: page.vkmsSelected ? "~60 Hz — Managed by VKMS" : currentText
+                        displayText: page.vkmsSelected && !page.vkmsCustomResolutionActive
+                            ? "~60 Hz — Managed by VKMS" : currentText
                         onActivated: page.saveSettings()
                     }
-                    Item { visible: !page.vkmsSelected && fpsCombo.currentText === "Custom..." }
-                    CustomTextField { id: customFps; visible: !page.vkmsSelected && fpsCombo.currentText === "Custom..."; placeholderText: "24–240"; maximumLength: 3; onEditingFinished: page.saveSettings() }
+                    Item {
+                        visible: fpsCombo.currentText === "Custom..."
+                            && (!page.vkmsSelected || page.vkmsCustomResolutionActive)
+                    }
+                    CustomTextField {
+                        id: customFps
+                        visible: fpsCombo.currentText === "Custom..."
+                            && (!page.vkmsSelected || page.vkmsCustomResolutionActive)
+                        placeholderText: "24–240"; maximumLength: 3
+                        onEditingFinished: page.saveSettings()
+                    }
                 }
             }
             SectionCard {
@@ -320,6 +377,22 @@ Item {
             }
         }
     }
+    Connections {
+        target: backend
+        function onVkmsCustomCapabilityChecked(capability) {
+            if (!page.vkmsSelected || resCombo.currentText !== "Custom...") return
+            if (capability === "supported") {
+                page.vkmsCustomResolutionActive = true
+                page.saveSettings()
+                return
+            }
+            page.vkmsCustomResolutionActive = false
+            let restored = page.restoreVkmsNormalResolution()
+            if (restored) page.saveSettings()
+            if (capability === "unsupported") vkmsCustomUnsupported.open()
+            else vkmsCustomCheckFailed.open()
+        }
+    }
     Popup {
         id: virtualOnlyHint; parent: Overlay.overlay
         anchors.centerIn: parent
@@ -329,6 +402,70 @@ Item {
         contentItem: Text {
             text: "Creates the virtual display without starting Monitorize’s streaming backend. Use your preferred streamer instead."
             color: theme.textSecondary; font.pixelSize: 12; wrapMode: Text.WordWrap
+        }
+    }
+    Popup {
+        id: vkmsCustomUnsupported; parent: Overlay.overlay
+        anchors.centerIn: parent
+        width: Math.min(430, parent.width - 40); padding: 18; focus: true
+        modal: true
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        background: Rectangle { color: theme.surface; border.color: theme.borderHover; radius: theme.cardRadius }
+        contentItem: ColumnLayout {
+            spacing: 16
+            Text {
+                text: "Custom VKMS resolution unavailable"
+                color: theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold
+                wrapMode: Text.WordWrap; Layout.fillWidth: true
+            }
+            Text {
+                text: "Your current VKMS driver does not support custom resolutions and refresh rates.\n\nCustom VKMS resolutions require monitorize-vkms."
+                color: theme.textSecondary; font.pixelSize: 13; wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+            RowLayout {
+                Layout.alignment: Qt.AlignRight; spacing: 10
+                CustomButton { text: "Cancel"; primary: false; onClicked: vkmsCustomUnsupported.close() }
+                CustomButton {
+                    text: "Install monitorize-vkms"
+                    onClicked: {
+                        backend.openMonitorizeVkmsInstallPage()
+                        vkmsCustomUnsupported.close()
+                    }
+                }
+            }
+        }
+    }
+    Popup {
+        id: vkmsCustomCheckFailed; parent: Overlay.overlay
+        anchors.centerIn: parent
+        width: Math.min(430, parent.width - 40); padding: 18; focus: true
+        modal: true
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        background: Rectangle { color: theme.surface; border.color: theme.borderHover; radius: theme.cardRadius }
+        contentItem: ColumnLayout {
+            spacing: 16
+            Text {
+                text: "Could not check VKMS custom-resolution support"
+                color: theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold
+                wrapMode: Text.WordWrap; Layout.fillWidth: true
+            }
+            Text {
+                text: "Monitorize could not determine whether the current VKMS driver supports custom resolutions."
+                color: theme.textSecondary; font.pixelSize: 13; wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+            RowLayout {
+                Layout.alignment: Qt.AlignRight; spacing: 10
+                CustomButton { text: "Cancel"; primary: false; onClicked: vkmsCustomCheckFailed.close() }
+                CustomButton {
+                    text: "Try Again"
+                    onClicked: {
+                        vkmsCustomCheckFailed.close()
+                        backend.checkVkmsCustomEdidSupport()
+                    }
+                }
+            }
         }
     }
 }

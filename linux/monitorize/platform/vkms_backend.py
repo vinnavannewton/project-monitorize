@@ -12,6 +12,8 @@ import signal
 import subprocess
 import sys
 import time
+import webbrowser
+from enum import Enum
 
 
 VKMS_HELPER = Path("/usr/libexec/monitorize/monitorize-source-vkms-helper")
@@ -19,6 +21,8 @@ OUTPUT_TIMEOUT = 10.0
 POLL_INTERVAL = 0.1
 APPROXIMATE_REFRESH = 60.0
 
+
+MONITORIZE_VKMS_INSTALL_URL = "https://github.com/vinnavannewton/monitorize-vkms"
 
 
 
@@ -55,8 +59,69 @@ class VkmsError(RuntimeError):
     pass
 
 
-def resolution_options() -> list[str]:
-    return [f"{width}x{height}" for width, height in VKMS_RESOLUTIONS]
+class CustomEdidCapability(str, Enum):
+    SUPPORTED = "supported"
+    UNSUPPORTED = "unsupported"
+    CHECK_FAILED = "check_failed"
+
+
+_DRM_CONNECTOR_NAME = re.compile(r"^card\d+-.+")
+_DRM_MODE_NAME = re.compile(r"^(\d+)x(\d+)$")
+
+
+def resolution_options(drm_root: Path | None = None) -> list[str]:
+    """Return modes exposed by the current Monitorize VKMS DRM connector.
+
+    Configfs cannot enumerate fallback modes before a VKMS device exists, so
+    this selector deliberately reflects only a live Monitorize-owned DRM
+    connector. ``Custom...`` remains the final selector item.
+    """
+    modes: set[tuple[int, int]] = set()
+    try:
+        connectors = sorted((drm_root or Path("/sys/class/drm")).iterdir())
+    except OSError:
+        return ["Custom..."]
+
+    for connector in connectors:
+        if not _DRM_CONNECTOR_NAME.fullmatch(connector.name):
+            continue
+        try:
+            device = (connector / "device").resolve()
+            if "/faux/monitorize" not in str(device):
+                continue
+            raw_modes = (connector / "modes").read_text(encoding="utf-8").splitlines()
+        except OSError:
+            continue
+        for raw_mode in raw_modes:
+            match = _DRM_MODE_NAME.fullmatch(raw_mode.strip())
+            if match:
+                modes.add((int(match.group(1)), int(match.group(2))))
+
+    ordered = sorted(modes, key=lambda mode: (mode[0] * mode[1], mode), reverse=True)
+    return [*(f"{width}x{height}" for width, height in ordered), "Custom..."]
+
+
+def custom_edid_capability_from_response(response: dict) -> CustomEdidCapability:
+    """Validate the helper's successful custom-EDID capability response."""
+    value = str(response.get("capability") or "").lower()
+    if value == CustomEdidCapability.SUPPORTED.value:
+        return CustomEdidCapability.SUPPORTED
+    if value == CustomEdidCapability.UNSUPPORTED.value:
+        return CustomEdidCapability.UNSUPPORTED
+    raise VkmsError("VKMS capability helper returned an invalid capability result.")
+
+
+def check_custom_edid_support() -> CustomEdidCapability:
+    """Synchronously check configfs EDID capability for non-UI callers."""
+    return custom_edid_capability_from_response(_helper_response("capability"))
+
+
+def open_monitorize_vkms_install_page() -> bool:
+    """Open the centralized future monitorize-vkms installation page URL."""
+    try:
+        return webbrowser.open(MONITORIZE_VKMS_INSTALL_URL)
+    except Exception:
+        return False
 
 
 def sanitize_vkms_resolution(width: int, height: int) -> tuple[int, int]:
@@ -67,7 +132,7 @@ def sanitize_vkms_resolution(width: int, height: int) -> tuple[int, int]:
 def _helper_response(operation: str, timeout: float = 60.0) -> dict:
     if os.path.isfile("/.flatpak-info"):
         raise VkmsError("VKMS display creation is available only in the native source installation.")
-    if operation not in ("create", "destroy", "status"):
+    if operation not in ("create", "destroy", "status", "capability"):
         raise ValueError(f"Unsupported VKMS helper operation: {operation}")
     if not VKMS_HELPER.is_file() or not os.access(VKMS_HELPER, os.X_OK):
         raise VkmsError("The VKMS helper is not installed. Re-run the Monitorize source installer.")

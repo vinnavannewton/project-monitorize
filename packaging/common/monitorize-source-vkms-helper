@@ -10,6 +10,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
+import uuid
 
 
 INSTANCE_NAME = "monitorize"
@@ -210,9 +211,55 @@ def _create_instance(root: Path, logs: list[str]) -> Path:
         raise VkmsHelperError(f"VKMS topology creation failed: {exc}") from exc
 
 
+def _probe_custom_edid_support(root: Path, logs: list[str]) -> bool:
+    """Inspect custom-EDID configfs attributes without enabling a device."""
+    vkms_root = root / "vkms"
+    if not vkms_root.is_dir():
+        raise VkmsHelperError("This kernel's VKMS driver does not expose the required configfs interface.")
+
+    existing_connector = vkms_root / INSTANCE_NAME / "connectors" / "connector0"
+    if existing_connector.is_dir():
+        supported = (existing_connector / "edid").is_file() and (
+            existing_connector / "edid_enabled"
+        ).is_file()
+        logs.append(
+            "VKMS custom EDID capability: "
+            + ("supported" if supported else "unsupported")
+        )
+        return supported
+
+    probe_name = f"monitorize-capability-probe-{uuid.uuid4().hex}"
+    probe = vkms_root / probe_name
+    connector = probe / "connectors" / "connector0"
+    logs.append(f"Creating temporary VKMS capability probe {probe_name}")
+    try:
+        probe.mkdir()
+        # Configfs supplies the connectors group when the instance is created.
+        connector.mkdir()
+        supported = (connector / "edid").is_file() and (
+            connector / "edid_enabled"
+        ).is_file()
+        logs.append(
+            "VKMS custom EDID capability: "
+            + ("supported" if supported else "unsupported")
+        )
+        return supported
+    except OSError as exc:
+        raise VkmsHelperError(f"Could not inspect VKMS custom EDID capability: {exc}") from exc
+    finally:
+        try:
+            _remove_dir(connector)
+            _remove_dir(probe)
+        except OSError as exc:
+            raise VkmsHelperError(f"Could not clean up VKMS capability probe: {exc}") from exc
+        if probe.exists():
+            raise VkmsHelperError("VKMS capability probe cleanup did not complete.")
+        logs.append("VKMS capability probe cleanup complete")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Manage Monitorize's fixed VKMS configfs instance.")
-    parser.add_argument("operation", choices=("create", "destroy", "status"))
+    parser.add_argument("operation", choices=("create", "destroy", "status", "capability"))
     args = parser.parse_args()
     _require_polkit_root()
 
@@ -228,6 +275,9 @@ def main() -> int:
         changed = True
     elif args.operation == "destroy":
         changed = _destroy_instance(instance, logs)
+    capability = None
+    if args.operation == "capability":
+        capability = "supported" if _probe_custom_edid_support(root, logs) else "unsupported"
 
     print(json.dumps({
         "success": True,
@@ -235,6 +285,7 @@ def main() -> int:
         "changed": changed,
         "instance": str(instance),
         "logs": logs,
+        "capability": capability,
     }))
     return 0
 

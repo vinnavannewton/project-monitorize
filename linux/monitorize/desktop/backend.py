@@ -1,8 +1,11 @@
 """QML-facing facade for Sunshine display sessions."""
 
+import json
+import logging
 import os
+import shutil
 
-from PyQt6.QtCore import QObject, QTimer, pyqtProperty, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import QObject, QProcess, QTimer, pyqtProperty, pyqtSignal, pyqtSlot
 
 from monitorize.config import app_log, autostart
 from monitorize.config.settings import (
@@ -33,7 +36,14 @@ from monitorize.platform.sunshine_service import (
 )
 from monitorize.platform.system_setup import apply_system_setup, get_system_setup_status
 from monitorize.platform.utils import get_local_ip
-from monitorize.platform.vkms_backend import resolution_options as vkms_resolution_options
+from monitorize.platform.vkms_backend import (
+    CustomEdidCapability,
+    VKMS_HELPER,
+    VkmsError,
+    custom_edid_capability_from_response,
+    open_monitorize_vkms_install_page,
+    resolution_options as vkms_resolution_options,
+)
 
 
 class MonitorizeBackend(QObject):
@@ -52,6 +62,9 @@ class MonitorizeBackend(QObject):
     systemSetupAvailableChanged = pyqtSignal(bool)
     systemSetupPendingChanged = pyqtSignal(bool)
     streamingBackendChanged = pyqtSignal(str)
+    vkmsResolutionOptionsChanged = pyqtSignal()
+    vkmsCustomCapabilityCheckingChanged = pyqtSignal()
+    vkmsCustomCapabilityChecked = pyqtSignal(str)
 
     def __init__(self, de, parent=None):
         super().__init__(parent)
@@ -71,6 +84,9 @@ class MonitorizeBackend(QObject):
         self.logAppended.connect(self._remember_session_log)
         self._presets = load_presets()
         self._preset_launch_status = ""
+        self._vkms_resolution_options = vkms_resolution_options()
+        self._vkms_custom_capability = None
+        self._vkms_custom_capability_process = None
         self._system_setup_available = bool(get_system_setup_status()["available"])
         self._system_setup_decided = bool(
             general.get("system_setup_decided", False)
@@ -186,9 +202,130 @@ class MonitorizeBackend(QObject):
     def vkmsCreatorAvailable(self):
         return not os.path.isfile("/.flatpak-info")
 
-    @pyqtProperty("QVariant", constant=True)
+    @pyqtProperty("QVariant", notify=vkmsResolutionOptionsChanged)
     def vkmsResolutionOptions(self):
-        return vkms_resolution_options()
+        return list(self._vkms_resolution_options)
+
+    @pyqtProperty(bool, notify=vkmsCustomCapabilityCheckingChanged)
+    def vkmsCustomCapabilityChecking(self):
+        return self._vkms_custom_capability_process is not None
+
+    @pyqtSlot()
+    def refreshVkmsResolutionOptions(self):
+        options = vkms_resolution_options()
+        if options != self._vkms_resolution_options:
+            self._vkms_resolution_options = options
+            self.vkmsResolutionOptionsChanged.emit()
+
+    def _finish_vkms_custom_capability(self, capability, detail=""):
+        process = self._vkms_custom_capability_process
+        self._vkms_custom_capability_process = None
+        if process is not None:
+            process.deleteLater()
+        self.vkmsCustomCapabilityCheckingChanged.emit()
+
+        if capability in (
+            CustomEdidCapability.SUPPORTED,
+            CustomEdidCapability.UNSUPPORTED,
+        ):
+            self._vkms_custom_capability = capability
+            app_log.write(
+                "VKMS",
+                f"VKMS custom EDID capability: {capability.value}",
+            )
+        else:
+            app_log.write(
+                "VKMS",
+                "Failed to determine VKMS custom EDID capability: " + detail,
+                level=logging.ERROR,
+            )
+        self.vkmsCustomCapabilityChecked.emit(capability.value)
+
+    def _complete_vkms_custom_capability(self, process, exit_code):
+        if process is not self._vkms_custom_capability_process:
+            return
+        output = bytes(process.readAllStandardOutput()).decode("utf-8", "replace")
+        response = None
+        for line in reversed(output.splitlines()):
+            try:
+                response = json.loads(line)
+                break
+            except (TypeError, json.JSONDecodeError):
+                continue
+        try:
+            if exit_code or not isinstance(response, dict) or not response.get("success"):
+                detail = ""
+                if isinstance(response, dict):
+                    detail = str(response.get("message") or "")
+                raise VkmsError(detail or "The capability check did not complete.")
+            capability = custom_edid_capability_from_response(response)
+        except VkmsError as exc:
+            self._finish_vkms_custom_capability(
+                CustomEdidCapability.CHECK_FAILED, str(exc)
+            )
+            return
+        self._finish_vkms_custom_capability(capability)
+
+    def _handle_vkms_custom_capability_error(self, process, error):
+        if (
+            error == QProcess.ProcessError.FailedToStart
+            and process is self._vkms_custom_capability_process
+        ):
+            self._finish_vkms_custom_capability(
+                CustomEdidCapability.CHECK_FAILED,
+                process.errorString(),
+            )
+
+    @pyqtSlot()
+    def checkVkmsCustomEdidSupport(self):
+        if self._vkms_custom_capability_process is not None:
+            return
+        if self._vkms_custom_capability is not None:
+            QTimer.singleShot(
+                0,
+                lambda: self.vkmsCustomCapabilityChecked.emit(
+                    self._vkms_custom_capability.value
+                ),
+            )
+            return
+        if os.path.isfile("/.flatpak-info"):
+            self._finish_vkms_custom_capability(
+                CustomEdidCapability.CHECK_FAILED,
+                "VKMS capability checks are unavailable in Flatpak.",
+            )
+            return
+        pkexec = shutil.which("pkexec")
+        if not pkexec or not VKMS_HELPER.is_file() or not os.access(VKMS_HELPER, os.X_OK):
+            self._finish_vkms_custom_capability(
+                CustomEdidCapability.CHECK_FAILED,
+                "The VKMS privileged helper is unavailable.",
+            )
+            return
+
+        process = QProcess(self)
+        process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+        process.finished.connect(
+            lambda exit_code, _status: self._complete_vkms_custom_capability(
+                process, exit_code
+            )
+        )
+        process.errorOccurred.connect(
+            lambda error: self._handle_vkms_custom_capability_error(process, error)
+        )
+        self._vkms_custom_capability_process = process
+        self.vkmsCustomCapabilityCheckingChanged.emit()
+        process.start(pkexec, [str(VKMS_HELPER), "capability"])
+
+    @pyqtSlot(result=bool)
+    def openMonitorizeVkmsInstallPage(self):
+        opened = open_monitorize_vkms_install_page()
+        if not opened:
+            app_log.write(
+                "VKMS",
+                "Could not open the monitorize-vkms installation page.",
+                level=logging.ERROR,
+            )
+        return opened
 
     @pyqtProperty(str, notify=streamingBackendChanged)
     def streamingBackend(self):

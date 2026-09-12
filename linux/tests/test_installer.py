@@ -636,9 +636,14 @@ exit 0
         helper = (ROOT / "packaging/common/monitorize-source-vkms-helper").read_text()
         self.assertIn('text: "Virtual Display Creator"', qml)
         self.assertIn('"VKMS (Experimental)"', qml)
-        self.assertIn('displayText: page.vkmsSelected ? "~60 Hz — Managed by VKMS"', qml)
+        self.assertIn('backend.checkVkmsCustomEdidSupport()', qml)
+        self.assertIn('Custom VKMS resolution unavailable', qml)
+        self.assertIn('Could not check VKMS custom-resolution support', qml)
+        self.assertIn('"Install monitorize-vkms"', qml)
+        self.assertIn('currentText === "Custom..."', qml)
         self.assertIn("install_vkms_helper", installer)
-        self.assertIn('choices=("create", "destroy", "status")', helper)
+        self.assertIn('choices=("create", "destroy", "status", "capability")', helper)
+        self.assertIn("edid_enabled", helper)
         self.assertNotIn("shell=True", helper)
 
     def test_choice_chips_and_preset_menu_use_the_requested_layout(self):

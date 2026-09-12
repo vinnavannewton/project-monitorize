@@ -2,6 +2,7 @@ import io
 import os
 from pathlib import Path
 import subprocess
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -12,11 +13,28 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class VkmsBackendTest(unittest.TestCase):
-    def test_resolution_options_are_deduplicated_and_exclude_custom(self):
-        options = vkms_backend.resolution_options()
-        self.assertEqual(len(options), len(set(options)))
-        self.assertIn("1920x1080", options)
-        self.assertNotIn("Custom...", options)
+    def test_resolution_options_read_monitorize_drm_modes_and_keep_custom_last(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            drm_root = root / "drm"
+            connector = drm_root / "card3-Virtual-1"
+            connector.mkdir(parents=True)
+            (root / "faux" / "monitorize").mkdir(parents=True)
+            (connector / "device").symlink_to(root / "faux" / "monitorize")
+            (connector / "modes").write_text("1920x1080\n2560x1440\n1920x1080\n")
+
+            physical = drm_root / "card1-DP-1"
+            physical.mkdir()
+            (root / "physical").mkdir()
+            (physical / "device").symlink_to(root / "physical")
+            (physical / "modes").write_text("3840x2160\n")
+
+            self.assertEqual(
+                vkms_backend.resolution_options(drm_root),
+                ["2560x1440", "1920x1080", "Custom..."],
+            )
+
+    def test_normal_vkms_resolution_uses_existing_sanitization_without_probe(self):
         self.assertEqual(
             vkms_backend.sanitize_vkms_resolution(1366, 768),
             (1366, 768),
@@ -25,6 +43,27 @@ class VkmsBackendTest(unittest.TestCase):
             vkms_backend.sanitize_vkms_resolution(1234, 567),
             (1920, 1080),
         )
+
+    def test_custom_edid_capability_response_states(self):
+        self.assertEqual(
+            vkms_backend.custom_edid_capability_from_response({"capability": "supported"}),
+            vkms_backend.CustomEdidCapability.SUPPORTED,
+        )
+        self.assertEqual(
+            vkms_backend.custom_edid_capability_from_response({"capability": "unsupported"}),
+            vkms_backend.CustomEdidCapability.UNSUPPORTED,
+        )
+        with self.assertRaises(vkms_backend.VkmsError):
+            vkms_backend.custom_edid_capability_from_response({"capability": "unknown"})
+
+    def test_capability_probe_uses_unique_disabled_connector_and_cleans_up(self):
+        helper = (ROOT / "packaging/common/monitorize-source-vkms-helper").read_text()
+        self.assertIn("monitorize-capability-probe-{uuid.uuid4().hex}", helper)
+        self.assertIn("connector.mkdir()", helper)
+        self.assertNotIn("plane.mkdir()", helper.split("def _probe_custom_edid_support", 1)[1])
+        probe = helper.split("def _probe_custom_edid_support", 1)[1]
+        self.assertIn("_remove_dir(connector)", probe)
+        self.assertIn("_remove_dir(probe)", probe)
 
     @patch.object(vkms_backend.signal, "signal")
     @patch.object(vkms_backend.select, "select", return_value=([object()], [], []))
