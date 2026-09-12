@@ -90,6 +90,143 @@ class DisplayController:
             )
         return None
 
+    def active_output_modes(self):
+        """Return current native modes for active compositor outputs."""
+        if self.de == "hyprland":
+            monitors = self._monitor_json() or []
+            result = {}
+            for monitor in monitors:
+                name = str(monitor.get("name") or "")
+                width = int(monitor.get("width") or 0)
+                height = int(monitor.get("height") or 0)
+                if (
+                    name
+                    and not monitor.get("disabled", False)
+                    and width > 0
+                    and height > 0
+                ):
+                    result[name] = {
+                        "width": width,
+                        "height": height,
+                        "refresh_rate": float(monitor.get("refreshRate") or 0),
+                    }
+            return result
+        if self.de == "sway":
+            result = {}
+            for output in self.sway_outputs():
+                name = str(output.get("name") or "")
+                mode = output.get("current_mode") or {}
+                width = int(mode.get("width") or 0)
+                height = int(mode.get("height") or 0)
+                if name and output.get("active", False) and width > 0 and height > 0:
+                    result[name] = {
+                        "width": width,
+                        "height": height,
+                        "refresh_rate": float(mode.get("refresh") or 0) / 1000,
+                    }
+            return result
+        return {}
+
+    @staticmethod
+    def _select_standard_mode(modes, width, height, target_refresh=60.0):
+        candidates = [
+            mode for mode in modes
+            if int(mode.get("width") or 0) == int(width)
+            and int(mode.get("height") or 0) == int(height)
+        ]
+        return min(
+            candidates,
+            key=lambda mode: (
+                abs(float(mode.get("refresh_rate") or 0) - float(target_refresh)),
+                str(mode.get("id") or ""),
+            ),
+            default=None,
+        )
+
+    def configure_existing_output_mode(self, output_name, width, height, target_refresh=60.0):
+        """Select one advertised mode without creating or positioning an output."""
+        if self.de == "hyprland":
+            output = self._monitor_details(output_name)
+            if not output:
+                return False, {}, f"Hyprland did not expose {output_name}"
+            modes = []
+            for value in output.get("availableModes") or []:
+                match = re.fullmatch(r"(\d+)x(\d+)@(\d+(?:\.\d+)?)Hz", str(value))
+                if match:
+                    modes.append({
+                        "id": str(value), "width": int(match.group(1)),
+                        "height": int(match.group(2)), "refresh_rate": float(match.group(3)),
+                    })
+            selected = self._select_standard_mode(modes, width, height, target_refresh)
+            fell_back = selected is None
+            if selected is None:
+                selected = {
+                    "id": f"{output.get('width')}x{output.get('height')}@{output.get('refreshRate')}Hz",
+                    "width": int(output.get("width") or 0),
+                    "height": int(output.get("height") or 0),
+                    "refresh_rate": float(output.get("refreshRate") or 0),
+                }
+            if selected["width"] <= 0 or selected["height"] <= 0:
+                return False, {}, f"Hyprland reported no usable modes for {output_name}"
+            mode = f"{selected['width']}x{selected['height']}@{selected['refresh_rate']:g}"
+            configured = self._run_hyprctl(
+                "eval",
+                f"hl.monitor({{ output = '{output_name}', mode = '{mode}', disabled = false }})",
+            )
+            if configured.returncode != 0:
+                configured = self._run_hyprctl(
+                    "keyword", "monitor", f"{output_name},{mode},auto,1"
+                )
+            if configured.returncode != 0 or not self.wait_for_headless_ready(
+                output_name, selected["width"], selected["height"],
+                fps=selected["refresh_rate"], timeout_s=4.0,
+            ):
+                return False, {}, f"Hyprland did not activate the selected VKMS mode on {output_name}"
+        elif self.de == "sway":
+            output = next(
+                (item for item in self.sway_outputs() if item.get("name") == output_name),
+                None,
+            )
+            if not output:
+                return False, {}, f"Sway did not expose {output_name}"
+            modes = []
+            for value in output.get("modes") or []:
+                try:
+                    modes.append({
+                        "id": "", "width": int(value["width"]),
+                        "height": int(value["height"]),
+                        "refresh_rate": float(value["refresh"]) / 1000,
+                    })
+                except (KeyError, TypeError, ValueError):
+                    continue
+            selected = self._select_standard_mode(modes, width, height, target_refresh)
+            fell_back = selected is None
+            if selected is None:
+                current = output.get("current_mode") or {}
+                selected = {
+                    "id": "", "width": int(current.get("width") or 0),
+                    "height": int(current.get("height") or 0),
+                    "refresh_rate": float(current.get("refresh") or 0) / 1000,
+                }
+            if selected["width"] <= 0 or selected["height"] <= 0:
+                return False, {}, f"Sway reported no usable modes for {output_name}"
+            mode = f"{selected['width']}x{selected['height']}@{selected['refresh_rate']:g}Hz"
+            configured = self._run_swaymsg("output", output_name, "mode", mode)
+            if configured.returncode != 0 or not self._wait_for_sway_output_ready(
+                output_name, selected["width"], selected["height"], timeout_s=4.0
+            ):
+                return False, {}, f"Sway did not activate the selected VKMS mode on {output_name}"
+        else:
+            return False, {}, f"Unsupported compositor for VKMS mode configuration: {self.de}"
+
+        details = dict(selected, name=output_name, fell_back=fell_back)
+        actual = f"{selected['width']}x{selected['height']}@{selected['refresh_rate']:g}Hz"
+        message = (
+            f"{self.de.capitalize()} kept preferred VKMS mode {actual}; requested {width}x{height} is unavailable"
+            if fell_back else f"{self.de.capitalize()} applied VKMS mode {actual}"
+        )
+        return True, details, message
+
     def headless_monitors(self):
         monitors = self._monitor_json()
         if monitors is not None:

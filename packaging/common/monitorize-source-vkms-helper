@@ -1,0 +1,247 @@
+#!/usr/bin/python3
+"""Restricted root helper for Monitorize's source-install VKMS backend."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import time
+
+
+INSTANCE_NAME = "monitorize"
+CONFIGFS_FALLBACK = Path("/config")
+MODULE_PATH = Path("/sys/module/vkms")
+
+
+class VkmsHelperError(RuntimeError):
+    pass
+
+
+def _command_path(*candidates: str) -> str | None:
+    for candidate in candidates:
+        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            return candidate
+    return None
+
+
+def _run(command: list[str]) -> str:
+    result = subprocess.run(
+        command, capture_output=True, text=True, timeout=15, check=False
+    )
+    if result.returncode:
+        detail = result.stderr.strip() or result.stdout.strip() or "command failed"
+        raise VkmsHelperError(f"{Path(command[0]).name}: {detail}")
+    return result.stdout
+
+
+def _require_polkit_root() -> None:
+    if os.geteuid() != 0:
+        raise VkmsHelperError("Administrator authorization is required to create a VKMS virtual display.")
+    if not os.environ.get("PKEXEC_UID", "").isdigit():
+        raise VkmsHelperError("This helper must be started through Polkit.")
+
+
+def _decode_mount_path(value: str) -> str:
+    for escaped, literal in (("\\040", " "), ("\\011", "\t"), ("\\012", "\n"), ("\\134", "\\")):
+        value = value.replace(escaped, literal)
+    return value
+
+
+def _configfs_mounts() -> list[Path]:
+    mounts = []
+    try:
+        lines = Path("/proc/self/mountinfo").read_text().splitlines()
+    except OSError as exc:
+        raise VkmsHelperError(f"Could not inspect mounted filesystems: {exc}") from exc
+    for line in lines:
+        fields = line.split()
+        try:
+            separator = fields.index("-")
+        except ValueError:
+            continue
+        if separator + 1 < len(fields) and fields[separator + 1] == "configfs":
+            mounts.append(Path(_decode_mount_path(fields[4])))
+    return mounts
+
+
+def _load_vkms(logs: list[str]) -> None:
+    modinfo = _command_path("/usr/sbin/modinfo", "/usr/bin/modinfo", "/sbin/modinfo")
+    if not modinfo:
+        raise VkmsHelperError("VKMS availability could not be checked because modinfo is missing.")
+    result = subprocess.run(
+        [modinfo, "vkms"], capture_output=True, text=True, timeout=10, check=False
+    )
+    if result.returncode:
+        raise VkmsHelperError("Your current Linux kernel does not provide VKMS support.")
+    logs.append("VKMS module available")
+
+    if MODULE_PATH.is_dir():
+        logs.append("VKMS module already loaded")
+        return
+    modprobe = _command_path("/usr/sbin/modprobe", "/usr/bin/modprobe", "/sbin/modprobe")
+    if not modprobe:
+        raise VkmsHelperError("VKMS could not be loaded because modprobe is missing.")
+    logs.append("Loading VKMS with create_default_dev=0")
+    _run([modprobe, "vkms", "create_default_dev=0"])
+    if not MODULE_PATH.is_dir():
+        raise VkmsHelperError("VKMS was loaded but did not become available.")
+
+
+def _configfs_root(logs: list[str], *, mount_if_missing: bool) -> Path:
+    mounts = _configfs_mounts()
+    candidates = sorted(
+        mounts,
+        key=lambda path: (0 if path == CONFIGFS_FALLBACK else 1, len(str(path))),
+    )
+    for mount in candidates:
+        if (mount / "vkms").is_dir():
+            logs.append(f"Using configfs mountpoint {mount}")
+            return mount
+
+    if not mounts and mount_if_missing:
+        mount = _command_path("/usr/bin/mount", "/bin/mount")
+        if not mount:
+            raise VkmsHelperError("Linux configfs is unavailable or could not be mounted.")
+        CONFIGFS_FALLBACK.mkdir(mode=0o755, parents=True, exist_ok=True)
+        logs.append(f"Mounting configfs at {CONFIGFS_FALLBACK}")
+        _run([mount, "-t", "configfs", "none", str(CONFIGFS_FALLBACK)])
+        mounts = [CONFIGFS_FALLBACK]
+
+    for mount in mounts:
+        if (mount / "vkms").is_dir():
+            logs.append(f"Using configfs mountpoint {mount}")
+            return mount
+    if mounts:
+        raise VkmsHelperError("This kernel's VKMS driver does not expose the required configfs interface.")
+    raise VkmsHelperError("Linux configfs is unavailable or could not be mounted.")
+
+
+def _write(path: Path, value: str) -> None:
+    try:
+        path.write_text(value)
+    except OSError as exc:
+        raise VkmsHelperError(f"Could not write {path.name}: {exc}") from exc
+
+
+def _remove_link(path: Path) -> None:
+    try:
+        if path.is_symlink():
+            path.unlink()
+    except FileNotFoundError:
+        pass
+
+
+def _remove_dir(path: Path) -> None:
+    try:
+        path.rmdir()
+    except FileNotFoundError:
+        pass
+
+
+def _destroy_instance(instance: Path, logs: list[str]) -> bool:
+    if not instance.is_dir():
+        return False
+    logs.append("Disabling Monitorize VKMS instance")
+    enabled = instance / "enabled"
+    if enabled.exists():
+        _write(enabled, "0")
+        time.sleep(0.05)
+
+    plane = instance / "planes/plane0"
+    crtc = instance / "crtcs/crtc0"
+    encoder = instance / "encoders/encoder0"
+    connector = instance / "connectors/connector0"
+    _remove_link(connector / "possible_encoders/encoder0")
+    _remove_link(encoder / "possible_crtcs/crtc0")
+    _remove_link(plane / "possible_crtcs/crtc0")
+
+    logs.append("Cleaning Monitorize VKMS topology")
+    # Remove dependants before the objects they reference.
+    for path in (connector, encoder, plane, crtc, instance):
+        _remove_dir(path)
+    if instance.exists():
+        raise VkmsHelperError("Monitorize VKMS topology could not be removed completely.")
+    logs.append("VKMS cleanup complete")
+    return True
+
+
+def _create_instance(root: Path, logs: list[str]) -> Path:
+    vkms_root = root / "vkms"
+    if not vkms_root.is_dir():
+        raise VkmsHelperError("This kernel's VKMS driver does not expose the required configfs interface.")
+    instance = vkms_root / INSTANCE_NAME
+    if instance.exists():
+        logs.append("Recovering stale Monitorize VKMS instance")
+        _destroy_instance(instance, logs)
+
+    try:
+        logs.append("Creating Monitorize VKMS instance")
+        instance.mkdir()
+        plane = instance / "planes/plane0"
+        crtc = instance / "crtcs/crtc0"
+        encoder = instance / "encoders/encoder0"
+        connector = instance / "connectors/connector0"
+
+        logs.append("Creating plane0, crtc0, encoder0, and connector0")
+        plane.mkdir()
+        _write(plane / "type", "1")
+        crtc.mkdir()
+        encoder.mkdir()
+        connector.mkdir()
+        _write(connector / "status", "1")
+
+        logs.append("Linking VKMS topology")
+        os.symlink(crtc, plane / "possible_crtcs/crtc0")
+        os.symlink(crtc, encoder / "possible_crtcs/crtc0")
+        os.symlink(encoder, connector / "possible_encoders/encoder0")
+
+        logs.append("Enabling VKMS device")
+        _write(instance / "enabled", "1")
+        return instance
+    except (OSError, VkmsHelperError) as exc:
+        try:
+            _destroy_instance(instance, logs)
+        except VkmsHelperError as cleanup_exc:
+            raise VkmsHelperError(f"VKMS topology creation failed: {exc}; cleanup failed: {cleanup_exc}") from exc
+        raise VkmsHelperError(f"VKMS topology creation failed: {exc}") from exc
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Manage Monitorize's fixed VKMS configfs instance.")
+    parser.add_argument("operation", choices=("create", "destroy", "status"))
+    args = parser.parse_args()
+    _require_polkit_root()
+
+    logs: list[str] = []
+    _load_vkms(logs)
+    root = _configfs_root(
+        logs, mount_if_missing=args.operation in ("create", "destroy")
+    )
+    instance = root / "vkms" / INSTANCE_NAME
+    changed = False
+    if args.operation == "create":
+        _create_instance(root, logs)
+        changed = True
+    elif args.operation == "destroy":
+        changed = _destroy_instance(instance, logs)
+
+    print(json.dumps({
+        "success": True,
+        "operation": args.operation,
+        "changed": changed,
+        "instance": str(instance),
+        "logs": logs,
+    }))
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except (OSError, subprocess.SubprocessError, VkmsHelperError) as exc:
+        print(json.dumps({"success": False, "message": str(exc)}))
+        sys.exit(1)

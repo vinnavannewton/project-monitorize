@@ -68,7 +68,7 @@ Item {
                 }
             }
             Repeater {
-                model: backend.sessionMode === "Extend" ? backend.sessionDisplays : []
+                model: backend.sessionDisplays
                 delegate: Rectangle {
                     id: displayCard
                     required property var modelData
@@ -81,7 +81,7 @@ Item {
                         LineIcon { symbol: "display"; Layout.preferredWidth: 34; Layout.preferredHeight: 34 }
                         ColumnLayout {
                             Layout.fillWidth: true
-                            Text { text: "Virtual display " + displayCard.modelData.number; color: theme.textPrimary; font.pixelSize: 17; font.weight: Font.DemiBold }
+                            Text { text: displayCard.modelData.title; color: theme.textPrimary; font.pixelSize: 17; font.weight: Font.DemiBold }
                             Text {
                                 text: backend.sessionRunning ? displayCard.modelData.address : displayCard.modelData.state
                                 color: theme.textSecondary; font.pixelSize: 13
@@ -98,14 +98,15 @@ Item {
                                 width: 220
                                 background: Rectangle { color: theme.surface; border.color: theme.border; radius: 8 }
                                 CardMenuItem { text: "Sunshine settings"; enabled: backend.sessionRunning && displayCard.modelData.live; onTriggered: backend.openSunshineWebUi(displayCard.modelData.number) }
-                                CardMenuItem { text: "Remove"; onTriggered: backend.removeSessionDisplay(displayCard.index) }
+                                CardMenuItem { text: "Remove"; visible: !displayCard.modelData.mirror; onTriggered: backend.removeSessionDisplay(displayCard.index) }
                             }
                         }
                     }
                 }
             }
             AbstractButton {
-                visible: backend.sessionMode === "Extend" && backend.sessionDisplays.length < 2
+                visible: backend.sessionMode === "Extend"
+                    && backend.sessionDisplays.length < backend.sessionMaxDisplays
                 enabled: !backend.sessionBusy
                 Layout.fillWidth: true
                 implicitHeight: 90

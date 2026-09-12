@@ -6,6 +6,39 @@ from monitorize.platform.display_controller import DisplayController
 
 
 class HyprlandSupportTest(unittest.TestCase):
+    def test_active_output_modes_include_headless_and_ignore_disabled(self):
+        controller = DisplayController("hyprland")
+        controller._monitor_json = Mock(
+            return_value=[
+                {
+                    "name": "eDP-1",
+                    "width": 2560,
+                    "height": 1600,
+                    "refreshRate": 120,
+                    "disabled": False,
+                },
+                {
+                    "name": "HEADLESS-1",
+                    "width": 1920,
+                    "height": 1080,
+                    "refreshRate": 60,
+                    "disabled": False,
+                },
+                {
+                    "name": "DP-2",
+                    "width": 1920,
+                    "height": 1080,
+                    "disabled": True,
+                },
+            ]
+        )
+
+        modes = controller.active_output_modes()
+
+        self.assertEqual(modes["eDP-1"]["width"], 2560)
+        self.assertEqual(modes["HEADLESS-1"]["height"], 1080)
+        self.assertNotIn("DP-2", modes)
+
     @patch(
         "monitorize.platform.display_controller.os.path.isfile",
         return_value=True,

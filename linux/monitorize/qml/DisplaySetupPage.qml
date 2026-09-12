@@ -9,6 +9,21 @@ Item {
     property var gpuOptions: []
     property var mirrorOutputs: []
     property string mirrorOutputId: ""
+    property var nativeResolutionOptions: ["1280x720 (16:9)", "1280x800 (16:10)", "1920x1080 (16:9)", "1920x1200 (16:10)", "2560x1440 (16:9)", "2560x1600 (16:10)", "3840x2160 (16:9)", "Custom..."]
+    readonly property bool vkmsSelected: displayType.currentText === "Extend"
+        && displayCreator.currentText === "VKMS (Experimental)"
+
+    function mirrorResolutionLabel() {
+        for (let i = 0; i < mirrorOutputs.length; ++i) {
+            if (mirrorOutputs[i].id === mirrorOutputId
+                    && mirrorOutputs[i].native_width > 0
+                    && mirrorOutputs[i].native_height > 0) {
+                return mirrorOutputs[i].native_width + "x"
+                    + mirrorOutputs[i].native_height + " (display native)"
+            }
+        }
+        return "Display native resolution"
+    }
 
     function refreshMirrorOutputs() {
         mirrorOutputs = backend.getMirrorOutputs()
@@ -82,8 +97,8 @@ Item {
             resCombo.currentText,
             resCombo.currentText === "Custom..." ? customW.text : "",
             resCombo.currentText === "Custom..." ? customH.text : "",
-            fpsCombo.currentText,
-            fpsCombo.currentText === "Custom..." ? customFps.text : "",
+            page.vkmsSelected ? "60" : fpsCombo.currentText,
+            !page.vkmsSelected && fpsCombo.currentText === "Custom..." ? customFps.text : "",
             displayType.currentText,
             encoder.currentText,
             page.selectedGpuId(),
@@ -91,7 +106,8 @@ Item {
             page.streamingCustomized,
             nativeInput.checked,
             audio.checked,
-            page.mirrorOutputId
+            page.mirrorOutputId,
+            displayCreator.currentText === "VKMS (Experimental)" ? "vkms" : "native"
         )
     }
 
@@ -103,12 +119,17 @@ Item {
 
     Component.onCompleted: {
         let saved = backend.loadDisplaySettings()
+        displayType.selectValue(saved["display_type"] || "Extend")
+        displayCreator.selectValue(
+            backend.vkmsCreatorAvailable && saved["virtual_display_creator"] === "vkms"
+                ? "VKMS (Experimental)"
+                : "Desktop Native"
+        )
         resCombo.selectValue(saved["resolution"] || "1920x1080")
         customW.text = saved["custom_w"] || "1920"
         customH.text = saved["custom_h"] || "1080"
         fpsCombo.selectValue(saved["fps"] || "60")
         customFps.text = saved["custom_fps"] || "60"
-        displayType.selectValue(saved["display_type"] || "Extend")
         encoder.selectValue(page.encoderDisplayValue(saved["sunshine_encoder"]))
         page.refreshGpuOptions(saved["sunshine_gpu"] || "")
         codec.selectValue(page.codecDisplayValue(saved["sunshine_codec"]))
@@ -153,6 +174,33 @@ Item {
                         disabledValues: createOnly.checked || !backend.sunshineAvailable ? ["Mirror"] : []
                         onActivated: page.saveSettings()
                     }
+                    Text {
+                        text: "Virtual Display Creator"
+                        color: theme.textSecondary
+                        visible: displayType.currentText === "Extend" && backend.vkmsCreatorAvailable
+                    }
+                    CustomComboBox {
+                        id: displayCreator
+                        Layout.fillWidth: true
+                        visible: displayType.currentText === "Extend" && backend.vkmsCreatorAvailable
+                        model: backend.vkmsCreatorAvailable
+                            ? ["Desktop Native", "VKMS (Experimental)"]
+                            : ["Desktop Native"]
+                        onActivated: {
+                            if (page.vkmsSelected) {
+                                if (!resCombo.selectValue(page.resolutionValue(), true))
+                                    resCombo.selectValue("1920x1080")
+                                fpsCombo.selectValue("60")
+                            }
+                            page.saveSettings()
+                        }
+                    }
+                    Text {
+                        visible: page.vkmsSelected
+                        Layout.columnSpan: 2; Layout.fillWidth: true
+                        wrapMode: Text.WordWrap; color: theme.textMuted
+                        text: "Creates one display using Linux's experimental VKMS path. Display layout and positioning are managed by your desktop environment."
+                    }
                     Text { text: "Monitor"; color: theme.textSecondary; visible: displayType.currentText === "Mirror" }
                     CustomComboBox {
                         id: mirrorMonitor
@@ -170,26 +218,36 @@ Item {
                         wrapMode: Text.WordWrap; color: theme.textMuted
                         text: "If the desktop asks what to share, select this same monitor. A missing or different monitor will not be substituted."
                     }
-                    Text { text: "Resolution"; color: theme.textSecondary }
+                    Text {
+                        text: "Resolution"
+                        color: displayType.currentText === "Mirror" ? theme.textMuted : theme.textSecondary
+                    }
                     CustomComboBox {
                         id: resCombo; Layout.fillWidth: true
-                        model: ["1280x720 (16:9)", "1280x800 (16:10)", "1920x1080 (16:9)", "1920x1200 (16:10)", "2560x1440 (16:9)", "2560x1600 (16:10)", "3840x2160 (16:9)", "Custom..."]
+                        enabled: displayType.currentText !== "Mirror"
+                        opacity: enabled ? 1 : 0.45
+                        displayText: displayType.currentText === "Mirror"
+                            ? page.mirrorResolutionLabel() : currentText
+                        model: page.vkmsSelected ? backend.vkmsResolutionOptions : page.nativeResolutionOptions
                         onActivated: page.saveSettings()
                     }
-                    Item { visible: resCombo.currentText === "Custom..." }
+                    Item { visible: displayType.currentText !== "Mirror" && !page.vkmsSelected && resCombo.currentText === "Custom..." }
                     RowLayout {
-                        visible: resCombo.currentText === "Custom..."
+                        visible: displayType.currentText !== "Mirror" && !page.vkmsSelected && resCombo.currentText === "Custom..."
                         CustomTextField { id: customW; Layout.fillWidth: true; placeholderText: "Width"; maximumLength: 4; onEditingFinished: page.saveSettings() }
                         Text { text: "×"; color: theme.textSecondary }
                         CustomTextField { id: customH; Layout.fillWidth: true; placeholderText: "Height"; maximumLength: 4; onEditingFinished: page.saveSettings() }
                     }
-                    Text { text: "Refresh rate"; color: theme.textSecondary }
+                    Text { text: "Refresh rate"; color: page.vkmsSelected ? theme.textMuted : theme.textSecondary }
                     CustomComboBox {
                         id: fpsCombo; Layout.fillWidth: true; model: ["30", "60", "90", "120", "Custom..."]
+                        enabled: !page.vkmsSelected
+                        opacity: enabled ? 1 : 0.45
+                        displayText: page.vkmsSelected ? "~60 Hz — Managed by VKMS" : currentText
                         onActivated: page.saveSettings()
                     }
-                    Item { visible: fpsCombo.currentText === "Custom..." }
-                    CustomTextField { id: customFps; visible: fpsCombo.currentText === "Custom..."; placeholderText: "24–240"; maximumLength: 3; onEditingFinished: page.saveSettings() }
+                    Item { visible: !page.vkmsSelected && fpsCombo.currentText === "Custom..." }
+                    CustomTextField { id: customFps; visible: !page.vkmsSelected && fpsCombo.currentText === "Custom..."; placeholderText: "24–240"; maximumLength: 3; onEditingFinished: page.saveSettings() }
                 }
             }
             SectionCard {

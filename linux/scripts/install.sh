@@ -39,6 +39,10 @@ SUNSHINE_VENV_BIN="${VENV_DIR}/bin/sunshine"
 SUNSHINE_VENV_ASSETS="${VENV_DIR}/share/monitorize/sunshine/assets"
 SUNSHINE_STRICT_SELECTION_PATCH="${REPOSITORY_DIR}/packaging/sunshine-strict-selection.patch"
 SUNSHINE_PORTAL_TOKEN_PATCH="${REPOSITORY_DIR}/packaging/sunshine-portal-token-scope.patch"
+VKMS_HELPER_SOURCE="${REPOSITORY_DIR}/packaging/common/monitorize-source-vkms-helper"
+VKMS_HELPER_PATH="/usr/libexec/monitorize/monitorize-source-vkms-helper"
+VKMS_POLICY_SOURCE="${REPOSITORY_DIR}/packaging/common/io.github.vinnavannewton.monitorize.source-vkms.policy"
+VKMS_POLICY_PATH="/usr/share/polkit-1/actions/io.github.vinnavannewton.monitorize.source-vkms.policy"
 
 # XDG standard locations
 CONFIG_HOME="${XDG_CONFIG_HOME:-${HOME}/.config}"
@@ -52,6 +56,54 @@ remove_legacy_udp_entries() {
     rm -f "${DESKTOP_DIR}/monitorize-udp.desktop"
     rm -f "${DESKTOP_DIR}/monitorize-udp-kde-virtual-output.desktop"
     rm -f "${ICON_DIR}/monitorize-udp.png"
+}
+
+install_vkms_helper() {
+    local install_command pkexec_command
+    if [[ "${MONITORIZE_SKIP_VKMS_HELPER_INSTALL:-}" == "1" ]]; then
+        echo "Warning: Skipping the optional source VKMS helper installation." >&2
+        return 0
+    fi
+    install_command="$(command -v install 2>/dev/null || true)"
+    pkexec_command="$(command -v pkexec 2>/dev/null || true)"
+    if [[ -z "${install_command}" || -z "${pkexec_command}" ]]; then
+        echo "Warning: install and pkexec are required for experimental VKMS support." >&2
+        return 0
+    fi
+    if [[ ! -f "${VKMS_HELPER_SOURCE}" || ! -f "${VKMS_POLICY_SOURCE}" ]]; then
+        echo "Warning: Experimental VKMS helper sources are missing." >&2
+        return 0
+    fi
+    echo "Installing the optional privileged VKMS helper (Polkit may ask for authentication)…"
+    if ! "${pkexec_command}" "${install_command}" -D -o root -g root -m 0755 \
+            "${VKMS_HELPER_SOURCE}" "${VKMS_HELPER_PATH}"; then
+        echo "Warning: VKMS helper installation was cancelled or failed; Desktop Native remains available." >&2
+        return 0
+    fi
+    if ! "${pkexec_command}" "${install_command}" -D -o root -g root -m 0644 \
+            "${VKMS_POLICY_SOURCE}" "${VKMS_POLICY_PATH}"; then
+        echo "Warning: VKMS Polkit policy installation failed; Desktop Native remains available." >&2
+        return 0
+    fi
+    echo "✓ Experimental VKMS helper and Polkit policy installed"
+}
+
+remove_vkms_helper() {
+    local pkexec_command rm_command
+    if [[ ! -e "${VKMS_HELPER_PATH}" && ! -e "${VKMS_POLICY_PATH}" ]]; then
+        return 0
+    fi
+    pkexec_command="$(command -v pkexec 2>/dev/null || true)"
+    rm_command="$(command -v rm 2>/dev/null || true)"
+    if [[ -z "${pkexec_command}" || -z "${rm_command}" ]]; then
+        echo "Warning: Remove ${VKMS_HELPER_PATH} and ${VKMS_POLICY_PATH} as root to finish uninstalling VKMS support." >&2
+        return 0
+    fi
+    if "${pkexec_command}" "${rm_command}" -f -- "${VKMS_HELPER_PATH}" "${VKMS_POLICY_PATH}"; then
+        echo "✓ Experimental VKMS helper and Polkit policy removed"
+    else
+        echo "Warning: VKMS helper removal was cancelled or failed." >&2
+    fi
 }
 
 desktop_quote() {
@@ -708,6 +760,7 @@ if [[ "${INSTALL_ACTION}" == "remove" ]]; then
     rm -f "${DESKTOP_DIR}/${HELPER_DESKTOP_FILE}"
     rm -f "${ICON_DEST}"
     remove_legacy_udp_entries
+    remove_vkms_helper
     rm -rf "${PROJECT_DIR}/venv"
     find "${PROJECT_DIR}" -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
     # Refresh desktop database if available
@@ -871,6 +924,8 @@ if ! "${HELPER_BUILD}" "${HELPER_PATH}"; then
     exit 1
 fi
 echo "✓ KDE virtual-output helper installed to ${HELPER_PATH}"
+
+install_vkms_helper
 
 if [[ "${INSTALL_MODE}" == "complete" ]]; then
 # ── Build and install the project-local Sunshine backend ─────────────

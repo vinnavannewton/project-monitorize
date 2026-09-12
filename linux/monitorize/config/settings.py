@@ -106,6 +106,7 @@ DISPLAY_DEFAULTS = {
     "fps": "60",
     "custom_fps": "",
     "display_type": "Extend",
+    "virtual_display_creator": "native",
     "sunshine_encoder": "Auto",
     "sunshine_gpu": "",
     "sunshine_codec": "Auto",
@@ -119,6 +120,11 @@ DISPLAY_DEFAULTS = {
 def _normalize_display_settings(data, fallback=DEFAULT_PRIMARY_RESOLUTION):
     data = dict(data)
     data["display_type"] = sanitize_display_type(data.get("display_type"))
+    data["virtual_display_creator"] = (
+        data.get("virtual_display_creator")
+        if data.get("virtual_display_creator") in ("native", "vkms")
+        else "native"
+    )
     data["fps"] = str(sanitize_fps(data.get("fps")))
     data["custom_fps"] = (
         str(sanitize_fps(data["custom_fps"])) if data.get("custom_fps") else ""
@@ -152,6 +158,7 @@ def save_display_settings(
     fps="60",
     custom_fps="",
     display_type="Extend",
+    virtual_display_creator="native",
     sunshine_encoder="Auto",
     sunshine_gpu="",
     sunshine_codec="Auto",
@@ -214,6 +221,11 @@ def _normalize_session(raw: dict, fallback=DEFAULT_PRIMARY_RESOLUTION):
         "resolution": f"{width}x{height}",
         "fps": str(sanitize_fps(raw.get("fps", 60))),
         "display_type": sanitize_display_type(raw.get("display_type", "Extend")),
+        "virtual_display_creator": (
+            raw.get("virtual_display_creator")
+            if raw.get("virtual_display_creator") in ("native", "vkms")
+            else "native"
+        ),
         "sunshine_encoder": str(raw.get("sunshine_encoder") or "Auto"),
         "sunshine_gpu": _normalize_gpu_id(raw.get("sunshine_gpu")),
         "sunshine_codec": str(raw.get("sunshine_codec") or "Auto"),
@@ -264,6 +276,7 @@ def _normalize_preset(raw: dict) -> dict | None:
     if second["enabled"]:
         normalized = _normalize_session(second_raw, DEFAULT_SECONDARY_RESOLUTION)
         normalized.pop("display_type", None)
+        normalized.pop("virtual_display_creator", None)
         second.update(normalized)
     return {
         "version": PRESET_VERSION,

@@ -663,14 +663,14 @@ def sync_sunshine_stream_config(
     codec: str = "Auto",
     native_pen_touch: bool = True,
     instance: int = 1,
-    capture: str = "",
     adapter_name: str = "",
+    capture: str = "",
 ) -> tuple[bool, str]:
     """Atomically synchronize all active streaming parameters to sunshine.conf in a single pass."""
     clean_out = str(output_name or "").strip()
 
     clean_enc = str(encoder or "").strip()
-    clean_capture = str(capture or "").strip()
+    clean_capture = str(capture or "").strip().lower()
     clean_adapter = str(adapter_name or "").strip()
     mapping = {
         "auto": "",

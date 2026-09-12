@@ -58,6 +58,37 @@ def _moonlight_codec_name(codec):
     return ""
 
 
+def _sunshine_capture_method(
+    desktop,
+    pipewire_node=None,
+    portal_source_type="",
+    flatpak=None,
+):
+    """Choose an explicit backend; GNOME without an owned node uses Portal."""
+    if portal_source_type:
+        return "portal"
+
+    try:
+        has_pipewire_node = int(pipewire_node) > 0
+    except (TypeError, ValueError):
+        has_pipewire_node = False
+    if has_pipewire_node:
+        return "pipewire_node"
+
+    if flatpak is None:
+        flatpak = os.path.isfile("/.flatpak-info")
+    if flatpak:
+        return "portal"
+
+    normalized = str(desktop or "").strip().lower()
+    if normalized == "kde":
+        return "kwin"
+    if normalized in ("hyprland", "sway"):
+        return "wlr"
+
+    return "portal"
+
+
 class StreamingController(QObject):
     streamingChanged = pyqtSignal(bool)
     startFailed = pyqtSignal()
@@ -86,6 +117,7 @@ class StreamingController(QObject):
         self.width, self.height = DEFAULT_PRIMARY_RESOLUTION
         self.fps = DEFAULT_FPS
         self.display_type = "Extend"
+        self.virtual_display_creator = "native"
         self.encoder = "Auto"
         self.gpu_id = ""
         self.codec = "Auto"
@@ -151,6 +183,7 @@ class StreamingController(QObject):
         options=None,
         gpu_id="",
         mirror_output="",
+        virtual_display_creator="native",
     ):
         if self._is_stopping:
             self._set_status("Previous session is still stopping — please wait")
@@ -165,6 +198,12 @@ class StreamingController(QObject):
         self.width, self.height = sanitize_resolution(res, DEFAULT_PRIMARY_RESOLUTION)
         self.fps = sanitize_fps(fps)
         self.display_type = sanitize_display_type(display_type)
+        self.virtual_display_creator = (
+            virtual_display_creator
+            if self.display_type == "Extend"
+            and virtual_display_creator in ("native", "vkms")
+            else "native"
+        )
         self.encoder = str(encoder or "Auto")
         self.gpu_id = normalize_pci_id(gpu_id)
         self.codec = str(codec or "Auto")
@@ -182,9 +221,9 @@ class StreamingController(QObject):
                 self._set_status("Mirror mode requires the Sunshine backend")
                 self.startFailed.emit()
                 return
-            from monitorize.platform.mirror_outputs import physical_outputs, select_output
+            from monitorize.platform.mirror_outputs import active_outputs, select_output
             try:
-                target = select_output(physical_outputs(), self.mirror_output)
+                target = select_output(active_outputs(self.de), self.mirror_output)
             except ValueError as exc:
                 self._set_streaming(False)
                 self._set_status(str(exc))
@@ -192,6 +231,24 @@ class StreamingController(QObject):
                 self.startFailed.emit()
                 return
             self.mirror_output = target["id"]
+            native_width = int(target.get("native_width") or 0)
+            native_height = int(target.get("native_height") or 0)
+            if native_width <= 0 or native_height <= 0:
+                self._set_streaming(False)
+                message = (
+                    f"Could not determine the current native resolution of "
+                    f"{self.mirror_output}"
+                )
+                self._set_status(message)
+                self.logAppended.emit("DISPLAY", f"ERROR: {message}")
+                self.startFailed.emit()
+                return
+            self.width, self.height = native_width, native_height
+            self.logAppended.emit(
+                "DISPLAY",
+                f"Using {self.mirror_output} native resolution "
+                f"{self.width}x{self.height}",
+            )
             if not self._start_instance(1, self.mirror_output, self.width, self.height):
                 self._set_streaming(False)
                 self.startFailed.emit()
@@ -201,30 +258,11 @@ class StreamingController(QObject):
             self._start_pending_second(options)
             return
 
-        
-        
-        if self.de == "kde" and os.path.isfile("/.flatpak-info") and not self.prepare_only:
-            de_label = "KDE"
-            self._set_status(f"Creating portal virtual display on {de_label}…")
-            if not self._start_instance(
-                1, "", self.width, self.height, portal_source_type="virtual"
-            ):
-                self._set_streaming(False)
-                self.startFailed.emit()
-                return
-            self._set_primary_ready(True)
-            if (self.width, self.height) != (1920, 1080):
-                self._set_status(
-                    f"Portal virtual display created (1920x1080@60Hz). Custom resolution on {de_label} Flatpak requires newer compositor support."
-                )
-            else:
-                self._set_status(
-                    "Portal virtual display (1920x1080@60Hz) — ready for Moonlight"
-                )
-            self._start_pending_second(options)
-            return
-
-        self._set_status(f"Creating a virtual display on {self.de.capitalize()}…")
+        self._set_status(
+            "Creating an experimental VKMS virtual display…"
+            if self.virtual_display_creator == "vkms"
+            else f"Creating a virtual display on {self.de.capitalize()}…"
+        )
 
         self.streamer = self._start_display_process(
             "primary", self.width, self.height, self.fps, self.generation
@@ -271,6 +309,7 @@ class StreamingController(QObject):
                 str(fps),
                 slot,
                 str(self.de),
+                str(self.virtual_display_creator),
             ],
         )
         if self.de == "gnome":
@@ -317,7 +356,10 @@ class StreamingController(QObject):
         height = int(event.get("height") or (self.height if instance == 1 else self.third_height))
         fps = float(event.get("fps") or (self.fps if instance == 1 else self.third_fps))
         pipewire_node = None
-        if (self.de == "gnome" or event.get("portal")) and self.streaming_backend != "none":
+        if (
+            ((self.de == "gnome" and not event.get("vkms")) or event.get("portal"))
+            and self.streaming_backend != "none"
+        ):
             try:
                 pipewire_node = int(event.get("node_id"))
             except (TypeError, ValueError):
@@ -408,19 +450,6 @@ class StreamingController(QObject):
             self.native_pen_touch if instance == 1 else self.third_native_pen_touch
         )
         audio = self.audio_enabled if instance == 1 else self.third_audio_enabled
-        if self.display_type == "Mirror":
-            capture = "portal"
-        elif pipewire_node is not None:
-            capture = "pipewire_node"
-        elif os.path.isfile("/.flatpak-info") and (
-            self.display_type == "Mirror" or self.de in ("kde", "hyprland", "sway")
-        ):
-            
-            capture = "portal"
-        elif self.de == "gnome" and pipewire_node is not None:
-            capture = "pipewire_node"
-        else:
-            capture = "kwin" if self.de == "kde" else ""
         selected_gpu = resolve_encoding_gpu(encoder, gpu_id)
         if gpu_id and not selected_gpu:
             message = f"Selected encoding GPU {gpu_id} is unavailable; stream was not started."
@@ -461,14 +490,23 @@ class StreamingController(QObject):
                 fps = getattr(self, "fps", 60) if instance == 1 else getattr(self, "third_fps", 60)
                 if fps:
                     sunshine_environment["MONITORIZE_VIRTUAL_FPS"] = str(int(fps))
+        capture = _sunshine_capture_method(
+            self.de,
+            pipewire_node=pipewire_node,
+            portal_source_type=portal_source_type,
+        )
+        self.logAppended.emit(
+            "SUNSHINE",
+            f"Using {capture} capture for {output_name or 'the selected display'}",
+        )
         ok, message = sync_sunshine_stream_config(
             output_name,
             encoder,
             codec,
             native_pen_touch,
             instance=instance,
-            capture=capture,
             adapter_name=adapter_name,
+            capture=capture,
         )
         if not ok:
             self._set_status(message)
@@ -537,6 +575,9 @@ class StreamingController(QObject):
         enable_audio=False,
         gpu_id="",
     ):
+        if self.virtual_display_creator == "vkms":
+            self._set_status("VKMS v1 supports exactly one virtual display")
+            return
         if not self.streaming or not self.primary_ready:
             self._set_status("Start the primary display before adding another display")
             return
@@ -601,6 +642,7 @@ class StreamingController(QObject):
                 "resolution": f"{self.width}x{self.height}",
                 "fps": str(self.fps),
                 "display_type": self.display_type,
+                "virtual_display_creator": self.virtual_display_creator,
                 "sunshine_encoder": self.encoder,
                 "sunshine_gpu": self.gpu_id,
                 "sunshine_codec": self.codec,
@@ -623,6 +665,8 @@ class StreamingController(QObject):
         return config
 
     def _start_pending_second(self, options):
+        if self.virtual_display_creator == "vkms":
+            return
         second = (options or {}).get("second")
         if not second or not second.get("enabled"):
             return

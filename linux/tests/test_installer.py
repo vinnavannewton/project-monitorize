@@ -11,6 +11,15 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class SunshineOnlyPackagingTest(unittest.TestCase):
+    def test_flatpak_launcher_name_is_distinct_during_side_by_side_testing(self):
+        flatpak_launcher = (
+            ROOT / "packaging/flatpak/com.vinnavan.Monitorize.desktop"
+        ).read_text()
+        source_launcher = (ROOT / "packaging/fedora/monitorize.desktop").read_text()
+
+        self.assertIn("Name=Monitorize Flatpak", flatpak_launcher.splitlines())
+        self.assertIn("Name=Monitorize", source_launcher.splitlines())
+
     def test_flatpak_uses_ffmpeg_9_build_deps_bundle(self):
         manifest = (ROOT / "packaging/flatpak/com.vinnavan.Monitorize.yml").read_text()
         ffmpeg_module = (ROOT / "packaging/flatpak/modules/ffmpeg.json").read_text()
@@ -621,6 +630,17 @@ exit 0
             qml,
         )
 
+    def test_source_vkms_ui_and_restricted_helper_are_installed(self):
+        qml = (ROOT / "linux/monitorize/qml/DisplaySetupPage.qml").read_text()
+        installer = (ROOT / "linux/scripts/install.sh").read_text()
+        helper = (ROOT / "packaging/common/monitorize-source-vkms-helper").read_text()
+        self.assertIn('text: "Virtual Display Creator"', qml)
+        self.assertIn('"VKMS (Experimental)"', qml)
+        self.assertIn('displayText: page.vkmsSelected ? "~60 Hz — Managed by VKMS"', qml)
+        self.assertIn("install_vkms_helper", installer)
+        self.assertIn('choices=("create", "destroy", "status")', helper)
+        self.assertNotIn("shell=True", helper)
+
     def test_choice_chips_and_preset_menu_use_the_requested_layout(self):
         chips = (ROOT / "linux/monitorize/qml/ChoiceChips.qml").read_text()
         menu = (ROOT / "linux/monitorize/qml/MainMenuPage.qml").read_text()
@@ -662,7 +682,12 @@ exit 0
         self.assertIn("indicator: Text", combo)
         self.assertIn("color: theme.textPrimary", combo)
         self.assertIn("disabledIndex: 0", display_setup)
+        self.assertIn('enabled: displayType.currentText !== "Mirror"', display_setup)
+        self.assertIn("page.mirrorResolutionLabel()", display_setup)
         self.assertEqual(streaming.count('text: "Pair Moonlight PIN"'), 1)
+        self.assertIn("model: backend.sessionDisplays", streaming)
+        self.assertIn("text: displayCard.modelData.title", streaming)
+        self.assertIn("visible: !displayCard.modelData.mirror", streaming)
 
     def test_choice_chips_and_start_card_fit_their_containers(self):
         chips = (ROOT / "linux/monitorize/qml/ChoiceChips.qml").read_text()

@@ -1,5 +1,7 @@
 """QML-facing facade for Sunshine display sessions."""
 
+import os
+
 from PyQt6.QtCore import QObject, QTimer, pyqtProperty, pyqtSignal, pyqtSlot
 
 from monitorize.config import app_log, autostart
@@ -31,6 +33,7 @@ from monitorize.platform.sunshine_service import (
 )
 from monitorize.platform.system_setup import apply_system_setup, get_system_setup_status
 from monitorize.platform.utils import get_local_ip
+from monitorize.platform.vkms_backend import resolution_options as vkms_resolution_options
 
 
 class MonitorizeBackend(QObject):
@@ -119,6 +122,10 @@ class MonitorizeBackend(QObject):
     def sessionMode(self):
         return self.session.mode
 
+    @pyqtProperty(int, notify=sessionChanged)
+    def sessionMaxDisplays(self):
+        return self.session.max_displays
+
     @pyqtSlot()
     def addSessionDisplay(self):
         self.session.add()
@@ -175,6 +182,14 @@ class MonitorizeBackend(QObject):
     def sunshineAvailable(self):
         return self._sunshine_available
 
+    @pyqtProperty(bool, constant=True)
+    def vkmsCreatorAvailable(self):
+        return not os.path.isfile("/.flatpak-info")
+
+    @pyqtProperty("QVariant", constant=True)
+    def vkmsResolutionOptions(self):
+        return vkms_resolution_options()
+
     @pyqtProperty(str, notify=streamingBackendChanged)
     def streamingBackend(self):
         return self._streaming_backend
@@ -225,10 +240,11 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot(result="QVariant")
     def getMirrorOutputs(self):
-        from monitorize.platform.mirror_outputs import physical_outputs
-        return physical_outputs()
+        from monitorize.platform.mirror_outputs import active_outputs
 
-    @pyqtSlot(str, str, str, str, str, str, str, str, str, bool, bool, bool, str)
+        return active_outputs(self._detected_de)
+
+    @pyqtSlot(str, str, str, str, str, str, str, str, str, bool, bool, bool, str, str)
     def saveDisplaySettings(
         self,
         resolution,
@@ -244,6 +260,7 @@ class MonitorizeBackend(QObject):
         sunshine_native_pen_touch,
         enable_audio,
         mirror_output="",
+        virtual_display_creator="native",
     ):
         save_display_settings(
             resolution=resolution,
@@ -259,9 +276,13 @@ class MonitorizeBackend(QObject):
             sunshine_native_pen_touch=sunshine_native_pen_touch,
             enable_audio=enable_audio,
             mirror_output=mirror_output,
+            virtual_display_creator=(
+                virtual_display_creator
+                if self.vkmsCreatorAvailable else "native"
+            ),
         )
         self.session.preset_configuration = None
-        self.sessionChanged.emit()
+        self.session.configuration_changed()
 
     @pyqtSlot(result="QVariant")
     def loadGeneralSettings(self):
@@ -495,6 +516,10 @@ class MonitorizeBackend(QObject):
             {"second": preset["second"]},
             gpu_id=primary.get("sunshine_gpu", ""),
             mirror_output=primary.get("mirror_output", ""),
+            virtual_display_creator=(
+                primary.get("virtual_display_creator", "native")
+                if self.vkmsCreatorAvailable else "native"
+            ),
         )
 
     @pyqtSlot(int, str, result=str)

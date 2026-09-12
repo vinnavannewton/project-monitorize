@@ -74,6 +74,24 @@ class VirtualDisplayTest(unittest.TestCase):
         self.assertIsNone(info)
         self.assertIn("found 2", error)
 
+    def test_gnome_active_output_modes_include_physical_and_virtual_connectors(self):
+        serial, physical, _logical, properties = self.gnome_state(
+            ("eDP-1", 2560, 1600, 60),
+            ("Meta-0", 1920, 1080, 60),
+        )
+        logical = [
+            (0, 0, 1.0, 0, True, [("eDP-1",)]),
+            (2560, 0, 1.0, 0, False, [("Meta-0",)]),
+        ]
+
+        modes = gnome_virtual_monitor.active_output_modes(
+            (serial, physical, logical, properties)
+        )
+
+        self.assertEqual(modes["eDP-1"]["width"], 2560)
+        self.assertEqual(modes["Meta-0"]["height"], 1080)
+
+
     @patch("monitorize.platform.gnome_virtual_monitor.load_gnome_virtual_layout")
     def test_gnome_additional_scale_comes_from_saved_topology_role(self, load):
         load.return_value = {

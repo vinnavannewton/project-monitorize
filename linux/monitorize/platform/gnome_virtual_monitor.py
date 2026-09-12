@@ -135,6 +135,65 @@ def monitor_info_from_state(state, connector):
     return None
 
 
+def active_output_modes(state=None, display_config=None):
+    """Return current native modes for connectors in active Mutter layouts."""
+    state = _mutter_state(display_config) if state is None else state
+    try:
+        logical_monitors = state[2]
+    except (TypeError, IndexError):
+        return {}
+    active_connectors = {
+        connector
+        for logical_monitor in logical_monitors
+        for connector in _logical_connector_names(logical_monitor)
+    }
+    result = {}
+    for connector in active_connectors:
+        info = monitor_info_from_state(state, connector)
+        if info and info["width"] > 0 and info["height"] > 0:
+            result[connector] = {
+                "width": info["width"],
+                "height": info["height"],
+                "refresh_rate": info["refresh_rate"],
+            }
+    return result
+
+
+def _preferred_mode_for_size(monitor, width, height, target_refresh):
+    modes = list(monitor[1])
+    candidates = [
+        mode for mode in modes
+        if int(mode[1]) == int(width) and int(mode[2]) == int(height)
+    ]
+    if candidates:
+        return min(
+            candidates,
+            key=lambda mode: (abs(float(mode[3]) - float(target_refresh)), str(mode[0])),
+        ), False
+    preferred = next(
+        (
+            mode for mode in modes
+            if len(mode) > 6
+            and getattr(mode[6], "get", lambda _key, _default=False: False)(
+                "is-preferred", False
+            )
+        ),
+        None,
+    )
+    if preferred is None:
+        preferred = next(
+            (
+                mode for mode in modes
+                if len(mode) > 6
+                and getattr(mode[6], "get", lambda _key, _default=False: False)(
+                    "is-current", False
+                )
+            ),
+            None,
+        )
+    return preferred, True
+
+
 def new_virtual_connector(state, before, width=None, height=None):
     """Find one new Mutter virtual connector, never guess between two."""
     candidates = [
@@ -528,6 +587,97 @@ def build_monitors_config(state, dbus=None, logical_monitors=None, role_connecto
     if hasattr(dbus, "Array"):
         return dbus.Array(configs, signature="(iiduba(ssa{sv}))")
     return configs
+
+
+def configure_existing_output_mode(
+    connector,
+    width,
+    height,
+    target_refresh=60.0,
+    attempts=WAIT_ATTEMPTS,
+    delay=WAIT_DELAY,
+):
+    """Select a standard mode on one active Mutter-managed DRM output."""
+    try:
+        dbus = _dbus()
+        display_config = display_config_interface(dbus=dbus)
+        state = _mutter_state(display_config)
+        serial, physical_monitors, logical_monitors, properties = state
+        target_monitor = next(
+            (monitor for monitor in physical_monitors if _connector_name(monitor) == connector),
+            None,
+        )
+        if target_monitor is None:
+            return False, {}, f"Mutter did not expose {connector}"
+        selected, fell_back = _preferred_mode_for_size(
+            target_monitor, width, height, target_refresh
+        )
+        if selected is None:
+            return False, {}, f"Mutter reported no usable modes for {connector}"
+
+        current_modes = _current_modes(physical_monitors)
+        monitor_properties = _monitor_properties_by_connector(physical_monitors)
+        if not current_modes:
+            return False, {}, "Mutter did not report the current desktop modes"
+        selected_scales = [float(scale) for scale in selected[5]]
+        configs = []
+        for logical in logical_monitors:
+            connectors = _logical_connector_names(logical)
+            monitor_configs = []
+            scale = float(logical[2])
+            if connector in connectors and not _scale_supported(scale, selected_scales):
+                if not _scale_supported(1.0, selected_scales):
+                    return False, {}, "Mutter's selected VKMS mode does not support the current scale"
+                scale = 1.0
+            for name in connectors:
+                mode_id = str(selected[0]) if name == connector else current_modes[name]["id"]
+                monitor_configs.append(
+                    _monitor_config(dbus, name, mode_id, monitor_properties.get(name, {}))
+                )
+            values = [
+                _typed(dbus, "Int32", int(logical[0])),
+                _typed(dbus, "Int32", int(logical[1])),
+                _typed(dbus, "Double", scale),
+                _typed(dbus, "UInt32", int(logical[3])),
+                _typed(dbus, "Boolean", bool(logical[4])),
+                dbus.Array(monitor_configs, signature="(ssa{sv})"),
+            ]
+            configs.append(dbus.Struct(values, signature="iiduba(ssa{sv})"))
+        display_config.ApplyMonitorsConfig(
+            _typed(dbus, "UInt32", int(serial)),
+            _typed(dbus, "UInt32", APPLY_METHOD_TEMPORARY),
+            dbus.Array(configs, signature="(iiduba(ssa{sv}))"),
+            _variant_dict(dbus, _allowed_properties(properties, GLOBAL_CONFIG_PROPERTY_KEYS)),
+        )
+
+        actual_width, actual_height = int(selected[1]), int(selected[2])
+        actual_refresh = float(selected[3])
+        for _attempt in range(attempts):
+            current = active_output_modes(display_config=display_config).get(connector)
+            if (
+                current
+                and current["width"] == actual_width
+                and current["height"] == actual_height
+                and abs(current["refresh_rate"] - actual_refresh) <= REFRESH_RATE_TOLERANCE_HZ
+            ):
+                details = {
+                    "name": connector,
+                    "width": actual_width,
+                    "height": actual_height,
+                    "refresh_rate": actual_refresh,
+                    "mode_id": str(selected[0]),
+                    "fell_back": fell_back,
+                }
+                actual = f"{actual_width}x{actual_height}@{actual_refresh:g}Hz"
+                message = (
+                    f"Mutter used preferred VKMS mode {actual}; requested {width}x{height} is unavailable"
+                    if fell_back else f"Mutter applied VKMS mode {actual}"
+                )
+                return True, details, message
+            time.sleep(delay)
+        return False, {}, "Mutter did not activate the selected VKMS mode"
+    except Exception as exc:
+        return False, {}, f"Could not configure GNOME VKMS output: {exc}"
 
 
 def wait_for_virtual_state(display_config=None, attempts=WAIT_ATTEMPTS, delay=WAIT_DELAY):

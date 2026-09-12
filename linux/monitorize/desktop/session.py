@@ -1,5 +1,7 @@
 """Session-page orchestration: saved cards, live displays, and stream startup."""
 
+import os
+
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 
 from monitorize.config.settings import load_display_settings
@@ -70,6 +72,10 @@ class Session(QObject):
         custom = saved.get("streaming_customized", False)
         return dict(
             res=res, fps=fps, display_type=saved.get("display_type", "Extend"),
+            virtual_display_creator=(
+                "native" if os.path.isfile("/.flatpak-info")
+                else saved.get("virtual_display_creator", "native")
+            ),
             encoder=saved.get("sunshine_encoder", "Auto") if custom else "Auto",
             codec=saved.get("sunshine_codec", "Auto") if custom else "Auto",
             gpu_id=saved.get("sunshine_gpu", "") if custom else "",
@@ -82,6 +88,10 @@ class Session(QObject):
     def _preset_values(saved):
         return dict(res=saved["resolution"], fps=saved["fps"],
                     display_type=saved.get("display_type", "Extend"),
+                    virtual_display_creator=(
+                        "native" if os.path.isfile("/.flatpak-info")
+                        else saved.get("virtual_display_creator", "native")
+                    ),
                     encoder=saved.get("sunshine_encoder", "Auto"),
                     codec=saved.get("sunshine_codec", "Auto"),
                     gpu_id=saved.get("sunshine_gpu", ""),
@@ -101,10 +111,20 @@ class Session(QObject):
         config = self.second_configuration()
         config.pop("display_type")
         config.pop("mirror_output", None)
+        config.pop("virtual_display_creator", None)
         self.controller.start_third(**config)
 
+    @property
+    def max_displays(self):
+        return 1 if self.configuration().get("virtual_display_creator") == "vkms" else 2
+
+    def configuration_changed(self):
+        if not self.controller.streaming and self.count > self.max_displays:
+            self.count = self.max_displays
+        self.changed.emit()
+
     def add(self):
-        if self.mode != "Extend" or self.count >= 2 or self.busy:
+        if self.mode != "Extend" or self.count >= self.max_displays or self.busy:
             return
         self.count += 1
         self.changed.emit()
@@ -194,6 +214,29 @@ class Session(QObject):
 
     def cards(self):
         c = self.controller
+        if self.mode == "Mirror":
+            configured_output = str(
+                self.configuration().get("mirror_output") or ""
+            )
+            output_name = (
+                str(c.mirror_output or configured_output)
+                if c.streaming and c.display_type == "Mirror"
+                else configured_output
+            )
+            live = bool(
+                c.streaming
+                and c.primary_ready
+                and c.display_type == "Mirror"
+            )
+            return [{
+                "number": 1,
+                "title": output_name or "No monitor selected",
+                "mirror": True,
+                "state": "Ready for Moonlight" if live else "Not started",
+                "live": live,
+                "address": f"{c.local_ip}:47989",
+            }]
+
         result = []
         for i in range(self.count):
             live = c.streaming if i == 0 else c.third_streaming
@@ -201,7 +244,9 @@ class Session(QObject):
             state = "Not started"
             if live:
                 state = "Starting…" if not ready else ("Ready for Moonlight" if self.running else "Display ready")
-            result.append({"number": i + 1, "state": state,
+            result.append({"number": i + 1,
+                           "title": f"Virtual display {i + 1}",
+                           "mirror": False, "state": state,
                            "live": bool(live and ready),
                            "address": f"{c.local_ip}:{47989 if i == 0 else 49089}"})
         return result

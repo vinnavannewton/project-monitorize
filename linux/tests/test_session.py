@@ -12,7 +12,12 @@ class SessionTest(unittest.TestCase):
         cls.app = QCoreApplication.instance() or QCoreApplication([])
 
     def setUp(self):
-        p = patch("monitorize.platform.mirror_outputs.physical_outputs", return_value=[{"id": "eDP-1"}])
+        p = patch(
+            "monitorize.platform.mirror_outputs.active_outputs",
+            return_value=[
+                {"id": "eDP-1", "native_width": 2560, "native_height": 1600}
+            ],
+        )
         p.start()
         self.addCleanup(p.stop)
         self.config = {"display_type": "Extend", "resolution": "1920x1080", "fps": "60"}
@@ -62,6 +67,23 @@ class SessionTest(unittest.TestCase):
             self.assertFalse(self.c.streaming)
             self.c._start_display_process.assert_not_called()
             self.c._start_instance.assert_not_called()
+
+    def test_vkms_configuration_allows_exactly_one_card(self):
+        self.config["virtual_display_creator"] = "vkms"
+        self.s.add()
+        self.s.add()
+        self.assertEqual(self.s.max_displays, 1)
+        self.assertEqual(self.s.count, 1)
+        self.s.start()
+        self.assertEqual(self.c.virtual_display_creator, "vkms")
+
+    @patch("monitorize.desktop.session.os.path.isfile", return_value=True)
+    def test_flatpak_runtime_never_routes_to_source_vkms(self, _isfile):
+        self.config["virtual_display_creator"] = "vkms"
+        self.assertEqual(
+            self.s.configuration()["virtual_display_creator"],
+            "native",
+        )
 
     def test_start_creates_display_and_streams_only_after_ready(self):
         self.config.update(streaming_customized=True, sunshine_codec="AV1", sunshine_encoder="NVIDIA")
@@ -137,12 +159,31 @@ class SessionTest(unittest.TestCase):
 
     def test_mirror_rejects_add_and_starts_without_virtual_outputs(self):
         self.config["display_type"] = "Mirror"
+        self.config["mirror_output"] = "eDP-1"
         self.s.add()
         self.assertEqual(self.s.count, 0)
+        cards = self.s.cards()
+        self.assertEqual(len(cards), 1)
+        self.assertEqual(cards[0]["title"], "eDP-1")
+        self.assertTrue(cards[0]["mirror"])
+        self.assertFalse(cards[0]["live"])
         self.s.start()
         self.assertTrue(self.s.running)
-        self.assertEqual(self.s.cards(), [])
+        cards = self.s.cards()
+        self.assertEqual(len(cards), 1)
+        self.assertEqual(cards[0]["title"], "eDP-1")
+        self.assertTrue(cards[0]["live"])
+        self.assertEqual(cards[0]["address"], "192.0.2.1:47989")
         self.c._start_display_process.assert_not_called()
+
+    def test_mirror_card_exists_when_no_monitor_is_selected(self):
+        self.config["display_type"] = "Mirror"
+        self.config["mirror_output"] = ""
+
+        self.assertEqual(
+            self.s.cards()[0]["title"],
+            "No monitor selected",
+        )
 
     def test_virtual_only_creates_on_start_without_sunshine(self):
         self.c.streaming_backend = "none"

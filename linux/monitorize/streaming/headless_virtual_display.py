@@ -479,21 +479,30 @@ def main():
     fps = int(sys.argv[3]) if len(sys.argv) > 3 else 60
     slot = sys.argv[4] if len(sys.argv) > 4 else "primary"
     de = (sys.argv[5] if len(sys.argv) > 5 else os.environ.get("XDG_CURRENT_DESKTOP", "")).lower()
+    creator = (sys.argv[6] if len(sys.argv) > 6 else "native").lower()
+
+    if creator == "vkms":
+        if os.path.isfile("/.flatpak-info"):
+            print("[ERROR] VKMS display creation is available only in the native source installation", flush=True)
+            return 1
+        from monitorize.platform.vkms_backend import run_vkms_headless
+
+        return run_vkms_headless(slot, width, height, fps, de)
 
     if "kde" in de or "plasma" in de:
         if os.path.isfile("/.flatpak-info"):
             from monitorize.platform.portal_virtual_display import run_portal_virtual_display
-            sys.exit(run_portal_virtual_display(slot, width, height, fps))
-        sys.exit(run_kde_headless(slot, width, height, fps))
+            return run_portal_virtual_display(slot, width, height, fps)
+        return run_kde_headless(slot, width, height, fps)
     elif "gnome" in de or "ubuntu" in de:
-        sys.exit(run_gnome_headless(slot, width, height, fps))
+        return run_gnome_headless(slot, width, height, fps)
     elif "hyprland" in de:
-        sys.exit(run_hyprland_headless(slot, width, height, fps))
+        return run_hyprland_headless(slot, width, height, fps)
     elif "sway" in de:
-        sys.exit(run_sway_headless(slot, width, height, fps))
+        return run_sway_headless(slot, width, height, fps)
     else:
-        sys.exit(run_kde_headless(slot, width, height, fps))
+        return run_kde_headless(slot, width, height, fps)
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

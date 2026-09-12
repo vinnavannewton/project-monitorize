@@ -27,6 +27,7 @@ class SettingsTest(unittest.TestCase):
             resolution="2560x1440",
             fps="90",
             display_type="Extend",
+            virtual_display_creator="vkms",
             sunshine_encoder="NVIDIA",
             sunshine_gpu="0000:03:00.0",
             sunshine_codec="AV1",
@@ -36,6 +37,7 @@ class SettingsTest(unittest.TestCase):
         )
         saved = settings.load_display_settings()
         self.assertEqual(saved["resolution"], "2560x1440")
+        self.assertEqual(saved["virtual_display_creator"], "vkms")
         self.assertEqual(saved["sunshine_codec"], "AV1")
         self.assertEqual(saved["sunshine_gpu"], "0000:03:00.0")
         self.assertTrue(saved["streaming_customized"])
@@ -84,6 +86,7 @@ class SettingsTest(unittest.TestCase):
                 "resolution": "1920x1080",
                 "fps": "60",
                 "display_type": "Extend",
+                "virtual_display_creator": "vkms",
                 "sunshine_encoder": "VA-API",
                 "sunshine_gpu": "0000:03:00.0",
             },
@@ -92,6 +95,10 @@ class SettingsTest(unittest.TestCase):
         self.assertEqual(
             settings.load_presets()[0]["primary"]["sunshine_gpu"],
             "0000:03:00.0",
+        )
+        self.assertEqual(
+            settings.load_presets()[0]["primary"]["virtual_display_creator"],
+            "vkms",
         )
 
         settings.save_display_settings(

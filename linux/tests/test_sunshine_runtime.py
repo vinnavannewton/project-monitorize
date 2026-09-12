@@ -71,20 +71,22 @@ class SunshineRuntimeTest(unittest.TestCase):
             self.assertTrue(all(not path.exists() for path in token_paths))
             self.assertEqual(personal.read_text(), "personal-token")
 
-    def test_sync_persists_requested_capture_backend(self):
+    def test_sync_persists_explicit_capture_backend(self):
         with tempfile.TemporaryDirectory() as tmp:
             config_path = Path(tmp) / "sunshine.conf"
+            config_path.write_text("capture = kwin\n")
             with (
                 patch.object(service, "get_sunshine_config_path", return_value=str(config_path)),
                 patch.object(service, "is_sunshine_running", return_value=False),
             ):
                 ok, _ = service.sync_sunshine_stream_config(
-                    "Virtual-Monitorize-1", instance=1, capture="kwin",
+                    "Virtual-Monitorize-1", instance=1,
                     adapter_name="/dev/dri/renderD129",
+                    capture="wlr",
                 )
 
             self.assertTrue(ok)
-            self.assertIn("capture = kwin\n", config_path.read_text())
+            self.assertIn("capture = wlr\n", config_path.read_text())
             self.assertIn("adapter_name = /dev/dri/renderD129\n", config_path.read_text())
 
     def test_sync_persists_vulkan_encoder(self):

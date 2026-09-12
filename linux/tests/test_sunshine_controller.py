@@ -4,12 +4,21 @@ from unittest.mock import Mock, patch
 
 from PyQt6.QtCore import QCoreApplication, QProcess
 
-from monitorize.desktop.streaming_controller import StreamingController, _moonlight_codec_name
+from monitorize.desktop.streaming_controller import (
+    StreamingController,
+    _moonlight_codec_name,
+    _sunshine_capture_method,
+)
 
 
 class SunshineControllerTest(unittest.TestCase):
     def setUp(self):
-        p = patch("monitorize.platform.mirror_outputs.physical_outputs", return_value=[{"id": "eDP-1"}])
+        p = patch(
+            "monitorize.platform.mirror_outputs.active_outputs",
+            return_value=[
+                {"id": "eDP-1", "native_width": 2560, "native_height": 1600}
+            ],
+        )
         p.start()
         self.addCleanup(p.stop)
     @classmethod
@@ -27,6 +36,21 @@ class SunshineControllerTest(unittest.TestCase):
         self.assertEqual(_moonlight_codec_name("AV1"), "AV1")
         self.assertEqual(_moonlight_codec_name("Auto"), "")
 
+    def test_capture_method_uses_explicit_compositor_backends(self):
+        self.assertEqual(_sunshine_capture_method("kde", flatpak=False), "kwin")
+        self.assertEqual(
+            _sunshine_capture_method("gnome", pipewire_node=42, flatpak=False),
+            "pipewire_node",
+        )
+        self.assertEqual(_sunshine_capture_method("gnome", flatpak=False), "portal")
+        self.assertEqual(_sunshine_capture_method("hyprland", flatpak=False), "wlr")
+        self.assertEqual(_sunshine_capture_method("sway", flatpak=False), "wlr")
+        self.assertEqual(_sunshine_capture_method("kde", flatpak=True), "portal")
+        self.assertEqual(
+            _sunshine_capture_method("kde", pipewire_node=42, flatpak=True),
+            "pipewire_node",
+        )
+
     @patch("monitorize.desktop.streaming_controller.stop_sunshine")
     def test_mirror_missing_target_fails_before_launch(self, _stop):
         c = self.controller()
@@ -37,6 +61,23 @@ class SunshineControllerTest(unittest.TestCase):
         c._start_instance.assert_not_called()
         failed.assert_called_once()
         self.assertFalse(c.streaming)
+
+    @patch(
+        "monitorize.platform.mirror_outputs.active_outputs",
+        return_value=[{"id": "eDP-1", "native_width": 0, "native_height": 0}],
+    )
+    @patch("monitorize.desktop.streaming_controller.stop_sunshine")
+    def test_mirror_fails_instead_of_using_saved_resolution_when_native_unknown(
+        self, _stop, _outputs
+    ):
+        controller = self.controller()
+        controller._start_instance = Mock()
+
+        controller.start("1280x720", "60", "Mirror", mirror_output="eDP-1")
+
+        controller._start_instance.assert_not_called()
+        self.assertFalse(controller.streaming)
+        self.assertIn("current native resolution", controller.status)
 
     @patch("monitorize.desktop.streaming_controller.stop_sunshine")
     @patch("monitorize.desktop.streaming_controller.start_sunshine", return_value=(True, "started"))
@@ -54,8 +95,8 @@ class SunshineControllerTest(unittest.TestCase):
         self.assertTrue(controller.primary_ready)
         self.assertIsNone(controller.streamer)
         sync.assert_called_once_with(
-            "eDP-1", "VA-API", "H.265 (HEVC)", True, instance=1, capture="portal",
-            adapter_name="",
+            "eDP-1", "VA-API", "H.265 (HEVC)", True, instance=1,
+            adapter_name="", capture="kwin",
         )
         save.assert_called_once_with({"stream_audio": "enabled"}, instance=1)
         start.assert_called_once_with(
@@ -63,8 +104,8 @@ class SunshineControllerTest(unittest.TestCase):
             pipewire_node=None,
             offset_x=0,
             offset_y=0,
-            width=1920,
-            height=1080,
+            width=2560,
+            height=1600,
             extra_environment={"SUNSHINE_PORTAL_TOKEN_SCOPE": "mirror", "MONITORIZE_CAPTURE_OUTPUT": "eDP-1"},
         )
 
@@ -84,44 +125,58 @@ class SunshineControllerTest(unittest.TestCase):
             "mirror",
         )
 
+    @patch.object(StreamingController, "_start_display_process", return_value=Mock())
     @patch("monitorize.desktop.streaming_controller.os.path.isfile", return_value=True)
     @patch("monitorize.desktop.streaming_controller.stop_sunshine")
-    @patch("monitorize.desktop.streaming_controller.start_sunshine", return_value=(True, "started"))
-    @patch("monitorize.desktop.streaming_controller.is_sunshine_running", return_value=False)
-    @patch("monitorize.desktop.streaming_controller.save_sunshine_config", return_value=(True, "saved"))
-    @patch("monitorize.desktop.streaming_controller.sync_sunshine_stream_config", return_value=(True, "synced"))
-    def test_flatpak_kde_extend_uses_portal_virtual_capture_and_marks_ready(
-        self, sync, _save, _running, start, _stop, _flatpak
+    def test_flatpak_kde_extend_starts_repairable_portal_holder(
+        self, _stop, _flatpak, launch
     ):
         controller = self.controller("kde")
         controller.start("1920x1080", "60", "Extend")
-        self.assertEqual(sync.call_args.kwargs["capture"], "portal")
-        self.assertEqual(
-            start.call_args.kwargs.get("extra_environment", {}).get("SUNSHINE_PORTAL_SOURCE_TYPE"),
-            "virtual",
+        launch.assert_called_once_with(
+            "primary", 1920, 1080, 60, controller.generation
         )
-        self.assertEqual(
-            start.call_args.kwargs["extra_environment"]["SUNSHINE_PORTAL_TOKEN_SCOPE"],
-            "extend",
-        )
-        self.assertIsNone(controller.streamer)
-        self.assertTrue(controller.primary_ready)
+        self.assertIsNotNone(controller.streamer)
+        self.assertFalse(controller.primary_ready)
 
-    @patch("monitorize.desktop.streaming_controller.os.path.isfile", return_value=True)
     @patch("monitorize.desktop.streaming_controller.stop_sunshine")
     @patch("monitorize.desktop.streaming_controller.start_sunshine", return_value=(True, "started"))
     @patch("monitorize.desktop.streaming_controller.is_sunshine_running", return_value=False)
     @patch("monitorize.desktop.streaming_controller.save_sunshine_config", return_value=(True, "saved"))
     @patch("monitorize.desktop.streaming_controller.sync_sunshine_stream_config", return_value=(True, "synced"))
-    def test_flatpak_kde_extend_uses_portal_virtual(
-        self, sync, _save, _running, start, _stop, _flatpak
+    def test_flatpak_kde_portal_event_uses_repaired_pipewire_stream(
+        self, sync, _save, _running, start, _stop
     ):
         controller = self.controller("kde")
-        controller.start("1920x1080", "60", "Extend")
-        self.assertEqual(sync.call_args.kwargs["capture"], "portal")
-        extra_env = start.call_args.kwargs.get("extra_environment", {})
-        self.assertEqual(extra_env.get("SUNSHINE_PORTAL_SOURCE_TYPE"), "virtual")
-        self.assertIsNone(controller.streamer)
+        controller.streaming = True
+        controller._display_ready(
+            "primary",
+            {
+                "type": "headless_ready",
+                "name": "Virtual-virtual-xdp-kde-monitorize",
+                "node_id": 42,
+                "portal": True,
+                "width": 1920,
+                "height": 1080,
+                "offset_x": 1920,
+                "offset_y": 0,
+                "fps": 60,
+            },
+        )
+        self.assertEqual(sync.call_args.kwargs["capture"], "pipewire_node")
+        start.assert_called_once_with(
+            1,
+            pipewire_node=42,
+            offset_x=1920,
+            offset_y=0,
+            width=1920,
+            height=1080,
+            extra_environment={
+                "SUNSHINE_PORTAL_TOKEN_SCOPE": "extend",
+                "MONITORIZE_CAPTURE_OUTPUT":
+                    "Virtual-virtual-xdp-kde-monitorize",
+            },
+        )
         self.assertTrue(controller.primary_ready)
 
     @patch("monitorize.desktop.streaming_controller.os.path.isfile", return_value=True)
@@ -209,8 +264,8 @@ class SunshineControllerTest(unittest.TestCase):
         self.assertTrue(controller.primary_ready)
 
         _sync.assert_called_once_with(
-            "Meta-0", "Auto", "Auto", True, instance=1, capture="pipewire_node",
-            adapter_name="",
+            "Meta-0", "Auto", "Auto", True, instance=1,
+            adapter_name="", capture="pipewire_node",
         )
 
     @patch("monitorize.desktop.streaming_controller.QTimer.singleShot")
@@ -291,7 +346,7 @@ class SunshineControllerTest(unittest.TestCase):
     @patch("monitorize.desktop.streaming_controller.is_sunshine_running", return_value=False)
     @patch("monitorize.desktop.streaming_controller.save_sunshine_config", return_value=(True, "saved"))
     @patch("monitorize.desktop.streaming_controller.sync_sunshine_stream_config", return_value=(True, "synced"))
-    def test_kde_event_uses_native_kwin_capture_instead_of_direct_pipewire_node(
+    def test_kde_event_uses_kwin_without_direct_pipewire_node(
         self, _sync, _save, _running, start, _stop
     ):
         controller = self.controller("kde")
@@ -318,7 +373,7 @@ class SunshineControllerTest(unittest.TestCase):
         )
         _sync.assert_called_once_with(
             "Virtual-Monitorize-1", "Auto", "Auto", True, instance=1,
-            capture="kwin", adapter_name="",
+            adapter_name="", capture="kwin",
         )
         self.assertTrue(controller.primary_ready)
 
