@@ -75,6 +75,18 @@ Item {
         return false
     }
 
+    function restoreVkmsCustomResolutionState() {
+        if (!page.vkmsSelected || resCombo.currentText !== "Custom...") return
+        let capability = backend.vkmsCustomEdidCapability
+        if (capability === "supported") {
+            page.vkmsCustomResolutionActive = true
+            return
+        }
+        page.vkmsCustomResolutionActive = false
+        if (capability === "unsupported") return
+        backend.checkVkmsCustomEdidSupport()
+    }
+
     function encoderDisplayValue(value) {
         return String(value || "").toLowerCase().indexOf("software") === 0
             ? "Software"
@@ -108,14 +120,16 @@ Item {
 
     function saveSettings() {
         if (loading) return
-        let customResolutionEnabled = resCombo.currentText === "Custom..."
+        let customResolutionSelected = resCombo.currentText === "Custom..."
+        let customResolutionEnabled = customResolutionSelected
             && (!page.vkmsSelected || page.vkmsCustomResolutionActive)
         backend.saveDisplaySettings(
             resCombo.currentText,
-            customResolutionEnabled ? customW.text : "",
-            customResolutionEnabled ? customH.text : "",
-            page.vkmsSelected && !page.vkmsCustomResolutionActive ? "60" : fpsCombo.currentText,
-            customResolutionEnabled && fpsCombo.currentText === "Custom..." ? customFps.text : "",
+            customResolutionSelected ? customW.text : "",
+            customResolutionSelected ? customH.text : "",
+            page.vkmsSelected && !page.vkmsCustomResolutionActive && !customResolutionSelected
+                ? "60" : fpsCombo.currentText,
+            customResolutionSelected && fpsCombo.currentText === "Custom..." ? customFps.text : "",
             displayType.currentText,
             encoder.currentText,
             page.selectedGpuId(),
@@ -163,6 +177,7 @@ Item {
         refreshMirrorOutputs()
         audio.checked = saved["enable_audio"] === true
         createOnly.checked = backend.streamingBackend === "none"
+        page.restoreVkmsCustomResolutionState()
         loading = false
     }
 
@@ -215,6 +230,7 @@ Item {
                                 if (resCombo.currentText !== "Custom...")
                                     page.previousVkmsResolution = resCombo.currentText
                                 fpsCombo.selectValue("60")
+                                page.restoreVkmsCustomResolutionState()
                             }
                             page.saveSettings()
                         }

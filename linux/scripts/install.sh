@@ -10,6 +10,7 @@
 #   ./install.sh --complete
 #   ./install.sh --partial
 #   ./install.sh --complete --cuda=auto  # auto, on, or off
+#   ./install.sh --complete --with-vkms  # install optional VKMS helper
 #   ./install.sh --rebuild-sunshine  # clean and rebuild Sunshine
 #   ./install.sh remove   # uninstall
 # ──────────────────────────────────────────────────────────────────────
@@ -652,6 +653,7 @@ select_cuda_policy() {
 print_usage() {
     cat <<'EOF'
 Usage: ./install.sh [--complete | --partial | --rebuild-sunshine] [--cuda=POLICY]
+       ./install.sh [--complete | --partial] --with-vkms
        ./install.sh remove
 
 With no arguments, an interactive menu selects the installation mode.
@@ -660,6 +662,8 @@ With no arguments, an interactive menu selects the installation mode.
   --rebuild-sunshine  Force a clean bundled Sunshine build (complete mode).
   --cuda=POLICY       Sunshine CUDA policy: auto (default), on, or off.
                       This option implies complete mode. --cuda POLICY also works.
+  --with-vkms         Install the optional VKMS helper and Polkit policy.
+                      This is the only install-time VKMS authorization request.
   remove, uninstall   Remove the per-user source installation.
 
 MONITORIZE_CUDA=auto|on|off provides the same policy noninteractively.
@@ -700,6 +704,7 @@ INSTALL_MODE=""
 INSTALL_ACTION="install"
 CUDA_POLICY="auto"
 CUDA_POLICY_EXPLICIT=0
+INSTALL_VKMS_HELPER=0
 
 while (( $# > 0 )); do
     argument="$1"
@@ -714,6 +719,9 @@ while (( $# > 0 )); do
         --rebuild-sunshine)
             FORCE_SUNSHINE_REBUILD=1
             request_install_mode "complete"
+            ;;
+        --with-vkms)
+            INSTALL_VKMS_HELPER=1
             ;;
         --cuda=*)
             set_cuda_policy "${argument#--cuda=}"
@@ -925,7 +933,11 @@ if ! "${HELPER_BUILD}" "${HELPER_PATH}"; then
 fi
 echo "✓ KDE virtual-output helper installed to ${HELPER_PATH}"
 
-install_vkms_helper
+if (( INSTALL_VKMS_HELPER )); then
+    install_vkms_helper
+else
+    echo "Skipping optional VKMS helper installation. Re-run with --with-vkms to enable the experimental VKMS backend."
+fi
 
 if [[ "${INSTALL_MODE}" == "complete" ]]; then
 # ── Build and install the project-local Sunshine backend ─────────────

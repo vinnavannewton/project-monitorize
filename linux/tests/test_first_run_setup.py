@@ -6,6 +6,7 @@ from unittest.mock import patch
 from PyQt6.QtCore import QCoreApplication
 
 from monitorize.config import settings
+from monitorize.desktop import backend as backend_module
 from monitorize.desktop.backend import MonitorizeBackend
 
 
@@ -64,6 +65,23 @@ class FirstRunSetupTest(unittest.TestCase):
         backend = MonitorizeBackend("kde")
         self.addCleanup(backend.network_timer.stop)
         self.assertFalse(backend.systemSetupPending)
+
+    @patch("monitorize.desktop.backend.load_general_settings", return_value={"system_setup_decided": True})
+    @patch("monitorize.desktop.backend.load_presets", return_value=[])
+    @patch("monitorize.desktop.backend.get_local_ip", return_value="192.0.2.1")
+    @patch("monitorize.desktop.backend.StreamingController")
+    @patch("monitorize.desktop.backend.get_system_setup_status", return_value={"available": False})
+    def test_vkms_custom_capability_is_session_cached_but_starts_unknown(
+        self, _status, _streaming, _ip, _presets, _settings
+    ):
+        backend = MonitorizeBackend("kde")
+        self.addCleanup(backend.network_timer.stop)
+        self.assertEqual(backend.vkmsCustomEdidCapability, "unknown")
+        backend._vkms_custom_capability = backend_module.CustomEdidCapability.SUPPORTED
+        self.assertEqual(backend.vkmsCustomEdidCapability, "supported")
+        with patch("monitorize.desktop.backend.QTimer.singleShot") as deferred:
+            backend.checkVkmsCustomEdidSupport()
+        deferred.assert_called_once()
 
     @patch("monitorize.desktop.backend.apply_system_setup", return_value={"success": False, "message": "Cancelled"})
     @patch("monitorize.desktop.backend.load_general_settings", return_value={"system_setup_decided": False})

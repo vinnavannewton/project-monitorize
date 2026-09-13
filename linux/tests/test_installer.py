@@ -637,6 +637,9 @@ exit 0
         self.assertIn('text: "Virtual Display Creator"', qml)
         self.assertIn('"VKMS (Experimental)"', qml)
         self.assertIn('backend.checkVkmsCustomEdidSupport()', qml)
+        self.assertIn('function restoreVkmsCustomResolutionState()', qml)
+        self.assertIn('page.restoreVkmsCustomResolutionState()', qml)
+        self.assertIn('backend.vkmsCustomEdidCapability', qml)
         self.assertIn('Custom VKMS resolution unavailable', qml)
         self.assertIn('Could not check VKMS custom-resolution support', qml)
         self.assertIn('"Install monitorize-vkms"', qml)
@@ -645,6 +648,19 @@ exit 0
         self.assertIn('choices=("create", "destroy", "status", "capability")', helper)
         self.assertIn("edid_enabled", helper)
         self.assertNotIn("shell=True", helper)
+
+    def test_source_install_defers_vkms_polkit_until_explicitly_opted_in(self):
+        installer = (ROOT / "linux/scripts/install.sh").read_text()
+        self.assertIn("--with-vkms)", installer)
+        self.assertIn("INSTALL_VKMS_HELPER=0", installer)
+        self.assertIn(
+            "if (( INSTALL_VKMS_HELPER )); then\n    install_vkms_helper\nelse",
+            installer,
+        )
+        self.assertIn(
+            "Skipping optional VKMS helper installation. Re-run with --with-vkms",
+            installer,
+        )
 
     def test_choice_chips_and_preset_menu_use_the_requested_layout(self):
         chips = (ROOT / "linux/monitorize/qml/ChoiceChips.qml").read_text()

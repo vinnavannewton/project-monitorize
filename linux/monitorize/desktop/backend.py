@@ -64,6 +64,7 @@ class MonitorizeBackend(QObject):
     streamingBackendChanged = pyqtSignal(str)
     vkmsResolutionOptionsChanged = pyqtSignal()
     vkmsCustomCapabilityCheckingChanged = pyqtSignal()
+    vkmsCustomEdidCapabilityChanged = pyqtSignal()
     vkmsCustomCapabilityChecked = pyqtSignal(str)
 
     def __init__(self, de, parent=None):
@@ -210,6 +211,12 @@ class MonitorizeBackend(QObject):
     def vkmsCustomCapabilityChecking(self):
         return self._vkms_custom_capability_process is not None
 
+    @pyqtProperty(str, notify=vkmsCustomEdidCapabilityChanged)
+    def vkmsCustomEdidCapability(self):
+        if self._vkms_custom_capability is None:
+            return "unknown"
+        return self._vkms_custom_capability.value
+
     @pyqtSlot()
     def refreshVkmsResolutionOptions(self):
         options = vkms_resolution_options()
@@ -229,6 +236,7 @@ class MonitorizeBackend(QObject):
             CustomEdidCapability.UNSUPPORTED,
         ):
             self._vkms_custom_capability = capability
+            self.vkmsCustomEdidCapabilityChanged.emit()
             app_log.write(
                 "VKMS",
                 f"VKMS custom EDID capability: {capability.value}",
