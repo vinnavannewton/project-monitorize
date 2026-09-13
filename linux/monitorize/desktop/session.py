@@ -4,7 +4,7 @@ import os
 
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 
-from monitorize.config.settings import load_display_settings
+from monitorize.config.settings import load_display_settings, load_second_display_settings
 
 
 class Session(QObject):
@@ -13,11 +13,11 @@ class Session(QObject):
     def __init__(self, controller, parent=None):
         super().__init__(parent)
         self.controller = controller
-        self.count = 0
         self.running = False
         self.start_requested = False
         self._driving = False
         self.preset_configuration = None
+        self.count = self._configured_display_count()
         controller.streamingChanged.connect(self._active_changed)
         controller.primaryReadyChanged.connect(self._changed)
         controller.secondStreamChanged.connect(self._changed)
@@ -60,7 +60,10 @@ class Session(QObject):
     def configuration(self):
         if self.preset_configuration:
             return self._preset_values(self.preset_configuration["primary"])
-        saved = load_display_settings()
+        return self._saved_values(load_display_settings())
+
+    @staticmethod
+    def _saved_values(saved, *, virtual_display_creator=None):
         resolution_is_custom = saved.get("resolution", "1920x1080") == "Custom..."
         res = saved.get("resolution", "1920x1080")
         if resolution_is_custom:
@@ -75,13 +78,13 @@ class Session(QObject):
             res=res, fps=fps, display_type=saved.get("display_type", "Extend"),
             virtual_display_creator=(
                 "native" if os.path.isfile("/.flatpak-info")
-                else saved.get("virtual_display_creator", "native")
+                else virtual_display_creator or saved.get("virtual_display_creator", "native")
             ),
             vkms_custom_mode=(
                 resolution_is_custom
                 and saved.get("display_type", "Extend") == "Extend"
                 and not os.path.isfile("/.flatpak-info")
-                and saved.get("virtual_display_creator", "native") == "vkms"
+                and (virtual_display_creator or saved.get("virtual_display_creator", "native")) == "vkms"
             ),
             encoder=saved.get("sunshine_encoder", "Auto") if custom else "Auto",
             codec=saved.get("sunshine_codec", "Auto") if custom else "Auto",
@@ -110,7 +113,16 @@ class Session(QObject):
     def second_configuration(self):
         if self.preset_configuration and self.preset_configuration.get("second", {}).get("enabled"):
             return self._preset_values(self.preset_configuration["second"])
-        return self.configuration()
+        primary = self.configuration()
+        return self._saved_values(
+            load_second_display_settings(),
+            virtual_display_creator=primary["virtual_display_creator"],
+        )
+
+    def _configured_display_count(self):
+        if self.configuration()["display_type"] != "Extend":
+            return 0
+        return 2 if load_second_display_settings().get("enabled", False) else 1
 
     def _prepare_primary(self):
         self.controller.start(**self.configuration(), options={"prepare_only": True})
@@ -127,8 +139,8 @@ class Session(QObject):
         return 2
 
     def configuration_changed(self):
-        if not self.controller.streaming and self.count > self.max_displays:
-            self.count = self.max_displays
+        if not self.controller.streaming:
+            self.count = self._configured_display_count()
         self.changed.emit()
 
     def add(self):
@@ -206,7 +218,7 @@ class Session(QObject):
 
     def remove(self, index):
         if index < 0 or index >= self.count or self.busy:
-            return
+            return False
         if index == 1 and self.controller.third_streaming:
             self.controller.stop_third()
         elif index == 0 and self.controller.streaming:
@@ -219,6 +231,7 @@ class Session(QObject):
             if not self.count:
                 self.preset_configuration = None
         self.changed.emit()
+        return True
 
     def cards(self):
         c = self.controller

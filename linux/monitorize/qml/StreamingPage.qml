@@ -107,31 +107,13 @@ Item {
                                 width: 220
                                 background: Rectangle { color: theme.surface; border.color: theme.border; radius: 8 }
                                 CardMenuItem { text: "Sunshine settings"; enabled: backend.sessionRunning && displayCard.modelData.live; onTriggered: backend.openSunshineWebUi(displayCard.modelData.number) }
-                                CardMenuItem { text: "Remove"; visible: !displayCard.modelData.mirror; onTriggered: backend.removeSessionDisplay(displayCard.index) }
+                                CardMenuItem {
+                                    visible: displayCard.modelData.number === 2
+                                    text: "Remove"
+                                    onTriggered: backend.removeSessionDisplay(1)
+                                }
                             }
                         }
-                    }
-                }
-            }
-            AbstractButton {
-                visible: backend.sessionMode === "Extend"
-                    && backend.sessionDisplays.length < backend.sessionMaxDisplays
-                enabled: !backend.sessionBusy
-                Layout.fillWidth: true
-                implicitHeight: 90
-                onClicked: backend.addSessionDisplay()
-                background: Rectangle {
-                    radius: 14; color: parent.hovered ? theme.surfaceAlt : "transparent"
-                    border.color: theme.borderHover
-                }
-                contentItem: RowLayout {
-                    spacing: 20
-                    anchors { left: parent.left; right: parent.right; margins: 22 }
-                    LineIcon { symbol: "plus"; Layout.preferredWidth: 30; Layout.preferredHeight: 30 }
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        Text { text: "Add Display"; color: "#94caff"; font.pixelSize: 17; font.weight: Font.DemiBold }
-                        Text { text: "Add a display card. Start creates the display."; color: theme.textMuted; font.pixelSize: 13 }
                     }
                 }
             }

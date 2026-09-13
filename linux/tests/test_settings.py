@@ -44,6 +44,23 @@ class SettingsTest(unittest.TestCase):
         self.assertFalse(saved["sunshine_native_pen_touch"])
         self.assertTrue(saved["enable_audio"])
 
+    def test_second_display_mode_is_persisted_independently(self):
+        settings.save_display_settings(resolution="2560x1600", fps="120")
+        settings.save_second_display_settings(
+            enabled=True,
+            resolution="1920x1080",
+            fps="75",
+        )
+
+        primary = settings.load_display_settings()
+        second = settings.load_second_display_settings()
+        self.assertEqual((primary["resolution"], primary["fps"]), ("2560x1600", "120"))
+        self.assertTrue(second["enabled"])
+        self.assertEqual((second["resolution"], second["fps"]), ("1920x1080", "75"))
+
+        settings.save_second_display_settings(enabled=False)
+        self.assertFalse(settings.load_second_display_settings()["enabled"])
+
     def test_v1_wifi_preset_migrates_and_usb_preset_is_dropped(self):
         store = QSettings(self.config_file, QSettings.Format.IniFormat)
         store.setValue(

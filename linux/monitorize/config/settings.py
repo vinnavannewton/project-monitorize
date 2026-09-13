@@ -195,6 +195,7 @@ def load_display_settings() -> dict:
 SECOND_DISPLAY_DEFAULTS = {
     **DISPLAY_DEFAULTS,
     "resolution": "1920x1080",
+    "enabled": False,
 }
 
 
@@ -208,7 +209,7 @@ def load_second_display_settings() -> dict:
     values = _load_group(
         "second_display",
         SECOND_DISPLAY_DEFAULTS,
-        ("sunshine_native_pen_touch", "enable_audio"),
+        ("streaming_customized", "sunshine_native_pen_touch", "enable_audio", "enabled"),
     )
     return _normalize_display_settings(values, DEFAULT_SECONDARY_RESOLUTION)
 

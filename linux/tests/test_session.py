@@ -24,6 +24,16 @@ class SessionTest(unittest.TestCase):
         p = patch("monitorize.desktop.session.load_display_settings", side_effect=lambda: self.config.copy())
         p.start()
         self.addCleanup(p.stop)
+        self.second_config = {
+            "enabled": False, "resolution": "1920x1080", "fps": "60",
+            "custom_w": "", "custom_h": "", "custom_fps": "",
+        }
+        p = patch(
+            "monitorize.desktop.session.load_second_display_settings",
+            side_effect=lambda: self.second_config.copy(),
+        )
+        p.start()
+        self.addCleanup(p.stop)
         p = patch("monitorize.desktop.streaming_controller.stop_sunshine")
         self.stop_sunshine = p.start()
         self.addCleanup(p.stop)
@@ -31,6 +41,7 @@ class SessionTest(unittest.TestCase):
         self.c._start_display_process = Mock(side_effect=self.process)
         self.c._start_instance = Mock(return_value=True)
         self.s = Session(self.c)
+        self.s.count = 0
         self.addCleanup(self.c.sunshine_watchdog_timer.stop)
 
     @staticmethod
@@ -82,6 +93,36 @@ class SessionTest(unittest.TestCase):
         self.assertEqual(
             [call.args[0] for call in self.c._start_display_process.call_args_list],
             ["primary", "additional"],
+        )
+
+    def test_persisted_second_display_has_its_own_mode_configuration(self):
+        self.second_config.update(
+            enabled=True,
+            resolution="1920x1080",
+            fps="75",
+        )
+        self.s.configuration_changed()
+        self.assertEqual(self.s.count, 2)
+        self.config.update(resolution="2560x1600", fps="120")
+        primary = self.s.configuration()
+        second = self.s.second_configuration()
+        self.assertEqual((primary["res"], primary["fps"]), ("2560x1600", "120"))
+        self.assertEqual((second["res"], second["fps"]), ("1920x1080", "75"))
+
+    def test_two_configured_display_modes_reach_their_own_holders(self):
+        self.config.update(resolution="2560x1600", fps="120")
+        self.second_config.update(enabled=True, resolution="1920x1080", fps="75")
+        self.s.configuration_changed()
+
+        self.s.start()
+        self.assertEqual(
+            self.c._start_display_process.call_args.args[:4],
+            ("primary", 2560, 1600, 120),
+        )
+        self.ready()
+        self.assertEqual(
+            self.c._start_display_process.call_args.args[:4],
+            ("additional", 1920, 1080, 75),
         )
 
     @patch("monitorize.desktop.session.os.path.isfile", return_value=True)

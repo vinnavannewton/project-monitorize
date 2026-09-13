@@ -632,18 +632,18 @@ exit 0
 
     def test_source_vkms_ui_and_restricted_helper_are_installed(self):
         qml = (ROOT / "linux/monitorize/qml/DisplaySetupPage.qml").read_text()
+        display_card = (ROOT / "linux/monitorize/qml/VirtualDisplayModeCard.qml").read_text()
         installer = (ROOT / "linux/scripts/install.sh").read_text()
         helper = (ROOT / "packaging/common/monitorize-source-vkms-helper").read_text()
         self.assertIn('text: "Virtual Display Creator"', qml)
         self.assertIn('"VKMS (Experimental)"', qml)
         self.assertIn('backend.checkVkmsCustomEdidSupport()', qml)
-        self.assertIn('function restoreVkmsCustomResolutionState()', qml)
-        self.assertIn('page.restoreVkmsCustomResolutionState()', qml)
+        self.assertIn('VirtualDisplayModeCard', qml)
         self.assertIn('backend.vkmsCustomEdidCapability', qml)
         self.assertIn('Custom VKMS resolution unavailable', qml)
         self.assertIn('Could not check VKMS custom-resolution support', qml)
         self.assertIn('"Install monitorize-vkms"', qml)
-        self.assertIn('currentText === "Custom..."', qml)
+        self.assertIn('currentText === "Custom..."', display_card)
         self.assertIn("install_vkms_helper", installer)
         self.assertIn('choices=("create", "create-custom", "destroy", "status", "capability")', helper)
         self.assertIn("edid_enabled", helper)
@@ -703,12 +703,24 @@ exit 0
         self.assertIn("indicator: Text", combo)
         self.assertIn("color: theme.textPrimary", combo)
         self.assertIn("disabledIndex: 0", display_setup)
-        self.assertIn('enabled: displayType.currentText !== "Mirror"', display_setup)
-        self.assertIn("page.mirrorResolutionLabel()", display_setup)
+        self.assertIn(
+            'model: displayType.currentText === "Extend" ? page.virtualDisplays : []',
+            display_setup,
+        )
+        self.assertIn(
+            'visible: displayType.currentText === "Extend" && page.virtualDisplays.length < 2',
+            display_setup,
+        )
+        self.assertIn("displayNumber: Number(modelData.id)", display_setup)
+        self.assertIn("canRemove: Number(modelData.id) === 2", display_setup)
+        self.assertIn("function mirrorResolutionLabel()", display_setup)
         self.assertEqual(streaming.count('text: "Pair Moonlight PIN"'), 1)
         self.assertIn("model: backend.sessionDisplays", streaming)
         self.assertIn("text: displayCard.modelData.title", streaming)
-        self.assertIn("visible: !displayCard.modelData.mirror", streaming)
+        self.assertIn('text: "Sunshine settings"', streaming)
+        self.assertIn("visible: displayCard.modelData.number === 2", streaming)
+        self.assertIn("backend.removeSessionDisplay(1)", streaming)
+        self.assertNotIn('text: "Add Display"', streaming)
 
     def test_choice_chips_and_start_card_fit_their_containers(self):
         chips = (ROOT / "linux/monitorize/qml/ChoiceChips.qml").read_text()

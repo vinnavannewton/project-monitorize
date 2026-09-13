@@ -173,7 +173,13 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot(int)
     def removeSessionDisplay(self, index):
-        self.session.remove(index)
+        if index != 1 or not self.session.remove(index):
+            return
+        if not self.session.preset_configuration:
+            second = load_second_display_settings()
+            second["enabled"] = False
+            save_second_display_settings(**second)
+            self.session.configuration_changed()
 
     @pyqtProperty(str, notify=localIpChanged)
     def localIp(self):
@@ -412,6 +418,54 @@ class MonitorizeBackend(QObject):
     @pyqtSlot(result="QVariant")
     def loadDisplaySettings(self):
         return load_display_settings()
+
+    @pyqtSlot(result="QVariant")
+    def loadVirtualDisplaySettings(self):
+        """Return the persisted mode object for each configured virtual display."""
+        primary = load_display_settings()
+        displays = [{
+            "id": 1,
+            "resolution": primary["resolution"],
+            "custom_w": primary["custom_w"],
+            "custom_h": primary["custom_h"],
+            "fps": primary["fps"],
+            "custom_fps": primary["custom_fps"],
+        }]
+        second = load_second_display_settings()
+        if second.get("enabled", False):
+            displays.append({
+                "id": 2,
+                "resolution": second["resolution"],
+                "custom_w": second["custom_w"],
+                "custom_h": second["custom_h"],
+                "fps": second["fps"],
+                "custom_fps": second["custom_fps"],
+            })
+        return displays
+
+    @pyqtSlot("QVariantList")
+    def saveVirtualDisplaySettings(self, display_configs):
+        """Persist one or two independent display-mode configurations."""
+        configs = [dict(config) for config in list(display_configs or []) if isinstance(config, dict)]
+        if not configs:
+            return
+        configs = configs[:2]
+        mode_keys = ("resolution", "custom_w", "custom_h", "fps", "custom_fps")
+
+        primary = load_display_settings()
+        primary.update({key: configs[0].get(key, primary[key]) for key in mode_keys})
+        save_display_settings(**primary)
+
+        second = load_second_display_settings()
+        if len(configs) == 2:
+            second.update({key: configs[1].get(key, second[key]) for key in mode_keys})
+            second["enabled"] = True
+        else:
+            second["enabled"] = False
+        save_second_display_settings(**second)
+
+        self.session.preset_configuration = None
+        self.session.configuration_changed()
 
     @pyqtSlot(str, result="QVariant")
     def getEncodingGpuOptions(self, encoder):
