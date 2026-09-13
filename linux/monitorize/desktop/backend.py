@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import shutil
+from pathlib import Path
 
 from PyQt6.QtCore import QObject, QProcess, QTimer, pyqtProperty, pyqtSignal, pyqtSlot
 
@@ -25,6 +26,7 @@ from monitorize.platform.gpu_discovery import encoding_gpu_options
 from monitorize.platform.sunshine_service import (
     clear_sunshine_portal_restore_tokens,
     find_sunshine_command,
+    get_sunshine_config_dir,
     get_sunshine_config,
     open_sunshine_dashboard,
     pair_moonlight_pin,
@@ -96,6 +98,9 @@ class MonitorizeBackend(QObject):
         self.streaming.startFailed.connect(self.streamingStartFailed)
         self.streaming.codecMismatch.connect(self.streamingCodecMismatch)
         self.streaming.statusChanged.connect(self.streamingStatusChanged)
+        self.streaming.vkmsCustomEdidUnsupported.connect(
+            self._handle_vkms_custom_edid_unsupported
+        )
         self.streaming.secondStreamChanged.connect(self.secondStreamActiveChanged)
         self.streaming.logAppended.connect(app_log.write)
         self.streaming.logAppended.connect(self.logAppended)
@@ -113,7 +118,18 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot(result=str)
     def sessionLog(self):
-        return self._session_log
+        """Return every currently retained Monitorize and Sunshine log source."""
+        sources = [
+            ("Sunshine instance 1", Path(get_sunshine_config_dir(1)) / "sunshine.log"),
+            ("Sunshine instance 2", Path(get_sunshine_config_dir(2)) / "sunshine.log"),
+            ("Monitorize", app_log.LOG_FILE),
+        ]
+        sections = []
+        for label, path in sources:
+            content = app_log.read_tail(path)
+            if content:
+                sections.append(f"===== {label} =====\n{content}")
+        return "\n\n".join(sections) or "No retained diagnostic logs yet."
 
     @pyqtProperty("QVariant", notify=sessionChanged)
     def sessionDisplays(self):
@@ -249,6 +265,14 @@ class MonitorizeBackend(QObject):
             )
         self.vkmsCustomCapabilityChecked.emit(capability.value)
 
+    def _handle_vkms_custom_edid_unsupported(self):
+        """Carry a launch-time capability failure back to the existing QML UI."""
+        self._vkms_custom_capability = CustomEdidCapability.UNSUPPORTED
+        self.vkmsCustomEdidCapabilityChanged.emit()
+        self.vkmsCustomCapabilityChecked.emit(
+            CustomEdidCapability.UNSUPPORTED.value
+        )
+
     def _complete_vkms_custom_capability(self, process, exit_code):
         if process is not self._vkms_custom_capability_process:
             return
@@ -323,6 +347,16 @@ class MonitorizeBackend(QObject):
         self._vkms_custom_capability_process = process
         self.vkmsCustomCapabilityCheckingChanged.emit()
         process.start(pkexec, [str(VKMS_HELPER), "capability"])
+
+    @pyqtSlot()
+    def recheckVkmsCustomEdidSupport(self):
+        """Discard a stale unsupported result before an explicit user retry."""
+        if self._vkms_custom_capability_process is not None:
+            return
+        if self._vkms_custom_capability is not None:
+            self._vkms_custom_capability = None
+            self.vkmsCustomEdidCapabilityChanged.emit()
+        self.checkVkmsCustomEdidSupport()
 
     @pyqtSlot(result=bool)
     def openMonitorizeVkmsInstallPage(self):
@@ -665,6 +699,7 @@ class MonitorizeBackend(QObject):
                 primary.get("virtual_display_creator", "native")
                 if self.vkmsCreatorAvailable else "native"
             ),
+            vkms_custom_mode=bool(primary.get("vkms_custom_mode", False)),
         )
 
     @pyqtSlot(int, str, result=str)

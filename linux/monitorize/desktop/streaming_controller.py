@@ -97,6 +97,7 @@ class StreamingController(QObject):
     secondStreamChanged = pyqtSignal(bool)
     primaryReadyChanged = pyqtSignal(bool)
     logAppended = pyqtSignal(str, str)
+    vkmsCustomEdidUnsupported = pyqtSignal()
 
     def __init__(self, de, local_ip="", parent=None):
         super().__init__(parent)
@@ -118,6 +119,7 @@ class StreamingController(QObject):
         self.fps = DEFAULT_FPS
         self.display_type = "Extend"
         self.virtual_display_creator = "native"
+        self.vkms_custom_mode = False
         self.encoder = "Auto"
         self.gpu_id = ""
         self.codec = "Auto"
@@ -126,6 +128,7 @@ class StreamingController(QObject):
         self.audio_enabled = False
         self.third_width, self.third_height = DEFAULT_SECONDARY_RESOLUTION
         self.third_fps = DEFAULT_FPS
+        self.third_vkms_custom_mode = False
         self.third_encoder = "Auto"
         self.third_gpu_id = ""
         self.third_codec = "Auto"
@@ -184,6 +187,7 @@ class StreamingController(QObject):
         gpu_id="",
         mirror_output="",
         virtual_display_creator="native",
+        vkms_custom_mode=False,
     ):
         if self._is_stopping:
             self._set_status("Previous session is still stopping — please wait")
@@ -204,6 +208,7 @@ class StreamingController(QObject):
             and virtual_display_creator in ("native", "vkms")
             else "native"
         )
+        self.vkms_custom_mode = bool(vkms_custom_mode) and self.virtual_display_creator == "vkms"
         self.encoder = str(encoder or "Auto")
         self.gpu_id = normalize_pci_id(gpu_id)
         self.codec = str(codec or "Auto")
@@ -310,6 +315,9 @@ class StreamingController(QObject):
                 slot,
                 str(self.de),
                 str(self.virtual_display_creator),
+                "custom" if (
+                    self.vkms_custom_mode if slot == "primary" else self.third_vkms_custom_mode
+                ) else "standard",
             ],
         )
         if self.de == "gnome":
@@ -342,6 +350,8 @@ class StreamingController(QObject):
             event = self._structured_event(line)
             if event and event.get("type") == "headless_ready":
                 self._display_ready(slot, event)
+            elif event and event.get("type") == "vkms_custom_edid_unsupported":
+                self.vkmsCustomEdidUnsupported.emit()
             elif line.startswith("[ERROR]"):
                 self._set_status(line.removeprefix("[ERROR]").strip())
 
@@ -574,10 +584,8 @@ class StreamingController(QObject):
         native_pen_touch=True,
         enable_audio=False,
         gpu_id="",
+        vkms_custom_mode=False,
     ):
-        if self.virtual_display_creator == "vkms":
-            self._set_status("VKMS v1 supports exactly one virtual display")
-            return
         if not self.streaming or not self.primary_ready:
             self._set_status("Start the primary display before adding another display")
             return
@@ -590,6 +598,9 @@ class StreamingController(QObject):
             res, DEFAULT_SECONDARY_RESOLUTION
         )
         self.third_fps = sanitize_fps(fps)
+        self.third_vkms_custom_mode = (
+            bool(vkms_custom_mode) and self.virtual_display_creator == "vkms"
+        )
         self.third_encoder = str(encoder or "Auto")
         self.third_gpu_id = normalize_pci_id(gpu_id)
         self.third_codec = str(codec or "Auto")
@@ -643,6 +654,7 @@ class StreamingController(QObject):
                 "fps": str(self.fps),
                 "display_type": self.display_type,
                 "virtual_display_creator": self.virtual_display_creator,
+                "vkms_custom_mode": self.vkms_custom_mode,
                 "sunshine_encoder": self.encoder,
                 "sunshine_gpu": self.gpu_id,
                 "sunshine_codec": self.codec,
@@ -661,12 +673,11 @@ class StreamingController(QObject):
                 sunshine_codec=self.third_codec,
                 sunshine_native_pen_touch=self.third_native_pen_touch,
                 enable_audio=self.third_audio_enabled,
+                vkms_custom_mode=self.third_vkms_custom_mode,
             )
         return config
 
     def _start_pending_second(self, options):
-        if self.virtual_display_creator == "vkms":
-            return
         second = (options or {}).get("second")
         if not second or not second.get("enabled"):
             return
@@ -680,6 +691,7 @@ class StreamingController(QObject):
                 second.get("sunshine_native_pen_touch", True),
                 second.get("enable_audio", False),
                 gpu_id=second.get("sunshine_gpu", ""),
+                vkms_custom_mode=second.get("vkms_custom_mode", False),
             ),
         )
 

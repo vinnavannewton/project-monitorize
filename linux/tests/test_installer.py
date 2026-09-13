@@ -645,7 +645,7 @@ exit 0
         self.assertIn('"Install monitorize-vkms"', qml)
         self.assertIn('currentText === "Custom..."', qml)
         self.assertIn("install_vkms_helper", installer)
-        self.assertIn('choices=("create", "destroy", "status", "capability")', helper)
+        self.assertIn('choices=("create", "create-custom", "destroy", "status", "capability")', helper)
         self.assertIn("edid_enabled", helper)
         self.assertNotIn("shell=True", helper)
 

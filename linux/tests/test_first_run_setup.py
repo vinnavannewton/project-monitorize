@@ -14,6 +14,25 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class FirstRunSetupTest(unittest.TestCase):
+
+    @patch("monitorize.desktop.backend.get_sunshine_config_dir")
+    @patch("monitorize.desktop.backend.app_log.read_tail")
+    @patch("monitorize.desktop.backend.get_system_setup_status", return_value={"available": False})
+    @patch("monitorize.desktop.backend.StreamingController")
+    @patch("monitorize.desktop.backend.get_local_ip", return_value="192.0.2.1")
+    @patch("monitorize.desktop.backend.load_presets", return_value=[])
+    @patch("monitorize.desktop.backend.load_general_settings", return_value={})
+    def test_session_log_combines_both_sunshine_instances_and_monitorize_log(
+        self, _settings, _presets, _ip, _streaming, _status, read_tail, config_dir
+    ):
+        config_dir.side_effect = ["/tmp/sunshine-1", "/tmp/sunshine-2"]
+        read_tail.side_effect = ["first", "second", "monitorize"]
+        backend = MonitorizeBackend("kde")
+        self.addCleanup(backend.network_timer.stop)
+        logs = backend.sessionLog()
+        self.assertIn("===== Sunshine instance 1 =====\nfirst", logs)
+        self.assertIn("===== Sunshine instance 2 =====\nsecond", logs)
+        self.assertIn("===== Monitorize =====\nmonitorize", logs)
     @classmethod
     def setUpClass(cls):
         cls.app = QCoreApplication.instance() or QCoreApplication([])

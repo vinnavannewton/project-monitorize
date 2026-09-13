@@ -6,6 +6,10 @@ Item {
     id: page
     property int pairInstance: 1
     property bool logsExpanded: false
+    function refreshDiagnostics() {
+        let snapshot = backend.sessionLog()
+        if (logArea.text !== snapshot) logArea.text = snapshot
+    }
     function openPair(instance) {
         pairInstance = instance
         pinField.text = ""
@@ -15,9 +19,14 @@ Item {
     }
     Connections {
         target: backend
-        function onLogAppended(type, message) { logArea.text = backend.sessionLog() }
+        function onLogAppended(type, message) { page.refreshDiagnostics() }
         function onStreamingStartFailed() { page.logsExpanded = true }
         function onStreamingCodecMismatch(message) { page.logsExpanded = true }
+    }
+    Component.onCompleted: refreshDiagnostics()
+    Timer {
+        interval: 1000; repeat: true; running: true
+        onTriggered: page.refreshDiagnostics()
     }
     ScrollView {
         anchors.fill: parent
@@ -157,7 +166,7 @@ Item {
                     Layout.preferredHeight: 240
                     TextArea {
                         id: logArea
-                        text: backend.sessionLog()
+                        text: ""
                         readOnly: true; wrapMode: TextEdit.Wrap
                         color: theme.textSecondary; font.family: "monospace"; font.pixelSize: 11
                         background: Rectangle { color: theme.logBoxBackground; radius: 8 }

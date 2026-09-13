@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 from pathlib import Path
@@ -13,12 +14,22 @@ import time
 import uuid
 
 
-INSTANCE_NAME = "monitorize"
+# The helper exposes two fixed slots rather than accepting an instance path.
+# This keeps its Polkit surface narrow while allowing Monitorize to own two
+# independent VKMS cards at once.
+INSTANCE_NAMES = {
+    "primary": "monitorize",
+    "additional": "monitorize-2",
+}
 CONFIGFS_FALLBACK = Path("/config")
 MODULE_PATH = Path("/sys/module/vkms")
 
 
 class VkmsHelperError(RuntimeError):
+    pass
+
+
+class CustomEdidUnsupported(VkmsHelperError):
     pass
 
 
@@ -128,6 +139,14 @@ def _write(path: Path, value: str) -> None:
         raise VkmsHelperError(f"Could not write {path.name}: {exc}") from exc
 
 
+def _write_bytes(path: Path, value: bytes) -> None:
+    try:
+        with path.open("wb", buffering=0) as target:
+            target.write(value)
+    except OSError as exc:
+        raise VkmsHelperError(f"Could not write {path.name}: {exc}") from exc
+
+
 def _remove_link(path: Path) -> None:
     try:
         if path.is_symlink():
@@ -170,11 +189,16 @@ def _destroy_instance(instance: Path, logs: list[str]) -> bool:
     return True
 
 
-def _create_instance(root: Path, logs: list[str]) -> Path:
-    vkms_root = root / "vkms"
-    if not vkms_root.is_dir():
-        raise VkmsHelperError("This kernel's VKMS driver does not expose the required configfs interface.")
-    instance = vkms_root / INSTANCE_NAME
+def _validate_edid(edid: bytes) -> None:
+    if len(edid) != 128:
+        raise VkmsHelperError("Custom VKMS EDID must be exactly 128 bytes.")
+    if edid[:8] != b"\x00\xff\xff\xff\xff\xff\xff\x00":
+        raise VkmsHelperError("Custom VKMS EDID has an invalid header.")
+    if sum(edid) % 256:
+        raise VkmsHelperError("Custom VKMS EDID checksum is invalid.")
+
+
+def _create_instance(instance: Path, logs: list[str], custom_edid: bytes | None = None) -> Path:
     if instance.exists():
         logs.append("Recovering stale Monitorize VKMS instance")
         _destroy_instance(instance, logs)
@@ -193,16 +217,36 @@ def _create_instance(root: Path, logs: list[str]) -> Path:
         crtc.mkdir()
         encoder.mkdir()
         connector.mkdir()
-        _write(connector / "status", "1")
-
         logs.append("Linking VKMS topology")
         os.symlink(crtc, plane / "possible_crtcs/crtc0")
         os.symlink(crtc, encoder / "possible_crtcs/crtc0")
         os.symlink(encoder, connector / "possible_encoders/encoder0")
 
+        _write(connector / "status", "1")
+        if custom_edid is not None:
+            _validate_edid(custom_edid)
+            edid = connector / "edid"
+            edid_enabled = connector / "edid_enabled"
+            if not edid.is_file() or not edid_enabled.is_file():
+                raise CustomEdidUnsupported(
+                    "The active VKMS driver does not expose per-connector EDID support."
+                )
+            logs.append("Writing validated custom VKMS connector EDID")
+            _write_bytes(edid, custom_edid)
+            logs.append("Enabling custom VKMS connector EDID")
+            _write(edid_enabled, "1")
+
         logs.append("Enabling VKMS device")
         _write(instance / "enabled", "1")
         return instance
+    except CustomEdidUnsupported:
+        try:
+            _destroy_instance(instance, logs)
+        except VkmsHelperError as cleanup_exc:
+            raise VkmsHelperError(
+                f"Custom VKMS EDID support is unavailable; cleanup failed: {cleanup_exc}"
+            ) from cleanup_exc
+        raise
     except (OSError, VkmsHelperError) as exc:
         try:
             _destroy_instance(instance, logs)
@@ -217,7 +261,7 @@ def _probe_custom_edid_support(root: Path, logs: list[str]) -> bool:
     if not vkms_root.is_dir():
         raise VkmsHelperError("This kernel's VKMS driver does not expose the required configfs interface.")
 
-    existing_connector = vkms_root / INSTANCE_NAME / "connectors" / "connector0"
+    existing_connector = vkms_root / INSTANCE_NAMES["primary"] / "connectors" / "connector0"
     if existing_connector.is_dir():
         supported = (existing_connector / "edid").is_file() and (
             existing_connector / "edid_enabled"
@@ -258,20 +302,31 @@ def _probe_custom_edid_support(root: Path, logs: list[str]) -> bool:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Manage Monitorize's fixed VKMS configfs instance.")
-    parser.add_argument("operation", choices=("create", "destroy", "status", "capability"))
+    parser = argparse.ArgumentParser(description="Manage Monitorize's fixed VKMS configfs instances.")
+    parser.add_argument("operation", choices=("create", "create-custom", "destroy", "status", "capability"))
+    parser.add_argument("--slot", choices=tuple(INSTANCE_NAMES), default="primary")
+    parser.add_argument("edid_base64", nargs="?")
     args = parser.parse_args()
     _require_polkit_root()
 
     logs: list[str] = []
     _load_vkms(logs)
     root = _configfs_root(
-        logs, mount_if_missing=args.operation in ("create", "destroy")
+        logs, mount_if_missing=args.operation in ("create", "create-custom", "destroy")
     )
-    instance = root / "vkms" / INSTANCE_NAME
+    instance = root / "vkms" / INSTANCE_NAMES[args.slot]
     changed = False
     if args.operation == "create":
-        _create_instance(root, logs)
+        _create_instance(instance, logs)
+        changed = True
+    elif args.operation == "create-custom":
+        if not args.edid_base64:
+            raise VkmsHelperError("Custom VKMS creation requires an EDID payload.")
+        try:
+            custom_edid = base64.b64decode(args.edid_base64, validate=True)
+        except (ValueError, TypeError) as exc:
+            raise VkmsHelperError("Custom VKMS EDID payload is not valid base64.") from exc
+        _create_instance(instance, logs, custom_edid)
         changed = True
     elif args.operation == "destroy":
         changed = _destroy_instance(instance, logs)
@@ -282,6 +337,7 @@ def main() -> int:
     print(json.dumps({
         "success": True,
         "operation": args.operation,
+        "slot": args.slot,
         "changed": changed,
         "instance": str(instance),
         "logs": logs,
@@ -293,6 +349,9 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         sys.exit(main())
+    except CustomEdidUnsupported as exc:
+        print(json.dumps({"success": False, "message": str(exc), "error_kind": "custom_edid_unsupported"}))
+        sys.exit(1)
     except (OSError, subprocess.SubprocessError, VkmsHelperError) as exc:
         print(json.dumps({"success": False, "message": str(exc)}))
         sys.exit(1)

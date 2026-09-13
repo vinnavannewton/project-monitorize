@@ -239,7 +239,7 @@ Item {
                         visible: page.vkmsSelected
                         Layout.columnSpan: 2; Layout.fillWidth: true
                         wrapMode: Text.WordWrap; color: theme.textMuted
-                        text: "Creates one display using Linux's experimental VKMS path. Display layout and positioning are managed by your desktop environment."
+                        text: "Creates up to two displays using Linux's experimental VKMS path. Display layout and positioning are managed by your desktop environment."
                     }
                     Text { text: "Monitor"; color: theme.textSecondary; visible: displayType.currentText === "Mirror" }
                     CustomComboBox {
@@ -264,14 +264,15 @@ Item {
                     }
                     CustomComboBox {
                         id: resCombo; Layout.fillWidth: true
-                        enabled: displayType.currentText !== "Mirror" && !backend.vkmsCustomCapabilityChecking
+                        enabled: displayType.currentText !== "Mirror"
+                            && (!page.vkmsSelected || !backend.vkmsCustomCapabilityChecking)
                         opacity: enabled ? 1 : 0.45
                         displayText: displayType.currentText === "Mirror"
                             ? page.mirrorResolutionLabel() : currentText
                         model: page.vkmsSelected ? backend.vkmsResolutionOptions : page.nativeResolutionOptions
                         onActivated: {
                             if (page.vkmsSelected && currentText === "Custom...") {
-                                backend.checkVkmsCustomEdidSupport()
+                                backend.recheckVkmsCustomEdidSupport()
                                 return
                             }
                             if (page.vkmsSelected) {

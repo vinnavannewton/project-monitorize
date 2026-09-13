@@ -61,8 +61,9 @@ class Session(QObject):
         if self.preset_configuration:
             return self._preset_values(self.preset_configuration["primary"])
         saved = load_display_settings()
+        resolution_is_custom = saved.get("resolution", "1920x1080") == "Custom..."
         res = saved.get("resolution", "1920x1080")
-        if res == "Custom...":
+        if resolution_is_custom:
             res = saved.get("custom_w", "1920") + "x" + saved.get("custom_h", "1080")
         else:
             res = res.split(" ")[0]
@@ -75,6 +76,12 @@ class Session(QObject):
             virtual_display_creator=(
                 "native" if os.path.isfile("/.flatpak-info")
                 else saved.get("virtual_display_creator", "native")
+            ),
+            vkms_custom_mode=(
+                resolution_is_custom
+                and saved.get("display_type", "Extend") == "Extend"
+                and not os.path.isfile("/.flatpak-info")
+                and saved.get("virtual_display_creator", "native") == "vkms"
             ),
             encoder=saved.get("sunshine_encoder", "Auto") if custom else "Auto",
             codec=saved.get("sunshine_codec", "Auto") if custom else "Auto",
@@ -92,6 +99,7 @@ class Session(QObject):
                         "native" if os.path.isfile("/.flatpak-info")
                         else saved.get("virtual_display_creator", "native")
                     ),
+                    vkms_custom_mode=bool(saved.get("vkms_custom_mode", False)),
                     encoder=saved.get("sunshine_encoder", "Auto"),
                     codec=saved.get("sunshine_codec", "Auto"),
                     gpu_id=saved.get("sunshine_gpu", ""),
@@ -116,7 +124,7 @@ class Session(QObject):
 
     @property
     def max_displays(self):
-        return 1 if self.configuration().get("virtual_display_creator") == "vkms" else 2
+        return 2
 
     def configuration_changed(self):
         if not self.controller.streaming and self.count > self.max_displays:

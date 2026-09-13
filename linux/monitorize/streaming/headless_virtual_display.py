@@ -480,6 +480,7 @@ def main():
     slot = sys.argv[4] if len(sys.argv) > 4 else "primary"
     de = (sys.argv[5] if len(sys.argv) > 5 else os.environ.get("XDG_CURRENT_DESKTOP", "")).lower()
     creator = (sys.argv[6] if len(sys.argv) > 6 else "native").lower()
+    vkms_mode = (sys.argv[7] if len(sys.argv) > 7 else "standard").lower()
 
     if creator == "vkms":
         if os.path.isfile("/.flatpak-info"):
@@ -487,7 +488,9 @@ def main():
             return 1
         from monitorize.platform.vkms_backend import run_vkms_headless
 
-        return run_vkms_headless(slot, width, height, fps, de)
+        return run_vkms_headless(
+            slot, width, height, fps, de, custom_mode=vkms_mode == "custom"
+        )
 
     if "kde" in de or "plasma" in de:
         if os.path.isfile("/.flatpak-info"):

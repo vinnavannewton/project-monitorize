@@ -68,14 +68,21 @@ class SessionTest(unittest.TestCase):
             self.c._start_display_process.assert_not_called()
             self.c._start_instance.assert_not_called()
 
-    def test_vkms_configuration_allows_exactly_one_card(self):
+    def test_vkms_configuration_allows_two_cards(self):
         self.config["virtual_display_creator"] = "vkms"
         self.s.add()
         self.s.add()
-        self.assertEqual(self.s.max_displays, 1)
-        self.assertEqual(self.s.count, 1)
+        self.assertEqual(self.s.max_displays, 2)
+        self.assertEqual(self.s.count, 2)
         self.s.start()
         self.assertEqual(self.c.virtual_display_creator, "vkms")
+        self.ready()
+        self.assertTrue(self.c.third_streaming)
+        self.ready("additional")
+        self.assertEqual(
+            [call.args[0] for call in self.c._start_display_process.call_args_list],
+            ["primary", "additional"],
+        )
 
     @patch("monitorize.desktop.session.os.path.isfile", return_value=True)
     def test_flatpak_runtime_never_routes_to_source_vkms(self, _isfile):

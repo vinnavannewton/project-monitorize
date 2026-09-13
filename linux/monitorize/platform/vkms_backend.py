@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import base64
 import os
 from pathlib import Path
 import re
@@ -23,7 +24,6 @@ APPROXIMATE_REFRESH = 60.0
 
 
 MONITORIZE_VKMS_INSTALL_URL = "https://github.com/vinnavannewton/monitorize-vkms"
-
 
 
 
@@ -53,9 +53,14 @@ VKMS_RESOLUTIONS = (
     (800, 600),
     (640, 480),
 )
+VKMS_SLOTS = ("primary", "additional")
 
 
 class VkmsError(RuntimeError):
+    pass
+
+
+class VkmsCustomEdidUnsupported(VkmsError):
     pass
 
 
@@ -70,17 +75,12 @@ _DRM_MODE_NAME = re.compile(r"^(\d+)x(\d+)$")
 
 
 def resolution_options(drm_root: Path | None = None) -> list[str]:
-    """Return modes exposed by the current Monitorize VKMS DRM connector.
-
-    Configfs cannot enumerate fallback modes before a VKMS device exists, so
-    this selector deliberately reflects only a live Monitorize-owned DRM
-    connector. ``Custom...`` remains the final selector item.
-    """
+    """Return live normal modes, or normal VKMS modes before a device exists."""
     modes: set[tuple[int, int]] = set()
     try:
         connectors = sorted((drm_root or Path("/sys/class/drm")).iterdir())
     except OSError:
-        return ["Custom..."]
+        connectors = []
 
     for connector in connectors:
         if not _DRM_CONNECTOR_NAME.fullmatch(connector.name):
@@ -97,6 +97,8 @@ def resolution_options(drm_root: Path | None = None) -> list[str]:
             if match:
                 modes.add((int(match.group(1)), int(match.group(2))))
 
+    if not modes:
+        modes.update(VKMS_RESOLUTIONS)
     ordered = sorted(modes, key=lambda mode: (mode[0] * mode[1], mode), reverse=True)
     return [*(f"{width}x{height}" for width, height in ordered), "Custom..."]
 
@@ -129,19 +131,32 @@ def sanitize_vkms_resolution(width: int, height: int) -> tuple[int, int]:
     return requested if requested in VKMS_RESOLUTIONS else (1920, 1080)
 
 
-def _helper_response(operation: str, timeout: float = 60.0) -> dict:
+def _helper_response(
+    operation: str,
+    timeout: float = 60.0,
+    edid: bytes | None = None,
+    *,
+    slot: str = "primary",
+) -> dict:
     if os.path.isfile("/.flatpak-info"):
         raise VkmsError("VKMS display creation is available only in the native source installation.")
-    if operation not in ("create", "destroy", "status", "capability"):
+    if operation not in ("create", "create-custom", "destroy", "status", "capability"):
         raise ValueError(f"Unsupported VKMS helper operation: {operation}")
+    if operation == "create-custom" and edid is None:
+        raise ValueError("Custom VKMS creation requires an EDID payload.")
+    if slot not in VKMS_SLOTS:
+        raise ValueError(f"Unsupported VKMS slot: {slot}")
     if not VKMS_HELPER.is_file() or not os.access(VKMS_HELPER, os.X_OK):
         raise VkmsError("The VKMS helper is not installed. Re-run the Monitorize source installer.")
     pkexec = shutil.which("pkexec")
     if not pkexec:
         raise VkmsError("Polkit (pkexec) is required to create a VKMS virtual display.")
     try:
+        command = [pkexec, str(VKMS_HELPER), operation, "--slot", slot]
+        if edid is not None:
+            command.append(base64.b64encode(edid).decode("ascii"))
         result = subprocess.run(
-            [pkexec, str(VKMS_HELPER), operation],
+            command,
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -163,6 +178,8 @@ def _helper_response(operation: str, timeout: float = 60.0) -> dict:
         detail = ""
         if isinstance(response, dict):
             detail = str(response.get("message") or "")
+            if response.get("error_kind") == "custom_edid_unsupported":
+                raise VkmsCustomEdidUnsupported(detail or "Custom VKMS EDID support is unavailable.")
         detail = detail or result.stderr.strip()
         if result.returncode in (126, 127) or "not authorized" in detail.lower():
             detail = "Administrator authorization is required to create a VKMS virtual display."
@@ -340,36 +357,62 @@ def _mode_summary(modes: list[dict]) -> str:
     return ", ".join(f"{width}x{height}" for width, height in unique) or "none"
 
 
-def configure_compositor_output(desktop: str, output_name: str, width: int, height: int):
+def configure_compositor_output(
+    desktop: str,
+    output_name: str,
+    width: int,
+    height: int,
+    refresh: float = APPROXIMATE_REFRESH,
+):
     modes = available_modes(desktop, output_name)
     print(f"[VKMS] Available modes for {output_name}: {_mode_summary(modes)}", flush=True)
     if desktop == "kde":
         from monitorize.platform.kde_virtual_monitor import configure_existing_output_mode
 
-        return configure_existing_output_mode(output_name, width, height, APPROXIMATE_REFRESH)
+        return configure_existing_output_mode(output_name, width, height, refresh)
     if desktop == "gnome":
         from monitorize.platform.gnome_virtual_monitor import configure_existing_output_mode
 
-        return configure_existing_output_mode(output_name, width, height, APPROXIMATE_REFRESH)
+        return configure_existing_output_mode(output_name, width, height, refresh)
     from monitorize.platform.display_controller import DisplayController
 
     return DisplayController(desktop).configure_existing_output_mode(
-        output_name, width, height, APPROXIMATE_REFRESH
+        output_name, width, height, refresh
     )
 
 
-def run_vkms_headless(slot: str, width: int, height: int, _fps: int, desktop: str) -> int:
-    if slot != "primary":
-        print("[ERROR] VKMS v1 supports exactly one virtual display", flush=True)
+def run_vkms_headless(
+    slot: str,
+    width: int,
+    height: int,
+    fps: int,
+    desktop: str,
+    *,
+    custom_mode: bool = False,
+) -> int:
+    if slot not in VKMS_SLOTS:
+        print(f"[ERROR] Unsupported VKMS display slot: {slot}", flush=True)
         return 1
     requested_size = (int(width), int(height))
-    width, height = sanitize_vkms_resolution(width, height)
-    if (width, height) != requested_size:
-        print(
-            f"[VKMS] Requested {requested_size[0]}x{requested_size[1]} is not a "
-            f"standard VKMS size; using {width}x{height}",
-            flush=True,
-        )
+    edid = None
+    if custom_mode:
+        from monitorize.platform.vkms_edid import EdidError, generate_edid
+
+        try:
+            print(f"[VKMS] Custom mode requested: {width}x{height}@{fps}", flush=True)
+            edid = generate_edid(width, height, fps)
+            print("[VKMS] Custom EDID generated successfully", flush=True)
+        except EdidError as exc:
+            print(f"[ERROR] Custom VKMS mode is invalid: {exc}", flush=True)
+            return 1
+    else:
+        width, height = sanitize_vkms_resolution(width, height)
+        if (width, height) != requested_size:
+            print(
+                f"[VKMS] Requested {requested_size[0]}x{requested_size[1]} is not a "
+                f"standard VKMS size; using {width}x{height}",
+                flush=True,
+            )
     stopping = [False]
     created = [False]
 
@@ -379,7 +422,7 @@ def run_vkms_headless(slot: str, width: int, height: int, _fps: int, desktop: st
         stopping[0] = True
         if created[0]:
             try:
-                _helper_response("destroy", timeout=30)
+                _helper_response("destroy", timeout=30, slot=slot)
             except VkmsError as exc:
                 print(f"[ERROR] VKMS cleanup failed: {exc}", flush=True)
 
@@ -392,7 +435,7 @@ def run_vkms_headless(slot: str, width: int, height: int, _fps: int, desktop: st
 
     try:
         original = set(active_compositor_outputs(desktop))
-        stale = _helper_response("destroy")
+        stale = _helper_response("destroy", slot=slot)
         if stale.get("changed"):
             print("[VKMS] Recovered stale Monitorize VKMS state", flush=True)
             _wait_for_removed_stale_output(desktop, original)
@@ -400,12 +443,17 @@ def run_vkms_headless(slot: str, width: int, height: int, _fps: int, desktop: st
         print(f"[VKMS] Active outputs before creation: {', '.join(sorted(before)) or 'none'}", flush=True)
 
         created[0] = True
-        _helper_response("create")
+        _helper_response(
+            "create-custom" if custom_mode else "create", edid=edid, slot=slot
+        )
+        if custom_mode:
+            print("[VKMS] Custom connector EDID written and enabled", flush=True)
         output_name, _output = _wait_for_new_output(desktop, set(before))
         print(f"[VKMS] Detected compositor output {output_name}", flush=True)
 
         ok, actual, message = configure_compositor_output(
-            desktop, output_name, width, height
+            desktop, output_name, width, height,
+            float(fps) if custom_mode else APPROXIMATE_REFRESH,
         )
         if not ok:
             raise VkmsError(message)
@@ -432,6 +480,15 @@ def run_vkms_headless(slot: str, width: int, height: int, _fps: int, desktop: st
                 if not line or line.strip() == "quit":
                     break
         return 0
+    except VkmsCustomEdidUnsupported as exc:
+        print(
+            "MONITORIZE_EVENT " + json.dumps(
+                {"type": "vkms_custom_edid_unsupported"}, separators=(",", ":")
+            ),
+            flush=True,
+        )
+        print(f"[ERROR] Custom VKMS resolution unavailable: {exc}", flush=True)
+        return 1
     except (OSError, subprocess.SubprocessError, VkmsError) as exc:
         print(f"[ERROR] VKMS virtual display failed: {exc}", flush=True)
         return 1
