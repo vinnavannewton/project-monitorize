@@ -8,21 +8,18 @@ import base64
 import json
 import os
 from pathlib import Path
-import subprocess
 import sys
-import time
-import uuid
 
 
-# The helper exposes two fixed slots rather than accepting an instance path.
-# This keeps its Polkit surface narrow while allowing Monitorize to own two
-# independent VKMS cards at once.
 INSTANCE_NAMES = {
     "primary": "monitorize",
-    "additional": "monitorize-2",
 }
-CONFIGFS_FALLBACK = Path("/config")
-MODULE_PATH = Path("/sys/module/vkms")
+CUSTOM_MODULE_NAME = "monitorize_vkms"
+STOCK_MODULE_NAME = "vkms"
+MODULE_PATHS = {
+    CUSTOM_MODULE_NAME: Path(f"/sys/module/{CUSTOM_MODULE_NAME}"),
+    STOCK_MODULE_NAME: Path(f"/sys/module/{STOCK_MODULE_NAME}"),
+}
 
 
 class VkmsHelperError(RuntimeError):
@@ -31,23 +28,6 @@ class VkmsHelperError(RuntimeError):
 
 class CustomEdidUnsupported(VkmsHelperError):
     pass
-
-
-def _command_path(*candidates: str) -> str | None:
-    for candidate in candidates:
-        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
-            return candidate
-    return None
-
-
-def _run(command: list[str]) -> str:
-    result = subprocess.run(
-        command, capture_output=True, text=True, timeout=15, check=False
-    )
-    if result.returncode:
-        detail = result.stderr.strip() or result.stdout.strip() or "command failed"
-        raise VkmsHelperError(f"{Path(command[0]).name}: {detail}")
-    return result.stdout
 
 
 def _require_polkit_root() -> None:
@@ -80,56 +60,56 @@ def _configfs_mounts() -> list[Path]:
     return mounts
 
 
-def _load_vkms(logs: list[str]) -> None:
-    modinfo = _command_path("/usr/sbin/modinfo", "/usr/bin/modinfo", "/sbin/modinfo")
-    if not modinfo:
-        raise VkmsHelperError("VKMS availability could not be checked because modinfo is missing.")
-    result = subprocess.run(
-        [modinfo, "vkms"], capture_output=True, text=True, timeout=10, check=False
-    )
-    if result.returncode:
-        raise VkmsHelperError("Your current Linux kernel does not provide VKMS support.")
-    logs.append("VKMS module available")
-
-    if MODULE_PATH.is_dir():
-        logs.append("VKMS module already loaded")
-        return
-    modprobe = _command_path("/usr/sbin/modprobe", "/usr/bin/modprobe", "/sbin/modprobe")
-    if not modprobe:
-        raise VkmsHelperError("VKMS could not be loaded because modprobe is missing.")
-    logs.append("Loading VKMS with create_default_dev=0")
-    _run([modprobe, "vkms", "create_default_dev=0"])
-    if not MODULE_PATH.is_dir():
-        raise VkmsHelperError("VKMS was loaded but did not become available.")
+def _module_loaded(module_name: str) -> bool:
+    return MODULE_PATHS[module_name].is_dir()
 
 
-def _configfs_root(logs: list[str], *, mount_if_missing: bool) -> Path:
+def _configfs_root(logs: list[str]) -> Path:
     mounts = _configfs_mounts()
-    candidates = sorted(
-        mounts,
-        key=lambda path: (0 if path == CONFIGFS_FALLBACK else 1, len(str(path))),
-    )
-    for mount in candidates:
-        if (mount / "vkms").is_dir():
-            logs.append(f"Using configfs mountpoint {mount}")
-            return mount
-
-    if not mounts and mount_if_missing:
-        mount = _command_path("/usr/bin/mount", "/bin/mount")
-        if not mount:
-            raise VkmsHelperError("Linux configfs is unavailable or could not be mounted.")
-        CONFIGFS_FALLBACK.mkdir(mode=0o755, parents=True, exist_ok=True)
-        logs.append(f"Mounting configfs at {CONFIGFS_FALLBACK}")
-        _run([mount, "-t", "configfs", "none", str(CONFIGFS_FALLBACK)])
-        mounts = [CONFIGFS_FALLBACK]
-
-    for mount in mounts:
+    for mount in sorted(mounts, key=lambda path: len(str(path))):
         if (mount / "vkms").is_dir():
             logs.append(f"Using configfs mountpoint {mount}")
             return mount
     if mounts:
         raise VkmsHelperError("This kernel's VKMS driver does not expose the required configfs interface.")
-    raise VkmsHelperError("Linux configfs is unavailable or could not be mounted.")
+    raise VkmsHelperError("Linux configfs is unavailable; reboot after installing monitorize-vkms.")
+
+
+def _read(path: Path) -> str:
+    try:
+        return path.read_text().strip()
+    except OSError as exc:
+        raise VkmsHelperError(f"Could not read {path}: {exc}") from exc
+
+
+def _require_bootstrap(root: Path, logs: list[str]) -> tuple[Path, Path]:
+    """Verify the boot-created topology; runtime must never create a card."""
+    if not _module_loaded(CUSTOM_MODULE_NAME) or _module_loaded(STOCK_MODULE_NAME):
+        raise VkmsHelperError(
+            "Monitorize VKMS bootstrap is not initialized. Reboot after installing monitorize-vkms."
+        )
+    instance = root / "vkms" / INSTANCE_NAMES["primary"]
+    connector = instance / "connectors" / "connector0"
+    required = (
+        instance,
+        instance / "planes" / "plane0",
+        instance / "crtcs" / "crtc0",
+        instance / "encoders" / "encoder0",
+        connector,
+        instance / "planes" / "plane0" / "possible_crtcs" / "crtc0",
+        instance / "encoders" / "encoder0" / "possible_crtcs" / "crtc0",
+        connector / "possible_encoders" / "encoder0",
+    )
+    if not all(path.exists() or path.is_symlink() for path in required):
+        raise VkmsHelperError(
+            "Monitorize VKMS bootstrap is not initialized. Reboot after installing monitorize-vkms."
+        )
+    if _read(instance / "enabled") != "1" or _read(connector / "dynamic") != "1":
+        raise VkmsHelperError(
+            "Monitorize VKMS bootstrap is incomplete. Reboot after installing monitorize-vkms."
+        )
+    logs.append("Using persistent bootstrapped Monitorize VKMS topology")
+    return instance, connector
 
 
 def _write(path: Path, value: str) -> None:
@@ -147,48 +127,6 @@ def _write_bytes(path: Path, value: bytes) -> None:
         raise VkmsHelperError(f"Could not write {path.name}: {exc}") from exc
 
 
-def _remove_link(path: Path) -> None:
-    try:
-        if path.is_symlink():
-            path.unlink()
-    except FileNotFoundError:
-        pass
-
-
-def _remove_dir(path: Path) -> None:
-    try:
-        path.rmdir()
-    except FileNotFoundError:
-        pass
-
-
-def _destroy_instance(instance: Path, logs: list[str]) -> bool:
-    if not instance.is_dir():
-        return False
-    logs.append("Disabling Monitorize VKMS instance")
-    enabled = instance / "enabled"
-    if enabled.exists():
-        _write(enabled, "0")
-        time.sleep(0.05)
-
-    plane = instance / "planes/plane0"
-    crtc = instance / "crtcs/crtc0"
-    encoder = instance / "encoders/encoder0"
-    connector = instance / "connectors/connector0"
-    _remove_link(connector / "possible_encoders/encoder0")
-    _remove_link(encoder / "possible_crtcs/crtc0")
-    _remove_link(plane / "possible_crtcs/crtc0")
-
-    logs.append("Cleaning Monitorize VKMS topology")
-    # Remove dependants before the objects they reference.
-    for path in (connector, encoder, plane, crtc, instance):
-        _remove_dir(path)
-    if instance.exists():
-        raise VkmsHelperError("Monitorize VKMS topology could not be removed completely.")
-    logs.append("VKMS cleanup complete")
-    return True
-
-
 def _validate_edid(edid: bytes) -> None:
     if len(edid) != 128:
         raise VkmsHelperError("Custom VKMS EDID must be exactly 128 bytes.")
@@ -198,107 +136,43 @@ def _validate_edid(edid: bytes) -> None:
         raise VkmsHelperError("Custom VKMS EDID checksum is invalid.")
 
 
-def _create_instance(instance: Path, logs: list[str], custom_edid: bytes | None = None) -> Path:
-    if instance.exists():
-        logs.append("Recovering stale Monitorize VKMS instance")
-        _destroy_instance(instance, logs)
-
-    try:
-        logs.append("Creating Monitorize VKMS instance")
-        instance.mkdir()
-        plane = instance / "planes/plane0"
-        crtc = instance / "crtcs/crtc0"
-        encoder = instance / "encoders/encoder0"
-        connector = instance / "connectors/connector0"
-
-        logs.append("Creating plane0, crtc0, encoder0, and connector0")
-        plane.mkdir()
-        _write(plane / "type", "1")
-        crtc.mkdir()
-        encoder.mkdir()
-        connector.mkdir()
-        logs.append("Linking VKMS topology")
-        os.symlink(crtc, plane / "possible_crtcs/crtc0")
-        os.symlink(crtc, encoder / "possible_crtcs/crtc0")
-        os.symlink(encoder, connector / "possible_encoders/encoder0")
-
-        _write(connector / "status", "1")
-        if custom_edid is not None:
-            _validate_edid(custom_edid)
-            edid = connector / "edid"
-            edid_enabled = connector / "edid_enabled"
-            if not edid.is_file() or not edid_enabled.is_file():
-                raise CustomEdidUnsupported(
-                    "The active VKMS driver does not expose per-connector EDID support."
-                )
-            logs.append("Writing validated custom VKMS connector EDID")
-            _write_bytes(edid, custom_edid)
-            logs.append("Enabling custom VKMS connector EDID")
-            _write(edid_enabled, "1")
-
-        logs.append("Enabling VKMS device")
-        _write(instance / "enabled", "1")
-        return instance
-    except CustomEdidUnsupported:
-        try:
-            _destroy_instance(instance, logs)
-        except VkmsHelperError as cleanup_exc:
-            raise VkmsHelperError(
-                f"Custom VKMS EDID support is unavailable; cleanup failed: {cleanup_exc}"
-            ) from cleanup_exc
-        raise
-    except (OSError, VkmsHelperError) as exc:
-        try:
-            _destroy_instance(instance, logs)
-        except VkmsHelperError as cleanup_exc:
-            raise VkmsHelperError(f"VKMS topology creation failed: {exc}; cleanup failed: {cleanup_exc}") from exc
-        raise VkmsHelperError(f"VKMS topology creation failed: {exc}") from exc
-
-
 def _probe_custom_edid_support(root: Path, logs: list[str]) -> bool:
-    """Inspect custom-EDID configfs attributes without enabling a device."""
-    vkms_root = root / "vkms"
-    if not vkms_root.is_dir():
-        raise VkmsHelperError("This kernel's VKMS driver does not expose the required configfs interface.")
+    """Inspect the persistent connector; capability checks never create a card."""
+    _instance, connector = _require_bootstrap(root, logs)
+    supported = (connector / "edid").is_file() and (connector / "edid_enabled").is_file()
+    logs.append("VKMS custom EDID capability: " + ("supported" if supported else "unsupported"))
+    return supported
 
-    existing_connector = vkms_root / INSTANCE_NAMES["primary"] / "connectors" / "connector0"
-    if existing_connector.is_dir():
-        supported = (existing_connector / "edid").is_file() and (
-            existing_connector / "edid_enabled"
-        ).is_file()
-        logs.append(
-            "VKMS custom EDID capability: "
-            + ("supported" if supported else "unsupported")
-        )
-        return supported
 
-    probe_name = f"monitorize-capability-probe-{uuid.uuid4().hex}"
-    probe = vkms_root / probe_name
-    connector = probe / "connectors" / "connector0"
-    logs.append(f"Creating temporary VKMS capability probe {probe_name}")
-    try:
-        probe.mkdir()
-        # Configfs supplies the connectors group when the instance is created.
-        connector.mkdir()
-        supported = (connector / "edid").is_file() and (
-            connector / "edid_enabled"
-        ).is_file()
-        logs.append(
-            "VKMS custom EDID capability: "
-            + ("supported" if supported else "unsupported")
-        )
-        return supported
-    except OSError as exc:
-        raise VkmsHelperError(f"Could not inspect VKMS custom EDID capability: {exc}") from exc
-    finally:
-        try:
-            _remove_dir(connector)
-            _remove_dir(probe)
-        except OSError as exc:
-            raise VkmsHelperError(f"Could not clean up VKMS capability probe: {exc}") from exc
-        if probe.exists():
-            raise VkmsHelperError("VKMS capability probe cleanup did not complete.")
-        logs.append("VKMS capability probe cleanup complete")
+def _disable_connector(connector: Path, logs: list[str]) -> bool:
+    if _read(connector / "enabled") != "1":
+        return False
+    logs.append("Disabling stale dynamic Monitorize VKMS connector")
+    _write(connector / "enabled", "0")
+    return True
+
+
+def _enable_connector(connector: Path, logs: list[str], custom_edid: bytes | None) -> bool:
+    logs.append("Configuring dynamic Monitorize VKMS connector while disabled")
+    changed = _disable_connector(connector, logs)
+    if custom_edid is not None:
+        _validate_edid(custom_edid)
+        edid = connector / "edid"
+        edid_enabled = connector / "edid_enabled"
+        if not edid.is_file() or not edid_enabled.is_file():
+            raise CustomEdidUnsupported("The bootstrapped VKMS connector does not expose per-connector EDID support.")
+        logs.append("Writing validated custom EDID while connector is disabled")
+        _write_bytes(edid, custom_edid)
+        _write(edid_enabled, "1")
+        logs.append("Custom EDID written and enabled")
+    else:
+        _write(connector / "edid_enabled", "0")
+    _write(connector / "status", "1")
+    logs.append("Enabling dynamic Monitorize VKMS connector")
+    _write(connector / "enabled", "1")
+    if _read(connector / "enabled") != "1":
+        raise VkmsHelperError("Dynamic Monitorize VKMS connector did not enable.")
+    return True
 
 
 def main() -> int:
@@ -310,15 +184,11 @@ def main() -> int:
     _require_polkit_root()
 
     logs: list[str] = []
-    _load_vkms(logs)
-    root = _configfs_root(
-        logs, mount_if_missing=args.operation in ("create", "create-custom", "destroy")
-    )
-    instance = root / "vkms" / INSTANCE_NAMES[args.slot]
+    root = _configfs_root(logs)
+    instance, connector = _require_bootstrap(root, logs)
     changed = False
     if args.operation == "create":
-        _create_instance(instance, logs)
-        changed = True
+        changed = _enable_connector(connector, logs, None)
     elif args.operation == "create-custom":
         if not args.edid_base64:
             raise VkmsHelperError("Custom VKMS creation requires an EDID payload.")
@@ -326,10 +196,9 @@ def main() -> int:
             custom_edid = base64.b64decode(args.edid_base64, validate=True)
         except (ValueError, TypeError) as exc:
             raise VkmsHelperError("Custom VKMS EDID payload is not valid base64.") from exc
-        _create_instance(instance, logs, custom_edid)
-        changed = True
+        changed = _enable_connector(connector, logs, custom_edid)
     elif args.operation == "destroy":
-        changed = _destroy_instance(instance, logs)
+        changed = _disable_connector(connector, logs)
     capability = None
     if args.operation == "capability":
         capability = "supported" if _probe_custom_edid_support(root, logs) else "unsupported"
@@ -352,6 +221,6 @@ if __name__ == "__main__":
     except CustomEdidUnsupported as exc:
         print(json.dumps({"success": False, "message": str(exc), "error_kind": "custom_edid_unsupported"}))
         sys.exit(1)
-    except (OSError, subprocess.SubprocessError, VkmsHelperError) as exc:
+    except (OSError, VkmsHelperError) as exc:
         print(json.dumps({"success": False, "message": str(exc)}))
         sys.exit(1)

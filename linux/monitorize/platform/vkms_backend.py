@@ -19,6 +19,7 @@ from enum import Enum
 
 VKMS_HELPER = Path("/usr/libexec/monitorize/monitorize-source-vkms-helper")
 OUTPUT_TIMEOUT = 10.0
+DRM_DISCOVERY_TIMEOUT = 5.0
 POLL_INTERVAL = 0.1
 APPROXIMATE_REFRESH = 60.0
 
@@ -53,7 +54,7 @@ VKMS_RESOLUTIONS = (
     (800, 600),
     (640, 480),
 )
-VKMS_SLOTS = ("primary", "additional")
+VKMS_SLOTS = ("primary",)
 
 
 class VkmsError(RuntimeError):
@@ -72,6 +73,121 @@ class CustomEdidCapability(str, Enum):
 
 _DRM_CONNECTOR_NAME = re.compile(r"^card\d+-.+")
 _DRM_MODE_NAME = re.compile(r"^(\d+)x(\d+)$")
+
+
+def monitorize_drm_connectors(drm_root: Path | None = None) -> dict[str, dict]:
+    """Return DRM connectors owned by the persistent Monitorize card.
+
+    A newly registered connector can briefly lack its status or modes files.
+    Keep it visible to the readiness state machine as ``unknown`` rather than
+    mistaking that short sysfs settling window for a missing connector.
+    """
+    result = {}
+    try:
+        entries = sorted((drm_root or Path("/sys/class/drm")).iterdir())
+    except OSError:
+        return result
+    for connector in entries:
+        if not _DRM_CONNECTOR_NAME.fullmatch(connector.name):
+            continue
+        try:
+            device = (connector / "device").resolve()
+            if "/faux/monitorize" not in str(device):
+                continue
+        except OSError:
+            continue
+        try:
+            status = (connector / "status").read_text().strip()
+        except OSError:
+            status = "unknown"
+        try:
+            modes = (connector / "modes").read_text().splitlines()
+        except OSError:
+            modes = []
+        result[connector.name.split("-", 1)[1]] = {
+            "name": connector.name.split("-", 1)[1],
+            "path": str(connector),
+            "card": connector.name.split("-", 1)[0],
+            "status": status,
+            "modes": [mode.strip() for mode in modes if mode.strip()],
+        }
+    return result
+
+
+def _wait_for_new_drm_connector(
+    before: set[str],
+    width: int,
+    height: int,
+    timeout=DRM_DISCOVERY_TIMEOUT,
+    interval=POLL_INTERVAL,
+    report=None,
+):
+    """Wait for connector appearance, connected status, then the requested mode."""
+    started = time.monotonic()
+    deadline = started + timeout
+    requested = f"{int(width)}x{int(height)}"
+    appeared = None
+    appeared_at = None
+    last_status = None
+    became_connected = False
+    waiting_for_mode_logged = False
+
+    def log(message):
+        if report:
+            report(message)
+
+    while time.monotonic() < deadline:
+        current = monitorize_drm_connectors()
+        candidates = [entry for name, entry in current.items() if name not in before]
+        if len(candidates) == 1:
+            connector = candidates[0]
+            if appeared is None:
+                appeared = connector
+                appeared_at = time.monotonic()
+                log(f"DRM connector appeared: {connector['card']}-{connector['name']}")
+
+            status = connector["status"].strip().lower()
+            if status != last_status:
+                if last_status is None:
+                    log(f"Initial DRM status: {status or 'unknown'}")
+                else:
+                    log(f"DRM connector status changed: {last_status} -> {status or 'unknown'}")
+                last_status = status
+
+            if status == "connected":
+                if not became_connected:
+                    elapsed_ms = int((time.monotonic() - appeared_at) * 1000)
+                    log(f"DRM connector became connected after {elapsed_ms} ms")
+                    became_connected = True
+                if requested in connector["modes"]:
+                    log(f"DRM modes ready: {', '.join(connector['modes'])}")
+                    return connector
+                if not waiting_for_mode_logged:
+                    log(f"DRM connector is connected; waiting for requested mode {requested}")
+                    waiting_for_mode_logged = True
+        if len(candidates) > 1:
+            raise VkmsError(
+                "FAIL_STAGE=DRM_CONNECTOR_APPEAR: kernel registered multiple new "
+                "Monitorize VKMS connectors: " + ", ".join(item["name"] for item in candidates)
+            )
+        time.sleep(interval)
+
+    if appeared is None:
+        raise VkmsError(
+            "FAIL_STAGE=DRM_CONNECTOR_APPEAR: no new Monitorize Virtual-* connector "
+            f"appeared within {timeout:g} seconds"
+        )
+    if not became_connected:
+        raise VkmsError(
+            "FAIL_STAGE=DRM_CONNECTOR_STATUS: "
+            f"{appeared['card']}-{appeared['name']} appeared but did not become connected "
+            f"within {timeout:g} seconds (last status: {last_status or 'unknown'})"
+        )
+    raise VkmsError(
+        "FAIL_STAGE=DRM_MODE_READY: "
+        f"{appeared['card']}-{appeared['name']} became connected but requested mode "
+        f"{requested} did not appear within {timeout:g} seconds"
+    )
 
 
 def resolution_options(drm_root: Path | None = None) -> list[str]:
@@ -415,16 +531,26 @@ def run_vkms_headless(
             )
     stopping = [False]
     created = [False]
+    gnome_before_identities = None
 
     def cleanup(*_args):
         if stopping[0]:
             return
         stopping[0] = True
         if created[0]:
+            gnome_cleanup = None
+            if desktop == "gnome" and gnome_before_identities is not None:
+                from monitorize.platform import gnome_virtual_monitor
+
+                gnome_cleanup = gnome_virtual_monitor.remove_new_vkms_monitors_from_layout
+                if gnome_cleanup(gnome_before_identities, attempts=5):
+                    print("[VKMS] Removed temporary GNOME VKMS layout", flush=True)
             try:
                 _helper_response("destroy", timeout=30, slot=slot)
             except VkmsError as exc:
                 print(f"[ERROR] VKMS cleanup failed: {exc}", flush=True)
+            if gnome_cleanup and gnome_cleanup(gnome_before_identities, attempts=30):
+                print("[VKMS] Removed late GNOME VKMS layout", flush=True)
 
     def stop_from_signal(*_args):
         cleanup()
@@ -441,6 +567,23 @@ def run_vkms_headless(
             _wait_for_removed_stale_output(desktop, original)
         before = _wait_for_inventory_settle(desktop)
         print(f"[VKMS] Active outputs before creation: {', '.join(sorted(before)) or 'none'}", flush=True)
+        drm_before = set(monitorize_drm_connectors())
+
+        if desktop == "gnome":
+            from monitorize.platform import gnome_virtual_monitor
+
+            try:
+                gnome_before_state = gnome_virtual_monitor._mutter_state()
+                gnome_before_identities = gnome_virtual_monitor.physical_monitor_identities(
+                    gnome_before_state
+                )
+                print(
+                    "[VKMS] GNOME physical connectors before creation: "
+                    f"{', '.join(sorted(gnome_before_identities)) or 'none'}",
+                    flush=True,
+                )
+            except Exception as exc:
+                raise VkmsError(f"Could not read GNOME DisplayConfig before VKMS creation: {exc}") from exc
 
         created[0] = True
         _helper_response(
@@ -448,14 +591,49 @@ def run_vkms_headless(
         )
         if custom_mode:
             print("[VKMS] Custom connector EDID written and enabled", flush=True)
-        output_name, _output = _wait_for_new_output(desktop, set(before))
-        print(f"[VKMS] Detected compositor output {output_name}", flush=True)
-
-        ok, actual, message = configure_compositor_output(
-            desktop, output_name, width, height,
-            float(fps) if custom_mode else APPROXIMATE_REFRESH,
-        )
+        if desktop == "gnome":
+            print("[VKMS] Dynamic connector enabled; waiting for DRM readiness...", flush=True)
+            drm_connector = _wait_for_new_drm_connector(
+                drm_before,
+                width,
+                height,
+                report=lambda message: print(f"[VKMS] {message}", flush=True),
+            )
+            print(
+                "[VKMS] DRM connector discovered: "
+                f"{drm_connector['name']} on {drm_connector['card']} "
+                f"({drm_connector['path']}; status={drm_connector['status']}; "
+                f"modes={', '.join(drm_connector['modes'])})",
+                flush=True,
+            )
+            print("[VKMS] Waiting for Mutter physical discovery of the new VKMS connector...", flush=True)
+            physical_connector, _state, discovery_error = gnome_virtual_monitor.wait_for_new_vkms_connector(
+                gnome_before_identities, width, height
+            )
+            if not physical_connector:
+                raise VkmsError(
+                    "FAIL_STAGE=MUTTER_DISCOVERY: kernel dynamic hotplug succeeded, but "
+                    + discovery_error
+                )
+            print(f"[VKMS] Mutter physical monitor appeared: {physical_connector}", flush=True)
+            print("[VKMS] Applying Mutter logical config after physical discovery...", flush=True)
+            ok, actual, message = gnome_virtual_monitor.activate_discovered_vkms_monitor(
+                gnome_before_identities,
+                width,
+                height,
+                float(fps) if custom_mode else APPROXIMATE_REFRESH,
+            )
+            output_name = actual.get("name", physical_connector)
+        else:
+            output_name, _output = _wait_for_new_output(desktop, set(before))
+            print(f"[VKMS] Detected compositor output {output_name}", flush=True)
+            ok, actual, message = configure_compositor_output(
+                desktop, output_name, width, height,
+                float(fps) if custom_mode else APPROXIMATE_REFRESH,
+            )
         if not ok:
+            if desktop == "gnome" and not message.startswith("FAIL_STAGE="):
+                message = "FAIL_STAGE=MUTTER_ACTIVATION: " + message
             raise VkmsError(message)
         print(f"[VKMS] Selected mode: {message}", flush=True)
         event = {
