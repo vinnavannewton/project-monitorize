@@ -80,12 +80,14 @@ Item {
         let hasChanges = false
         for (let i = 0; i < displayRepeater.count; ++i) {
             let item = displayRepeater.itemAt(i)
-            if (item && typeof item.getCurrentMode === "function") {
-                let current = item.getCurrentMode()
-                if (current && updated[i]) {
-                    updated[i] = Object.assign({}, updated[i], current)
-                    hasChanges = true
-                }
+            if (!item || typeof item.getCurrentMode !== "function" || !item.displayConfig) {
+                console.warn("DisplaySetupPage: skipping uninitialized display card at index " + i)
+                continue
+            }
+            let current = item.getCurrentMode()
+            if (current && current.resolution && updated[i]) {
+                updated[i] = Object.assign({}, updated[i], current)
+                hasChanges = true
             }
         }
         if (hasChanges) {
@@ -211,10 +213,6 @@ Item {
         audio.checked = saved["enable_audio"] === true
         createOnly.checked = backend.streamingBackend === "none"
         loading = false
-    }
-
-    Component.onDestruction: {
-        page.commitAllPendingDisplaySettings()
     }
 
     ScrollView {

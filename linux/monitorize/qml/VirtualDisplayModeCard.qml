@@ -5,6 +5,7 @@ import QtQuick.Layouts
 Rectangle {
     id: card
 
+    required property var modelData
     required property int displayNumber
     required property var displayConfig
     property bool canRemove: false

@@ -8,6 +8,7 @@ the optional ``cvt`` executable.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 
 
 class EdidError(ValueError):
@@ -33,6 +34,14 @@ EDID_HEADER = b"\x00\xff\xff\xff\xff\xff\xff\x00"
 
 def _descriptor(tag: int, payload: bytes) -> bytes:
     return bytes((0, 0, 0, tag, 0)) + payload[:13].ljust(13, b" ")
+
+
+def _range_pixel_clock_units(pixel_clock_khz: int) -> int:
+    """Convert a pixel clock in kHz into EDID range descriptor units (10 MHz, ceiling)."""
+    units = math.ceil(pixel_clock_khz / 10_000)
+    if not 1 <= units <= 255:
+        raise EdidError("Custom VKMS pixel clock cannot fit the EDID range descriptor.")
+    return units
 
 
 def generate_cvt_timing(width: int, height: int, refresh_hz: float) -> Timing:
@@ -158,6 +167,8 @@ def generate_edid(width: int, height: int, refresh_hz: float) -> bytes:
     dtd[14] = ((width_mm >> 8) << 4) | (height_mm >> 8)
     dtd[17] = 0x1A  
 
+    max_pixel_clock_units = _range_pixel_clock_units(timing.pixel_clock_khz)
+
     edid = bytearray(128)
     edid[:8] = EDID_HEADER
     edid[8:10] = (0x35EE).to_bytes(2, "big")  
@@ -169,7 +180,7 @@ def generate_edid(width: int, height: int, refresh_hz: float) -> bytes:
         edid[offset:offset + 2] = b"\x01\x01"
     edid[54:72] = dtd
     edid[72:90] = _descriptor(0xFC, b"MONITORIZE\n")
-    edid[90:108] = _descriptor(0xFD, bytes((24, 240, 30, 255, 20, 0, 0, 0)))
+    edid[90:108] = _descriptor(0xFD, bytes((24, 240, 30, 255, max_pixel_clock_units, 0, 0, 0)))
     edid[108:126] = _descriptor(0x10, b"")
     edid[126] = 0
     edid[127] = (-sum(edid[:127])) & 0xFF
@@ -194,6 +205,16 @@ def parse_preferred_timing(edid: bytes) -> Timing:
     return Timing(width, height, clock_khz * 1000 / (h_total * v_total), clock_khz,
                   h_total, v_total, width + h_sync_offset, width + h_sync_offset + h_sync_width,
                   height + v_sync_offset, height + v_sync_offset + v_sync_width)
+
+
+def parse_range_pixel_clock_mhz(edid: bytes) -> int:
+    """Decode the maximum pixel clock in MHz from the first range descriptor (tag 0xFD)."""
+    validate_edid(edid)
+    for offset in (54, 72, 90, 108):
+        desc = edid[offset : offset + 18]
+        if desc[:3] == b"\x00\x00\x00" and desc[3] == 0xFD:
+            return desc[9] * 10
+    raise EdidError("Custom VKMS EDID does not contain a range descriptor.")
 
 
 def validate_edid(edid: bytes) -> None:

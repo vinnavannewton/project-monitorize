@@ -9,7 +9,12 @@ import unittest
 from unittest.mock import patch
 
 from monitorize.platform import vkms_backend
-from monitorize.platform.vkms_edid import EdidError, generate_edid, parse_preferred_timing
+from monitorize.platform.vkms_edid import (
+    EdidError,
+    generate_edid,
+    parse_preferred_timing,
+    parse_range_pixel_clock_mhz,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -198,6 +203,34 @@ class VkmsBackendTest(unittest.TestCase):
         timing = parse_preferred_timing(generate_edid(2340, 1080, 60))
         self.assertEqual((timing.width, timing.height), (2340, 1080))
         self.assertAlmostEqual(timing.refresh_hz, 60, delta=0.2)
+
+    def test_custom_edid_range_limits_dynamic_max_pixel_clock(self):
+        cases = [
+            (2340, 1080, 60, 211000, 22, 220),
+            (2340, 1600, 60, 318500, 32, 320),
+            (2560, 1600, 60, 348500, 35, 350),
+            (1920, 1080, 60, 173000, 18, 180),
+            (1280, 720, 60, 74500, 8, 80),
+            (1728, 1117, 60, 161000, 17, 170),
+        ]
+        for width, height, fps, expected_clock_khz, expected_units, expected_mhz in cases:
+            edid = generate_edid(width, height, fps)
+            self.assertEqual(len(edid), 128)
+            self.assertEqual(sum(edid) % 256, 0)
+            timing = parse_preferred_timing(edid)
+            self.assertEqual((timing.width, timing.height), (width, height))
+            self.assertEqual(timing.pixel_clock_khz, expected_clock_khz)
+
+            # Direct inspection of range limits descriptor (offset 90:108)
+            range_desc = edid[90:108]
+            self.assertEqual(range_desc[:3], b"\x00\x00\x00")
+            self.assertEqual(range_desc[3], 0xFD)
+            self.assertEqual(range_desc[9], expected_units)
+
+            # High-level helper
+            max_clock_mhz = parse_range_pixel_clock_mhz(edid)
+            self.assertEqual(max_clock_mhz, expected_mhz)
+            self.assertGreaterEqual(max_clock_mhz * 1000, timing.pixel_clock_khz)
 
     def test_custom_edid_rejects_unrepresentable_requests(self):
         with self.assertRaises(EdidError):
