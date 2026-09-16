@@ -4,6 +4,7 @@ import os
 
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 
+from monitorize.config import app_log
 from monitorize.config.settings import load_display_settings, load_second_display_settings
 
 
@@ -125,10 +126,22 @@ class Session(QObject):
         return 2 if load_second_display_settings().get("enabled", False) else 1
 
     def _prepare_primary(self):
-        self.controller.start(**self.configuration(), options={"prepare_only": True})
+        config = self.configuration()
+        app_log.write(
+            "DISPLAY",
+            f"Session display request (primary): res={config.get('res')} fps={config.get('fps')} "
+            f"display_type={config.get('display_type')} creator={config.get('virtual_display_creator')} "
+            f"vkms_custom_mode={config.get('vkms_custom_mode')}",
+        )
+        self.controller.start(**config, options={"prepare_only": True})
 
     def _prepare_second(self):
         config = self.second_configuration()
+        app_log.write(
+            "DISPLAY",
+            f"Session display request (second): res={config.get('res')} fps={config.get('fps')} "
+            f"vkms_custom_mode={config.get('vkms_custom_mode')}",
+        )
         config.pop("display_type")
         config.pop("mirror_output", None)
         config.pop("virtual_display_creator", None)

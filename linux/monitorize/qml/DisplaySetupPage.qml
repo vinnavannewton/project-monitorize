@@ -64,10 +64,34 @@ Item {
     }
 
     function updateDisplay(index, configuration) {
+        if (index < 0 || index >= virtualDisplays.length) return
         let updated = virtualDisplays.slice()
         updated[index] = configuration
         virtualDisplays = updated
         saveDisplayModes()
+        if (index === 0) {
+            page.saveSettings()
+        }
+    }
+
+    function commitAllPendingDisplaySettings() {
+        if (loading) return
+        let updated = virtualDisplays.slice()
+        let hasChanges = false
+        for (let i = 0; i < displayRepeater.count; ++i) {
+            let item = displayRepeater.itemAt(i)
+            if (item && typeof item.getCurrentMode === "function") {
+                let current = item.getCurrentMode()
+                if (current && updated[i]) {
+                    updated[i] = Object.assign({}, updated[i], current)
+                    hasChanges = true
+                }
+            }
+        }
+        if (hasChanges) {
+            virtualDisplays = updated
+        }
+        page.saveSettings()
     }
 
     function addDisplay() {
@@ -189,6 +213,10 @@ Item {
         loading = false
     }
 
+    Component.onDestruction: {
+        page.commitAllPendingDisplaySettings()
+    }
+
     ScrollView {
         anchors.fill: parent
         clip: true
@@ -267,8 +295,10 @@ Item {
                     color: theme.textMuted; font.pixelSize: 12
                 }
                 Repeater {
+                    id: displayRepeater
                     model: displayType.currentText === "Extend" ? page.virtualDisplays : []
                     delegate: VirtualDisplayModeCard {
+                        id: modeCard
                         Layout.fillWidth: true
                         displayNumber: Number(modelData.id)
                         displayConfig: modelData
@@ -279,7 +309,8 @@ Item {
                         vkmsCustomCapabilityChecking: backend.vkmsCustomCapabilityChecking
                         vkmsCustomEdidCapability: backend.vkmsCustomEdidCapability
                         onConfigurationChanged: function(configuration) {
-                            page.updateDisplay(Number(modelData.id) - 1, configuration)
+                            let targetIndex = modeCard.displayNumber > 0 ? (modeCard.displayNumber - 1) : index
+                            page.updateDisplay(targetIndex, configuration)
                         }
                         onRemoveRequested: page.removeDisplay()
                         onCustomCapabilityFailed: function(capability) {

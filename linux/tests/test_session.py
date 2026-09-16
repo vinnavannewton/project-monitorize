@@ -315,3 +315,36 @@ class SessionTest(unittest.TestCase):
         self.ready("additional")
         self.assertEqual(self.c.codec, "AV1")
         self.assertEqual(self.c.third_codec, "HEVC")
+
+    @patch("monitorize.desktop.session.app_log.write")
+    def test_custom_vkms_resolution_configuration_and_logging(self, mock_log_write):
+        self.config.update(
+            resolution="Custom...",
+            custom_w="2340",
+            custom_h="1080",
+            fps="60",
+            virtual_display_creator="vkms",
+            display_type="Extend",
+        )
+        primary = self.s.configuration()
+        self.assertEqual(primary["res"], "2340x1080")
+        self.assertEqual(primary["fps"], "60")
+        self.assertTrue(primary["vkms_custom_mode"])
+
+        self.s._prepare_primary()
+        mock_log_write.assert_called_once()
+        log_args = mock_log_write.call_args[0]
+        self.assertEqual(log_args[0], "DISPLAY")
+        self.assertIn("res=2340x1080", log_args[1])
+        self.assertIn("fps=60", log_args[1])
+        self.assertIn("vkms_custom_mode=True", log_args[1])
+
+        # Verify preset resolutions preserve standard (non-custom) mode
+        self.config.update(
+            resolution="2560x1600 (16:10)",
+            custom_w="",
+            custom_h="",
+        )
+        preset_config = self.s.configuration()
+        self.assertEqual(preset_config["res"], "2560x1600")
+        self.assertFalse(preset_config["vkms_custom_mode"])

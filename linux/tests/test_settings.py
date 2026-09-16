@@ -125,6 +125,19 @@ class SettingsTest(unittest.TestCase):
         )
         self.assertEqual(settings.load_display_settings()["sunshine_gpu"], "")
 
+    def test_custom_resolution_round_trip(self):
+        settings.save_display_settings(
+            resolution="Custom...",
+            custom_w="2340",
+            custom_h="1080",
+            fps="60",
+            virtual_display_creator="vkms",
+        )
+        saved = settings.load_display_settings()
+        self.assertEqual(saved["resolution"], "Custom...")
+        self.assertEqual(saved["custom_w"], "2340")
+        self.assertEqual(saved["custom_h"], "1080")
+
 
 if __name__ == "__main__":
     unittest.main()

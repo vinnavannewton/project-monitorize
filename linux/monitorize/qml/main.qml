@@ -62,6 +62,9 @@ Rectangle {
 
     function navigate(page) {
         if (page === selectedPage) return
+        if (stack.currentItem && typeof stack.currentItem.commitAllPendingDisplaySettings === "function") {
+            stack.currentItem.commitAllPendingDisplaySettings()
+        }
         pageTransitionDirection = pageOrder(page) > pageOrder(selectedPage) ? 1 : -1
         selectedPage = page
         stack.replace(page)

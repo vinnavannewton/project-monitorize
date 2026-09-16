@@ -34,7 +34,6 @@ Rectangle {
         ? vkmsResolutionOptions : nativeResolutionOptions
     readonly property bool customSelected: resolution.currentText === "Custom..."
     readonly property bool customInputsVisible: customSelected
-        && (!vkmsSelected || customModeActive)
 
     function refreshLabel(value) {
         return String(value || "60") + " Hz"
@@ -58,15 +57,17 @@ Rectangle {
         let requestedResolution = displayConfig.resolution || "1920x1080"
         if (!resolution.selectValue(requestedResolution, true))
             resolution.selectValue(requestedResolution)
-        customWidth.text = displayConfig.custom_w || "1920"
-        customHeight.text = displayConfig.custom_h || "1080"
+        if (!customWidth.activeFocus)
+            customWidth.text = displayConfig.custom_w || "1920"
+        if (!customHeight.activeFocus)
+            customHeight.text = displayConfig.custom_h || "1080"
         let requestedRefresh = displayConfig.custom_fps
             ? "Custom..." : refreshLabel(displayConfig.fps || "60")
         refresh.selectValue(requestedRefresh, true)
         if (refresh.currentIndex < 0) refresh.selectValue("60 Hz")
-        customRefresh.text = displayConfig.custom_fps || "60"
-        customModeActive = !vkmsSelected || !customSelected
-            || vkmsCustomEdidCapability === "supported"
+        if (!customRefresh.activeFocus)
+            customRefresh.text = displayConfig.custom_fps || "60"
+        customModeActive = !vkmsSelected || (customSelected && vkmsCustomEdidCapability !== "unsupported")
         syncing = false
         checkCustomMode()
     }
@@ -77,23 +78,29 @@ Rectangle {
         configurationChanged(updated)
     }
 
-    function commitCurrentMode() {
-        commit({
+    function getCurrentMode() {
+        return {
             resolution: resolution.currentText,
-            custom_w: customSelected ? customWidth.text : "",
-            custom_h: customSelected ? customHeight.text : "",
+            custom_w: customSelected ? (customWidth.text.trim() || (displayConfig && displayConfig.custom_w) || "1920") : "",
+            custom_h: customSelected ? (customHeight.text.trim() || (displayConfig && displayConfig.custom_h) || "1080") : "",
             fps: refreshValue(),
-            custom_fps: refresh.currentText === "Custom..." ? customRefresh.text : ""
-        })
+            custom_fps: refresh.currentText === "Custom..." ? customRefresh.text.trim() : ""
+        }
+    }
+
+    function commitCurrentMode() {
+        commit(getCurrentMode())
     }
 
     function checkCustomMode() {
         if (!vkmsSelected || !customSelected) return
-        if (vkmsCustomEdidCapability === "supported") {
-            customModeActive = true
+        if (vkmsCustomEdidCapability === "unsupported") {
+            customModeActive = false
+            restoreNormalMode()
+            customCapabilityFailed(vkmsCustomEdidCapability)
             return
         }
-        customModeActive = false
+        customModeActive = true
         if (vkmsCustomEdidCapability === "unknown") backend.checkVkmsCustomEdidSupport()
     }
 
@@ -112,16 +119,14 @@ Rectangle {
     onVkmsSelectedChanged: applyConfiguration()
     onVkmsCustomEdidCapabilityChanged: {
         if (!vkmsSelected || !customSelected) return
-        if (vkmsCustomEdidCapability === "supported") {
-            customModeActive = true
-            commitCurrentMode()
-            return
-        }
-        if (vkmsCustomEdidCapability !== "unknown") {
+        if (vkmsCustomEdidCapability === "unsupported") {
             customModeActive = false
             restoreNormalMode()
             customCapabilityFailed(vkmsCustomEdidCapability)
+            return
         }
+        customModeActive = true
+        commitCurrentMode()
     }
     Component.onCompleted: applyConfiguration()
 
@@ -169,12 +174,11 @@ Rectangle {
                 onActivated: {
                     if (card.syncing) return
                     if (card.vkmsSelected && currentText === "Custom...") {
-                        backend.recheckVkmsCustomEdidSupport()
                         card.checkCustomMode()
                     } else {
                         card.customModeActive = !card.vkmsSelected
-                        card.commitCurrentMode()
                     }
+                    card.commitCurrentMode()
                 }
             }
             CustomComboBox {
