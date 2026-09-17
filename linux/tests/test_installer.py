@@ -630,11 +630,11 @@ exit 0
             qml,
         )
 
-    def test_source_vkms_ui_and_restricted_helper_are_installed(self):
+    def test_source_vkms_ui_and_standalone_cli_backend_integration(self):
         qml = (ROOT / "linux/monitorize/qml/DisplaySetupPage.qml").read_text()
         display_card = (ROOT / "linux/monitorize/qml/VirtualDisplayModeCard.qml").read_text()
         installer = (ROOT / "linux/scripts/install.sh").read_text()
-        helper = (ROOT / "packaging/common/monitorize-source-vkms-helper").read_text()
+        cli_adapter = (ROOT / "linux/monitorize/platform/monitorize_vkms_cli.py").read_text()
         self.assertIn('text: "Virtual Display Creator"', qml)
         self.assertIn('"VKMS (Experimental)"', qml)
         self.assertIn('backend.checkVkmsCustomEdidSupport()', qml)
@@ -644,21 +644,23 @@ exit 0
         self.assertIn('Could not check VKMS custom-resolution support', qml)
         self.assertIn('"Install monitorize-vkms"', qml)
         self.assertIn('currentText === "Custom..."', display_card)
-        self.assertIn("install_vkms_helper", installer)
-        self.assertIn('choices=("create", "create-custom", "destroy", "status", "capability")', helper)
-        self.assertIn("edid_enabled", helper)
-        self.assertNotIn("shell=True", helper)
+        self.assertIn("check_vkms_cli", installer)
+        self.assertIn("class MonitorizeVkmsClient", cli_adapter)
+        self.assertNotIn("shell=True", cli_adapter)
+        self.assertFalse((ROOT / "packaging/common/monitorize-source-vkms-helper").exists())
+        self.assertFalse((ROOT / "packaging/common/io.github.vinnavannewton.monitorize.source-vkms.policy").exists())
+        self.assertFalse((ROOT / "linux/monitorize/platform/vkms_edid.py").exists())
 
     def test_source_install_defers_vkms_polkit_until_explicitly_opted_in(self):
         installer = (ROOT / "linux/scripts/install.sh").read_text()
         self.assertIn("--with-vkms)", installer)
         self.assertIn("INSTALL_VKMS_HELPER=0", installer)
         self.assertIn(
-            "if (( INSTALL_VKMS_HELPER )); then\n    install_vkms_helper\nelse",
+            "if (( INSTALL_VKMS_HELPER )); then\n    check_vkms_cli\nelse",
             installer,
         )
         self.assertIn(
-            "Skipping optional VKMS helper installation. Re-run with --with-vkms",
+            "Skipping optional VKMS check. Standalone monitorize-vkms can be installed separately.",
             installer,
         )
 

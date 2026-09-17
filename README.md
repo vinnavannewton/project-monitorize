@@ -28,6 +28,11 @@ Receiving is handled by the standard [Moonlight](https://moonlight-stream.org/) 
 - GNOME 50+
 - Hyprland
 
+### Virtual Display Backends
+
+- **Desktop Native (Default)**: Uses compositor-native virtual display APIs (KDE KWin, GNOME Mutter, wlroots).
+- **VKMS (Experimental)**: Creates kernel-level DRM virtual displays via the standalone [`monitorize-vkms`](https://github.com/vinnavannewton/monitorize-vkms) tool.
+
 ## Installation
 
 - [Fedora](https://github.com/vinnavannewton/project-monitorize/wiki/Fedora-installation)

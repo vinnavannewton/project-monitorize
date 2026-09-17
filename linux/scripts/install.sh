@@ -40,9 +40,8 @@ SUNSHINE_VENV_BIN="${VENV_DIR}/bin/sunshine"
 SUNSHINE_VENV_ASSETS="${VENV_DIR}/share/monitorize/sunshine/assets"
 SUNSHINE_STRICT_SELECTION_PATCH="${REPOSITORY_DIR}/packaging/sunshine-strict-selection.patch"
 SUNSHINE_PORTAL_TOKEN_PATCH="${REPOSITORY_DIR}/packaging/sunshine-portal-token-scope.patch"
-VKMS_HELPER_SOURCE="${REPOSITORY_DIR}/packaging/common/monitorize-source-vkms-helper"
+# Legacy VKMS helper paths (kept for removal/cleanup during uninstall)
 VKMS_HELPER_PATH="/usr/libexec/monitorize/monitorize-source-vkms-helper"
-VKMS_POLICY_SOURCE="${REPOSITORY_DIR}/packaging/common/io.github.vinnavannewton.monitorize.source-vkms.policy"
 VKMS_POLICY_PATH="/usr/share/polkit-1/actions/io.github.vinnavannewton.monitorize.source-vkms.policy"
 
 # XDG standard locations
@@ -59,34 +58,14 @@ remove_legacy_udp_entries() {
     rm -f "${ICON_DIR}/monitorize-udp.png"
 }
 
-install_vkms_helper() {
-    local install_command pkexec_command
-    if [[ "${MONITORIZE_SKIP_VKMS_HELPER_INSTALL:-}" == "1" ]]; then
-        echo "Warning: Skipping the optional source VKMS helper installation." >&2
-        return 0
+check_vkms_cli() {
+    if command -v monitorize-vkms &>/dev/null; then
+        echo "✓ Standalone monitorize-vkms CLI detected for VKMS Experimental."
+    else
+        echo "Notice: monitorize-vkms CLI was not found in PATH."
+        echo "        To use VKMS Experimental, install the standalone package:"
+        echo "        https://github.com/vinnavannewton/monitorize-vkms"
     fi
-    install_command="$(command -v install 2>/dev/null || true)"
-    pkexec_command="$(command -v pkexec 2>/dev/null || true)"
-    if [[ -z "${install_command}" || -z "${pkexec_command}" ]]; then
-        echo "Warning: install and pkexec are required for experimental VKMS support." >&2
-        return 0
-    fi
-    if [[ ! -f "${VKMS_HELPER_SOURCE}" || ! -f "${VKMS_POLICY_SOURCE}" ]]; then
-        echo "Warning: Experimental VKMS helper sources are missing." >&2
-        return 0
-    fi
-    echo "Installing the optional privileged VKMS helper (Polkit may ask for authentication)…"
-    if ! "${pkexec_command}" "${install_command}" -D -o root -g root -m 0755 \
-            "${VKMS_HELPER_SOURCE}" "${VKMS_HELPER_PATH}"; then
-        echo "Warning: VKMS helper installation was cancelled or failed; Desktop Native remains available." >&2
-        return 0
-    fi
-    if ! "${pkexec_command}" "${install_command}" -D -o root -g root -m 0644 \
-            "${VKMS_POLICY_SOURCE}" "${VKMS_POLICY_PATH}"; then
-        echo "Warning: VKMS Polkit policy installation failed; Desktop Native remains available." >&2
-        return 0
-    fi
-    echo "✓ Experimental VKMS helper and Polkit policy installed"
 }
 
 remove_vkms_helper() {
@@ -662,8 +641,7 @@ With no arguments, an interactive menu selects the installation mode.
   --rebuild-sunshine  Force a clean bundled Sunshine build (complete mode).
   --cuda=POLICY       Sunshine CUDA policy: auto (default), on, or off.
                       This option implies complete mode. --cuda POLICY also works.
-  --with-vkms         Install the optional VKMS helper and Polkit policy.
-                      This is the only install-time VKMS authorization request.
+  --with-vkms         Check for standalone monitorize-vkms CLI.
   remove, uninstall   Remove the per-user source installation.
 
 MONITORIZE_CUDA=auto|on|off provides the same policy noninteractively.
@@ -934,9 +912,9 @@ fi
 echo "✓ KDE virtual-output helper installed to ${HELPER_PATH}"
 
 if (( INSTALL_VKMS_HELPER )); then
-    install_vkms_helper
+    check_vkms_cli
 else
-    echo "Skipping optional VKMS helper installation. Re-run with --with-vkms to enable the experimental VKMS backend."
+    echo "Skipping optional VKMS check. Standalone monitorize-vkms can be installed separately."
 fi
 
 if [[ "${INSTALL_MODE}" == "complete" ]]; then

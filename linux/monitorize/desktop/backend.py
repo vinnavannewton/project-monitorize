@@ -38,9 +38,9 @@ from monitorize.platform.sunshine_service import (
 )
 from monitorize.platform.system_setup import apply_system_setup, get_system_setup_status
 from monitorize.platform.utils import get_local_ip
+from monitorize.platform.monitorize_vkms_cli import MonitorizeVkmsClient
 from monitorize.platform.vkms_backend import (
     CustomEdidCapability,
-    VKMS_HELPER,
     VkmsError,
     custom_edid_capability_from_response,
     open_monitorize_vkms_install_page,
@@ -287,7 +287,8 @@ class MonitorizeBackend(QObject):
         for line in reversed(output.splitlines()):
             try:
                 response = json.loads(line)
-                break
+                if isinstance(response, dict):
+                    break
             except (TypeError, json.JSONDecodeError):
                 continue
         try:
@@ -296,7 +297,16 @@ class MonitorizeBackend(QObject):
                 if isinstance(response, dict):
                     detail = str(response.get("message") or "")
                 raise VkmsError(detail or "The capability check did not complete.")
-            capability = custom_edid_capability_from_response(response)
+            if "capability" in response:
+                capability = custom_edid_capability_from_response(response)
+            else:
+                mod_loaded = response.get("kernel_module", {}).get("loaded", False)
+                topo_enabled = response.get("topology", {}).get("device_enabled", False)
+                capability = (
+                    CustomEdidCapability.SUPPORTED
+                    if mod_loaded and topo_enabled
+                    else CustomEdidCapability.UNSUPPORTED
+                )
         except VkmsError as exc:
             self._finish_vkms_custom_capability(
                 CustomEdidCapability.CHECK_FAILED, str(exc)
@@ -332,11 +342,13 @@ class MonitorizeBackend(QObject):
                 "VKMS capability checks are unavailable in Flatpak.",
             )
             return
-        pkexec = shutil.which("pkexec")
-        if not pkexec or not VKMS_HELPER.is_file() or not os.access(VKMS_HELPER, os.X_OK):
+
+        client = MonitorizeVkmsClient()
+        exe = client.find_executable()
+        if not exe:
             self._finish_vkms_custom_capability(
-                CustomEdidCapability.CHECK_FAILED,
-                "The VKMS privileged helper is unavailable.",
+                CustomEdidCapability.UNSUPPORTED,
+                "The standalone monitorize-vkms package is not installed.",
             )
             return
 
@@ -352,7 +364,7 @@ class MonitorizeBackend(QObject):
         )
         self._vkms_custom_capability_process = process
         self.vkmsCustomCapabilityCheckingChanged.emit()
-        process.start(pkexec, [str(VKMS_HELPER), "capability"])
+        process.start(str(exe), ["status", "--json"])
 
     @pyqtSlot()
     def recheckVkmsCustomEdidSupport(self):
