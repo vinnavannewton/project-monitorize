@@ -19,13 +19,14 @@ Item {
     }
     Connections {
         target: backend
-        function onLogAppended(type, message) { page.refreshDiagnostics() }
         function onStreamingStartFailed() { page.logsExpanded = true }
         function onStreamingCodecMismatch(message) { page.logsExpanded = true }
     }
-    Component.onCompleted: refreshDiagnostics()
+    onLogsExpandedChanged: {
+        if (logsExpanded) Qt.callLater(function() { page.refreshDiagnostics() })
+    }
     Timer {
-        interval: 1000; repeat: true; running: true
+        interval: 1000; repeat: true; running: page.logsExpanded
         onTriggered: page.refreshDiagnostics()
     }
     ScrollView {

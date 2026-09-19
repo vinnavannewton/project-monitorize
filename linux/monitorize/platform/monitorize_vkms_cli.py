@@ -180,8 +180,9 @@ class MonitorizeVkmsClient:
         parsed: dict[str, Any] | None = None
         for line in reversed(raw_stdout.splitlines()):
             try:
-                parsed = json.loads(line)
-                if isinstance(parsed, dict):
+                candidate = json.loads(line)
+                if isinstance(candidate, dict):
+                    parsed = candidate
                     break
             except (json.JSONDecodeError, TypeError):
                 continue

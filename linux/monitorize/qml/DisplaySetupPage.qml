@@ -68,10 +68,21 @@ Item {
         let updated = virtualDisplays.slice()
         updated[index] = configuration
         virtualDisplays = updated
-        saveDisplayModes()
         if (index === 0) {
             page.saveSettings()
+        } else {
+            saveDisplayModes()
         }
+    }
+
+    function sameDisplayMode(left, right) {
+        if (!left || !right) return false
+        let keys = ["resolution", "custom_w", "custom_h", "fps", "custom_fps"]
+        for (let i = 0; i < keys.length; ++i) {
+            let key = keys[i]
+            if (String(left[key] || "") !== String(right[key] || "")) return false
+        }
+        return true
     }
 
     function commitAllPendingDisplaySettings() {
@@ -85,15 +96,16 @@ Item {
                 continue
             }
             let current = item.getCurrentMode()
-            if (current && current.resolution && updated[i]) {
+            if (current && current.resolution && updated[i]
+                    && !page.sameDisplayMode(current, updated[i])) {
                 updated[i] = Object.assign({}, updated[i], current)
                 hasChanges = true
             }
         }
         if (hasChanges) {
             virtualDisplays = updated
+            page.saveSettings()
         }
-        page.saveSettings()
     }
 
     function addDisplay() {

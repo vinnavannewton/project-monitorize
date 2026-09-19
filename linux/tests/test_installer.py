@@ -724,6 +724,21 @@ exit 0
         self.assertIn("backend.removeSessionDisplay(1)", streaming)
         self.assertNotIn('text: "Add Display"', streaming)
 
+    def test_navigation_avoids_hidden_synchronous_work(self):
+        display_setup = (ROOT / "linux/monitorize/qml/DisplaySetupPage.qml").read_text()
+        streaming = (ROOT / "linux/monitorize/qml/StreamingPage.qml").read_text()
+
+        self.assertIn("function sameDisplayMode(left, right)", display_setup)
+        self.assertIn("&& !page.sameDisplayMode(current, updated[i])", display_setup)
+        self.assertIn("if (hasChanges) {", display_setup)
+        self.assertNotIn("Component.onCompleted: refreshDiagnostics()", streaming)
+        self.assertNotIn("function onLogAppended", streaming)
+        self.assertIn(
+            "if (logsExpanded) Qt.callLater(function() { page.refreshDiagnostics() })",
+            streaming,
+        )
+        self.assertIn("running: page.logsExpanded", streaming)
+
     def test_choice_chips_and_start_card_fit_their_containers(self):
         chips = (ROOT / "linux/monitorize/qml/ChoiceChips.qml").read_text()
         menu = (ROOT / "linux/monitorize/qml/MainMenuPage.qml").read_text()

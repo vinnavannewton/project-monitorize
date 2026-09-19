@@ -286,11 +286,19 @@ class MonitorizeBackend(QObject):
         response = None
         for line in reversed(output.splitlines()):
             try:
-                response = json.loads(line)
-                if isinstance(response, dict):
+                candidate = json.loads(line)
+                if isinstance(candidate, dict):
+                    response = candidate
                     break
             except (TypeError, json.JSONDecodeError):
                 continue
+        if response is None:
+            try:
+                parsed = json.loads(output)
+                if isinstance(parsed, dict):
+                    response = parsed
+            except (TypeError, json.JSONDecodeError):
+                pass
         try:
             if exit_code or not isinstance(response, dict) or not response.get("success"):
                 detail = ""

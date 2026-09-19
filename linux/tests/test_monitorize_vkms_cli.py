@@ -8,8 +8,10 @@ from pathlib import Path
 import subprocess
 import sys
 import unittest
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+from monitorize.desktop.backend import MonitorizeBackend
 from monitorize.platform.monitorize_vkms_cli import (
     DEFAULT_REMOVE_TIMEOUT,
     DEFAULT_TIMEOUT,
@@ -45,6 +47,58 @@ class MonitorizeVkmsCliTest(unittest.TestCase):
         formatted = format_mode(1920, 1080, 59.94)
         self.assertNotIn(",", formatted)
         self.assertNotIn("60.00000000000001", formatted)
+
+    def test_capability_completion_parses_multiline_status_json(self):
+        process = MagicMock()
+        process.readAllStandardOutput.return_value = json.dumps(
+            {
+                "success": True,
+                "kernel_module": {"loaded": True},
+                "topology": {"device_enabled": True},
+                "drm": {
+                    "active_connectors": [
+                        {
+                            "name": "Virtual-1",
+                            "modes": ["2340x1080"],
+                        }
+                    ]
+                },
+            },
+            indent=2,
+        ).encode()
+        owner = SimpleNamespace(_vkms_custom_capability_process=process)
+        owner._finish_vkms_custom_capability = MagicMock()
+
+        MonitorizeBackend._complete_vkms_custom_capability(owner, process, 0)
+
+        self.assertEqual(
+            owner._finish_vkms_custom_capability.call_args.args[0].value,
+            "supported",
+        )
+
+    def test_client_parses_multiline_status_json_with_mode_array(self):
+        payload = {
+            "success": True,
+            "kernel_module": {"loaded": True},
+            "topology": {"device_enabled": True},
+            "drm": {
+                "active_connectors": [
+                    {"name": "Virtual-1", "modes": ["2340x1080"]}
+                ]
+            },
+        }
+        mock_proc = MagicMock(
+            returncode=0,
+            stdout=json.dumps(payload, indent=2),
+            stderr="",
+        )
+        with (
+            patch("shutil.which", return_value="/usr/bin/monitorize-vkms"),
+            patch("subprocess.run", return_value=mock_proc),
+        ):
+            result = MonitorizeVkmsClient().get_status()
+
+        self.assertEqual(result, payload)
 
     # ----------------------------------------------------------------------
     # TEST 2 — CLI NOT INSTALLED
