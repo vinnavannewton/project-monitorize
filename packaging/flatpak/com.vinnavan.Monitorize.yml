@@ -152,7 +152,7 @@ modules:
     sources:
       - sunshine-node-sources.json
       - type: git
-        url: https://github.com/vinnavannewton/sunshine.git
+        url: https://github.com/vinnavannewton/monitorize-sunshine.git
         commit: e3ce79f3b966df388e905a3c6b3784832a328e34
       - type: patch
         path: sunshine-flatpak-portal.patch
