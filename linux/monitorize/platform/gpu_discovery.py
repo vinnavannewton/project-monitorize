@@ -16,7 +16,9 @@ _PCI_ID = re.compile(
     r"(?P<function>[0-7])$"
 )
 _H264_VAAPI_ENCODE = re.compile(
-    r"VAProfileH264High\s*:\s*VAEntrypointEncSlice", re.IGNORECASE
+    r"VAProfileH264(?:Baseline|ConstrainedBaseline|Main|High)\s*:\s*"
+    r"VAEntrypointEnc(?:Slice(?:LP)?|Picture)",
+    re.IGNORECASE,
 )
 
 
@@ -77,7 +79,7 @@ def _vaapi_name(output: str, render_node: str) -> str:
 
 @lru_cache(maxsize=1)
 def discover_vaapi_h264_gpus() -> tuple[dict, ...]:
-    """Return VA-API render nodes exposing H.264 High encode support."""
+    """Return VA-API render nodes exposing an H.264 encode entry point."""
     devices = []
     for pci_id, render_node in sorted(_render_nodes_by_pci().items()):
         output = _run(["vainfo", "--display", "drm", "--device", render_node])

@@ -1,4 +1,4 @@
-# Mirror-only first milestone. Sunshine is added after the desktop app starts.
+# Monitorize desktop with its bundled Sunshine streaming engine.
 app-id: com.vinnavan.Monitorize
 runtime: org.freedesktop.Platform
 runtime-version: "24.08"
@@ -24,6 +24,8 @@ finish-args:
   - --socket=x11
   - --socket=fallback-x11
   - --talk-name=org.freedesktop.Flatpak
+  - --talk-name=org.gnome.Mutter.ScreenCast
+  - --talk-name=org.gnome.Mutter.DisplayConfig
   - --system-talk-name=org.freedesktop.Avahi
 
 modules:
@@ -47,7 +49,10 @@ modules:
   # Sunshine's upstream build-only CUDA toolkit module enables NVENC. The host
   # NVIDIA driver remains supplied by Flatpak's matching GL runtime extension.
   - ../../external/sunshine/packaging/linux/flatpak/modules/cuda.json
-  - ../../external/sunshine/packaging/linux/flatpak/modules/ffmpeg.json
+  # Keep this local override in sync with LizardByte's current build-deps
+  # release. The older FFmpeg 8.1 bundle aborts while tearing down some
+  # VA-API HEVC sessions; FFmpeg 9 handles sustained HEVC on the same GPU.
+  - modules/ffmpeg.json
 
   # QtNetwork in the PyQt6 wheel requires MIT Kerberos at load time.
   - name: krb5
@@ -74,8 +79,21 @@ modules:
         sha256: 722695808f4b6457b320fdc131280796bdceb04ab50fe1795cd540799ebe1698
         dest: markupsafe
 
+  # The GNOME virtual-monitor backend uses dbus-python to call Mutter's
+  # ScreenCast and DisplayConfig services. PyGObject/GLib is in the runtime,
+  # but dbus-python is not.
+  - name: dbus-python
+    buildsystem: meson
+    config-opts:
+      - -Dtests=disabled
+      - -Ddoc=disabled
+    sources:
+      - type: archive
+        url: https://files.pythonhosted.org/packages/ff/24/63118050c7dd7be04b1ccd60eab53fef00abe844442e1b6dec92dae505d6/dbus-python-1.4.0.tar.gz
+        sha256: 991666e498f60dbf3e49b8b7678f5559b8a65034fdf61aae62cdecdb7d89c770
+
   # Freedesktop does not ship Qt or PyQt. These wheels provide the unchanged
-  # PyQt6/Qt Quick UI for this x86_64 Mirror milestone.
+  # PyQt6/Qt Quick UI.
   - name: pyqt6
     buildsystem: simple
     build-commands:
@@ -101,7 +119,7 @@ modules:
     build-options:
       append-path: /usr/lib/sdk/node20/bin
       env:
-        BUILD_VERSION: 0.2.8
+        BUILD_VERSION: 0.39
         BRANCH: monitorize
         COMMIT: e3ce79f3b966df388e905a3c6b3784832a328e34
         PYTHONPATH: /app/lib/python3.12/site-packages
@@ -134,16 +152,30 @@ modules:
     sources:
       - sunshine-node-sources.json
       - type: git
-        url: https://github.com/vinnavannewton/sunshine.git
+        url: https://github.com/vinnavannewton/monitorize-sunshine.git
         commit: e3ce79f3b966df388e905a3c6b3784832a328e34
       - type: patch
         path: sunshine-flatpak-portal.patch
+      # Portal DMA-BUFs are not reliably importable by a different Intel/AMD
+      # encode GPU. Keep VA-API hardware encoding but bridge capture via mapped
+      # PipeWire memory for cross-vendor and hybrid-GPU reliability.
+      - type: patch
+        path: sunshine-flatpak-vaapi.patch
+      # FFmpeg 9 renumbered NVENC's P1-P7 preset values. Sunshine's older
+      # legacy mapping otherwise passes 12-18, outside FFmpeg 9's 0-9 range.
+      - type: patch
+        path: sunshine-flatpak-ffmpeg9-nvenc-preset.patch
+      - type: patch
+        path: sunshine-flatpak-session-reuse.patch
       - type: patch
         path: ../sunshine-strict-selection.patch
+      - type: patch
+        path: sunshine-mirror-selection.patch
 
   - name: monitorize
     buildsystem: simple
     build-commands:
+      - cc -O2 -Wall -Wextra linux/native/portal_resize.c -o ${FLATPAK_DEST}/bin/monitorize-pipewire-resize $(pkg-config --cflags --libs libpipewire-0.3)
       - pip3 install --no-deps --no-build-isolation --prefix=${FLATPAK_DEST} .
       - install -Dm644 com.vinnavan.Monitorize.desktop -t ${FLATPAK_DEST}/share/applications
       - install -Dm644 com.vinnavan.Monitorize.png ${FLATPAK_DEST}/share/icons/hicolor/512x512/apps/${FLATPAK_ID}.png

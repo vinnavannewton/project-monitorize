@@ -1,0 +1,296 @@
+diff --git a/src/platform/linux/portalgrab.cpp b/src/platform/linux/portalgrab.cpp
+index 5881557..fa18952 100644
+--- a/src/platform/linux/portalgrab.cpp
++++ b/src/platform/linux/portalgrab.cpp
+@@ -161,6 +161,9 @@ namespace portal {
+      * @return Value converted to display name.
+      */
+     std::string to_display_name() const {
++      if (!mapping_id.empty()) {
++        return mapping_id;
++      }
+       if (!monitor_name.empty()) {
+         return monitor_name;
+       }
+@@ -834,79 +837,147 @@ devices_ready:
+   };
+ 
+   /**
+-   * @brief Persistent VIRTUAL portal session manager.
++   * @brief Return whether portal captures should share one long-lived session.
++   *
++   * Flatpak monitor capture must keep the selected ScreenCast session alive
++   * across encoder probes, otherwise every probe reopens the desktop chooser.
++   * Native monitor capture retains the upstream per-capture lifecycle.
+    *
+-   * Maintains ONE long-lived RemoteDesktop + ScreenCast(types=VIRTUAL) session
+-   * across multiple encoder probing passes and active streaming sessions.
+-   * Only closes the portal session on Sunshine process shutdown.
++   * @return True when portal captures should reuse a process-wide session.
+    */
+-  class persistent_virtual_session_t {
++  static bool use_persistent_portal_session() {
++#ifdef SUNSHINE_BUILD_FLATPAK
++    return true;
++#else
++    return get_portal_source_type() == SOURCE_TYPE_VIRTUAL;
++#endif
++  }
++
++  /**
++   * @brief Persistent portal ScreenCast session manager.
++   *
++   * Maintains one selected portal session across encoder probing passes and
++   * active streaming sessions. Each capture gets a fresh PipeWire remote file
++   * descriptor while reusing the same portal session and selected stream.
++   */
++  class persistent_portal_session_t {
+   public:
++    /**
++     * @brief Create the portal session once or verify that it remains usable.
++     *
++     * @return 0 when the persistent session is ready; otherwise -1.
++     */
+     int ensure_ready() {
+       std::lock_guard lock(mutex_);
+-      if (ready_) {
++      if (ready_ && dbus_ && !dbus_->is_session_closed()) {
+         return 0;
+       }
+-      BOOST_LOG(info) << "[portal-virtual] Creating persistent VIRTUAL session"sv;
++      if (dbus_) {
++        BOOST_LOG(info) << "[portal-session] Replacing closed persistent portal session"sv;
++        dbus_.reset();
++        ready_ = false;
++      }
++      const auto requested_source_type = get_portal_source_type();
++      BOOST_LOG(info) << "[portal-session] Creating persistent portal session for source type "sv << requested_source_type;
+       dbus_ = std::make_unique<dbus_t>();
+       if (dbus_->init() < 0) {
+-        BOOST_LOG(error) << "[portal-virtual] Failed to init D-Bus connection for virtual session"sv;
++        BOOST_LOG(error) << "[portal-session] Failed to initialize D-Bus connection"sv;
+         dbus_.reset();
+         return -1;
+       }
+       if (dbus_->connect_to_portal() < 0) {
+-        BOOST_LOG(error) << "[portal-virtual] Failed to connect to portal for virtual session"sv;
++        BOOST_LOG(error) << "[portal-session] Failed to connect persistent session to portal"sv;
+         dbus_.reset();
+         return -1;
+       }
+       if (dbus_->pipewire_streams.empty()) {
+-        BOOST_LOG(error) << "[portal-virtual] No streams returned for virtual session"sv;
++        BOOST_LOG(error) << "[portal-session] Portal returned no streams"sv;
+         dbus_.reset();
+         return -1;
+       }
+       selected_stream_ = dbus_->pipewire_streams.front();
+       for (const auto &s : dbus_->pipewire_streams) {
+-        if (s.source_type == SOURCE_TYPE_VIRTUAL) {
++        if (s.source_type == requested_source_type) {
+           selected_stream_ = s;
+           break;
+         }
+       }
+       ready_ = true;
+-      BOOST_LOG(info) << "[portal-virtual] Virtual portal session READY (node_id="sv
+-                      << selected_stream_.pipewire_node << " serial=" << selected_stream_.pipewire_object_serial << ")"sv;
++      BOOST_LOG(info) << "[portal-session] Persistent portal session ready (display="sv
++                      << selected_stream_.to_display_name() << " node_id=" << selected_stream_.pipewire_node
++                      << " serial=" << selected_stream_.pipewire_object_serial << ")"sv;
+       return 0;
+     }
+ 
++    /**
++     * @brief Open a new PipeWire remote for a capture using the saved session.
++     *
++     * @param out_fd File descriptor returned by the portal.
++     * @return 0 on success; otherwise -1.
++     */
+     int open_pipewire_remote(int &out_fd) {
+       std::lock_guard lock(mutex_);
+       if (!ready_ || !dbus_) {
+-        BOOST_LOG(error) << "[portal-virtual] Cannot open PipeWire remote: session not ready"sv;
++        BOOST_LOG(error) << "[portal-session] Cannot open PipeWire remote: session not ready"sv;
+         return -1;
+       }
++      if (dbus_->pipewire_fd >= 0) {
++        out_fd = dbus_->pipewire_fd;
++        dbus_->pipewire_fd = -1;
++        BOOST_LOG(info) << "[portal-session] Using initial PipeWire remote for capture"sv;
++        return 0;
++      }
+-      BOOST_LOG(info) << "[portal-virtual] Opening new PipeWire remote for capture"sv;
++      BOOST_LOG(info) << "[portal-session] Opening new PipeWire remote for capture"sv;
+       return dbus_->open_pipewire_remote(out_fd);
+     }
+ 
+-    const pipewire_streaminfo_t &stream() const {
++    /**
++     * @brief Return a copy of the stream selected for the persistent session.
++     *
++     * @return Selected PipeWire stream metadata.
++     */
++    pipewire_streaminfo_t stream() const {
++      std::lock_guard lock(mutex_);
+       return selected_stream_;
+     }
+ 
++    /**
++     * @brief Return the stable name of the selected portal stream.
++     *
++     * @return Mapping ID, monitor name, or geometry-derived fallback name.
++     */
+     std::string display_name() const {
+       std::lock_guard lock(mutex_);
+       return selected_stream_.to_display_name();
+     }
+ 
++    /**
++     * @brief Check whether the portal closed the shared session.
++     *
++     * @return True when an initialized persistent session was closed.
++     */
++    bool is_session_closed() const {
++      std::lock_guard lock(mutex_);
++      return ready_ && dbus_ && dbus_->is_session_closed();
++    }
++
++    /**
++     * @brief Close the persistent portal session during process shutdown.
++     */
+     void shutdown() {
+       std::lock_guard lock(mutex_);
+       if (dbus_) {
+-        BOOST_LOG(info) << "[portal-virtual] Closing persistent VIRTUAL portal session"sv;
++        BOOST_LOG(info) << "[portal-session] Closing persistent portal session"sv;
+         dbus_.reset();
+         ready_ = false;
+-        BOOST_LOG(info) << "[portal-virtual] VIRTUAL session closed"sv;
++        BOOST_LOG(info) << "[portal-session] Persistent portal session closed"sv;
+       }
+     }
+ 
+-    ~persistent_virtual_session_t() {
++    /**
++     * @brief Close the portal session if normal shutdown did not do so.
++     */
++    ~persistent_portal_session_t() {
+       shutdown();
+     }
+ 
+@@ -917,16 +988,22 @@ devices_ready:
+     bool ready_ = false;
+   };
+ 
+-  static persistent_virtual_session_t &get_persistent_virtual_session() {
+-    static persistent_virtual_session_t session;
++  /**
++   * @brief Return the process-wide portal session shared by capture probes.
++   *
++   * @return Persistent portal session manager.
++   */
++  static persistent_portal_session_t &get_persistent_portal_session() {
++    static persistent_portal_session_t session;
+     static std::once_flag atexit_flag;
+     std::call_once(atexit_flag, []() {
+       std::atexit([]() {
+-        get_persistent_virtual_session().shutdown();
++        get_persistent_portal_session().shutdown();
+       });
+     });
+     return session;
+   }
++
+   /**
+    * @brief Portal screencast backend that negotiates PipeWire streams over DBus.
+    */
+@@ -988,25 +1065,26 @@ devices_ready:
+     }
+ 
+     ~portal_t() override {
+-      if (get_portal_source_type() == SOURCE_TYPE_VIRTUAL) {
+-        BOOST_LOG(info) << "[portal-virtual] Capture connection closed; VIRTUAL session retained"sv;
++      if (use_persistent_portal_session()) {
++        BOOST_LOG(info) << "[portal-session] Capture connection closed; portal session retained"sv;
+       }
+     }
+ 
+     int configure_stream(const std::string &display_name, int &out_pipewire_fd, uint32_t &out_pipewire_node, uint64_t &out_pipewire_object_serial [[maybe_unused]]) override {
+-      if (get_portal_source_type() == SOURCE_TYPE_VIRTUAL) {
+-        refresh_geometry_after_negotiation = true;
+-        auto &vsession = get_persistent_virtual_session();
+-        if (vsession.ensure_ready() < 0) {
+-          BOOST_LOG(error) << "[portal-virtual] Persistent virtual session not ready"sv;
++      if (use_persistent_portal_session()) {
++        const bool is_virtual = get_portal_source_type() == SOURCE_TYPE_VIRTUAL;
++        refresh_geometry_after_negotiation = is_virtual;
++        auto &session = get_persistent_portal_session();
++        if (session.ensure_ready() < 0) {
++          BOOST_LOG(error) << "[portal-session] Persistent portal session not ready"sv;
+           return -1;
+         }
+-        if (vsession.open_pipewire_remote(out_pipewire_fd) < 0) {
+-          BOOST_LOG(error) << "[portal-virtual] Failed to open PipeWire remote for virtual capture"sv;
++        if (session.open_pipewire_remote(out_pipewire_fd) < 0) {
++          BOOST_LOG(error) << "[portal-session] Failed to open PipeWire remote for capture"sv;
+           return -1;
+         }
+         pipewire.set_negotiate_maxframerate(negotiate_maxframerate.load());
+-        const auto &stream = vsession.stream();
++        const auto stream = session.stream();
+         out_pipewire_node = stream.pipewire_node;
+         out_pipewire_object_serial = stream.pipewire_object_serial;
+         this->offset_x = stream.pos_x;
+@@ -1015,7 +1093,7 @@ devices_ready:
+           // KDE, physical screens, etc.
+           this->width = stream.width;
+           this->height = stream.height;
+-          BOOST_LOG(info) << "[portal-virtual] Portal supplied fixed stream size "sv << this->width << "x" << this->height;
++          BOOST_LOG(info) << "[portal-session] Portal supplied fixed stream size "sv << this->width << "x" << this->height;
+         } else {
+           // GNOME RecordVirtual()
+           this->width = requested_width_ > 0 ? requested_width_ : 1920;
+@@ -1027,7 +1105,8 @@ devices_ready:
+         }
+         this->logical_width = 0;
+         this->logical_height = 0;
+-        BOOST_LOG(info) << "[portal-virtual] Reusing persistent VIRTUAL session (node="sv << out_pipewire_node << " fd=" << out_pipewire_fd << ")"sv;
++        BOOST_LOG(info) << "[portal-session] Reusing selected portal session (display="sv << stream.to_display_name()
++                        << " node=" << out_pipewire_node << " fd=" << out_pipewire_fd << ")"sv;
+         return 0;
+       }
+ 
+@@ -1094,7 +1173,10 @@ devices_ready:
+      */
+     bool check_stream_dead(platf::capture_e &out_status) override {
+       // If the pipewire stream stopped due to closed portal session stop the capture with an error
+-      if (get_portal_source_type() != SOURCE_TYPE_VIRTUAL && dbus.is_session_closed()) {
++      const bool portal_session_closed = use_persistent_portal_session() ?
++                                           get_persistent_portal_session().is_session_closed() :
++                                           dbus.is_session_closed();
++      if (portal_session_closed) {
+         BOOST_LOG(warning) << "[portalgrab] PipeWire stream stopped by closed portal session."sv;
+         pipewire.frame_cv().notify_all();
+         out_status = platf::capture_e::error;
+@@ -1154,13 +1236,15 @@ namespace platf {
+    * @return Portal display names, or an empty list when portal discovery fails.
+    */
+   std::vector<std::string> portal_display_names() {
+-    if (get_portal_source_type() == SOURCE_TYPE_VIRTUAL) {
+-      auto &vsession = portal::get_persistent_virtual_session();
+-      if (vsession.ensure_ready() < 0) {
+-        BOOST_LOG(warning) << "[portal-virtual] Failed to initialize virtual session for display enumeration"sv;
++    const bool may_open_persistent_session =
++        get_portal_source_type() == SOURCE_TYPE_VIRTUAL || !has_elevated_privileges(true);
++    if (portal::use_persistent_portal_session() && may_open_persistent_session) {
++      auto &session = portal::get_persistent_portal_session();
++      if (session.ensure_ready() < 0) {
++        BOOST_LOG(warning) << "[portal-session] Failed to initialize persistent session for display enumeration"sv;
+         return {};
+       }
+-      return {vsession.display_name()};
++      return {session.display_name()};
+     }
+ 
+     std::vector<std::string> display_names;

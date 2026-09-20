@@ -10,6 +10,7 @@
 #   ./install.sh --complete
 #   ./install.sh --partial
 #   ./install.sh --complete --cuda=auto  # auto, on, or off
+#   ./install.sh --complete --with-vkms  # install optional VKMS helper
 #   ./install.sh --rebuild-sunshine  # clean and rebuild Sunshine
 #   ./install.sh remove   # uninstall
 # ──────────────────────────────────────────────────────────────────────
@@ -38,6 +39,10 @@ SUNSHINE_BUILD_STAMP="${SUNSHINE_BUILD_DIR}/.monitorize-built-fingerprint"
 SUNSHINE_VENV_BIN="${VENV_DIR}/bin/sunshine"
 SUNSHINE_VENV_ASSETS="${VENV_DIR}/share/monitorize/sunshine/assets"
 SUNSHINE_STRICT_SELECTION_PATCH="${REPOSITORY_DIR}/packaging/sunshine-strict-selection.patch"
+SUNSHINE_PORTAL_TOKEN_PATCH="${REPOSITORY_DIR}/packaging/sunshine-portal-token-scope.patch"
+# Legacy VKMS helper paths (kept for removal/cleanup during uninstall)
+VKMS_HELPER_PATH="/usr/libexec/monitorize/monitorize-source-vkms-helper"
+VKMS_POLICY_PATH="/usr/share/polkit-1/actions/io.github.vinnavannewton.monitorize.source-vkms.policy"
 
 # XDG standard locations
 CONFIG_HOME="${XDG_CONFIG_HOME:-${HOME}/.config}"
@@ -51,6 +56,34 @@ remove_legacy_udp_entries() {
     rm -f "${DESKTOP_DIR}/monitorize-udp.desktop"
     rm -f "${DESKTOP_DIR}/monitorize-udp-kde-virtual-output.desktop"
     rm -f "${ICON_DIR}/monitorize-udp.png"
+}
+
+check_vkms_cli() {
+    if command -v monitorize-vkms &>/dev/null; then
+        echo "✓ Standalone monitorize-vkms CLI detected for VKMS Experimental."
+    else
+        echo "Notice: monitorize-vkms CLI was not found in PATH."
+        echo "        To use VKMS Experimental, install the standalone package:"
+        echo "        https://github.com/vinnavannewton/monitorize-vkms"
+    fi
+}
+
+remove_vkms_helper() {
+    local pkexec_command rm_command
+    if [[ ! -e "${VKMS_HELPER_PATH}" && ! -e "${VKMS_POLICY_PATH}" ]]; then
+        return 0
+    fi
+    pkexec_command="$(command -v pkexec 2>/dev/null || true)"
+    rm_command="$(command -v rm 2>/dev/null || true)"
+    if [[ -z "${pkexec_command}" || -z "${rm_command}" ]]; then
+        echo "Warning: Remove ${VKMS_HELPER_PATH} and ${VKMS_POLICY_PATH} as root to finish uninstalling VKMS support." >&2
+        return 0
+    fi
+    if "${pkexec_command}" "${rm_command}" -f -- "${VKMS_HELPER_PATH}" "${VKMS_POLICY_PATH}"; then
+        echo "✓ Experimental VKMS helper and Polkit policy removed"
+    else
+        echo "Warning: VKMS helper removal was cancelled or failed." >&2
+    fi
 }
 
 desktop_quote() {
@@ -413,14 +446,15 @@ configure_sunshine_build_tools() {
 }
 
 configure_sunshine_build_fingerprint() {
-    local commit patch_checksum vulkan
+    local commit patch_checksum portal_patch_checksum vulkan
     commit="$(git -C "${SUNSHINE_SUBMODULE_DIR}" rev-parse HEAD)"
     patch_checksum="$(cksum "${SUNSHINE_STRICT_SELECTION_PATCH}" | awk '{print $1 ":" $2}')"
+    portal_patch_checksum="$(cksum "${SUNSHINE_PORTAL_TOKEN_PATCH}" | awk '{print $1 ":" $2}')"
     vulkan="on"
     if [[ " ${CMAKE_EXTRA_FLAGS[*]} " == *" -DSUNSHINE_ENABLE_VULKAN=OFF "* ]]; then
         vulkan="off"
     fi
-    SUNSHINE_BUILD_FINGERPRINT="commit=${commit}|type=Release|tray=off|tests=off|docs=off|cuda-policy=${CUDA_POLICY}|cuda=${SUNSHINE_CUDA_ENABLED}|cuda-compiler=${SUNSHINE_CUDA_COMPILER}|cuda-version=${SUNSHINE_CUDA_VERSION}|vulkan=${vulkan}|generator=${SUNSHINE_BUILD_GENERATOR}|ccache=${SUNSHINE_CCACHE}|cc=${SUNSHINE_CC}|cxx=${SUNSHINE_CXX}|strict-patch=${patch_checksum}"
+    SUNSHINE_BUILD_FINGERPRINT="commit=${commit}|type=Release|tray=off|tests=off|docs=off|cuda-policy=${CUDA_POLICY}|cuda=${SUNSHINE_CUDA_ENABLED}|cuda-compiler=${SUNSHINE_CUDA_COMPILER}|cuda-version=${SUNSHINE_CUDA_VERSION}|vulkan=${vulkan}|generator=${SUNSHINE_BUILD_GENERATOR}|ccache=${SUNSHINE_CCACHE}|cc=${SUNSHINE_CC}|cxx=${SUNSHINE_CXX}|strict-patch=${patch_checksum}|portal-token-patch=${portal_patch_checksum}"
     return 0
 }
 
@@ -598,6 +632,7 @@ select_cuda_policy() {
 print_usage() {
     cat <<'EOF'
 Usage: ./install.sh [--complete | --partial | --rebuild-sunshine] [--cuda=POLICY]
+       ./install.sh [--complete | --partial] --with-vkms
        ./install.sh remove
 
 With no arguments, an interactive menu selects the installation mode.
@@ -606,6 +641,7 @@ With no arguments, an interactive menu selects the installation mode.
   --rebuild-sunshine  Force a clean bundled Sunshine build (complete mode).
   --cuda=POLICY       Sunshine CUDA policy: auto (default), on, or off.
                       This option implies complete mode. --cuda POLICY also works.
+  --with-vkms         Check for standalone monitorize-vkms CLI.
   remove, uninstall   Remove the per-user source installation.
 
 MONITORIZE_CUDA=auto|on|off provides the same policy noninteractively.
@@ -646,6 +682,7 @@ INSTALL_MODE=""
 INSTALL_ACTION="install"
 CUDA_POLICY="auto"
 CUDA_POLICY_EXPLICIT=0
+INSTALL_VKMS_HELPER=0
 
 while (( $# > 0 )); do
     argument="$1"
@@ -660,6 +697,9 @@ while (( $# > 0 )); do
         --rebuild-sunshine)
             FORCE_SUNSHINE_REBUILD=1
             request_install_mode "complete"
+            ;;
+        --with-vkms)
+            INSTALL_VKMS_HELPER=1
             ;;
         --cuda=*)
             set_cuda_policy "${argument#--cuda=}"
@@ -706,6 +746,7 @@ if [[ "${INSTALL_ACTION}" == "remove" ]]; then
     rm -f "${DESKTOP_DIR}/${HELPER_DESKTOP_FILE}"
     rm -f "${ICON_DEST}"
     remove_legacy_udp_entries
+    remove_vkms_helper
     rm -rf "${PROJECT_DIR}/venv"
     find "${PROJECT_DIR}" -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
     # Refresh desktop database if available
@@ -755,10 +796,12 @@ if [[ "${INSTALL_MODE}" == "complete" ]]; then
     require_command patch
     require_command cksum
 
-    if [[ ! -f "${SUNSHINE_STRICT_SELECTION_PATCH}" ]]; then
-        echo "Error: Sunshine patch not found at ${SUNSHINE_STRICT_SELECTION_PATCH}." >&2
-        exit 1
-    fi
+    for required_patch in "${SUNSHINE_STRICT_SELECTION_PATCH}" "${SUNSHINE_PORTAL_TOKEN_PATCH}"; do
+        if [[ ! -f "${required_patch}" ]]; then
+            echo "Error: Sunshine patch not found at ${required_patch}." >&2
+            exit 1
+        fi
+    done
 
     if ! command -v vainfo &>/dev/null; then
         echo "Warning: 'vainfo' is not installed; multi-GPU VA-API selection will be unavailable." >&2
@@ -818,6 +861,13 @@ if [[ "${INSTALL_MODE}" == "complete" ]]; then
             exit 1
         fi
     fi
+    if ! grep -q "SUNSHINE_PORTAL_TOKEN_SCOPE" "${SUNSHINE_SUBMODULE_DIR}/src/platform/linux/portalgrab.cpp"; then
+        echo "Applying Monitorize portal restore-token scope patch…"
+        if ! patch --batch --forward -d "${SUNSHINE_SUBMODULE_DIR}" -p1 < "${SUNSHINE_PORTAL_TOKEN_PATCH}"; then
+            echo "Error: Could not apply the Monitorize portal restore-token scope patch." >&2
+            exit 1
+        fi
+    fi
     check_sunshine_node_modules_permissions
 fi
 
@@ -860,6 +910,12 @@ if ! "${HELPER_BUILD}" "${HELPER_PATH}"; then
     exit 1
 fi
 echo "✓ KDE virtual-output helper installed to ${HELPER_PATH}"
+
+if (( INSTALL_VKMS_HELPER )); then
+    check_vkms_cli
+else
+    echo "Skipping optional VKMS check. Standalone monitorize-vkms can be installed separately."
+fi
 
 if [[ "${INSTALL_MODE}" == "complete" ]]; then
 # ── Build and install the project-local Sunshine backend ─────────────

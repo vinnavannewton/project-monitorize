@@ -11,6 +11,46 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class SunshineOnlyPackagingTest(unittest.TestCase):
+    def test_flatpak_launcher_name_is_distinct_during_side_by_side_testing(self):
+        flatpak_launcher = (
+            ROOT / "packaging/flatpak/com.vinnavan.Monitorize.desktop"
+        ).read_text()
+        source_launcher = (ROOT / "packaging/fedora/monitorize.desktop").read_text()
+
+        self.assertIn("Name=Monitorize Flatpak", flatpak_launcher.splitlines())
+        self.assertIn("Name=Monitorize", source_launcher.splitlines())
+
+    def test_flatpak_uses_ffmpeg_9_build_deps_bundle(self):
+        manifest = (ROOT / "packaging/flatpak/com.vinnavan.Monitorize.yml").read_text()
+        ffmpeg_module = (ROOT / "packaging/flatpak/modules/ffmpeg.json").read_text()
+        self.assertIn("modules/ffmpeg.json", manifest)
+        self.assertNotIn(
+            "external/sunshine/packaging/linux/flatpak/modules/ffmpeg.json",
+            manifest,
+        )
+        self.assertIn("v2026.905.170812", ffmpeg_module)
+        self.assertIn(
+            "880f0b9983ea9b55a6cceb2e5afa6388e256751f3cac2baf4ef0cf6eedc57aea",
+            ffmpeg_module,
+        )
+        self.assertIn(
+            "096069f2737a93ff44ba6445b700213708ab1fec01fd015e528a47845b5fde46",
+            ffmpeg_module,
+        )
+
+    def test_forced_codec_participates_in_moonlight_negotiation(self):
+        patch_text = (ROOT / "packaging/sunshine-strict-selection.patch").read_text()
+        self.assertIn("force_non_h264 ? 0 : SCM_H264", patch_text)
+        self.assertIn(
+            "!force_non_h264 && video::last_encoder_probe_supported_yuv444_for_codec[0]",
+            patch_text,
+        )
+        self.assertIn("MONITORIZE_STRICT_CODEC_REJECTED", patch_text)
+        self.assertIn(
+            "config::video.hevc_mode == 1 && config::video.av1_mode == 1",
+            patch_text,
+        )
+
     @staticmethod
     def write_executable(path, content):
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -369,8 +409,15 @@ check_sunshine_node_modules_permissions
                 path.touch()
             (sunshine / "src").mkdir()
             (sunshine / "src/video.cpp").write_text("MONITORIZE_STRICT_SELECTION_FAILED\n")
+            (sunshine / "src/platform/linux").mkdir(parents=True)
+            (sunshine / "src/platform/linux/portalgrab.cpp").write_text(
+                "SUNSHINE_PORTAL_TOKEN_SCOPE\n"
+            )
             (repository / "packaging").mkdir()
             (repository / "packaging/sunshine-strict-selection.patch").write_text("test patch\n")
+            (repository / "packaging/sunshine-portal-token-scope.patch").write_text(
+                "test portal patch\n"
+            )
 
             fake_bin = fixture / "bin"
             self.write_executable(
@@ -527,6 +574,8 @@ exit 0
         self.assertIn("-G Ninja", script)
         self.assertIn("check_sunshine_node_modules_permissions", script)
         self.assertIn("Sunshine's generated npm cache is not writable", script)
+        self.assertIn("sunshine-portal-token-scope.patch", script)
+        self.assertIn("SUNSHINE_PORTAL_TOKEN_SCOPE", script)
         self.assertIn("Then rerun this installer without sudo.", script)
         self.assertIn("multi-GPU VA-API selection will be unavailable", script)
         self.assertIn("require_command patch", script)
@@ -547,6 +596,7 @@ exit 0
     def test_nix_closure_has_no_monitorize_gstreamer_or_adb_runtime(self):
         package = (ROOT / "nix/package.nix").read_text()
         self.assertIn("monitorizeSunshine", package)
+        self.assertIn("sunshine-portal-token-scope.patch", package)
         self.assertNotIn("gst_all_1", package)
         self.assertNotIn("android-tools", package)
         self.assertNotIn("monitorize-rtp-sender", package)
@@ -559,6 +609,60 @@ exit 0
         self.assertIn("Create a Virtual Display", qml)
         for legacy in ("USB Mode", "Receiver Mode", 'model: ["Monitorize", "Sunshine"]'):
             self.assertNotIn(legacy, qml)
+
+    def test_display_setup_groups_streaming_and_virtual_only_controls(self):
+        qml = (ROOT / "linux/monitorize/qml/DisplaySetupPage.qml").read_text()
+        headings = ('title: "DISPLAY"', 'title: "STREAMING"', 'title: "EXTRAS"')
+        for heading in headings:
+            self.assertIn(heading, qml)
+        self.assertLess(qml.index(headings[0]), qml.index(headings[1]))
+        self.assertLess(qml.index(headings[1]), qml.index(headings[2]))
+        self.assertIn('model: ["Automatic (Recommended)", "Customize ›"]', qml)
+        self.assertIn('text: "Create virtual display only"', qml)
+        self.assertNotIn('text: "Launch"', qml)
+        self.assertNotIn("Moonlight will discover", qml)
+        self.assertIn(
+            "Creates the virtual display without starting Monitorize’s streaming backend.",
+            qml,
+        )
+        self.assertIn(
+            'backend.setStreamingBackend(checked ? "none" : "sunshine")',
+            qml,
+        )
+
+    def test_source_vkms_ui_and_standalone_cli_backend_integration(self):
+        qml = (ROOT / "linux/monitorize/qml/DisplaySetupPage.qml").read_text()
+        display_card = (ROOT / "linux/monitorize/qml/VirtualDisplayModeCard.qml").read_text()
+        installer = (ROOT / "linux/scripts/install.sh").read_text()
+        cli_adapter = (ROOT / "linux/monitorize/platform/monitorize_vkms_cli.py").read_text()
+        self.assertIn('text: "Virtual Display Creator"', qml)
+        self.assertIn('"VKMS (Experimental)"', qml)
+        self.assertIn('backend.checkVkmsCustomEdidSupport()', qml)
+        self.assertIn('VirtualDisplayModeCard', qml)
+        self.assertIn('backend.vkmsCustomEdidCapability', qml)
+        self.assertIn('Custom VKMS resolution unavailable', qml)
+        self.assertIn('Could not check VKMS custom-resolution support', qml)
+        self.assertIn('"Install monitorize-vkms"', qml)
+        self.assertIn('currentText === "Custom..."', display_card)
+        self.assertIn("check_vkms_cli", installer)
+        self.assertIn("class MonitorizeVkmsClient", cli_adapter)
+        self.assertNotIn("shell=True", cli_adapter)
+        self.assertFalse((ROOT / "packaging/common/monitorize-source-vkms-helper").exists())
+        self.assertFalse((ROOT / "packaging/common/io.github.vinnavannewton.monitorize.source-vkms.policy").exists())
+        self.assertFalse((ROOT / "linux/monitorize/platform/vkms_edid.py").exists())
+
+    def test_source_install_defers_vkms_polkit_until_explicitly_opted_in(self):
+        installer = (ROOT / "linux/scripts/install.sh").read_text()
+        self.assertIn("--with-vkms)", installer)
+        self.assertIn("INSTALL_VKMS_HELPER=0", installer)
+        self.assertIn(
+            "if (( INSTALL_VKMS_HELPER )); then\n    check_vkms_cli\nelse",
+            installer,
+        )
+        self.assertIn(
+            "Skipping optional VKMS check. Standalone monitorize-vkms can be installed separately.",
+            installer,
+        )
 
     def test_choice_chips_and_preset_menu_use_the_requested_layout(self):
         chips = (ROOT / "linux/monitorize/qml/ChoiceChips.qml").read_text()
@@ -575,6 +679,74 @@ exit 0
         self.assertIn("interval: 2000", qml)
         self.assertIn('if (result["success"]) pinSuccessCloseTimer.restart()', qml)
         self.assertIn("onTriggered: pinPopup.close()", qml)
+
+    def test_navigation_direction_and_display_picker_actions_are_unambiguous(self):
+        main = (ROOT / "linux/monitorize/qml/main.qml").read_text()
+        combo = (ROOT / "linux/monitorize/qml/CustomComboBox.qml").read_text()
+        display_setup = (ROOT / "linux/monitorize/qml/DisplaySetupPage.qml").read_text()
+        streaming = (ROOT / "linux/monitorize/qml/StreamingPage.qml").read_text()
+
+        self.assertIn("function pageOrder(page)", main)
+        self.assertIn("property int pageTransitionDirection: 1", main)
+        self.assertIn(
+            "pageTransitionDirection = pageOrder(page) > pageOrder(selectedPage) ? 1 : -1",
+            main,
+        )
+        self.assertIn(
+            "from: root.pageTransitionDirection * stack.height",
+            main,
+        )
+        self.assertIn(
+            "to: -root.pageTransitionDirection * stack.height",
+            main,
+        )
+        self.assertIn("property int disabledIndex: -1", combo)
+        self.assertIn("enabled: index !== cb.disabledIndex", combo)
+        self.assertIn("indicator: Text", combo)
+        self.assertIn("color: theme.textPrimary", combo)
+        self.assertIn("disabledIndex: 0", display_setup)
+        self.assertIn(
+            'model: displayType.currentText === "Extend" ? page.virtualDisplays : []',
+            display_setup,
+        )
+        self.assertIn(
+            'visible: displayType.currentText === "Extend" && page.virtualDisplays.length < 2',
+            display_setup,
+        )
+        self.assertIn("displayNumber: Number(modelData.id)", display_setup)
+        self.assertIn("canRemove: Number(modelData.id) === 2", display_setup)
+        self.assertIn("function mirrorResolutionLabel()", display_setup)
+        self.assertEqual(streaming.count('text: "Pair Moonlight PIN"'), 1)
+        self.assertIn("model: backend.sessionDisplays", streaming)
+        self.assertIn("text: displayCard.modelData.title", streaming)
+        self.assertIn('text: "Sunshine settings"', streaming)
+        self.assertIn("visible: displayCard.modelData.number === 2", streaming)
+        self.assertIn("backend.removeSessionDisplay(1)", streaming)
+        self.assertNotIn('text: "Add Display"', streaming)
+
+    def test_add_display_is_disabled_in_vkms_mode(self):
+        qml = (ROOT / "linux/monitorize/qml/DisplaySetupPage.qml").read_text()
+        button = qml.split("id: addDisplayButton", 1)[1].split("SectionCard {", 1)[0]
+        self.assertIn("enabled: !page.vkmsSelected", button)
+        self.assertIn("opacity: enabled ? 1.0 : 0.4", button)
+        self.assertIn("addDisplayButton.enabled && addDisplayButton.hovered", button)
+        self.assertIn("if (vkmsSelected || virtualDisplays.length >= 2) return", qml)
+        self.assertNotIn("Creates up to two displays using Linux's experimental VKMS path", qml)
+
+    def test_navigation_avoids_hidden_synchronous_work(self):
+        display_setup = (ROOT / "linux/monitorize/qml/DisplaySetupPage.qml").read_text()
+        streaming = (ROOT / "linux/monitorize/qml/StreamingPage.qml").read_text()
+
+        self.assertIn("function sameDisplayMode(left, right)", display_setup)
+        self.assertIn("&& !page.sameDisplayMode(current, updated[i])", display_setup)
+        self.assertIn("if (hasChanges) {", display_setup)
+        self.assertNotIn("Component.onCompleted: refreshDiagnostics()", streaming)
+        self.assertNotIn("function onLogAppended", streaming)
+        self.assertIn(
+            "if (logsExpanded) Qt.callLater(function() { page.refreshDiagnostics() })",
+            streaming,
+        )
+        self.assertIn("running: page.logsExpanded", streaming)
 
     def test_choice_chips_and_start_card_fit_their_containers(self):
         chips = (ROOT / "linux/monitorize/qml/ChoiceChips.qml").read_text()
@@ -623,6 +795,7 @@ exit 0
         self.assertIn("%dir %{_datadir}/monitorize/sunshine", spec)
         self.assertIn("MONITORIZE_SUNSHINE_BIN", spec)
         self.assertIn("MONITORIZE_SUNSHINE_ASSETS_DIR", spec)
+        self.assertIn("sunshine-portal-token-scope.patch", spec)
         self.assertIn("sunshine_ffmpeg_sha256", spec)
         self.assertIn("BuildRequires:  boost-devel >= 1.89.0", spec)
         self.assertIn("BuildRequires:  firewalld-filesystem", spec)

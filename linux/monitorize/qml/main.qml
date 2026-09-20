@@ -10,35 +10,75 @@ Rectangle {
     property bool settingsMinimizeToTray: false
     property bool settingsAutostartEnabled: false
     property string settingsError: ""
+    property bool stagnantCleanupSucceeded: false
+    property string stagnantCleanupMessage: ""
+    property bool restoreTokenClearSucceeded: false
+    property string restoreTokenClearMessage: ""
+    property string startFailureMessage: "Failed to start stream"
     readonly property bool showGlobalBack: stack.depth > 1 && !backend.isStreaming
+    property string selectedPage: "DisplaySetupPage.qml"
+    property string highlightedPage: "DisplaySetupPage.qml"
+    property bool navHighlightFading: false
+    property int pageTransitionDirection: 1
 
-    function loadAppSettings() {
-        settingsLoading = true
-        let gen = backend.loadGeneralSettings()
-        settingsMinimizeToTray = gen["minimize_to_tray"] !== undefined ? gen["minimize_to_tray"] : false
-        settingsAutostartEnabled = backend.isAutostartEnabled()
-        minimizeTrayCheck.checked = settingsMinimizeToTray
-        autostartCheck.checked = settingsAutostartEnabled
-        settingsError = ""
-        settingsLoading = false
+    function pageOrder(page) {
+        if (page === "DisplaySetupPage.qml") return 0
+        if (page === "StreamingPage.qml") return 1
+        if (page === "PresetsPage.qml") return 2
+        return 3
     }
 
-    function saveAppSettings() {
-        if (settingsLoading) return
-        settingsMinimizeToTray = minimizeTrayCheck.checked
-        backend.saveGeneralSettings(settingsMinimizeToTray)
+    function navigationGroup(page) {
+        return (page === "DisplaySetupPage.qml" || page === "StreamingPage.qml")
+            ? "top" : "bottom"
     }
 
-    function saveAutostartSettings() {
-        if (settingsLoading) return
-        settingsAutostartEnabled = autostartCheck.checked
-        settingsError = backend.setAutostartEnabled(settingsAutostartEnabled)
-        if (settingsError.length > 0) {
-            settingsLoading = true
-            settingsAutostartEnabled = backend.isAutostartEnabled()
-            autostartCheck.checked = settingsAutostartEnabled
-            settingsLoading = false
+    function navigationButtonY(page) {
+        if (page === "DisplaySetupPage.qml") return navigationColumn.y + configureButton.y
+        if (page === "StreamingPage.qml") return navigationColumn.y + sessionButton.y
+        if (page === "PresetsPage.qml") return navigationColumn.y + presetsButton.y
+        return navigationColumn.y + settingsButton.y
+    }
+
+    function navigationButtonHeight(page) {
+        if (page === "DisplaySetupPage.qml") return configureButton.height
+        if (page === "StreamingPage.qml") return sessionButton.height
+        if (page === "PresetsPage.qml") return presetsButton.height
+        return settingsButton.height
+    }
+
+    onSelectedPageChanged: {
+        if (highlightedPage === selectedPage) return
+        if (navigationGroup(highlightedPage) === navigationGroup(selectedPage)) {
+            navHighlightFade.stop()
+            navHighlightFading = false
+            navHighlight.opacity = 1
+            highlightedPage = selectedPage
+        } else {
+            navHighlightFading = true
+            navHighlightFade.restart()
         }
+    }
+
+    function navigate(page) {
+        if (page === selectedPage) return
+        if (stack.currentItem && typeof stack.currentItem.commitAllPendingDisplaySettings === "function") {
+            stack.currentItem.commitAllPendingDisplaySettings()
+        }
+        pageTransitionDirection = pageOrder(page) > pageOrder(selectedPage) ? 1 : -1
+        selectedPage = page
+        stack.replace(page)
+    }
+
+    function removeStagnantVirtualDisplays() {
+        backend.removeStagnantVirtualDisplays()
+    }
+
+    function clearRestoreTokens() {
+        let result = backend.clearRestoreTokens()
+        restoreTokenClearSucceeded = result["success"] === true
+        restoreTokenClearMessage = result["message"] || "No restore tokens were found"
+        restoreTokenClearToast.open()
     }
 
     Theme {
@@ -55,21 +95,24 @@ Rectangle {
     // --- Navigate between pages when streaming state changes ---
     Connections {
         target: backend
+        function onVirtualDisplayCleanupFinished(success, message) {
+            root.stagnantCleanupSucceeded = success
+            root.stagnantCleanupMessage = message
+            stagnantCleanupToast.open()
+        }
         function onIsStreamingChanged(streaming) {
             if (streaming) {
-                let returnPage = stack.currentItem
-                    && stack.currentItem.returnPageSource !== undefined
-                    ? stack.currentItem.returnPageSource
-                    : "MainMenuPage.qml"
-                stack.lastStreamingSetupPage = returnPage.length > 0
-                    ? returnPage
-                    : "MainMenuPage.qml"
-                stack.replace("StreamingPage.qml")
-            } else {
-                stack.replace(stack.lastStreamingSetupPage, StackView.PopTransition)
+                if (root.selectedPage !== "StreamingPage.qml") root.navigate("StreamingPage.qml")
             }
         }
-        function onStreamingStartFailed() { startFailedToast.open() }
+        function onStreamingStartFailed() {
+            root.startFailureMessage = "Failed to start stream"
+            startFailedToast.open()
+        }
+        function onStreamingCodecMismatch(message) {
+            root.startFailureMessage = message
+            startFailedToast.open()
+        }
     }
 
     Component.onCompleted: {
@@ -80,14 +123,23 @@ Rectangle {
     StackView {
         id: stack
         objectName: "mainStack"
+        clip: true
         property string lastStreamingSetupPage: "MainMenuPage.qml"
         anchors.fill: parent
-        anchors.leftMargin: 20
-        anchors.rightMargin: 20
-        anchors.topMargin: 56
+        anchors.leftMargin: 134
+        anchors.rightMargin: 28
+        anchors.topMargin: 28
         anchors.bottomMargin: 20
-        initialItem: "MainMenuPage.qml"
+        initialItem: "DisplaySetupPage.qml"
 
+        replaceEnter: Transition {
+            PropertyAnimation { property: "y"; from: root.pageTransitionDirection * stack.height; to: 0; duration: 300; easing.type: Easing.OutCubic }
+            PropertyAnimation { property: "opacity"; from: 0; to: 1; duration: 250 }
+        }
+        replaceExit: Transition {
+            PropertyAnimation { property: "y"; to: -root.pageTransitionDirection * stack.height; duration: 300; easing.type: Easing.OutCubic }
+            PropertyAnimation { property: "opacity"; to: 0; duration: 250 }
+        }
         pushEnter: Transition {
             PropertyAnimation { property: "x"; from: stack.width; to: 0; duration: 300; easing.type: Easing.OutCubic }
             PropertyAnimation { property: "opacity"; from: 0; to: 1; duration: 250 }
@@ -106,12 +158,83 @@ Rectangle {
         }
     }
 
+    Rectangle {
+        id: sidebar
+        width: 106
+        anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
+        color: "#101e30"; border.color: theme.border
+
+        Rectangle {
+            id: navHighlight
+            x: navigationColumn.x
+            width: navigationColumn.width
+            y: root.navigationButtonY(root.highlightedPage)
+            height: root.navigationButtonHeight(root.highlightedPage)
+            radius: 10
+            color: theme.buttonBackground
+            z: 0
+
+            Behavior on y {
+                enabled: !root.navHighlightFading
+                NumberAnimation { duration: 260; easing.type: Easing.InOutCubic }
+            }
+            Behavior on height {
+                enabled: !root.navHighlightFading
+                NumberAnimation { duration: 180; easing.type: Easing.InOutCubic }
+            }
+        }
+
+        ColumnLayout {
+            id: navigationColumn
+            anchors { fill: parent; margins: 8; topMargin: 18; bottomMargin: 14 }
+            spacing: 10
+            z: 1
+            NavigationButton {
+                id: configureButton
+                label: "Configure"; symbol: "display"; Layout.fillWidth: true
+                selected: root.selectedPage === "DisplaySetupPage.qml"
+                onClicked: root.navigate("DisplaySetupPage.qml")
+            }
+            NavigationButton {
+                id: sessionButton
+                label: "Session"; symbol: "session"; Layout.fillWidth: true
+                selected: root.selectedPage === "StreamingPage.qml"
+                onClicked: root.navigate("StreamingPage.qml")
+            }
+            Item { Layout.fillHeight: true }
+            NavigationButton {
+                id: presetsButton
+                label: "Presets"; symbol: "logs"; Layout.fillWidth: true
+                selected: root.selectedPage === "PresetsPage.qml"
+                onClicked: root.navigate("PresetsPage.qml")
+            }
+            NavigationButton {
+                id: settingsButton
+                label: "Settings"; symbol: "settings"; Layout.fillWidth: true
+                selected: root.selectedPage === "SettingsPage.qml"
+                onClicked: root.navigate("SettingsPage.qml")
+            }
+        }
+    }
+
+    SequentialAnimation {
+        id: navHighlightFade
+        NumberAnimation { target: navHighlight; property: "opacity"; to: 0; duration: 110 }
+        ScriptAction {
+            script: {
+                root.highlightedPage = root.selectedPage
+                root.navHighlightFading = false
+            }
+        }
+        NumberAnimation { target: navHighlight; property: "opacity"; to: 1; duration: 150 }
+    }
+
     Popup {
         id: startFailedToast
         parent: Overlay.overlay
         x: (parent.width - width) / 2
         y: parent.height - height - 28
-        width: 220
+        width: 340
         height: 48
         modal: false
         focus: false
@@ -122,7 +245,7 @@ Rectangle {
             radius: 8
         }
         contentItem: Text {
-            text: "Failed to start stream"
+            text: root.startFailureMessage
             color: "white"
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
@@ -132,6 +255,66 @@ Rectangle {
             id: startFailedToastTimer
             interval: 2800
             onTriggered: startFailedToast.close()
+        }
+    }
+
+    Popup {
+        id: stagnantCleanupToast
+        parent: Overlay.overlay
+        x: (parent.width - width) / 2
+        y: parent.height - height - 28
+        z: 1000
+        width: 330
+        height: 48
+        modal: false
+        focus: false
+        padding: 12
+        closePolicy: Popup.NoAutoClose
+        background: Rectangle {
+            color: root.stagnantCleanupSucceeded ? "#15803d" : "#b91c1c"
+            radius: 8
+        }
+        contentItem: Text {
+            text: root.stagnantCleanupMessage
+            color: "white"
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+        }
+        onOpened: stagnantCleanupToastTimer.restart()
+        Timer {
+            id: stagnantCleanupToastTimer
+            interval: 2800
+            onTriggered: stagnantCleanupToast.close()
+        }
+    }
+
+    Popup {
+        id: restoreTokenClearToast
+        parent: Overlay.overlay
+        x: (parent.width - width) / 2
+        y: parent.height - height - 28
+        z: 1000
+        width: 380
+        height: 48
+        modal: false
+        focus: false
+        padding: 12
+        closePolicy: Popup.NoAutoClose
+        background: Rectangle {
+            color: root.restoreTokenClearSucceeded ? "#15803d" : "#b91c1c"
+            radius: 8
+        }
+        contentItem: Text {
+            text: root.restoreTokenClearMessage
+            color: "white"
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+        }
+        onOpened: restoreTokenClearToastTimer.restart()
+        Timer {
+            id: restoreTokenClearToastTimer
+            interval: 3200
+            onTriggered: restoreTokenClearToast.close()
         }
     }
 
@@ -233,7 +416,7 @@ Rectangle {
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.topMargin: 14
-        anchors.leftMargin: 20
+        anchors.leftMargin: 134
         z: 2
         visible: root.showGlobalBack
         text: "‹ Back"
@@ -256,131 +439,4 @@ Rectangle {
         }
     }
 
-    Button {
-        id: settingsButton
-        objectName: "settingsIconButton"
-        anchors.top: parent.top
-        anchors.right: parent.right
-        anchors.topMargin: 14
-        anchors.rightMargin: 20
-        z: 2
-        width: 36
-        height: 36
-        visible: true
-        onClicked: {
-            root.loadAppSettings()
-            settingsPopup.open()
-        }
-        background: Rectangle {
-            implicitWidth: 36
-            implicitHeight: 36
-            visible: parent.hovered || parent.down
-            color: parent.down ? theme.borderHover : theme.surfaceAlt
-            radius: theme.controlRadius
-            Behavior on color { ColorAnimation { duration: 150 } }
-        }
-        contentItem: Item {
-            implicitWidth: 36
-            implicitHeight: 36
-
-            Image {
-                anchors.centerIn: parent
-                width: 17
-                height: 17
-                source: "../assets/svg/settings.svg"
-                sourceSize.width: 17
-                sourceSize.height: 17
-                fillMode: Image.PreserveAspectFit
-            }
-        }
-    }
-
-    Popup {
-        id: settingsPopup
-        modal: true
-        anchors.centerIn: parent
-        width: 360
-        height: settingsContent.implicitHeight + 44
-        padding: 22
-        background: Rectangle {
-            color: theme.surface
-            border.color: theme.border
-            border.width: 1
-            radius: theme.cardRadius
-        }
-        Overlay.modal: Rectangle { color: "#80000000" }
-
-        ColumnLayout {
-            id: settingsContent
-            anchors.fill: parent
-            spacing: 16
-
-            Text {
-                text: "Settings"
-                color: theme.cardTextPrimary
-                font.pixelSize: 18
-                font.weight: Font.Bold
-                Layout.fillWidth: true
-            }
-
-            CustomCheckBox {
-                id: minimizeTrayCheck
-                text: "Minimize to tray on close"
-                Layout.fillWidth: true
-                onCheckedChanged: root.saveAppSettings()
-            }
-
-            CustomCheckBox {
-                id: autostartCheck
-                text: "Start Monitorize after login"
-                Layout.fillWidth: true
-                onCheckedChanged: root.saveAutostartSettings()
-            }
-
-            Text {
-                text: root.settingsError
-                visible: root.settingsError.length > 0
-                color: "#fca5a5"
-                font.pixelSize: 11
-                wrapMode: Text.WordWrap
-                Layout.fillWidth: true
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                CustomButton {
-                    visible: backend.systemSetupAvailable
-                    text: "Run system setup again"
-                    primary: false
-                    onClicked: {
-                        settingsPopup.close()
-                        stack.push("SystemSetupPage.qml")
-                    }
-                }
-                Item { Layout.fillWidth: true }
-                Button {
-                    text: "Close"
-                    onClicked: settingsPopup.close()
-                    background: Rectangle {
-                        implicitWidth: 92
-                        implicitHeight: 36
-                        color: parent.down ? theme.surfaceAlt : (parent.hovered ? theme.borderHover : theme.surface)
-                        border.color: parent.hovered ? theme.borderHover : theme.border
-                        border.width: 1
-                        radius: theme.controlRadius
-                        Behavior on color { ColorAnimation { duration: 150 } }
-                        Behavior on border.color { ColorAnimation { duration: 150 } }
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        color: parent.hovered ? theme.textPrimary : theme.cardTextPrimary
-                        font.pixelSize: 12
-                        font.weight: Font.Bold
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                }
-            }
-        }
-    }
 }

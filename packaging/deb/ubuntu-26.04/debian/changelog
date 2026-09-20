@@ -1,3 +1,9 @@
+monitorize (0.39) resolute; urgency=medium
+
+  * Release Monitorize 0.39 with compositor-native and VKMS virtual displays.
+
+ -- Monitorize contributors <noreply@example.com>  Mon, 21 Sep 2026 00:36:46 +0530
+
 monitorize (0.2.8) resolute; urgency=medium
 
   * Initial Ubuntu 26.04 AMD64 package with bundled Sunshine.

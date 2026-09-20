@@ -31,6 +31,7 @@ class TumbleweedRpmPackagingTest(unittest.TestCase):
         self.assertIn("Requires:       polkit", spec)
         self.assertIn("MONITORIZE_SUNSHINE_BIN", spec)
         self.assertIn("MONITORIZE_SUNSHINE_ASSETS_DIR", spec)
+        self.assertIn("sunshine-portal-token-scope.patch", spec)
         self.assertIn("%{_modulesloaddir}/monitorize.conf", spec)
         self.assertNotIn("cmake --install", spec)
         self.assertNotRegex(spec, r"install .*%\{_bindir\}/sunshine")

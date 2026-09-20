@@ -10,7 +10,7 @@ class GpuDiscoveryTest(unittest.TestCase):
         gpu.discover_vaapi_h264_gpus.cache_clear()
         gpu.discover_nvidia_h264_gpus.cache_clear()
 
-    def test_vaapi_lists_only_h264_high_encode_devices(self):
+    def test_vaapi_lists_only_h264_encode_devices(self):
         with (
             patch.object(gpu, "_render_nodes_by_pci", return_value={
                 "0000:03:00.0": "/dev/dri/renderD129",
@@ -27,6 +27,26 @@ class GpuDiscoveryTest(unittest.TestCase):
 
         self.assertEqual([device["id"] for device in devices], ["0000:03:00.0"])
         self.assertEqual(devices[0]["render_node"], "/dev/dri/renderD129")
+
+    def test_vaapi_accepts_low_power_and_non_high_h264_profiles(self):
+        with (
+            patch.object(gpu, "_render_nodes_by_pci", return_value={
+                "0000:00:02.0": "/dev/dri/renderD128",
+                "0000:04:00.0": "/dev/dri/renderD129",
+            }),
+            patch.object(gpu, "_run", side_effect=[
+                "Driver version: Intel iHD\n"
+                "VAProfileH264Main : VAEntrypointEncSliceLP",
+                "Driver version: Mesa Gallium driver\n"
+                "VAProfileH264ConstrainedBaseline : VAEntrypointEncPicture",
+            ]),
+        ):
+            devices = gpu.discover_vaapi_h264_gpus()
+
+        self.assertEqual(
+            [device["id"] for device in devices],
+            ["0000:00:02.0", "0000:04:00.0"],
+        )
 
     def test_nvidia_filters_devices_without_an_encoder_engine(self):
         with (
@@ -70,16 +90,12 @@ class GpuDiscoveryTest(unittest.TestCase):
                 gpu.resolve_encoding_gpu("VA-API", "../../bad"),
             )
 
-    def test_qml_selectors_are_conditional_and_cover_both_displays(self):
+    def test_configuration_exposes_conditional_gpu_selection(self):
         qml_dir = Path(__file__).parents[1] / "monitorize" / "qml"
         primary = (qml_dir / "DisplaySetupPage.qml").read_text()
-        second = (qml_dir / "StreamingPage.qml").read_text()
         self.assertIn('text: "Encoding GPU"', primary)
         self.assertIn("visible: gpuOptions.length > 0", primary)
         self.assertIn("page.selectedGpuId()", primary)
-        self.assertIn('text: "Encoding GPU"', second)
-        self.assertIn("visible: secondGpuOptions.length > 0", second)
-        self.assertIn("page.selectedSecondGpuId()", second)
 
 
 if __name__ == "__main__":

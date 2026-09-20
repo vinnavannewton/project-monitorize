@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=Monitorize
+Name=Monitorize Flatpak
 Comment=Create Sunshine virtual displays for Moonlight clients
 Exec=monitorize
 Icon=com.vinnavan.Monitorize

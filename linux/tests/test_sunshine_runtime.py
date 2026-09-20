@@ -8,6 +8,23 @@ from monitorize.platform import sunshine_service as service
 
 
 class SunshineRuntimeTest(unittest.TestCase):
+    def test_live_process_with_failed_video_is_unhealthy(self):
+        process = MagicMock()
+        process.poll.return_value = None
+        with (patch.object(service, "get_sunshine_process", return_value=process),
+              patch.object(service, "get_sunshine_last_error", return_value="Error: Video failed to find working encoder")):
+            alive, code, error = service.check_sunshine_health(1)
+        self.assertFalse(alive)
+        self.assertIsNone(code)
+        self.assertIn("Video failed", error)
+
+    def test_encoder_probe_errors_do_not_fail_health(self):
+        process = MagicMock()
+        process.poll.return_value = None
+        with (patch.object(service, "get_sunshine_process", return_value=process),
+              patch.object(service, "get_sunshine_last_error", return_value="Error: Encoder nvenc failed")):
+            self.assertEqual(service.check_sunshine_health(1), (True, None, ""))
+
     def tearDown(self):
         service._SUNSHINE_PROCESS = None
         service._SUNSHINE_PROCESSES.clear()
@@ -15,7 +32,7 @@ class SunshineRuntimeTest(unittest.TestCase):
         service._SUNSHINE_PIPEWIRE_OFFSETS.clear()
         service._SUNSHINE_PIPEWIRE_DIMS.clear()
 
-    def test_explicit_binary_and_assets_take_precedence(self):
+    def test_arbitrary_binary_and_assets_are_not_adopted(self):
         with tempfile.TemporaryDirectory() as tmp:
             binary = Path(tmp) / "sunshine"
             assets = Path(tmp) / "assets"
@@ -30,26 +47,63 @@ class SunshineRuntimeTest(unittest.TestCase):
                 }, clear=False),
                 patch.object(service, "get_sunshine_config_path", return_value="/tmp/sunshine.conf"),
             ):
-                self.assertEqual(
-                    service.get_sunshine_candidates()[0],
-                    [str(binary), "/tmp/sunshine.conf"],
-                )
-                self.assertEqual(service.get_sunshine_assets_dir(str(binary)), str(assets))
+                self.assertNotIn([str(binary), "/tmp/sunshine.conf"], service.get_sunshine_candidates())
+                self.assertIsNone(service.get_sunshine_assets_dir(str(binary)))
 
-    def test_sync_persists_requested_capture_backend(self):
+    def test_unmanaged_service_is_not_running_monitorize(self):
+        with patch.object(service.socket, "create_connection") as connect:
+            self.assertFalse(service.is_sunshine_running())
+            connect.assert_not_called()
+
+    def test_clear_restore_tokens_only_removes_monitorize_managed_tokens(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config_home = Path(tmp) / "config"
+            managed_dirs = [
+                config_home / "monitorize" / "sunshine-1",
+                config_home / "monitorize" / "sunshine-2",
+                config_home / "monitorize" / "sunshine-profile-1" / "sunshine",
+                config_home / "monitorize" / "sunshine-profile-2" / "sunshine",
+                config_home / "monitorize" / "sunshine",
+            ]
+            token_paths = []
+            for directory in managed_dirs:
+                directory.mkdir(parents=True, exist_ok=True)
+                for filename in service.PORTAL_RESTORE_TOKEN_FILES:
+                    path = directory / filename
+                    path.write_text("token")
+                    token_paths.append(path)
+            personal = config_home / "sunshine" / "portal_token"
+            personal.parent.mkdir(parents=True)
+            personal.write_text("personal-token")
+
+            with patch.dict(
+                os.environ,
+                {"XDG_CONFIG_HOME": str(config_home)},
+                clear=True,
+            ):
+                removed, errors = service.clear_sunshine_portal_restore_tokens()
+
+            self.assertEqual(removed, len(token_paths))
+            self.assertEqual(errors, [])
+            self.assertTrue(all(not path.exists() for path in token_paths))
+            self.assertEqual(personal.read_text(), "personal-token")
+
+    def test_sync_persists_explicit_capture_backend(self):
         with tempfile.TemporaryDirectory() as tmp:
             config_path = Path(tmp) / "sunshine.conf"
+            config_path.write_text("capture = kwin\n")
             with (
                 patch.object(service, "get_sunshine_config_path", return_value=str(config_path)),
                 patch.object(service, "is_sunshine_running", return_value=False),
             ):
                 ok, _ = service.sync_sunshine_stream_config(
-                    "Virtual-Monitorize-1", instance=1, capture="kwin",
+                    "Virtual-Monitorize-1", instance=1,
                     adapter_name="/dev/dri/renderD129",
+                    capture="wlr",
                 )
 
             self.assertTrue(ok)
-            self.assertIn("capture = kwin\n", config_path.read_text())
+            self.assertIn("capture = wlr\n", config_path.read_text())
             self.assertIn("adapter_name = /dev/dri/renderD129\n", config_path.read_text())
 
     def test_sync_persists_vulkan_encoder(self):

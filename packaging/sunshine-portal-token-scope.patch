@@ -1,0 +1,37 @@
+diff --git a/src/platform/linux/portalgrab.cpp b/src/platform/linux/portalgrab.cpp
+--- a/src/platform/linux/portalgrab.cpp
++++ b/src/platform/linux/portalgrab.cpp
+@@ -27,6 +27,22 @@ namespace {
+ 
+   constexpr const char REQUEST_PREFIX[] = "/org/freedesktop/portal/desktop/request/";
+   constexpr const char SESSION_PREFIX[] = "/org/freedesktop/portal/desktop/session/";
++
++  /**
++   * @brief Determine the isolated restore-token scope requested by Monitorize.
++   * @return "mirror" or "extend" when explicitly requested, otherwise an empty view.
++   */
++  static std::string_view get_portal_token_scope() {
++    const char *env = std::getenv("SUNSHINE_PORTAL_TOKEN_SCOPE");
++    if (!env) {
++      return {};
++    }
++    const std::string_view scope {env};
++    if (scope == "mirror" || scope == "extend") {
++      return scope;
++    }
++    return {};
++  }
+ }  // namespace
+ 
+ using namespace std::literals;
+@@ -100,6 +116,10 @@ namespace portal {
+     static inline const std::unique_ptr<std::string> token_ = std::make_unique<std::string>();
+ 
+     static std::string get_file_path() {
++      const auto scope = get_portal_token_scope();
++      if (!scope.empty()) {
++        return platf::appdata().string() + "/portal_token_" + std::string(scope);
++      }
+       return platf::appdata().string() + "/portal_token";
+     }
+   };

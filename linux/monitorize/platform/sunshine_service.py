@@ -36,6 +36,12 @@ SUNSHINE_BASE_PORT = 47989
 SUNSHINE_HTTPS_PORT = 47990
 SUNSHINE_HTTP_PORT = 47989
 SUNSHINE_WEB_URL = f"https://localhost:{SUNSHINE_HTTPS_PORT}"
+PORTAL_RESTORE_TOKEN_FILES = (
+    "portal_token",
+    "portal_token_virtual",
+    "portal_token_mirror",
+    "portal_token_extend",
+)
 
 
 def get_sunshine_log_size(instance: int = 1) -> int:
@@ -94,6 +100,46 @@ def get_sunshine_config_path(instance: int = 1) -> str:
     return os.path.join(get_sunshine_config_dir(instance), "sunshine.conf")
 
 
+def clear_sunshine_portal_restore_tokens() -> tuple[int, list[str]]:
+    """Delete restore tokens belonging to Monitorize-managed Sunshine profiles.
+
+    Both ScreenCast token variants are removed from the current isolated
+    instance directories as well as Monitorize's older profile locations.
+    Personal Sunshine configuration outside Monitorize is never touched.
+    """
+    config_home = os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config"))
+    monitorize_dir = os.path.join(config_home, "monitorize")
+    data_dirs = {
+        get_sunshine_config_dir(1),
+        get_sunshine_config_dir(2),
+        os.path.join(monitorize_dir, "sunshine-profile-1", "sunshine"),
+        os.path.join(monitorize_dir, "sunshine-profile-2", "sunshine"),
+        os.path.join(monitorize_dir, "sunshine"),
+    }
+    removed = 0
+    errors = []
+    for data_dir in sorted(data_dirs):
+        filenames = set(PORTAL_RESTORE_TOKEN_FILES)
+        try:
+            for name in os.listdir(data_dir):
+                for prefix in ("portal_token_mirror_", "portal_token_extend_"):
+                    suffix = name.removeprefix(prefix)
+                    if name.startswith(prefix) and suffix and all(c in "0123456789abcdef" for c in suffix):
+                        filenames.add(name)
+        except OSError:
+            pass
+        for filename in filenames:
+            path = os.path.join(data_dir, filename)
+            try:
+                os.unlink(path)
+                removed += 1
+            except FileNotFoundError:
+                continue
+            except OSError as exc:
+                errors.append(f"{path}: {exc}")
+    return removed, errors
+
+
 def is_sunshine_running(instance: int = 1, timeout: float = 0.5) -> bool:
     """Check whether Monitorize's Sunshine instance is currently running."""
     proc = _SUNSHINE_PROCESSES.get(instance)
@@ -101,17 +147,6 @@ def is_sunshine_running(instance: int = 1, timeout: float = 0.5) -> bool:
         proc = _SUNSHINE_PROCESS
     if proc is not None and proc.poll() is None:
         return True
-
-    https_port = get_sunshine_https_port(instance)
-    http_port = get_sunshine_port(instance)
-    for port in (https_port, http_port):
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                sock.settimeout(timeout)
-                if sock.connect_ex(("127.0.0.1", port)) == 0:
-                    return True
-        except OSError:
-            pass
 
     return False
 
@@ -165,6 +200,11 @@ def check_sunshine_health(instance: int = 1) -> tuple[bool, int | None, str]:
     if proc is not None:
         code = proc.poll()
         if code is None:
+            # Sunshine can keep its configuration UI alive after video startup
+            # fails. That process cannot serve Moonlight even though it exists.
+            error = get_sunshine_last_error(instance)
+            if "Video failed to find working encoder" in error:
+                return False, None, error
             return True, None, ""
 
 
@@ -179,67 +219,46 @@ def check_sunshine_health(instance: int = 1) -> tuple[bool, int | None, str]:
     return False, None, get_sunshine_last_error(instance)
 
 
+def _sunshine_bundles():
+    """Known Monitorize-owned binary/assets pairs; never consult PATH."""
+    if os.path.isfile("/.flatpak-info"):
+        return [("/app/bin/sunshine", "/app/share/sunshine")]
+    root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+    bundles = [
+        (os.path.join(root, "linux/venv/bin/sunshine"),
+         os.path.join(root, "linux/venv/share/monitorize/sunshine/assets")),
+        (os.path.join(root, "external/sunshine/build/sunshine"),
+         os.path.join(root, "external/sunshine/build/assets")),
+        ("/usr/libexec/monitorize/sunshine", "/usr/share/monitorize/sunshine/assets"),
+    ]
+    if os.path.isdir(os.path.join(root, "external/sunshine")):
+        bundles.insert(0, (os.path.join(root, "sunshine-build/sunshine"),
+                           os.path.join(root, "sunshine-build/assets")))
+    explicit = os.environ.get("MONITORIZE_SUNSHINE_BIN", "").strip()
+    suffix = "/usr/libexec/monitorize/sunshine"
+    if explicit.endswith(suffix) and explicit != suffix:
+        prefix = explicit[:-len(suffix)]
+        bundles.insert(0, (explicit, prefix + "/usr/share/monitorize/sunshine/assets"))
+    if explicit:
+        bundles.sort(key=lambda pair: pair[0] != explicit)
+    return bundles
+
+
 def get_sunshine_candidates(instance: int = 1) -> list[list[str]]:
-    """Return an ordered list of candidate commands to launch Monitorize's Sunshine engine."""
-    candidates: list[list[str]] = []
-    config_file = get_sunshine_config_path(instance)
-
-    explicit_bin = os.environ.get("MONITORIZE_SUNSHINE_BIN", "").strip()
-    if explicit_bin and os.path.isfile(explicit_bin) and os.access(explicit_bin, os.X_OK):
-        candidates.append([explicit_bin, config_file])
-
-    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
-    venv_sunshine = os.path.join(project_root, "linux", "venv", "bin", "sunshine")
-    build_sunshine = os.path.join(project_root, "external", "sunshine", "build", "sunshine")
-
-    for local_bin in (venv_sunshine, build_sunshine):
-        if os.path.isfile(local_bin) and os.access(local_bin, os.X_OK):
-            cmd = [local_bin, config_file]
-            if cmd not in candidates:
-                candidates.append(cmd)
-
-    sunshine_bin = shutil.which("sunshine")
-    if sunshine_bin:
-        cmd = [sunshine_bin, config_file]
-        if cmd not in candidates:
-            candidates.append(cmd)
-
-    for common_path in (
-        "/usr/bin/sunshine",
-        "/usr/local/bin/sunshine",
-        "/opt/sunshine/sunshine",
-        "/var/lib/flatpak/exports/bin/dev.lizardbyte.sunshine",
-        os.path.expanduser("~/.local/share/flatpak/exports/bin/dev.lizardbyte.sunshine"),
-        os.path.expanduser("~/.local/bin/sunshine"),
-    ):
-        if os.path.isfile(common_path) and os.access(common_path, os.X_OK):
-            cmd = [common_path, config_file]
-            if cmd not in candidates:
-                candidates.append(cmd)
-
-    return candidates
+    """Only Monitorize's private copies, never a system/user Sunshine."""
+    config = get_sunshine_config_path(instance)
+    return [[binary, config] for binary, _ in _sunshine_bundles()
+            if os.path.isfile(binary) and os.access(binary, os.X_OK)
+            and not os.path.islink(binary)]
 
 
 def get_sunshine_assets_dir(command: str = "") -> str | None:
-    """Resolve assets for the packaged, installed, or development Sunshine binary."""
-    explicit_assets = os.environ.get("MONITORIZE_SUNSHINE_ASSETS_DIR", "").strip()
-    if explicit_assets and os.path.isdir(explicit_assets):
-        return explicit_assets
-
-    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
-    venv_bin = os.path.join(project_root, "linux", "venv", "bin", "sunshine")
-    venv_assets = os.path.join(project_root, "linux", "venv", "share", "monitorize", "sunshine", "assets")
-    build_bin = os.path.join(project_root, "external", "sunshine", "build", "sunshine")
-    build_assets = os.path.join(project_root, "external", "sunshine", "build", "assets")
-
-    ordered = ((venv_bin, venv_assets), (build_bin, build_assets))
-    for binary, assets in ordered:
-        if command == binary and os.path.isdir(assets):
-            return assets
-    for _, assets in ordered:
-        if os.path.isdir(assets):
-            return assets
-    return None
+    """Use assets paired with the chosen embedded binary, not global overrides."""
+    if not command:
+        candidates = get_sunshine_candidates()
+        command = candidates[0][0] if candidates else ""
+    return next((assets for binary, assets in _sunshine_bundles()
+                 if binary == command and os.path.isdir(assets)), None)
 
 
 def find_sunshine_command(instance: int = 1) -> list[str] | None:
@@ -444,12 +463,6 @@ def start_sunshine(
         else:
             return True, f"Sunshine instance {instance} is already running."
 
-    try:
-        from monitorize.platform.gnome_virtual_monitor import map_sunshine_gnome_peripherals
-        map_sunshine_gnome_peripherals()
-    except Exception:
-        pass
-
     candidates = get_sunshine_candidates(instance)
     if not candidates:
         return False, "Sunshine not found. Please verify Monitorize Sunshine is built or installed."
@@ -571,7 +584,9 @@ def open_sunshine_dashboard(path_or_instance: str | int = "", path: str = "", in
         clean_path = path.strip("/")
 
     if not is_sunshine_running(target_instance):
-        start_sunshine(target_instance)
+        ok, _ = start_sunshine(target_instance)
+        if not ok:
+            return False
 
     url = get_sunshine_web_url(target_instance)
     if clean_path:
@@ -614,6 +629,8 @@ def pair_moonlight_pin(pin: str, name: str = "Monitorize Display", instance: int
 
     last_error = ""
     for inst in candidates:
+        if not is_sunshine_running(inst):
+            continue
         url = get_sunshine_web_url(inst)
         req = urllib.request.Request(
             f"{url}/api/pin",
@@ -651,14 +668,14 @@ def sync_sunshine_stream_config(
     codec: str = "Auto",
     native_pen_touch: bool = True,
     instance: int = 1,
-    capture: str = "",
     adapter_name: str = "",
+    capture: str = "",
 ) -> tuple[bool, str]:
     """Atomically synchronize all active streaming parameters to sunshine.conf in a single pass."""
     clean_out = str(output_name or "").strip()
 
     clean_enc = str(encoder or "").strip()
-    clean_capture = str(capture or "").strip()
+    clean_capture = str(capture or "").strip().lower()
     clean_adapter = str(adapter_name or "").strip()
     mapping = {
         "auto": "",
@@ -726,6 +743,8 @@ def sync_sunshine_stream_config(
                     elif stripped.startswith("av1_mode"):
                         lines.append(f"av1_mode = {av1_val}\n")
                         found_av1 = True
+                    elif stripped.startswith("monitorize_mouse_to_touch"):
+                        continue
                     elif stripped.startswith("native_pen_touch"):
                         lines.append(f"native_pen_touch = {pen_touch_val}\n")
                         found_pen_touch = True
