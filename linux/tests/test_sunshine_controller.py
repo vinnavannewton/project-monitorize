@@ -179,6 +179,46 @@ class SunshineControllerTest(unittest.TestCase):
         )
         self.assertTrue(controller.primary_ready)
 
+    @patch("monitorize.desktop.streaming_controller.stop_sunshine")
+    @patch("monitorize.desktop.streaming_controller.start_sunshine", return_value=(True, "started"))
+    @patch("monitorize.desktop.streaming_controller.is_sunshine_running", return_value=False)
+    @patch("monitorize.desktop.streaming_controller.save_sunshine_config", return_value=(True, "saved"))
+    @patch("monitorize.desktop.streaming_controller.sync_sunshine_stream_config", return_value=(True, "synced"))
+    def test_gnome_vkms_event_uses_existing_monitor_pipewire_stream(
+        self, sync, _save, _running, start, _stop
+    ):
+        controller = self.controller("gnome")
+        controller.streaming = True
+        controller._display_ready(
+            "primary",
+            {
+                "type": "headless_ready",
+                "name": "Virtual-1",
+                "node_id": 42,
+                "vkms": True,
+                "width": 1920,
+                "height": 1080,
+                "offset_x": 1920,
+                "offset_y": 0,
+                "fps": 60,
+            },
+        )
+        self.assertEqual(sync.call_args.kwargs["capture"], "pipewire_node")
+        start.assert_called_once_with(
+            1,
+            pipewire_node=42,
+            offset_x=1920,
+            offset_y=0,
+            width=1920,
+            height=1080,
+            extra_environment={
+                "SUNSHINE_PORTAL_TOKEN_SCOPE": "extend",
+                "MONITORIZE_CAPTURE_OUTPUT":
+                    "Virtual-1",
+            },
+        )
+        self.assertTrue(controller.primary_ready)
+
     @patch("monitorize.desktop.streaming_controller.os.path.isfile", return_value=True)
     @patch("monitorize.desktop.streaming_controller.stop_sunshine")
     @patch("monitorize.desktop.streaming_controller.start_sunshine", return_value=(True, "started"))

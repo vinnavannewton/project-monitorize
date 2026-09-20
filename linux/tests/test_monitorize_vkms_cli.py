@@ -160,6 +160,11 @@ class MonitorizeVkmsCliTest(unittest.TestCase):
         """Verify error translation of machine error codes into friendly messages."""
         cases = [
             (
+                {"success": False, "error_type": "compositor_error", "message": "Virtual-1 is already active in Mutter's layout"},
+                1,
+                "Could not activate virtual display in desktop layout: Virtual-1 is already active in Mutter's layout",
+            ),
+            (
                 {"success": False, "error_type": "drm_error", "message": "DRM connector mode did not appear"},
                 1,
                 "DRM connector error",
@@ -280,7 +285,7 @@ class MonitorizeVkmsCliTest(unittest.TestCase):
             patch("select.select", return_value=([fake_stdin], [], [])),
         ):
             rc = vkms_backend.run_vkms_headless(
-                "primary", 2340, 1080, 60, "gnome", client=mock_client
+                "primary", 2340, 1080, 60, "kde", client=mock_client
             )
 
         self.assertEqual(rc, 0)

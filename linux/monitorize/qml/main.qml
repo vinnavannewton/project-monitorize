@@ -71,10 +71,7 @@ Rectangle {
     }
 
     function removeStagnantVirtualDisplays() {
-        let result = backend.removeStagnantVirtualDisplays()
-        stagnantCleanupSucceeded = result["success"] === true
-        stagnantCleanupMessage = result["message"] || "No stagnant displays were found"
-        stagnantCleanupToast.open()
+        backend.removeStagnantVirtualDisplays()
     }
 
     function clearRestoreTokens() {
@@ -98,6 +95,11 @@ Rectangle {
     // --- Navigate between pages when streaming state changes ---
     Connections {
         target: backend
+        function onVirtualDisplayCleanupFinished(success, message) {
+            root.stagnantCleanupSucceeded = success
+            root.stagnantCleanupMessage = message
+            stagnantCleanupToast.open()
+        }
         function onIsStreamingChanged(streaming) {
             if (streaming) {
                 if (root.selectedPage !== "StreamingPage.qml") root.navigate("StreamingPage.qml")

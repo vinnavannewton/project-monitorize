@@ -88,6 +88,8 @@ def _translate_error_message(error_type: str, raw_message: str) -> str:
 
     if code == "TOPOLOGY_NOT_READY" or "topology" in lower_msg or "bootstrap" in lower_msg:
         return "Monitorize VKMS is installed but not ready. Reboot once after installation."
+    if lower_type == "compositor_error":
+        return f"Could not activate virtual display in desktop layout: {raw_message}"
     if code == "DISPLAY_ALREADY_ACTIVE" or "already active" in lower_msg or "active virtual display" in lower_msg:
         return "A Monitorize VKMS display is already active."
     if code == "UNSUPPORTED_COMPOSITOR" or "unsupported compositor" in lower_msg:
@@ -100,8 +102,6 @@ def _translate_error_message(error_type: str, raw_message: str) -> str:
         return f"Invalid virtual display resolution or refresh rate: {raw_message}"
     if lower_type in ("edid_error", "mode_unsupported") or code == "EDID_ERROR":
         return f"The requested mode cannot be represented safely: {raw_message}"
-    if lower_type == "compositor_error":
-        return f"Could not activate virtual display in desktop layout: {raw_message}"
     if lower_type == "drm_error":
         return f"DRM connector error: {raw_message}"
     if lower_type == "helper_error":

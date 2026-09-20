@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import shutil
+import sys
 from pathlib import Path
 
 from PyQt6.QtCore import QObject, QProcess, QTimer, pyqtProperty, pyqtSignal, pyqtSlot
@@ -37,7 +38,7 @@ from monitorize.platform.sunshine_service import (
     set_sunshine_native_pen_touch,
 )
 from monitorize.platform.system_setup import apply_system_setup, get_system_setup_status
-from monitorize.platform.utils import get_local_ip
+from monitorize.platform.utils import LINUX_DIR, get_local_ip
 from monitorize.platform.monitorize_vkms_cli import MonitorizeVkmsClient
 from monitorize.platform.vkms_backend import (
     CustomEdidCapability,
@@ -68,10 +69,13 @@ class MonitorizeBackend(QObject):
     vkmsCustomCapabilityCheckingChanged = pyqtSignal()
     vkmsCustomEdidCapabilityChanged = pyqtSignal()
     vkmsCustomCapabilityChecked = pyqtSignal(str)
+    virtualDisplayCleanupChanged = pyqtSignal()
+    virtualDisplayCleanupFinished = pyqtSignal(bool, str)
 
     def __init__(self, de, parent=None):
         super().__init__(parent)
         self._detected_de = de
+        self._virtual_display_cleanup_process = None
         self._local_ip = get_local_ip()
         self._sunshine_available = find_sunshine_command(1) is not None
         general = load_general_settings()
@@ -165,6 +169,8 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot()
     def startSession(self):
+        if self.virtualDisplayCleanupRunning:
+            return
         self.session.start()
 
     @pyqtSlot()
@@ -553,18 +559,49 @@ class MonitorizeBackend(QObject):
     def setAutostartEnabled(self, enabled):
         return autostart.set_enabled(enabled)
 
-    @pyqtSlot(result="QVariantMap")
+    @pyqtProperty(bool, notify=virtualDisplayCleanupChanged)
+    def virtualDisplayCleanupRunning(self):
+        return self._virtual_display_cleanup_process is not None
+
+    def _finish_virtual_display_cleanup(self, process, exit_code):
+        if process is not self._virtual_display_cleanup_process:
+            return
+        result = {"success": False, "message": "Virtual display cleanup failed"}
+        output = bytes(process.readAllStandardOutput()).decode("utf-8", errors="replace")
+        for line in output.splitlines():
+            if line.startswith("MONITORIZE_CLEANUP "):
+                try:
+                    parsed = json.loads(line.split(" ", 1)[1])
+                    if isinstance(parsed, dict):
+                        result = parsed
+                except ValueError:
+                    pass
+        self._virtual_display_cleanup_process = None
+        process.deleteLater()
+        self.virtualDisplayCleanupChanged.emit()
+        self.virtualDisplayCleanupFinished.emit(
+            exit_code == 0 and result.get("success") is True,
+            str(result.get("message") or "Virtual display cleanup failed"),
+        )
+
+    @pyqtSlot()
     def removeStagnantVirtualDisplays(self):
-        removed = DisplayController(self._detected_de).remove_stagnant_virtual_displays()
-        if removed:
-            return {
-                "success": True,
-                "message": "Successfully removed stagnant virtual displays",
-            }
-        return {
-            "success": False,
-            "message": "No stagnant displays were found",
-        }
+        if self.virtualDisplayCleanupRunning:
+            return
+        if self.isStreaming:
+            self.virtualDisplayCleanupFinished.emit(False, "Stop streaming before removing virtual displays")
+            return
+        process = QProcess(self)
+        process.setWorkingDirectory(LINUX_DIR)
+        process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+        process.finished.connect(lambda code, _status: self._finish_virtual_display_cleanup(process, code))
+        process.errorOccurred.connect(
+            lambda error: self._finish_virtual_display_cleanup(process, 1)
+            if error == QProcess.ProcessError.FailedToStart else None
+        )
+        self._virtual_display_cleanup_process = process
+        self.virtualDisplayCleanupChanged.emit()
+        process.start(sys.executable, ["-m", "monitorize.platform.virtual_display_cleanup", self._detected_de])
 
     @pyqtSlot(result="QVariantMap")
     def clearRestoreTokens(self):
@@ -601,6 +638,8 @@ class MonitorizeBackend(QObject):
         native_pen_touch,
         enable_audio,
     ):
+        if self.virtualDisplayCleanupRunning:
+            return
         self.streaming.start(
             res,
             fps,
@@ -699,6 +738,8 @@ class MonitorizeBackend(QObject):
     def startSecondStream(
         self, res, fps, encoder, gpu_id, codec, native_pen_touch, enable_audio
     ):
+        if self.virtualDisplayCleanupRunning:
+            return
         self.streaming.start_third(
             res, fps, encoder, codec, native_pen_touch, enable_audio, gpu_id=gpu_id
         )
@@ -750,6 +791,8 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot(int)
     def launchPreset(self, index):
+        if self.virtualDisplayCleanupRunning:
+            return
         if index < 0 or index >= len(self._presets):
             self._set_preset_launch_status("Preset no longer exists.")
             return

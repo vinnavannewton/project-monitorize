@@ -8,6 +8,23 @@ from monitorize.platform import sunshine_service as service
 
 
 class SunshineRuntimeTest(unittest.TestCase):
+    def test_live_process_with_failed_video_is_unhealthy(self):
+        process = MagicMock()
+        process.poll.return_value = None
+        with (patch.object(service, "get_sunshine_process", return_value=process),
+              patch.object(service, "get_sunshine_last_error", return_value="Error: Video failed to find working encoder")):
+            alive, code, error = service.check_sunshine_health(1)
+        self.assertFalse(alive)
+        self.assertIsNone(code)
+        self.assertIn("Video failed", error)
+
+    def test_encoder_probe_errors_do_not_fail_health(self):
+        process = MagicMock()
+        process.poll.return_value = None
+        with (patch.object(service, "get_sunshine_process", return_value=process),
+              patch.object(service, "get_sunshine_last_error", return_value="Error: Encoder nvenc failed")):
+            self.assertEqual(service.check_sunshine_health(1), (True, None, ""))
+
     def tearDown(self):
         service._SUNSHINE_PROCESS = None
         service._SUNSHINE_PROCESSES.clear()

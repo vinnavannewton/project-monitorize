@@ -64,10 +64,9 @@ Item {
             SectionCard {
                 title: "MISCELLANEOUS"; symbol: "extras"; Layout.fillWidth: true
                 CustomButton {
-                    visible: backend.canConfigureDisplay
-                    text: "Remove stagnant virtual displays"; primary: false
+                    text: backend.virtualDisplayCleanupRunning ? "Removing…" : "Remove virtual display"; primary: false
                     Layout.fillWidth: true
-                    enabled: !backend.isStreaming
+                    enabled: !backend.isStreaming && !backend.virtualDisplayCleanupRunning
                     onClicked: root.removeStagnantVirtualDisplays()
                 }
                 CustomButton {

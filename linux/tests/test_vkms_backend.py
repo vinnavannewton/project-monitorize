@@ -130,18 +130,40 @@ class VkmsBackendTest(unittest.TestCase):
         fake_stdin = io.StringIO("quit\n")
         out = io.StringIO()
         with (
+            patch("monitorize.platform.gnome_monitor_capture.GnomeMonitorCapture") as capture_class,
             patch("sys.stdin", fake_stdin),
             patch("sys.stdout", out),
             patch("select.select", return_value=([fake_stdin], [], [])),
         ):
+            capture_class.return_value.start.return_value = {"node_id": 42, "offset_x": 1920, "offset_y": 0}
             rc = vkms_backend.run_vkms_headless("primary", 2340, 1080, 60, "gnome", client=mock_client)
 
+        capture_class.return_value.start.assert_called_once_with("Virtual-1")
+        capture_class.return_value.close.assert_called_once()
+        self.assertIn('"node_id":42', out.getvalue())
         self.assertEqual(rc, 0)
         mock_client.create_display.assert_called_once_with(2340, 1080, 60)
         mock_client.remove_display.assert_called_once_with("Virtual-1")
         self.assertIn("MONITORIZE_EVENT", out.getvalue())
         self.assertIn('"headless_ready"', out.getvalue())
         self.assertIn('"Virtual-1"', out.getvalue())
+
+    def test_gnome_capture_failure_removes_created_display_without_ready_event(self):
+        client = MagicMock(spec=MonitorizeVkmsClient)
+        client.is_available.return_value = True
+        client.create_display.return_value = {
+            "name": "Virtual-1", "width": 2340, "height": 1080, "fps": 60,
+        }
+        client.remove_display.return_value = {"success": True}
+        out = io.StringIO()
+        with (patch("monitorize.platform.gnome_monitor_capture.GnomeMonitorCapture") as capture,
+              patch("sys.stdout", out)):
+            capture.return_value.start.side_effect = RuntimeError("No capture stream")
+            result = vkms_backend.run_vkms_headless("primary", 2340, 1080, 60, "gnome", client=client)
+        self.assertEqual(result, 1)
+        self.assertNotIn("headless_ready", out.getvalue())
+        client.remove_display.assert_called_once_with("Virtual-1")
+        capture.return_value.close.assert_called_once()
 
     def test_run_vkms_headless_edid_unsupported_event(self):
         mock_client = MagicMock(spec=MonitorizeVkmsClient)

@@ -163,6 +163,7 @@ def run_vkms_headless(
         )
         return 1
 
+    capture = None
     stopping = [False]
     created = [False]
     created_connector = [None]
@@ -171,6 +172,8 @@ def run_vkms_headless(
         if stopping[0]:
             return
         stopping[0] = True
+        if capture is not None:
+            capture.close()
         if created[0]:
             conn_str = f" {created_connector[0]}" if created_connector[0] else ""
             print(f"[VKMS] Removing{conn_str} through monitorize-vkms", flush=True)
@@ -211,6 +214,10 @@ def run_vkms_headless(
             "backend": "Sunshine",
             "vkms": True,
         }
+        if desktop.lower() == "gnome":
+            from monitorize.platform.gnome_monitor_capture import GnomeMonitorCapture
+            capture = GnomeMonitorCapture()
+            event.update(capture.start(output_name))
         print(f"MONITORIZE_EVENT {json.dumps(event, separators=(',', ':'))}", flush=True)
         print(
             f"[VKMS] {output_name} is active at {actual_width}x{actual_height}@{actual_fps:g}Hz.",
@@ -218,6 +225,8 @@ def run_vkms_headless(
         )
 
         while not stopping[0]:
+            if capture is not None:
+                capture.dispatch()
             ready, _, _ = select.select([sys.stdin], [], [], 0.5)
             if ready:
                 line = sys.stdin.readline()

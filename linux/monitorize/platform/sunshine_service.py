@@ -200,6 +200,11 @@ def check_sunshine_health(instance: int = 1) -> tuple[bool, int | None, str]:
     if proc is not None:
         code = proc.poll()
         if code is None:
+            # Sunshine can keep its configuration UI alive after video startup
+            # fails. That process cannot serve Moonlight even though it exists.
+            error = get_sunshine_last_error(instance)
+            if "Video failed to find working encoder" in error:
+                return False, None, error
             return True, None, ""
 
 

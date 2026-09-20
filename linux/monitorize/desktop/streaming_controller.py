@@ -367,7 +367,7 @@ class StreamingController(QObject):
         fps = float(event.get("fps") or (self.fps if instance == 1 else self.third_fps))
         pipewire_node = None
         if (
-            ((self.de == "gnome" and not event.get("vkms")) or event.get("portal"))
+            (self.de == "gnome" or event.get("portal"))
             and self.streaming_backend != "none"
         ):
             try:
