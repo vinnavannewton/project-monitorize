@@ -14,6 +14,7 @@ LOG_FILE = Path(
     )
 )
 _logger = None
+DIAGNOSTIC_TAIL_BYTES = 512 * 1024
 
 
 def configure(path=LOG_FILE):
@@ -52,6 +53,23 @@ def write(category, message, level=logging.INFO):
         return
     for line in str(message).rstrip().splitlines() or [""]:
         logger.log(level, "[%s] %s", category, line)
+
+
+def read_tail(path=LOG_FILE, max_bytes=DIAGNOSTIC_TAIL_BYTES) -> str:
+    """Read a bounded, UTF-8-safe tail of a retained diagnostic log file."""
+    try:
+        max_bytes = max(1, int(max_bytes))
+        with Path(path).open("rb") as source:
+            source.seek(0, os.SEEK_END)
+            size = source.tell()
+            source.seek(max(0, size - max_bytes))
+            data = source.read()
+    except (OSError, ValueError):
+        return ""
+    text = data.decode("utf-8", errors="replace")
+    if size > max_bytes:
+        text = "… earlier retained log content omitted from this panel …\n" + text
+    return text.rstrip()
 
 
 def install_exception_hook():

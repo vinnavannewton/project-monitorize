@@ -1,0 +1,42 @@
+--- a/src/platform/linux/portalgrab.cpp
++++ b/src/platform/linux/portalgrab.cpp
+@@ -145,2 +145,11 @@
+       if (!scope.empty()) {
++        if (const char *target = std::getenv("MONITORIZE_CAPTURE_OUTPUT"); target && *target) {
++          std::string suffix;
++          constexpr char hex[] = "0123456789abcdef";
++          for (unsigned char c : std::string(target)) {
++            suffix += hex[c >> 4];
++            suffix += hex[c & 15];
++          }
++          return platf::appdata().string() + "/portal_token_" + std::string(scope) + "_" + suffix;
++        }
+         return platf::appdata().string() + "/portal_token_" + std::string(scope);
+@@ -327,1 +336,10 @@
++      // Reject a restored/selected monitor other than the one requested by
++      // Monitorize. Never use the first portal stream as a substitute.
++      if (const char *target = std::getenv("MONITORIZE_CAPTURE_OUTPUT"); target && *target) {
++        std::erase_if(pipewire_streams, [target](const auto &stream) { return stream.monitor_name != target; });
++        if (pipewire_streams.size() != 1) {
++          BOOST_LOG(error) << "[portalgrab] Selected portal monitor does not match " << target << ". Choose that monitor in the sharing dialog.";
++          return -1;
++        }
++      }
+       if (open_pipewire_remote(session_path, pipewire_fd) < 0) {
+@@ -760,7 +778,12 @@
+-        // Try to match the stream to a monitor_name by position/resolution and update stream info
+-        if (has_size && out_width > 0 && out_height > 0) {
++        int match_width = out_width, match_height = out_height;
++        g_variant_lookup(value, "logical_size", "(ii)", &match_width, &match_height);
++        // Match logical geometry, not encoded pixel size on scaled displays.
++        if (has_pos && has_size && out_width > 0 && out_height > 0) {
+           for (const auto &monitor : wl_monitors) {
+-            if (monitor->viewport.offset_x == out_pos_x && monitor->viewport.offset_y == out_pos_y && monitor->viewport.logical_width == out_width && monitor->viewport.logical_height == out_height) {
++            if (monitor->viewport.offset_x == out_pos_x && monitor->viewport.offset_y == out_pos_y && monitor->viewport.logical_width == match_width && monitor->viewport.logical_height == match_height) {
++              if (!stream.monitor_name.empty()) {
++                stream.monitor_name.clear();
++                break;
++              }
+               stream.monitor_name = monitor->name;
+-              break;
+             }

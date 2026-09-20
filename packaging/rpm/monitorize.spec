@@ -3,8 +3,8 @@
 %global sunshine_ffmpeg_sha256 2c27d4694b4ed0e734f497d4bd62f1b3662cbbc4ded2a69f2dc4b703441eebb3
 
 Name:           monitorize
-Version:        0.2.8
-Release:        2%{?dist}
+Version:        0.39
+Release:        1%{?dist}
 Summary:        Sunshine-backed virtual displays for Moonlight clients
 
 License:        GPL-3.0-only
@@ -94,6 +94,7 @@ Sunshine instances.
 %prep
 %autosetup
 patch --batch --forward -d external/sunshine -p1 < packaging/sunshine-strict-selection.patch
+patch --batch --forward -d external/sunshine -p1 < packaging/sunshine-portal-token-scope.patch
 mkdir .ffmpeg-prepared
 tar -xzf %{SOURCE1} -C .ffmpeg-prepared --strip-components=1 --no-same-owner
 # Fedora 44 ships a newer compatible Boost. Sunshine requests 1.89 EXACT and
@@ -259,6 +260,9 @@ PYTHON
 
 
 %changelog
+* Mon Sep 21 2026 Monitorize contributors <noreply@example.com> - 0.39-1
+- Release Monitorize 0.39 with compositor-native and VKMS virtual displays.
+
 * Mon Aug 24 2026 Monitorize contributors <noreply@example.com> - 0.2.8-2
 - Load uinput during installation and request it automatically at boot.
 

@@ -106,10 +106,13 @@ DISPLAY_DEFAULTS = {
     "fps": "60",
     "custom_fps": "",
     "display_type": "Extend",
+    "virtual_display_creator": "native",
     "sunshine_encoder": "Auto",
     "sunshine_gpu": "",
     "sunshine_codec": "Auto",
+    "streaming_customized": False,
     "sunshine_native_pen_touch": True,
+    "mirror_output": "",
     "enable_audio": False,
 }
 
@@ -117,6 +120,11 @@ DISPLAY_DEFAULTS = {
 def _normalize_display_settings(data, fallback=DEFAULT_PRIMARY_RESOLUTION):
     data = dict(data)
     data["display_type"] = sanitize_display_type(data.get("display_type"))
+    data["virtual_display_creator"] = (
+        data.get("virtual_display_creator")
+        if data.get("virtual_display_creator") in ("native", "vkms")
+        else "native"
+    )
     data["fps"] = str(sanitize_fps(data.get("fps")))
     data["custom_fps"] = (
         str(sanitize_fps(data["custom_fps"])) if data.get("custom_fps") else ""
@@ -133,10 +141,12 @@ def _normalize_display_settings(data, fallback=DEFAULT_PRIMARY_RESOLUTION):
     data["sunshine_encoder"] = str(data.get("sunshine_encoder") or "Auto")
     data["sunshine_gpu"] = _normalize_gpu_id(data.get("sunshine_gpu"))
     data["sunshine_codec"] = str(data.get("sunshine_codec") or "Auto")
+    data["streaming_customized"] = bool(data.get("streaming_customized", False))
     data["sunshine_native_pen_touch"] = bool(
         data.get("sunshine_native_pen_touch", True)
     )
     data["enable_audio"] = bool(data.get("enable_audio", False))
+    data["mirror_output"] = str(data.get("mirror_output") or "")
     return data
 
 
@@ -148,11 +158,14 @@ def save_display_settings(
     fps="60",
     custom_fps="",
     display_type="Extend",
+    virtual_display_creator="native",
     sunshine_encoder="Auto",
     sunshine_gpu="",
     sunshine_codec="Auto",
+    streaming_customized=False,
     sunshine_native_pen_touch=True,
     enable_audio=False,
+    mirror_output="",
 ):
     values = _normalize_display_settings(locals())
     _save_group("display", values)
@@ -174,7 +187,7 @@ def load_display_settings() -> dict:
         _load_group(
             group,
             DISPLAY_DEFAULTS,
-            ("sunshine_native_pen_touch", "enable_audio"),
+            ("streaming_customized", "sunshine_native_pen_touch", "enable_audio"),
         )
     )
 
@@ -182,6 +195,7 @@ def load_display_settings() -> dict:
 SECOND_DISPLAY_DEFAULTS = {
     **DISPLAY_DEFAULTS,
     "resolution": "1920x1080",
+    "enabled": False,
 }
 
 
@@ -195,7 +209,7 @@ def load_second_display_settings() -> dict:
     values = _load_group(
         "second_display",
         SECOND_DISPLAY_DEFAULTS,
-        ("sunshine_native_pen_touch", "enable_audio"),
+        ("streaming_customized", "sunshine_native_pen_touch", "enable_audio", "enabled"),
     )
     return _normalize_display_settings(values, DEFAULT_SECONDARY_RESOLUTION)
 
@@ -208,6 +222,11 @@ def _normalize_session(raw: dict, fallback=DEFAULT_PRIMARY_RESOLUTION):
         "resolution": f"{width}x{height}",
         "fps": str(sanitize_fps(raw.get("fps", 60))),
         "display_type": sanitize_display_type(raw.get("display_type", "Extend")),
+        "virtual_display_creator": (
+            raw.get("virtual_display_creator")
+            if raw.get("virtual_display_creator") in ("native", "vkms")
+            else "native"
+        ),
         "sunshine_encoder": str(raw.get("sunshine_encoder") or "Auto"),
         "sunshine_gpu": _normalize_gpu_id(raw.get("sunshine_gpu")),
         "sunshine_codec": str(raw.get("sunshine_codec") or "Auto"),
@@ -215,6 +234,7 @@ def _normalize_session(raw: dict, fallback=DEFAULT_PRIMARY_RESOLUTION):
             raw.get("sunshine_native_pen_touch", True)
         ),
         "enable_audio": bool(raw.get("enable_audio", False)),
+        "mirror_output": str(raw.get("mirror_output") or ""),
     }
 
 
@@ -257,6 +277,7 @@ def _normalize_preset(raw: dict) -> dict | None:
     if second["enabled"]:
         normalized = _normalize_session(second_raw, DEFAULT_SECONDARY_RESOLUTION)
         normalized.pop("display_type", None)
+        normalized.pop("virtual_display_creator", None)
         second.update(normalized)
     return {
         "version": PRESET_VERSION,

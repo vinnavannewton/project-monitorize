@@ -1,0 +1,15 @@
+diff --git a/src/config.cpp b/src/config.cpp
+--- a/src/config.cpp
++++ b/src/config.cpp
+@@ -1590,7 +1590,10 @@ namespace config {
+     bool_f(vars, "nvenc_latency_over_power", video.nv_sunshine_high_power_mode);
+ 
+ #if !defined(__ANDROID__) && !defined(__APPLE__)
+-    video.nv_legacy.preset = video.nv.quality_preset + 11;
++    // FFmpeg 9 numbers its NVENC presets as slow=0, medium=1, fast=2,
++    // then P1=3 through P7=9. Sunshine's older +11 mapping targets the
++    // pre-FFmpeg-9 enum and is rejected before any NVENC codec can open.
++    video.nv_legacy.preset = video.nv.quality_preset + 2;
+     video.nv_legacy.multipass = video.nv.two_pass == nvenc::nvenc_two_pass::quarter_resolution ? NV_ENC_TWO_PASS_QUARTER_RESOLUTION :
+                                 video.nv.two_pass == nvenc::nvenc_two_pass::full_resolution    ? NV_ENC_TWO_PASS_FULL_RESOLUTION :
+                                                                                                  NV_ENC_MULTI_PASS_DISABLED;
