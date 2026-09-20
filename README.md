@@ -37,16 +37,12 @@ Receiving is handled by the standard [Moonlight](https://moonlight-stream.org/) 
 - [NixOS / Nix](https://github.com/vinnavannewton/project-monitorize/wiki/Nix-installation)
 
 ## Contributing
+
 Want to contribute? See the [Contributing guide](https://github.com/vinnavannewton/project-monitorize/wiki/Contributing).
 
 ## Usage
 
-1. Open Monitorize and click **Create a Virtual Display**.
-2. Select resolution, refresh rate, and Extend to create virtual monitor or Mirror to just mirror primary monitor.
-3. By default choose auto in encoder and codec unless it doesn't work then manually select based on your hardware compatibility then click start.
-4. Open Moonlight on the receiving device and select the advertised host if not found add manaully using the ip shown in monitorize app.
-5. Enter Moonlight's four-digit PIN in Monitorize when pairing.
-6. When setting up two moonlight devices to use as lets say second and third monitor , as usual create the first virtual monitor, then click add display option to create second virtual monitor and start it, most of the time the second virtual monitor wont show in moonlight, in that case add it manually in moonlight using the ip along with respective port of that virtual monitor shown in the monitorize app.
+1. If the stream is black or crashes, try changing the stream from auto to other options in monitorize based on what your hardware supports.
 
 ## Star History
 
@@ -57,4 +53,3 @@ Want to contribute? See the [Contributing guide](https://github.com/vinnavannewt
    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=vinnavannewton/ProjectMonitorize&type=date&legend=top-left&sealed_token=UrJIpYgjHe4fJj10B7GKSJo0AdhR5bGEFiNv9cpP4iJQEhNXknPXAq5aX7g6bk2y7UAMoa3xfVqKyRWSANVZobe2uVlMjvYXbCaeOmO5w6tdzEvCjnFejmzXxjtW2mIf4Yny6uOhs2jXSxC01ZMh5Q_Dd6dRD2NniWjkaltRE1SzVWfwyOP0rZwE5oCI" />
  </picture>
 </a>
- 
