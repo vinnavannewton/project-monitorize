@@ -724,6 +724,15 @@ exit 0
         self.assertIn("backend.removeSessionDisplay(1)", streaming)
         self.assertNotIn('text: "Add Display"', streaming)
 
+    def test_add_display_is_disabled_in_vkms_mode(self):
+        qml = (ROOT / "linux/monitorize/qml/DisplaySetupPage.qml").read_text()
+        button = qml.split("id: addDisplayButton", 1)[1].split("SectionCard {", 1)[0]
+        self.assertIn("enabled: !page.vkmsSelected", button)
+        self.assertIn("opacity: enabled ? 1.0 : 0.4", button)
+        self.assertIn("addDisplayButton.enabled && addDisplayButton.hovered", button)
+        self.assertIn("if (vkmsSelected || virtualDisplays.length >= 2) return", qml)
+        self.assertNotIn("Creates up to two displays using Linux's experimental VKMS path", qml)
+
     def test_navigation_avoids_hidden_synchronous_work(self):
         display_setup = (ROOT / "linux/monitorize/qml/DisplaySetupPage.qml").read_text()
         streaming = (ROOT / "linux/monitorize/qml/StreamingPage.qml").read_text()

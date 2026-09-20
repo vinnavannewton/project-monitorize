@@ -109,7 +109,7 @@ Item {
     }
 
     function addDisplay() {
-        if (virtualDisplays.length >= 2) return
+        if (vkmsSelected || virtualDisplays.length >= 2) return
         let duplicate = Object.assign({}, primaryDisplay(), { id: 2 })
         virtualDisplays = [primaryDisplay(), duplicate]
         saveDisplayModes()
@@ -279,7 +279,7 @@ Item {
                         visible: page.vkmsSelected
                         Layout.columnSpan: 2; Layout.fillWidth: true
                         wrapMode: Text.WordWrap; color: theme.textMuted
-                        text: "Creates up to two displays using Linux's experimental VKMS path. Display layout and positioning are managed by your desktop environment."
+                        text: "Creates a display using Linux's experimental VKMS path. Adding another display is unavailable in VKMS mode. Display layout and positioning are managed by your desktop environment."
                     }
                     Text { text: "Monitor"; color: theme.textSecondary; visible: displayType.currentText === "Mirror" }
                     CustomComboBox {
@@ -330,13 +330,16 @@ Item {
                     }
                 }
                 AbstractButton {
+                    id: addDisplayButton
                     visible: displayType.currentText === "Extend" && page.virtualDisplays.length < 2
+                    enabled: !page.vkmsSelected
+                    opacity: enabled ? 1.0 : 0.4
                     Layout.fillWidth: true
                     implicitHeight: 54
                     onClicked: page.addDisplay()
                     background: Rectangle {
                         radius: theme.controlRadius
-                        color: parent.hovered ? theme.surfaceAlt : "transparent"
+                        color: addDisplayButton.enabled && addDisplayButton.hovered ? theme.surfaceAlt : "transparent"
                         border.color: theme.borderHover
                     }
                     contentItem: RowLayout {
