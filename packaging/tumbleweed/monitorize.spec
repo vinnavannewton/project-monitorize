@@ -4,7 +4,7 @@
 %global _firewalld_dir %{_prefix}/lib/firewalld
 
 Name:           monitorize
-Version:        0.2.8
+Version:        0.39
 Release:        0
 Summary:        Sunshine-backed virtual displays for Moonlight clients
 License:        GPL-3.0-only
@@ -244,5 +244,8 @@ PYTHON
 %{_modulesloaddir}/monitorize.conf
 
 %changelog
+* Mon Sep 21 2026 Monitorize contributors <noreply@example.com> - 0.39-0
+- Release Monitorize 0.39 with compositor-native and VKMS virtual displays.
+
 * Mon Aug 24 2026 Monitorize contributors <noreply@example.com> - 0.2.8-0
 - Add the openSUSE Tumbleweed package with the bundled Monitorize Sunshine fork.

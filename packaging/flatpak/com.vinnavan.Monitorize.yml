@@ -119,7 +119,7 @@ modules:
     build-options:
       append-path: /usr/lib/sdk/node20/bin
       env:
-        BUILD_VERSION: 0.2.8
+        BUILD_VERSION: 0.39
         BRANCH: monitorize
         COMMIT: e3ce79f3b966df388e905a3c6b3784832a328e34
         PYTHONPATH: /app/lib/python3.12/site-packages
