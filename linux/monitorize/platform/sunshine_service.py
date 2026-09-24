@@ -5,11 +5,13 @@ Detects, launches, and checks the status of the Sunshine GameStream server.
 
 import atexit
 import ctypes
+import http.client
 import json
 import os
 import shutil
 import signal
 import socket
+import ssl
 import subprocess
 import time
 import webbrowser
@@ -17,6 +19,7 @@ import webbrowser
 PR_SET_PDEATHSIG = 1
 _SUNSHINE_PROCESS: subprocess.Popen | None = None
 _SUNSHINE_PROCESSES: dict[int, subprocess.Popen] = {}
+_SUNSHINE_SETTINGS_INSTANCES: set[int] = set()
 
 
 def _set_pdeathsig() -> None:
@@ -68,6 +71,26 @@ def get_sunshine_strict_selection_error(instance: int = 1, offset: int = 0) -> s
         if "MONITORIZE_STRICT_" in line:
             return line.strip()
     return ""
+
+
+def get_sunshine_x11_capture_status(instance: int, output_name: str, offset: int = 0) -> str:
+    """Confirm X11 capture, or detect Sunshine's whole-desktop fallback."""
+    log_file = os.path.join(get_sunshine_config_dir(instance), "sunshine.log")
+    try:
+        with open(log_file, "rb") as source:
+            source.seek(0, os.SEEK_END)
+            size = source.tell()
+            source.seek(offset if 0 <= offset <= size else 0)
+            lines = source.read().decode("utf-8", errors="replace").splitlines()
+    except OSError:
+        return "pending"
+    warning = f"Couldn't get info for requested display [{output_name}]"
+    matched = f"Streaming display: {output_name} with res "
+    if any(warning in line for line in lines):
+        return "fallback"
+    if any(matched in line for line in lines):
+        return "matched"
+    return "pending"
 
 
 def get_sunshine_port(instance: int = 1) -> int:
@@ -149,6 +172,11 @@ def is_sunshine_running(instance: int = 1, timeout: float = 0.5) -> bool:
         return True
 
     return False
+
+
+def is_sunshine_settings_instance(instance: int = 1) -> bool:
+    """Whether this managed process was started for localhost settings."""
+    return instance in _SUNSHINE_SETTINGS_INSTANCES and is_sunshine_running(instance)
 
 
 def get_sunshine_process(instance: int = 1) -> subprocess.Popen | None:
@@ -424,9 +452,21 @@ def start_sunshine(
     width: int | None = None,
     height: int | None = None,
     extra_environment: dict[str, str] | None = None,
+    settings_only: bool = False,
 ) -> tuple[bool, str]:
-    """Start isolated Sunshine engine binding child process to parent lifetime."""
+    """Start a managed engine, optionally restricted to loopback for settings.
+
+    Settings restrictions are process arguments, never saved profile values.
+    A normal start replaces a settings instance; opening settings reuses a
+    running session without interrupting it.
+    """
     global _SUNSHINE_PROCESS, _SUNSHINE_PROCESSES
+    if is_sunshine_running(instance):
+        if settings_only:
+            # Opening settings must never interrupt an active streaming instance.
+            return True, f"Sunshine instance {instance} is already running."
+        if instance in _SUNSHINE_SETTINGS_INSTANCES:
+            stop_sunshine(instance, clear_output_name=False)
     ensure_sunshine_tray_disabled(instance)
     set_sunshine_pipewire_node(
         pipewire_node,
@@ -497,6 +537,10 @@ def start_sunshine(
 
     errors = []
     for cmd in candidates:
+        if settings_only:
+            cmd = [*cmd, "bind_address=127.0.0.1", "address_family=ipv4",
+                   "upnp=disabled", "origin_web_ui_allowed=pc",
+                   f"port={get_sunshine_port(instance)}"]
         candidate_env = dict(env)
         assets_dir = get_sunshine_assets_dir(cmd[0])
         if assets_dir:
@@ -510,12 +554,17 @@ def start_sunshine(
                 preexec_fn=_set_pdeathsig,
             )
             _SUNSHINE_PROCESSES[instance] = proc
+            if settings_only:
+                _SUNSHINE_SETTINGS_INSTANCES.add(instance)
+            else:
+                _SUNSHINE_SETTINGS_INSTANCES.discard(instance)
             if instance == 1:
                 _SUNSHINE_PROCESS = proc
             time.sleep(0.35)
             exit_code = proc.poll()
             if exit_code is not None:
                 _SUNSHINE_PROCESSES.pop(instance, None)
+                _SUNSHINE_SETTINGS_INSTANCES.discard(instance)
                 if instance == 1:
                     _SUNSHINE_PROCESS = None
                 detail = get_sunshine_last_error(instance)
@@ -530,7 +579,8 @@ def start_sunshine(
 
 
 def stop_sunshine(
-    instance: int | None = None, clear_pipewire_node: bool = True
+    instance: int | None = None, clear_pipewire_node: bool = True,
+    clear_output_name: bool = True,
 ) -> tuple[bool, str]:
     """Gracefully stop Monitorize's Sunshine child process without affecting user's personal Sunshine."""
     global _SUNSHINE_PROCESS, _SUNSHINE_PROCESSES
@@ -544,6 +594,7 @@ def stop_sunshine(
             instances_to_stop = [1, 2]
 
     for inst in instances_to_stop:
+        _SUNSHINE_SETTINGS_INSTANCES.discard(inst)
         if clear_pipewire_node:
             set_sunshine_pipewire_node(None, inst)
         proc = _SUNSHINE_PROCESSES.pop(inst, None)
@@ -558,9 +609,11 @@ def stop_sunshine(
                         proc.wait(timeout=2.0)
                     except subprocess.TimeoutExpired:
                         proc.kill()
+                        proc.wait(timeout=2.0)
             except Exception:
                 pass
-        clear_sunshine_output_name(inst)
+        if clear_output_name:
+            clear_sunshine_output_name(inst)
 
     if instance is None or instance == 1:
         _SUNSHINE_PROCESS = None
@@ -569,6 +622,22 @@ def stop_sunshine(
 
 
 atexit.register(stop_sunshine)
+
+
+def sunshine_web_ready(instance: int = 1) -> bool:
+    """Probe only the local HTTPS interface, independent of capture health."""
+    # Sunshine uses a self-signed certificate; this request is loopback-only.
+    connection = http.client.HTTPSConnection(
+        "127.0.0.1", get_sunshine_https_port(instance), timeout=0.2,
+        context=ssl._create_unverified_context(),
+    )
+    try:
+        connection.request("GET", "/config")
+        return connection.getresponse().status < 500
+    except (OSError, http.client.HTTPException):
+        return False
+    finally:
+        connection.close()
 
 
 def open_sunshine_dashboard(path_or_instance: str | int = "", path: str = "", instance: int = 1) -> bool:
@@ -584,7 +653,7 @@ def open_sunshine_dashboard(path_or_instance: str | int = "", path: str = "", in
         clean_path = path.strip("/")
 
     if not is_sunshine_running(target_instance):
-        ok, _ = start_sunshine(target_instance)
+        ok, _ = start_sunshine(target_instance, settings_only=True)
         if not ok:
             return False
 
@@ -1275,6 +1344,43 @@ def get_sunshine_config(instance: int = 1) -> dict[str, str]:
             pass
 
     return config
+
+
+def get_saved_sunshine_config(instance: int = 1) -> dict[str, str]:
+    """Read webpage-saved values from disk without runtime overrides or defaults."""
+    config = {}
+    try:
+        with open(get_sunshine_config_path(instance), encoding="utf-8") as source:
+            for line in source:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                if key.strip():
+                    config[key.strip()] = value.strip()
+    except OSError:
+        pass
+    return config
+
+
+def save_sunshine_adapter(adapter_name: str, instance: int = 1) -> bool:
+    """Keep a Monitorize GPU selection in the webpage's saved profile."""
+    path = get_sunshine_config_path(instance)
+    try:
+        with open(path, encoding="utf-8") as source:
+            lines = source.readlines()
+    except OSError:
+        lines = []
+    lines = [line for line in lines if line.split("=", 1)[0].strip() != "adapter_name"]
+    if adapter_name:
+        lines.append(f"adapter_name = {adapter_name}\n")
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as output:
+            output.writelines(lines)
+    except OSError:
+        return False
+    return True
 
 
 def save_sunshine_config(new_config: dict[str, str], instance: int = 1) -> tuple[bool, str]:

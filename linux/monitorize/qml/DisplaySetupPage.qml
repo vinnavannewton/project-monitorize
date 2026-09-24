@@ -364,6 +364,19 @@ Item {
                         else page.saveSettings()
                     }
                 }
+                CustomButton {
+                    text: backend.sunshineSettingsOpening ? "Opening settings…" : "Sunshine settings"
+                    primary: false
+                    enabled: !backend.sunshineSettingsOpening
+                    onClicked: backend.openSunshineWebUi(1)
+                }
+                Text {
+                    text: backend.sunshineSettingsMessage
+                    visible: text.length > 0
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    color: theme.textSecondary
+                }
                 GridLayout {
                     visible: page.streamingCustomized; Layout.fillWidth: true
                     columns: 2; columnSpacing: 24; rowSpacing: 12

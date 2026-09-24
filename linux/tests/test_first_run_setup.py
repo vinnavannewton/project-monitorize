@@ -15,6 +15,63 @@ ROOT = Path(__file__).resolve().parents[2]
 
 class FirstRunSetupTest(unittest.TestCase):
 
+    @patch("monitorize.desktop.backend.load_general_settings", return_value={})
+    @patch("monitorize.desktop.backend.load_presets", return_value=[])
+    @patch("monitorize.desktop.backend.get_local_ip", return_value="192.0.2.1")
+    @patch("monitorize.desktop.backend.StreamingController")
+    @patch("monitorize.desktop.backend.get_system_setup_status", return_value={"available": False})
+    def test_settings_wait_for_web_readiness_without_starting_session(
+        self, _status, _streaming, _ip, _presets, _settings
+    ):
+        backend = MonitorizeBackend("")
+        self.addCleanup(backend.network_timer.stop)
+        self.addCleanup(backend._settings_timer.stop)
+        backend.streaming.streaming = False
+        backend.streaming.third_streaming = False
+        with (patch("monitorize.desktop.backend.start_sunshine", return_value=(True, "started")) as start,
+              patch("monitorize.desktop.backend.is_sunshine_running", return_value=True),
+              patch("monitorize.desktop.backend.sunshine_web_ready", return_value=False) as ready,
+              patch("monitorize.desktop.backend.open_sunshine_dashboard", return_value=True) as dashboard):
+            backend.openSunshineWebUi(2)
+            start.assert_called_once_with(2, settings_only=True)
+            backend._poll_sunshine_settings()
+            dashboard.assert_not_called()
+            self.assertTrue(backend.sunshineSettingsOpening)
+            self.assertFalse(backend.isStreaming)
+            ready.return_value = True
+            backend._poll_sunshine_settings()
+            dashboard.assert_called_once_with(2, "config")
+            self.assertFalse(backend.sunshineSettingsOpening)
+            self.assertFalse(backend._settings_timer.isActive())
+            self.assertFalse(backend.isStreaming)
+
+    @patch("monitorize.desktop.backend.load_general_settings", return_value={"sunshine_web_settings_enabled": True})
+    @patch("monitorize.desktop.backend.load_presets", return_value=[])
+    @patch("monitorize.desktop.backend.get_local_ip", return_value="192.0.2.1")
+    @patch("monitorize.desktop.backend.StreamingController")
+    @patch("monitorize.desktop.backend.get_system_setup_status", return_value={"available": False})
+    def test_webpage_settings_are_imported_before_session_start(
+        self, _status, _streaming, _ip, _presets, _settings
+    ):
+        backend = MonitorizeBackend("kde")
+        self.addCleanup(backend.network_timer.stop)
+        backend.streaming.streaming = False
+        backend.streaming.third_streaming = False
+        web = {"encoder": "software", "hevc_mode": "1", "av1_mode": "1",
+               "native_pen_touch": "disabled", "stream_audio": "enabled"}
+        with (patch("monitorize.desktop.backend.get_saved_sunshine_config", return_value=web),
+              patch.object(backend.session, "start") as start):
+            backend.startSession()
+            start.assert_called_once()
+        saved = settings.load_display_settings()
+        self.assertEqual(saved["sunshine_encoder"], "Software")
+        self.assertEqual(saved["sunshine_codec"], "H.264")
+        self.assertTrue(saved["streaming_customized"])
+        self.assertFalse(saved["sunshine_native_pen_touch"])
+        self.assertTrue(saved["enable_audio"])
+        self.assertEqual(backend.session.configuration()["encoder"], "Software")
+        self.assertEqual(backend.loadDisplaySettings()["sunshine_codec"], "H.264")
+
     @patch("monitorize.desktop.backend.get_sunshine_config_dir")
     @patch("monitorize.desktop.backend.app_log.read_tail")
     @patch("monitorize.desktop.backend.get_system_setup_status", return_value={"available": False})

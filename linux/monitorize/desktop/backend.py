@@ -5,6 +5,7 @@ import logging
 import os
 import shutil
 import sys
+import time
 from pathlib import Path
 
 from PyQt6.QtCore import QObject, QProcess, QTimer, pyqtProperty, pyqtSignal, pyqtSlot
@@ -23,16 +24,22 @@ from monitorize.config.settings import (
 )
 from monitorize.desktop.streaming_controller import StreamingController
 from monitorize.platform.display_controller import DisplayController
-from monitorize.platform.gpu_discovery import encoding_gpu_options
+from monitorize.platform.gpu_discovery import compatible_gpus, encoding_gpu_options, resolve_encoding_gpu
 from monitorize.platform.sunshine_service import (
     clear_sunshine_portal_restore_tokens,
     find_sunshine_command,
     get_sunshine_config_dir,
     get_sunshine_config,
+    get_saved_sunshine_config,
+    get_sunshine_web_url,
     open_sunshine_dashboard,
+    is_sunshine_running,
+    start_sunshine,
+    sunshine_web_ready,
     pair_moonlight_pin,
     restart_sunshine,
     save_sunshine_config,
+    save_sunshine_adapter,
     set_sunshine_codec,
     set_sunshine_encoder,
     set_sunshine_native_pen_touch,
@@ -50,6 +57,7 @@ from monitorize.platform.vkms_backend import (
 
 
 class MonitorizeBackend(QObject):
+    sunshineSettingsChanged = pyqtSignal()
     sessionChanged = pyqtSignal()
     detectedDeChanged = pyqtSignal(str)
     localIpChanged = pyqtSignal(str)
@@ -76,11 +84,18 @@ class MonitorizeBackend(QObject):
         super().__init__(parent)
         self._detected_de = de
         self.native_compositor_resolver = None
+        self._settings_instance = None
+        self._settings_deadline = 0.0
+        self._settings_message = ""
+        self._settings_timer = QTimer(self)
+        self._settings_timer.setInterval(250)
+        self._settings_timer.timeout.connect(self._poll_sunshine_settings)
         self._virtual_display_cleanup_process = None
         self._local_ip = get_local_ip()
         self._sunshine_available = find_sunshine_command(1) is not None
         general = load_general_settings()
         self._streaming_backend = general.get("streaming_backend", "sunshine")
+        self._web_settings_enabled = general.get("sunshine_web_settings_enabled", False)
         if not self._sunshine_available:
             self._streaming_backend = "none"
         self.streaming = StreamingController(de, self._local_ip, self)
@@ -187,15 +202,18 @@ class MonitorizeBackend(QObject):
     def startSession(self):
         if self.virtualDisplayCleanupRunning:
             return
+        self._sync_web_settings()
         config = self.session.configuration()
         if (config["display_type"] == "Extend"
                 and config["virtual_display_creator"] == "native"
                 and not self.ensureNativeCompositor()):
             return
+        self._cancel_settings_open()
         self.session.start()
 
     @pyqtSlot()
     def stopSession(self):
+        self._cancel_settings_open()
         self.session.stop()
 
     @pyqtSlot(int)
@@ -464,7 +482,53 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot(result="QVariant")
     def loadDisplaySettings(self):
+        self._sync_web_settings()
         return load_display_settings()
+
+    def _sync_web_settings(self):
+        """Import webpage choices before Monitorize prepares a session or UI."""
+        if not self._web_settings_enabled:
+            return
+        changed = False
+        for instance in (1, 2):
+            changed = self._sync_web_settings_instance(instance) or changed
+        if changed:
+            self.session.configuration_changed()
+
+    def _sync_web_settings_instance(self, instance):
+        web = get_saved_sunshine_config(instance)
+        if not web:
+            return False
+        load = load_display_settings if instance == 1 else load_second_display_settings
+        save = save_display_settings if instance == 1 else save_second_display_settings
+        saved = load()
+        encoder = web.get("encoder", "").strip().lower()
+        encoders = {"": "Auto", "auto": "Auto", "nvenc": "NVIDIA",
+                    "vaapi": "VA-API", "vulkan": "Vulkan", "software": "Software"}
+        if encoder in encoders:
+            saved["sunshine_encoder"] = encoders[encoder]
+            saved["streaming_customized"] = True
+        if "hevc_mode" in web or "av1_mode" in web:
+            hevc = web.get("hevc_mode", "0")
+            av1 = web.get("av1_mode", "0")
+            saved["sunshine_codec"] = (
+                "AV1" if av1 == "2" else "HEVC" if hevc == "2" else
+                "H.264" if hevc == "1" and av1 == "1" else "Auto"
+            )
+            saved["streaming_customized"] = True
+        if "native_pen_touch" in web:
+            saved["sunshine_native_pen_touch"] = web["native_pen_touch"].lower() in ("enabled", "true", "1")
+        if "stream_audio" in web:
+            saved["enable_audio"] = web["stream_audio"].lower() in ("enabled", "true", "1")
+        if "adapter_name" in web:
+            adapter = web["adapter_name"].strip()
+            matched = next((gpu["id"] for gpu in compatible_gpus(saved["sunshine_encoder"])
+                            if gpu.get("render_node") == adapter), "") if adapter else ""
+            saved["sunshine_gpu"] = matched
+        if saved != load():
+            save(**saved)
+            return True
+        return False
 
     @pyqtSlot(result="QVariant")
     def loadVirtualDisplaySettings(self):
@@ -542,6 +606,7 @@ class MonitorizeBackend(QObject):
         mirror_output="",
         virtual_display_creator="native",
     ):
+        previous_gpu = load_display_settings().get("sunshine_gpu", "")
         save_display_settings(
             resolution=resolution,
             custom_w=custom_w,
@@ -561,6 +626,10 @@ class MonitorizeBackend(QObject):
                 if self.vkmsCreatorAvailable else "native"
             ),
         )
+        if self._web_settings_enabled and sunshine_gpu != previous_gpu:
+            selected = resolve_encoding_gpu(sunshine_encoder, sunshine_gpu)
+            if not save_sunshine_adapter(selected.get("render_node", "") if selected else ""):
+                app_log.write("SUNSHINE", "Could not save the selected encoding GPU.", level=logging.ERROR)
         self.session.preset_configuration = None
         self.session.configuration_changed()
 
@@ -679,7 +748,53 @@ class MonitorizeBackend(QObject):
     @pyqtSlot()
     @pyqtSlot(int)
     def openSunshineWebUi(self, instance: int = 1):
-        open_sunshine_dashboard(instance, "config")
+        if instance not in (1, 2) or self.sessionBusy or self._settings_instance is not None:
+            return
+        if not self._web_settings_enabled:
+            self._web_settings_enabled = True
+            save_general_settings(sunshine_web_settings_enabled=True)
+        self._settings_instance = instance
+        self._settings_message = "Opening Sunshine settings…"
+        self.sunshineSettingsChanged.emit()
+        ok, message = start_sunshine(instance, settings_only=True)
+        if not ok:
+            self._finish_settings_open(message)
+            return
+        self._settings_deadline = time.monotonic() + 20
+        self._settings_timer.start()
+
+    @pyqtProperty(bool, notify=sunshineSettingsChanged)
+    def sunshineSettingsOpening(self):
+        return self._settings_instance is not None
+
+    @pyqtProperty(str, notify=sunshineSettingsChanged)
+    def sunshineSettingsMessage(self):
+        return self._settings_message
+
+    def _finish_settings_open(self, message):
+        self._settings_timer.stop()
+        self._settings_instance = None
+        self._settings_message = message
+        self.sunshineSettingsChanged.emit()
+
+    def _cancel_settings_open(self):
+        self._finish_settings_open("")
+
+    def _poll_sunshine_settings(self):
+        instance = self._settings_instance
+        if instance is None:
+            return
+        if not is_sunshine_running(instance):
+            self._finish_settings_open("Sunshine stopped before its settings page was ready. Check the session logs.")
+        elif sunshine_web_ready(instance):
+            opened = open_sunshine_dashboard(instance, "config")
+            self._finish_settings_open(
+                "Sunshine settings opened in your browser." if opened
+                else "Could not open your browser. Open "
+                     + get_sunshine_web_url(instance) + "/config."
+            )
+        elif time.monotonic() >= self._settings_deadline:
+            self._finish_settings_open("Sunshine settings did not become ready. Check the session logs and try again.")
 
     @pyqtSlot(str, result="QVariantMap")
     @pyqtSlot(str, int, result="QVariantMap")
@@ -817,6 +932,7 @@ class MonitorizeBackend(QObject):
         if index < 0 or index >= len(self._presets):
             self._set_preset_launch_status("Preset no longer exists.")
             return
+        self._sync_web_settings()
         preset = self._presets[index]
         import copy
         primary = preset["primary"]
@@ -825,6 +941,7 @@ class MonitorizeBackend(QObject):
                      or not self.vkmsCreatorAvailable)
                 and not self.ensureNativeCompositor()):
             return
+        self._cancel_settings_open()
         self.session.preset_configuration = copy.deepcopy(preset)
         self._set_preset_launch_status("")
         self.streaming.start(
@@ -887,5 +1004,6 @@ class MonitorizeBackend(QObject):
             self.streaming.update_ip(current)
 
     def close(self):
+        self._cancel_settings_open()
         self.network_timer.stop()
         self.streaming.stop()

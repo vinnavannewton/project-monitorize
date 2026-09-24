@@ -106,7 +106,7 @@ Item {
                                 id: displayMenu
                                 width: 220
                                 background: Rectangle { color: theme.surface; border.color: theme.border; radius: 8 }
-                                CardMenuItem { text: "Sunshine settings"; enabled: backend.sessionRunning && displayCard.modelData.live; onTriggered: backend.openSunshineWebUi(displayCard.modelData.number) }
+                                CardMenuItem { text: "Sunshine settings"; enabled: backend.sunshineAvailable && !backend.sunshineSettingsOpening; onTriggered: backend.openSunshineWebUi(displayCard.modelData.number) }
                                 CardMenuItem {
                                     visible: displayCard.modelData.number === 2
                                     text: "Remove"
@@ -138,6 +138,13 @@ Item {
                     onClicked: backend.startSession()
                 }
                 CustomButton { text: "Display Settings"; primary: false; visible: backend.canConfigureDisplay; onClicked: backend.configureDisplay() }
+            }
+            Text {
+                text: backend.sunshineSettingsMessage
+                visible: text.length > 0
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                color: theme.textSecondary
             }
             SectionCard {
                 title: "Diagnostics & logs"; symbol: "logs"; expanded: page.logsExpanded
