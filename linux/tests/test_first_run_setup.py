@@ -129,6 +129,53 @@ class FirstRunSetupTest(unittest.TestCase):
             self.addCleanup(backend.network_timer.stop)
             self.assertEqual(backend.canConfigureDisplay, expected)
 
+    @patch("monitorize.desktop.backend.load_general_settings", return_value={})
+    @patch("monitorize.desktop.backend.load_presets", return_value=[])
+    @patch("monitorize.desktop.backend.get_local_ip", return_value="192.0.2.1")
+    @patch("monitorize.desktop.backend.StreamingController")
+    @patch("monitorize.desktop.backend.get_system_setup_status", return_value={"available": False})
+    def test_unknown_compositor_is_resolved_only_for_native_session(
+        self, _status, _streaming, _ip, _presets, _settings
+    ):
+        backend = MonitorizeBackend("")
+        self.addCleanup(backend.network_timer.stop)
+        backend.native_compositor_resolver = lambda: "sway"
+        backend.session.configuration = lambda: {
+            "display_type": "Extend", "virtual_display_creator": "vkms"
+        }
+        with patch.object(backend.session, "start") as start:
+            backend.startSession()
+            self.assertEqual(backend.detectedDe, "")
+            start.assert_called_once()
+            start.reset_mock()
+            backend.session.configuration = lambda: {
+                "display_type": "Extend", "virtual_display_creator": "native"
+            }
+            backend.startSession()
+            self.assertEqual(backend.detectedDe, "sway")
+            self.assertEqual(backend.streaming.de, "sway")
+            self.assertTrue(backend.canConfigureDisplay)
+            start.assert_called_once()
+
+    @patch("monitorize.desktop.backend.load_general_settings", return_value={})
+    @patch("monitorize.desktop.backend.load_presets", return_value=[])
+    @patch("monitorize.desktop.backend.get_local_ip", return_value="192.0.2.1")
+    @patch("monitorize.desktop.backend.StreamingController")
+    @patch("monitorize.desktop.backend.get_system_setup_status", return_value={"available": False})
+    def test_unsupported_compositor_does_not_start_native_session(
+        self, _status, _streaming, _ip, _presets, _settings
+    ):
+        backend = MonitorizeBackend("")
+        self.addCleanup(backend.network_timer.stop)
+        backend.native_compositor_resolver = lambda: ""
+        backend.session.configuration = lambda: {
+            "display_type": "Extend", "virtual_display_creator": "native"
+        }
+        with patch.object(backend.session, "start") as start:
+            backend.startSession()
+            start.assert_not_called()
+        self.assertEqual(backend.detectedDe, "")
+
     @patch("monitorize.desktop.backend.load_general_settings", return_value={"system_setup_decided": True})
     @patch("monitorize.desktop.backend.load_presets", return_value=[])
     @patch("monitorize.desktop.backend.get_local_ip", return_value="192.0.2.1")

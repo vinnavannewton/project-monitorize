@@ -46,8 +46,9 @@ class MonitorizeWindow(QMainWindow):
             "monitorize\\.streaming\\.headless_virtual_display",
             "monitorize-kde-virtual-output",
         )
-        self.de = detect_desktop_environment() or self._ask_desktop_environment()
+        self.de = detect_desktop_environment()
         self.backend = MonitorizeBackend(self.de, self)
+        self.backend.native_compositor_resolver = self._ask_desktop_environment
         self.backend.configureDisplayRequested.connect(self._configure_display)
         self._setup_tray()
         self.content_stack = QStackedWidget(self)
@@ -163,13 +164,13 @@ class MonitorizeWindow(QMainWindow):
         dialog.setWindowTitle("Select Desktop Environment")
         layout = QVBoxLayout(dialog)
         label = QLabel(
-            "Could not automatically detect your desktop environment.\n"
-            "Please select which one you are running:"
+            "Monitorize could not detect your compositor.\n"
+            "Select the desktop running this session:"
         )
         label.setWordWrap(True)
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(label)
-        selected = {"value": "gnome"}
+        selected = {"value": ""}
 
         def add_row(options):
             row = QHBoxLayout()
@@ -185,20 +186,22 @@ class MonitorizeWindow(QMainWindow):
 
         add_row((("KDE Plasma", "kde"), ("GNOME", "gnome")))
         add_row((("Hyprland", "hyprland"), ("Sway", "sway")))
-        other = QPushButton("Other (WIP)")
+        other = QPushButton("Other")
         other.clicked.connect(
             lambda: (selected.update(value="other"), dialog.accept())
         )
         layout.addWidget(other)
-        dialog.exec()
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return ""
         if selected["value"] == "other":
             QMessageBox.information(
                 self,
-                "Work In Progress",
-                "Support for other environments is coming soon. The app will close now.",
+                "Compositor Mode Not Supported",
+                "Compositor display creation is not supported for this environment.",
             )
-            sys.exit(0)
-        return selected["value"]
+            return ""
+        self.de = selected["value"]
+        return self.de
 
 
 def load_theme_color(property_name, default):

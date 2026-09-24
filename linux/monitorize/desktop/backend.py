@@ -75,6 +75,7 @@ class MonitorizeBackend(QObject):
     def __init__(self, de, parent=None):
         super().__init__(parent)
         self._detected_de = de
+        self.native_compositor_resolver = None
         self._virtual_display_cleanup_process = None
         self._local_ip = get_local_ip()
         self._sunshine_available = find_sunshine_command(1) is not None
@@ -116,6 +117,21 @@ class MonitorizeBackend(QObject):
     @pyqtProperty(str, notify=detectedDeChanged)
     def detectedDe(self):
         return self._detected_de
+
+    @pyqtSlot(result=bool)
+    def ensureNativeCompositor(self):
+        """Resolve an unknown compositor only when native creation is requested."""
+        if self._detected_de:
+            return True
+        if self.native_compositor_resolver is None:
+            return False
+        selected = self.native_compositor_resolver()
+        if selected not in ("kde", "gnome", "hyprland", "sway"):
+            return False
+        self._detected_de = selected
+        self.streaming.de = selected
+        self.detectedDeChanged.emit(selected)
+        return True
 
     def _remember_session_log(self, category, message):
         self._session_log = (self._session_log + f"[{category}] {message}\n")[-100000:]
@@ -171,6 +187,11 @@ class MonitorizeBackend(QObject):
     def startSession(self):
         if self.virtualDisplayCleanupRunning:
             return
+        config = self.session.configuration()
+        if (config["display_type"] == "Extend"
+                and config["virtual_display_creator"] == "native"
+                and not self.ensureNativeCompositor()):
+            return
         self.session.start()
 
     @pyqtSlot()
@@ -219,7 +240,7 @@ class MonitorizeBackend(QObject):
     def systemSetupPending(self):
         return self._system_setup_available and not self._system_setup_decided
 
-    @pyqtProperty(bool, constant=True)
+    @pyqtProperty(bool, notify=detectedDeChanged)
     def canConfigureDisplay(self):
         return self._detected_de in ("hyprland", "sway")
 
@@ -798,8 +819,13 @@ class MonitorizeBackend(QObject):
             return
         preset = self._presets[index]
         import copy
-        self.session.preset_configuration = copy.deepcopy(preset)
         primary = preset["primary"]
+        if (primary["display_type"] == "Extend"
+                and (primary.get("virtual_display_creator", "native") != "vkms"
+                     or not self.vkmsCreatorAvailable)
+                and not self.ensureNativeCompositor()):
+            return
+        self.session.preset_configuration = copy.deepcopy(preset)
         self._set_preset_launch_status("")
         self.streaming.start(
             primary["resolution"],

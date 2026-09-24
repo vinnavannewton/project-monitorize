@@ -30,7 +30,7 @@ Receiving is handled by the standard [Moonlight](https://moonlight-stream.org/) 
 
 ### Virtual Display Backends
 
-- **Desktop Native (Default)**: Uses compositor-native virtual display APIs (KDE KWin, GNOME Mutter, wlroots).
+- **Compositor (Default)**: Uses compositor-native virtual display APIs (KDE KWin, GNOME Mutter, wlroots). If detection fails, Monitorize asks which supported desktop is running when this mode is used.
 - **VKMS (Experimental)**: Creates kernel-level DRM virtual displays via the standalone [`monitorize-vkms`](https://github.com/vinnavannewton/monitorize-vkms) tool.
 
 ## Installation

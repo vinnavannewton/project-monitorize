@@ -104,7 +104,6 @@ Item {
                             onClicked: displayMenu.open()
                             Menu {
                                 id: displayMenu
-                                popupType: Popup.Item
                                 width: 220
                                 background: Rectangle { color: theme.surface; border.color: theme.border; radius: 8 }
                                 CardMenuItem { text: "Sunshine settings"; enabled: backend.sessionRunning && displayCard.modelData.live; onTriggered: backend.openSunshineWebUi(displayCard.modelData.number) }
