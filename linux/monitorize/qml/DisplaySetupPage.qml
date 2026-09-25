@@ -207,7 +207,7 @@ Item {
         displayCreator.selectValue(
             backend.vkmsCreatorAvailable && saved["virtual_display_creator"] === "vkms"
                 ? "VKMS (Experimental)"
-                : "Desktop Native"
+                : "Compositor"
         )
         backend.refreshVkmsResolutionOptions()
         virtualDisplays = backend.loadVirtualDisplaySettings()
@@ -265,12 +265,14 @@ Item {
                         Layout.fillWidth: true
                         visible: displayType.currentText === "Extend" && backend.vkmsCreatorAvailable
                         model: backend.vkmsCreatorAvailable
-                            ? ["Desktop Native", "VKMS (Experimental)"]
-                            : ["Desktop Native"]
+                            ? ["Compositor", "VKMS (Experimental)"]
+                            : ["Compositor"]
                         onActivated: {
                             if (page.vkmsSelected) {
                                 backend.refreshVkmsResolutionOptions()
                                 page.normalizeVkmsModes()
+                            } else {
+                                backend.ensureNativeCompositor()
                             }
                             page.saveSettings()
                         }
@@ -361,6 +363,19 @@ Item {
                         if (currentIndex === 0) page.selectAutomaticStreaming()
                         else page.saveSettings()
                     }
+                }
+                CustomButton {
+                    text: backend.sunshineSettingsOpening ? "Opening settings…" : "Sunshine settings"
+                    primary: false
+                    enabled: !backend.sunshineSettingsOpening
+                    onClicked: backend.openSunshineWebUi(1)
+                }
+                Text {
+                    text: backend.sunshineSettingsMessage
+                    visible: text.length > 0
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    color: theme.textSecondary
                 }
                 GridLayout {
                     visible: page.streamingCustomized; Layout.fillWidth: true

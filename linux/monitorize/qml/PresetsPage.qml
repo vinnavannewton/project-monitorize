@@ -33,7 +33,6 @@ Item {
                             onClicked: presetMenu.open()
                             Menu {
                                 id: presetMenu
-                                popupType: Popup.Item
                                 width: 200
                                 background: Rectangle { color: theme.surface; border.color: theme.border; radius: 8 }
                                 CardMenuItem {

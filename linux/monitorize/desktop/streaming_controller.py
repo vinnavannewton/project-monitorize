@@ -3,7 +3,10 @@
 import json
 import logging
 import os
+import re
+import subprocess
 import sys
+import time
 
 from PyQt6.QtCore import QObject, QProcess, QProcessEnvironment, QTimer, pyqtSignal, pyqtSlot
 
@@ -13,6 +16,7 @@ except ImportError:
     QDBusConnection = None
 
 from monitorize.config import app_log
+from monitorize.config.settings import load_general_settings
 from monitorize.config.validation import (
     DEFAULT_FPS,
     DEFAULT_PRIMARY_RESOLUTION,
@@ -28,9 +32,13 @@ from monitorize.platform.gpu_discovery import normalize_pci_id, resolve_encoding
 from monitorize.platform.process_utils import stop_processes
 from monitorize.platform.sunshine_service import (
     check_sunshine_health,
+    is_sunshine_settings_instance,
     get_sunshine_log_size,
+    get_sunshine_kms_setup_error,
     get_sunshine_strict_selection_error,
+    get_sunshine_x11_capture_status,
     is_sunshine_running,
+    get_saved_sunshine_config,
     save_sunshine_config,
     start_sunshine,
     stop_sunshine,
@@ -64,7 +72,7 @@ def _sunshine_capture_method(
     portal_source_type="",
     flatpak=None,
 ):
-    """Choose an explicit backend; GNOME without an owned node uses Portal."""
+    """Choose an explicit backend for the active desktop session."""
     if portal_source_type:
         return "portal"
 
@@ -75,18 +83,68 @@ def _sunshine_capture_method(
     if has_pipewire_node:
         return "pipewire_node"
 
+    if os.environ.get("XDG_SESSION_TYPE", "").lower() == "x11":
+        return "x11"
+
     if flatpak is None:
         flatpak = os.path.isfile("/.flatpak-info")
     if flatpak:
         return "portal"
 
     normalized = str(desktop or "").strip().lower()
+    if normalized == "cinnamon" and os.environ.get("XDG_SESSION_TYPE", "").lower() == "wayland":
+        return "kms"
+    if normalized == "cosmic" and os.environ.get("XDG_SESSION_TYPE", "").lower() == "wayland":
+        return "portal"
     if normalized == "kde":
         return "kwin"
     if normalized in ("hyprland", "sway"):
         return "wlr"
 
     return "portal"
+
+
+def _x11_capture_output(requested):
+    """Find the connected XRandR name for a compositor or VKMS output.
+
+    VKMS reports DRM names such as Virtual-1 while XRandR can expose
+    Virtual-1-1. Never let Sunshine fall back to the whole desktop.
+    """
+    requested = str(requested or "").strip()
+    if not requested:
+        raise ValueError("No display was selected for X11 capture.")
+    deadline = time.monotonic() + 3.0
+    while True:
+        try:
+            result = subprocess.run(
+                ["xrandr", "--query"], capture_output=True, text=True, timeout=2,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise ValueError(f"Could not query X11 displays: {exc}") from exc
+        if result.returncode != 0:
+            raise ValueError(
+                "Could not query X11 displays: "
+                + (result.stderr.strip() or result.stdout.strip() or "xrandr failed")
+            )
+        connected = []
+        for line in result.stdout.splitlines():
+            fields = line.split()
+            if (len(fields) > 2 and fields[1] == "connected"
+                    and any(re.fullmatch(r"\d+x\d+\+-?\d+\+-?\d+", field)
+                            for field in fields[2:])):
+                connected.append(fields[0])
+        if requested in connected:
+            return requested
+        aliases = [name for name in connected if name.startswith(requested + "-")
+                   and name[len(requested) + 1:].isdigit()]
+        if len(aliases) == 1:
+            return aliases[0]
+        if len(aliases) > 1:
+            raise ValueError(f"Several X11 displays match {requested}: {', '.join(aliases)}")
+        if time.monotonic() >= deadline:
+            raise ValueError(f"X11 display {requested} is not connected; refusing to capture another screen.")
+        time.sleep(0.2)
 
 
 class StreamingController(QObject):
@@ -138,6 +196,7 @@ class StreamingController(QObject):
         self._is_stopping = False
         self.streaming_backend = "sunshine"
         self._sunshine_log_offsets = {1: 0, 2: 0}
+        self._x11_capture_targets = {}
         self.prepare_only = False
         self.display_events = {}
 
@@ -472,6 +531,8 @@ class StreamingController(QObject):
                 f"Using encoding GPU {selected_gpu['label']}",
             )
         adapter_name = selected_gpu.get("render_node", "") if selected_gpu else ""
+        if not adapter_name and load_general_settings().get("sunshine_web_settings_enabled"):
+            adapter_name = get_saved_sunshine_config(instance).get("adapter_name", "")
         sunshine_environment = None
         if selected_gpu and str(encoder).strip().lower() in ("nvidia", "nvenc"):
             cuda_index = selected_gpu.get("cuda_index", "")
@@ -505,10 +566,63 @@ class StreamingController(QObject):
             pipewire_node=pipewire_node,
             portal_source_type=portal_source_type,
         )
+        cosmic_portal = (
+            self.de == "cosmic"
+            and os.environ.get("XDG_SESSION_TYPE", "").lower() == "wayland"
+            and capture == "portal"
+        )
+        if (load_general_settings().get("sunshine_web_settings_enabled")
+                and not portal_source_type and not pipewire_node):
+            requested = get_saved_sunshine_config(instance).get("capture", "").lower()
+            if cosmic_portal:
+                compatible = requested == "portal"
+            elif self.de == "cinnamon" and capture == "kms":
+                # Cinnamon's current Xapp portal has no ScreenCast interface.
+                compatible = requested == "kms"
+            else:
+                compatible = (
+                    requested in ("portal", "kms")
+                    or requested == "x11" and os.environ.get("XDG_SESSION_TYPE", "").lower() == "x11"
+                    or requested == "kwin" and self.de == "kde"
+                    or requested == "wlr" and self.de in ("hyprland", "sway")
+                )
+            if compatible and os.environ.get("XDG_SESSION_TYPE", "").lower() != "x11":
+                capture = requested
+        if cosmic_portal:
+            target_output = sunshine_environment.get("MONITORIZE_CAPTURE_OUTPUT", "")
+            if not target_output:
+                message = "COSMIC portal capture requires a named display output."
+                self._set_status(message)
+                self.logAppended.emit("SUNSHINE", f"ERROR: {message}")
+                return False
+            self.logAppended.emit(
+                "SUNSHINE",
+                f"Desktop detected: COSMIC; session type: Wayland; "
+                f"capture backend: portal; target output: {target_output}",
+            )
+        if capture == "x11":
+            try:
+                capture_output = _x11_capture_output(output_name)
+            except ValueError as exc:
+                self._set_status(str(exc))
+                self.logAppended.emit("SUNSHINE", f"ERROR: {exc}")
+                return False
+            self.logAppended.emit("SUNSHINE", f"X11 output {output_name} maps to {capture_output}")
+            output_name = capture_output
         self.logAppended.emit(
             "SUNSHINE",
             f"Using {capture} capture for {output_name or 'the selected display'}",
         )
+        if capture == "kms":
+            error = get_sunshine_kms_setup_error(instance)
+            if error:
+                self._set_status(error)
+                self.logAppended.emit("SUNSHINE", f"ERROR: {error}")
+                return False
+        if is_sunshine_settings_instance(instance):
+            stop_sunshine(instance, clear_output_name=False)
+        if cosmic_portal:
+            self.logAppended.emit("SUNSHINE", "Configuring Sunshine capture=portal")
         ok, message = sync_sunshine_stream_config(
             output_name,
             encoder,
@@ -540,6 +654,26 @@ class StreamingController(QObject):
             self._set_status(message)
             self.logAppended.emit("SUNSHINE", f"ERROR: {message}")
             return False
+        if capture == "x11":
+            deadline = time.monotonic() + 3.0
+            status = "pending"
+            while time.monotonic() < deadline:
+                status = get_sunshine_x11_capture_status(
+                    instance, output_name, self._sunshine_log_offsets[instance]
+                )
+                if status == "matched":
+                    self._x11_capture_targets[instance] = output_name
+                    break
+                if status == "fallback" or not is_sunshine_running(instance):
+                    break
+                time.sleep(0.1)
+            if status != "matched":
+                stop_sunshine(instance)
+                error = (f"Sunshine could not capture X11 display {output_name}; "
+                         "stopped to avoid streaming another screen.")
+                self._set_status(error)
+                self.logAppended.emit("SUNSHINE", f"ERROR: {error}")
+                return False
         self.logAppended.emit("SUNSHINE", message)
         QTimer.singleShot(1500, self.sunshine_watchdog_timer.start)
         return True
@@ -626,6 +760,7 @@ class StreamingController(QObject):
         self._save_gnome_virtual_layout()
         self.third_generation += 1
         stop_sunshine(instance=2)
+        self._x11_capture_targets.pop(2, None)
         process = self.third_streamer
         self.third_streamer = None
         if process is not None:
@@ -713,6 +848,14 @@ class StreamingController(QObject):
                 self._set_status(message)
                 QTimer.singleShot(0, self.stop)
                 return
+            target = self._x11_capture_targets.get(1)
+            if target and get_sunshine_x11_capture_status(
+                1, target, self._sunshine_log_offsets[1]
+            ) == "fallback":
+                self._set_status(f"Sunshine lost X11 display {target}; streaming stopped to protect your other screens.")
+                self.startFailed.emit()
+                QTimer.singleShot(0, self.stop)
+                return
             strict_error = get_sunshine_strict_selection_error(
                 1, self._sunshine_log_offsets[1]
             )
@@ -725,6 +868,9 @@ class StreamingController(QObject):
                 if codec_name:
                     toast_message = f"Select {codec_name} in Moonlight"
                     message = f"{toast_message}. Sunshine reported: {strict_error}"
+                elif "MONITORIZE_STRICT_KMS_OUTPUT_MISSING" in strict_error:
+                    toast_message = ""
+                    message = f"Sunshine could not capture the selected KMS display: {strict_error}"
                 else:
                     toast_message = ""
                     message = f"Sunshine rejected the selected encoder or codec: {strict_error}"
@@ -750,6 +896,14 @@ class StreamingController(QObject):
                     self._set_status(message)
                     QTimer.singleShot(0, self.stop_third)
                     return
+                target = self._x11_capture_targets.get(2)
+                if target and get_sunshine_x11_capture_status(
+                    2, target, self._sunshine_log_offsets[2]
+                ) == "fallback":
+                    self._set_status(f"Sunshine lost X11 display {target}; the second stream was stopped.")
+                    self.startFailed.emit()
+                    QTimer.singleShot(0, self.stop_third)
+                    return
                 strict_error = get_sunshine_strict_selection_error(
                     2, self._sunshine_log_offsets[2]
                 )
@@ -762,6 +916,9 @@ class StreamingController(QObject):
                     if codec_name:
                         toast_message = f"Select {codec_name} in Moonlight"
                         message = f"Second display: {toast_message}. Sunshine reported: {strict_error}"
+                    elif "MONITORIZE_STRICT_KMS_OUTPUT_MISSING" in strict_error:
+                        toast_message = ""
+                        message = f"Second Sunshine instance could not capture the selected KMS display: {strict_error}"
                     else:
                         toast_message = ""
                         message = f"Second Sunshine instance rejected the selected encoder or codec: {strict_error}"
@@ -844,6 +1001,7 @@ class StreamingController(QObject):
                 self.stop_third()
                 self.startFailed.emit()
             stop_sunshine()
+            self._x11_capture_targets.clear()
             process = self.streamer
             self.streamer = None
             if process is not None:

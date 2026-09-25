@@ -1,4 +1,5 @@
 import logging
+import os
 import unittest
 from unittest.mock import Mock, patch
 
@@ -8,11 +9,15 @@ from monitorize.desktop.streaming_controller import (
     StreamingController,
     _moonlight_codec_name,
     _sunshine_capture_method,
+    _x11_capture_output,
 )
 
 
 class SunshineControllerTest(unittest.TestCase):
     def setUp(self):
+        session = patch.dict(os.environ, {"XDG_SESSION_TYPE": "wayland"})
+        session.start()
+        self.addCleanup(session.stop)
         p = patch(
             "monitorize.platform.mirror_outputs.active_outputs",
             return_value=[
@@ -45,11 +50,146 @@ class SunshineControllerTest(unittest.TestCase):
         self.assertEqual(_sunshine_capture_method("gnome", flatpak=False), "portal")
         self.assertEqual(_sunshine_capture_method("hyprland", flatpak=False), "wlr")
         self.assertEqual(_sunshine_capture_method("sway", flatpak=False), "wlr")
+        self.assertEqual(_sunshine_capture_method("cinnamon", flatpak=False), "kms")
+        self.assertEqual(_sunshine_capture_method("cosmic", flatpak=False), "portal")
+        self.assertEqual(_sunshine_capture_method("COSMIC", flatpak=False), "portal")
         self.assertEqual(_sunshine_capture_method("kde", flatpak=True), "portal")
+        self.assertEqual(_sunshine_capture_method("cinnamon", flatpak=True), "portal")
         self.assertEqual(
             _sunshine_capture_method("kde", pipewire_node=42, flatpak=True),
             "pipewire_node",
         )
+
+    def test_x11_session_uses_x11_capture_across_desktops(self):
+        with patch.dict(os.environ, {"XDG_SESSION_TYPE": "x11"}):
+            for desktop in ("kde", "gnome", "hyprland", "sway", "cosmic", ""):
+                self.assertEqual(_sunshine_capture_method(desktop, flatpak=False), "x11")
+            self.assertEqual(_sunshine_capture_method("", flatpak=True), "x11")
+            self.assertEqual(_sunshine_capture_method("gnome", pipewire_node=42), "pipewire_node")
+
+    def test_x11_output_matches_active_vkms_connector_without_desktop_fallback(self):
+        listing = """eDP-1 connected primary 1920x1080+0+0
+Virtual-1 disconnected
+Virtual-1-1 connected 2340x1080+1920+0
+Virtual-1-2 connected
+"""
+        with patch("monitorize.desktop.streaming_controller.subprocess.run",
+                   return_value=Mock(returncode=0, stdout=listing, stderr="")):
+            self.assertEqual(_x11_capture_output("Virtual-1"), "Virtual-1-1")
+            self.assertEqual(_x11_capture_output("eDP-1"), "eDP-1")
+        with (patch("monitorize.desktop.streaming_controller.subprocess.run",
+                    return_value=Mock(returncode=0, stdout="eDP-1 connected 1920x1080+0+0\n", stderr="")),
+              patch("monitorize.desktop.streaming_controller.time.monotonic", side_effect=[0, 4]),
+              patch("monitorize.desktop.streaming_controller.time.sleep")):
+            with self.assertRaisesRegex(ValueError, "refusing to capture another screen"):
+                _x11_capture_output("Virtual-1")
+
+    def test_cinnamon_wayland_vkms_uses_kms_even_with_saved_portal_setting(self):
+        controller = self.controller("cinnamon")
+        with (
+            patch("monitorize.desktop.streaming_controller.load_general_settings",
+                  return_value={"sunshine_web_settings_enabled": True}),
+            patch("monitorize.desktop.streaming_controller.get_saved_sunshine_config",
+                  return_value={"capture": "portal", "adapter_name": ""}),
+            patch("monitorize.desktop.streaming_controller.get_sunshine_kms_setup_error",
+                  return_value=""),
+            patch("monitorize.desktop.streaming_controller.is_sunshine_settings_instance",
+                  return_value=False),
+            patch("monitorize.desktop.streaming_controller.sync_sunshine_stream_config",
+                  return_value=(True, "synced")) as sync,
+            patch("monitorize.desktop.streaming_controller.save_sunshine_config",
+                  return_value=(True, "saved")),
+            patch("monitorize.desktop.streaming_controller.start_sunshine",
+                  return_value=(True, "started")),
+        ):
+            self.assertTrue(controller._start_instance(1, "Virtual-1", 2340, 1080))
+        self.assertEqual(sync.call_args.args[0], "Virtual-1")
+        self.assertEqual(sync.call_args.kwargs["capture"], "kms")
+
+    def test_cosmic_vkms_uses_portal_and_exact_output_even_with_saved_kms_setting(self):
+        controller = self.controller("cosmic")
+        controller.streaming = True
+        with (
+            patch("monitorize.desktop.streaming_controller.load_general_settings",
+                  return_value={"sunshine_web_settings_enabled": True}),
+            patch("monitorize.desktop.streaming_controller.get_saved_sunshine_config",
+                  return_value={"capture": "kms", "adapter_name": ""}),
+            patch("monitorize.desktop.streaming_controller.is_sunshine_settings_instance",
+                  return_value=False),
+            patch("monitorize.desktop.streaming_controller.sync_sunshine_stream_config",
+                  return_value=(True, "synced")) as sync,
+            patch("monitorize.desktop.streaming_controller.save_sunshine_config",
+                  return_value=(True, "saved")),
+            patch("monitorize.desktop.streaming_controller.start_sunshine",
+                  return_value=(True, "started")) as start,
+        ):
+            controller._display_ready("primary", {
+                "type": "headless_ready", "name": "Virtual-1", "vkms": True,
+                "width": 1920, "height": 1080, "fps": 60,
+            })
+        self.assertEqual(sync.call_args.args[0], "Virtual-1")
+        self.assertEqual(sync.call_args.kwargs["capture"], "portal")
+        self.assertEqual(start.call_args.kwargs["extra_environment"], {
+            "SUNSHINE_PORTAL_TOKEN_SCOPE": "extend",
+            "MONITORIZE_CAPTURE_OUTPUT": "Virtual-1",
+        })
+        self.assertTrue(controller.primary_ready)
+
+    def test_cosmic_portal_requires_exact_output_name(self):
+        controller = self.controller("cosmic")
+        with patch("monitorize.desktop.streaming_controller.sync_sunshine_stream_config") as sync:
+            self.assertFalse(controller._start_instance(1, "", 1920, 1080))
+        self.assertIn("named display output", controller.status)
+        sync.assert_not_called()
+
+    def test_webpage_x11_capture_is_kept_and_settings_process_stops_first(self):
+        controller = self.controller("")
+        calls = []
+        with (
+            patch.dict(os.environ, {"XDG_SESSION_TYPE": "x11"}),
+            patch("monitorize.desktop.streaming_controller.load_general_settings",
+                  return_value={"sunshine_web_settings_enabled": True}),
+            patch("monitorize.desktop.streaming_controller.get_saved_sunshine_config",
+                  return_value={"capture": "x11", "adapter_name": ""}),
+            patch("monitorize.desktop.streaming_controller._x11_capture_output",
+                  return_value="Virtual-1-1"),
+            patch("monitorize.desktop.streaming_controller.get_sunshine_x11_capture_status",
+                  return_value="matched"),
+            patch("monitorize.desktop.streaming_controller.is_sunshine_settings_instance",
+                  return_value=True),
+            patch("monitorize.desktop.streaming_controller.stop_sunshine",
+                  side_effect=lambda *a, **k: calls.append(("stop", a, k))),
+            patch("monitorize.desktop.streaming_controller.sync_sunshine_stream_config",
+                  side_effect=lambda *a, **k: (calls.append(("sync", a, k)), (True, "synced"))[1]),
+            patch("monitorize.desktop.streaming_controller.save_sunshine_config", return_value=(True, "saved")),
+            patch("monitorize.desktop.streaming_controller.start_sunshine", return_value=(True, "started")),
+        ):
+            self.assertTrue(controller._start_instance(1, "Virtual-1", 1920, 1080))
+        self.assertEqual(calls[0], ("stop", (1,), {"clear_output_name": False}))
+        self.assertEqual(calls[1][0], "sync")
+        self.assertEqual(calls[1][2]["capture"], "x11")
+        self.assertEqual(calls[1][1][0], "Virtual-1-1")
+
+    def test_x11_fallback_stops_sunshine_instead_of_streaming_primary(self):
+        controller = self.controller("")
+        with (
+            patch.dict(os.environ, {"XDG_SESSION_TYPE": "x11"}),
+            patch("monitorize.desktop.streaming_controller._x11_capture_output",
+                  return_value="Virtual-1-1"),
+            patch("monitorize.desktop.streaming_controller.get_sunshine_x11_capture_status",
+                  return_value="fallback"),
+            patch("monitorize.desktop.streaming_controller.is_sunshine_running", return_value=True),
+            patch("monitorize.desktop.streaming_controller.sync_sunshine_stream_config",
+                  return_value=(True, "synced")),
+            patch("monitorize.desktop.streaming_controller.save_sunshine_config",
+                  return_value=(True, "saved")),
+            patch("monitorize.desktop.streaming_controller.start_sunshine",
+                  return_value=(True, "started")),
+            patch("monitorize.desktop.streaming_controller.stop_sunshine") as stop,
+        ):
+            self.assertFalse(controller._start_instance(1, "Virtual-1", 2340, 1080))
+        stop.assert_called_once_with(1)
+        self.assertIn("avoid streaming another screen", controller.status)
 
     @patch("monitorize.desktop.streaming_controller.stop_sunshine")
     def test_mirror_missing_target_fails_before_launch(self, _stop):

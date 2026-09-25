@@ -8,6 +8,35 @@ from monitorize.platform import sunshine_service as service
 
 
 class SunshineRuntimeTest(unittest.TestCase):
+    def test_kms_preflight_requires_capability_on_bundled_binary(self):
+        with (
+            patch.object(service, "find_sunshine_command", return_value=["/tmp/monitorize-sunshine"]),
+            patch.object(service.shutil, "which", return_value="/usr/sbin/getcap"),
+            patch.object(service.subprocess, "run") as run,
+        ):
+            run.return_value.returncode = 0
+            run.return_value.stdout = ""
+            self.assertIn("sudo setcap", service.get_sunshine_kms_setup_error())
+            run.return_value.stdout = "/tmp/monitorize-sunshine cap_sys_admin=p"
+            self.assertEqual(service.get_sunshine_kms_setup_error(), "")
+        run.assert_called_with(
+            ["getcap", "--", "/tmp/monitorize-sunshine"],
+            executable="/usr/sbin/getcap", capture_output=True, text=True,
+            timeout=3, check=False,
+        )
+        self.assertNotIn("shell", run.call_args.kwargs)
+
+    def test_x11_capture_log_confirms_target_and_detects_fallback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            log = Path(tmp) / "sunshine.log"
+            log.write_text("[old] Warning: Couldn't get info for requested display [Virtual-1-1]\n")
+            offset = log.stat().st_size
+            with patch.object(service, "get_sunshine_config_dir", return_value=tmp):
+                self.assertEqual(service.get_sunshine_x11_capture_status(1, "Virtual-1-1", offset), "pending")
+                log.write_text(log.read_text() + "Info: Streaming display: Virtual-1-1 with res 2340x1080\n")
+                self.assertEqual(service.get_sunshine_x11_capture_status(1, "Virtual-1-1", offset), "matched")
+                log.write_text(log.read_text() + "Warning: Couldn't get info for requested display [Virtual-1-1]\n")
+                self.assertEqual(service.get_sunshine_x11_capture_status(1, "Virtual-1-1", offset), "fallback")
     def test_live_process_with_failed_video_is_unhealthy(self):
         process = MagicMock()
         process.poll.return_value = None
@@ -28,9 +57,55 @@ class SunshineRuntimeTest(unittest.TestCase):
     def tearDown(self):
         service._SUNSHINE_PROCESS = None
         service._SUNSHINE_PROCESSES.clear()
+        service._SUNSHINE_SETTINGS_INSTANCES.clear()
         service._SUNSHINE_PIPEWIRE_NODES.clear()
         service._SUNSHINE_PIPEWIRE_OFFSETS.clear()
         service._SUNSHINE_PIPEWIRE_DIMS.clear()
+
+    def test_settings_launch_is_local_and_normal_start_replaces_it(self):
+        settings_process = MagicMock()
+        settings_process.poll.return_value = None
+        normal_process = MagicMock()
+        normal_process.poll.return_value = None
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            patch.dict(os.environ, {"XDG_CONFIG_HOME": tmp}),
+            patch.object(service, "get_sunshine_candidates", return_value=[["/tmp/sunshine", tmp + "/sunshine.conf"]]),
+            patch.object(service, "get_sunshine_assets_dir", return_value=None),
+            patch.object(service.time, "sleep"),
+            patch.object(service.subprocess, "Popen", side_effect=[settings_process, normal_process]) as popen,
+        ):
+            self.assertTrue(service.start_sunshine(settings_only=True)[0])
+            command = popen.call_args.args[0]
+            self.assertIn("bind_address=127.0.0.1", command)
+            self.assertIn("address_family=ipv4", command)
+            self.assertIn("upnp=disabled", command)
+            self.assertNotIn("bind_address", Path(service.get_sunshine_config_path()).read_text())
+            self.assertTrue(service.start_sunshine(settings_only=True)[0])
+            self.assertEqual(popen.call_count, 1)
+            config_path = Path(service.get_sunshine_config_path())
+            with config_path.open("a") as config:
+                config.write("output_name = Virtual-1\nsw_preset = faster\n")
+            self.assertTrue(service.start_sunshine()[0])
+            self.assertIn("output_name = Virtual-1", config_path.read_text())
+            self.assertIn("sw_preset = faster", config_path.read_text())
+            settings_process.terminate.assert_called_once()
+            settings_process.wait.assert_called_once()
+            self.assertNotIn("bind_address=127.0.0.1", popen.call_args.args[0])
+            self.assertNotIn(1, service._SUNSHINE_SETTINGS_INSTANCES)
+            self.assertTrue(service.start_sunshine(settings_only=True)[0])
+            self.assertEqual(popen.call_count, 2)
+            normal_process.terminate.assert_not_called()
+
+    def test_settings_readiness_accepts_authentication_and_ignores_video_errors(self):
+        with patch.object(service.http.client, "HTTPSConnection") as https:
+            connection = https.return_value
+            connection.getresponse.return_value.status = 401
+            self.assertTrue(service.sunshine_web_ready(2))
+            self.assertEqual(https.call_args.args, ("127.0.0.1", 49090))
+            connection.close.assert_called_once()
+            connection.request.side_effect = ConnectionRefusedError
+            self.assertFalse(service.sunshine_web_ready(2))
 
     def test_arbitrary_binary_and_assets_are_not_adopted(self):
         with tempfile.TemporaryDirectory() as tmp:
