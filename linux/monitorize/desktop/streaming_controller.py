@@ -94,6 +94,8 @@ def _sunshine_capture_method(
     normalized = str(desktop or "").strip().lower()
     if normalized == "cinnamon" and os.environ.get("XDG_SESSION_TYPE", "").lower() == "wayland":
         return "kms"
+    if normalized == "cosmic" and os.environ.get("XDG_SESSION_TYPE", "").lower() == "wayland":
+        return "portal"
     if normalized == "kde":
         return "kwin"
     if normalized in ("hyprland", "sway"):
@@ -564,10 +566,17 @@ class StreamingController(QObject):
             pipewire_node=pipewire_node,
             portal_source_type=portal_source_type,
         )
+        cosmic_portal = (
+            self.de == "cosmic"
+            and os.environ.get("XDG_SESSION_TYPE", "").lower() == "wayland"
+            and capture == "portal"
+        )
         if (load_general_settings().get("sunshine_web_settings_enabled")
                 and not portal_source_type and not pipewire_node):
             requested = get_saved_sunshine_config(instance).get("capture", "").lower()
-            if self.de == "cinnamon" and capture == "kms":
+            if cosmic_portal:
+                compatible = requested == "portal"
+            elif self.de == "cinnamon" and capture == "kms":
                 # Cinnamon's current Xapp portal has no ScreenCast interface.
                 compatible = requested == "kms"
             else:
@@ -579,6 +588,18 @@ class StreamingController(QObject):
                 )
             if compatible and os.environ.get("XDG_SESSION_TYPE", "").lower() != "x11":
                 capture = requested
+        if cosmic_portal:
+            target_output = sunshine_environment.get("MONITORIZE_CAPTURE_OUTPUT", "")
+            if not target_output:
+                message = "COSMIC portal capture requires a named display output."
+                self._set_status(message)
+                self.logAppended.emit("SUNSHINE", f"ERROR: {message}")
+                return False
+            self.logAppended.emit(
+                "SUNSHINE",
+                f"Desktop detected: COSMIC; session type: Wayland; "
+                f"capture backend: portal; target output: {target_output}",
+            )
         if capture == "x11":
             try:
                 capture_output = _x11_capture_output(output_name)
@@ -600,6 +621,8 @@ class StreamingController(QObject):
                 return False
         if is_sunshine_settings_instance(instance):
             stop_sunshine(instance, clear_output_name=False)
+        if cosmic_portal:
+            self.logAppended.emit("SUNSHINE", "Configuring Sunshine capture=portal")
         ok, message = sync_sunshine_stream_config(
             output_name,
             encoder,

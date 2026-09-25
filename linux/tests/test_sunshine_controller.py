@@ -51,6 +51,8 @@ class SunshineControllerTest(unittest.TestCase):
         self.assertEqual(_sunshine_capture_method("hyprland", flatpak=False), "wlr")
         self.assertEqual(_sunshine_capture_method("sway", flatpak=False), "wlr")
         self.assertEqual(_sunshine_capture_method("cinnamon", flatpak=False), "kms")
+        self.assertEqual(_sunshine_capture_method("cosmic", flatpak=False), "portal")
+        self.assertEqual(_sunshine_capture_method("COSMIC", flatpak=False), "portal")
         self.assertEqual(_sunshine_capture_method("kde", flatpak=True), "portal")
         self.assertEqual(_sunshine_capture_method("cinnamon", flatpak=True), "portal")
         self.assertEqual(
@@ -60,7 +62,7 @@ class SunshineControllerTest(unittest.TestCase):
 
     def test_x11_session_uses_x11_capture_across_desktops(self):
         with patch.dict(os.environ, {"XDG_SESSION_TYPE": "x11"}):
-            for desktop in ("kde", "gnome", "hyprland", "sway", ""):
+            for desktop in ("kde", "gnome", "hyprland", "sway", "cosmic", ""):
                 self.assertEqual(_sunshine_capture_method(desktop, flatpak=False), "x11")
             self.assertEqual(_sunshine_capture_method("", flatpak=True), "x11")
             self.assertEqual(_sunshine_capture_method("gnome", pipewire_node=42), "pipewire_node")
@@ -103,6 +105,42 @@ Virtual-1-2 connected
             self.assertTrue(controller._start_instance(1, "Virtual-1", 2340, 1080))
         self.assertEqual(sync.call_args.args[0], "Virtual-1")
         self.assertEqual(sync.call_args.kwargs["capture"], "kms")
+
+    def test_cosmic_vkms_uses_portal_and_exact_output_even_with_saved_kms_setting(self):
+        controller = self.controller("cosmic")
+        controller.streaming = True
+        with (
+            patch("monitorize.desktop.streaming_controller.load_general_settings",
+                  return_value={"sunshine_web_settings_enabled": True}),
+            patch("monitorize.desktop.streaming_controller.get_saved_sunshine_config",
+                  return_value={"capture": "kms", "adapter_name": ""}),
+            patch("monitorize.desktop.streaming_controller.is_sunshine_settings_instance",
+                  return_value=False),
+            patch("monitorize.desktop.streaming_controller.sync_sunshine_stream_config",
+                  return_value=(True, "synced")) as sync,
+            patch("monitorize.desktop.streaming_controller.save_sunshine_config",
+                  return_value=(True, "saved")),
+            patch("monitorize.desktop.streaming_controller.start_sunshine",
+                  return_value=(True, "started")) as start,
+        ):
+            controller._display_ready("primary", {
+                "type": "headless_ready", "name": "Virtual-1", "vkms": True,
+                "width": 1920, "height": 1080, "fps": 60,
+            })
+        self.assertEqual(sync.call_args.args[0], "Virtual-1")
+        self.assertEqual(sync.call_args.kwargs["capture"], "portal")
+        self.assertEqual(start.call_args.kwargs["extra_environment"], {
+            "SUNSHINE_PORTAL_TOKEN_SCOPE": "extend",
+            "MONITORIZE_CAPTURE_OUTPUT": "Virtual-1",
+        })
+        self.assertTrue(controller.primary_ready)
+
+    def test_cosmic_portal_requires_exact_output_name(self):
+        controller = self.controller("cosmic")
+        with patch("monitorize.desktop.streaming_controller.sync_sunshine_stream_config") as sync:
+            self.assertFalse(controller._start_instance(1, "", 1920, 1080))
+        self.assertIn("named display output", controller.status)
+        sync.assert_not_called()
 
     def test_webpage_x11_capture_is_kept_and_settings_process_stops_first(self):
         controller = self.controller("")

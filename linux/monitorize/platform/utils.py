@@ -15,12 +15,14 @@ QML_DIR = os.path.join(PACKAGE_DIR, "qml")
 
 def detect_desktop_environment() -> str:
     """
-    Return "cinnamon", "kde", "gnome", "hyprland", "sway", or "" (unknown) based on
-    environment variables.  Checks XDG_CURRENT_DESKTOP, DESKTOP_SESSION,
+    Return "cosmic", "cinnamon", "kde", "gnome", "hyprland", "sway", or ""
+    (unknown) based on environment variables. Checks XDG_CURRENT_DESKTOP,
+    XDG_SESSION_DESKTOP, DESKTOP_SESSION,
     and compositor-specific variables; case-insensitive.
     """
     xdg   = os.environ.get("XDG_CURRENT_DESKTOP", "").lower()
     dsess = os.environ.get("DESKTOP_SESSION",      "").lower()
+    session_desktop = os.environ.get("XDG_SESSION_DESKTOP", "").lower()
 
     hypr  = os.environ.get("HYPRLAND_INSTANCE_SIGNATURE", "")
     sway = os.environ.get("SWAYSOCK", "")
@@ -30,12 +32,19 @@ def detect_desktop_environment() -> str:
         return "hyprland"
     if sway or "sway" in combined:
         return "sway"
+    if "cosmic" in xdg:
+        return "cosmic"
     if "cinnamon" in combined:
         return "cinnamon"
     if "kde" in combined:
         return "kde"
     if "gnome" in combined:
         return "gnome"
+    if "cosmic" in combined:
+        return "cosmic"
+    for name in ("hyprland", "sway", "cinnamon", "cosmic", "kde", "gnome"):
+        if name in session_desktop:
+            return name
     return ""
 
 
