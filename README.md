@@ -27,11 +27,14 @@ Receiving is handled by the standard [Moonlight](https://moonlight-stream.org/) 
 - KDE Plasma 6.7+
 - GNOME 50+
 - Hyprland
+- Niri (Through VKMS)
+- cinnamon x11 (Through VKMS)
 
 ### Virtual Display Backends
 
-- **Compositor (Default)**: Uses compositor-native virtual display APIs (KDE KWin, GNOME Mutter, wlroots). If detection fails, Monitorize asks which supported desktop is running when this mode is used.
-- **VKMS (Experimental)**: Creates kernel-level DRM virtual displays via the standalone [`monitorize-vkms`](https://github.com/vinnavannewton/monitorize-vkms) tool.
+```
+| Desktop Environment / Compositor | Compositor | monitorize-vkms ||---|:---:|:---:|| KDE Plasma | ✅ | ✅ || GNOME | ✅ | ✅ || Hyprland | ✅ | ❌ || Niri | ❌ | ✅ || Cinnamon X11 | ❌ | ✅ |
+```
 
 ## Installation
 
