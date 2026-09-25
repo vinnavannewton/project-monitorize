@@ -328,6 +328,8 @@ class FirstRunSetupTest(unittest.TestCase):
         self.assertIn('enabled: !backend.isStreaming', settings_page)
         self.assertIn("backend.markSystemSetupDecided()", main)
         self.assertIn("property bool firstRun: false", setup)
+        self.assertIn('backend.detectedDe === "cinnamon" ? "Cinnamon"', menu)
+        self.assertIn('backend.detectedDe === "cosmic" ? "COSMIC"', menu)
         self.assertIn("if (statusSucceeded && page.firstRun)", setup)
         self.assertNotIn("Finish system setup", menu)
         self.assertIn("visible: backend.canConfigureDisplay", streaming)

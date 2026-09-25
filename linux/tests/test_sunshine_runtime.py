@@ -19,6 +19,12 @@ class SunshineRuntimeTest(unittest.TestCase):
             self.assertIn("sudo setcap", service.get_sunshine_kms_setup_error())
             run.return_value.stdout = "/tmp/monitorize-sunshine cap_sys_admin=p"
             self.assertEqual(service.get_sunshine_kms_setup_error(), "")
+        run.assert_called_with(
+            ["getcap", "--", "/tmp/monitorize-sunshine"],
+            executable="/usr/sbin/getcap", capture_output=True, text=True,
+            timeout=3, check=False,
+        )
+        self.assertNotIn("shell", run.call_args.kwargs)
 
     def test_x11_capture_log_confirms_target_and_detects_fallback(self):
         with tempfile.TemporaryDirectory() as tmp:

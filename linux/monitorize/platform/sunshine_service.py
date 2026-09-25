@@ -304,9 +304,11 @@ def get_sunshine_kms_setup_error(instance: int = 1) -> str:
     if not getcap:
         return "KMS capture requires the getcap utility to verify Sunshine's capability."
     try:
-        result = subprocess.run(
-            [getcap, command[0]], capture_output=True, text=True, timeout=3,
-            check=False,
+        # Audited: use a static argv name while executing the absolute path
+        # resolved above. List arguments and `--` keep the Sunshine path literal.
+        result = subprocess.run(  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
+            ["getcap", "--", command[0]], executable=getcap,
+            capture_output=True, text=True, timeout=3, check=False,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         return f"Could not verify Sunshine's KMS capability: {exc}"
