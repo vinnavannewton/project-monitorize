@@ -8,6 +8,18 @@ from monitorize.platform import sunshine_service as service
 
 
 class SunshineRuntimeTest(unittest.TestCase):
+    def test_kms_preflight_requires_capability_on_bundled_binary(self):
+        with (
+            patch.object(service, "find_sunshine_command", return_value=["/tmp/monitorize-sunshine"]),
+            patch.object(service.shutil, "which", return_value="/usr/sbin/getcap"),
+            patch.object(service.subprocess, "run") as run,
+        ):
+            run.return_value.returncode = 0
+            run.return_value.stdout = ""
+            self.assertIn("sudo setcap", service.get_sunshine_kms_setup_error())
+            run.return_value.stdout = "/tmp/monitorize-sunshine cap_sys_admin=p"
+            self.assertEqual(service.get_sunshine_kms_setup_error(), "")
+
     def test_x11_capture_log_confirms_target_and_detects_fallback(self):
         with tempfile.TemporaryDirectory() as tmp:
             log = Path(tmp) / "sunshine.log"

@@ -50,7 +50,9 @@ class SunshineControllerTest(unittest.TestCase):
         self.assertEqual(_sunshine_capture_method("gnome", flatpak=False), "portal")
         self.assertEqual(_sunshine_capture_method("hyprland", flatpak=False), "wlr")
         self.assertEqual(_sunshine_capture_method("sway", flatpak=False), "wlr")
+        self.assertEqual(_sunshine_capture_method("cinnamon", flatpak=False), "kms")
         self.assertEqual(_sunshine_capture_method("kde", flatpak=True), "portal")
+        self.assertEqual(_sunshine_capture_method("cinnamon", flatpak=True), "portal")
         self.assertEqual(
             _sunshine_capture_method("kde", pipewire_node=42, flatpak=True),
             "pipewire_node",
@@ -79,6 +81,28 @@ Virtual-1-2 connected
               patch("monitorize.desktop.streaming_controller.time.sleep")):
             with self.assertRaisesRegex(ValueError, "refusing to capture another screen"):
                 _x11_capture_output("Virtual-1")
+
+    def test_cinnamon_wayland_vkms_uses_kms_even_with_saved_portal_setting(self):
+        controller = self.controller("cinnamon")
+        with (
+            patch("monitorize.desktop.streaming_controller.load_general_settings",
+                  return_value={"sunshine_web_settings_enabled": True}),
+            patch("monitorize.desktop.streaming_controller.get_saved_sunshine_config",
+                  return_value={"capture": "portal", "adapter_name": ""}),
+            patch("monitorize.desktop.streaming_controller.get_sunshine_kms_setup_error",
+                  return_value=""),
+            patch("monitorize.desktop.streaming_controller.is_sunshine_settings_instance",
+                  return_value=False),
+            patch("monitorize.desktop.streaming_controller.sync_sunshine_stream_config",
+                  return_value=(True, "synced")) as sync,
+            patch("monitorize.desktop.streaming_controller.save_sunshine_config",
+                  return_value=(True, "saved")),
+            patch("monitorize.desktop.streaming_controller.start_sunshine",
+                  return_value=(True, "started")),
+        ):
+            self.assertTrue(controller._start_instance(1, "Virtual-1", 2340, 1080))
+        self.assertEqual(sync.call_args.args[0], "Virtual-1")
+        self.assertEqual(sync.call_args.kwargs["capture"], "kms")
 
     def test_webpage_x11_capture_is_kept_and_settings_process_stops_first(self):
         controller = self.controller("")

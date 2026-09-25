@@ -295,6 +295,29 @@ def find_sunshine_command(instance: int = 1) -> list[str] | None:
     return candidates[0] if candidates else None
 
 
+def get_sunshine_kms_setup_error(instance: int = 1) -> str:
+    """Explain a missing capability before starting a KMS capture session."""
+    command = find_sunshine_command(instance)
+    if not command:
+        return "Monitorize's Sunshine binary is unavailable."
+    getcap = shutil.which("getcap")
+    if not getcap:
+        return "KMS capture requires the getcap utility to verify Sunshine's capability."
+    try:
+        result = subprocess.run(
+            [getcap, command[0]], capture_output=True, text=True, timeout=3,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return f"Could not verify Sunshine's KMS capability: {exc}"
+    if result.returncode != 0 or "cap_sys_admin" not in result.stdout.lower():
+        return (
+            "KMS capture requires cap_sys_admin on Monitorize's Sunshine binary. "
+            f"Run: sudo setcap cap_sys_admin+p {command[0]}"
+        )
+    return ""
+
+
 def get_sunshine_device_name(instance: int = 1) -> str:
     """Return the advertised Sunshine host name formatted as '<Hostname> Monitor <Instance>'."""
     try:

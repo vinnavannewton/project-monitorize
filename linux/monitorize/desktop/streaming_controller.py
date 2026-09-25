@@ -34,6 +34,7 @@ from monitorize.platform.sunshine_service import (
     check_sunshine_health,
     is_sunshine_settings_instance,
     get_sunshine_log_size,
+    get_sunshine_kms_setup_error,
     get_sunshine_strict_selection_error,
     get_sunshine_x11_capture_status,
     is_sunshine_running,
@@ -71,7 +72,7 @@ def _sunshine_capture_method(
     portal_source_type="",
     flatpak=None,
 ):
-    """Choose an explicit backend; GNOME without an owned node uses Portal."""
+    """Choose an explicit backend for the active desktop session."""
     if portal_source_type:
         return "portal"
 
@@ -91,6 +92,8 @@ def _sunshine_capture_method(
         return "portal"
 
     normalized = str(desktop or "").strip().lower()
+    if normalized == "cinnamon" and os.environ.get("XDG_SESSION_TYPE", "").lower() == "wayland":
+        return "kms"
     if normalized == "kde":
         return "kwin"
     if normalized in ("hyprland", "sway"):
@@ -564,12 +567,16 @@ class StreamingController(QObject):
         if (load_general_settings().get("sunshine_web_settings_enabled")
                 and not portal_source_type and not pipewire_node):
             requested = get_saved_sunshine_config(instance).get("capture", "").lower()
-            compatible = (
-                requested in ("portal", "kms")
-                or requested == "x11" and os.environ.get("XDG_SESSION_TYPE", "").lower() == "x11"
-                or requested == "kwin" and self.de == "kde"
-                or requested == "wlr" and self.de in ("hyprland", "sway")
-            )
+            if self.de == "cinnamon" and capture == "kms":
+                # Cinnamon's current Xapp portal has no ScreenCast interface.
+                compatible = requested == "kms"
+            else:
+                compatible = (
+                    requested in ("portal", "kms")
+                    or requested == "x11" and os.environ.get("XDG_SESSION_TYPE", "").lower() == "x11"
+                    or requested == "kwin" and self.de == "kde"
+                    or requested == "wlr" and self.de in ("hyprland", "sway")
+                )
             if compatible and os.environ.get("XDG_SESSION_TYPE", "").lower() != "x11":
                 capture = requested
         if capture == "x11":
@@ -585,6 +592,12 @@ class StreamingController(QObject):
             "SUNSHINE",
             f"Using {capture} capture for {output_name or 'the selected display'}",
         )
+        if capture == "kms":
+            error = get_sunshine_kms_setup_error(instance)
+            if error:
+                self._set_status(error)
+                self.logAppended.emit("SUNSHINE", f"ERROR: {error}")
+                return False
         if is_sunshine_settings_instance(instance):
             stop_sunshine(instance, clear_output_name=False)
         ok, message = sync_sunshine_stream_config(
@@ -832,6 +845,9 @@ class StreamingController(QObject):
                 if codec_name:
                     toast_message = f"Select {codec_name} in Moonlight"
                     message = f"{toast_message}. Sunshine reported: {strict_error}"
+                elif "MONITORIZE_STRICT_KMS_OUTPUT_MISSING" in strict_error:
+                    toast_message = ""
+                    message = f"Sunshine could not capture the selected KMS display: {strict_error}"
                 else:
                     toast_message = ""
                     message = f"Sunshine rejected the selected encoder or codec: {strict_error}"
@@ -877,6 +893,9 @@ class StreamingController(QObject):
                     if codec_name:
                         toast_message = f"Select {codec_name} in Moonlight"
                         message = f"Second display: {toast_message}. Sunshine reported: {strict_error}"
+                    elif "MONITORIZE_STRICT_KMS_OUTPUT_MISSING" in strict_error:
+                        toast_message = ""
+                        message = f"Second Sunshine instance could not capture the selected KMS display: {strict_error}"
                     else:
                         toast_message = ""
                         message = f"Second Sunshine instance rejected the selected encoder or codec: {strict_error}"
