@@ -32,9 +32,13 @@ Receiving is handled by the standard [Moonlight](https://moonlight-stream.org/) 
 
 ### Virtual Display Backends
 
-```
-| Desktop Environment / Compositor | Compositor | monitorize-vkms ||---|:---:|:---:|| KDE Plasma | ✅ | ✅ || GNOME | ✅ | ✅ || Hyprland | ✅ | ❌ || Niri | ❌ | ✅ || Cinnamon X11 | ❌ | ✅ |
-```
+| Desktop Environment / Compositor | Compositor | monitorize-vkms |
+| --- | :---: | :---: |
+| KDE Plasma | ✅ | ✅ |
+| GNOME | ✅ | ✅ |
+| Hyprland | ✅ | ❌ |
+| Niri | ❌ | ✅ |
+| Cinnamon X11 | ❌ | ✅ |
 
 ## Installation
 
