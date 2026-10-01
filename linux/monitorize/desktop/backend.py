@@ -3,7 +3,6 @@
 import json
 import logging
 import os
-import shutil
 import sys
 import time
 from pathlib import Path
@@ -51,14 +50,7 @@ from monitorize.platform.sunshine_service import (
 from monitorize.platform.system_setup import apply_system_setup, get_system_setup_status
 from monitorize.platform.utils import LINUX_DIR, get_local_ip
 from monitorize.platform.monitorize_vkms_cli import MonitorizeVkmsClient
-from monitorize.platform.vkms_backend import (
-    CustomEdidCapability,
-    VkmsError,
-    custom_edid_capability_from_response,
-    open_monitorize_vkms_install_page,
-    resolution_options as vkms_resolution_options,
-    stock_vkms_connectors,
-)
+from monitorize.platform.vkms_backend import open_monitorize_vkms_install_page
 
 
 class MonitorizeBackend(QObject):
@@ -78,14 +70,7 @@ class MonitorizeBackend(QObject):
     systemSetupAvailableChanged = pyqtSignal(bool)
     systemSetupPendingChanged = pyqtSignal(bool)
     streamingBackendChanged = pyqtSignal(str)
-    vkmsResolutionOptionsChanged = pyqtSignal()
-    vkmsConnectorsChanged = pyqtSignal()
-    vkmsModuleLoadingChanged = pyqtSignal()
-    vkmsModuleLoadFinished = pyqtSignal(bool, str)
-    vkmsStartFailed = pyqtSignal(str)
-    vkmsCustomCapabilityCheckingChanged = pyqtSignal()
-    vkmsCustomEdidCapabilityChanged = pyqtSignal()
-    vkmsCustomCapabilityChecked = pyqtSignal(str)
+    vkmsHelperAvailabilityChanged = pyqtSignal()
     virtualDisplayCleanupChanged = pyqtSignal()
     virtualDisplayCleanupFinished = pyqtSignal(bool, str)
 
@@ -116,28 +101,19 @@ class MonitorizeBackend(QObject):
         self.logAppended.connect(self._remember_session_log)
         self._presets = load_presets()
         self._preset_launch_status = ""
-        self._vkms_connectors = stock_vkms_connectors()
-        self._vkms_resolution_options = ["Custom..."]
-        self._vkms_refresh_rates = {}
-        self._vkms_module_load_process = None
-        self._vkms_module_finishing = False
-        self._vkms_module_deadline = 0.0
-        self._pending_vkms_start = None
-        self.refreshVkmsResolutionOptions()
-        self._vkms_custom_capability = None
-        self._vkms_custom_capability_process = None
+        self._vkms_resolution_options = [
+            "1280x720", "1280x800", "1920x1080", "1920x1200",
+            "2560x1440", "2560x1600", "3840x2160", "Custom...",
+        ]
+        self._vkms_helper_available = MonitorizeVkmsClient().is_available()
         self._system_setup_available = bool(get_system_setup_status()["available"])
         self._system_setup_decided = bool(
             general.get("system_setup_decided", False)
         )
         self.streaming.streamingChanged.connect(self.isStreamingChanged)
         self.streaming.startFailed.connect(self.streamingStartFailed)
-        self.vkmsStartFailed.connect(self._set_preset_launch_status)
         self.streaming.codecMismatch.connect(self.streamingCodecMismatch)
         self.streaming.statusChanged.connect(self.streamingStatusChanged)
-        self.streaming.vkmsCustomEdidUnsupported.connect(
-            self._handle_vkms_custom_edid_unsupported
-        )
         self.streaming.secondStreamChanged.connect(self.secondStreamActiveChanged)
         self.streaming.logAppended.connect(app_log.write)
         self.streaming.logAppended.connect(self.logAppended)
@@ -217,17 +193,16 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot()
     def startSession(self):
-        if self.virtualDisplayCleanupRunning or self.vkmsModuleLoading:
+        if self.virtualDisplayCleanupRunning:
             return
         config = self.session.configuration()
         if (config["display_type"] == "Extend"
                 and config["virtual_display_creator"] == "vkms"):
-            if not self.vkmsModuleLoaded:
-                self._pending_vkms_start = ("session", None)
-                self.loadStockVkmsModule()
-                return
-            if (not config["vkms_custom_mode"]
-                    and not self._resolve_stock_connector(self.session.preset_configuration)):
+            self.refreshVkmsHelperAvailability()
+            if not self.vkmsHelperAvailable:
+                message = "Install monitorize-vkms to create a VKMS display."
+                self.streaming._set_status(message)
+                self.streamingStartFailed.emit()
                 return
         self._sync_web_settings()
         if (config["display_type"] == "Extend"
@@ -303,381 +278,20 @@ class MonitorizeBackend(QObject):
     def vkmsCreatorAvailable(self):
         return not os.path.isfile("/.flatpak-info")
 
-    @pyqtProperty("QVariant", notify=vkmsResolutionOptionsChanged)
+    @pyqtProperty("QVariant", constant=True)
     def vkmsResolutionOptions(self):
         return list(self._vkms_resolution_options)
 
-    @pyqtProperty("QVariant", notify=vkmsConnectorsChanged)
-    def vkmsConnectors(self):
-        return [dict(entry) for entry in self._vkms_connectors]
-
-    @pyqtProperty(bool, notify=vkmsModuleLoadingChanged)
-    def vkmsModuleLoading(self):
-        return self._vkms_module_load_process is not None or self._vkms_module_finishing
-
-    @pyqtProperty(bool)
-    def vkmsModuleLoaded(self):
-        return Path("/sys/module/vkms").is_dir()
-
-    def _finish_vkms_module_load(self, process, success, message=""):
-        if process is not self._vkms_module_load_process:
-            return
-        if success:
-            try:
-                from monitorize.platform.stock_vkms_output import recover_disabled_output
-                recover_disabled_output(self._detected_de)
-            except Exception as exc:
-                success = False
-                message = f"Stock VKMS loaded, but previous output cleanup failed: {exc}"
-        self._vkms_module_load_process = None
-        self._vkms_module_finishing = False
-        process.deleteLater()
-        self.vkmsModuleLoadingChanged.emit()
-        if success:
-            self.refreshVkmsResolutionOptions()
-        else:
-            app_log.write("DISPLAY", f"Could not load stock VKMS: {message}", level=logging.ERROR)
-        self.vkmsModuleLoadFinished.emit(success, message)
-        pending = self._pending_vkms_start
-        self._pending_vkms_start = None
-        if pending:
-            if success:
-                QTimer.singleShot(0, lambda: self._resume_vkms_start(*pending))
-            else:
-                self.vkmsStartFailed.emit(message)
-
-    def _resume_vkms_start(self, kind, index):
-        if kind == "session":
-            self.startSession()
-        else:
-            self.launchPreset(index)
-
-    def _fail_vkms_load_without_process(self, message):
-        self.vkmsModuleLoadFinished.emit(False, message)
-        pending = self._pending_vkms_start
-        self._pending_vkms_start = None
-        if pending:
-            self.vkmsStartFailed.emit(message)
-
-    def _finish_existing_vkms_load(self):
-        self.vkmsModuleLoadFinished.emit(True, "")
-        pending = self._pending_vkms_start
-        self._pending_vkms_start = None
-        if pending:
-            QTimer.singleShot(0, lambda: self._resume_vkms_start(*pending))
-
-    def _resolve_stock_connector(self, preset=None):
-        """Keep a valid choice; recover a sole connector after card renumbering."""
-        self.refreshVkmsResolutionOptions()
-        connectors = self._vkms_connectors
-        selected = (preset["primary"].get("vkms_connector", "") if preset
-                    else load_display_settings().get("vkms_connector", ""))
-        if any(entry["id"] == selected for entry in connectors):
-            return True
-        if len(connectors) == 1:
-            selected = connectors[0]["id"]
-            if preset:
-                preset["primary"]["vkms_connector"] = selected
-            else:
-                save_display_settings(**{**load_display_settings(), "vkms_connector": selected})
-                self.session.configuration_changed()
-            self.refreshVkmsResolutionOptions()
-            return True
-        message = ("No connected stock VKMS connector is available." if not connectors
-                   else "Choose a stock VKMS connector in Configuration before starting.")
-        self.vkmsStartFailed.emit(message)
-        return False
-
-    def _disable_new_stock_output(self, process):
-        if process is not self._vkms_module_load_process:
-            return
-        connectors = stock_vkms_connectors()
-        if len(connectors) == 1:
-            from monitorize.platform.stock_vkms_output import StockVkmsOutput
-            connector = connectors[0]
-            try:
-                StockVkmsOutput(
-                    connector["id"], self._detected_de, connector["connector_id"]
-                ).disable()
-            except Exception as exc:
-                if time.monotonic() < self._vkms_module_deadline:
-                    QTimer.singleShot(250, lambda: self._disable_new_stock_output(process))
-                    return
-                self._finish_vkms_module_load(
-                    process, False, f"Stock VKMS loaded, but its default output could not be disabled: {exc}"
-                )
-                return
-            self._finish_vkms_module_load(process, True)
-            return
-        if time.monotonic() < self._vkms_module_deadline:
-            QTimer.singleShot(250, lambda: self._disable_new_stock_output(process))
-            return
-        self._finish_vkms_module_load(
-            process, False,
-            "Stock VKMS loaded, but its new default connector could not be identified."
-        )
-
-    def _complete_vkms_module_load(self, process, exit_code):
-        if process is not self._vkms_module_load_process:
-            return
-        loaded = Path("/sys/module/vkms").is_dir()
-        if exit_code == 0 and loaded:
-            message = ""
-        elif exit_code == 0:
-            message = "modprobe returned success, but stock VKMS is not loaded."
-        else:
-            message = (
-                bytes(process.readAllStandardOutput()).decode("utf-8", "replace").strip()[:300]
-                or "Authentication was cancelled or module loading failed."
-            )
-        if exit_code == 0 and loaded:
-            self._vkms_module_finishing = True
-            self._vkms_module_deadline = time.monotonic() + 5
-            self._disable_new_stock_output(process)
-        else:
-            self._finish_vkms_module_load(process, False, message)
+    @pyqtProperty(bool, notify=vkmsHelperAvailabilityChanged)
+    def vkmsHelperAvailable(self):
+        return self._vkms_helper_available
 
     @pyqtSlot()
-    def loadStockVkmsModule(self):
-        """Load stock VKMS for a selected, saved, or starting VKMS display."""
-        if self._vkms_module_load_process is not None:
-            return
-        if self.vkmsModuleLoaded:
-            self.refreshVkmsResolutionOptions()
-            QTimer.singleShot(0, self._finish_existing_vkms_load)
-            return
-
-        pkexec = shutil.which("pkexec")
-        modprobe = next(
-            (path for path in ("/usr/sbin/modprobe", "/sbin/modprobe", "/usr/bin/modprobe", "/bin/modprobe")
-             if Path(path).is_file() and os.access(path, os.X_OK)),
-            None,
-        )
-        if not pkexec or not modprobe:
-            missing = "Polkit (pkexec)" if not pkexec else "modprobe"
-            QTimer.singleShot(0, lambda: self._fail_vkms_load_without_process(
-                f"{missing} is not installed."
-            ))
-            return
-
-        process = QProcess(self)
-        process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
-        process.finished.connect(
-            lambda exit_code, _status: self._complete_vkms_module_load(process, exit_code)
-        )
-        process.errorOccurred.connect(
-            lambda error: self._finish_vkms_module_load(
-                process, False, process.errorString()
-            ) if error == QProcess.ProcessError.FailedToStart else None
-        )
-        self._vkms_module_load_process = process
-        self.vkmsModuleLoadingChanged.emit()
-        process.start(pkexec, [modprobe, "vkms"])
-
-    @pyqtSlot()
-    def loadSavedStockVkmsAtStartup(self):
-        """Restore the saved VKMS choice once the main window has loaded."""
-        saved = load_display_settings()
-        if (saved["display_type"] != "Extend"
-                or saved["virtual_display_creator"] != "vkms"
-                or not self.vkmsCreatorAvailable):
-            return
-        if self.vkmsModuleLoaded:
-            try:
-                from monitorize.platform.stock_vkms_output import recover_disabled_output
-                recover_disabled_output(self._detected_de)
-                self.refreshVkmsResolutionOptions()
-            except Exception as exc:
-                self.vkmsModuleLoadFinished.emit(
-                    False, f"Could not clean up the previous VKMS output: {exc}"
-                )
-        else:
-            self.loadStockVkmsModule()
-
-    @pyqtProperty("QVariant", notify=vkmsResolutionOptionsChanged)
-    def vkmsRefreshRates(self):
-        return {size: list(rates) for size, rates in self._vkms_refresh_rates.items()}
-
-    @pyqtProperty(bool, notify=vkmsCustomCapabilityCheckingChanged)
-    def vkmsCustomCapabilityChecking(self):
-        return self._vkms_custom_capability_process is not None
-
-    @pyqtProperty(str, notify=vkmsCustomEdidCapabilityChanged)
-    def vkmsCustomEdidCapability(self):
-        if self._vkms_custom_capability is None:
-            return "unknown"
-        return self._vkms_custom_capability.value
-
-    @pyqtSlot()
-    def refreshVkmsResolutionOptions(self):
-        connectors = stock_vkms_connectors()
-        if connectors != self._vkms_connectors:
-            self._vkms_connectors = connectors
-            self.vkmsConnectorsChanged.emit()
-        options = vkms_resolution_options(
-            connector_id=load_display_settings().get("vkms_connector", "")
-        )
-        rates = {}
-        selected = load_display_settings().get("vkms_connector", "")
-        if selected and any(entry["id"] == selected for entry in connectors):
-            from monitorize.platform.stock_vkms_output import StockVkmsOutput
-            try:
-                connector_number = next(
-                    entry["connector_id"] for entry in connectors if entry["id"] == selected
-                )
-                output = StockVkmsOutput(selected, self._detected_de, connector_number)
-                drm_sizes = set(options[:-1])
-                for mode in output.modes():
-                    size = f"{mode['width']}x{mode['height']}"
-                    if size in drm_sizes:
-                        label = f"{mode['refresh_rate']:g} Hz"
-                        rates.setdefault(size, set()).add(label)
-            except Exception as exc:
-                app_log.write("DISPLAY", f"Could not read stock VKMS desktop modes: {exc}", level=logging.WARNING)
-        rates = {size: sorted(values, key=lambda label: float(label.split()[0]))
-                 for size, values in rates.items()}
-        if options != self._vkms_resolution_options or rates != self._vkms_refresh_rates:
-            self._vkms_resolution_options = options
-            self._vkms_refresh_rates = rates
-            self.vkmsResolutionOptionsChanged.emit()
-
-    def _finish_vkms_custom_capability(self, capability, detail=""):
-        process = self._vkms_custom_capability_process
-        self._vkms_custom_capability_process = None
-        if process is not None:
-            process.deleteLater()
-        self.vkmsCustomCapabilityCheckingChanged.emit()
-
-        if capability in (
-            CustomEdidCapability.SUPPORTED,
-            CustomEdidCapability.UNSUPPORTED,
-        ):
-            self._vkms_custom_capability = capability
-            self.vkmsCustomEdidCapabilityChanged.emit()
-            app_log.write(
-                "VKMS",
-                f"VKMS custom EDID capability: {capability.value}",
-            )
-        else:
-            app_log.write(
-                "VKMS",
-                "Failed to determine VKMS custom EDID capability: " + detail,
-                level=logging.ERROR,
-            )
-        self.vkmsCustomCapabilityChecked.emit(capability.value)
-
-    def _handle_vkms_custom_edid_unsupported(self):
-        """Carry a launch-time capability failure back to the existing QML UI."""
-        self._vkms_custom_capability = CustomEdidCapability.UNSUPPORTED
-        self.vkmsCustomEdidCapabilityChanged.emit()
-        self.vkmsCustomCapabilityChecked.emit(
-            CustomEdidCapability.UNSUPPORTED.value
-        )
-
-    def _complete_vkms_custom_capability(self, process, exit_code):
-        if process is not self._vkms_custom_capability_process:
-            return
-        output = bytes(process.readAllStandardOutput()).decode("utf-8", "replace")
-        response = None
-        for line in reversed(output.splitlines()):
-            try:
-                candidate = json.loads(line)
-                if isinstance(candidate, dict):
-                    response = candidate
-                    break
-            except (TypeError, json.JSONDecodeError):
-                continue
-        if response is None:
-            try:
-                parsed = json.loads(output)
-                if isinstance(parsed, dict):
-                    response = parsed
-            except (TypeError, json.JSONDecodeError):
-                pass
-        try:
-            if exit_code or not isinstance(response, dict) or not response.get("success"):
-                detail = ""
-                if isinstance(response, dict):
-                    detail = str(response.get("message") or "")
-                raise VkmsError(detail or "The capability check did not complete.")
-            if "capability" in response:
-                capability = custom_edid_capability_from_response(response)
-            else:
-                mod_loaded = response.get("kernel_module", {}).get("loaded", False)
-                topo_enabled = response.get("topology", {}).get("device_enabled", False)
-                capability = (
-                    CustomEdidCapability.SUPPORTED
-                    if mod_loaded and topo_enabled
-                    else CustomEdidCapability.UNSUPPORTED
-                )
-        except VkmsError as exc:
-            self._finish_vkms_custom_capability(
-                CustomEdidCapability.CHECK_FAILED, str(exc)
-            )
-            return
-        self._finish_vkms_custom_capability(capability)
-
-    def _handle_vkms_custom_capability_error(self, process, error):
-        if (
-            error == QProcess.ProcessError.FailedToStart
-            and process is self._vkms_custom_capability_process
-        ):
-            self._finish_vkms_custom_capability(
-                CustomEdidCapability.CHECK_FAILED,
-                process.errorString(),
-            )
-
-    @pyqtSlot()
-    def checkVkmsCustomEdidSupport(self):
-        if self._vkms_custom_capability_process is not None:
-            return
-        if self._vkms_custom_capability is not None:
-            QTimer.singleShot(
-                0,
-                lambda: self.vkmsCustomCapabilityChecked.emit(
-                    self._vkms_custom_capability.value
-                ),
-            )
-            return
-        if os.path.isfile("/.flatpak-info"):
-            self._finish_vkms_custom_capability(
-                CustomEdidCapability.CHECK_FAILED,
-                "VKMS capability checks are unavailable in Flatpak.",
-            )
-            return
-
-        client = MonitorizeVkmsClient()
-        exe = client.find_executable()
-        if not exe:
-            self._finish_vkms_custom_capability(
-                CustomEdidCapability.UNSUPPORTED,
-                "The standalone monitorize-vkms package is not installed.",
-            )
-            return
-
-        process = QProcess(self)
-        process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
-        process.finished.connect(
-            lambda exit_code, _status: self._complete_vkms_custom_capability(
-                process, exit_code
-            )
-        )
-        process.errorOccurred.connect(
-            lambda error: self._handle_vkms_custom_capability_error(process, error)
-        )
-        self._vkms_custom_capability_process = process
-        self.vkmsCustomCapabilityCheckingChanged.emit()
-        process.start(str(exe), ["status", "--json"])
-
-    @pyqtSlot()
-    def recheckVkmsCustomEdidSupport(self):
-        """Discard a stale unsupported result before an explicit user retry."""
-        if self._vkms_custom_capability_process is not None:
-            return
-        if self._vkms_custom_capability is not None:
-            self._vkms_custom_capability = None
-            self.vkmsCustomEdidCapabilityChanged.emit()
-        self.checkVkmsCustomEdidSupport()
+    def refreshVkmsHelperAvailability(self):
+        available = MonitorizeVkmsClient().is_available()
+        if available != self._vkms_helper_available:
+            self._vkms_helper_available = available
+            self.vkmsHelperAvailabilityChanged.emit()
 
     @pyqtSlot(result=bool)
     def openMonitorizeVkmsInstallPage(self):
@@ -838,7 +452,7 @@ class MonitorizeBackend(QObject):
 
         return active_outputs(self._detected_de)
 
-    @pyqtSlot(str, str, str, str, str, str, str, str, str, bool, bool, bool, str, str, str)
+    @pyqtSlot(str, str, str, str, str, str, str, str, str, bool, bool, bool, str, str)
     def saveDisplaySettings(
         self,
         resolution,
@@ -855,7 +469,6 @@ class MonitorizeBackend(QObject):
         enable_audio,
         mirror_output="",
         virtual_display_creator="native",
-        vkms_connector="",
     ):
         previous_gpu = load_display_settings().get("sunshine_gpu", "")
         save_display_settings(
@@ -876,7 +489,6 @@ class MonitorizeBackend(QObject):
                 virtual_display_creator
                 if self.vkmsCreatorAvailable else "native"
             ),
-            vkms_connector=vkms_connector,
         )
         if self._web_settings_enabled and sunshine_gpu != previous_gpu:
             selected = resolve_encoding_gpu(sunshine_encoder, sunshine_gpu)
@@ -1212,7 +824,7 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot(int)
     def launchPreset(self, index):
-        if self.virtualDisplayCleanupRunning or self.vkmsModuleLoading:
+        if self.virtualDisplayCleanupRunning:
             self._set_preset_launch_status("Wait for virtual display setup to finish.")
             return
         if index < 0 or index >= len(self._presets):
@@ -1224,13 +836,9 @@ class MonitorizeBackend(QObject):
         primary = preset["primary"]
         if (primary["display_type"] == "Extend"
                 and primary.get("virtual_display_creator") == "vkms"):
-            if not self.vkmsModuleLoaded:
-                self._pending_vkms_start = ("preset", index)
-                self.loadStockVkmsModule()
-                return
-            preset = copy.deepcopy(preset)
-            primary = preset["primary"]
-            if not primary.get("vkms_custom_mode", False) and not self._resolve_stock_connector(preset):
+            self.refreshVkmsHelperAvailability()
+            if not self.vkmsHelperAvailable:
+                self._set_preset_launch_status("Install monitorize-vkms to use this VKMS preset.")
                 return
         self._sync_web_settings()
         if (primary["display_type"] == "Extend"
@@ -1256,8 +864,6 @@ class MonitorizeBackend(QObject):
                 primary.get("virtual_display_creator", "native")
                 if self.vkmsCreatorAvailable else "native"
             ),
-            vkms_custom_mode=bool(primary.get("vkms_custom_mode", False)),
-            vkms_connector=primary.get("vkms_connector", ""),
         )
 
     @pyqtSlot(int, str, result=str)

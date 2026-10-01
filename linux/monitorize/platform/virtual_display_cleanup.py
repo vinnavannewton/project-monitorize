@@ -9,9 +9,6 @@ import time
 
 from monitorize.platform.display_controller import DisplayController
 from monitorize.platform.monitorize_vkms_cli import MonitorizeVkmsClient
-from monitorize.platform.stock_vkms_output import StockVkmsOutput, recover_disabled_output
-from monitorize.platform.vkms_backend import stock_vkms_connectors
-from monitorize.config.settings import load_display_settings
 
 
 def _is_display_owner(args):
@@ -73,27 +70,13 @@ def remove_virtual_displays(desktop):
     except Exception as exc:
         errors.append(f'Compositor cleanup failed: {exc}')
 
-    try:
-        removed += recover_disabled_output(desktop)
-        saved = load_display_settings()
-        if (saved.get('display_type') == 'Extend'
-                and saved.get('virtual_display_creator') == 'vkms'):
-            connectors = stock_vkms_connectors()
-            selected = saved.get('vkms_connector', '')
-            matches = [entry for entry in connectors if entry['id'] == selected]
-            if not matches and len(connectors) == 1:
-                matches = connectors
-            if len(matches) == 1:
-                entry = matches[0]
-                output = StockVkmsOutput(entry['id'], desktop, entry['connector_id'])
-                output.snapshot()
-                if output.before_mode is not None:
-                    output.disable()
-                    removed += 1
-            elif connectors:
-                errors.append('Choose the stock VKMS connector in Configuration before cleanup.')
-    except Exception as exc:
-        errors.append(f'Stock VKMS cleanup failed: {exc}')
+    legacy_recovery = Path.home() / '.config' / 'monitorize' / 'stock-vkms-recovery.json'
+    if legacy_recovery.exists():
+        errors.append(
+            'A legacy stock VKMS recovery record remains. This version will not '
+            'modify stock VKMS outputs. Disable the output in desktop display '
+            'settings, then remove the stale recovery record after verifying it.'
+        )
 
     client = MonitorizeVkmsClient()
     if client.is_available():
@@ -114,7 +97,7 @@ def remove_virtual_displays(desktop):
             errors.append(f'VKMS cleanup failed: {exc}')
     if errors:
         return {'success': False, 'message': 'Some virtual displays could not be removed. ' + ' '.join(errors)}
-    return {'success': True, 'message': 'Removed or disabled virtual displays' if removed else 'No virtual displays found'}
+    return {'success': True, 'message': 'Removed virtual displays' if removed else 'No virtual displays found'}
 
 
 if __name__ == '__main__':

@@ -95,9 +95,10 @@ class ArchBuilderPreflightTest(unittest.TestCase):
             "MONITORIZE_TEST_PODMAN_LOG": str(self.podman_log),
         }
 
-    def run_builder(self, *, image_exists: bool) -> subprocess.CompletedProcess[str]:
+    def run_builder(self, *, image_exists: bool, no_cuda: bool = False) -> subprocess.CompletedProcess[str]:
+        arguments = ("--no-cuda", "--rebuild-offline") if no_cuda else ("--rebuild-offline",)
         return subprocess.run(
-            (str(self.checkout / "packaging/arch/build.sh"), "--rebuild-offline"),
+            (str(self.checkout / "packaging/arch/build.sh"), *arguments),
             cwd=self.checkout, env={**self.environment,
                                     "MONITORIZE_TEST_IMAGE_EXISTS": "0" if image_exists else "1"},
             text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
@@ -106,6 +107,18 @@ class ArchBuilderPreflightTest(unittest.TestCase):
     def test_offline_rebuild_never_starts_container_without_prepared_image(self) -> None:
         result = self.run_builder(image_exists=False)
         self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Missing prepared image", result.stderr)
+        self.assertNotIn("run ", self.podman_log.read_text())
+
+    def test_no_cuda_offline_requires_a_separate_prepared_image(self) -> None:
+        self.run_builder(image_exists=False)
+        cuda_image = next(line for line in self.podman_log.read_text().splitlines()
+                          if line.startswith("image exists "))
+        self.podman_log.unlink()
+        result = self.run_builder(image_exists=False, no_cuda=True)
+        no_cuda_image = next(line for line in self.podman_log.read_text().splitlines()
+                             if line.startswith("image exists "))
+        self.assertNotEqual(cuda_image, no_cuda_image)
         self.assertIn("Missing prepared image", result.stderr)
         self.assertNotIn("run ", self.podman_log.read_text())
 

@@ -5,7 +5,7 @@ readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 usage() {
-    echo "Usage: $0 --target {ubuntu-24.04|debian-trixie|ubuntu-26.04} [--rebuild-offline]" >&2
+    echo "Usage: $0 --target {ubuntu-24.04|debian-trixie|ubuntu-26.04} [--no-cuda] [--rebuild-offline]" >&2
 }
 die() {
     echo "Error: $*" >&2
@@ -14,6 +14,7 @@ die() {
 
 target=""
 offline=0
+enable_cuda=1
 while (( $# )); do
     case "$1" in
         --target)
@@ -25,6 +26,11 @@ while (( $# )); do
             offline=1
             shift
             ;;
+        --no-cuda)
+            enable_cuda=0
+            shift
+            ;;
+        --help) usage; exit 0 ;;
         *) usage; exit 2 ;;
     esac
 done
@@ -36,8 +42,12 @@ esac
 source "${SCRIPT_DIR}/common/sources.conf"
 source "${SCRIPT_DIR}/${target}/target.conf"
 readonly PACKAGE_DIR="${SCRIPT_DIR}/${target}"
-readonly OUTPUT_ROOT="${PROJECT_ROOT}/dist/deb/${target}"
+output_root="${PROJECT_ROOT}/dist/deb/${target}"
+if (( ! enable_cuda )); then output_root="${output_root}/no-cuda"; fi
+readonly OUTPUT_ROOT="${output_root}"
 readonly SUNSHINE_MK="${PACKAGE_DIR}/sunshine.mk"
+normal_command="./packaging/deb/${target}/build.sh"
+if (( ! enable_cuda )); then normal_command+=' --no-cuda'; fi
 
 for command in git podman tar gzip awk sed sha256sum; do
     command -v "${command}" >/dev/null 2>&1 || die "Missing command: ${command}"
@@ -77,10 +87,10 @@ cpu_count="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)"
 build_jobs="${MONITORIZE_BUILD_JOBS:-${cpu_count}}"
 [[ "${build_jobs}" =~ ^[1-9][0-9]*$ ]] || die "MONITORIZE_BUILD_JOBS must be a positive integer."
 
-dependency_hash="$(sha256sum "${PACKAGE_DIR}/debian/control" "${PACKAGE_DIR}/target.conf" | sha256sum | awk '{print substr($1,1,16)}')"
+dependency_hash="$( { printf 'cuda=%s\n' "${enable_cuda}"; sha256sum "${PACKAGE_DIR}/debian/control" "${PACKAGE_DIR}/target.conf"; } | sha256sum | awk '{print substr($1,1,16)}')"
 deps_image="localhost/monitorize-deb-builddeps:${target}-${dependency_hash}"
 if (( offline )); then
-    podman image exists "${deps_image}" || die "Missing prepared image ${deps_image}; run the normal ${target} build first."
+    podman image exists "${deps_image}" || die "Missing prepared image ${deps_image}; run ${normal_command} first."
 fi
 
 mkdir -p "${OUTPUT_ROOT}/cache/sources" "${OUTPUT_ROOT}/cache/npm" "${OUTPUT_ROOT}/amd64"
@@ -118,11 +128,16 @@ tar --sort=name --mtime="@${source_date_epoch}" --owner=0 --group=0 --numeric-ow
 if (( ! offline )); then
     deps_container="monitorize-deb-${target}-deps-$$"
     podman run --name "${deps_container}" --arch amd64 --security-opt label=disable \
-        --env DEBIAN_FRONTEND=noninteractive "${IMAGE}" bash -euxo pipefail -c '
+        --env DEBIAN_FRONTEND=noninteractive \
+        --env "MONITORIZE_ENABLE_CUDA=${enable_cuda}" "${IMAGE}" bash -euxo pipefail -c '
             apt-get update
+            cuda_deps=()
+            if [[ "${MONITORIZE_ENABLE_CUDA}" == 1 ]]; then
+                cuda_deps=(aria2 cpio gcc-14 g++-14 rpm2cpio)
+            fi
             apt-get install -y --no-install-recommends \
-                aria2 build-essential cmake cpio curl debhelper desktop-file-utils \
-                dh-python dpkg-dev fakeroot gcc-14 g++-14 git glslang-tools \
+                build-essential cmake curl debhelper desktop-file-utils \
+                dh-python dpkg-dev fakeroot git glslang-tools \
                 libboost-filesystem-dev libboost-locale-dev libboost-log-dev \
                 libboost-program-options-dev libcap-dev libcap2-bin libcurl4-openssl-dev \
                 libdrm-dev libevdev-dev libgbm-dev libglib2.0-dev libminiupnpc-dev \
@@ -135,7 +150,7 @@ if (( ! offline )); then
                 python3-pyqt6 python3-pyqt6.qtquick pybuild-plugin-pyproject \
                 python3-setuptools python3-wheel qml6-module-qtquick \
                 qml6-module-qtquick-controls qml6-module-qtquick-layouts \
-                rpm2cpio wayland-protocols xz-utils
+                wayland-protocols xz-utils "${cuda_deps[@]}"
         ' 2>&1 | tee "${build_log}"
     podman commit "${deps_container}" "${deps_image}" >/dev/null
     podman rm "${deps_container}" >/dev/null
@@ -149,6 +164,7 @@ if (( offline )); then
 fi
 podman run "${run_options[@]}" \
     --env "MONITORIZE_BUILD_JOBS=${build_jobs}" \
+    --env "MONITORIZE_ENABLE_CUDA=${enable_cuda}" \
     --env "SOURCE_DATE_EPOCH=${source_date_epoch}" \
     --env "MONITORIZE_VERSION=${version}" \
     --env "SUNSHINE_FFMPEG_TAG=${ffmpeg_tag}" \
@@ -201,6 +217,7 @@ podman run "${run_options[@]}" \
         node --version
         node -e '\''const [major,minor]=process.versions.node.split(".").map(Number); if (!(major>20 || major===20 && minor>=19)) process.exit(1)'\''
 
+        if [[ "${MONITORIZE_ENABLE_CUDA}" == 1 ]]; then
         cuda_url="https://developer.download.nvidia.com/compute/cuda/${CUDA_VERSION}/local_installers/cuda_${CUDA_VERSION}_${CUDA_BUILD}_linux.run"
         cuda_archive="/source-cache/$(basename "${cuda_url}")"
         if ! echo "${CUDA_SHA256}  ${cuda_archive}" | sha256sum --check --strict --status; then
@@ -228,6 +245,7 @@ podman run "${run_options[@]}" \
         unset LD_LIBRARY_PATH
         patch -p2 --directory=/work/cuda < external/sunshine/packaging/linux/patches/x86_64/cuda-13-math_functions.patch
         test -x /work/cuda/bin/nvcc
+        fi
 
         export DEBIAN_FRONTEND=noninteractive
         dpkg-buildpackage -b -us -uc
@@ -274,4 +292,6 @@ fi
 
 cp "${artifact_root}/amd64/"*.deb "${OUTPUT_ROOT}/amd64/"
 cp "${build_log}" "${OUTPUT_ROOT}/build.log"
+printf 'source_commit=%s\ncuda_enabled=%s\n' "$(git rev-parse HEAD)" "${enable_cuda}" \
+    > "${OUTPUT_ROOT}/build-manifest.txt"
 echo "Completed ${DISTRO_LABEL} AMD64 DEB: ${OUTPUT_ROOT}/amd64/$(basename "${main_deb}")"

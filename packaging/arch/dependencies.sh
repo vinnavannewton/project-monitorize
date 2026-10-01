@@ -11,8 +11,11 @@ monitorize_runtime_deps=(
 )
 
 monitorize_build_deps=(
-    base-devel boost cmake cuda curl desktop-file-utils gcc15 git glib2-devel glslang
-    libgudev libxml2-legacy namcap nlohmann-json nodejs npm patch pkgconf
+    base-devel boost cmake curl desktop-file-utils git glib2-devel glslang
+    libgudev namcap nlohmann-json nodejs npm patch pkgconf
     python-build python-installer python-setuptools python-wheel shaderc
     vulkan-headers wayland-protocols
 )
+if [[ "${MONITORIZE_ENABLE_CUDA:-1}" == 1 ]]; then
+    monitorize_build_deps+=(cuda gcc15 libxml2-legacy)
+fi

@@ -64,13 +64,6 @@ class MonitorizeWindow(QMainWindow):
             print(error.toString())
         self.content_stack.addWidget(self.quick_widget)
         self.setCentralWidget(self.content_stack)
-        self._saved_vkms_checked = False
-
-    def _load_saved_vkms_on_open(self):
-        if self._saved_vkms_checked:
-            return
-        self._saved_vkms_checked = True
-        QTimer.singleShot(0, self.backend.loadSavedStockVkmsAtStartup)
 
     def _setup_tray(self):
         self.tray = QSystemTrayIcon(self)
@@ -114,7 +107,6 @@ class MonitorizeWindow(QMainWindow):
         self.showNormal()
         self.raise_()
         self.activateWindow()
-        self._load_saved_vkms_on_open()
 
     def _quit_app(self):
         app_log.write("APP", "Application shutting down.")

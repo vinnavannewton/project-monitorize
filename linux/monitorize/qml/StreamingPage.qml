@@ -168,8 +168,7 @@ Item {
                 CustomButton {
                     text: backend.isStreaming || backend.sessionBusy ? "Stop" : "Start"
                     danger: text === "Stop"
-                    enabled: text === "Stop" || (!backend.vkmsModuleLoading
-                        && (backend.sessionMode === "Mirror" || backend.sessionHasDisplays))
+                    enabled: text === "Stop" || backend.sessionMode === "Mirror" || backend.sessionHasDisplays
                     onClicked: text === "Stop" ? backend.stopSession() : backend.startSession()
                 }
                 CustomButton {

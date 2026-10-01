@@ -25,4 +25,6 @@ else
     useradd --uid "${build_uid}" --gid "${build_gid}" \
         --create-home --shell /bin/bash monitorize-build
 fi
-test -x /opt/cuda/bin/nvcc || die 'The Arch CUDA package did not provide /opt/cuda/bin/nvcc.'
+if [[ "${MONITORIZE_ENABLE_CUDA:-1}" == 1 ]]; then
+    test -x /opt/cuda/bin/nvcc || die 'The Arch CUDA package did not provide /opt/cuda/bin/nvcc.'
+fi

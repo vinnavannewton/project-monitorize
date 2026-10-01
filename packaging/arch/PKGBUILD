@@ -19,8 +19,11 @@ makedepends=("${monitorize_build_deps[@]}")
 optdepends=(
     'firewalld: optional firewall integration'
     'ufw: optional firewall integration'
-    'nvidia-utils: NVIDIA GPU encoding and capture'
+    'monitorize-vkms: VKMS virtual displays (preset and custom modes)'
 )
+if [[ "${MONITORIZE_ENABLE_CUDA:-1}" == 1 ]]; then
+    optdepends+=('nvidia-utils: NVIDIA GPU encoding and capture')
+fi
 
 source=(
     "monitorize-${pkgver}.tar.gz"
@@ -58,12 +61,12 @@ build() {
     cd "${srcdir}/monitorize-${pkgver}"
     python -m build --wheel --no-isolation
 
-    CC="${MONITORIZE_CUDA_HOST_CC:?CUDA host compiler was not probed}" \
+    CC="${MONITORIZE_CUDA_HOST_CC:-/usr/bin/gcc}" \
     CFLAGS_EXTRA="${CFLAGS}" LDFLAGS="${LDFLAGS}" \
         linux/native/kde_virtual_output/build.sh monitorize-kde-virtual-output
 
-    export CC="${MONITORIZE_CUDA_HOST_CC}"
-    export CXX="${MONITORIZE_CUDA_HOST_CXX}"
+    export CC="${MONITORIZE_CUDA_HOST_CC:-/usr/bin/gcc}"
+    export CXX="${MONITORIZE_CUDA_HOST_CXX:-/usr/bin/g++}"
     export BRANCH=monitorize BUILD_VERSION=0.0.0
     export COMMIT="${MONITORIZE_SUNSHINE_COMMIT}"
     if [[ "${MONITORIZE_OFFLINE:-0}" == 1 ]]; then
@@ -72,16 +75,27 @@ build() {
         npm_offline=OFF
     fi
 
+    local cuda_enabled=ON
+    local cuda_required=ON
+    local -a cuda_args=(
+        -DCMAKE_CUDA_COMPILER=/opt/cuda/bin/nvcc
+        -DCMAKE_CUDA_FLAGS=-Xcompiler=-fPIC
+        -DCMAKE_CUDA_HOST_COMPILER="${CC}"
+    )
+    if [[ "${MONITORIZE_ENABLE_CUDA:-1}" == 0 ]]; then
+        cuda_enabled=OFF
+        cuda_required=OFF
+        cuda_args=()
+    fi
+
     cmake -B sunshine-build -S external/sunshine \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
         -DCMAKE_INSTALL_PREFIX=/usr \
         -DBUILD_DOCS=OFF -DBUILD_TESTS=OFF \
         -DBOOST_USE_STATIC=OFF -DBUILD_SHARED_LIBS=OFF \
-        -DCUDA_FAIL_ON_MISSING=ON \
-        -DCMAKE_CUDA_COMPILER=/opt/cuda/bin/nvcc \
-        -DCMAKE_CUDA_FLAGS=-Xcompiler=-fPIC \
-        -DCMAKE_CUDA_HOST_COMPILER="${MONITORIZE_CUDA_HOST_CC}" \
+        -DCUDA_FAIL_ON_MISSING="${cuda_required}" \
+        "${cuda_args[@]}" \
         -DFETCHCONTENT_SOURCE_DIR_BOOST="${PWD}/.boost-prepared" \
         -DFETCHCONTENT_FULLY_DISCONNECTED=ON \
         -DFFMPEG_PREPARED_BINARIES="${PWD}/.ffmpeg-prepared" \
@@ -90,7 +104,7 @@ build() {
         -DNPM=/usr/bin/npm \
         -DPython_EXECUTABLE=/usr/bin/python \
         -DSUNSHINE_ASSETS_DIR=/usr/share/monitorize/sunshine/assets \
-        -DSUNSHINE_ENABLE_CUDA=ON \
+        -DSUNSHINE_ENABLE_CUDA="${cuda_enabled}" \
         -DSUNSHINE_ENABLE_DRM=ON \
         -DSUNSHINE_ENABLE_KWIN=ON \
         -DSUNSHINE_ENABLE_PORTAL=ON \
@@ -102,7 +116,11 @@ build() {
         -DSUNSHINE_EXECUTABLE_PATH=/usr/libexec/monitorize/sunshine
 
     cmake --build sunshine-build --parallel "${MONITORIZE_BUILD_JOBS:-2}"
-    grep -q 'src/platform/linux/cuda.cu' sunshine-build/compile_commands.json
+    if [[ "${MONITORIZE_ENABLE_CUDA:-1}" == 1 ]]; then
+        grep -q 'src/platform/linux/cuda.cu' sunshine-build/compile_commands.json
+    else
+        ! grep -q 'src/platform/linux/cuda.cu' sunshine-build/compile_commands.json
+    fi
 }
 
 check() {

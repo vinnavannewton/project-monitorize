@@ -44,6 +44,31 @@ class SettingsTest(unittest.TestCase):
         self.assertFalse(saved["sunshine_native_pen_touch"])
         self.assertTrue(saved["enable_audio"])
 
+    def test_legacy_stock_vkms_connector_is_ignored_and_removed_on_save(self):
+        store = QSettings(self.config_file, QSettings.Format.IniFormat)
+        store.setValue("display/vkms_connector", "card2-Virtual-1")
+        store.setValue("display/virtual_display_creator", "vkms")
+        store.setValue("display/resolution", "2560x1440")
+        store.setValue("display/fps", "60")
+        store.sync()
+        saved = settings.load_display_settings()
+        self.assertNotIn("vkms_connector", saved)
+        self.assertEqual(saved["resolution"], "2560x1440")
+        settings.save_display_settings(**saved)
+        self.assertFalse(QSettings(self.config_file, QSettings.Format.IniFormat)
+                         .contains("display/vkms_connector"))
+
+    def test_legacy_stock_vkms_preset_uses_same_mode_without_connector(self):
+        normalized = settings._normalize_session({
+            "resolution": "2560x1440", "fps": "90",
+            "display_type": "Extend", "virtual_display_creator": "vkms",
+            "vkms_custom_mode": False, "vkms_connector": "card2-Virtual-1",
+        })
+        self.assertEqual((normalized["resolution"], normalized["fps"]),
+                         ("2560x1440", "90"))
+        self.assertNotIn("vkms_custom_mode", normalized)
+        self.assertNotIn("vkms_connector", normalized)
+
     def test_second_display_mode_is_persisted_independently(self):
         settings.save_display_settings(resolution="2560x1600", fps="120")
         settings.save_second_display_settings(

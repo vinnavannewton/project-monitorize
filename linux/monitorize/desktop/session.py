@@ -81,13 +81,6 @@ class Session(QObject):
                 "native" if os.path.isfile("/.flatpak-info")
                 else virtual_display_creator or saved.get("virtual_display_creator", "native")
             ),
-            vkms_custom_mode=(
-                resolution_is_custom
-                and saved.get("display_type", "Extend") == "Extend"
-                and not os.path.isfile("/.flatpak-info")
-                and (virtual_display_creator or saved.get("virtual_display_creator", "native")) == "vkms"
-            ),
-            vkms_connector=saved.get("vkms_connector", ""),
             encoder=saved.get("sunshine_encoder", "Auto") if custom else "Auto",
             codec=saved.get("sunshine_codec", "Auto") if custom else "Auto",
             gpu_id=saved.get("sunshine_gpu", "") if custom else "",
@@ -104,8 +97,6 @@ class Session(QObject):
                         "native" if os.path.isfile("/.flatpak-info")
                         else saved.get("virtual_display_creator", "native")
                     ),
-                    vkms_custom_mode=bool(saved.get("vkms_custom_mode", False)),
-                    vkms_connector=saved.get("vkms_connector", ""),
                     encoder=saved.get("sunshine_encoder", "Auto"),
                     codec=saved.get("sunshine_codec", "Auto"),
                     gpu_id=saved.get("sunshine_gpu", ""),
@@ -133,7 +124,7 @@ class Session(QObject):
             "DISPLAY",
             f"Session display request (primary): res={config.get('res')} fps={config.get('fps')} "
             f"display_type={config.get('display_type')} creator={config.get('virtual_display_creator')} "
-            f"vkms_custom_mode={config.get('vkms_custom_mode')}",
+            f"vkms={config.get('virtual_display_creator') == 'vkms'}",
         )
         self.controller.start(**config, options={"prepare_only": True})
 
@@ -142,12 +133,11 @@ class Session(QObject):
         app_log.write(
             "DISPLAY",
             f"Session display request (second): res={config.get('res')} fps={config.get('fps')} "
-            f"vkms_custom_mode={config.get('vkms_custom_mode')}",
+            f"vkms={self.configuration().get('virtual_display_creator') == 'vkms'}",
         )
         config.pop("display_type")
         config.pop("mirror_output", None)
         config.pop("virtual_display_creator", None)
-        config.pop("vkms_connector", None)
         self.controller.start_third(**config)
 
     @property

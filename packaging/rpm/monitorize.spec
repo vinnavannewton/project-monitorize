@@ -4,6 +4,7 @@
 %global cuda_sha256 24ff323723722781436804b392a48f691cb40de9808095d3e2192d0db6dfb8e4
 %global sunshine_ffmpeg_tag v2026.724.203728
 %global sunshine_ffmpeg_sha256 2c27d4694b4ed0e734f497d4bd62f1b3662cbbc4ded2a69f2dc4b703441eebb3
+%bcond_without cuda
 
 Name:           monitorize
 Version:        0.33
@@ -19,14 +20,20 @@ Source2:        monitorize.sysusers
 ExclusiveArch:  x86_64
 
 BuildRequires:  bash
+%if %{with cuda}
 BuildRequires:  aria2
+%endif
 BuildRequires:  boost-devel >= 1.89.0
 BuildRequires:  cmake >= 3.26
 BuildRequires:  curl
 BuildRequires:  desktop-file-utils
 BuildRequires:  firewalld-filesystem
+%if %{with cuda}
 BuildRequires:  gcc15
 BuildRequires:  gcc15-c++
+%else
+BuildRequires:  gcc-c++
+%endif
 BuildRequires:  git
 BuildRequires:  glib2-devel
 BuildRequires:  glslc
@@ -88,13 +95,15 @@ Requires:       python3-pyqt6
 Requires:       systemd-udev
 Requires:       which
 Requires:       xdg-desktop-portal
+Suggests:       monitorize-vkms
 Requires(post): kmod
 %{?sysusers_requires_compat}
 
 %description
 Monitorize creates compositor-native virtual displays on KDE Plasma, GNOME,
 and Hyprland and streams them to Moonlight clients through isolated, bundled
-Sunshine instances.
+Sunshine instances. Optional VKMS displays require the separate monitorize-vkms
+package for both preset and custom resolutions.
 
 
 %prep
@@ -116,6 +125,7 @@ sed -i 's/find_package(Boost CONFIG ${BOOST_VERSION} EXACT /find_package(Boost C
 %build
 %pyproject_wheel
 
+%if %{with cuda}
 cuda_archive=${MONITORIZE_CUDA_ARCHIVE:-%{_builddir}/cuda_%{cuda_version}_%{cuda_build}_linux.run}
 mkdir -p "$(dirname "$cuda_archive")"
 if echo '%{cuda_sha256}  '"$cuda_archive" | sha256sum --check --strict --status; then
@@ -137,14 +147,27 @@ bash "$cuda_archive" --silent --toolkit --toolkitpath=%{_builddir}/cuda \
 patch -p2 --directory=%{_builddir}/cuda \
     < external/sunshine/packaging/linux/patches/x86_64/cuda-13-math_functions.patch
 test -x %{_builddir}/cuda/bin/nvcc
+%endif
 
-CC=/usr/bin/gcc-15 \
+%if %{with cuda}
+build_cc=/usr/bin/gcc-15
+build_cxx=/usr/bin/g++-15
+%else
+build_cc=/usr/bin/gcc
+build_cxx=/usr/bin/g++
+%endif
+CC="$build_cc" \
 RPM_OPT_FLAGS="%{build_cflags}" \
 RPM_LD_FLAGS="%{build_ldflags}" \
     linux/native/kde_virtual_output/build.sh monitorize-kde-virtual-output
 
-export CC=/usr/bin/gcc-15
-export CXX=/usr/bin/g++-15
+export CC="$build_cc"
+export CXX="$build_cxx"
+%if %{with cuda}
+cuda_args='-DCUDA_FAIL_ON_MISSING=ON -DSUNSHINE_ENABLE_CUDA=ON -DCMAKE_CUDA_COMPILER=%{_builddir}/cuda/bin/nvcc -DCMAKE_CUDA_FLAGS=-Xcompiler=-fPIC -DCMAKE_CUDA_HOST_COMPILER=/usr/bin/gcc-15'
+%else
+cuda_args='-DCUDA_FAIL_ON_MISSING=OFF -DSUNSHINE_ENABLE_CUDA=OFF'
+%endif
 export CFLAGS="%{build_cflags}"
 export CXXFLAGS="%{build_cxxflags}"
 export LDFLAGS="%{build_ldflags}"
@@ -159,16 +182,12 @@ cmake -B sunshine-build -S external/sunshine \
     -DBUILD_DOCS=OFF \
     -DBUILD_TESTS=OFF \
     -DBOOST_USE_STATIC=OFF \
-    -DCUDA_FAIL_ON_MISSING=ON \
-    -DCMAKE_CUDA_COMPILER=%{_builddir}/cuda/bin/nvcc \
-    -DCMAKE_CUDA_FLAGS=-Xcompiler=-fPIC \
-    -DCMAKE_CUDA_HOST_COMPILER=/usr/bin/gcc-15 \
+    $cuda_args \
     -DFFMPEG_PREPARED_BINARIES="$PWD/.ffmpeg-prepared" \
     -DGLAD_SKIP_PIP_INSTALL=ON \
     -DNPM=/usr/bin/npm \
     -DPython_EXECUTABLE=/usr/bin/python3 \
     -DSUNSHINE_ASSETS_DIR=%{_datadir}/monitorize/sunshine/assets \
-    -DSUNSHINE_ENABLE_CUDA=ON \
     -DSUNSHINE_ENABLE_DRM=ON \
     -DSUNSHINE_ENABLE_KWIN=ON \
     -DSUNSHINE_ENABLE_PORTAL=ON \
@@ -179,7 +198,11 @@ cmake -B sunshine-build -S external/sunshine \
     -DSUNSHINE_ENABLE_X11=ON \
     -DSUNSHINE_EXECUTABLE_PATH=%{_libexecdir}/monitorize/sunshine
 cmake --build sunshine-build --parallel %{_smp_build_ncpus}
+%if %{with cuda}
 grep -q 'src/platform/linux/cuda.cu' sunshine-build/compile_commands.json
+%else
+! grep -q 'src/platform/linux/cuda.cu' sunshine-build/compile_commands.json
+%endif
 
 
 %install

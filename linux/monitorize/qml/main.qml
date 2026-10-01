@@ -61,7 +61,6 @@ Rectangle {
     }
 
     function navigate(page) {
-        if (backend.vkmsModuleLoading) return
         if (page === selectedPage) return
         if (stack.currentItem && typeof stack.currentItem.commitAllPendingDisplaySettings === "function") {
             stack.currentItem.commitAllPendingDisplaySettings()
@@ -197,14 +196,12 @@ Rectangle {
             NavigationButton {
                 id: configureButton
                 label: "Configure"; symbol: "display"; Layout.fillWidth: true
-                enabled: !backend.vkmsModuleLoading
                 selected: root.selectedPage === "DisplaySetupPage.qml"
                 onClicked: root.navigate("DisplaySetupPage.qml")
             }
             NavigationButton {
                 id: sessionButton
                 label: "Session"; symbol: "session"; Layout.fillWidth: true
-                enabled: !backend.vkmsModuleLoading
                 selected: root.selectedPage === "StreamingPage.qml"
                 onClicked: root.navigate("StreamingPage.qml")
             }
@@ -212,14 +209,12 @@ Rectangle {
             NavigationButton {
                 id: presetsButton
                 label: "Presets"; symbol: "logs"; Layout.fillWidth: true
-                enabled: !backend.vkmsModuleLoading
                 selected: root.selectedPage === "PresetsPage.qml"
                 onClicked: root.navigate("PresetsPage.qml")
             }
             NavigationButton {
                 id: settingsButton
                 label: "Settings"; symbol: "settings"; Layout.fillWidth: true
-                enabled: !backend.vkmsModuleLoading
                 selected: root.selectedPage === "SettingsPage.qml"
                 onClicked: root.navigate("SettingsPage.qml")
             }

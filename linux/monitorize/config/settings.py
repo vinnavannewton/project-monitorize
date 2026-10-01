@@ -110,7 +110,6 @@ DISPLAY_DEFAULTS = {
     "custom_fps": "",
     "display_type": "Extend",
     "virtual_display_creator": "native",
-    "vkms_connector": "",
     "sunshine_encoder": "Auto",
     "sunshine_gpu": "",
     "sunshine_codec": "Auto",
@@ -129,12 +128,8 @@ def _normalize_display_settings(data, fallback=DEFAULT_PRIMARY_RESOLUTION):
         if data.get("virtual_display_creator") in ("native", "vkms")
         else "native"
     )
-    connector = str(data.get("vkms_connector") or "")
-    data["vkms_connector"] = connector if re.fullmatch(r"card\d+-Virtual-\d+", connector) else ""
-    stock_mode = (data["virtual_display_creator"] == "vkms"
-                  and data.get("resolution") != "Custom...")
-    data["fps"] = (str(data.get("fps") or "") if stock_mode
-                   else str(sanitize_fps(data.get("fps"))))
+    data.pop("vkms_connector", None)
+    data["fps"] = str(sanitize_fps(data.get("fps")))
     data["custom_fps"] = (
         str(sanitize_fps(data["custom_fps"])) if data.get("custom_fps") else ""
     )
@@ -144,11 +139,8 @@ def _normalize_display_settings(data, fallback=DEFAULT_PRIMARY_RESOLUTION):
         )
         data["custom_w"], data["custom_h"] = str(width), str(height)
     else:
-        if stock_mode:
-            data["resolution"] = str(data.get("resolution") or "")
-        else:
-            width, height = sanitize_resolution(data.get("resolution"), fallback)
-            data["resolution"] = f"{width}x{height}"
+        width, height = sanitize_resolution(data.get("resolution"), fallback)
+        data["resolution"] = f"{width}x{height}"
         data["custom_w"] = data["custom_h"] = ""
     data["sunshine_encoder"] = str(data.get("sunshine_encoder") or "Auto")
     data["sunshine_gpu"] = _normalize_gpu_id(data.get("sunshine_gpu"))
@@ -171,7 +163,6 @@ def save_display_settings(
     custom_fps="",
     display_type="Extend",
     virtual_display_creator="native",
-    vkms_connector="",
     sunshine_encoder="Auto",
     sunshine_gpu="",
     sunshine_codec="Auto",
@@ -182,6 +173,9 @@ def save_display_settings(
 ):
     values = _normalize_display_settings(locals())
     _save_group("display", values)
+    settings = _get_settings()
+    settings.remove("display/vkms_connector")
+    settings.sync()
 
 
 def load_display_settings() -> dict:
@@ -230,15 +224,9 @@ def load_second_display_settings() -> dict:
 def _normalize_session(raw: dict, fallback=DEFAULT_PRIMARY_RESOLUTION):
     if not isinstance(raw, dict):
         return None
-    stock_mode = (raw.get("virtual_display_creator") == "vkms"
-                  and not raw.get("vkms_custom_mode", False))
-    if stock_mode:
-        resolution = str(raw.get("resolution") or "")
-        fps = str(raw.get("fps") or "")
-    else:
-        width, height = sanitize_resolution(raw.get("resolution", ""), fallback)
-        resolution = f"{width}x{height}"
-        fps = str(sanitize_fps(raw.get("fps", 60)))
+    width, height = sanitize_resolution(raw.get("resolution", ""), fallback)
+    resolution = f"{width}x{height}"
+    fps = str(sanitize_fps(raw.get("fps", 60)))
     return {
         "resolution": resolution,
         "fps": fps,
@@ -247,12 +235,6 @@ def _normalize_session(raw: dict, fallback=DEFAULT_PRIMARY_RESOLUTION):
             raw.get("virtual_display_creator")
             if raw.get("virtual_display_creator") in ("native", "vkms")
             else "native"
-        ),
-        "vkms_custom_mode": bool(raw.get("vkms_custom_mode", False)),
-        "vkms_connector": (
-            str(raw.get("vkms_connector"))
-            if re.fullmatch(r"card\d+-Virtual-\d+", str(raw.get("vkms_connector") or ""))
-            else ""
         ),
         "sunshine_encoder": str(raw.get("sunshine_encoder") or "Auto"),
         "sunshine_gpu": _normalize_gpu_id(raw.get("sunshine_gpu")),

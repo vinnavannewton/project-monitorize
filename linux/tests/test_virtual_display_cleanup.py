@@ -1,4 +1,6 @@
 import unittest
+from pathlib import Path
+import tempfile
 from unittest.mock import Mock, patch
 
 from monitorize.platform import virtual_display_cleanup as cleanup
@@ -55,3 +57,14 @@ class VirtualDisplayCleanupTest(unittest.TestCase):
             result = cleanup.remove_virtual_displays('gnome')
         self.assertTrue(result['success'])
         client.return_value.get_status.assert_not_called()
+
+    def test_legacy_stock_recovery_is_reported_without_touching_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            record = Path(tmp) / '.config' / 'monitorize' / 'stock-vkms-recovery.json'
+            record.parent.mkdir(parents=True)
+            record.write_text('{}')
+            with patch.object(cleanup.Path, 'home', return_value=Path(tmp)):
+                result, client = self.run_cleanup('kde', connected=False)
+        self.assertFalse(result['success'])
+        self.assertIn('legacy stock VKMS recovery record', result['message'])
+        client.remove_display.assert_not_called()

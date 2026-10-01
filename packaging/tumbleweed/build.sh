@@ -7,15 +7,23 @@ readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 readonly SPEC_FILE="${SCRIPT_DIR}/monitorize.spec"
 readonly SYSUSERS_FILE="${PROJECT_ROOT}/packaging/fedora/monitorize.sysusers"
-readonly OUTPUT_ROOT="${PROJECT_ROOT}/dist/rpm/tumbleweed"
+output_root="${PROJECT_ROOT}/dist/rpm/tumbleweed"
 
 rebuild=false
-case "${1:-}" in
-    "") ;;
-    --rebuild-offline) rebuild=true; shift ;;
-    *) echo "Usage: $0 [--rebuild-offline]" >&2; exit 2 ;;
-esac
-(( $# == 0 )) || { echo "Usage: $0 [--rebuild-offline]" >&2; exit 2; }
+enable_cuda=1
+while (( $# )); do
+    case "$1" in
+        --rebuild-offline) rebuild=true ;;
+        --no-cuda) enable_cuda=0 ;;
+        --help) echo "Usage: $0 [--no-cuda] [--rebuild-offline]"; exit 0 ;;
+        *) echo "Usage: $0 [--no-cuda] [--rebuild-offline]" >&2; exit 2 ;;
+    esac
+    shift
+done
+if (( ! enable_cuda )); then output_root="${output_root}/no-cuda"; fi
+readonly OUTPUT_ROOT="${output_root}"
+normal_command="./packaging/tumbleweed/build.sh"
+if (( ! enable_cuda )); then normal_command+=' --no-cuda'; fi
 
 die() {
     echo "Error: $*" >&2
@@ -73,10 +81,10 @@ cuda_version="$(spec_global cuda_version)"
 cuda_build="$(spec_global cuda_build)"
 [[ -n "${cuda_version}" && -n "${cuda_build}" ]] || die "Missing CUDA version or build in the RPM spec."
 cuda_archive_name="cuda_${cuda_version}_${cuda_build}_linux.run"
-buildreq_hash="$(sed -n '/^BuildRequires:/p' "${SPEC_FILE}" | sha256sum | awk '{print substr($1, 1, 16)}')"
+buildreq_hash="$( { printf 'cuda=%s\n' "${enable_cuda}"; sed -n '/^BuildRequires:/p' "${SPEC_FILE}"; } | sha256sum | awk '{print substr($1, 1, 16)}')"
 deps_image="localhost/monitorize-builddeps:tumbleweed-${buildreq_hash}"
 if [[ "${rebuild}" == true ]]; then
-    podman image exists "${deps_image}" || die "No prepared build image (${deps_image}). Run ./packaging/tumbleweed/build.sh once first."
+    podman image exists "${deps_image}" || die "No prepared build image (${deps_image}). Run ${normal_command} once first."
 fi
 
 cpu_count="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)"
@@ -130,6 +138,7 @@ if [[ "${rebuild}" == false ]]; then
     podman run --name "${deps_container}" \
         --arch amd64 \
         --security-opt label=disable \
+        --env "MONITORIZE_ENABLE_CUDA=${enable_cuda}" \
         --volume "${OUTPUT_ROOT}/cache/zypp-packages:/var/cache/zypp/packages" \
         --volume "${topdir}:/work" \
         "${IMAGE}" \
@@ -137,7 +146,9 @@ if [[ "${rebuild}" == false ]]; then
             zypper --non-interactive --gpg-auto-import-keys refresh
             zypper --non-interactive modifyrepo --keep-packages --all
             zypper --non-interactive install --no-recommends curl rpm-build rpmlint python-rpm-macros systemd-rpm-macros
-            mapfile -t requirements < <(rpmspec --define "_topdir /work" -q --buildrequires /work/SPECS/monitorize.spec | sort -u)
+            variant_args=()
+            if [[ "${MONITORIZE_ENABLE_CUDA}" == 0 ]]; then variant_args=(--without cuda); fi
+            mapfile -t requirements < <(rpmspec "${variant_args[@]}" --define "_topdir /work" -q --buildrequires /work/SPECS/monitorize.spec | sort -u)
             zypper --non-interactive install --no-recommends "${requirements[@]}"
         ' 2>&1 | tee "${build_log}"
     podman commit "${deps_container}" "${deps_image}" >/dev/null
@@ -151,6 +162,7 @@ if [[ "${rebuild}" == true ]]; then
 fi
 podman run "${run_options[@]}" \
     --env "MONITORIZE_RPM_JOBS=${build_jobs}" \
+    --env "MONITORIZE_ENABLE_CUDA=${enable_cuda}" \
     --env "MONITORIZE_CUDA_ARCHIVE=/cuda-cache/${cuda_archive_name}" \
     --env npm_config_cache=/npm-cache \
     --volume "${artifact_stage}:/artifacts" \
@@ -172,16 +184,21 @@ podman run "${run_options[@]}" \
             fi
             cp "${archive}" /work/SOURCES/
         }
-        ffmpeg_url="$(rpmspec --define "_topdir /work" -P /work/SPECS/monitorize.spec | awk '\''$1 == "Source1:" { print $2; exit }'\'')"
+        variant_args=()
+        if [[ "${MONITORIZE_ENABLE_CUDA}" == 0 ]]; then variant_args=(--without cuda); fi
+        ffmpeg_url="$(rpmspec "${variant_args[@]}" --define "_topdir /work" -P /work/SPECS/monitorize.spec | awk '\''$1 == "Source1:" { print $2; exit }'\'')"
         ffmpeg_sha="$(awk '\''$1 == "%global" && $2 == "sunshine_ffmpeg_sha256" { print $3; exit }'\'' /work/SPECS/monitorize.spec)"
         cache_source "${ffmpeg_url}" "${ffmpeg_sha}"
-        libxml_url="$(rpmspec --define "_topdir /work" -P /work/SPECS/monitorize.spec | awk '\''$1 == "Source3:" { print $2; exit }'\'')"
-        libxml_sha="$(awk '\''$1 == "%global" && $2 == "cuda_libxml2_sha256" { print $3; exit }'\'' /work/SPECS/monitorize.spec)"
-        cache_source "${libxml_url}" "${libxml_sha}"
+        if [[ "${MONITORIZE_ENABLE_CUDA}" == 1 ]]; then
+            libxml_url="$(rpmspec --define "_topdir /work" -P /work/SPECS/monitorize.spec | awk '\''$1 == "Source3:" { print $2; exit }'\'')"
+            libxml_sha="$(awk '\''$1 == "%global" && $2 == "cuda_libxml2_sha256" { print $3; exit }'\'' /work/SPECS/monitorize.spec)"
+            cache_source "${libxml_url}" "${libxml_sha}"
+        fi
 
         export HOME=/tmp/monitorize-rpmbuild-home
         mkdir -p "${HOME}"
         rpmbuild -ba \
+            "${variant_args[@]}" \
             --define "_topdir /work" \
             --define "_smp_build_ncpus ${MONITORIZE_RPM_JOBS}" \
             /work/SPECS/monitorize.spec
@@ -264,6 +281,8 @@ mkdir -p "${OUTPUT_ROOT}/x86_64" "${OUTPUT_ROOT}/source"
 cp "${artifact_stage}/x86_64/"*.rpm "${OUTPUT_ROOT}/x86_64/"
 cp "${artifact_stage}/source/"*.rpm "${OUTPUT_ROOT}/source/"
 cp "${build_log}" "${OUTPUT_ROOT}/"
+printf 'source_commit=%s\ncuda_enabled=%s\n' "$(git rev-parse HEAD)" "${enable_cuda}" \
+    > "${OUTPUT_ROOT}/build-manifest.txt"
 echo "openSUSE Tumbleweed RPM build and smoke test completed."
 echo "Primary RPM: ${OUTPUT_ROOT}/x86_64/$(basename "${main_rpm}")"
 echo "Source RPM: ${OUTPUT_ROOT}/source/"

@@ -36,7 +36,7 @@ Item {
                         Text { text: modelData.name; color: theme.textPrimary; Layout.fillWidth: true }
                         CustomButton {
                             text: "Start"
-                            enabled: !backend.isStreaming && !backend.sessionBusy && !backend.vkmsModuleLoading
+                            enabled: !backend.isStreaming && !backend.sessionBusy
                             onClicked: {
                                 page.launchAttempted = true
                                 backend.launchPreset(index)

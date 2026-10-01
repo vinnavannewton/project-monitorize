@@ -11,66 +11,8 @@ Item {
     property string mirrorOutputId: ""
     property var nativeResolutionOptions: ["1280x720 (16:9)", "1280x800 (16:10)", "1920x1080 (16:9)", "1920x1200 (16:10)", "2560x1440 (16:9)", "2560x1600 (16:10)", "3840x2160 (16:9)", "Custom..."]
     property var virtualDisplays: []
-    property string selectedVkmsConnector: ""
-    property string vkmsLoadError: ""
-    property bool vkmsSelectionPending: false
-    readonly property var vkmsConnectorOptions: {
-        let labels = ["Select stock VKMS connector…"]
-        for (let i = 0; i < backend.vkmsConnectors.length; ++i)
-            labels.push(backend.vkmsConnectors[i].id)
-        return labels
-    }
     readonly property bool vkmsSelected: displayType.currentText === "Extend"
         && displayCreator.currentText === "VKMS (Experimental)"
-
-    Connections {
-        target: backend
-        function onVkmsModuleLoadFinished(success, message) {
-            if (!page.vkmsSelectionPending) {
-                if (success) {
-                    page.vkmsLoadError = ""
-                    backend.refreshVkmsResolutionOptions()
-                    if (page.vkmsSelected && page.reconcileVkmsConnector()) {
-                        page.saveSettings()
-                        backend.refreshVkmsResolutionOptions()
-                    }
-                } else if (page.vkmsSelected) {
-                    page.vkmsLoadError = message || "Could not load stock VKMS."
-                }
-                return
-            }
-            page.vkmsSelectionPending = false
-            if (success) {
-                page.vkmsLoadError = ""
-                displayCreator.selectValue("VKMS (Experimental)")
-                backend.refreshVkmsResolutionOptions()
-                page.reconcileVkmsConnector()
-                page.saveSettings()
-                backend.refreshVkmsResolutionOptions()
-            } else {
-                page.vkmsLoadError = message || "Could not load stock VKMS."
-                displayCreator.selectValue("Compositor")
-                page.saveSettings()
-            }
-        }
-    }
-
-    function reconcileVkmsConnector() {
-        let connectors = backend.vkmsConnectors
-        let selected = page.selectedVkmsConnector
-        if (connectors.length === 1) {
-            selected = connectors[0].id
-        } else {
-            let present = false
-            for (let i = 0; i < connectors.length; ++i) {
-                if (connectors[i].id === selected) present = true
-            }
-            if (!present) selected = ""
-        }
-        if (selected === page.selectedVkmsConnector) return false
-        page.selectedVkmsConnector = selected
-        return true
-    }
 
     function mirrorResolutionLabel() {
         for (let i = 0; i < mirrorOutputs.length; ++i) {
@@ -228,8 +170,7 @@ Item {
             nativeInput.checked,
             audio.checked,
             page.mirrorOutputId,
-            displayCreator.currentText === "VKMS (Experimental)" ? "vkms" : "native",
-            page.selectedVkmsConnector
+            displayCreator.currentText === "VKMS (Experimental)" ? "vkms" : "native"
         )
         saveDisplayModes()
     }
@@ -241,6 +182,7 @@ Item {
     }
 
     Component.onCompleted: {
+        backend.refreshVkmsHelperAvailability()
         let saved = backend.loadDisplaySettings()
         displayType.selectValue(saved["display_type"] || "Extend")
         displayCreator.selectValue(
@@ -248,7 +190,6 @@ Item {
                 ? "VKMS (Experimental)"
                 : "Compositor"
         )
-        selectedVkmsConnector = saved["vkms_connector"] || ""
         virtualDisplays = backend.loadVirtualDisplaySettings()
         encoder.selectValue(page.encoderDisplayValue(saved["sunshine_encoder"]))
         page.refreshGpuOptions(saved["sunshine_gpu"] || "")
@@ -264,13 +205,6 @@ Item {
         audio.checked = saved["enable_audio"] === true
         createOnly.checked = backend.streamingBackend === "none"
         loading = false
-        backend.refreshVkmsResolutionOptions()
-        if (page.vkmsSelected && backend.vkmsModuleLoaded) {
-            if (page.reconcileVkmsConnector()) {
-                page.saveSettings()
-                backend.refreshVkmsResolutionOptions()
-            }
-        }
     }
 
     ScrollView {
@@ -291,7 +225,7 @@ Item {
             SectionCard {
                 title: "DISPLAY"; symbol: "display"
                 Layout.fillWidth: true
-                enabled: !backend.isStreaming && !backend.vkmsModuleLoading
+                enabled: !backend.isStreaming
                 GridLayout {
                     Layout.fillWidth: true
                     columns: 2; columnSpacing: 24; rowSpacing: 12
@@ -315,54 +249,36 @@ Item {
                             : ["Compositor"]
                         onActivated: {
                             if (page.vkmsSelected) {
-                                page.vkmsLoadError = ""
-                                if (backend.vkmsModuleLoaded) {
-                                    backend.refreshVkmsResolutionOptions()
-                                    page.reconcileVkmsConnector()
-                                    page.saveSettings()
-                                    backend.refreshVkmsResolutionOptions()
-                                } else {
-                                    page.vkmsSelectionPending = true
-                                    displayCreator.selectValue("Compositor")
-                                    backend.loadStockVkmsModule()
-                                }
+                                page.saveSettings()
                             } else {
-                                page.vkmsLoadError = ""
                                 backend.ensureNativeCompositor()
                                 page.saveSettings()
                             }
                         }
                     }
                     Text {
-                        visible: backend.vkmsModuleLoading || page.vkmsLoadError !== ""
+                        visible: page.vkmsSelected && !backend.vkmsHelperAvailable
                         Layout.columnSpan: 2; Layout.fillWidth: true
                         wrapMode: Text.WordWrap
-                        color: page.vkmsLoadError ? "#ff9a9a" : theme.textMuted
-                        text: page.vkmsLoadError || "Waiting for authorization to load stock VKMS…"
+                        color: "#ff9a9a"
+                        text: "Install monitorize-vkms before using VKMS displays."
+                    }
+                    CustomButton {
+                        visible: page.vkmsSelected && !backend.vkmsHelperAvailable
+                        text: "Install monitorize-vkms"
+                        onClicked: backend.openMonitorizeVkmsInstallPage()
+                    }
+                    CustomButton {
+                        visible: page.vkmsSelected && !backend.vkmsHelperAvailable
+                        text: "Recheck"
+                        primary: false
+                        onClicked: backend.refreshVkmsHelperAvailability()
                     }
                     Text {
                         visible: page.vkmsSelected
                         Layout.columnSpan: 2; Layout.fillWidth: true
                         wrapMode: Text.WordWrap; color: theme.textMuted
-                        text: "DRM modes use stock VKMS. Custom resolutions use monitorize-vkms. Adding another display is unavailable in VKMS mode."
-                    }
-                    Text {
-                        visible: page.vkmsSelected && backend.vkmsConnectors.length > 1
-                        text: "Stock VKMS connector (DRM modes)"
-                        color: theme.textSecondary
-                    }
-                    CustomComboBox {
-                        id: vkmsConnector
-                        visible: page.vkmsSelected && backend.vkmsConnectors.length > 1
-                        Layout.fillWidth: true
-                        model: page.vkmsConnectorOptions
-                        disabledIndex: 0
-                        currentIndex: Math.max(0, page.vkmsConnectorOptions.indexOf(page.selectedVkmsConnector))
-                        onActivated: {
-                            page.selectedVkmsConnector = currentIndex > 0 ? currentText : ""
-                            page.saveSettings()
-                            backend.refreshVkmsResolutionOptions()
-                        }
+                        text: "Preset and custom VKMS modes use monitorize-vkms. Adding another display is unavailable in VKMS mode."
                     }
                     Text { text: "Monitor"; color: theme.textSecondary; visible: displayType.currentText === "Mirror" }
                     CustomComboBox {
@@ -397,21 +313,13 @@ Item {
                         displayConfig: modelData
                         canRemove: Number(modelData.id) === 2
                         vkmsSelected: page.vkmsSelected
-                        vkmsConnectorSelected: page.selectedVkmsConnector !== ""
                         nativeResolutionOptions: page.nativeResolutionOptions
                         vkmsResolutionOptions: backend.vkmsResolutionOptions
-                        vkmsRefreshRates: backend.vkmsRefreshRates
-                        vkmsCustomCapabilityChecking: backend.vkmsCustomCapabilityChecking
-                        vkmsCustomEdidCapability: backend.vkmsCustomEdidCapability
                         onConfigurationChanged: function(configuration) {
                             let targetIndex = modeCard.displayNumber > 0 ? (modeCard.displayNumber - 1) : index
                             page.updateDisplay(targetIndex, configuration)
                         }
                         onRemoveRequested: page.removeDisplay()
-                        onCustomCapabilityFailed: function(capability) {
-                            if (capability === "unsupported") vkmsCustomUnsupported.open()
-                            else vkmsCustomCheckFailed.open()
-                        }
                     }
                 }
                 AbstractButton {
@@ -514,70 +422,6 @@ Item {
         contentItem: Text {
             text: "Creates the virtual display without starting Monitorize’s streaming backend. Use your preferred streamer instead."
             color: theme.textSecondary; font.pixelSize: 12; wrapMode: Text.WordWrap
-        }
-    }
-    Popup {
-        id: vkmsCustomUnsupported; parent: Overlay.overlay
-        anchors.centerIn: parent
-        width: Math.min(430, parent.width - 40); padding: 18; focus: true
-        modal: true
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-        background: Rectangle { color: theme.surface; border.color: theme.borderHover; radius: theme.cardRadius }
-        contentItem: ColumnLayout {
-            spacing: 16
-            Text {
-                text: "Custom VKMS resolution unavailable"
-                color: theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold
-                wrapMode: Text.WordWrap; Layout.fillWidth: true
-            }
-            Text {
-                text: "Your current VKMS driver does not support custom resolutions and refresh rates.\n\nCustom VKMS resolutions require monitorize-vkms."
-                color: theme.textSecondary; font.pixelSize: 13; wrapMode: Text.WordWrap
-                Layout.fillWidth: true
-            }
-            RowLayout {
-                Layout.alignment: Qt.AlignRight; spacing: 10
-                CustomButton { text: "Cancel"; primary: false; onClicked: vkmsCustomUnsupported.close() }
-                CustomButton {
-                    text: "Install monitorize-vkms"
-                    onClicked: {
-                        backend.openMonitorizeVkmsInstallPage()
-                        vkmsCustomUnsupported.close()
-                    }
-                }
-            }
-        }
-    }
-    Popup {
-        id: vkmsCustomCheckFailed; parent: Overlay.overlay
-        anchors.centerIn: parent
-        width: Math.min(430, parent.width - 40); padding: 18; focus: true
-        modal: true
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-        background: Rectangle { color: theme.surface; border.color: theme.borderHover; radius: theme.cardRadius }
-        contentItem: ColumnLayout {
-            spacing: 16
-            Text {
-                text: "Could not check VKMS custom-resolution support"
-                color: theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold
-                wrapMode: Text.WordWrap; Layout.fillWidth: true
-            }
-            Text {
-                text: "Monitorize could not determine whether the current VKMS driver supports custom resolutions."
-                color: theme.textSecondary; font.pixelSize: 13; wrapMode: Text.WordWrap
-                Layout.fillWidth: true
-            }
-            RowLayout {
-                Layout.alignment: Qt.AlignRight; spacing: 10
-                CustomButton { text: "Cancel"; primary: false; onClicked: vkmsCustomCheckFailed.close() }
-                CustomButton {
-                    text: "Try Again"
-                    onClicked: {
-                        vkmsCustomCheckFailed.close()
-                        backend.checkVkmsCustomEdidSupport()
-                    }
-                }
-            }
         }
     }
 }

@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import io
 import json
-from pathlib import Path
-import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -15,83 +13,27 @@ from monitorize.platform.monitorize_vkms_cli import (
     VkmsCommandError,
 )
 
-ROOT = Path(__file__).resolve().parents[2]
-
-
 class VkmsBackendTest(unittest.TestCase):
-    def test_resolution_options_read_monitorize_drm_modes_and_keep_custom_last(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            drm_root = root / "drm"
-            connector = drm_root / "card3-Virtual-1"
-            connector.mkdir(parents=True)
-            (root / "faux" / "monitorize").mkdir(parents=True)
-            (connector / "device").symlink_to(root / "faux" / "monitorize")
-            (connector / "modes").write_text("1920x1080\n2560x1440\n1920x1080\n")
-
-            physical = drm_root / "card1-DP-1"
-            physical.mkdir()
-            (root / "physical").mkdir()
-            (physical / "device").symlink_to(root / "physical")
-            (physical / "modes").write_text("3840x2160\n")
-
-            self.assertEqual(
-                vkms_backend.resolution_options(drm_root),
-                ["2560x1440", "1920x1080", "Custom..."],
-            )
-
-    def test_resolution_options_offer_normal_vkms_modes_before_a_connector_exists(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            options = vkms_backend.resolution_options(Path(tmp) / "missing")
-        self.assertEqual(options[0], "4096x2160")
-        self.assertIn("1920x1080", options)
-        self.assertEqual(options[-1], "Custom...")
-
-    def test_normal_vkms_resolution_uses_existing_sanitization_without_probe(self):
-        self.assertEqual(
-            vkms_backend.sanitize_vkms_resolution(1366, 768),
-            (1366, 768),
-        )
-        self.assertEqual(
-            vkms_backend.sanitize_vkms_resolution(1234, 567),
-            (1920, 1080),
-        )
-
-    def test_custom_edid_capability_response_states(self):
-        self.assertEqual(
-            vkms_backend.custom_edid_capability_from_response({"capability": "supported"}),
-            vkms_backend.CustomEdidCapability.SUPPORTED,
-        )
-        self.assertEqual(
-            vkms_backend.custom_edid_capability_from_response({"capability": "unsupported"}),
-            vkms_backend.CustomEdidCapability.UNSUPPORTED,
-        )
-        with self.assertRaises(vkms_backend.VkmsError):
-            vkms_backend.custom_edid_capability_from_response({"capability": "unknown"})
-
-    def test_check_custom_edid_support_supported(self):
-        mock_client = MagicMock(spec=MonitorizeVkmsClient)
-        mock_client.check_capability.return_value = "supported"
-        self.assertEqual(
-            vkms_backend.check_custom_edid_support(client=mock_client),
-            vkms_backend.CustomEdidCapability.SUPPORTED,
-        )
-
-    def test_check_custom_edid_support_unsupported(self):
-        mock_client = MagicMock(spec=MonitorizeVkmsClient)
-        mock_client.check_capability.return_value = "unsupported"
-        self.assertEqual(
-            vkms_backend.check_custom_edid_support(client=mock_client),
-            vkms_backend.CustomEdidCapability.UNSUPPORTED,
-        )
-
-    def test_check_custom_edid_support_failed(self):
-        mock_client = MagicMock(spec=MonitorizeVkmsClient)
-        mock_client.check_capability.return_value = "check_failed"
-        self.assertEqual(
-            vkms_backend.check_custom_edid_support(client=mock_client),
-            vkms_backend.CustomEdidCapability.CHECK_FAILED,
-        )
+    def test_preset_and_custom_sizes_use_the_same_cli_lifecycle(self):
+        for width, height in ((1920, 1080), (2340, 1080)):
+            with self.subTest(width=width):
+                client = MagicMock(spec=MonitorizeVkmsClient)
+                client.is_available.return_value = True
+                client.create_display.return_value = {
+                    "name": "Virtual-1", "width": width, "height": height, "fps": 60,
+                }
+                client.remove_display.return_value = {"success": True}
+                fake_stdin = io.StringIO("quit\n")
+                with (patch("sys.stdin", fake_stdin),
+                      patch("select.select", return_value=([fake_stdin], [], [])),
+                      patch("sys.stdout", io.StringIO())):
+                    self.assertEqual(
+                        vkms_backend.run_vkms_headless(
+                            "primary", width, height, 60, "kde", client=client
+                        ), 0,
+                    )
+                client.create_display.assert_called_once_with(width, height, 60)
+                client.remove_display.assert_called_once_with("Virtual-1")
 
     def test_open_monitorize_vkms_install_page(self):
         with patch("webbrowser.open", return_value=True) as mock_open:
@@ -165,7 +107,7 @@ class VkmsBackendTest(unittest.TestCase):
         client.remove_display.assert_called_once_with("Virtual-1")
         capture.return_value.close.assert_called_once()
 
-    def test_run_vkms_headless_edid_unsupported_event(self):
+    def test_run_vkms_headless_edid_error_is_reported(self):
         mock_client = MagicMock(spec=MonitorizeVkmsClient)
         mock_client.is_available.return_value = True
         mock_client.create_display.side_effect = VkmsCommandError(
@@ -175,11 +117,11 @@ class VkmsBackendTest(unittest.TestCase):
         out = io.StringIO()
         with patch("sys.stdout", out):
             rc = vkms_backend.run_vkms_headless(
-                "primary", 2340, 1080, 60, "gnome", custom_mode=True, client=mock_client
+                "primary", 2340, 1080, 60, "gnome", client=mock_client
             )
 
         self.assertEqual(rc, 1)
-        self.assertIn("vkms_custom_edid_unsupported", out.getvalue())
+        self.assertIn("VKMS virtual display failed", out.getvalue())
         mock_client.remove_display.assert_not_called()
 
 

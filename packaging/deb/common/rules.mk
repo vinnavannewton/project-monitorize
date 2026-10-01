@@ -6,18 +6,32 @@ export DH_VERBOSE = 1
 export PYBUILD_NAME = monitorize
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
+ifeq ($(MONITORIZE_ENABLE_CUDA),0)
+SUNSHINE_CC = /usr/bin/gcc
+SUNSHINE_CXX = /usr/bin/g++
+CUDA_CMAKE_ARGS = -DCUDA_FAIL_ON_MISSING=OFF -DSUNSHINE_ENABLE_CUDA=OFF
+CUDA_CHECK = ! grep -q 'src/platform/linux/cuda.cu' sunshine-build/compile_commands.json
+else
+SUNSHINE_CC = /usr/bin/gcc-14
+SUNSHINE_CXX = /usr/bin/g++-14
+CUDA_CMAKE_ARGS = -DCUDA_FAIL_ON_MISSING=ON -DSUNSHINE_ENABLE_CUDA=ON \
+	-DCMAKE_CUDA_COMPILER=$(MONITORIZE_CUDA_ROOT)/bin/nvcc \
+	-DCMAKE_CUDA_FLAGS=-Xcompiler=-fPIC -DCMAKE_CUDA_HOST_COMPILER=/usr/bin/gcc-14
+CUDA_CHECK = test -x "$(MONITORIZE_CUDA_ROOT)/bin/nvcc" && grep -q 'src/platform/linux/cuda.cu' sunshine-build/compile_commands.json
+endif
+
 %:
 	dh $@ --with python3 --buildsystem=pybuild
 
 override_dh_auto_build:
 	dh_auto_build
 	patch --batch --forward -d external/sunshine -p1 < packaging/sunshine-strict-selection.patch
-	CC=/usr/bin/gcc-14 \
+	CC=$(SUNSHINE_CC) \
 	RPM_OPT_FLAGS="$$(dpkg-buildflags --get CFLAGS)" \
 	RPM_LD_FLAGS="$$(dpkg-buildflags --get LDFLAGS)" \
 		linux/native/kde_virtual_output/build.sh monitorize-kde-virtual-output
-	export CC=/usr/bin/gcc-14; \
-	export CXX=/usr/bin/g++-14; \
+	export CC=$(SUNSHINE_CC); \
+	export CXX=$(SUNSHINE_CXX); \
 	export CFLAGS="$$(dpkg-buildflags --get CFLAGS)"; \
 	export CXXFLAGS="$$(dpkg-buildflags --get CXXFLAGS)"; \
 	export LDFLAGS="$$(dpkg-buildflags --get LDFLAGS)"; \
@@ -26,21 +40,18 @@ override_dh_auto_build:
 	export COMMIT=$(SUNSHINE_COMMIT); \
 	cmake -B sunshine-build -S external/sunshine \
 		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
 		-DCMAKE_INSTALL_PREFIX=/usr \
 		-DBUILD_DOCS=OFF \
 		-DBUILD_TESTS=OFF \
 		-DBOOST_USE_STATIC=OFF \
-		-DCUDA_FAIL_ON_MISSING=ON \
-		-DCMAKE_CUDA_COMPILER="$${MONITORIZE_CUDA_ROOT}/bin/nvcc" \
-		-DCMAKE_CUDA_FLAGS=-Xcompiler=-fPIC \
-		-DCMAKE_CUDA_HOST_COMPILER=/usr/bin/gcc-14 \
+		$(CUDA_CMAKE_ARGS) \
 		-DFETCHCONTENT_SOURCE_DIR_BOOST="$$PWD/.boost-prepared" \
 		-DFFMPEG_PREPARED_BINARIES="$$PWD/.ffmpeg-prepared" \
 		-DGLAD_SKIP_PIP_INSTALL=ON \
 		-DNPM=/usr/bin/npm \
 		-DPython_EXECUTABLE=/usr/bin/python3 \
 		-DSUNSHINE_ASSETS_DIR=/usr/share/monitorize/sunshine/assets \
-		-DSUNSHINE_ENABLE_CUDA=ON \
 		-DSUNSHINE_ENABLE_DRM=ON \
 		-DSUNSHINE_ENABLE_KWIN=ON \
 		-DSUNSHINE_ENABLE_PORTAL=ON \
@@ -92,7 +103,7 @@ override_dh_auto_test:
 	desktop-file-validate packaging/fedora/monitorize-kde-virtual-output.desktop
 	test -x monitorize-kde-virtual-output
 	test -x sunshine-build/sunshine
-	test -x "$${MONITORIZE_CUDA_ROOT}/bin/nvcc"
+	$(CUDA_CHECK)
 	test -f packaging/common/monitorize-system-setup
 	python3 -c 'from pathlib import Path; compile(Path("packaging/common/monitorize-system-setup").read_text(), "monitorize-system-setup", "exec")'
 	test -d sunshine-build/assets/web

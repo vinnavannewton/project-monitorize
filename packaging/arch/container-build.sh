@@ -7,7 +7,9 @@ die() { echo "Error: $*" >&2; exit 1; }
 
 [[ "$(id -u)" != 0 ]] || die 'makepkg must run as the unprivileged build user.'
 [[ "$(id -u)" == "${MONITORIZE_BUILD_UID:?}" ]] || die 'Unexpected build UID.'
-[[ -x /opt/cuda/bin/nvcc ]] || die 'Missing cached CUDA toolkit; rerun the normal build.'
+if [[ "${MONITORIZE_ENABLE_CUDA:-1}" == 1 ]]; then
+    [[ -x /opt/cuda/bin/nvcc ]] || die 'Missing cached CUDA toolkit; rerun the normal build.'
+fi
 [[ "${HOME:-}" == /work/home ]] || die 'Build home must be /work/home.'
 mkdir -p "${HOME}"
 
@@ -33,6 +35,7 @@ cp "${boost_path}" "/work/makepkg/boost-${BOOST_VERSION}-cmake.tar.xz"
 
 node --version
 node -e 'const [major, minor] = process.versions.node.split(".").map(Number); if (!(major === 20 && minor >= 19 || major === 22 && minor >= 12 || major > 22)) process.exit(1)'
+if [[ "${MONITORIZE_ENABLE_CUDA:-1}" == 1 ]]; then
 /opt/cuda/bin/nvcc --version
 
 probe_root="$(mktemp -d /work/cuda-probe.XXXXXX)"
@@ -69,6 +72,10 @@ done
 [[ -n "${host_cc}" ]] || die 'CUDA compile/link probe failed for system GCC and gcc15; inspect build.log.'
 export MONITORIZE_CUDA_HOST_CC="${host_cc}"
 export MONITORIZE_CUDA_HOST_CXX="${host_cxx}"
+else
+    host_cc="$(command -v gcc)"
+    host_cxx="$(command -v g++)"
+fi
 export CC="${host_cc}" CXX="${host_cxx}"
 
 cd /work/makepkg
@@ -88,10 +95,14 @@ namcap "/artifacts/$(basename "${package_file}")"
     printf 'source_sha256=%s\n' "${MONITORIZE_SOURCE_SHA256}"
     printf 'ffmpeg_sha256=%s\n' "${SUNSHINE_FFMPEG_SHA256}"
     printf 'boost_sha256=%s\n' "${BOOST_SHA256}"
+    printf 'cuda_enabled=%s\n' "${MONITORIZE_ENABLE_CUDA:-1}"
     printf 'cuda_host_cc=%s\n' "${host_cc}"
     printf 'cuda_host_cxx=%s\n' "${host_cxx}"
     printf 'python_version=%s\n' "$(python --version)"
     printf 'node_version=%s\n' "$(node --version)"
-    printf 'cuda_version=%s\n' "$(/opt/cuda/bin/nvcc --version | tail -n 1)"
-    pacman -Q cuda gcc gcc15 boost boost-libs nodejs npm python
+    if [[ "${MONITORIZE_ENABLE_CUDA:-1}" == 1 ]]; then
+        printf 'cuda_version=%s\n' "$(/opt/cuda/bin/nvcc --version | tail -n 1)"
+        pacman -Q cuda gcc15
+    fi
+    pacman -Q gcc boost boost-libs nodejs npm python
 } > /artifacts/build-manifest.txt

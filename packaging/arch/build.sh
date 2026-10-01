@@ -4,10 +4,10 @@ set -euo pipefail
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 readonly IMAGE=docker.io/library/archlinux:base
-readonly OUTPUT_ROOT="${PROJECT_ROOT}/dist/arch"
+output_root="${PROJECT_ROOT}/dist/arch"
 
 usage() {
-    echo "Usage: $0 [--rebuild-offline]" >&2
+    echo "Usage: $0 [--no-cuda] [--rebuild-offline]" >&2
 }
 die() {
     echo "Error: $*" >&2
@@ -15,13 +15,19 @@ die() {
 }
 
 offline=0
+enable_cuda=1
 while (( $# )); do
     case "$1" in
         --rebuild-offline) offline=1; shift ;;
+        --no-cuda) enable_cuda=0; shift ;;
         --help) usage; exit 0 ;;
         *) usage; exit 2 ;;
     esac
 done
+if (( ! enable_cuda )); then output_root="${output_root}/no-cuda"; fi
+readonly OUTPUT_ROOT="${output_root}"
+normal_command="./packaging/arch/build.sh"
+if (( ! enable_cuda )); then normal_command+=' --no-cuda'; fi
 
 source "${SCRIPT_DIR}/sources.conf"
 for utility in git podman tar gzip awk sed sha256sum python3; do
@@ -75,14 +81,14 @@ for hash in "${SUNSHINE_FFMPEG_SHA256}" "${BOOST_SHA256}"; do
     [[ "${hash}" =~ ^[0-9a-f]{64}$ ]] || die 'External source SHA256 must be 64 lowercase hex digits.'
 done
 
-dependency_hash="$( { printf '%s\n' "${IMAGE}"; sha256sum "${SCRIPT_DIR}/dependencies.sh" "${SCRIPT_DIR}/container-prepare.sh" | awk '{print $1}'; } \
+dependency_hash="$( { printf '%s\n' "${IMAGE}" "cuda=${enable_cuda}"; sha256sum "${SCRIPT_DIR}/dependencies.sh" "${SCRIPT_DIR}/container-prepare.sh" | awk '{print $1}'; } \
     | sha256sum | awk '{print substr($1,1,16)}')"
 deps_image="localhost/monitorize-arch-builddeps:${dependency_hash}"
 ffmpeg_cache_name="Linux-x86_64-ffmpeg-${SUNSHINE_FFMPEG_TAG}-${SUNSHINE_FFMPEG_SHA256:0:12}.tar.gz"
 boost_cache_name="boost-${BOOST_VERSION}-${BOOST_SHA256:0:12}-cmake.tar.xz"
 if (( offline )); then
     podman image exists "${deps_image}" \
-        || die "Missing prepared image ${deps_image}; run ./packaging/arch/build.sh first."
+        || die "Missing prepared image ${deps_image}; run ${normal_command} first."
     for source_check in \
         "${SUNSHINE_FFMPEG_SHA256}|${OUTPUT_ROOT}/cache/sources/${ffmpeg_cache_name}" \
         "${BOOST_SHA256}|${OUTPUT_ROOT}/cache/sources/${boost_cache_name}"; do
@@ -90,7 +96,7 @@ if (( offline )); then
         source_path="${source_check#*|}"
         printf '%s  %s\n' "${expected_hash}" "${source_path}" \
             | sha256sum --check --strict --status \
-            || die "Missing or invalid cached $(basename "${source_path}"); run ./packaging/arch/build.sh first."
+            || die "Missing or invalid cached $(basename "${source_path}"); run ${normal_command} first."
     done
 fi
 
@@ -151,6 +157,7 @@ if (( ! offline )); then
         --userns=keep-id --user 0:0 --security-opt label=disable \
         --env "MONITORIZE_BUILD_UID=${build_uid}" \
         --env "MONITORIZE_BUILD_GID=${build_gid}" \
+        --env "MONITORIZE_ENABLE_CUDA=${enable_cuda}" \
         --volume "${SCRIPT_DIR}:/packaging:ro" \
         --volume "${OUTPUT_ROOT}/cache/pacman:/var/cache/pacman/pkg:U" \
         "${IMAGE}" /bin/bash /packaging/container-prepare.sh \
@@ -170,6 +177,7 @@ fi
 podman run "${run_options[@]}" \
     --env "MONITORIZE_BUILD_UID=${build_uid}" \
     --env "MONITORIZE_BUILD_JOBS=${build_jobs}" \
+    --env "MONITORIZE_ENABLE_CUDA=${enable_cuda}" \
     --env HOME=/work/home \
     --env "MONITORIZE_SOURCE_COMMIT=${source_commit}" \
     --env "MONITORIZE_SOURCE_SHA256=${source_sha}" \
