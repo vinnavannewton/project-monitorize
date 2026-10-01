@@ -38,6 +38,8 @@ prepare() {
     cd "${srcdir}/monitorize-${pkgver}"
     patch --batch --forward -d external/sunshine -p1 \
         < packaging/sunshine-strict-selection.patch
+    patch --batch --forward -d external/sunshine -p1 \
+        < packaging/sunshine-npm-offline-flags.patch
 
     mkdir .ffmpeg-prepared .boost-prepared
     tar -xzf "${startdir}/Linux-x86_64-ffmpeg.tar.gz" \

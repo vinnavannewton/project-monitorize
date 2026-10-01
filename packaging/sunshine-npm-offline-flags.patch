@@ -1,0 +1,14 @@
+--- a/cmake/targets/common.cmake
++++ b/cmake/targets/common.cmake
+@@ -50,9 +50,9 @@
+ #WebUI build
+ find_program(NPM npm REQUIRED)
+ 
+-set(NPM_INSTALL_FLAGS "--ignore-scripts")
++set(NPM_INSTALL_FLAGS --ignore-scripts)
+ if (NPM_OFFLINE)
+-    set(NPM_INSTALL_FLAGS "${NPM_INSTALL_FLAGS} --offline")
++    list(APPEND NPM_INSTALL_FLAGS --offline)
+ endif()
+ 
+ add_custom_target(web-ui ALL
