@@ -41,7 +41,7 @@ those. The implementing agent performs short source checks only.
 - `.github/workflows/desktop.yml` and existing packaging tests for short checks.
 
 At this audit the project version is `0.33`, Sunshine gitlink is
-`b7e110d300a80dc1c739e5eec87d3e9a09b7855d`, and FFmpeg tag is
+`addd8c2f7126eb04a1f87f3d7b59833beacd69af`, and FFmpeg tag is
 `v2026.724.203728`. Re-read the checkout at implementation time; never restore an
 older pin from this document. Copy the corresponding SHA256 from current native
 packaging and verify all pins match initialized recursive submodules.

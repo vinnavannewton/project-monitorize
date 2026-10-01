@@ -12,6 +12,7 @@ from PyQt6.QtCore import QObject, QProcess, QTimer, pyqtProperty, pyqtSignal, py
 
 from monitorize.config import app_log, autostart
 from monitorize.config.settings import (
+    DISPLAY_DEFAULTS,
     MAX_PRESETS,
     load_display_settings,
     load_general_settings,
@@ -34,10 +35,13 @@ from monitorize.platform.sunshine_service import (
     get_sunshine_web_url,
     open_sunshine_dashboard,
     is_sunshine_running,
+    is_sunshine_settings_instance,
     start_sunshine,
+    stop_sunshine,
     sunshine_web_ready,
     pair_moonlight_pin,
     restart_sunshine,
+    reset_sunshine_config,
     save_sunshine_config,
     save_sunshine_adapter,
     set_sunshine_codec,
@@ -963,6 +967,39 @@ class MonitorizeBackend(QObject):
             "success": False,
             "message": "No restore tokens were found",
         }
+
+    @pyqtSlot(result="QVariantMap")
+    def resetSunshineSettings(self):
+        if self.isStreaming or self.sessionBusy:
+            return {"success": False, "message": "Stop the session before resetting Sunshine settings"}
+        for instance in (1, 2):
+            if is_sunshine_running(instance) and not is_sunshine_settings_instance(instance):
+                return {"success": False, "message": "Stop Sunshine before resetting its settings"}
+        if self._settings_instance is not None:
+            self._cancel_settings_open()
+        for instance in (1, 2):
+            if is_sunshine_settings_instance(instance):
+                stop_sunshine(instance, clear_output_name=False)
+                if is_sunshine_running(instance):
+                    return {"success": False, "message": f"Could not stop Sunshine instance {instance} before resetting its settings"}
+            success, message = reset_sunshine_config(instance)
+            if not success:
+                return {"success": False, "message": message}
+        defaults = {key: DISPLAY_DEFAULTS[key] for key in (
+            "sunshine_encoder", "sunshine_gpu", "sunshine_codec",
+            "streaming_customized", "sunshine_native_pen_touch", "enable_audio",
+        )}
+        primary = load_display_settings()
+        primary.update(defaults)
+        save_display_settings(**primary)
+        second = load_second_display_settings()
+        second.update(defaults)
+        save_second_display_settings(**second)
+        self._web_settings_enabled = False
+        save_general_settings(sunshine_web_settings_enabled=False)
+        self.session.preset_configuration = None
+        self.session.configuration_changed()
+        return {"success": True, "message": "Sunshine settings restored to Monitorize defaults"}
 
     @pyqtSlot(str, str, str, str, str, str, bool, bool)
     def startStreaming(

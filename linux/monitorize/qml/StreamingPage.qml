@@ -99,9 +99,12 @@ Item {
                             Layout.fillWidth: true; wrapMode: Text.WordWrap
                             color: theme.textSecondary; font.pixelSize: 13
                         }
-                        Text {
+                        TextEdit {
                             visible: backend.sessionMode === "Mirror" && backend.sessionRunning
                             text: backend.localIp + ":47989"; color: theme.textSecondary; font.pixelSize: 13
+                            Layout.fillWidth: true; wrapMode: TextEdit.WrapAnywhere
+                            readOnly: true; selectByMouse: true
+                            activeFocusOnPress: true
                         }
                     }
                 }
@@ -121,9 +124,12 @@ Item {
                         ColumnLayout {
                             Layout.fillWidth: true
                             Text { text: displayCard.modelData.title; color: theme.textPrimary; font.pixelSize: 17; font.weight: Font.DemiBold }
-                            Text {
+                            TextEdit {
                                 text: backend.sessionRunning ? displayCard.modelData.address : displayCard.modelData.state
                                 color: theme.textSecondary; font.pixelSize: 13
+                                Layout.fillWidth: true; wrapMode: TextEdit.WrapAnywhere
+                                readOnly: true; selectByMouse: true
+                                activeFocusOnPress: true
                             }
                         }
                         Rectangle { width: 9; height: 9; radius: 5; color: displayCard.modelData.live ? "#34d681" : theme.textMuted }

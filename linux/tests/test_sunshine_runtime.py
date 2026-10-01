@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 import unittest
@@ -8,6 +9,26 @@ from monitorize.platform import sunshine_service as service
 
 
 class SunshineRuntimeTest(unittest.TestCase):
+    def test_reset_config_restores_managed_defaults_and_keeps_pairing(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {"XDG_CONFIG_HOME": tmp}):
+            for instance in (1, 2):
+                directory = Path(service.get_sunshine_config_dir(instance))
+                directory.mkdir(parents=True)
+                (directory / "sunshine.conf").write_text("encoder = software\nupnp = enabled\n")
+                (directory / "apps.json").write_text('{"apps": [{"name": "Custom"}]}')
+                (directory / "credentials").write_text("pairing-data")
+                ok, _ = service.reset_sunshine_config(instance)
+                self.assertTrue(ok)
+                config = (directory / "sunshine.conf").read_text()
+                self.assertNotIn("encoder", config)
+                self.assertNotIn("upnp = enabled", config)
+                self.assertIn(f"port = {service.get_sunshine_port(instance)}", config)
+                self.assertEqual(
+                    json.loads((directory / "apps.json").read_text()),
+                    service.DEFAULT_SUNSHINE_APPS,
+                )
+                self.assertEqual((directory / "credentials").read_text(), "pairing-data")
+
     def test_capture_failure_survives_successful_encoder_probe(self):
         process = MagicMock()
         process.poll.return_value = None

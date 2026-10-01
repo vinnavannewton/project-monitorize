@@ -13,6 +13,7 @@ import signal
 import socket
 import ssl
 import subprocess
+import tempfile
 import time
 import webbrowser
 
@@ -46,6 +47,10 @@ PORTAL_RESTORE_TOKEN_FILES = (
     "portal_token_mirror",
     "portal_token_extend",
 )
+DEFAULT_SUNSHINE_APPS = {
+    "apps": [{"image-path": "desktop.png", "name": "Desktop"}],
+    "env": {"PATH": "$(PATH):$(HOME)/.local/bin"},
+}
 
 
 def get_sunshine_log_size(instance: int = 1) -> int:
@@ -122,6 +127,46 @@ def get_sunshine_config_dir(instance: int = 1) -> str:
 def get_sunshine_config_path(instance: int = 1) -> str:
     """Return the absolute path to the active isolated sunshine.conf file."""
     return os.path.join(get_sunshine_config_dir(instance), "sunshine.conf")
+
+
+def reset_sunshine_config(instance: int = 1) -> tuple[bool, str]:
+    """Restore a Monitorize instance's initial config and apps, keeping pairing data."""
+    path = get_sunshine_config_path(instance)
+    directory = os.path.dirname(path)
+    config_home = os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config"))
+    profile_apps = os.path.join(
+        config_home, "monitorize", f"sunshine-profile-{instance}", "sunshine", "apps.json"
+    )
+    files = {
+        path: (
+            f"sunshine_name = {get_sunshine_device_name(instance)}\n"
+            "system_tray = disabled\n"
+            f"port = {get_sunshine_port(instance)}\n"
+            "origin_web_ui_allowed = lan\n"
+        ),
+        os.path.join(directory, "apps.json"): json.dumps(DEFAULT_SUNSHINE_APPS, indent=4),
+        profile_apps: json.dumps(DEFAULT_SUNSHINE_APPS, indent=4),
+    }
+    try:
+        for target, content in files.items():
+            target_dir = os.path.dirname(target)
+            os.makedirs(target_dir, exist_ok=True)
+            temporary = None
+            try:
+                with tempfile.NamedTemporaryFile(
+                    mode="w", encoding="utf-8", dir=target_dir, prefix=".monitorize-reset-",
+                    delete=False,
+                ) as output:
+                    temporary = output.name
+                    output.write(content)
+                os.chmod(temporary, 0o600)
+                os.replace(temporary, target)
+            finally:
+                if temporary is not None and os.path.exists(temporary):
+                    os.unlink(temporary)
+    except OSError as exc:
+        return False, f"Could not reset Sunshine instance {instance}: {exc}"
+    return True, f"Sunshine instance {instance} settings reset."
 
 
 def clear_sunshine_portal_restore_tokens() -> tuple[int, list[str]]:
@@ -435,22 +480,11 @@ def ensure_sunshine_tray_disabled(instance: int = 1) -> None:
 
     apps_json_path = os.path.join(config_dir, "apps.json")
     profile_apps_json = os.path.join(profile_sunshine_dir, "apps.json")
-    default_apps = {
-        "apps": [
-            {
-                "image-path": "desktop.png",
-                "name": "Desktop",
-            }
-        ],
-        "env": {
-            "PATH": "$(PATH):$(HOME)/.local/bin"
-        }
-    }
     for p in (apps_json_path, profile_apps_json):
         if not os.path.exists(p):
             try:
                 with open(p, "w", encoding="utf-8") as f:
-                    json.dump(default_apps, f, indent=4)
+                    json.dump(DEFAULT_SUNSHINE_APPS, f, indent=4)
             except OSError:
                 pass
 

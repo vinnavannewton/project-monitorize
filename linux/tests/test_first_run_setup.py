@@ -16,6 +16,48 @@ ROOT = Path(__file__).resolve().parents[2]
 
 class FirstRunSetupTest(unittest.TestCase):
 
+    def test_reset_sunshine_settings_refuses_a_live_settings_process(self):
+        fake = SimpleNamespace(isStreaming=False, sessionBusy=False,
+                               _settings_instance=None)
+        with (patch("monitorize.desktop.backend.is_sunshine_running", side_effect=[True, False, True]),
+              patch("monitorize.desktop.backend.is_sunshine_settings_instance",
+                    side_effect=[True, True]) as settings_instance,
+              patch("monitorize.desktop.backend.stop_sunshine") as stop,
+              patch("monitorize.desktop.backend.reset_sunshine_config") as reset):
+            result = MonitorizeBackend.resetSunshineSettings(fake)
+        self.assertFalse(result["success"])
+        self.assertIn("Could not stop", result["message"])
+        self.assertEqual(settings_instance.call_count, 2)
+        stop.assert_called_once_with(1, clear_output_name=False)
+        reset.assert_not_called()
+
+    def test_reset_sunshine_settings_restores_streaming_choices_only(self):
+        primary = settings.load_display_settings()
+        primary.update(sunshine_encoder="Software", sunshine_codec="HEVC",
+                       streaming_customized=True, resolution="2560x1440")
+        settings.save_display_settings(**primary)
+        second = settings.load_second_display_settings()
+        second.update(sunshine_encoder="NVIDIA", streaming_customized=True,
+                      enabled=True)
+        settings.save_second_display_settings(**second)
+        fake = SimpleNamespace(isStreaming=False, sessionBusy=False,
+                               _settings_instance=None, _web_settings_enabled=True,
+                               session=SimpleNamespace(preset_configuration="old",
+                                                       configuration_changed=lambda: None))
+        with (patch("monitorize.desktop.backend.is_sunshine_running", return_value=False),
+              patch("monitorize.desktop.backend.reset_sunshine_config", return_value=(True, "reset")) as reset):
+            result = MonitorizeBackend.resetSunshineSettings(fake)
+        self.assertTrue(result["success"])
+        self.assertEqual(reset.call_count, 2)
+        self.assertEqual(settings.load_display_settings()["sunshine_encoder"], "Auto")
+        self.assertEqual(settings.load_display_settings()["sunshine_codec"], "Auto")
+        self.assertFalse(settings.load_display_settings()["streaming_customized"])
+        self.assertEqual(settings.load_display_settings()["resolution"], "2560x1440")
+        self.assertEqual(settings.load_second_display_settings()["sunshine_encoder"], "Auto")
+        self.assertTrue(settings.load_second_display_settings()["enabled"])
+        self.assertFalse(settings.load_general_settings()["sunshine_web_settings_enabled"])
+
+
     def test_session_running_follows_ready_controller_even_without_session_flag(self):
         controller = SimpleNamespace(streaming=True, primary_ready=True)
         backend = SimpleNamespace(streaming=controller)
