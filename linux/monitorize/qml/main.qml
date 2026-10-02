@@ -106,15 +106,16 @@ Rectangle {
             }
         }
         function onStreamingStartFailed() {
+            if (vkmsReinstallPopup.visible) return
             root.startFailureMessage = "Failed to start stream"
             startFailedToast.open()
         }
+        function onVkmsReinstallRequired() {
+            startFailedToast.close()
+            vkmsReinstallPopup.open()
+        }
         function onStreamingCodecMismatch(message) {
             root.startFailureMessage = message
-            startFailedToast.open()
-        }
-        function onVkmsStartFailed(message) {
-            root.startFailureMessage = message || "Could not start the VKMS display"
             startFailedToast.open()
         }
     }
@@ -259,6 +260,59 @@ Rectangle {
             id: startFailedToastTimer
             interval: 2800
             onTriggered: startFailedToast.close()
+        }
+    }
+
+    Popup {
+        id: vkmsReinstallPopup
+        objectName: "vkmsReinstallPopup"
+        modal: true
+        focus: true
+        closePolicy: Popup.CloseOnEscape
+        anchors.centerIn: parent
+        width: Math.min(440, root.width - 40)
+        height: vkmsReinstallContent.implicitHeight + 44
+        padding: 22
+        background: Rectangle {
+            color: theme.surface
+            border.color: theme.border
+            border.width: 1
+            radius: theme.cardRadius
+        }
+        Overlay.modal: Rectangle { color: "#99000000" }
+
+        ColumnLayout {
+            id: vkmsReinstallContent
+            anchors.fill: parent
+            spacing: 14
+
+            Text {
+                text: "Reinstall monitorize-vkms"
+                color: theme.textPrimary
+                font.pixelSize: 18
+                font.weight: Font.Bold
+                Layout.fillWidth: true
+            }
+            Text {
+                text: "monitorize-vkms is installed, but its helper or kernel module is not ready. Run sudo ./install.sh from the monitorize-vkms directory, follow any reboot instructions, then try again."
+                color: theme.textSecondary
+                font.pixelSize: 12
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+            RowLayout {
+                Layout.alignment: Qt.AlignRight
+                spacing: 10
+                CustomButton {
+                    text: "Installation instructions"
+                    primary: false
+                    onClicked: backend.openMonitorizeVkmsInstallPage()
+                }
+                CustomButton {
+                    text: "Close"
+                    onClicked: vkmsReinstallPopup.close()
+                }
+            }
         }
     }
 

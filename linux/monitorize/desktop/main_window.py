@@ -303,8 +303,7 @@ def main():
     server.newConnection.connect(
         lambda: _handle_instance_command(server, window)
     )
-    if _show_initial_window(window, start_in_tray) and preset_index is None:
-        window._load_saved_vkms_on_open()
+    _show_initial_window(window, start_in_tray)
     if preset_index is not None:
         QTimer.singleShot(0, lambda: window.backend.launchPreset(preset_index))
     sys.exit(app.exec())

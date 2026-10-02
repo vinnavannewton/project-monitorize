@@ -151,6 +151,7 @@ def _x11_capture_output(requested):
 class StreamingController(QObject):
     streamingChanged = pyqtSignal(bool)
     startFailed = pyqtSignal()
+    vkmsReinstallRequired = pyqtSignal()
     codecMismatch = pyqtSignal(str)
     statusChanged = pyqtSignal(str)
     secondStreamChanged = pyqtSignal(bool)
@@ -405,6 +406,9 @@ class StreamingController(QObject):
             event = self._structured_event(line)
             if event and event.get("type") == "headless_ready":
                 self._display_ready(slot, event)
+            elif event and event.get("type") == "vkms_reinstall_required":
+                self._set_status("Reinstall monitorize-vkms to repair its helper for this kernel.")
+                self.vkmsReinstallRequired.emit()
             elif line.startswith("[ERROR]"):
                 self._set_status(line.removeprefix("[ERROR]").strip())
 

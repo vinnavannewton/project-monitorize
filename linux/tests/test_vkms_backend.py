@@ -124,6 +124,50 @@ class VkmsBackendTest(unittest.TestCase):
         self.assertIn("VKMS virtual display failed", out.getvalue())
         mock_client.remove_display.assert_not_called()
 
+    def test_broken_installed_helper_requests_reinstall(self):
+        client = MagicMock(spec=MonitorizeVkmsClient)
+        client.is_available.return_value = True
+        client.create_display.side_effect = VkmsCommandError(
+            "VKMS helper error: ModuleNotFoundError: No module named 'monitorize_vkms'",
+            error_type="helper_error",
+            raw_response={"message": "ModuleNotFoundError: No module named 'monitorize_vkms'"},
+        )
+        out = io.StringIO()
+
+        with patch("sys.stdout", out):
+            result = vkms_backend.run_vkms_headless(
+                "primary", 1920, 1080, 60, "kde", client=client
+            )
+
+        self.assertEqual(result, 1)
+        self.assertIn('"type":"vkms_reinstall_required"', out.getvalue())
+        self.assertIn("VKMS virtual display failed", out.getvalue())
+
+    def test_other_helper_errors_do_not_request_reinstall(self):
+        client = MagicMock(spec=MonitorizeVkmsClient)
+        client.is_available.return_value = True
+        client.create_display.side_effect = VkmsCommandError(
+            "VKMS helper error: authorization failed",
+            error_type="helper_error",
+            raw_response={"message": "authorization failed"},
+        )
+        out = io.StringIO()
+
+        with patch("sys.stdout", out):
+            result = vkms_backend.run_vkms_headless(
+                "primary", 1920, 1080, 60, "kde", client=client
+            )
+
+        self.assertEqual(result, 1)
+        self.assertNotIn("vkms_reinstall_required", out.getvalue())
+
+    def test_missing_kernel_bootstrap_requests_reinstall(self):
+        error = VkmsCommandError(
+            "Monitorize VKMS bootstrap is not initialized. Reboot after installing monitorize-vkms.",
+            error_type="helper_error",
+        )
+        self.assertTrue(vkms_backend._reinstall_required(error))
+
 
 if __name__ == "__main__":
     unittest.main()

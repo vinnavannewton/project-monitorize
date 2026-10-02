@@ -17,6 +17,27 @@ from monitorize.platform.monitorize_vkms_cli import (
 VKMS_SLOTS = ("primary",)
 MONITORIZE_VKMS_INSTALL_URL = "https://github.com/vinnavannewton/monitorize-vkms"
 
+
+def _reinstall_required(error: VkmsCommandError) -> bool:
+    """Recognize an installed CLI with a broken helper or kernel integration."""
+    if error.error_type.lower() != "helper_error":
+        return False
+    detail = str(error.raw_response.get("message") or error).lower()
+    return any(marker in detail for marker in (
+        "no module named 'monitorize_vkms'",
+        'no module named "monitorize_vkms"',
+        "monitorize-vkms helper is not installed",
+        "vkms driver does not expose the required configfs interface",
+        "monitorize vkms configfs is not registered",
+        "monitorize vkms bootstrap is not initialized",
+        "monitorize vkms bootstrap is incomplete",
+        "persistent monitorize vkms connector is not registered",
+    ))
+
+
+def _report_reinstall_required():
+    print('MONITORIZE_EVENT {"type":"vkms_reinstall_required"}', flush=True)
+
 def open_monitorize_vkms_install_page() -> bool:
     """Open the monitorize-vkms installation page URL."""
     try:
@@ -136,6 +157,8 @@ def run_vkms_headless(
                     break
         return 0 if cleanup() else 1
     except VkmsCommandError as exc:
+        if _reinstall_required(exc):
+            _report_reinstall_required()
         print(f"[ERROR] VKMS virtual display failed: {exc}", flush=True)
         return 1
     except MonitorizeVkmsError as exc:
