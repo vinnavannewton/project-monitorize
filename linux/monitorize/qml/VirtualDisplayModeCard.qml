@@ -10,6 +10,7 @@ Rectangle {
     required property var displayConfig
     property bool canRemove: false
     property bool vkmsSelected: false
+    property bool sunshineEnabled: true
     property var nativeResolutionOptions: []
     property var vkmsResolutionOptions: []
     property bool syncing: false
@@ -110,11 +111,25 @@ Rectangle {
                 color: "#b1d6ff"; font.pixelSize: 14; font.weight: Font.DemiBold
                 Layout.fillWidth: true
             }
-            CustomButton {
+            AbstractButton {
+                id: removeButton
                 visible: card.canRemove
-                text: "Remove"
-                primary: false
-                implicitHeight: 32
+                implicitWidth: 36
+                implicitHeight: 36
+                Accessible.name: "Remove Virtual Display " + card.displayNumber
+                ToolTip.visible: hovered
+                ToolTip.text: Accessible.name
+                background: Rectangle {
+                    radius: theme.controlRadius
+                    color: removeButton.hovered ? "#74303d" : "transparent"
+                }
+                LineIcon {
+                    symbol: "trash"
+                    tint: removeButton.hovered ? "#ffffff" : "#ff777f"
+                    anchors.centerIn: parent
+                    width: 22
+                    height: 22
+                }
                 onClicked: card.removeRequested()
             }
         }
@@ -175,6 +190,11 @@ Rectangle {
                 placeholderText: "24–240"; maximumLength: 3
                 onEditingFinished: card.commitCurrentMode()
             }
+        }
+        SunshineDisplayCard {
+            instance: card.displayNumber
+            Layout.fillWidth: true
+            enabled: card.sunshineEnabled
         }
     }
 }

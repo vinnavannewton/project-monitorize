@@ -78,8 +78,49 @@ Item {
                     Layout.fillWidth: true
                 }
             }
+            Text {
+                text: "Create, manage, and stream your virtual screens."
+                color: theme.textMuted; font.pixelSize: 13
+                Layout.fillWidth: true
+            }
+            RowLayout {
+                visible: backend.sessionMode === "Extend"
+                Layout.fillWidth: true
+                Layout.topMargin: 18
+                spacing: 16
+                Rectangle {
+                    Layout.preferredWidth: 48; Layout.preferredHeight: 48
+                    radius: 10; color: theme.surfaceAlt
+                    LineIcon {
+                        symbol: "display"
+                        anchors.centerIn: parent
+                        width: 26; height: 26
+                    }
+                }
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 2
+                    Text {
+                        text: "Virtual Displays"
+                        color: theme.textPrimary; font.pixelSize: 18; font.weight: Font.DemiBold
+                    }
+                    Text {
+                        text: "Manage the displays in this session."
+                        color: theme.textSecondary; font.pixelSize: 13
+                        Layout.fillWidth: true; wrapMode: Text.WordWrap
+                    }
+                    TextEdit {
+                        text: backend.streamingStatus
+                        visible: text.length > 0
+                        color: theme.textSecondary; font.pixelSize: 13
+                        Layout.fillWidth: true; wrapMode: TextEdit.Wrap
+                        readOnly: true; selectByMouse: true
+                        activeFocusOnPress: true
+                    }
+                }
+            }
             Rectangle {
-                visible: backend.sessionMode !== "Extend" || backend.sessionHasDisplays
+                visible: backend.sessionMode === "Mirror"
                 Layout.fillWidth: true
                 implicitHeight: summary.implicitHeight + 40
                 radius: 14; color: theme.surface; border.color: theme.border
@@ -91,13 +132,15 @@ Item {
                     ColumnLayout {
                         Layout.fillWidth: true
                         Text {
-                            text: backend.sessionMode === "Mirror" ? "Mirror your screen" : (backend.sessionHasDisplays ? "Your virtual displays" : "Extend your workspace")
+                            text: "Mirror your screen"
                             font.pixelSize: 18; font.weight: Font.DemiBold; color: theme.textPrimary
                         }
-                        Text {
-                            text: backend.streamingStatus || (backend.sessionMode === "Mirror" ? "Start to share your existing screen with Moonlight." : (backend.sessionHasDisplays ? "Start to recreate your displays and stream." : "Add a display, then start your session."))
-                            Layout.fillWidth: true; wrapMode: Text.WordWrap
+                        TextEdit {
+                            text: backend.streamingStatus || "Start to share your existing screen with Moonlight."
+                            Layout.fillWidth: true; wrapMode: TextEdit.Wrap
                             color: theme.textSecondary; font.pixelSize: 13
+                            readOnly: true; selectByMouse: true
+                            activeFocusOnPress: true
                         }
                         TextEdit {
                             visible: backend.sessionMode === "Mirror" && backend.sessionRunning
@@ -116,26 +159,63 @@ Item {
                     required property var modelData
                     required property int index
                     Layout.fillWidth: true
-                    implicitHeight: 102
+                    implicitHeight: Math.max(88, statusColumn.implicitHeight + 36)
                     radius: 14; color: theme.surface; border.color: theme.border
-                    RowLayout {
-                        anchors.fill: parent; anchors.margins: 20; spacing: 18
-                        LineIcon { symbol: "display"; Layout.preferredWidth: 34; Layout.preferredHeight: 34 }
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            Text { text: displayCard.modelData.title; color: theme.textPrimary; font.pixelSize: 17; font.weight: Font.DemiBold }
-                            TextEdit {
-                                text: backend.sessionRunning ? displayCard.modelData.address : displayCard.modelData.state
-                                color: theme.textSecondary; font.pixelSize: 13
-                                Layout.fillWidth: true; wrapMode: TextEdit.WrapAnywhere
-                                readOnly: true; selectByMouse: true
-                                activeFocusOnPress: true
+                    Item {
+                        anchors.fill: parent; anchors.margins: 18
+                        LineIcon {
+                            id: displayIcon
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            symbol: "display"
+                            width: 30; height: 30
+                        }
+                        Column {
+                            id: statusColumn
+                            anchors.left: displayIcon.right
+                            anchors.leftMargin: 18
+                            anchors.right: displayActions.left
+                            anchors.rightMargin: 16
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 5
+                            Text {
+                                text: displayCard.modelData.title
+                                color: theme.textPrimary; font.pixelSize: 16; font.weight: Font.DemiBold
+                            }
+                            RowLayout {
+                                width: parent.width
+                                spacing: 7
+                                Rectangle {
+                                    Layout.preferredWidth: 8; Layout.preferredHeight: 8
+                                    radius: 4
+                                    color: displayCard.modelData.live ? "#34d681" : theme.textMuted
+                                }
+                                TextEdit {
+                                    text: backend.sessionRunning ? displayCard.modelData.address : displayCard.modelData.state
+                                    color: theme.textSecondary; font.pixelSize: 12
+                                    Layout.fillWidth: true; wrapMode: TextEdit.WrapAnywhere
+                                    readOnly: true; selectByMouse: true
+                                    activeFocusOnPress: true
+                                }
                             }
                         }
-                        Rectangle { width: 9; height: 9; radius: 5; color: displayCard.modelData.live ? "#34d681" : theme.textMuted }
-                        CustomButton {
-                            text: "⋮"; primary: false; implicitWidth: 38
+                        AbstractButton {
+                            id: displayActions
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            implicitWidth: 36; implicitHeight: 36
                             enabled: !backend.sessionBusy
+                            Accessible.name: "Virtual display " + displayCard.modelData.number + " actions"
+                            background: Rectangle {
+                                radius: theme.controlRadius
+                                color: displayActions.hovered ? theme.surfaceAlt : "transparent"
+                                border.color: theme.border
+                            }
+                            contentItem: Text {
+                                text: "⋮"; color: theme.textSecondary; font.pixelSize: 23
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
                             onClicked: displayMenu.open()
                             Menu {
                                 id: displayMenu
@@ -155,9 +235,10 @@ Item {
             Flow {
                 Layout.fillWidth: true
                 spacing: 10
-                CustomButton { text: "Pair Moonlight PIN"; visible: backend.streamingBackend !== "none"; enabled: backend.sessionRunning && !backend.sessionBusy; onClicked: page.openPair(1) }
+                CustomButton { text: "Pair Moonlight PIN"; iconSymbol: "link"; implicitHeight: 46; primary: false; visible: backend.streamingBackend !== "none"; enabled: backend.sessionRunning && !backend.sessionBusy; onClicked: page.openPair(1) }
                 CustomButton {
-                    text: "Save Preset"; primary: false; enabled: backend.canSavePreset
+                    text: "Save Preset"; iconSymbol: "bookmark"; primary: false; enabled: backend.canSavePreset
+                    implicitWidth: 150; implicitHeight: 46
                     onClicked: {
                         presetTarget.currentIndex = 0
                         presetName.text = ""
@@ -167,6 +248,8 @@ Item {
                 }
                 CustomButton {
                     text: backend.isStreaming || backend.sessionBusy ? "Stop" : "Start"
+                    implicitWidth: 150; implicitHeight: 46
+                    iconSymbol: text === "Stop" ? "stop" : "play"
                     danger: text === "Stop"
                     enabled: text === "Stop" || backend.sessionMode === "Mirror" || backend.sessionHasDisplays
                     onClicked: text === "Stop" ? backend.stopSession() : backend.startSession()
@@ -179,12 +262,14 @@ Item {
                 }
                 CustomButton { text: "Display Settings"; primary: false; visible: backend.canConfigureDisplay; onClicked: backend.configureDisplay() }
             }
-            Text {
+            TextEdit {
                 text: backend.sunshineSettingsMessage
                 visible: text.length > 0
                 Layout.fillWidth: true
-                wrapMode: Text.WordWrap
+                wrapMode: TextEdit.Wrap
                 color: theme.textSecondary
+                readOnly: true; selectByMouse: true
+                activeFocusOnPress: true
             }
             SectionCard {
                 title: "Diagnostics & logs"; symbol: "logs"; expanded: page.logsExpanded

@@ -46,6 +46,27 @@ Canvas {
             c.moveTo(17, 4); c.bezierCurveTo(21, 7, 21, 12, 17, 15)
         } else if (symbol === "plus") {
             line(12, 4, 12, 20); line(4, 12, 20, 12)
+        } else if (symbol === "trash") {
+            line(4, 7, 20, 7)
+            line(9, 7, 9, 4); line(9, 4, 15, 4); line(15, 4, 15, 7)
+            line(6, 9, 7, 20); line(7, 20, 17, 20); line(17, 20, 18, 9)
+            line(10, 11, 10, 17); line(14, 11, 14, 17)
+        } else if (symbol === "bookmark") {
+            c.moveTo(6, 3); c.lineTo(6, 21); c.lineTo(12, 17)
+            c.lineTo(18, 21); c.lineTo(18, 3); c.closePath()
+        } else if (symbol === "link") {
+            c.moveTo(10, 8); line(12, 6, 14, 4)
+            c.bezierCurveTo(18, 1, 23, 6, 20, 10)
+            line(20, 10, 16, 14)
+            c.moveTo(14, 16); line(12, 18, 10, 20)
+            c.bezierCurveTo(6, 23, 1, 18, 4, 14)
+            line(4, 14, 8, 10); line(8, 10, 16, 10)
+        } else if (symbol === "play") {
+            c.moveTo(7, 4); c.lineTo(7, 20); c.lineTo(20, 12); c.closePath()
+            c.fillStyle = tint; c.fill()
+        } else if (symbol === "stop") {
+            c.rect(5, 5, 14, 14)
+            c.fillStyle = tint; c.fill()
         } else {
             c.rect(5, 3, 14, 18)
             line(8, 8, 16, 8); line(8, 12, 16, 12); line(8, 16, 13, 16)

@@ -113,6 +113,7 @@ DISPLAY_DEFAULTS = {
     "sunshine_encoder": "Auto",
     "sunshine_gpu": "",
     "sunshine_codec": "Auto",
+    "sunshine_capture": "auto",
     "streaming_customized": False,
     "sunshine_native_pen_touch": True,
     "mirror_output": "",
@@ -145,6 +146,7 @@ def _normalize_display_settings(data, fallback=DEFAULT_PRIMARY_RESOLUTION):
     data["sunshine_encoder"] = str(data.get("sunshine_encoder") or "Auto")
     data["sunshine_gpu"] = _normalize_gpu_id(data.get("sunshine_gpu"))
     data["sunshine_codec"] = str(data.get("sunshine_codec") or "Auto")
+    data["sunshine_capture"] = _normalize_capture(data.get("sunshine_capture"))
     data["streaming_customized"] = bool(data.get("streaming_customized", False))
     data["sunshine_native_pen_touch"] = bool(
         data.get("sunshine_native_pen_touch", True)
@@ -152,6 +154,14 @@ def _normalize_display_settings(data, fallback=DEFAULT_PRIMARY_RESOLUTION):
     data["enable_audio"] = bool(data.get("enable_audio", False))
     data["mirror_output"] = str(data.get("mirror_output") or "")
     return data
+
+
+CAPTURE_MODES = ("auto", "kwin", "portal", "kms", "wlr", "x11", "nvfbc", "pipewire_node")
+
+
+def _normalize_capture(value):
+    value = str(value or "auto").strip().lower()
+    return value if value in CAPTURE_MODES else "auto"
 
 
 def save_display_settings(
@@ -166,6 +176,7 @@ def save_display_settings(
     sunshine_encoder="Auto",
     sunshine_gpu="",
     sunshine_codec="Auto",
+    sunshine_capture="auto",
     streaming_customized=False,
     sunshine_native_pen_touch=True,
     enable_audio=False,
@@ -239,6 +250,7 @@ def _normalize_session(raw: dict, fallback=DEFAULT_PRIMARY_RESOLUTION):
         "sunshine_encoder": str(raw.get("sunshine_encoder") or "Auto"),
         "sunshine_gpu": _normalize_gpu_id(raw.get("sunshine_gpu")),
         "sunshine_codec": str(raw.get("sunshine_codec") or "Auto"),
+        "sunshine_capture": _normalize_capture(raw.get("sunshine_capture")),
         "sunshine_native_pen_touch": bool(
             raw.get("sunshine_native_pen_touch", True)
         ),

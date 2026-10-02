@@ -102,12 +102,11 @@ node_version_supported 22.12.0
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_cuda_auto_disables_without_nvidia_hardware(self):
+    def test_cuda_off_disables_without_probing_toolchain(self):
         result = self.run_installer_prelude(
             r'''
-CUDA_POLICY="auto"
+CUDA_POLICY="off"
 SUNSHINE_CC="/usr/bin/gcc"
-nvidia_gpu_present() { return 1; }
 probe_cuda_toolchain() { echo "probe must not run" >&2; return 99; }
 configure_sunshine_cuda
 printf 'enabled=%s\nflags=%s\n' "${SUNSHINE_CUDA_ENABLED}" "${SUNSHINE_CUDA_CMAKE_FLAGS[*]}"
@@ -118,35 +117,11 @@ printf 'enabled=%s\nflags=%s\n' "${SUNSHINE_CUDA_ENABLED}" "${SUNSHINE_CUDA_CMAK
         self.assertIn("-DSUNSHINE_ENABLE_CUDA=OFF", result.stdout)
         self.assertNotIn("probe must not run", result.stderr)
 
-    def test_nvidia_detection_uses_display_class_pci_devices_without_lspci(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            pci_root = Path(tmp) / "pci"
-            nvidia = pci_root / "0000:01:00.0"
-            nvidia.mkdir(parents=True)
-            (nvidia / "vendor").write_text("0x10de\n")
-            (nvidia / "class").write_text("0x030200\n")
-            env = os.environ.copy()
-            env["MONITORIZE_PCI_SYSFS_ROOT"] = str(pci_root)
-            result = self.run_installer_prelude(
-                r'''
-command() {
-    if [[ "${1:-}" == "-v" && "${2:-}" == "nvidia-smi" ]]; then
-        return 1
-    fi
-    builtin command "$@"
-}
-nvidia_gpu_present
-''',
-                env=env,
-            )
-            self.assertEqual(result.returncode, 0, result.stderr)
-
-    def test_cuda_auto_enables_only_after_successful_toolchain_probe(self):
+    def test_cuda_on_enables_after_successful_toolchain_probe(self):
         result = self.run_installer_prelude(
             r'''
-CUDA_POLICY="auto"
+CUDA_POLICY="on"
 SUNSHINE_CC="/usr/bin/gcc-14"
-nvidia_gpu_present() { return 0; }
 probe_cuda_toolchain() {
     SUNSHINE_CUDA_COMPILER="/opt/cuda/bin/nvcc"
     SUNSHINE_CUDA_VERSION="12.8"
@@ -212,25 +187,6 @@ printf 'compiler=%s\nversion=%s\n' "${SUNSHINE_CUDA_COMPILER}" "${SUNSHINE_CUDA_
             self.assertIn("-DCMAKE_CUDA_HOST_COMPILER=/usr/bin/gcc-14", probe_args)
             self.assertIn(f"-DCMAKE_CUDA_COMPILER={nvcc}", probe_args)
             self.assertEqual(list(probe_tmp.iterdir()), [])
-
-    def test_cuda_auto_falls_back_when_gpu_has_no_usable_toolchain(self):
-        result = self.run_installer_prelude(
-            r'''
-CUDA_POLICY="auto"
-SUNSHINE_CC="/usr/bin/gcc-14"
-nvidia_gpu_present() { return 0; }
-probe_cuda_toolchain() {
-    SUNSHINE_CUDA_PROBE_ERROR="unsupported host compiler"
-    return 1
-}
-configure_sunshine_cuda
-printf 'enabled=%s\nflags=%s\n' "${SUNSHINE_CUDA_ENABLED}" "${SUNSHINE_CUDA_CMAKE_FLAGS[*]}"
-'''
-        )
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("enabled=off", result.stdout)
-        self.assertIn("-DSUNSHINE_ENABLE_CUDA=OFF", result.stdout)
-        self.assertIn("toolchain is unusable", result.stderr)
 
     def test_cuda_on_is_strict_when_toolchain_probe_fails(self):
         result = self.run_installer_prelude(
@@ -345,7 +301,7 @@ check_sunshine_node_modules_permissions
         self.assertIn("--complete", help_result.stdout)
         self.assertIn("--partial", help_result.stdout)
         self.assertIn("--cuda=POLICY", help_result.stdout)
-        self.assertIn("MONITORIZE_CUDA=auto|on|off", help_result.stdout)
+        self.assertIn("MONITORIZE_CUDA=on|off", help_result.stdout)
 
         conflict = subprocess.run(
             [script, "--complete", "--partial"],
@@ -366,7 +322,7 @@ check_sunshine_node_modules_permissions
         self.assertIn("cannot be used together", cuda_partial_conflict.stderr)
 
         spaced_cuda_conflict = subprocess.run(
-            [script, "--partial", "--cuda", "auto"],
+            [script, "--partial", "--cuda", "on"],
             text=True,
             capture_output=True,
             check=False,
@@ -375,13 +331,13 @@ check_sunshine_node_modules_permissions
         self.assertIn("cannot be used together", spaced_cuda_conflict.stderr)
 
         invalid_cuda = subprocess.run(
-            [script, "--cuda=maybe"],
+            [script, "--cuda=auto"],
             text=True,
             capture_output=True,
             check=False,
         )
         self.assertEqual(invalid_cuda.returncode, 2)
-        self.assertIn("expected auto, on, or off", invalid_cuda.stderr)
+        self.assertIn("expected on or off", invalid_cuda.stderr)
 
     def test_complete_install_reaches_build_without_ccache_and_with_vulkan_tools(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -180,6 +180,7 @@ class StreamingController(QObject):
         self.virtual_display_creator = "native"
         self.encoder = "Auto"
         self.gpu_id = ""
+        self.capture = "auto"
         self.codec = "Auto"
         self.native_pen_touch = True
         self.mirror_output = ""
@@ -187,6 +188,7 @@ class StreamingController(QObject):
         self.third_width, self.third_height = DEFAULT_SECONDARY_RESOLUTION
         self.third_fps = DEFAULT_FPS
         self.third_encoder = "Auto"
+        self.third_capture = "auto"
         self.third_gpu_id = ""
         self.third_codec = "Auto"
         self.third_native_pen_touch = True
@@ -224,6 +226,12 @@ class StreamingController(QObject):
         self.status = value
         self.statusChanged.emit(value)
 
+    def _capture_start_error(self, instance, detail):
+        capture = self.capture if instance == 1 else self.third_capture
+        if capture != "auto" and detail:
+            return f"{capture} capture could not start: {detail}"
+        return detail
+
     def _set_primary_ready(self, value):
         if self.primary_ready == value:
             return
@@ -246,6 +254,7 @@ class StreamingController(QObject):
         gpu_id="",
         mirror_output="",
         virtual_display_creator="native",
+        capture="auto",
     ):
         if self._is_stopping:
             self._set_status("Previous session is still stopping — please wait")
@@ -269,6 +278,7 @@ class StreamingController(QObject):
         self.encoder = str(encoder or "Auto")
         self.gpu_id = normalize_pci_id(gpu_id)
         self.codec = str(codec or "Auto")
+        self.capture = str(capture or "auto")
         self.native_pen_touch = bool(native_pen_touch)
         self.mirror_output = str(mirror_output or "")
         self.audio_enabled = bool(enable_audio)
@@ -576,29 +586,14 @@ class StreamingController(QObject):
             pipewire_node=pipewire_node,
             portal_source_type=portal_source_type,
         )
+        requested = self.capture if instance == 1 else self.third_capture
+        if requested != "auto":
+            capture = requested
         cosmic_portal = (
             self.de == "cosmic"
             and os.environ.get("XDG_SESSION_TYPE", "").lower() == "wayland"
             and capture == "portal"
         )
-        # Capture choices saved in Sunshine remain authoritative even when
-        # Monitorize's embedded settings UI is disabled.
-        if not portal_source_type:
-            requested = get_saved_sunshine_config(instance).get("capture", "").lower()
-            if cosmic_portal:
-                compatible = requested == "portal"
-            elif self.de == "cinnamon" and capture == "kms":
-                # Cinnamon's current Xapp portal has no ScreenCast interface.
-                compatible = requested == "kms"
-            else:
-                compatible = (
-                    requested in ("portal", "kms")
-                    or requested == "x11" and os.environ.get("XDG_SESSION_TYPE", "").lower() == "x11"
-                    or requested == "kwin" and self.de == "kde"
-                    or requested == "wlr" and self.de in ("hyprland", "sway")
-                )
-            if compatible and os.environ.get("XDG_SESSION_TYPE", "").lower() != "x11":
-                capture = requested
         if cosmic_portal:
             target_output = sunshine_environment.get("MONITORIZE_CAPTURE_OUTPUT", "")
             if not target_output:
@@ -662,6 +657,7 @@ class StreamingController(QObject):
         self._sunshine_log_offsets[instance] = get_sunshine_log_size(instance)
         ok, message = start_sunshine(instance, **start_kwargs)
         if not ok:
+            message = self._capture_start_error(instance, message)
             self._set_status(message)
             self.logAppended.emit("SUNSHINE", f"ERROR: {message}")
             return False
@@ -729,6 +725,7 @@ class StreamingController(QObject):
         native_pen_touch=True,
         enable_audio=False,
         gpu_id="",
+        capture="auto",
     ):
         if not self.streaming or not self.primary_ready:
             self._set_status("Start the primary display before adding another display")
@@ -745,6 +742,7 @@ class StreamingController(QObject):
         self.third_encoder = str(encoder or "Auto")
         self.third_gpu_id = normalize_pci_id(gpu_id)
         self.third_codec = str(codec or "Auto")
+        self.third_capture = str(capture or "auto")
         self.third_native_pen_touch = bool(native_pen_touch)
         self.third_audio_enabled = bool(enable_audio)
         self.third_generation += 1
@@ -800,6 +798,7 @@ class StreamingController(QObject):
                 "sunshine_encoder": self.encoder,
                 "sunshine_gpu": self.gpu_id,
                 "sunshine_codec": self.codec,
+                "sunshine_capture": self.capture,
                 "sunshine_native_pen_touch": self.native_pen_touch,
                 "mirror_output": self.mirror_output,
                 "enable_audio": self.audio_enabled,
@@ -813,6 +812,7 @@ class StreamingController(QObject):
                 sunshine_encoder=self.third_encoder,
                 sunshine_gpu=self.third_gpu_id,
                 sunshine_codec=self.third_codec,
+                sunshine_capture=self.third_capture,
                 sunshine_native_pen_touch=self.third_native_pen_touch,
                 enable_audio=self.third_audio_enabled,
             )
@@ -835,6 +835,7 @@ class StreamingController(QObject):
                 second.get("sunshine_native_pen_touch", True),
                 second.get("enable_audio", False),
                 gpu_id=second.get("sunshine_gpu", ""),
+                capture=second.get("sunshine_capture", "auto"),
             )
             if self.pending_options is options:
                 self.pending_options = None
@@ -855,6 +856,8 @@ class StreamingController(QObject):
                     message += f" (exit code {exit_code})"
                 if error:
                     message += f": {error}"
+                if 1 in self._pending_sunshine_ready:
+                    message = self._capture_start_error(1, message)
                 app_log.write("SUNSHINE", message, level=logging.ERROR)
                 self.logAppended.emit("SUNSHINE", f"ERROR: {message}")
                 self._set_status(message)
@@ -868,7 +871,7 @@ class StreamingController(QObject):
                     pending[1]()
                 elif state == "failed" or time.monotonic() - pending[0] > 120:
                     self._pending_sunshine_ready.pop(1, None)
-                    self._set_status(detail or "Sunshine startup timed out")
+                    self._set_status(self._capture_start_error(1, detail or "Sunshine startup timed out"))
                     self.startFailed.emit()
                     QTimer.singleShot(0, self.stop)
                     return
@@ -916,6 +919,8 @@ class StreamingController(QObject):
                         message += f" (exit code {exit_code})"
                     if error:
                         message += f": {error}"
+                    if 2 in self._pending_sunshine_ready:
+                        message = self._capture_start_error(2, message)
                     app_log.write("SUNSHINE", message, level=logging.ERROR)
                     self.logAppended.emit("SUNSHINE", f"ERROR: {message}")
                     self._set_status(message)
@@ -929,7 +934,7 @@ class StreamingController(QObject):
                         pending[1]()
                     elif state == "failed" or time.monotonic() - pending[0] > 120:
                         self._pending_sunshine_ready.pop(2, None)
-                        self._set_status(detail or "Sunshine startup timed out")
+                        self._set_status(self._capture_start_error(2, detail or "Sunshine startup timed out"))
                         self.startFailed.emit()
                         QTimer.singleShot(0, self.stop_third)
                         return

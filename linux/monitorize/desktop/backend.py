@@ -11,6 +11,7 @@ from PyQt6.QtCore import QObject, QProcess, QTimer, pyqtProperty, pyqtSignal, py
 
 from monitorize.config import app_log, autostart
 from monitorize.config.settings import (
+    CAPTURE_MODES,
     DISPLAY_DEFAULTS,
     MAX_PRESETS,
     load_display_settings,
@@ -472,7 +473,8 @@ class MonitorizeBackend(QObject):
         mirror_output="",
         virtual_display_creator="native",
     ):
-        previous_gpu = load_display_settings().get("sunshine_gpu", "")
+        previous = load_display_settings()
+        previous_gpu = previous.get("sunshine_gpu", "")
         save_display_settings(
             resolution=resolution,
             custom_w=custom_w,
@@ -483,6 +485,7 @@ class MonitorizeBackend(QObject):
             sunshine_encoder=sunshine_encoder,
             sunshine_gpu=sunshine_gpu,
             sunshine_codec=sunshine_codec,
+            sunshine_capture=previous.get("sunshine_capture", "auto"),
             streaming_customized=streaming_customized,
             sunshine_native_pen_touch=sunshine_native_pen_touch,
             enable_audio=enable_audio,
@@ -496,6 +499,33 @@ class MonitorizeBackend(QObject):
             selected = resolve_encoding_gpu(sunshine_encoder, sunshine_gpu)
             if not save_sunshine_adapter(selected.get("render_node", "") if selected else ""):
                 app_log.write("SUNSHINE", "Could not save the selected encoding GPU.", level=logging.ERROR)
+        self.session.preset_configuration = None
+        self.session.configuration_changed()
+
+    @pyqtSlot(int, "QVariantMap")
+    def saveSunshineDisplaySettings(self, instance, values):
+        if instance not in (1, 2) or self.isStreaming or self.sessionBusy:
+            return
+        load = load_display_settings if instance == 1 else load_second_display_settings
+        save = save_display_settings if instance == 1 else save_second_display_settings
+        saved = load()
+        previous_gpu = saved.get("sunshine_gpu", "")
+        capture = str(values.get("sunshine_capture", "auto")).lower()
+        if capture not in CAPTURE_MODES:
+            capture = "auto"
+        for key in (
+            "sunshine_encoder", "sunshine_gpu", "sunshine_codec",
+            "sunshine_native_pen_touch", "enable_audio", "streaming_customized",
+        ):
+            if key in values:
+                saved[key] = values[key]
+        saved["sunshine_capture"] = capture
+        save(**saved)
+        if self._web_settings_enabled and saved.get("sunshine_gpu", "") != previous_gpu:
+            selected = resolve_encoding_gpu(saved["sunshine_encoder"], saved["sunshine_gpu"])
+            save_sunshine_adapter(
+                selected.get("render_node", "") if selected else "", instance=instance
+            )
         self.session.preset_configuration = None
         self.session.configuration_changed()
 
@@ -600,7 +630,7 @@ class MonitorizeBackend(QObject):
             if not success:
                 return {"success": False, "message": message}
         defaults = {key: DISPLAY_DEFAULTS[key] for key in (
-            "sunshine_encoder", "sunshine_gpu", "sunshine_codec",
+            "sunshine_encoder", "sunshine_gpu", "sunshine_codec", "sunshine_capture",
             "streaming_customized", "sunshine_native_pen_touch", "enable_audio",
         )}
         primary = load_display_settings()
@@ -638,6 +668,7 @@ class MonitorizeBackend(QObject):
             native_pen_touch,
             enable_audio,
             gpu_id=gpu_id,
+            capture=load_display_settings().get("sunshine_capture", "auto"),
         )
 
     @pyqtSlot()
@@ -756,6 +787,7 @@ class MonitorizeBackend(QObject):
         native_pen_touch,
         enable_audio,
     ):
+        previous = load_second_display_settings()
         save_second_display_settings(
             resolution=resolution,
             custom_w=custom_w,
@@ -765,6 +797,7 @@ class MonitorizeBackend(QObject):
             sunshine_encoder=encoder,
             sunshine_gpu=gpu_id,
             sunshine_codec=codec,
+            sunshine_capture=previous.get("sunshine_capture", "auto"),
             sunshine_native_pen_touch=native_pen_touch,
             enable_audio=enable_audio,
         )
@@ -776,7 +809,9 @@ class MonitorizeBackend(QObject):
         if self.virtualDisplayCleanupRunning:
             return
         self.streaming.start_third(
-            res, fps, encoder, codec, native_pen_touch, enable_audio, gpu_id=gpu_id
+            res, fps, encoder, codec, native_pen_touch, enable_audio,
+            gpu_id=gpu_id,
+            capture=load_second_display_settings().get("sunshine_capture", "auto"),
         )
 
     @pyqtSlot()
@@ -866,6 +901,7 @@ class MonitorizeBackend(QObject):
                 primary.get("virtual_display_creator", "native")
                 if self.vkmsCreatorAvailable else "native"
             ),
+            capture=primary.get("sunshine_capture", "auto"),
         )
 
     @pyqtSlot(int, str, result=str)

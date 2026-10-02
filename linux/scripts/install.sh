@@ -7,11 +7,11 @@
 #
 # Usage:
 #   ./install.sh          # interactive install
-#   ./install.sh --complete
+#   ./install.sh --complete --cuda=on
 #   ./install.sh --partial
-#   ./install.sh --complete --cuda=auto  # auto, on, or off
-#   ./install.sh --complete --check-vkms  # check standalone VKMS CLI
-#   ./install.sh --rebuild-sunshine  # clean and rebuild Sunshine
+#   ./install.sh --complete --cuda=off  # on or off
+#   ./install.sh --complete --cuda=on --check-vkms  # check standalone VKMS CLI
+#   ./install.sh --rebuild-sunshine --cuda=on  # clean and rebuild Sunshine
 #   ./install.sh remove   # uninstall
 # ──────────────────────────────────────────────────────────────────────
 
@@ -195,39 +195,6 @@ configure_build_jobs() {
     fi
 }
 
-nvidia_gpu_present() {
-    local output vendor class vendor_path device_dir
-    local pci_root="${MONITORIZE_PCI_SYSFS_ROOT:-/sys/bus/pci/devices}"
-
-    # A working driver is the strongest signal and also covers containers where
-    # PCI sysfs may not be mounted into the namespace.
-    if command -v nvidia-smi &>/dev/null; then
-        if output="$(nvidia-smi --query-gpu=uuid --format=csv,noheader,nounits 2>/dev/null)" &&
-                [[ -n "${output//[[:space:]]/}" ]]; then
-            return 0
-        fi
-    fi
-
-    # Fall back to PCI sysfs so Auto still recognizes an NVIDIA display device
-    # before its kernel driver is loaded. Class 0x03 covers VGA, 3D, and display
-    # controllers without introducing an lspci dependency.
-    for vendor_path in "${pci_root}"/*/vendor; do
-        [[ -r "${vendor_path}" ]] || continue
-        if ! IFS= read -r vendor < "${vendor_path}"; then
-            continue
-        fi
-        [[ "${vendor,,}" == "0x10de" ]] || continue
-        device_dir="${vendor_path%/vendor}"
-        if ! IFS= read -r class < "${device_dir}/class"; then
-            continue
-        fi
-        if [[ "${class,,}" == 0x03* ]]; then
-            return 0
-        fi
-    done
-    return 1
-}
-
 find_cuda_compiler_hint() {
     local candidate root
     for candidate in "${CUDACXX:-}" /opt/cuda/bin/nvcc; do
@@ -324,23 +291,8 @@ configure_sunshine_cuda() {
             fi
             SUNSHINE_CUDA_ENABLED="on"
             ;;
-        auto)
-            if ! nvidia_gpu_present; then
-                echo "[Monitorize] CUDA Auto: no NVIDIA display GPU detected; building Sunshine without CUDA."
-            else
-                echo "[Monitorize] CUDA Auto: NVIDIA GPU detected; validating the CUDA 12+ toolchain…"
-                if probe_cuda_toolchain; then
-                    SUNSHINE_CUDA_ENABLED="on"
-                else
-                    echo "Warning: NVIDIA hardware was found, but its CUDA 12+ build toolchain is unusable; building without CUDA." >&2
-                    echo "Rerun with --cuda=on to make the CUDA probe strict and show its diagnostics." >&2
-                    SUNSHINE_CUDA_COMPILER="none"
-                    SUNSHINE_CUDA_VERSION="none"
-                fi
-            fi
-            ;;
         *)
-            echo "Error: Invalid CUDA policy '${CUDA_POLICY}'; expected auto, on, or off." >&2
+            echo "Error: Invalid CUDA policy '${CUDA_POLICY}'; expected on or off." >&2
             return 2
             ;;
     esac
@@ -561,8 +513,7 @@ select_install_mode() {
 }
 
 select_cuda_policy() {
-    local options=("Auto  (Recommended)|Require an NVIDIA GPU and working CUDA 12+ compiler"
-                   "On|Require CUDA; stop with diagnostics if unavailable"
+    local options=("On|Require CUDA; stop with diagnostics if unavailable"
                    "Off|Build Sunshine without CUDA support")
     local selected=0
     local key
@@ -621,9 +572,8 @@ select_cuda_policy() {
     printf '\n'
 
     case "${selected}" in
-        0) CUDA_POLICY="auto" ;;
-        1) CUDA_POLICY="on" ;;
-        2) CUDA_POLICY="off" ;;
+        0) CUDA_POLICY="on" ;;
+        1) CUDA_POLICY="off" ;;
     esac
     echo "Selected: Sunshine CUDA ${CUDA_POLICY}"
     return 0
@@ -639,12 +589,13 @@ With no arguments, an interactive menu selects the installation mode.
   --complete          Install virtual-display support and bundled Sunshine.
   --partial           Install virtual-display support only.
   --rebuild-sunshine  Force a clean bundled Sunshine build (complete mode).
-  --cuda=POLICY       Sunshine CUDA policy: auto (default), on, or off.
+  --cuda=POLICY       Sunshine CUDA policy: on or off.
                       This option implies complete mode. --cuda POLICY also works.
+                      Required for noninteractive complete installs.
   --check-vkms        Check for standalone monitorize-vkms CLI.
   remove, uninstall   Remove the per-user source installation.
 
-MONITORIZE_CUDA=auto|on|off provides the same policy noninteractively.
+MONITORIZE_CUDA=on|off provides the same policy noninteractively.
 EOF
 }
 
@@ -661,9 +612,9 @@ request_install_mode() {
 set_cuda_policy() {
     local requested="${1,,}"
     case "${requested}" in
-        auto|on|off) ;;
+        on|off) ;;
         *)
-            echo "Error: Invalid CUDA policy '$1'; expected auto, on, or off." >&2
+            echo "Error: Invalid CUDA policy '$1'; expected on or off." >&2
             return 2
             ;;
     esac
@@ -680,7 +631,7 @@ set_cuda_policy() {
 FORCE_SUNSHINE_REBUILD=0
 INSTALL_MODE=""
 INSTALL_ACTION="install"
-CUDA_POLICY="auto"
+CUDA_POLICY=""
 CUDA_POLICY_EXPLICIT=0
 CHECK_VKMS_CLI=0
 
@@ -706,7 +657,7 @@ while (( $# > 0 )); do
             ;;
         --cuda)
             if (( $# == 0 )); then
-                echo "Error: --cuda requires auto, on, or off." >&2
+                echo "Error: --cuda requires on or off." >&2
                 exit 2
             fi
             set_cuda_policy "$1"
@@ -770,6 +721,10 @@ if [[ -z "${INSTALL_MODE}" ]]; then
         select_cuda_policy
     fi
 elif [[ "${INSTALL_MODE}" == "complete" ]]; then
+    if [[ -z "${CUDA_POLICY}" ]]; then
+        echo "Error: Complete installs require --cuda=on or --cuda=off (or MONITORIZE_CUDA=on|off)." >&2
+        exit 2
+    fi
     echo "Selected: Complete Install (virtual monitor + Sunshine streaming)"
     echo "Selected: Sunshine CUDA ${CUDA_POLICY}"
 else

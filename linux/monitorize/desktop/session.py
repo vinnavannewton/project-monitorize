@@ -83,6 +83,7 @@ class Session(QObject):
             ),
             encoder=saved.get("sunshine_encoder", "Auto") if custom else "Auto",
             codec=saved.get("sunshine_codec", "Auto") if custom else "Auto",
+            capture=saved.get("sunshine_capture", "auto"),
             gpu_id=saved.get("sunshine_gpu", "") if custom else "",
             native_pen_touch=saved.get("sunshine_native_pen_touch", True),
             mirror_output=saved.get("mirror_output", ""),
@@ -99,6 +100,7 @@ class Session(QObject):
                     ),
                     encoder=saved.get("sunshine_encoder", "Auto"),
                     codec=saved.get("sunshine_codec", "Auto"),
+                    capture=saved.get("sunshine_capture", "auto"),
                     gpu_id=saved.get("sunshine_gpu", ""),
                     native_pen_touch=saved.get("sunshine_native_pen_touch", True),
                     mirror_output=saved.get("mirror_output", ""),
@@ -202,6 +204,7 @@ class Session(QObject):
             for prefix in ("", "third_"):
                 config = self.second_configuration() if prefix else self.configuration()
                 for field, key in (("encoder", "encoder"), ("codec", "codec"),
+                                   ("capture", "capture"),
                                    ("gpu_id", "gpu_id"), ("native_pen_touch", "native_pen_touch"),
                                    ("audio_enabled", "enable_audio")):
                     setattr(c, prefix + field, config[key])

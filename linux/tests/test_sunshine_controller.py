@@ -175,7 +175,7 @@ Virtual-1-2 connected
         self.assertEqual(sync.call_args.args[0], "Virtual-1")
         self.assertEqual(sync.call_args.kwargs["capture"], "kms")
 
-    def test_gnome_pipewire_node_preserves_saved_kms_override(self):
+    def test_gnome_auto_uses_pipewire_node_despite_old_sunshine_setting(self):
         controller = self.controller("gnome")
         with (
             patch("monitorize.desktop.streaming_controller.load_general_settings",
@@ -195,7 +195,30 @@ Virtual-1-2 connected
         ):
             self.assertTrue(controller._start_instance(1, "Virtual-1", 2340, 1080, pipewire_node=63))
         self.assertEqual(sync.call_args.args[0], "Virtual-1")
-        self.assertEqual(sync.call_args.kwargs["capture"], "kms")
+        self.assertEqual(sync.call_args.kwargs["capture"], "pipewire_node")
+
+    def test_manual_capture_overrides_auto_for_one_instance(self):
+        controller = self.controller("kde")
+        controller.capture = "portal"
+        controller.third_capture = "kms"
+        with (
+            patch("monitorize.desktop.streaming_controller.load_general_settings",
+                  return_value={"sunshine_web_settings_enabled": False}),
+            patch("monitorize.desktop.streaming_controller.is_sunshine_settings_instance",
+                  return_value=False),
+            patch("monitorize.desktop.streaming_controller.get_sunshine_kms_setup_error",
+                  return_value=""),
+            patch("monitorize.desktop.streaming_controller.sync_sunshine_stream_config",
+                  return_value=(True, "synced")) as sync,
+            patch("monitorize.desktop.streaming_controller.save_sunshine_config",
+                  return_value=(True, "saved")),
+            patch("monitorize.desktop.streaming_controller.start_sunshine",
+                  return_value=(True, "started")),
+        ):
+            self.assertTrue(controller._start_instance(1, "Virtual-1", 1920, 1080))
+            self.assertEqual(sync.call_args.kwargs["capture"], "portal")
+            self.assertTrue(controller._start_instance(2, "Virtual-2", 1920, 1080))
+            self.assertEqual(sync.call_args.kwargs["capture"], "kms")
 
     def test_cosmic_vkms_uses_portal_and_exact_output_even_with_saved_kms_setting(self):
         controller = self.controller("cosmic")

@@ -6,7 +6,6 @@ Item {
     id: page
     property string returnPageSource: "DisplaySetupPage.qml"
     property bool loading: true
-    property var gpuOptions: []
     property var mirrorOutputs: []
     property string mirrorOutputId: ""
     property var nativeResolutionOptions: ["1280x720 (16:9)", "1280x800 (16:10)", "1920x1080 (16:9)", "1920x1200 (16:10)", "2560x1440 (16:9)", "2560x1600 (16:10)", "3840x2160 (16:9)", "Custom..."]
@@ -49,7 +48,6 @@ Item {
         interval: 2000; repeat: true; running: !page.loading && !backend.isStreaming
         onTriggered: page.refreshMirrorOutputs()
     }
-    readonly property bool streamingCustomized: streamingMode.currentIndex === 1
 
     function primaryDisplay() {
         return virtualDisplays.length > 0 ? virtualDisplays[0] : {
@@ -91,12 +89,12 @@ Item {
         let updated = virtualDisplays.slice()
         let hasChanges = false
         for (let i = 0; i < displayRepeater.count; ++i) {
-            let item = displayRepeater.itemAt(i)
-            if (!item || typeof item.getCurrentMode !== "function" || !item.displayConfig) {
+            let card = displayRepeater.itemAt(i)
+            if (!card || typeof card.getCurrentMode !== "function" || !card.displayConfig) {
                 console.warn("DisplaySetupPage: skipping uninitialized display card at index " + i)
                 continue
             }
-            let current = item.getCurrentMode()
+            let current = card.getCurrentMode()
             if (current && current.resolution && updated[i]
                     && !page.sameDisplayMode(current, updated[i])) {
                 updated[i] = Object.assign({}, updated[i], current)
@@ -122,40 +120,10 @@ Item {
         saveDisplayModes()
     }
 
-    function encoderDisplayValue(value) {
-        return String(value || "").toLowerCase().indexOf("software") === 0
-            ? "Software"
-            : (value || "Auto")
-    }
-
-    function codecDisplayValue(value) {
-        let normalized = String(value || "").toLowerCase()
-        if (normalized.indexOf("h.264") !== -1 || normalized === "h264" || normalized.indexOf("avc") !== -1) return "H.264"
-        if (normalized.indexOf("h.265") !== -1 || normalized === "h265" || normalized.indexOf("hevc") !== -1) return "HEVC"
-        if (normalized.indexOf("av1") !== -1) return "AV1"
-        return "Auto"
-    }
-
-    function selectedGpuId() {
-        if (gpuCombo.currentIndex < 0 || gpuCombo.currentIndex >= gpuOptions.length) return ""
-        return gpuOptions[gpuCombo.currentIndex]["id"] || ""
-    }
-
-    function refreshGpuOptions(savedId) {
-        gpuOptions = backend.getEncodingGpuOptions(encoder.currentText)
-        let labels = []
-        let selected = 0
-        for (let i = 0; i < gpuOptions.length; i++) {
-            labels.push(gpuOptions[i]["label"])
-            if (savedId && gpuOptions[i]["id"] === savedId) selected = i
-        }
-        gpuCombo.model = labels
-        gpuCombo.currentIndex = labels.length > 0 ? selected : -1
-    }
-
     function saveSettings() {
         if (loading) return
         let primary = primaryDisplay()
+        let saved = backend.loadDisplaySettings()
         backend.saveDisplaySettings(
             primary.resolution,
             primary.custom_w,
@@ -163,22 +131,16 @@ Item {
             primary.fps,
             primary.custom_fps,
             displayType.currentText,
-            encoder.currentText,
-            page.selectedGpuId(),
-            codec.currentText,
-            page.streamingCustomized,
-            nativeInput.checked,
-            audio.checked,
+            saved["sunshine_encoder"],
+            saved["sunshine_gpu"],
+            saved["sunshine_codec"],
+            saved["streaming_customized"],
+            saved["sunshine_native_pen_touch"],
+            saved["enable_audio"],
             page.mirrorOutputId,
             displayCreator.currentText === "VKMS (Experimental)" ? "vkms" : "native"
         )
         saveDisplayModes()
-    }
-
-    function selectAutomaticStreaming() {
-        backend.setSunshineEncoder("Auto")
-        backend.setSunshineCodec("Auto")
-        page.saveSettings()
     }
 
     Component.onCompleted: {
@@ -191,18 +153,8 @@ Item {
                 : "Compositor"
         )
         virtualDisplays = backend.loadVirtualDisplaySettings()
-        encoder.selectValue(page.encoderDisplayValue(saved["sunshine_encoder"]))
-        page.refreshGpuOptions(saved["sunshine_gpu"] || "")
-        codec.selectValue(page.codecDisplayValue(saved["sunshine_codec"]))
-        streamingMode.selectValue(
-            saved["streaming_customized"] === true
-                ? "Customize ›"
-                : "Automatic (Recommended)"
-        )
-        nativeInput.checked = saved["sunshine_native_pen_touch"] !== false
         mirrorOutputId = saved["mirror_output"] || ""
         refreshMirrorOutputs()
-        audio.checked = saved["enable_audio"] === true
         createOnly.checked = backend.streamingBackend === "none"
         loading = false
     }
@@ -308,6 +260,7 @@ Item {
                     model: displayType.currentText === "Extend" ? page.virtualDisplays : []
                     delegate: VirtualDisplayModeCard {
                         id: modeCard
+                        required property int index
                         Layout.fillWidth: true
                         displayNumber: Number(modelData.id)
                         displayConfig: modelData
@@ -315,8 +268,10 @@ Item {
                         vkmsSelected: page.vkmsSelected
                         nativeResolutionOptions: page.nativeResolutionOptions
                         vkmsResolutionOptions: backend.vkmsResolutionOptions
+                        sunshineEnabled: !backend.isStreaming && !backend.sessionBusy
+                            && !createOnly.checked && backend.sunshineAvailable
                         onConfigurationChanged: function(configuration) {
-                            let targetIndex = modeCard.displayNumber > 0 ? (modeCard.displayNumber - 1) : index
+                            let targetIndex = modeCard.displayNumber > 0 ? (modeCard.displayNumber - 1) : modeCard.index
                             page.updateDisplay(targetIndex, configuration)
                         }
                         onRemoveRequested: page.removeDisplay()
@@ -344,52 +299,14 @@ Item {
                 }
             }
             SectionCard {
-                title: "STREAMING"; symbol: "streaming"
+                title: "SUNSHINE · MIRROR"; symbol: "streaming"
                 Layout.fillWidth: true
+                visible: displayType.currentText === "Mirror"
                 enabled: !backend.isStreaming && !backend.sessionBusy && !createOnly.checked && backend.sunshineAvailable
-                CustomComboBox {
-                    id: streamingMode; Layout.fillWidth: true
-                    model: ["Automatic (Recommended)", "Customize ›"]
-                    onActivated: {
-                        if (currentIndex === 0) page.selectAutomaticStreaming()
-                        else page.saveSettings()
-                    }
-                }
-                GridLayout {
-                    visible: page.streamingCustomized; Layout.fillWidth: true
-                    columns: 2; columnSpacing: 24; rowSpacing: 12
-                    Text { text: "Encoder"; color: theme.textSecondary; Layout.preferredWidth: 145 }
-                    CustomComboBox {
-                        id: encoder; Layout.fillWidth: true
-                        model: ["Auto", "NVIDIA", "VA-API", "Vulkan", "Software"]
-                        onActivated: { backend.setSunshineEncoder(currentText); page.refreshGpuOptions(""); page.saveSettings() }
-                    }
-                    Text { text: "Codec"; color: theme.textSecondary }
-                    CustomComboBox {
-                        id: codec; Layout.fillWidth: true; model: ["Auto", "H.264", "HEVC", "AV1"]
-                        onActivated: { backend.setSunshineCodec(currentText); page.saveSettings() }
-                    }
-                    Text { text: "Encoding GPU"; color: theme.textSecondary; visible: gpuOptions.length > 0 }
-                    CustomComboBox { id: gpuCombo; Layout.fillWidth: true; visible: gpuOptions.length > 0; onActivated: page.saveSettings() }
-                }
-            }
-            SectionCard {
-                title: "EXTRAS"; symbol: "extras"
-                Layout.fillWidth: true
-                enabled: !createOnly.checked && !backend.isStreaming && !backend.sessionBusy
-                CustomToggle {
-                    id: nativeInput; text: "Touch input"
-                    onCheckedChanged: {
-                        if (!page.loading) backend.setSunshineNativePenTouch(checked)
-                        page.saveSettings()
-                    }
-                }
-                CustomToggle {
-                    id: audio; text: "Audio"
-                    onCheckedChanged: {
-                        if (!page.loading) backend.saveSunshineConfig({"stream_audio": checked ? "enabled" : "disabled"})
-                        page.saveSettings()
-                    }
+                SunshineDisplayCard {
+                    instance: 1
+                    showHeading: false
+                    Layout.fillWidth: true
                 }
             }
             SectionCard {
