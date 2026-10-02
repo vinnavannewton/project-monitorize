@@ -28,10 +28,10 @@ let
     aarch64-linux = "Linux-aarch64";
   }.${stdenv.hostPlatform.system};
   ffmpegArchive = fetchurl {
-    url = "https://github.com/LizardByte/build-deps/releases/download/v2026.724.203728/${ffmpegArch}-ffmpeg.tar.gz";
+    url = "https://github.com/LizardByte/build-deps/releases/download/v2026.910.121303/${ffmpegArch}-ffmpeg.tar.gz";
     hash = {
-      x86_64-linux = "sha256-LCfUaUtO0Oc09JfUvWLxs2Ysu8Te0qafLcS3A0Qe67M=";
-      aarch64-linux = "sha256-/WSS9V15rheNuX5I1jlbTKwqLhCy8Vew1ANVz9fBYOg=";
+      x86_64-linux = "sha256-SW0ru2dNAeYDPjG538FcvJ3BSU6IKkUF9qseA/dbOFw=";
+      aarch64-linux = "sha256-IfmUCeGroJGR+d8oaI+3+dRPmOZTeKZRMkxjLBmCOqA=";
     }.${stdenv.hostPlatform.system};
   };
   ffmpegPrepared = runCommand "monitorize-sunshine-ffmpeg" {
@@ -60,7 +60,7 @@ let
     ui = sunshineUi;
     patches = (previousAttrs.patches or []) ++ [
       ../packaging/sunshine-strict-selection.patch
-      ../packaging/sunshine-portal-token-scope.patch
+      # Portal token scoping is already part of the pinned Monitorize fork.
     ];
     cmakeFlags = builtins.filter
       (flag: !(lib.hasPrefix "-DFFMPEG_PREPARED_BINARIES=" flag))

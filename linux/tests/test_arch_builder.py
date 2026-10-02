@@ -45,7 +45,10 @@ class ArchBuilderPreflightTest(unittest.TestCase):
         (deps / "file").write_text("build dependencies\n")
         self.git(deps, "add", ".")
         self.git(deps, "commit", "-qm", "Initial build dependencies")
-        self.git(deps, "tag", "v2026.724.203728")
+        ffmpeg_tag = next(line.split("=", 1)[1] for line in
+                          (ARCH_DIR / "sources.conf").read_text().splitlines()
+                          if line.startswith("SUNSHINE_FFMPEG_TAG="))
+        self.git(deps, "tag", ffmpeg_tag)
 
         sunshine = self.root / "sunshine"
         sunshine.mkdir()
@@ -64,7 +67,7 @@ class ArchBuilderPreflightTest(unittest.TestCase):
             shutil.copy2(ARCH_DIR / filename, destination / filename)
         source_config = destination / "sources.conf"
         source_config.write_text(source_config.read_text().replace(
-            "addd8c2f7126eb04a1f87f3d7b59833beacd69af", sunshine_commit
+            "2e7fe1b4dcbcfca819dff172cc702a14ed009591", sunshine_commit
         ))
         shutil.copy2(PROJECT_ROOT / "pyproject.toml", self.checkout / "pyproject.toml")
         self.git(self.checkout, "-c", "protocol.file.allow=always", "submodule", "add", "-q",
