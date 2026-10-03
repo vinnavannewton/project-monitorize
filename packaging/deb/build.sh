@@ -193,7 +193,7 @@ podman run "${run_options[@]}" \
                     exit 1
                 fi
                 curl --fail --location --retry 3 --output "${archive}.part" "${url}"
-                echo "${sha}  ${archive}.part" | sha256sum --check --strict
+                echo "${sha}  ${archive}.part" | sha256sum --check --strict --status
                 mv "${archive}.part" "${archive}"
             fi
             echo "${archive}"
