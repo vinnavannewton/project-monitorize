@@ -102,8 +102,8 @@ Requires(post): kmod
 %description
 Monitorize creates compositor-native virtual displays on KDE Plasma, GNOME,
 and Hyprland and streams them to Moonlight clients through isolated, bundled
-Sunshine instances. Optional VKMS displays require the separate monitorize-vkms
-package for both preset and custom resolutions.
+Sunshine instances. Optional kernel-backed virtual displays for preset and
+custom resolutions use the separately packaged helper suggested by this RPM.
 
 
 %prep
