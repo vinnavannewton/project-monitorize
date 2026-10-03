@@ -19,8 +19,9 @@ Python application, compiled bundled Sunshine fork, KDE helper, assets, and
 system integration. The developer compiles once; package users do not compile.
 
 Defaults: package name `monitorize`, `pkgrel=1` initially, x86_64 only, current
-stable Arch repositories, rootless Podman, at most two compile jobs by default,
-required CUDA support, and unsigned local artifacts for initial VM testing.
+stable Arch repositories, rootless Podman, all detected processors for
+compilation, required CUDA support, and unsigned local artifacts for initial VM
+testing.
 
 Do not implement AUR publication, a binary release tarball, signing infrastructure,
 ARM, CI binary builds, or a hosted pacman repository in this phase. Do not refactor
@@ -130,7 +131,8 @@ matrix without testing the chosen toolkit and hardware.
 
 1. Parse `--rebuild-offline` and `--help`; reject unknown arguments with exit 2.
 2. Require x86_64, Git, rootless Podman and archive/checksum utilities. Validate
-   `MONITORIZE_BUILD_JOBS` as a positive integer; default to `min(2, CPU count)`.
+   `MONITORIZE_BUILD_JOBS` as a positive integer; default to the detected CPU
+   count.
 3. Require committed tracked source changes and initialized, clean, correctly
    pinned recursive submodules. Ignore unrelated untracked host files as the RPM
    builder does; they are not included in the archive. Explain that new packaging

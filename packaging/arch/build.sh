@@ -39,7 +39,6 @@ done
 
 cpu_count="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)"
 [[ "${cpu_count}" =~ ^[1-9][0-9]*$ ]] || cpu_count=1
-(( cpu_count > 2 )) && cpu_count=2
 build_jobs="${MONITORIZE_BUILD_JOBS:-${cpu_count}}"
 [[ "${build_jobs}" =~ ^[1-9][0-9]*$ ]] \
     || die 'MONITORIZE_BUILD_JOBS must be a positive integer.'

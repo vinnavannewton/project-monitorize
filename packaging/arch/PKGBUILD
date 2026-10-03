@@ -115,7 +115,7 @@ build() {
         -DSUNSHINE_ENABLE_X11=ON \
         -DSUNSHINE_EXECUTABLE_PATH=/usr/libexec/monitorize/sunshine
 
-    cmake --build sunshine-build --parallel "${MONITORIZE_BUILD_JOBS:-2}"
+    cmake --build sunshine-build --parallel "${MONITORIZE_BUILD_JOBS:-$(nproc)}"
     if [[ "${MONITORIZE_ENABLE_CUDA:-1}" == 1 ]]; then
         grep -q 'src/platform/linux/cuda.cu' sunshine-build/compile_commands.json
     else

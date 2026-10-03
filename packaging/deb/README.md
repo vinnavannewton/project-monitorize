@@ -36,10 +36,10 @@ sources:
 
 Offline mode uses `--network=none` and fails if a required cached source or
 npm package is absent. A normal build is required after changing dependency
-metadata. Set `MONITORIZE_BUILD_JOBS` to a positive integer to change the
-default maximum of two compile jobs. These containers validate package
-installation and basic runtime imports; run desktop, capture, and NVIDIA
-encoding checks in a VM with GPU passthrough.
+metadata. Builds use all detected processors by default; set
+`MONITORIZE_BUILD_JOBS` to a positive integer to change the compile jobs. These
+containers validate package installation and basic runtime imports; run desktop,
+capture, and NVIDIA encoding checks in a VM with GPU passthrough.
 
 VKMS is optional in these native binaries. Install `monitorize-vkms` separately
 and complete its kernel-module setup for preset or custom VKMS resolutions.

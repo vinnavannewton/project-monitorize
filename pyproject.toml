@@ -8,7 +8,7 @@ version = "0.33"
 description = "Create Sunshine-backed virtual displays for Moonlight clients"
 readme = "README.md"
 requires-python = ">=3.11"
-license = "GPL-3.0-only"
+license = { text = "GPL-3.0-only" }
 authors = [{ name = "Monitorize contributors" }]
 dependencies = [
     "PyQt6",

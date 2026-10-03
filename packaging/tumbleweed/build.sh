@@ -90,7 +90,6 @@ fi
 cpu_count="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)"
 [[ "${cpu_count}" =~ ^[1-9][0-9]*$ ]] || cpu_count=1
 default_jobs="${cpu_count}"
-(( default_jobs > 2 )) && default_jobs=2
 build_jobs="${MONITORIZE_BUILD_JOBS:-${default_jobs}}"
 [[ "${build_jobs}" =~ ^[1-9][0-9]*$ ]] || die "MONITORIZE_BUILD_JOBS must be a positive integer."
 
