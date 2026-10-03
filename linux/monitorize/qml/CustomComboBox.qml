@@ -32,7 +32,7 @@ ComboBox {
         text: cb.displayText
         font.pixelSize: 13
         font.weight: Font.DemiBold
-        color: theme.cardTextPrimary
+        color: cb.enabled ? theme.cardTextPrimary : theme.textMuted
         verticalAlignment: Text.AlignVCenter
     }
     indicator: Text {

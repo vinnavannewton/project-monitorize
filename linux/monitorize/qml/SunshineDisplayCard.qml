@@ -8,27 +8,44 @@ ColumnLayout {
     property bool showHeading: true
     objectName: "sunshineDisplay" + instance
     property bool loading: true
+    property string saveError: ""
     property var gpuOptions: []
+    property int gpuRequest: 0
+    property string pendingGpuId: ""
+    property string encoderChoice: "Auto"
+    property string codecChoice: "Auto"
+    property string gpuId: ""
     readonly property bool customized: streamingMode.currentIndex === 1
 
     spacing: 12
-    opacity: enabled ? 1.0 : 0.4
-
-    function selectedGpuId() {
-        if (gpuCombo.currentIndex < 0 || gpuCombo.currentIndex >= gpuOptions.length) return ""
-        return gpuOptions[gpuCombo.currentIndex]["id"] || ""
-    }
 
     function refreshGpuOptions(savedId) {
-        gpuOptions = backend.getEncodingGpuOptions(encoder.currentText)
-        let labels = []
-        let selected = 0
-        for (let i = 0; i < gpuOptions.length; ++i) {
-            labels.push(gpuOptions[i]["label"])
-            if (savedId && gpuOptions[i]["id"] === savedId) selected = i
+        pendingGpuId = savedId
+        gpuOptions = []
+        gpuRequest = customized && (encoderChoice === "NVIDIA" || encoderChoice === "VA-API")
+            ? backend.requestEncodingGpuOptions(encoderChoice) : 0
+    }
+
+    function applyGpuOptions(options) {
+        gpuOptions = options
+        gpuId = options.some(function(option) { return option.id === pendingGpuId })
+            ? pendingGpuId : ""
+        if (editorLoader.item) editorLoader.item.applyGpuLabels()
+    }
+
+    Connections {
+        target: backend
+        function onEncodingGpuOptionsReady(request, requestedEncoder, options) {
+            if (request === card.gpuRequest && requestedEncoder === card.encoderChoice)
+                card.applyGpuOptions(options)
         }
-        gpuCombo.model = labels
-        gpuCombo.currentIndex = labels.length ? selected : -1
+        function onSunshineChoicesFinished(savedInstance, success, message) {
+            if (savedInstance === card.instance)
+                card.saveError = success ? "" : message
+        }
+        function onSunshineSettingsRevisionChanged() {
+            if (!card.loading && card.visible) card.loadSettings()
+        }
     }
 
     function encoderDisplayValue(value) {
@@ -65,31 +82,30 @@ ColumnLayout {
 
     function saveSettings() {
         if (loading) return
-        let selectedEncoder = customized ? encoder.currentText : "Auto"
-        let selectedCodec = customized ? codec.currentText : "Auto"
-        backend.setSunshineEncoder(selectedEncoder, instance)
-        backend.setSunshineCodec(selectedCodec, instance)
-        backend.setSunshineNativePenTouch(nativeInput.checked, instance)
-        backend.saveSunshineConfig({"stream_audio": audio.checked ? "enabled" : "disabled"}, instance)
-        backend.saveSunshineDisplaySettings(instance, {
+        let selectedEncoder = customized ? encoderChoice : "Auto"
+        let selectedCodec = customized ? codecChoice : "Auto"
+        let result = backend.requestSaveSunshineChoices(instance, {
             "sunshine_encoder": selectedEncoder,
-            "sunshine_gpu": customized ? selectedGpuId() : "",
+            "sunshine_gpu": customized ? gpuId : "",
             "sunshine_codec": selectedCodec,
             "sunshine_capture": captureValue(),
             "streaming_customized": customized,
             "sunshine_native_pen_touch": nativeInput.checked,
             "enable_audio": audio.checked
         })
+        saveError = result["accepted"] ? "" : (result["message"] || "Could not save Sunshine settings.")
     }
 
     function loadSettings() {
         loading = true
         let saved = instance === 1 ? backend.loadDisplaySettings() : backend.loadSecondDisplaySettings()
+        encoderChoice = encoderDisplayValue(saved["sunshine_encoder"])
+        codecChoice = codecDisplayValue(saved["sunshine_codec"])
+        gpuId = saved["sunshine_gpu"] || ""
         streamingMode.selectValue(saved["streaming_customized"] === true
             ? "Customize ›" : "Automatic (Recommended)")
-        encoder.selectValue(encoderDisplayValue(saved["sunshine_encoder"]))
-        refreshGpuOptions(saved["sunshine_gpu"] || "")
-        codec.selectValue(codecDisplayValue(saved["sunshine_codec"]))
+        refreshGpuOptions(gpuId)
+        if (editorLoader.item) editorLoader.item.loadChoices()
         let capture = String(saved["sunshine_capture"] || "auto").toLowerCase()
         captureMode.selectValue(captureDisplayValue(capture), true)
         nativeInput.checked = saved["sunshine_native_pen_touch"] !== false
@@ -98,7 +114,6 @@ ColumnLayout {
     }
 
     Component.onCompleted: loadSettings()
-    onVisibleChanged: { if (visible && !loading) loadSettings() }
 
     Rectangle {
         visible: card.showHeading
@@ -113,7 +128,8 @@ ColumnLayout {
         LineIcon { symbol: "streaming"; Layout.preferredWidth: 20; Layout.preferredHeight: 20 }
         Text {
             text: "Sunshine"
-            color: "#b1d6ff"; font.pixelSize: 13; font.weight: Font.DemiBold
+            color: card.enabled ? "#b1d6ff" : theme.textMuted
+            font.pixelSize: 13; font.weight: Font.DemiBold
             Layout.fillWidth: true
         }
     }
@@ -138,28 +154,63 @@ ColumnLayout {
         id: streamingMode
         Layout.fillWidth: true
         model: ["Automatic (Recommended)", "Customize ›"]
-        onActivated: card.saveSettings()
+        onActivated: {
+            card.refreshGpuOptions(card.gpuId)
+            card.saveSettings()
+        }
     }
-    GridLayout {
-        visible: card.customized; Layout.fillWidth: true
-        columns: 2; columnSpacing: 24; rowSpacing: 12
-        Text { text: "Encoder"; color: theme.textSecondary; Layout.preferredWidth: 145 }
-        CustomComboBox {
-            id: encoder; Layout.fillWidth: true
-            model: ["Auto", "NVIDIA", "VA-API", "Vulkan", "Software"]
-            onActivated: { card.refreshGpuOptions(""); card.saveSettings() }
-        }
-        Text { text: "Codec"; color: theme.textSecondary }
-        CustomComboBox {
-            id: codec; Layout.fillWidth: true
-            model: ["Auto", "H.264", "HEVC", "AV1"]
-            onActivated: card.saveSettings()
-        }
-        Text { text: "Encoding GPU"; color: theme.textSecondary; visible: card.gpuOptions.length > 0 }
-        CustomComboBox {
-            id: gpuCombo; Layout.fillWidth: true
-            visible: card.gpuOptions.length > 0
-            onActivated: card.saveSettings()
+    Loader {
+        id: editorLoader
+        active: card.customized
+        Layout.fillWidth: true
+        Layout.preferredHeight: item ? item.implicitHeight : 0
+        onLoaded: item.loadChoices()
+        sourceComponent: Component {
+            GridLayout {
+                columns: 2; columnSpacing: 24; rowSpacing: 12
+                function loadChoices() {
+                    encoder.selectValue(card.encoderChoice, true)
+                    codec.selectValue(card.codecChoice, true)
+                    applyGpuLabels()
+                }
+                function applyGpuLabels() {
+                    let labels = card.gpuOptions.map(function(option) { return option.label })
+                    gpuCombo.model = labels
+                    let selected = card.gpuOptions.findIndex(function(option) {
+                        return option.id === card.gpuId
+                    })
+                    gpuCombo.currentIndex = labels.length ? Math.max(0, selected) : -1
+                }
+                Text { text: "Encoder"; color: theme.textSecondary; Layout.preferredWidth: 145 }
+                CustomComboBox {
+                    id: encoder; Layout.fillWidth: true
+                    model: ["Auto", "NVIDIA", "VA-API", "Vulkan", "Software"]
+                    onActivated: {
+                        card.encoderChoice = currentText
+                        card.gpuId = ""
+                        card.refreshGpuOptions("")
+                        card.saveSettings()
+                    }
+                }
+                Text { text: "Codec"; color: theme.textSecondary }
+                CustomComboBox {
+                    id: codec; Layout.fillWidth: true
+                    model: ["Auto", "H.264", "HEVC", "AV1"]
+                    onActivated: {
+                        card.codecChoice = currentText
+                        card.saveSettings()
+                    }
+                }
+                Text { text: "Encoding GPU"; color: theme.textSecondary; visible: card.gpuOptions.length > 0 }
+                CustomComboBox {
+                    id: gpuCombo; Layout.fillWidth: true
+                    visible: card.gpuOptions.length > 0
+                    onActivated: {
+                        card.gpuId = card.gpuOptions[currentIndex]["id"] || ""
+                        card.saveSettings()
+                    }
+                }
+            }
         }
     }
     CustomToggle {
@@ -169,5 +220,12 @@ ColumnLayout {
     CustomToggle {
         id: audio; text: "Audio"
         onCheckedChanged: card.saveSettings()
+    }
+    Text {
+        visible: card.saveError.length > 0
+        text: card.saveError
+        color: "#fca5a5"
+        wrapMode: Text.WordWrap
+        Layout.fillWidth: true
     }
 }

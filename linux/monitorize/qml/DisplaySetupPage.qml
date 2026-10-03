@@ -7,9 +7,30 @@ Item {
     property string returnPageSource: "DisplaySetupPage.qml"
     property bool loading: true
     property var mirrorOutputs: []
+    property bool mirrorOutputsInitialized: false
+    property int mirrorRequest: 0
+    property bool mirrorRefreshQueued: false
     property string mirrorOutputId: ""
     property var nativeResolutionOptions: ["1280x720 (16:9)", "1280x800 (16:10)", "1920x1080 (16:9)", "1920x1200 (16:10)", "2560x1440 (16:9)", "2560x1600 (16:10)", "3840x2160 (16:9)", "Custom..."]
     property var virtualDisplays: []
+    ListModel { id: displayModel }
+
+    function displayRow(config) {
+        return {
+            displayId: Number(config.id),
+            modeResolution: String(config.resolution || ""),
+            customWidth: String(config.custom_w || ""),
+            customHeight: String(config.custom_h || ""),
+            refreshRate: String(config.fps || ""),
+            customRefresh: String(config.custom_fps || "")
+        }
+    }
+
+    function resetDisplayModel() {
+        displayModel.clear()
+        for (let i = 0; i < virtualDisplays.length; ++i)
+            displayModel.append(displayRow(virtualDisplays[i]))
+    }
     readonly property bool vkmsSelected: displayType.currentText === "Extend"
         && displayCreator.currentText === "VKMS (Experimental)"
 
@@ -26,7 +47,18 @@ Item {
     }
 
     function refreshMirrorOutputs() {
-        mirrorOutputs = backend.getMirrorOutputs()
+        if (mirrorRequest !== 0) {
+            mirrorRefreshQueued = true
+            return
+        }
+        mirrorRequest = backend.requestMirrorOutputs()
+    }
+
+    function applyMirrorOutputs(refreshed) {
+        if (mirrorOutputsInitialized
+                && JSON.stringify(refreshed) === JSON.stringify(mirrorOutputs)) return
+        mirrorOutputsInitialized = true
+        mirrorOutputs = refreshed
         let labels = ["Select a monitor…"]
         let selected = 0
         for (let i = 0; i < mirrorOutputs.length; ++i) {
@@ -44,8 +76,37 @@ Item {
         mirrorMonitor.currentIndex = selected
     }
 
+    Connections {
+        target: backend
+        function onMirrorOutputsReady(request, outputs) {
+            if (request !== page.mirrorRequest) return
+            page.mirrorRequest = 0
+            if (displayType.currentText === "Mirror") page.applyMirrorOutputs(outputs)
+            if (page.mirrorRefreshQueued) {
+                page.mirrorRefreshQueued = false
+                if (mirrorPoll.running) page.refreshMirrorOutputs()
+            }
+        }
+        function onMirrorScreensChanged() {
+            if (mirrorPoll.running) screenChangeDebounce.restart()
+        }
+    }
+
     Timer {
-        interval: 2000; repeat: true; running: !page.loading && !backend.isStreaming
+        id: screenChangeDebounce
+        interval: 150
+        onTriggered: { if (mirrorPoll.running) page.refreshMirrorOutputs() }
+    }
+
+    Timer {
+        id: mirrorPoll
+        interval: 2000; repeat: true
+        running: !page.loading && backend.uiVisible && !backend.isStreaming
+            && !backend.sessionBusy && displayType.currentText === "Mirror"
+            && page.StackView.view && page.StackView.view.currentItem === page
+        onRunningChanged: {
+            if (running) Qt.callLater(function() { if (running) page.refreshMirrorOutputs() })
+        }
         onTriggered: page.refreshMirrorOutputs()
     }
 
@@ -67,6 +128,7 @@ Item {
         let updated = virtualDisplays.slice()
         updated[index] = configuration
         virtualDisplays = updated
+        displayModel.set(index, displayRow(configuration))
         if (index === 0) {
             page.saveSettings()
         } else {
@@ -103,6 +165,8 @@ Item {
         }
         if (hasChanges) {
             virtualDisplays = updated
+            for (let i = 0; i < updated.length; ++i)
+                displayModel.set(i, displayRow(updated[i]))
             page.saveSettings()
         }
     }
@@ -111,12 +175,14 @@ Item {
         if (vkmsSelected || virtualDisplays.length >= 2) return
         let duplicate = Object.assign({}, primaryDisplay(), { id: 2 })
         virtualDisplays = [primaryDisplay(), duplicate]
+        displayModel.append(displayRow(duplicate))
         saveDisplayModes()
     }
 
     function removeDisplay() {
         if (virtualDisplays.length < 2) return
         virtualDisplays = [primaryDisplay()]
+        displayModel.remove(1)
         saveDisplayModes()
     }
 
@@ -153,8 +219,9 @@ Item {
                 : "Compositor"
         )
         virtualDisplays = backend.loadVirtualDisplaySettings()
+        resetDisplayModel()
         mirrorOutputId = saved["mirror_output"] || ""
-        refreshMirrorOutputs()
+        if (displayType.currentText === "Mirror") refreshMirrorOutputs()
         createOnly.checked = backend.streamingBackend === "none"
         loading = false
     }
@@ -186,6 +253,9 @@ Item {
                         id: displayType; model: ["Extend", "Mirror"]; chipWidth: 124
                         disabledValues: createOnly.checked || !backend.sunshineAvailable ? ["Mirror"] : []
                         onActivated: page.saveSettings()
+                        onCurrentTextChanged: {
+                            if (!page.loading && currentText === "Mirror") page.refreshMirrorOutputs()
+                        }
                     }
                     Text {
                         text: "Virtual Display Creator"
@@ -237,6 +307,7 @@ Item {
                         id: mirrorMonitor
                         visible: displayType.currentText === "Mirror"
                         Layout.fillWidth: true
+                        model: ["Checking monitors…"]
                         disabledIndex: 0
                         onActivated: {
                             page.mirrorOutputId = currentIndex > 0 ? page.mirrorOutputs[currentIndex - 1].id : ""
@@ -257,14 +328,16 @@ Item {
                 }
                 Repeater {
                     id: displayRepeater
-                    model: displayType.currentText === "Extend" ? page.virtualDisplays : []
+                    model: displayType.currentText === "Extend" ? displayModel : 0
                     delegate: VirtualDisplayModeCard {
                         id: modeCard
                         required property int index
                         Layout.fillWidth: true
-                        displayNumber: Number(modelData.id)
-                        displayConfig: modelData
-                        canRemove: Number(modelData.id) === 2
+                        displayNumber: displayId
+                        displayConfig: ({id: displayId, resolution: modeResolution,
+                            custom_w: customWidth, custom_h: customHeight,
+                            fps: refreshRate, custom_fps: customRefresh})
+                        canRemove: displayId === 2
                         vkmsSelected: page.vkmsSelected
                         nativeResolutionOptions: page.nativeResolutionOptions
                         vkmsResolutionOptions: backend.vkmsResolutionOptions
@@ -281,7 +354,6 @@ Item {
                     id: addDisplayButton
                     visible: displayType.currentText === "Extend" && page.virtualDisplays.length < 2
                     enabled: !page.vkmsSelected
-                    opacity: enabled ? 1.0 : 0.4
                     Layout.fillWidth: true
                     implicitHeight: 54
                     onClicked: page.addDisplay()
@@ -294,7 +366,7 @@ Item {
                         anchors { left: parent.left; right: parent.right; margins: 14 }
                         spacing: 10
                         LineIcon { symbol: "plus"; Layout.preferredWidth: 20; Layout.preferredHeight: 20 }
-                        Text { text: "Add Display"; color: "#94caff"; font.pixelSize: 14; font.weight: Font.DemiBold }
+                        Text { text: "Add Display"; color: addDisplayButton.enabled ? "#94caff" : theme.textMuted; font.pixelSize: 14; font.weight: Font.DemiBold }
                     }
                 }
             }
@@ -303,10 +375,15 @@ Item {
                 Layout.fillWidth: true
                 visible: displayType.currentText === "Mirror"
                 enabled: !backend.isStreaming && !backend.sessionBusy && !createOnly.checked && backend.sunshineAvailable
-                SunshineDisplayCard {
-                    instance: 1
-                    showHeading: false
+                Loader {
                     Layout.fillWidth: true
+                    active: displayType.currentText === "Mirror"
+                    sourceComponent: Component {
+                        SunshineDisplayCard {
+                            instance: 1
+                            showHeading: false
+                        }
+                    }
                 }
             }
             SectionCard {

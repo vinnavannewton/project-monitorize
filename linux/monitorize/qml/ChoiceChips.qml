@@ -58,7 +58,6 @@ GridLayout {
 
             readonly property bool isDisabled: chips.disabledValues && chips.disabledValues.indexOf(modelData) !== -1
             enabled: chips.enabled && !isDisabled
-            opacity: enabled ? 1.0 : 0.4
 
             readonly property bool selected: index === chips.currentIndex
 
@@ -75,10 +74,10 @@ GridLayout {
 
             background: Rectangle {
                 radius: theme.controlRadius
-                color: chip.selected
+                color: !chip.enabled ? theme.surface : chip.selected
                     ? (chip.hovered || chip.down ? theme.buttonBackgroundHover : theme.buttonBackground)
                     : (chip.down ? theme.surfaceAlt : (chip.hovered ? theme.borderHover : theme.surface))
-                border.color: chip.selected
+                border.color: !chip.enabled ? theme.border : chip.selected
                     ? (chip.hovered || chip.down ? theme.buttonBackgroundHover : theme.buttonBackground)
                     : theme.border
                 border.width: 1
@@ -88,7 +87,7 @@ GridLayout {
             contentItem: Text {
                 id: chipText
                 text: chip.text
-                color: chip.selected ? "#ffffff" : theme.cardTextPrimary
+                color: !chip.enabled ? theme.textMuted : (chip.selected ? "#ffffff" : theme.cardTextPrimary)
                 font.pixelSize: 12
                 font.weight: Font.DemiBold
                 horizontalAlignment: Text.AlignHCenter

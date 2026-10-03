@@ -3,7 +3,7 @@ import os
 import tempfile
 import unittest
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 from PyQt6.QtCore import QSettings
 
@@ -102,6 +102,8 @@ class SettingsTest(unittest.TestCase):
         changed = []
         backend = SimpleNamespace(
             isStreaming=False, sessionBusy=False, _web_settings_enabled=False,
+            _sunshine_settings_revision=0,
+            sunshineSettingsRevisionChanged=SimpleNamespace(emit=Mock()),
             session=SimpleNamespace(preset_configuration=None,
                                     configuration_changed=lambda: changed.append(True)),
         )
@@ -118,6 +120,43 @@ class SettingsTest(unittest.TestCase):
         self.assertEqual(settings.load_display_settings()["sunshine_encoder"], "NVIDIA")
         self.assertEqual(settings.load_second_display_settings()["sunshine_encoder"], "VA-API")
         self.assertEqual(len(changed), 2)
+
+    def test_sunshine_choice_snapshot_writes_one_patch_and_skips_repeat(self):
+        settings.save_display_settings(
+            resolution="1920x1080",
+            sunshine_encoder="Auto", sunshine_codec="Auto",
+            sunshine_native_pen_touch=True, enable_audio=False,
+        )
+        fake = SimpleNamespace(
+            isStreaming=False, sessionBusy=False, _closing=False,
+            _web_settings_enabled=False,
+            saveSunshineDisplaySettings=Mock(),
+        )
+        fake._prepare_sunshine_choices = lambda instance, submitted: (
+            MonitorizeBackend._prepare_sunshine_choices(fake, instance, submitted)
+        )
+        choices = {
+            "sunshine_encoder": "NVIDIA", "sunshine_codec": "HEVC",
+            "sunshine_capture": "kwin", "sunshine_gpu": "",
+            "streaming_customized": True,
+            "sunshine_native_pen_touch": True, "enable_audio": False,
+        }
+        current = {}
+        with (patch("monitorize.desktop.backend.get_saved_sunshine_config", side_effect=lambda _instance: current),
+              patch("monitorize.desktop.backend.save_sunshine_config", return_value=(True, "")) as write):
+            result = MonitorizeBackend.saveSunshineChoices(fake, 1, choices)
+            self.assertTrue(result["success"])
+            write.assert_called_once()
+            patch_values = write.call_args.args[0]
+            self.assertEqual(patch_values["encoder"], "nvenc")
+            self.assertEqual((patch_values["hevc_mode"], patch_values["av1_mode"]), ("2", "1"))
+            fake.saveSunshineDisplaySettings.assert_called_once_with(1, choices, sync_adapter=False)
+            current.update(patch_values)
+            settings.save_display_settings(resolution="1920x1080", **choices)
+            write.reset_mock()
+            result = MonitorizeBackend.saveSunshineChoices(fake, 1, choices)
+            self.assertTrue(result["success"])
+            write.assert_not_called()
 
     def test_v1_wifi_preset_migrates_and_usb_preset_is_dropped(self):
         store = QSettings(self.config_file, QSettings.Format.IniFormat)

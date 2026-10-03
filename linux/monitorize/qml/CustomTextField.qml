@@ -4,7 +4,7 @@ import QtQuick.Controls
 TextField {
     id: tf
     placeholderTextColor: theme.cardTextMuted
-    color: theme.cardTextPrimary
+    color: tf.enabled ? theme.cardTextPrimary : theme.textMuted
     font.pixelSize: 13
     font.weight: Font.DemiBold
     padding: 8

@@ -13,10 +13,6 @@ Rectangle {
     color: theme.surface
     opacity: enabled ? 1.0 : 0.4
     border.color: theme.border
-    gradient: Gradient {
-        GradientStop { position: 0; color: theme.surfaceAlt }
-        GradientStop { position: 1; color: theme.surface }
-    }
     ColumnLayout {
         id: contents
         anchors { left: parent.left; right: parent.right; top: parent.top; margins: 16 }

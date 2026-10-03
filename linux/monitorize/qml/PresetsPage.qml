@@ -37,6 +37,7 @@ Item {
                         CustomButton {
                             text: "Start"
                             enabled: !backend.isStreaming && !backend.sessionBusy
+                                && !backend.sunshineChoicesSaving
                             onClicked: {
                                 page.launchAttempted = true
                                 backend.launchPreset(index)

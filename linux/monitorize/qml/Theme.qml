@@ -39,5 +39,4 @@ QtObject {
     // Shape
     readonly property int controlRadius: 8
     readonly property int cardRadius: 10
-    readonly property real hoverScale: 1.01
 }

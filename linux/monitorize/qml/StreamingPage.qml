@@ -5,9 +5,11 @@ import QtQuick.Layouts
 Item {
     id: page
     property int pairInstance: 1
+    property int pairRequest: 0
     property bool logsExpanded: false
     property bool followLatestLogs: true
     property bool updatingLogScroll: false
+    property string logOpenError: ""
     function logAtBottom() {
         let flick = logScroll.contentItem
         return flick.contentY >= Math.max(0, flick.contentHeight - flick.height) - 16
@@ -42,6 +44,16 @@ Item {
     }
     Connections {
         target: backend
+        function onPairMoonlightFinished(request, success, message) {
+            if (request !== page.pairRequest || !pinPopup.visible) return
+            page.pairRequest = 0
+            pinMessage.text = message
+            pinMessage.color = success ? "#86efac" : "#fca5a5"
+            if (success) pinSuccessCloseTimer.restart()
+        }
+    }
+    Connections {
+        target: backend
         function onStreamingStartFailed() { page.logsExpanded = true }
         function onStreamingCodecMismatch(message) { page.logsExpanded = true }
     }
@@ -55,7 +67,12 @@ Item {
         }
     }
     Timer {
-        interval: 1000; repeat: true; running: page.logsExpanded
+        interval: 1000; repeat: true
+        running: page.logsExpanded && backend.uiVisible
+            && page.StackView.view && page.StackView.view.currentItem === page
+        onRunningChanged: {
+            if (running) Qt.callLater(function() { if (running) page.refreshDiagnostics() })
+        }
         onTriggered: page.refreshDiagnostics()
     }
     ScrollView {
@@ -251,7 +268,8 @@ Item {
                     implicitWidth: 150; implicitHeight: 46
                     iconSymbol: text === "Stop" ? "stop" : "play"
                     danger: text === "Stop"
-                    enabled: text === "Stop" || backend.sessionMode === "Mirror" || backend.sessionHasDisplays
+                    enabled: text === "Stop" || (!backend.sunshineChoicesSaving
+                        && (backend.sessionMode === "Mirror" || backend.sessionHasDisplays))
                     onClicked: text === "Stop" ? backend.stopSession() : backend.startSession()
                 }
                 CustomButton {
@@ -291,6 +309,7 @@ Item {
                         TextArea {
                             id: logArea
                             text: ""
+                            textFormat: TextEdit.PlainText
                             readOnly: true; wrapMode: TextEdit.Wrap
                             color: theme.textSecondary; font.family: "monospace"; font.pixelSize: 11
                             background: Rectangle { color: theme.logBoxBackground; radius: 8 }
@@ -322,6 +341,30 @@ Item {
                         }
                     }
                 }
+                CustomButton {
+                    text: "Open full log"
+                    primary: false
+                    onClicked: fullLogMenu.open()
+                    Menu {
+                        id: fullLogMenu
+                        y: parent.height
+                        width: 180
+                        background: Rectangle {
+                            color: theme.surface
+                            border.color: theme.border
+                            radius: theme.controlRadius
+                        }
+                        CardMenuItem { text: "Monitorize"; onTriggered: page.logOpenError = backend.openDiagnosticLog(0) ? "" : "Monitorize log is unavailable." }
+                        CardMenuItem { text: "Sunshine 1"; onTriggered: page.logOpenError = backend.openDiagnosticLog(1) ? "" : "Sunshine 1 log is unavailable." }
+                        CardMenuItem { text: "Sunshine 2"; onTriggered: page.logOpenError = backend.openDiagnosticLog(2) ? "" : "Sunshine 2 log is unavailable." }
+                    }
+                }
+                Text {
+                    visible: page.logOpenError.length > 0
+                    text: page.logOpenError
+                    color: "#fca5a5"
+                    Layout.fillWidth: true
+                }
             }
         }
     }
@@ -332,7 +375,10 @@ Item {
         width: 380
         padding: 22
         background: Rectangle { color: theme.surface; border.color: theme.border; radius: theme.cardRadius }
-        onClosed: pinSuccessCloseTimer.stop()
+        onClosed: {
+            pinSuccessCloseTimer.stop()
+            page.pairRequest = 0
+        }
         Timer {
             id: pinSuccessCloseTimer
             interval: 2000
@@ -358,12 +404,8 @@ Item {
                     id: pairButton
                     text: "Pair"
                     primary: true
-                    onClicked: {
-                        let result = backend.pairMoonlightPin(pinField.text, page.pairInstance)
-                        pinMessage.text = result["message"]
-                        pinMessage.color = result["success"] ? "#86efac" : "#fca5a5"
-                        if (result["success"]) pinSuccessCloseTimer.restart()
-                    }
+                    enabled: !backend.pairingRunning && pinField.text.length === 4
+                    onClicked: page.pairRequest = backend.startPairMoonlightPin(pinField.text, page.pairInstance)
                 }
             }
         }

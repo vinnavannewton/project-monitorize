@@ -108,6 +108,23 @@ class MonitorizeWindow(QMainWindow):
         self.raise_()
         self.activateWindow()
 
+    def _update_ui_visibility(self):
+        backend = getattr(self, "backend", None)
+        if backend is not None:
+            backend.set_ui_visible(self.isVisible() and not self.isMinimized())
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self._update_ui_visibility()
+
+    def hideEvent(self, event):
+        super().hideEvent(event)
+        self._update_ui_visibility()
+
+    def changeEvent(self, event):
+        super().changeEvent(event)
+        self._update_ui_visibility()
+
     def _quit_app(self):
         app_log.write("APP", "Application shutting down.")
         self.backend.close()

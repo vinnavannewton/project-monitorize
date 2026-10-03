@@ -5,9 +5,11 @@ import logging
 import os
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from PyQt6.QtCore import QObject, QProcess, QTimer, pyqtProperty, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import QObject, QProcess, QTimer, QUrl, pyqtProperty, pyqtSignal, pyqtSlot
+from PyQt6.QtGui import QDesktopServices, QGuiApplication
 
 from monitorize.config import app_log, autostart
 from monitorize.config.settings import (
@@ -48,13 +50,17 @@ from monitorize.platform.sunshine_service import (
     set_sunshine_encoder,
     set_sunshine_native_pen_touch,
 )
-from monitorize.platform.system_setup import apply_system_setup, get_system_setup_status
+from monitorize.platform.system_setup import (
+    apply_system_setup, get_system_setup_status, parse_system_setup_result,
+    system_setup_command,
+)
 from monitorize.platform.utils import LINUX_DIR, get_local_ip
 from monitorize.platform.monitorize_vkms_cli import MonitorizeVkmsClient
 from monitorize.platform.vkms_backend import open_monitorize_vkms_install_page
 
 
 class MonitorizeBackend(QObject):
+    UI_LOG_TAIL_BYTES = 16 * 1024
     sunshineSettingsChanged = pyqtSignal()
     sessionChanged = pyqtSignal()
     detectedDeChanged = pyqtSignal(str)
@@ -75,10 +81,26 @@ class MonitorizeBackend(QObject):
     vkmsHelperAvailabilityChanged = pyqtSignal()
     virtualDisplayCleanupChanged = pyqtSignal()
     virtualDisplayCleanupFinished = pyqtSignal(bool, str)
+    uiVisibleChanged = pyqtSignal(bool)
+    systemSetupFinished = pyqtSignal("QVariantMap")
+    systemSetupRunningChanged = pyqtSignal(bool)
+    pairMoonlightFinished = pyqtSignal(int, bool, str)
+    pairingRunningChanged = pyqtSignal(bool)
+    _pairingWorkerFinished = pyqtSignal(int, bool, str)
+    encodingGpuOptionsReady = pyqtSignal(int, str, "QVariant")
+    _encodingGpuWorkerFinished = pyqtSignal(int, str, object)
+    mirrorScreensChanged = pyqtSignal()
+    mirrorOutputsReady = pyqtSignal(int, "QVariant")
+    _mirrorWorkerFinished = pyqtSignal(int, object, object)
+    sunshineChoicesSavingChanged = pyqtSignal(bool)
+    sunshineChoicesFinished = pyqtSignal(int, bool, str)
+    _sunshineChoicesWorkerFinished = pyqtSignal(int, bool, str)
+    sunshineSettingsRevisionChanged = pyqtSignal(int)
 
     def __init__(self, de, parent=None):
         super().__init__(parent)
         self._detected_de = de
+        self._ui_visible = False
         self.native_compositor_resolver = None
         self._settings_instance = None
         self._settings_deadline = 0.0
@@ -87,6 +109,28 @@ class MonitorizeBackend(QObject):
         self._settings_timer.setInterval(250)
         self._settings_timer.timeout.connect(self._poll_sunshine_settings)
         self._virtual_display_cleanup_process = None
+        self._system_setup_process = None
+        self._system_setup_timed_out = False
+        self._system_setup_cancelled = False
+        self._background_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="monitorize-ui")
+        self._closing = False
+        self._pairing_serial = 0
+        self._pairing_active = 0
+        self._pairingWorkerFinished.connect(self._finish_pairing)
+        self._gpu_request_serial = 0
+        self._encodingGpuWorkerFinished.connect(self._finish_gpu_options)
+        self._mirror_request_serial = 0
+        self._mirrorWorkerFinished.connect(self._finish_mirror_outputs)
+        self._observed_screens = []
+        self._sunshine_save_pending = {}
+        self._sunshine_save_active = None
+        self._sunshine_save_serial = 0
+        self._sunshine_settings_revision = 0
+        self._pending_session_start = False
+        self._sunshineChoicesWorkerFinished.connect(self._finish_sunshine_choices)
+        self._system_setup_timeout = QTimer(self)
+        self._system_setup_timeout.setSingleShot(True)
+        self._system_setup_timeout.timeout.connect(self._timeout_system_setup)
         self._local_ip = get_local_ip()
         self._sunshine_available = find_sunshine_command(1) is not None
         general = load_general_settings()
@@ -99,8 +143,7 @@ class MonitorizeBackend(QObject):
         from monitorize.desktop.session import Session
         self.session = Session(self.streaming, self)
         self.session.changed.connect(self.sessionChanged)
-        self._session_log = ""
-        self.logAppended.connect(self._remember_session_log)
+        self._diagnostic_log_cache = {}
         self._presets = load_presets()
         self._preset_launch_status = ""
         self._vkms_resolution_options = [
@@ -124,6 +167,40 @@ class MonitorizeBackend(QObject):
         self.network_timer.setInterval(5000)
         self.network_timer.timeout.connect(self._check_network_ip)
         self.network_timer.start()
+        app = QGuiApplication.instance()
+        if app is not None and hasattr(app, "screens"):
+            app.screenAdded.connect(self._screen_added)
+            app.screenRemoved.connect(self._screen_removed)
+            for screen in app.screens():
+                self._observe_screen(screen)
+
+    def _observe_screen(self, screen):
+        if screen in self._observed_screens:
+            return
+        self._observed_screens.append(screen)
+        for name in ("geometryChanged", "refreshRateChanged"):
+            signal = getattr(screen, name, None)
+            if signal is not None:
+                signal.connect(self._screen_output_changed)
+
+    def _screen_added(self, screen):
+        self._observe_screen(screen)
+        self.mirrorScreensChanged.emit()
+
+    def _screen_removed(self, screen):
+        if screen in self._observed_screens:
+            self._observed_screens.remove(screen)
+            for name in ("geometryChanged", "refreshRateChanged"):
+                signal = getattr(screen, name, None)
+                if signal is not None:
+                    try:
+                        signal.disconnect(self._screen_output_changed)
+                    except (TypeError, RuntimeError):
+                        pass
+        self.mirrorScreensChanged.emit()
+
+    def _screen_output_changed(self, *_args):
+        self.mirrorScreensChanged.emit()
 
     @pyqtProperty(str, notify=detectedDeChanged)
     def detectedDe(self):
@@ -144,8 +221,15 @@ class MonitorizeBackend(QObject):
         self.detectedDeChanged.emit(selected)
         return True
 
-    def _remember_session_log(self, category, message):
-        self._session_log = (self._session_log + f"[{category}] {message}\n")[-100000:]
+    @pyqtProperty(bool, notify=uiVisibleChanged)
+    def uiVisible(self):
+        return self._ui_visible
+
+    def set_ui_visible(self, visible):
+        visible = bool(visible)
+        if visible != self._ui_visible:
+            self._ui_visible = visible
+            self.uiVisibleChanged.emit(visible)
 
     @pyqtSlot(result=str)
     def sessionLog(self):
@@ -157,10 +241,30 @@ class MonitorizeBackend(QObject):
         ]
         sections = []
         for label, path in sources:
-            content = app_log.read_tail(path)
+            try:
+                state = path.stat()
+                signature = (state.st_dev, state.st_ino, state.st_size, state.st_mtime_ns)
+            except OSError:
+                signature = None
+            cached = self._diagnostic_log_cache.get(label)
+            if cached is not None and cached[0] == path and cached[1] == signature:
+                content = cached[2]
+            else:
+                content = app_log.read_tail(path, max_bytes=self.UI_LOG_TAIL_BYTES)
+                self._diagnostic_log_cache[label] = (path, signature, content)
             if content:
                 sections.append(f"===== {label} =====\n{content}")
         return "\n\n".join(sections) or "No retained diagnostic logs yet."
+
+    @pyqtSlot(int, result=bool)
+    def openDiagnosticLog(self, source):
+        if source == 0:
+            path = Path(app_log.LOG_FILE)
+        elif source in (1, 2):
+            path = Path(get_sunshine_config_dir(source)) / "sunshine.log"
+        else:
+            return False
+        return path.is_file() and QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
 
     @pyqtProperty("QVariant", notify=sessionChanged)
     def sessionDisplays(self):
@@ -196,6 +300,9 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot()
     def startSession(self):
+        if self.sunshineChoicesSaving:
+            self._pending_session_start = True
+            return
         if self.virtualDisplayCleanupRunning:
             return
         config = self.session.configuration()
@@ -217,6 +324,7 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot()
     def stopSession(self):
+        self._pending_session_start = False
         self._cancel_settings_open()
         self.session.stop()
 
@@ -339,6 +447,69 @@ class MonitorizeBackend(QObject):
             self.systemSetupPendingChanged.emit(self.systemSetupPending)
         return result
 
+    @pyqtProperty(bool, notify=systemSetupRunningChanged)
+    def systemSetupRunning(self):
+        return self._system_setup_process is not None
+
+    @pyqtSlot(bool, bool)
+    def startSystemSetup(self, enable_input: bool, enable_firewall: bool):
+        if self._system_setup_process is not None:
+            return
+        command, error = system_setup_command(enable_input, enable_firewall)
+        if error:
+            self.systemSetupFinished.emit(error)
+            return
+        process = QProcess(self)
+        self._system_setup_timed_out = False
+        self._system_setup_cancelled = False
+        self._system_setup_process = process
+        self.systemSetupRunningChanged.emit(True)
+        process.finished.connect(self._finish_system_setup)
+        process.errorOccurred.connect(self._system_setup_process_error)
+        process.start(command[0], command[1:])
+        if self._system_setup_process is process:
+            self._system_setup_timeout.start(60000)
+
+    def _complete_system_setup(self, result):
+        process = self._system_setup_process
+        if process is None:
+            return
+        self._system_setup_process = None
+        self._system_setup_timeout.stop()
+        process.deleteLater()
+        self.systemSetupRunningChanged.emit(False)
+        updated = bool(get_system_setup_status()["available"])
+        if updated != self._system_setup_available:
+            self._system_setup_available = updated
+            self.systemSetupAvailableChanged.emit(updated)
+        self.systemSetupFinished.emit(result)
+
+    def _finish_system_setup(self, exit_code, _exit_status):
+        process = self._system_setup_process
+        if process is None:
+            return
+        if self._system_setup_cancelled:
+            result = {"success": False, "message": "System setup cancelled."}
+        elif self._system_setup_timed_out:
+            result = {"success": False, "message": "System setup timed out."}
+        else:
+            result = parse_system_setup_result(
+                exit_code,
+                bytes(process.readAllStandardOutput()).decode("utf-8", "replace"),
+                bytes(process.readAllStandardError()).decode("utf-8", "replace"),
+            )
+        self._complete_system_setup(result)
+
+    def _system_setup_process_error(self, error):
+        if error == QProcess.ProcessError.FailedToStart:
+            self._complete_system_setup({"success": False, "message": "Could not start system setup."})
+
+    def _timeout_system_setup(self):
+        process = self._system_setup_process
+        if process is not None:
+            self._system_setup_timed_out = True
+            process.kill()
+
     @pyqtSlot()
     def markSystemSetupDecided(self):
         if self._system_setup_decided:
@@ -449,11 +620,62 @@ class MonitorizeBackend(QObject):
     def getEncodingGpuOptions(self, encoder):
         return encoding_gpu_options(encoder)
 
+    @pyqtSlot(str, result=int)
+    def requestEncodingGpuOptions(self, encoder):
+        if self._closing:
+            return 0
+        self._gpu_request_serial += 1
+        request = self._gpu_request_serial
+
+        def work():
+            try:
+                options = encoding_gpu_options(encoder)
+            except Exception:
+                options = []
+            self._encodingGpuWorkerFinished.emit(request, encoder, options)
+
+        self._background_executor.submit(work)
+        return request
+
+    @pyqtSlot(int, str, object)
+    def _finish_gpu_options(self, request, encoder, options):
+        if not self._closing:
+            self.encodingGpuOptionsReady.emit(request, encoder, options)
+
     @pyqtSlot(result="QVariant")
     def getMirrorOutputs(self):
         from monitorize.platform.mirror_outputs import active_outputs
 
         return active_outputs(self._detected_de)
+
+    @pyqtSlot(result=int)
+    def requestMirrorOutputs(self):
+        if self._closing:
+            return 0
+        from monitorize.platform.mirror_outputs import screen_outputs, _compositor_modes
+
+        outputs = screen_outputs()
+        self._mirror_request_serial += 1
+        request = self._mirror_request_serial
+        desktop = self._detected_de
+
+        def work():
+            try:
+                modes = _compositor_modes(str(desktop or "").lower())
+            except Exception:
+                modes = {}
+            self._mirrorWorkerFinished.emit(request, outputs, modes)
+
+        self._background_executor.submit(work)
+        return request
+
+    @pyqtSlot(int, object, object)
+    def _finish_mirror_outputs(self, request, outputs, modes):
+        if self._closing:
+            return
+        from monitorize.platform.mirror_outputs import apply_modes
+
+        self.mirrorOutputsReady.emit(request, apply_modes(outputs, modes))
 
     @pyqtSlot(str, str, str, str, str, str, str, str, str, bool, bool, bool, str, str)
     def saveDisplaySettings(
@@ -503,7 +725,7 @@ class MonitorizeBackend(QObject):
         self.session.configuration_changed()
 
     @pyqtSlot(int, "QVariantMap")
-    def saveSunshineDisplaySettings(self, instance, values):
+    def saveSunshineDisplaySettings(self, instance, values, sync_adapter=True):
         if instance not in (1, 2) or self.isStreaming or self.sessionBusy:
             return
         load = load_display_settings if instance == 1 else load_second_display_settings
@@ -521,13 +743,148 @@ class MonitorizeBackend(QObject):
                 saved[key] = values[key]
         saved["sunshine_capture"] = capture
         save(**saved)
-        if self._web_settings_enabled and saved.get("sunshine_gpu", "") != previous_gpu:
+        if sync_adapter and self._web_settings_enabled and saved.get("sunshine_gpu", "") != previous_gpu:
             selected = resolve_encoding_gpu(saved["sunshine_encoder"], saved["sunshine_gpu"])
             save_sunshine_adapter(
                 selected.get("render_node", "") if selected else "", instance=instance
             )
         self.session.preset_configuration = None
         self.session.configuration_changed()
+        self._sunshine_settings_revision += 1
+        self.sunshineSettingsRevisionChanged.emit(self._sunshine_settings_revision)
+
+    @pyqtProperty(int, notify=sunshineSettingsRevisionChanged)
+    def sunshineSettingsRevision(self):
+        return self._sunshine_settings_revision
+
+    def _prepare_sunshine_choices(self, instance, submitted):
+        if instance not in (1, 2) or self.isStreaming or self.sessionBusy:
+            return {"error": "Stop the session before editing Sunshine settings."}
+        if self._closing:
+            return {"error": "Monitorize is closing."}
+        customized = bool(submitted.get("streaming_customized"))
+        encoder = str(submitted.get("sunshine_encoder", "Auto")) if customized else "Auto"
+        codec = str(submitted.get("sunshine_codec", "Auto")) if customized else "Auto"
+        encoder_values = {"Auto": "", "NVIDIA": "nvenc", "VA-API": "vaapi",
+                          "Vulkan": "vulkan", "Software": "software"}
+        codec_values = {"Auto": ("0", "0"), "H.264": ("1", "1"),
+                        "HEVC": ("2", "1"), "AV1": ("1", "2")}
+        if encoder not in encoder_values or codec not in codec_values:
+            return {"error": "Unsupported Sunshine encoder or codec."}
+        capture = str(submitted.get("sunshine_capture", "auto")).lower()
+        if capture not in CAPTURE_MODES:
+            return {"error": "Unsupported capture mode."}
+        values = {
+            "sunshine_encoder": encoder,
+            "sunshine_gpu": str(submitted.get("sunshine_gpu", "")) if customized else "",
+            "sunshine_codec": codec,
+            "sunshine_capture": capture,
+            "streaming_customized": customized,
+            "sunshine_native_pen_touch": bool(submitted.get("sunshine_native_pen_touch")),
+            "enable_audio": bool(submitted.get("enable_audio")),
+        }
+        hevc, av1 = codec_values[codec]
+        config_patch = {
+            "encoder": encoder_values[encoder],
+            "hevc_mode": hevc,
+            "av1_mode": av1,
+            "native_pen_touch": "enabled" if values["sunshine_native_pen_touch"] else "disabled",
+            "stream_audio": "enabled" if values["enable_audio"] else "disabled",
+        }
+        load = load_display_settings if instance == 1 else load_second_display_settings
+        saved = load()
+        if self._web_settings_enabled and values["sunshine_gpu"] != saved.get("sunshine_gpu", ""):
+            selected = resolve_encoding_gpu(encoder, values["sunshine_gpu"])
+            config_patch["adapter_name"] = selected.get("render_node", "") if selected else ""
+        current_config = get_saved_sunshine_config(instance)
+        settings_changed = any(saved.get(key) != value for key, value in values.items())
+        config_changed = any(current_config.get(key, "") != value for key, value in config_patch.items())
+        return {"values": values, "config_patch": config_patch,
+                "settings_changed": settings_changed, "config_changed": config_changed}
+
+    @pyqtSlot(int, "QVariantMap", result="QVariantMap")
+    def saveSunshineChoices(self, instance, submitted):
+        """Synchronous compatibility path for callers outside the QML form."""
+        prepared = self._prepare_sunshine_choices(instance, submitted)
+        if "error" in prepared:
+            return {"success": False, "message": prepared["error"]}
+        if not prepared["settings_changed"] and not prepared["config_changed"]:
+            return {"success": True, "message": ""}
+        if prepared["config_changed"]:
+            success, message = save_sunshine_config(prepared["config_patch"], instance=instance)
+            if not success:
+                return {"success": False, "message": message}
+        if prepared["settings_changed"]:
+            self.saveSunshineDisplaySettings(instance, prepared["values"], sync_adapter=False)
+        return {"success": True, "message": ""}
+
+    @pyqtProperty(bool, notify=sunshineChoicesSavingChanged)
+    def sunshineChoicesSaving(self):
+        return self._sunshine_save_active is not None or bool(self._sunshine_save_pending)
+
+    @pyqtSlot(int, "QVariantMap", result="QVariantMap")
+    def requestSaveSunshineChoices(self, instance, submitted):
+        prepared = self._prepare_sunshine_choices(instance, submitted)
+        if "error" in prepared:
+            return {"accepted": False, "message": prepared["error"]}
+        was_saving = self.sunshineChoicesSaving
+        self._sunshine_save_pending[instance] = dict(submitted)
+        if not was_saving:
+            self.sunshineChoicesSavingChanged.emit(True)
+        self._launch_next_sunshine_save()
+        return {"accepted": True, "message": ""}
+
+    def _launch_next_sunshine_save(self):
+        if self._closing or self._sunshine_save_active is not None:
+            return
+        while self._sunshine_save_pending:
+            instance = next(iter(self._sunshine_save_pending))
+            submitted = self._sunshine_save_pending.pop(instance)
+            prepared = self._prepare_sunshine_choices(instance, submitted)
+            if "error" in prepared:
+                self.sunshineChoicesFinished.emit(instance, False, prepared["error"])
+                continue
+            if not prepared["config_changed"]:
+                if prepared["settings_changed"]:
+                    self.saveSunshineDisplaySettings(instance, prepared["values"], sync_adapter=False)
+                self.sunshineChoicesFinished.emit(instance, True, "")
+                continue
+            self._sunshine_save_serial += 1
+            request = self._sunshine_save_serial
+            self._sunshine_save_active = (request, instance, prepared)
+            config_patch = prepared["config_patch"]
+
+            def work():
+                try:
+                    success, message = save_sunshine_config(config_patch, instance=instance)
+                except Exception as exc:
+                    success, message = False, f"Could not save Sunshine settings: {exc}"
+                self._sunshineChoicesWorkerFinished.emit(request, success, message)
+
+            self._background_executor.submit(work)
+            return
+        self.sunshineChoicesSavingChanged.emit(False)
+        if self._pending_session_start:
+            self._pending_session_start = False
+            QTimer.singleShot(0, self.startSession)
+
+    @pyqtSlot(int, bool, str)
+    def _finish_sunshine_choices(self, request, success, message):
+        active = self._sunshine_save_active
+        if self._closing or active is None or active[0] != request:
+            return
+        _, instance, prepared = active
+        self._sunshine_save_active = None
+        if success and prepared["settings_changed"]:
+            if self.isStreaming or self.sessionBusy:
+                success, message = False, "Session started before Sunshine settings were saved."
+            else:
+                self.saveSunshineDisplaySettings(instance, prepared["values"], sync_adapter=False)
+        if not success:
+            self._pending_session_start = False
+            app_log.write("SUNSHINE", message, level=logging.ERROR)
+        self.sunshineChoicesFinished.emit(instance, success, "" if success else message)
+        self._launch_next_sunshine_save()
 
     @pyqtSlot(result="QVariant")
     def loadGeneralSettings(self):
@@ -732,6 +1089,37 @@ class MonitorizeBackend(QObject):
         success, message = pair_moonlight_pin(pin, instance=instance)
         return {"success": success, "message": message}
 
+    @pyqtProperty(bool, notify=pairingRunningChanged)
+    def pairingRunning(self):
+        return self._pairing_active != 0
+
+    @pyqtSlot(str, int, result=int)
+    def startPairMoonlightPin(self, pin, instance):
+        if self._closing or self._pairing_active:
+            return 0
+        self._pairing_serial += 1
+        request = self._pairing_serial
+        self._pairing_active = request
+        self.pairingRunningChanged.emit(True)
+
+        def work():
+            try:
+                success, message = pair_moonlight_pin(pin, instance=instance)
+            except Exception as exc:
+                success, message = False, f"Pairing failed: {exc}"
+            self._pairingWorkerFinished.emit(request, success, message)
+
+        self._background_executor.submit(work)
+        return request
+
+    @pyqtSlot(int, bool, str)
+    def _finish_pairing(self, request, success, message):
+        if self._closing or request != self._pairing_active:
+            return
+        self._pairing_active = 0
+        self.pairingRunningChanged.emit(False)
+        self.pairMoonlightFinished.emit(request, success, message)
+
     @pyqtSlot(result="QVariantMap")
     @pyqtSlot(int, result="QVariantMap")
     def restartSunshine(self, instance: int = 1):
@@ -861,6 +1249,9 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot(int)
     def launchPreset(self, index):
+        if self.sunshineChoicesSaving:
+            self._set_preset_launch_status("Wait for Sunshine settings to finish saving.")
+            return
         if self.virtualDisplayCleanupRunning:
             self._set_preset_launch_status("Wait for virtual display setup to finish.")
             return
@@ -946,6 +1337,14 @@ class MonitorizeBackend(QObject):
             self.streaming.update_ip(current)
 
     def close(self):
+        self._closing = True
+        self._background_executor.shutdown(wait=False, cancel_futures=True)
+        if self._system_setup_process is not None:
+            process = self._system_setup_process
+            self._system_setup_cancelled = True
+            process.kill()
+            process.waitForFinished(1000)
+            self._complete_system_setup({"success": False, "message": "System setup cancelled."})
         self._cancel_settings_open()
         self.network_timer.stop()
         self.streaming.stop()

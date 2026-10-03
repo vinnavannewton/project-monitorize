@@ -19,14 +19,7 @@ Rectangle {
     property string selectedPage: "DisplaySetupPage.qml"
     property string highlightedPage: "DisplaySetupPage.qml"
     property bool navHighlightFading: false
-    property int pageTransitionDirection: 1
-
-    function pageOrder(page) {
-        if (page === "DisplaySetupPage.qml") return 0
-        if (page === "StreamingPage.qml") return 1
-        if (page === "PresetsPage.qml") return 2
-        return 3
-    }
+    property string pendingNavigation: ""
 
     function navigationGroup(page) {
         return (page === "DisplaySetupPage.qml" || page === "StreamingPage.qml")
@@ -61,11 +54,17 @@ Rectangle {
     }
 
     function navigate(page) {
-        if (page === selectedPage) return
+        if (page === selectedPage) {
+            pendingNavigation = ""
+            return
+        }
+        if (stack.busy) {
+            pendingNavigation = page
+            return
+        }
         if (stack.currentItem && typeof stack.currentItem.commitAllPendingDisplaySettings === "function") {
             stack.currentItem.commitAllPendingDisplaySettings()
         }
-        pageTransitionDirection = pageOrder(page) > pageOrder(selectedPage) ? 1 : -1
         selectedPage = page
         stack.replace(page)
     }
@@ -86,11 +85,6 @@ Rectangle {
     }
 
     color: theme.background
-
-    gradient: Gradient {
-        GradientStop { position: 0.0; color: theme.background }
-        GradientStop { position: 1.0; color: theme.background }
-    }
 
     // --- Navigate between pages when streaming state changes ---
     Connections {
@@ -129,37 +123,37 @@ Rectangle {
         id: stack
         objectName: "mainStack"
         clip: true
-        property string lastStreamingSetupPage: "MainMenuPage.qml"
         anchors.fill: parent
         anchors.leftMargin: 134
         anchors.rightMargin: 28
         anchors.topMargin: 28
         anchors.bottomMargin: 20
         initialItem: "DisplaySetupPage.qml"
+        onBusyChanged: {
+            if (!busy && root.pendingNavigation) {
+                let destination = root.pendingNavigation
+                root.pendingNavigation = ""
+                Qt.callLater(function() { root.navigate(destination) })
+            }
+        }
 
         replaceEnter: Transition {
-            PropertyAnimation { property: "y"; from: root.pageTransitionDirection * stack.height; to: 0; duration: 300; easing.type: Easing.OutCubic }
-            PropertyAnimation { property: "opacity"; from: 0; to: 1; duration: 250 }
+            PropertyAnimation { property: "opacity"; from: 0; to: 1; duration: 160 }
         }
         replaceExit: Transition {
-            PropertyAnimation { property: "y"; to: -root.pageTransitionDirection * stack.height; duration: 300; easing.type: Easing.OutCubic }
-            PropertyAnimation { property: "opacity"; to: 0; duration: 250 }
+            PropertyAnimation { property: "opacity"; to: 0; duration: 1 }
         }
         pushEnter: Transition {
-            PropertyAnimation { property: "x"; from: stack.width; to: 0; duration: 300; easing.type: Easing.OutCubic }
-            PropertyAnimation { property: "opacity"; from: 0; to: 1; duration: 250 }
+            PropertyAnimation { property: "opacity"; from: 0; to: 1; duration: 160 }
         }
         pushExit: Transition {
-            PropertyAnimation { property: "x"; to: -stack.width; duration: 300; easing.type: Easing.OutCubic }
-            PropertyAnimation { property: "opacity"; to: 0; duration: 250 }
+            PropertyAnimation { property: "opacity"; to: 0; duration: 1 }
         }
         popEnter: Transition {
-            PropertyAnimation { property: "x"; from: -stack.width; to: 0; duration: 300; easing.type: Easing.OutCubic }
-            PropertyAnimation { property: "opacity"; from: 0; to: 1; duration: 250 }
+            PropertyAnimation { property: "opacity"; from: 0; to: 1; duration: 160 }
         }
         popExit: Transition {
-            PropertyAnimation { property: "x"; to: stack.width; duration: 300; easing.type: Easing.OutCubic }
-            PropertyAnimation { property: "opacity"; to: 0; duration: 250 }
+            PropertyAnimation { property: "opacity"; to: 0; duration: 1 }
         }
     }
 
@@ -182,10 +176,6 @@ Rectangle {
             Behavior on y {
                 enabled: !root.navHighlightFading
                 NumberAnimation { duration: 260; easing.type: Easing.InOutCubic }
-            }
-            Behavior on height {
-                enabled: !root.navHighlightFading
-                NumberAnimation { duration: 180; easing.type: Easing.InOutCubic }
             }
         }
 
@@ -397,6 +387,7 @@ Rectangle {
             id: firstRunSetupLoader
             anchors.fill: parent
             source: "SystemSetupPage.qml"
+            active: firstRunSetupPopup.visible
             onLoaded: item.firstRun = true
         }
 

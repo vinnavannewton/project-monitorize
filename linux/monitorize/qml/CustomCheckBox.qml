@@ -11,10 +11,10 @@ CheckBox {
         x: chk.leftPadding
         y: parent.height / 2 - height / 2
         radius: 4
-        color: chk.checked
+        color: !chk.enabled ? theme.surfaceAlt : chk.checked
             ? (chk.hovered || chk.down ? theme.buttonBackgroundHover : theme.buttonBackground)
             : (chk.hovered || chk.down ? theme.surfaceAlt : theme.surface)
-        border.color: chk.checked
+        border.color: !chk.enabled ? theme.border : chk.checked
             ? (chk.hovered || chk.down ? theme.buttonBackgroundHover : theme.buttonBackground)
             : (chk.hovered || chk.down ? theme.borderHover : theme.border)
         border.width: 1

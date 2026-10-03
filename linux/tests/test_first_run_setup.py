@@ -115,6 +115,7 @@ class FirstRunSetupTest(unittest.TestCase):
               patch.object(backend.session, "start") as start):
             backend.startSession()
             start.assert_called_once()
+            imported = backend.loadDisplaySettings()
         saved = settings.load_display_settings()
         self.assertEqual(saved["sunshine_encoder"], "Software")
         self.assertEqual(saved["sunshine_codec"], "H.264")
@@ -122,7 +123,7 @@ class FirstRunSetupTest(unittest.TestCase):
         self.assertFalse(saved["sunshine_native_pen_touch"])
         self.assertTrue(saved["enable_audio"])
         self.assertEqual(backend.session.configuration()["encoder"], "Software")
-        self.assertEqual(backend.loadDisplaySettings()["sunshine_codec"], "H.264")
+        self.assertEqual(imported["sunshine_codec"], "H.264")
 
     @patch("monitorize.desktop.backend.get_sunshine_config_dir")
     @patch("monitorize.desktop.backend.app_log.read_tail")
@@ -134,7 +135,7 @@ class FirstRunSetupTest(unittest.TestCase):
     def test_session_log_combines_both_sunshine_instances_and_monitorize_log(
         self, _settings, _presets, _ip, _streaming, _status, read_tail, config_dir
     ):
-        config_dir.side_effect = ["/tmp/sunshine-1", "/tmp/sunshine-2"]
+        config_dir.side_effect = lambda instance: f"/tmp/sunshine-{instance}"
         read_tail.side_effect = ["first", "second", "monitorize"]
         backend = MonitorizeBackend("kde")
         self.addCleanup(backend.network_timer.stop)
@@ -142,6 +143,8 @@ class FirstRunSetupTest(unittest.TestCase):
         self.assertIn("===== Sunshine instance 1 =====\nfirst", logs)
         self.assertIn("===== Sunshine instance 2 =====\nsecond", logs)
         self.assertIn("===== Monitorize =====\nmonitorize", logs)
+        self.assertEqual(backend.sessionLog(), logs)
+        self.assertEqual(read_tail.call_count, 3)
     @classmethod
     def setUpClass(cls):
         cls.app = QCoreApplication.instance() or QCoreApplication([])
@@ -365,7 +368,6 @@ class FirstRunSetupTest(unittest.TestCase):
     def test_qml_has_a_non_dismissible_first_run_gate_and_manual_setup_entry(self):
         main = (ROOT / "linux/monitorize/qml/main.qml").read_text()
         setup = (ROOT / "linux/monitorize/qml/SystemSetupPage.qml").read_text()
-        menu = (ROOT / "linux/monitorize/qml/MainMenuPage.qml").read_text()
         streaming = (ROOT / "linux/monitorize/qml/StreamingPage.qml").read_text()
         settings_page = (ROOT / "linux/monitorize/qml/SettingsPage.qml").read_text()
 
@@ -383,10 +385,9 @@ class FirstRunSetupTest(unittest.TestCase):
         self.assertIn('enabled: !backend.isStreaming', settings_page)
         self.assertIn("backend.markSystemSetupDecided()", main)
         self.assertIn("property bool firstRun: false", setup)
-        self.assertIn('backend.detectedDe === "cinnamon" ? "Cinnamon"', menu)
-        self.assertIn('backend.detectedDe === "cosmic" ? "COSMIC"', menu)
-        self.assertIn("if (statusSucceeded && page.firstRun)", setup)
-        self.assertNotIn("Finish system setup", menu)
+        self.assertIn("if (page.statusSucceeded && page.firstRun)", setup)
+        self.assertIn("backend.startSystemSetup(inputCheck.checked, firewallCheck.checked)", setup)
+        self.assertNotIn("Finish system setup", main)
         self.assertIn("visible: backend.canConfigureDisplay", streaming)
 
 

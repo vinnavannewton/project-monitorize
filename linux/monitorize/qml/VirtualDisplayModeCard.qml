@@ -5,7 +5,12 @@ import QtQuick.Layouts
 Rectangle {
     id: card
 
-    required property var modelData
+    required property int displayId
+    required property string modeResolution
+    required property string customWidth
+    required property string customHeight
+    required property string refreshRate
+    required property string customRefresh
     required property int displayNumber
     required property var displayConfig
     property bool canRemove: false
@@ -23,10 +28,6 @@ Rectangle {
     radius: 14
     color: theme.surface
     border.color: theme.border
-    gradient: Gradient {
-        GradientStop { position: 0; color: theme.surfaceAlt }
-        GradientStop { position: 1; color: theme.surface }
-    }
 
     readonly property var resolutionOptions: vkmsSelected
         ? vkmsResolutionOptions : nativeResolutionOptions

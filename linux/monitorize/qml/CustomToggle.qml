@@ -14,10 +14,10 @@ Switch {
         x: toggle.leftPadding
         y: parent.height / 2 - height / 2
         radius: height / 2
-        color: toggle.checked
+        color: !toggle.enabled ? theme.surfaceAlt : toggle.checked
             ? (toggle.hovered || toggle.down ? theme.buttonBackgroundHover : theme.buttonBackground)
             : (toggle.hovered || toggle.down ? theme.surfaceAlt : theme.surface)
-        border.color: toggle.checked
+        border.color: !toggle.enabled ? theme.border : toggle.checked
             ? (toggle.hovered || toggle.down ? theme.buttonBackgroundHover : theme.buttonBackground)
             : (toggle.hovered || toggle.down ? theme.borderHover : theme.border)
         border.width: 1

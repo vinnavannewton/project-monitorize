@@ -18,6 +18,19 @@ Item {
     }
 
     Component.onCompleted: refreshStatus()
+    Connections {
+        target: backend
+        function onSystemSetupFinished(result) {
+            if (!page.applying) return
+            page.applying = false
+            page.statusSucceeded = result["success"] === true
+            page.statusMessage = result["message"] || "System setup failed."
+            if (page.statusSucceeded && page.firstRun) {
+                backend.markSystemSetupDecided()
+                page.setupCompleted()
+            }
+        }
+    }
 
     ColumnLayout {
         anchors.centerIn: parent
@@ -113,6 +126,7 @@ Item {
             CustomButton {
                 text: page.firstRun ? "Cancel" : "Back"
                 primary: false
+                enabled: !page.applying
                 onClicked: {
                     if (page.firstRun) page.cancellationRequested()
                     else page.StackView.view.pop()
@@ -124,14 +138,7 @@ Item {
                 enabled: setupAvailable && !applying && (inputCheck.checked || firewallCheck.checked)
                 onClicked: {
                     applying = true
-                    let result = backend.applySystemSetup(inputCheck.checked, firewallCheck.checked)
-                    applying = false
-                    statusSucceeded = result["success"] === true
-                    statusMessage = result["message"] || "System setup failed."
-                    if (statusSucceeded && page.firstRun) {
-                        backend.markSystemSetupDecided()
-                        page.setupCompleted()
-                    }
+                    backend.startSystemSetup(inputCheck.checked, firewallCheck.checked)
                 }
             }
         }

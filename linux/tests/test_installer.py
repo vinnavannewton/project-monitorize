@@ -565,18 +565,19 @@ exit 0
             path.read_text()
             for path in (ROOT / "linux/monitorize/qml").glob("*.qml")
         )
-        self.assertIn("Create a Virtual Display", qml)
+        self.assertIn("Create virtual display only", qml)
         for legacy in ("USB Mode", "Receiver Mode", 'model: ["Monitorize", "Sunshine"]'):
             self.assertNotIn(legacy, qml)
 
     def test_display_setup_groups_streaming_and_virtual_only_controls(self):
         qml = (ROOT / "linux/monitorize/qml/DisplaySetupPage.qml").read_text()
-        headings = ('title: "DISPLAY"', 'title: "STREAMING"', 'title: "EXTRAS"')
+        sunshine_card = (ROOT / "linux/monitorize/qml/SunshineDisplayCard.qml").read_text()
+        headings = ('title: "DISPLAY"', 'title: "SUNSHINE · MIRROR"', 'title: "ADVANCED"')
         for heading in headings:
             self.assertIn(heading, qml)
         self.assertLess(qml.index(headings[0]), qml.index(headings[1]))
         self.assertLess(qml.index(headings[1]), qml.index(headings[2]))
-        self.assertIn('model: ["Automatic (Recommended)", "Customize ›"]', qml)
+        self.assertIn('model: ["Automatic (Recommended)", "Customize ›"]', sunshine_card)
         self.assertIn('text: "Create virtual display only"', qml)
         self.assertNotIn('text: "Launch"', qml)
         self.assertNotIn("Moonlight will discover", qml)
@@ -622,7 +623,7 @@ exit 0
 
     def test_choice_chips_and_preset_menu_use_the_requested_layout(self):
         chips = (ROOT / "linux/monitorize/qml/ChoiceChips.qml").read_text()
-        menu = (ROOT / "linux/monitorize/qml/MainMenuPage.qml").read_text()
+        menu = (ROOT / "linux/monitorize/qml/PresetsPage.qml").read_text()
         self.assertIn("columns: 3", chips)
         self.assertIn('text: "⋮"', menu)
         self.assertIn('text: "Rename"', menu)
@@ -633,7 +634,8 @@ exit 0
     def test_successful_pairing_closes_the_pin_popup(self):
         qml = (ROOT / "linux/monitorize/qml/StreamingPage.qml").read_text()
         self.assertIn("interval: 2000", qml)
-        self.assertIn('if (result["success"]) pinSuccessCloseTimer.restart()', qml)
+        self.assertIn('if (success) pinSuccessCloseTimer.restart()', qml)
+        self.assertIn("backend.startPairMoonlightPin(pinField.text, page.pairInstance)", qml)
         self.assertIn("onTriggered: pinPopup.close()", qml)
 
     def test_navigation_direction_and_display_picker_actions_are_unambiguous(self):
@@ -642,35 +644,23 @@ exit 0
         display_setup = (ROOT / "linux/monitorize/qml/DisplaySetupPage.qml").read_text()
         streaming = (ROOT / "linux/monitorize/qml/StreamingPage.qml").read_text()
 
-        self.assertIn("function pageOrder(page)", main)
-        self.assertIn("property int pageTransitionDirection: 1", main)
-        self.assertIn(
-            "pageTransitionDirection = pageOrder(page) > pageOrder(selectedPage) ? 1 : -1",
-            main,
-        )
-        self.assertIn(
-            "from: root.pageTransitionDirection * stack.height",
-            main,
-        )
-        self.assertIn(
-            "to: -root.pageTransitionDirection * stack.height",
-            main,
-        )
+        self.assertIn('property string pendingNavigation: ""', main)
+        self.assertIn('property: "opacity"; from: 0; to: 1; duration: 160', main)
         self.assertIn("property int disabledIndex: -1", combo)
         self.assertIn("enabled: index !== cb.disabledIndex", combo)
         self.assertIn("indicator: Text", combo)
         self.assertIn("color: theme.textPrimary", combo)
         self.assertIn("disabledIndex: 0", display_setup)
         self.assertIn(
-            'model: displayType.currentText === "Extend" ? page.virtualDisplays : []',
+            'model: displayType.currentText === "Extend" ? displayModel : 0',
             display_setup,
         )
         self.assertIn(
             'visible: displayType.currentText === "Extend" && page.virtualDisplays.length < 2',
             display_setup,
         )
-        self.assertIn("displayNumber: Number(modelData.id)", display_setup)
-        self.assertIn("canRemove: Number(modelData.id) === 2", display_setup)
+        self.assertIn("displayNumber: displayId", display_setup)
+        self.assertIn("canRemove: displayId === 2", display_setup)
         self.assertIn("function mirrorResolutionLabel()", display_setup)
         self.assertEqual(streaming.count('text: "Pair Moonlight PIN"'), 1)
         self.assertIn("model: backend.sessionDisplays", streaming)
@@ -684,7 +674,7 @@ exit 0
         qml = (ROOT / "linux/monitorize/qml/DisplaySetupPage.qml").read_text()
         button = qml.split("id: addDisplayButton", 1)[1].split("SectionCard {", 1)[0]
         self.assertIn("enabled: !page.vkmsSelected", button)
-        self.assertIn("opacity: enabled ? 1.0 : 0.4", button)
+        self.assertIn('color: addDisplayButton.enabled ? "#94caff" : theme.textMuted', button)
         self.assertIn("addDisplayButton.enabled && addDisplayButton.hovered", button)
         self.assertIn("if (vkmsSelected || virtualDisplays.length >= 2) return", qml)
         self.assertNotIn("Creates up to two displays using Linux's experimental VKMS path", qml)
@@ -698,19 +688,15 @@ exit 0
         self.assertIn("if (hasChanges) {", display_setup)
         self.assertNotIn("Component.onCompleted: refreshDiagnostics()", streaming)
         self.assertNotIn("function onLogAppended", streaming)
-        self.assertIn(
-            "if (logsExpanded) Qt.callLater(function() { page.refreshDiagnostics() })",
-            streaming,
-        )
-        self.assertIn("running: page.logsExpanded", streaming)
+        self.assertIn("if (running) Qt.callLater(function() { if (running) page.refreshDiagnostics() })", streaming)
+        self.assertIn("running: page.logsExpanded && backend.uiVisible", streaming)
+        self.assertIn("page.StackView.view.currentItem === page", streaming)
 
-    def test_choice_chips_and_start_card_fit_their_containers(self):
+    def test_choice_chips_fit_their_container(self):
         chips = (ROOT / "linux/monitorize/qml/ChoiceChips.qml").read_text()
-        menu = (ROOT / "linux/monitorize/qml/MainMenuPage.qml").read_text()
         self.assertIn("GridLayout", chips)
         self.assertIn("columns: 3", chips)
         self.assertIn("rowSpacing: 8", chips)
-        self.assertIn("Layout.preferredWidth: Math.min(440, page.width - 40)", menu)
 
     def test_retired_runtime_modules_are_absent(self):
         package = ROOT / "linux/monitorize"
