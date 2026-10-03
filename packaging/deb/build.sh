@@ -187,13 +187,13 @@ podman run "${run_options[@]}" \
         cache_source() {
             local url="$1" sha="$2" archive
             archive="/source-cache/$(basename "${url}")"
-            if ! echo "${sha}  ${archive}" | sha256sum --check --strict --status; then
+            if ! echo "${sha}  ${archive}" | sha256sum --check --strict --status >/dev/null; then
                 if [[ "${MONITORIZE_OFFLINE:-0}" == 1 ]]; then
                     echo "Missing cached source: ${archive}. Run a normal build first." >&2
                     exit 1
                 fi
                 curl --fail --location --retry 3 --output "${archive}.part" "${url}"
-                echo "${sha}  ${archive}.part" | sha256sum --check --strict --status
+                echo "${sha}  ${archive}.part" | sha256sum --check --strict --status >/dev/null
                 mv "${archive}.part" "${archive}"
             fi
             echo "${archive}"

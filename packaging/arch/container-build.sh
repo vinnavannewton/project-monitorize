@@ -16,11 +16,11 @@ mkdir -p "${HOME}"
 cache_source() {
     local url="$1" sha="$2" name="$3" archive
     archive="/source-cache/${name}"
-    if ! printf '%s  %s\n' "${sha}" "${archive}" | sha256sum --check --strict --status; then
+    if ! printf '%s  %s\n' "${sha}" "${archive}" | sha256sum --check --strict --status >/dev/null; then
         [[ "${MONITORIZE_OFFLINE:-0}" != 1 ]] \
             || die "Missing or invalid cached ${name}; run ./packaging/arch/build.sh first."
         curl --fail --location --retry 3 --output "${archive}.part" "${url}"
-        printf '%s  %s\n' "${sha}" "${archive}.part" | sha256sum --check --strict --status
+        printf '%s  %s\n' "${sha}" "${archive}.part" | sha256sum --check --strict --status >/dev/null
         mv "${archive}.part" "${archive}"
     fi
     printf '%s\n' "${archive}"
