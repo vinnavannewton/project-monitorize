@@ -146,6 +146,8 @@ bash "$cuda_archive" --silent --toolkit --toolkitpath=%{_builddir}/cuda \
     --no-drm --no-man-page --no-opengl-libs --override
 patch -p2 --directory=%{_builddir}/cuda \
     < external/sunshine/packaging/linux/patches/x86_64/cuda-13-math_functions.patch
+patch -p1 --directory=%{_builddir}/cuda \
+    < packaging/common/cuda-13-iec-60559-noexcept.patch
 test -x %{_builddir}/cuda/bin/nvcc
 %endif
 

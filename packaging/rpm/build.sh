@@ -178,7 +178,7 @@ podman run "${run_options[@]}" \
             fi
             cp "${archive}" /work/SOURCES/
         }
-        ffmpeg_url="$(rpmspec -P /work/SPECS/monitorize.spec | awk '\''$1 == "Source1:" { print $2; exit }'\'')"
+        ffmpeg_url="$(rpmspec -P /work/SPECS/monitorize.spec | awk '\''$1 == "Source1:" && !found { print $2; found = 1 } END { if (!found) exit 1 }'\'')"
         ffmpeg_sha="$(awk '\''$1 == "%global" && $2 == "sunshine_ffmpeg_sha256" { print $3; exit }'\'' /work/SPECS/monitorize.spec)"
         cache_source "${ffmpeg_url}" "${ffmpeg_sha}"
 

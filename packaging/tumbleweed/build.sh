@@ -185,11 +185,11 @@ podman run "${run_options[@]}" \
         }
         variant_args=()
         if [[ "${MONITORIZE_ENABLE_CUDA}" == 0 ]]; then variant_args=(--without cuda); fi
-        ffmpeg_url="$(rpmspec "${variant_args[@]}" --define "_topdir /work" -P /work/SPECS/monitorize.spec | awk '\''$1 == "Source1:" { print $2; exit }'\'')"
+        ffmpeg_url="$(rpmspec "${variant_args[@]}" --define "_topdir /work" -P /work/SPECS/monitorize.spec | awk '\''$1 == "Source1:" && !found { print $2; found = 1 } END { if (!found) exit 1 }'\'')"
         ffmpeg_sha="$(awk '\''$1 == "%global" && $2 == "sunshine_ffmpeg_sha256" { print $3; exit }'\'' /work/SPECS/monitorize.spec)"
         cache_source "${ffmpeg_url}" "${ffmpeg_sha}"
         if [[ "${MONITORIZE_ENABLE_CUDA}" == 1 ]]; then
-            libxml_url="$(rpmspec --define "_topdir /work" -P /work/SPECS/monitorize.spec | awk '\''$1 == "Source3:" { print $2; exit }'\'')"
+            libxml_url="$(rpmspec --define "_topdir /work" -P /work/SPECS/monitorize.spec | awk '\''$1 == "Source3:" && !found { print $2; found = 1 } END { if (!found) exit 1 }'\'')"
             libxml_sha="$(awk '\''$1 == "%global" && $2 == "cuda_libxml2_sha256" { print $3; exit }'\'' /work/SPECS/monitorize.spec)"
             cache_source "${libxml_url}" "${libxml_sha}"
         fi

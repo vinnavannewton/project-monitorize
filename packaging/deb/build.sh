@@ -243,6 +243,7 @@ podman run "${run_options[@]}" \
             --no-drm --no-man-page --no-opengl-libs --override
         unset LD_LIBRARY_PATH
         patch -p2 --directory=/work/cuda < external/sunshine/packaging/linux/patches/x86_64/cuda-13-math_functions.patch
+        patch -p1 --directory=/work/cuda < packaging/common/cuda-13-iec-60559-noexcept.patch
         test -x /work/cuda/bin/nvcc
         fi
 
