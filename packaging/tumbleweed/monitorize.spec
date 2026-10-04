@@ -9,7 +9,7 @@
 %global _firewalld_dir %{_prefix}/lib/firewalld
 
 Name:           monitorize
-Version:        0.33
+Version:        0.33.1
 Release:        0
 Summary:        Sunshine-backed virtual displays for Moonlight clients
 License:        GPL-3.0-only
@@ -311,6 +311,9 @@ PYTHON
 %{_modulesloaddir}/monitorize.conf
 
 %changelog
+* Sun Oct 04 2026 Monitorize contributors <noreply@example.com> - 0.33.1-0
+- Release Monitorize 0.33.1.
+
 * Tue Sep 29 2026 Monitorize contributors <noreply@example.com> - 0.33-0
 - Set current Monitorize package version to 0.33.
 - Supply the legacy libxml2 ABI required by the CUDA installer on Tumbleweed.

@@ -1,3 +1,9 @@
+monitorize (0.33.1) resolute; urgency=medium
+
+  * Release Monitorize 0.33.1.
+
+ -- Monitorize contributors <noreply@example.com>  Sun, 04 Oct 2026 20:37:21 +0530
+
 monitorize (0.33) resolute; urgency=medium
 
   * Set current Monitorize package version to 0.33.

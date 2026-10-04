@@ -7,7 +7,7 @@
 %bcond_without cuda
 
 Name:           monitorize
-Version:        0.33
+Version:        0.33.1
 Release:        1%{?dist}
 Summary:        Sunshine-backed virtual displays for Moonlight clients
 
@@ -317,6 +317,9 @@ PYTHON
 
 
 %changelog
+* Sun Oct 04 2026 Monitorize contributors <noreply@example.com> - 0.33.1-1
+- Release Monitorize 0.33.1.
+
 * Tue Sep 29 2026 Monitorize contributors <noreply@example.com> - 0.33-1
 - Set current Monitorize package version to 0.33.
 - Support offline local rebuilds from a prepared dependency image and cached sources.

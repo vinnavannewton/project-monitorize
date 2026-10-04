@@ -79,8 +79,8 @@ let
 in
 python3Packages.buildPythonApplication rec {
   pname = "monitorize";
-  version = "0-unstable";
-  pyproject = false;                    # no setup.py / pyproject.toml yet
+  version = "0.33.1";
+  pyproject = false;                    # Nix installs the linux/ tree directly.
 
   # Use lib.cleanSource to exclude editor artefacts, __pycache__, venv/, etc.
   # so only the intended tree is packaged and builds remain reproducible.

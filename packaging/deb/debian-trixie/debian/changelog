@@ -1,3 +1,9 @@
+monitorize (0.33.1) trixie; urgency=medium
+
+  * Release Monitorize 0.33.1.
+
+ -- Monitorize contributors <noreply@example.com>  Sun, 04 Oct 2026 20:37:21 +0530
+
 monitorize (0.33) trixie; urgency=medium
 
   * Build Monitorize with the bundled Sunshine fork for debian-trixie.

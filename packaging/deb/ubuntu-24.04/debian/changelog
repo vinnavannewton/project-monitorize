@@ -1,3 +1,9 @@
+monitorize (0.33.1) noble; urgency=medium
+
+  * Release Monitorize 0.33.1.
+
+ -- Monitorize contributors <noreply@example.com>  Sun, 04 Oct 2026 20:37:21 +0530
+
 monitorize (0.33) noble; urgency=medium
 
   * Build Monitorize with the bundled Sunshine fork for ubuntu-24.04.

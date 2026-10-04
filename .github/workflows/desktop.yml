@@ -5,16 +5,20 @@ on:
     branches: [main]
     paths:
       - "linux/**"
+      - "nix/**"
       - "packaging/**"
       - "pyproject.toml"
+      - "scripts/bump-version.py"
       - ".gitmodules"
       - ".github/workflows/desktop.yml"
   push:
     branches: [main]
     paths:
       - "linux/**"
+      - "nix/**"
       - "packaging/**"
       - "pyproject.toml"
+      - "scripts/bump-version.py"
       - ".gitmodules"
       - ".github/workflows/desktop.yml"
   workflow_dispatch:
@@ -72,6 +76,7 @@ jobs:
           git -C external/sunshine apply --check ../../packaging/sunshine-strict-selection.patch
           rpmspec -P packaging/rpm/monitorize.spec >/dev/null
           PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=linux python3 -m unittest \
+            linux.tests.test_bump_version \
             linux.tests.test_arch_builder \
             linux.tests.test_tumbleweed_rpm \
             linux.tests.test_installer.SunshineOnlyPackagingTest.test_forced_codec_participates_in_moonlight_negotiation -q

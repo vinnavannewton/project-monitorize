@@ -1,5 +1,18 @@
 # Fedora RPM build
 
+## Release versions for distro packages
+
+`pyproject.toml` is the canonical Monitorize version. Normal development does
+not require version changes. When a release is ready, run
+`./scripts/bump-version.py 0.33.1`, review `git diff`, then commit normally.
+For another patch use `./scripts/bump-version.py 0.33.2`; for the next larger
+release use `./scripts/bump-version.py 0.34`. The command updates Arch, Fedora,
+Tumbleweed, all three DEB targets, and the main Nix package version, including
+current RPM and DEB changelog entries. Nix's separate Sunshine version is not
+the Monitorize release version and is left unchanged.
+
+## Building
+
 Run `./packaging/rpm/build.sh` from a clean, committed checkout with initialized
 recursive submodules. The default builds Sunshine with CUDA support.
 
