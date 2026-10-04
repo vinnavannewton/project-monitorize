@@ -11,6 +11,7 @@ on:
       - "scripts/bump-version.py"
       - ".gitmodules"
       - ".github/workflows/desktop.yml"
+      - ".github/workflows/desktop-release.yml"
   push:
     branches: [main]
     paths:
@@ -21,6 +22,7 @@ on:
       - "scripts/bump-version.py"
       - ".gitmodules"
       - ".github/workflows/desktop.yml"
+      - ".github/workflows/desktop-release.yml"
   workflow_dispatch:
 
 permissions:
@@ -77,6 +79,7 @@ jobs:
           rpmspec -P packaging/rpm/monitorize.spec >/dev/null
           PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=linux python3 -m unittest \
             linux.tests.test_bump_version \
+            linux.tests.test_desktop_release_workflow \
             linux.tests.test_arch_builder \
             linux.tests.test_tumbleweed_rpm \
             linux.tests.test_installer.SunshineOnlyPackagingTest.test_forced_codec_participates_in_moonlight_negotiation -q
