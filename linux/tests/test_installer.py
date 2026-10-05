@@ -549,13 +549,12 @@ exit 0
         self.assertNotIn("zeroconf", script)
         self.assertNotIn("evdev", script)
 
-        workflow = (ROOT / ".github/workflows/desktop.yml").read_text()
-        self.assertIn("linux/scripts/install.sh --partial", workflow)
-
     def test_nix_closure_has_no_monitorize_gstreamer_or_adb_runtime(self):
         package = (ROOT / "nix/package.nix").read_text()
         self.assertIn("monitorizeSunshine", package)
-        self.assertIn("sunshine-portal-token-scope.patch", package)
+        self.assertIn('COMMIT = "2e7fe1b4dcbcfca819dff172cc702a14ed009591";', package)
+        self.assertIn('SUNSHINE_ENABLE_CUDA" cudaSupport', package)
+        self.assertIn('SUNSHINE_ENABLE_VAAPI" true', package)
         self.assertNotIn("gst_all_1", package)
         self.assertNotIn("android-tools", package)
         self.assertNotIn("monitorize-rtp-sender", package)

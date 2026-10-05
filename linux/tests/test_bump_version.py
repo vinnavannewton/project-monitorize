@@ -36,7 +36,7 @@ class BumpVersionTest(unittest.TestCase):
             elif relative.endswith("PKGBUILD"):
                 content = "pkgname=monitorize\npkgver=0.33\npkgrel=1\n_boost_version=1.89.0\nBUILD_VERSION=0.0.0\n"
             elif relative == "nix/package.nix":
-                content = ('sunshineVersion = "0-unstable-2026-08-19";\n'
+                content = ('sunshineVersion = "0-unstable-2026-10-03";\n'
                            'version = sunshineVersion;\n'
                            'version = "0.33";\n')
             elif relative.endswith("monitorize.spec"):
@@ -100,7 +100,7 @@ class BumpVersionTest(unittest.TestCase):
         self.assertIn("BUILD_VERSION=0.0.0", arch)
         nix = self.read("nix/package.nix")
         self.assertIn('version = "0.33.1";', nix)
-        self.assertIn('sunshineVersion = "0-unstable-2026-08-19";', nix)
+        self.assertIn('sunshineVersion = "0-unstable-2026-10-03";', nix)
         for distro, release in (("rpm", "1%{?dist}"), ("tumbleweed", "0")):
             relative = f"packaging/{distro}/monitorize.spec"
             spec = self.read(relative)

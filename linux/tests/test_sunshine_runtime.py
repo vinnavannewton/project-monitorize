@@ -9,6 +9,33 @@ from monitorize.platform import sunshine_service as service
 
 
 class SunshineRuntimeTest(unittest.TestCase):
+    def test_nix_sunshine_requires_binary_and_assets_from_same_store_output(self):
+        binary = "/nix/store/abc-monitorize-sunshine/bin/sunshine"
+        assets = "/nix/store/abc-monitorize-sunshine/assets"
+        self.assertEqual(
+            service._nix_store_sunshine_bundle(binary, assets),
+            (binary, assets),
+        )
+        self.assertIsNone(service._nix_store_sunshine_bundle(binary, ""))
+        self.assertIsNone(
+            service._nix_store_sunshine_bundle(
+                binary, "/nix/store/other-monitorize-sunshine/assets"
+            )
+        )
+        self.assertIsNone(
+            service._nix_store_sunshine_bundle("/usr/bin/sunshine", assets)
+        )
+
+        with patch.dict(
+            os.environ,
+            {
+                "MONITORIZE_SUNSHINE_BIN": binary,
+                "MONITORIZE_SUNSHINE_ASSETS_DIR": assets,
+            },
+            clear=False,
+        ):
+            self.assertEqual(service._sunshine_bundles()[0], (binary, assets))
+
     def test_reset_config_restores_managed_defaults_and_keeps_pairing(self):
         with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {"XDG_CONFIG_HOME": tmp}):
             for instance in (1, 2):

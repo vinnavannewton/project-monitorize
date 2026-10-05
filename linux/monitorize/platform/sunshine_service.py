@@ -16,6 +16,7 @@ import subprocess
 import tempfile
 import time
 import webbrowser
+from pathlib import Path
 
 PR_SET_PDEATHSIG = 1
 _SUNSHINE_PROCESS: subprocess.Popen | None = None
@@ -357,9 +358,38 @@ def _sunshine_bundles():
     if explicit.endswith(suffix) and explicit != suffix:
         prefix = explicit[:-len(suffix)]
         bundles.insert(0, (explicit, prefix + "/usr/share/monitorize/sunshine/assets"))
+    nix_bundle = _nix_store_sunshine_bundle(
+        explicit, os.environ.get("MONITORIZE_SUNSHINE_ASSETS_DIR", "").strip()
+    )
+    if nix_bundle:
+        bundles.insert(0, nix_bundle)
     if explicit:
         bundles.sort(key=lambda pair: pair[0] != explicit)
     return bundles
+
+
+def _nix_store_sunshine_bundle(binary: str, assets: str) -> tuple[str, str] | None:
+    """Accept only an explicit Sunshine/assets pair in one Nix store output."""
+    if not binary or not assets:
+        return None
+    if os.path.normpath(binary) != binary or os.path.normpath(assets) != assets:
+        return None
+
+    binary_path = Path(binary)
+    try:
+        relative_binary = binary_path.relative_to("/nix/store")
+    except ValueError:
+        return None
+    if (
+        len(relative_binary.parts) != 3
+        or relative_binary.parts[1:] != ("bin", "sunshine")
+    ):
+        return None
+
+    package_root = binary_path.parent.parent
+    if Path(assets) != package_root / "assets":
+        return None
+    return binary, assets
 
 
 def get_sunshine_candidates(instance: int = 1) -> list[list[str]]:

@@ -11,7 +11,12 @@
     let
       # ── Overlay ────────────────────────────────────────────────────────
       overlay = final: prev: {
-        monitorize = final.callPackage ./nix/package.nix { };
+        monitorize = final.callPackage ./nix/package.nix {
+          cudaSupport = final.stdenv.hostPlatform.system == "x86_64-linux";
+        };
+        monitorizeNoCuda = final.callPackage ./nix/package.nix {
+          cudaSupport = false;
+        };
       };
     in
     flake-utils.lib.eachSystem [ "x86_64-linux" "aarch64-linux" ] (system:
@@ -19,17 +24,25 @@
         pkgs = import nixpkgs {
           inherit system;
           overlays = [ overlay ];
+          config.allowUnfreePredicate = pkg:
+            nixpkgs.lib.hasPrefix "cuda" (nixpkgs.lib.getName pkg);
         };
       in
       {
         packages = {
           monitorize = pkgs.monitorize;
+          monitorize-no-cuda = pkgs.monitorizeNoCuda;
           default = pkgs.monitorize;
         };
 
         apps.default = {
           type = "app";
           program = "${pkgs.monitorize}/bin/monitorize";
+        };
+
+        apps.no-cuda = {
+          type = "app";
+          program = "${pkgs.monitorizeNoCuda}/bin/monitorize";
         };
 
         devShells.default = pkgs.mkShell {
@@ -50,6 +63,12 @@
         {
           options.programs.monitorize = {
             enable = lib.mkEnableOption "Monitorize Sunshine virtual displays";
+            package = lib.mkOption {
+              type = lib.types.package;
+              default = pkgs.monitorize;
+              defaultText = lib.literalExpression "pkgs.monitorize";
+              description = "Monitorize package to install.";
+            };
             openFirewall = lib.mkOption {
               type = lib.types.bool;
               default = true;
@@ -59,7 +78,7 @@
 
           config = lib.mkIf cfg.enable {
             nixpkgs.overlays = [ overlay ];
-            environment.systemPackages = [ pkgs.monitorize ];
+            environment.systemPackages = [ cfg.package ];
             boot.kernelModules = [ "uinput" ];
 
             # Dedicated group so only explicitly authorised users can create
@@ -74,6 +93,12 @@
             services.udev.extraRules = ''
               KERNEL=="uinput", MODE="0660", GROUP="monitorize-input"
             '';
+
+            services.avahi = {
+              enable = lib.mkDefault true;
+              publish.enable = lib.mkDefault true;
+              publish.userServices = lib.mkDefault true;
+            };
 
             networking.firewall = lib.mkIf cfg.openFirewall {
               allowedTCPPorts = [ 47984 47989 47990 48010 49084 49089 49090 49110 ];

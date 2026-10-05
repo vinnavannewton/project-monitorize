@@ -17,12 +17,14 @@
 , gnutar
 , gzip
 , libva-utils
+, cudaSupport ? (stdenv.hostPlatform.system == "x86_64-linux")
 }:
 
 let
   python = python3Packages.python;
   sunshineSource = lib.cleanSource ../external/sunshine;
-  sunshineVersion = "0-unstable-2026-08-19";
+  sunshineVersion = "0-unstable-2026-10-03";
+  sunshineForBuild = sunshine.override { inherit cudaSupport; };
   ffmpegArch = {
     x86_64-linux = "Linux-x86_64";
     aarch64-linux = "Linux-aarch64";
@@ -53,7 +55,7 @@ let
       runHook postInstall
     '';
   };
-  monitorizeSunshine = sunshine.overrideAttrs (finalAttrs: previousAttrs: {
+  monitorizeSunshine = sunshineForBuild.overrideAttrs (finalAttrs: previousAttrs: {
     pname = "monitorize-sunshine";
     version = sunshineVersion;
     src = sunshineSource;
@@ -66,6 +68,12 @@ let
       (flag: !(lib.hasPrefix "-DFFMPEG_PREPARED_BINARIES=" flag))
       previousAttrs.cmakeFlags ++ [
         (lib.cmakeFeature "FFMPEG_PREPARED_BINARIES" "${ffmpegPrepared}")
+        (lib.cmakeBool "SUNSHINE_ENABLE_CUDA" cudaSupport)
+        (lib.cmakeBool "CUDA_FAIL_ON_MISSING" cudaSupport)
+        (lib.cmakeBool "SUNSHINE_ENABLE_VAAPI" true)
+        (lib.cmakeBool "SUNSHINE_ENABLE_KWIN" true)
+        (lib.cmakeBool "SUNSHINE_ENABLE_WAYLAND" true)
+        (lib.cmakeBool "SUNSHINE_ENABLE_PORTAL" true)
         (lib.cmakeBool "SUNSHINE_ENABLE_TRAY" false)
         (lib.cmakeBool "BUILD_TESTS" false)
         (lib.cmakeBool "BUILD_DOCS" false)
@@ -73,7 +81,7 @@ let
     env = previousAttrs.env // {
       BUILD_VERSION = finalAttrs.version;
       BRANCH = "monitorize";
-      COMMIT = "569480fb749411432261cc0fd617d385ddefd468";
+      COMMIT = "2e7fe1b4dcbcfca819dff172cc702a14ed009591";
     };
   });
 in
