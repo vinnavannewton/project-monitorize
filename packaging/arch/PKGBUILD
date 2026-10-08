@@ -2,7 +2,7 @@
 source "${BASH_SOURCE[0]%/*}/dependencies.sh"
 
 pkgname=monitorize
-pkgver=0.33.1
+pkgver=0.33.2
 pkgrel=1
 pkgdesc='Sunshine-backed virtual displays for Moonlight clients'
 arch=('x86_64')
