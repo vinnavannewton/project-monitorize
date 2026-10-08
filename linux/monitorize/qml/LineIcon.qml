@@ -24,6 +24,30 @@ Canvas {
             if (symbol === "session") {
                 c.moveTo(10, 8); c.lineTo(15, 11); c.lineTo(10, 14); c.closePath()
             }
+        } else if (symbol === "reset") {
+            c.moveTo(4, 11); c.arc(12, 12, 8, Math.PI + 0.13, Math.PI * 1.84)
+            line(19, 3, 19, 8); line(19, 8, 14, 8)
+            c.moveTo(20, 13); c.arc(12, 12, 8, 0.13, Math.PI * 0.84)
+            line(5, 21, 5, 16); line(5, 16, 10, 16)
+        } else if (symbol === "display-minus") {
+            line(13, 17, 3, 17); line(3, 17, 3, 4)
+            line(3, 4, 21, 4); line(21, 4, 21, 11)
+            line(11, 17, 11, 20); line(7, 20, 12, 20)
+            c.stroke(); c.beginPath()
+            c.arc(19, 18, 4.5, 0, Math.PI * 2)
+            c.fillStyle = tint; c.fill()
+            c.beginPath(); c.strokeStyle = "#1b2c40"
+            line(16.5, 18, 21.5, 18)
+        } else if (symbol === "document-x") {
+            c.moveTo(12, 21); c.lineTo(4, 21); c.lineTo(4, 3)
+            c.lineTo(13, 3); c.lineTo(18, 8); c.lineTo(18, 11)
+            line(13, 3, 13, 8); line(13, 8, 18, 8)
+            line(7, 8, 10, 8); line(7, 12, 13, 12); line(7, 16, 10, 16)
+            c.stroke(); c.beginPath()
+            c.arc(18, 18, 4.5, 0, Math.PI * 2)
+            c.fillStyle = tint; c.fill()
+            c.beginPath(); c.strokeStyle = "#1b2c40"
+            line(16, 16, 20, 20); line(20, 16, 16, 20)
         } else if (symbol === "settings") {
             c.arc(12, 12, 6, 0, Math.PI * 2)
             c.moveTo(14, 12); c.arc(12, 12, 2, 0, Math.PI * 2)

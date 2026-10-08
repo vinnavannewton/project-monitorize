@@ -552,7 +552,7 @@ exit 0
     def test_nix_closure_has_no_monitorize_gstreamer_or_adb_runtime(self):
         package = (ROOT / "nix/package.nix").read_text()
         self.assertIn("monitorizeSunshine", package)
-        self.assertIn('COMMIT = "2e7fe1b4dcbcfca819dff172cc702a14ed009591";', package)
+        self.assertIn('COMMIT = "8d043f2b929705a4f6bad30d1e7f700a2de607b6";', package)
         self.assertIn('SUNSHINE_ENABLE_CUDA" cudaSupport', package)
         self.assertIn('SUNSHINE_ENABLE_VAAPI" true', package)
         self.assertNotIn("gst_all_1", package)
@@ -620,15 +620,15 @@ exit 0
             installer,
         )
 
-    def test_choice_chips_and_preset_menu_use_the_requested_layout(self):
+    def test_choice_chips_and_presets_placeholder_use_the_requested_layout(self):
         chips = (ROOT / "linux/monitorize/qml/ChoiceChips.qml").read_text()
-        menu = (ROOT / "linux/monitorize/qml/PresetsPage.qml").read_text()
+        presets = (ROOT / "linux/monitorize/qml/PresetsPage.qml").read_text()
         self.assertIn("columns: 3", chips)
-        self.assertIn('text: "⋮"', menu)
-        self.assertIn('text: "Rename"', menu)
-        self.assertIn('text: "Remove"', menu)
-        self.assertIn("backend.renamePreset", menu)
-        self.assertNotIn('text: "×"', menu)
+        self.assertIn('text: "WIP"', presets)
+        self.assertIn("anchors.centerIn: parent", presets)
+        self.assertIn("enabled: false", presets)
+        self.assertIn("color: theme.textMuted", presets)
+        self.assertNotIn("backend.", presets)
 
     def test_successful_pairing_closes_the_pin_popup(self):
         qml = (ROOT / "linux/monitorize/qml/StreamingPage.qml").read_text()

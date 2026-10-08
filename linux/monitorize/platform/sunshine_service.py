@@ -812,8 +812,8 @@ def open_sunshine_dashboard(path_or_instance: str | int = "", path: str = "", in
 def pair_moonlight_pin(pin: str, name: str = "Monitorize Display", instance: int | None = None) -> tuple[bool, str]:
     """Submit a 4-digit Moonlight pairing PIN to Sunshine's local API.
 
-    Broadcasts to active Sunshine instances so pairing works effortlessly
-    regardless of which virtual monitor instance is awaiting authentication.
+    Tries the preferred instance first, falling back only when it has no
+    pending request. Success requires the final Moonlight handshake result.
 
     Returns:
         tuple[bool, str]: (success, status_message)
@@ -851,23 +851,26 @@ def pair_moonlight_pin(pin: str, name: str = "Monitorize Display", instance: int
         )
 
         try:
-            with urllib.request.urlopen(req, context=ctx, timeout=4.0) as resp:
+            with urllib.request.urlopen(req, context=ctx, timeout=15.0) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
                 if data.get("status") is True:
-                    return True, "Paired successfully! Moonlight is now unlocked."
-                else:
-                    err = data.get("error", "")
-                    if err:
-                        last_error = err
+                    if data.get("pairing_complete") is True:
+                        return True, "Paired successfully! Moonlight is now unlocked."
+                    return False, "PIN submitted; pairing is not yet confirmed. Check Moonlight."
+                last_error = data.get("error") or "Pairing failed. Request a new PIN in Moonlight and try again."
+                if data.get("error_code") != "no_pending":
+                    return False, last_error
         except urllib.error.HTTPError as exc:
             try:
                 err_data = json.loads(exc.read().decode("utf-8"))
                 last_error = err_data.get("error", f"Pairing error ({exc.code})")
             except Exception:
                 last_error = f"Pairing failed with HTTP error {exc.code}."
+            return False, last_error
         except Exception as exc:
             if not last_error:
                 last_error = f"Could not connect to Sunshine API: {exc}"
+            return False, last_error
 
     return False, last_error or "Pairing failed. Make sure Moonlight is asking for a PIN."
 

@@ -67,7 +67,7 @@ class ArchBuilderPreflightTest(unittest.TestCase):
             shutil.copy2(ARCH_DIR / filename, destination / filename)
         source_config = destination / "sources.conf"
         source_config.write_text(source_config.read_text().replace(
-            "2e7fe1b4dcbcfca819dff172cc702a14ed009591", sunshine_commit
+            "8d043f2b929705a4f6bad30d1e7f700a2de607b6", sunshine_commit
         ))
         shutil.copy2(PROJECT_ROOT / "pyproject.toml", self.checkout / "pyproject.toml")
         self.git(self.checkout, "-c", "protocol.file.allow=always", "submodule", "add", "-q",

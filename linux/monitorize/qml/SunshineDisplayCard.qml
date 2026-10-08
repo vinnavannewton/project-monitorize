@@ -14,6 +14,7 @@ ColumnLayout {
     property string pendingGpuId: ""
     property string encoderChoice: "Auto"
     property string codecChoice: "Auto"
+    property string captureChoice: "Monitorize Auto"
     property string gpuId: ""
     readonly property bool customized: streamingMode.currentIndex === 1
 
@@ -69,7 +70,7 @@ ColumnLayout {
             "KWin": "kwin", "Portal": "portal", "KMS": "kms", "WLR": "wlr",
             "X11": "x11", "NvFBC": "nvfbc", "PipeWire node": "pipewire_node"
         }
-        return labels[captureMode.currentText] || "auto"
+        return labels[captureChoice] || "auto"
     }
 
     function captureDisplayValue(value) {
@@ -105,9 +106,9 @@ ColumnLayout {
         streamingMode.selectValue(saved["streaming_customized"] === true
             ? "Customize ›" : "Automatic (Recommended)")
         refreshGpuOptions(gpuId)
-        if (editorLoader.item) editorLoader.item.loadChoices()
         let capture = String(saved["sunshine_capture"] || "auto").toLowerCase()
-        captureMode.selectValue(captureDisplayValue(capture), true)
+        captureChoice = captureDisplayValue(capture)
+        if (editorLoader.item) editorLoader.item.loadChoices()
         nativeInput.checked = saved["sunshine_native_pen_touch"] !== false
         audio.checked = saved["enable_audio"] === true
         loading = false
@@ -115,12 +116,6 @@ ColumnLayout {
 
     Component.onCompleted: loadSettings()
 
-    Rectangle {
-        visible: card.showHeading
-        Layout.fillWidth: true
-        implicitHeight: 1
-        color: theme.border
-    }
     RowLayout {
         visible: card.showHeading
         Layout.fillWidth: true
@@ -131,23 +126,6 @@ ColumnLayout {
             color: card.enabled ? "#b1d6ff" : theme.textMuted
             font.pixelSize: 13; font.weight: Font.DemiBold
             Layout.fillWidth: true
-        }
-    }
-    GridLayout {
-        Layout.fillWidth: true
-        columns: 2; columnSpacing: 24; rowSpacing: 12
-        Text { text: "Capture mode"; color: theme.textSecondary; Layout.preferredWidth: 145 }
-        CustomComboBox {
-            id: captureMode
-            objectName: "captureMode" + card.instance
-            Layout.fillWidth: true
-            model: ["Monitorize Auto", "KWin", "Portal", "KMS", "WLR", "X11", "NvFBC", "PipeWire node"]
-            onActivated: card.saveSettings()
-        }
-        Text {
-            text: "Manual modes may require a different desktop, session, or Sunshine build."
-            color: theme.textMuted; font.pixelSize: 12; wrapMode: Text.WordWrap
-            Layout.columnSpan: 2; Layout.fillWidth: true
         }
     }
     CustomComboBox {
@@ -171,6 +149,7 @@ ColumnLayout {
                 function loadChoices() {
                     encoder.selectValue(card.encoderChoice, true)
                     codec.selectValue(card.codecChoice, true)
+                    captureMode.selectValue(card.captureChoice, true)
                     applyGpuLabels()
                 }
                 function applyGpuLabels() {
@@ -198,6 +177,17 @@ ColumnLayout {
                     model: ["Auto", "H.264", "HEVC", "AV1"]
                     onActivated: {
                         card.codecChoice = currentText
+                        card.saveSettings()
+                    }
+                }
+                Text { text: "Capture mode"; color: theme.textSecondary }
+                CustomComboBox {
+                    id: captureMode
+                    objectName: "captureMode" + card.instance
+                    Layout.fillWidth: true
+                    model: ["Monitorize Auto", "KWin", "Portal", "KMS", "WLR", "X11", "NvFBC", "PipeWire node"]
+                    onActivated: {
+                        card.captureChoice = currentText
                         card.saveSettings()
                     }
                 }

@@ -65,10 +65,12 @@ Item {
             }
             SectionCard {
                 title: "MISCELLANEOUS"; symbol: "extras"; Layout.fillWidth: true
-                CustomButton {
-                    text: "Reset Sunshine settings to defaults"; primary: false
+                SettingsActionRow {
+                    title: "Reset Sunshine settings to defaults"
+                    description: "Restore Sunshine settings to their default values."
+                    symbol: "reset"; actionText: "Reset to defaults"
                     Layout.fillWidth: true
-                    enabled: !backend.isStreaming && !backend.sessionBusy
+                    actionEnabled: !backend.isStreaming && !backend.sessionBusy
                     onClicked: sunshineResetDialog.open()
                 }
                 Text {
@@ -77,15 +79,22 @@ Item {
                     Layout.fillWidth: true; wrapMode: Text.WordWrap
                     color: page.sunshineResetSucceeded ? theme.textSecondary : "#fca5a5"
                 }
-                CustomButton {
-                    text: backend.virtualDisplayCleanupRunning ? "Removing…" : "Remove virtual display"; primary: false
+                SettingsActionRow {
+                    title: "Remove virtual display"
+                    description: "Remove Monitorize’s leftover virtual displays."
+                    symbol: "display-minus"
+                    actionText: backend.virtualDisplayCleanupRunning ? "Removing…" : "Remove display"
                     Layout.fillWidth: true
-                    enabled: !backend.isStreaming && !backend.virtualDisplayCleanupRunning
+                    actionEnabled: !backend.isStreaming && !backend.virtualDisplayCleanupRunning
                     onClicked: root.removeStagnantVirtualDisplays()
                 }
-                CustomButton {
-                    visible: backend.sunshineAvailable; enabled: !backend.isStreaming
-                    text: "Clear restore tokens"; primary: false; Layout.fillWidth: true
+                SettingsActionRow {
+                    visible: backend.sunshineAvailable
+                    title: "Clear restore tokens"
+                    description: "Delete saved screen-sharing restore tokens."
+                    symbol: "document-x"; actionText: "Clear tokens"
+                    actionEnabled: !backend.isStreaming
+                    Layout.fillWidth: true
                     onClicked: root.clearRestoreTokens()
                 }
                 CustomButton {

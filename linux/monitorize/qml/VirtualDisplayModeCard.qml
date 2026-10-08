@@ -195,6 +195,7 @@ Rectangle {
         SunshineDisplayCard {
             instance: card.displayNumber
             Layout.fillWidth: true
+            Layout.topMargin: 8
             enabled: card.sunshineEnabled
         }
     }

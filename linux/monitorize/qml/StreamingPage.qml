@@ -95,11 +95,6 @@ Item {
                     Layout.fillWidth: true
                 }
             }
-            Text {
-                text: "Create, manage, and stream your virtual screens."
-                color: theme.textMuted; font.pixelSize: 13
-                Layout.fillWidth: true
-            }
             RowLayout {
                 visible: backend.sessionMode === "Extend"
                 Layout.fillWidth: true
@@ -120,11 +115,6 @@ Item {
                     Text {
                         text: "Virtual Displays"
                         color: theme.textPrimary; font.pixelSize: 18; font.weight: Font.DemiBold
-                    }
-                    Text {
-                        text: "Manage the displays in this session."
-                        color: theme.textSecondary; font.pixelSize: 13
-                        Layout.fillWidth: true; wrapMode: Text.WordWrap
                     }
                     TextEdit {
                         text: backend.streamingStatus
@@ -402,7 +392,7 @@ Item {
                 CustomButton { text: "Cancel"; onClicked: pinPopup.close() }
                 CustomButton {
                     id: pairButton
-                    text: "Pair"
+                    text: backend.pairingRunning ? "Verifying…" : "Pair"
                     primary: true
                     enabled: !backend.pairingRunning && pinField.text.length === 4
                     onClicked: page.pairRequest = backend.startPairMoonlightPin(pinField.text, page.pairInstance)

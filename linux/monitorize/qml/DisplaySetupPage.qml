@@ -296,12 +296,6 @@ Item {
                         primary: false
                         onClicked: backend.refreshVkmsHelperAvailability()
                     }
-                    Text {
-                        visible: page.vkmsSelected
-                        Layout.columnSpan: 2; Layout.fillWidth: true
-                        wrapMode: Text.WordWrap; color: theme.textMuted
-                        text: "Preset and custom VKMS modes use monitorize-vkms. Adding another display is unavailable in VKMS mode."
-                    }
                     Text { text: "Monitor"; color: theme.textSecondary; visible: displayType.currentText === "Mirror" }
                     CustomComboBox {
                         id: mirrorMonitor
@@ -314,17 +308,6 @@ Item {
                             page.saveSettings()
                         }
                     }
-                    Text {
-                        visible: displayType.currentText === "Mirror"
-                        Layout.columnSpan: 2; Layout.fillWidth: true
-                        wrapMode: Text.WordWrap; color: theme.textMuted
-                        text: "If the desktop asks what to share, select this same monitor. A missing or different monitor will not be substituted."
-                    }
-                }
-                Text {
-                    visible: displayType.currentText !== "Mirror"
-                    text: "Each virtual display keeps its own resolution and refresh rate."
-                    color: theme.textMuted; font.pixelSize: 12
                 }
                 Repeater {
                     id: displayRepeater
@@ -402,15 +385,25 @@ Item {
                             page.saveSettings()
                         }
                     }
-                    CustomButton { text: "?"; primary: false; implicitWidth: 32; onClicked: virtualOnlyHint.open() }
+                    CustomButton {
+                        id: virtualOnlyHelpButton
+                        text: "?"; primary: false; implicitWidth: 32
+                        onClicked: virtualOnlyHint.open()
+                    }
                 }
             }
         }
     }
     Popup {
         id: virtualOnlyHint; parent: Overlay.overlay
-        anchors.centerIn: parent
-        width: Math.min(390, parent.width - 40); padding: 18; focus: true
+        width: Math.min(390, parent.width - 24); padding: 18; focus: true
+        onAboutToShow: {
+            let button = virtualOnlyHelpButton.mapToItem(parent, 0, 0)
+            x = Math.max(12, Math.min(button.x + virtualOnlyHelpButton.width - width, parent.width - width - 12))
+            let above = button.y - height - 8
+            y = Math.max(12, Math.min(above >= 12 ? above : button.y + virtualOnlyHelpButton.height + 8,
+                                     parent.height - height - 12))
+        }
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
         background: Rectangle { color: theme.surface; border.color: theme.borderHover; radius: theme.cardRadius }
         contentItem: Text {
