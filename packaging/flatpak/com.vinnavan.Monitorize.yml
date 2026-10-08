@@ -46,6 +46,18 @@ modules:
   - ../../external/sunshine/packaging/linux/flatpak/modules/libevdev.json
   - ../../external/sunshine/packaging/linux/flatpak/modules/miniupnpc.json
   - ../../external/sunshine/packaging/linux/flatpak/modules/numactl.json
+  # Monitorize probes VA-API render devices with vainfo inside the sandbox.
+  - name: libva-utils
+    buildsystem: simple
+    build-commands:
+      - ./configure --prefix=${FLATPAK_DEST} --enable-drm --disable-x11 --disable-wayland --disable-tests
+      - make -C common -j2
+      - make -C vainfo -j2
+      - make -C vainfo install
+    sources:
+      - type: archive
+        url: https://github.com/intel/libva-utils/releases/download/2.22.0/libva-utils-2.22.0.tar.bz2
+        sha256: 6d64f0d44ef455442a22633331bf81d5eef722fea564942dfda32fb89f7adc45
   # Sunshine's upstream build-only CUDA toolkit module enables NVENC. The host
   # NVIDIA driver remains supplied by Flatpak's matching GL runtime extension.
   - ../../external/sunshine/packaging/linux/flatpak/modules/cuda.json

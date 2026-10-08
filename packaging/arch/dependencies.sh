@@ -6,7 +6,7 @@ monitorize_runtime_deps=(
     libevdev libgcc libglvnd libpipewire libpulse libstdc++ libva libva-utils libvdpau libx11 libxcb libxcursor
     libxfixes libxi libxinerama libxrandr libxtst mesa miniupnpc numactl
     openssl opus pipewire polkit python python-cairo python-dbus
-    python-gobject python-jinja python-pyqt6 qt6-declarative shadow systemd
+    python-gobject python-jinja python-pyqt6 qt6-declarative qt6-svg shadow systemd
     vulkan-icd-loader wayland xdg-desktop-portal
 )
 

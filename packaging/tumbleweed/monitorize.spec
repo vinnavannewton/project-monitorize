@@ -92,7 +92,9 @@ BuildRequires:  wayland-protocols-devel
 Requires:       avahi
 Requires:       firewalld
 Requires:       iproute2
+Requires:       libcap-progs
 Requires:       libva-utils
+Requires:       pkexec
 Requires:       polkit
 Requires:       python3-Jinja2
 Requires:       python3-PyQt6

@@ -128,11 +128,18 @@ if (( ! offline )); then
     deps_container="monitorize-deb-${target}-deps-$$"
     podman run --name "${deps_container}" --arch amd64 --security-opt label=disable \
         --env DEBIAN_FRONTEND=noninteractive \
+        --env "MONITORIZE_DEB_TARGET=${target}" \
         --env "MONITORIZE_ENABLE_CUDA=${enable_cuda}" "${IMAGE}" bash -euxo pipefail -c '
             apt-get update
             cuda_deps=()
             if [[ "${MONITORIZE_ENABLE_CUDA}" == 1 ]]; then
                 cuda_deps=(aria2 cpio gcc-14 g++-14 rpm2cpio)
+            fi
+            qt_deps=(qt6-wayland)
+            if [[ "${MONITORIZE_DEB_TARGET}" == ubuntu-24.04 ]]; then
+                qt_deps+=(qml6-module-qtquick-templates qml6-module-qtquick-window libqt6svg6)
+            else
+                qt_deps+=(qt6-svg-plugins)
             fi
             apt-get install -y --no-install-recommends \
                 build-essential cmake curl debhelper desktop-file-utils \
@@ -150,7 +157,7 @@ if (( ! offline )); then
                 python3-setuptools python3-wheel qml6-module-qtquick \
                 qml6-module-qtquick-controls qml6-module-qtquick-layouts \
                 qml6-module-qtqml-workerscript \
-                wayland-protocols xz-utils "${cuda_deps[@]}"
+                wayland-protocols xz-utils "${cuda_deps[@]}" "${qt_deps[@]}"
         ' 2>&1 | tee "${build_log}"
     podman commit "${deps_container}" "${deps_image}" >/dev/null
     podman rm "${deps_container}" >/dev/null
