@@ -149,6 +149,7 @@ if (( ! offline )); then
                 python3-pyqt6 python3-pyqt6.qtquick pybuild-plugin-pyproject \
                 python3-setuptools python3-wheel qml6-module-qtquick \
                 qml6-module-qtquick-controls qml6-module-qtquick-layouts \
+                qml6-module-qtqml-workerscript \
                 wayland-protocols xz-utils "${cuda_deps[@]}"
         ' 2>&1 | tee "${build_log}"
     podman commit "${deps_container}" "${deps_image}" >/dev/null

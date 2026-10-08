@@ -85,3 +85,14 @@ def test_deb_targets_match_current_sources() -> None:
         assert "SUNSHINE_COMMIT = 8d043f2b929705a4f6bad30d1e7f700a2de607b6" in sunshine_mk
         assert "qml6-module-qtquick-controls" in control
         assert "libcap2-bin" in control
+
+
+def test_workerscript_is_required_for_build_and_fresh_runtime_install() -> None:
+    dependency = "qml6-module-qtqml-workerscript"
+    for target in ("ubuntu-24.04", "debian-trixie", "ubuntu-26.04"):
+        control = (PROJECT_ROOT / "packaging/deb" / target / "debian/control").read_text()
+        source, binary = control.split("Package: monitorize", 1)
+        assert dependency in re.search(r"^Build-Depends:.*?(?=^\S|\Z)", source, re.MULTILINE | re.DOTALL).group(0), target
+        assert dependency in re.search(r"^Depends:.*?(?=^\S|\Z)", binary, re.MULTILINE | re.DOTALL).group(0), target
+    builder = (PROJECT_ROOT / "packaging/deb/build.sh").read_text()
+    assert dependency in builder
