@@ -128,6 +128,12 @@ class MonitorizeWindow(QMainWindow):
     def _quit_app(self):
         app_log.write("APP", "Application shutting down.")
         self.backend.close()
+        self._finish_quit_when_displays_stop()
+
+    def _finish_quit_when_displays_stop(self):
+        if self.backend.streaming._vkms_retiring:
+            QTimer.singleShot(250, self._finish_quit_when_displays_stop)
+            return
         app_log.close()
         QApplication.quit()
 

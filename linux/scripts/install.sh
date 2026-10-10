@@ -10,7 +10,7 @@
 #   ./install.sh --complete --cuda=on
 #   ./install.sh --partial
 #   ./install.sh --complete --cuda=off  # on or off
-#   ./install.sh --complete --cuda=on --check-vkms  # check standalone VKMS CLI
+#   ./install.sh --complete --cuda=on --check-vkms  # check the host VKMS service
 #   ./install.sh --rebuild-sunshine --cuda=on  # clean and rebuild Sunshine
 #   ./install.sh remove   # uninstall
 # ──────────────────────────────────────────────────────────────────────
@@ -59,10 +59,10 @@ remove_legacy_udp_entries() {
 }
 
 check_vkms_cli() {
-    if command -v monitorize-vkms &>/dev/null; then
-        echo "✓ Standalone monitorize-vkms CLI detected for VKMS Experimental."
+    if command -v gdbus &>/dev/null && timeout 10s gdbus call --system --dest io.github.vinnavannewton.MonitorizeVkms1 --object-path /io/github/vinnavannewton/MonitorizeVkms1 --method io.github.vinnavannewton.MonitorizeVkms1.GetCapabilities &>/dev/null; then
+        echo "✓ Host monitorize-vkms D-Bus service detected for VKMS Experimental."
     else
-        echo "Notice: monitorize-vkms CLI was not found in PATH."
+        echo "Notice: the host monitorize-vkms service is unavailable."
         echo "        To use VKMS Experimental, install the standalone package:"
         echo "        https://github.com/vinnavannewton/monitorize-vkms"
     fi
@@ -592,7 +592,7 @@ With no arguments, an interactive menu selects the installation mode.
   --cuda=POLICY       Sunshine CUDA policy: on or off.
                       This option implies complete mode. --cuda POLICY also works.
                       Required for noninteractive complete installs.
-  --check-vkms        Check for standalone monitorize-vkms CLI.
+  --check-vkms        Check the host monitorize-vkms D-Bus service.
   remove, uninstall   Remove the per-user source installation.
 
 MONITORIZE_CUDA=on|off provides the same policy noninteractively.

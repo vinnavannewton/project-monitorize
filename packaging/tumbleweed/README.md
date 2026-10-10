@@ -17,3 +17,5 @@ VKMS is optional: install `monitorize-vkms` separately and complete its
 kernel-module setup for preset or custom VKMS resolutions. Stock `vkms` alone
 is no longer supported; compositor mode works without the helper.
 Legacy stock VKMS outputs must be disabled using desktop display settings.
+
+The app uses the host VKMS D-Bus service for up to two independently configured displays. Upgrade the host package and reboot after an older single-display installation.

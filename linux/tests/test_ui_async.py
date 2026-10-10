@@ -27,6 +27,7 @@ class UiAsyncTest(unittest.TestCase):
             patch("monitorize.desktop.backend.StreamingController"),
         ):
             backend = MonitorizeBackend("sway")
+        backend.streaming._vkms_retiring = {}
         backend.streaming.streaming = False
         backend.streaming.third_streaming = False
         backend.streaming.primary_ready = False
@@ -39,6 +40,39 @@ class UiAsyncTest(unittest.TestCase):
         signal.connect(loop.quit)
         QTimer.singleShot(1500, loop.quit)
         loop.exec()
+
+    def test_preset_waits_for_vkms_cleanup_and_stop_cancels_restart(self):
+        backend = self.make_backend()
+        backend.streaming._vkms_retiring = {"holder": {"slot":"mon2"}}
+        backend._presets = [{"primary": {}}]
+        backend.launchPreset(0)
+        self.assertEqual(backend._vkms_pending_preset,0)
+        backend.streaming.start.assert_not_called()
+        backend.stopSession()
+        self.assertIsNone(backend._vkms_pending_preset)
+        backend.streaming._vkms_retiring = {}
+        with patch.object(backend,"_launch_preset_checked") as launch:
+            backend._resume_vkms_preset()
+            self.app.processEvents()
+            launch.assert_not_called()
+
+    def test_vkms_preflight_does_not_block_and_stop_cancels_pending_start(self):
+        backend = self.make_backend()
+        gate = threading.Event()
+        self.addCleanup(gate.set)
+        def check():
+            gate.wait(1)
+        with patch("monitorize.desktop.backend.MonitorizeVkmsClient") as client:
+            client.return_value.require_ready.side_effect = check
+            backend._vkms_pending_start = ("session",None)
+            backend.refreshVkmsHelperAvailability()
+            self.assertTrue(backend._vkms_check_running)
+            backend.stopSession()
+            self.assertIsNone(backend._vkms_pending_start)
+            gate.set()
+            self.wait_for(backend.vkmsHelperAvailabilityChanged)
+        self.assertTrue(backend.vkmsHelperAvailable)
+        backend.streaming.start.assert_not_called()
 
     def test_window_visibility_before_backend_initialization(self):
         window = Mock(spec=["isVisible", "isMinimized"])

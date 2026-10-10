@@ -1,4 +1,4 @@
-"""Session-owned virtual displays provided by the standalone monitorize-vkms CLI."""
+"""Session-owned virtual displays provided by the host VKMS service."""
 
 from __future__ import annotations
 
@@ -8,13 +8,13 @@ import signal
 import sys
 import webbrowser
 
-from monitorize.platform.monitorize_vkms_cli import (
+from monitorize.platform.monitorize_vkms_dbus import (
     MonitorizeVkmsClient,
     MonitorizeVkmsError,
     VkmsCommandError,
 )
 
-VKMS_SLOTS = ("primary",)
+VKMS_SLOTS = {"primary": "mon1", "additional": "mon2"}
 MONITORIZE_VKMS_INSTALL_URL = "https://github.com/vinnavannewton/monitorize-vkms"
 
 
@@ -31,6 +31,7 @@ def _reinstall_required(error: VkmsCommandError) -> bool:
         "monitorize vkms configfs is not registered",
         "monitorize vkms bootstrap is not initialized",
         "monitorize vkms bootstrap is incomplete",
+        "two-display monitorize vkms bootstrap is not initialized",
         "persistent monitorize vkms connector is not registered",
     ))
 
@@ -57,23 +58,17 @@ def run_vkms_headless(
 ) -> int:
     """Hold a VKMS display for one Monitorize session.
 
-    Preset and custom modes use the same standalone CLI. This process owns the lifetime:
-    1. Creates the display via `monitorize-vkms create`
-    2. Emits MONITORIZE_EVENT headless_ready
-    3. Remains alive waiting for stdin EOF or termination signals
-    4. Automatically removes the display via `monitorize-vkms remove` on exit.
+    Both slots share the host service but retain independent cleanup generations.
     """
     if slot not in VKMS_SLOTS:
         print(f"[ERROR] Unsupported VKMS display slot: {slot}", flush=True)
         return 1
 
     vkms_client = client or MonitorizeVkmsClient()
-    if not vkms_client.is_available():
-        print(
-            "[ERROR] VKMS Experimental requires the standalone monitorize-vkms package. "
-            "Install it from https://github.com/vinnavannewton/monitorize-vkms.",
-            flush=True,
-        )
+    try:
+        vkms_client.require_ready()
+    except MonitorizeVkmsError as exc:
+        print(f"[ERROR] {exc}", flush=True)
         return 1
 
     capture = None
@@ -81,6 +76,8 @@ def run_vkms_headless(
     cleanup_ok = [True]
     created = [False]
     created_connector = [None]
+    generation = [None]
+    stop_requested = [False]
 
     def cleanup(*_args):
         if stopping[0]:
@@ -96,7 +93,7 @@ def run_vkms_headless(
             conn_str = f" {created_connector[0]}" if created_connector[0] else ""
             print(f"[VKMS] Removing{conn_str} through monitorize-vkms", flush=True)
             try:
-                res = vkms_client.remove_display(created_connector[0])
+                res = vkms_client.remove_display(VKMS_SLOTS[slot], generation[0])
                 if not res.get("success", True):
                     cleanup_ok[0] = False
                     print(
@@ -111,19 +108,28 @@ def run_vkms_headless(
         return cleanup_ok[0]
 
     def stop_from_signal(*_args):
-        raise SystemExit(0 if cleanup() else 1)
+        stop_requested[0] = True
 
     signal.signal(signal.SIGINT, stop_from_signal)
     signal.signal(signal.SIGTERM, stop_from_signal)
 
     try:
-        print(f"[VKMS] Using standalone monitorize-vkms backend", flush=True)
+        print("[VKMS] Using host monitorize-vkms service", flush=True)
         print(f"[VKMS] Requesting display: {width}x{height}@{fps}", flush=True)
 
-        result = vkms_client.create_display(width, height, fps)
+        result = vkms_client.create_display(width, height, fps, display=VKMS_SLOTS[slot])
+        if result["created"] is not True:
+            raise MonitorizeVkmsError(f"{VKMS_SLOTS[slot]} already belongs to an existing holder. Stop its owning session first.")
         output_name = result["name"]
         created_connector[0] = output_name
+        generation[0] = result["generation"]
         created[0] = True
+        ready, _, _ = select.select([sys.stdin], [], [], 0)
+        if ready:
+            line = sys.stdin.readline()
+            stop_requested[0] = stop_requested[0] or not line or line.strip() == "quit"
+        if stop_requested[0]:
+            return 0 if cleanup() else 1
         actual_width = result["width"]
         actual_height = result["height"]
         actual_fps = result["fps"]
@@ -136,18 +142,23 @@ def run_vkms_headless(
             "fps": actual_fps,
             "backend": "Sunshine",
             "vkms": True,
+            "display": VKMS_SLOTS[slot],
+            "generation": generation[0],
+            "card": result["card"],
         }
         if desktop.lower() == "gnome":
             from monitorize.platform.gnome_monitor_capture import GnomeMonitorCapture
             capture = GnomeMonitorCapture()
             event.update(capture.start(output_name))
+        if stop_requested[0]:
+            return 0 if cleanup() else 1
         print(f"MONITORIZE_EVENT {json.dumps(event, separators=(',', ':'))}", flush=True)
         print(
             f"[VKMS] {output_name} is active at {actual_width}x{actual_height}@{actual_fps:g}Hz.",
             flush=True,
         )
 
-        while not stopping[0]:
+        while not stop_requested[0]:
             if capture is not None:
                 capture.dispatch()
             ready, _, _ = select.select([sys.stdin], [], [], 0.5)

@@ -130,11 +130,11 @@ class SessionTest(unittest.TestCase):
         )
 
     @patch("monitorize.desktop.session.os.path.isfile", return_value=True)
-    def test_flatpak_runtime_never_routes_to_source_vkms(self, _isfile):
+    def test_flatpak_runtime_keeps_explicit_vkms_creator(self, _isfile):
         self.config["virtual_display_creator"] = "vkms"
         self.assertEqual(
             self.s.configuration()["virtual_display_creator"],
-            "native",
+            "vkms",
         )
 
     def test_start_creates_display_and_streams_only_after_ready(self):
@@ -342,6 +342,60 @@ class SessionTest(unittest.TestCase):
         self.ready()
         self.assertTrue(self.c.third_streaming)
         self.assertIsNone(self.c.pending_options)
+
+    def test_stop_sequences_vkms_holders_to_avoid_host_lock_collision(self):
+        self.c.virtual_display_creator = "vkms"
+        self.c.streaming = True
+        self.c.primary_ready = True
+        self.c.third_streaming = True
+        primary = self.process(); additional = self.process()
+        for process in (primary,additional):
+            process.state.return_value = QProcess.ProcessState.Running
+            process.readAllStandardOutput.return_value = b""
+        self.c.streamer = primary;self.c.third_streamer = additional
+        self.s.stop()
+        additional.write.assert_called_once_with(b"quit\n")
+        primary.write.assert_not_called()
+        self.c._vkms_cleanup_finished(additional,0)
+        primary.write.assert_called_once_with(b"quit\n")
+        self.c._vkms_cleanup_finished(primary,0)
+        self.assertFalse(self.s.busy)
+
+    def test_vkms_additional_mode_keeps_fractional_refresh(self):
+        self.c.virtual_display_creator = "vkms"
+        self.c.streaming = True
+        self.c.primary_ready = True
+        self.c.start_third("2340x1080", "59.94")
+        self.assertEqual(self.c._start_display_process.call_args.args[:4],
+                         ("additional",2340,1080,59.94))
+
+    def test_vkms_invalid_second_mode_preserves_primary(self):
+        self.c.virtual_display_creator = "vkms"
+        self.c.streaming = True
+        self.c.primary_ready = True
+        self.c.start_third("9000x1080", "60")
+        self.assertFalse(self.c.third_streaming)
+        self.assertTrue(self.c.streaming)
+        self.c._start_display_process.assert_not_called()
+
+    def test_second_vkms_stop_does_not_block_or_kill_primary(self):
+        self.c.virtual_display_creator = "vkms"
+        self.c.streaming = True
+        self.c.primary_ready = True
+        self.c.third_streaming = True
+        primary=self.process();self.c.streamer=primary
+        process=self.process();process.state.return_value=QProcess.ProcessState.Running
+        process.readAllStandardOutput.return_value=b""
+        self.c.third_streamer=process
+        self.c.stop_third()
+        process.write.assert_called_once_with(b"quit\n")
+        process.waitForFinished.assert_not_called()
+        process.terminate.assert_not_called()
+        process.kill.assert_not_called()
+        self.assertIs(self.c.streamer,primary)
+        self.assertTrue(self.s.busy)
+        self.c._vkms_cleanup_finished(process,0)
+        self.assertFalse(self.s.busy)
 
     @patch("monitorize.desktop.session.app_log.write")
     def test_custom_vkms_resolution_configuration_and_logging(self, mock_log_write):

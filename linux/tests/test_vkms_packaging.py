@@ -31,6 +31,12 @@ class VkmsPackagingTest(unittest.TestCase):
                 self.assertIn("monitorize-vkms", content)
                 self.assertIn("stock `vkms` alone", content.lower())
 
+    def test_flatpak_requests_only_the_host_vkms_service(self):
+        manifest = (ROOT / "packaging/flatpak/com.vinnavan.Monitorize.yml").read_text()
+        self.assertIn("--system-talk-name=io.github.vinnavannewton.MonitorizeVkms1", manifest)
+        self.assertNotIn("--system-talk-name=*", manifest)
+        self.assertNotIn("monitorize_vkms.ko", manifest)
+
 
 if __name__ == "__main__":
     unittest.main()

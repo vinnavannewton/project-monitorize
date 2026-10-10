@@ -172,7 +172,7 @@ Item {
     }
 
     function addDisplay() {
-        if (vkmsSelected || virtualDisplays.length >= 2) return
+        if (virtualDisplays.length >= 2) return
         let duplicate = Object.assign({}, primaryDisplay(), { id: 2 })
         virtualDisplays = [primaryDisplay(), duplicate]
         displayModel.append(displayRow(duplicate))
@@ -283,7 +283,7 @@ Item {
                         Layout.columnSpan: 2; Layout.fillWidth: true
                         wrapMode: Text.WordWrap
                         color: "#ff9a9a"
-                        text: "Install monitorize-vkms before using VKMS displays."
+                        text: backend.vkmsAvailabilityMessage
                     }
                     CustomButton {
                         visible: page.vkmsSelected && !backend.vkmsHelperAvailable
@@ -336,7 +336,7 @@ Item {
                 AbstractButton {
                     id: addDisplayButton
                     visible: displayType.currentText === "Extend" && page.virtualDisplays.length < 2
-                    enabled: !page.vkmsSelected
+                    enabled: !backend.sessionBusy
                     Layout.fillWidth: true
                     implicitHeight: 54
                     onClicked: page.addDisplay()
@@ -357,7 +357,7 @@ Item {
                 title: "SUNSHINE · MIRROR"; symbol: "streaming"
                 Layout.fillWidth: true
                 visible: displayType.currentText === "Mirror"
-                enabled: !backend.isStreaming && !backend.sessionBusy && !createOnly.checked && backend.sunshineAvailable
+                enabled: !backend.sessionBusy && !createOnly.checked && backend.sunshineAvailable
                 Loader {
                     Layout.fillWidth: true
                     active: displayType.currentText === "Mirror"

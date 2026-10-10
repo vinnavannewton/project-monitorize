@@ -60,3 +60,5 @@ resolutions; stock `vkms` alone is no longer supported. The Monitorize package
 does not bundle or load the module. Compositor mode works without it.
 If upgrading from stock VKMS left an output active, disable it using your
 desktop display settings; the new cleanup action does not manage stock outputs.
+
+The app uses the host VKMS D-Bus service for up to two independently configured displays. Upgrade the host package and reboot after an older single-display installation.

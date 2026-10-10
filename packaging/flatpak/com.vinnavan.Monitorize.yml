@@ -27,6 +27,7 @@ finish-args:
   - --talk-name=org.gnome.Mutter.ScreenCast
   - --talk-name=org.gnome.Mutter.DisplayConfig
   - --system-talk-name=org.freedesktop.Avahi
+  - --system-talk-name=io.github.vinnavannewton.MonitorizeVkms1
 
 modules:
   - ../../external/sunshine/packaging/linux/flatpak/modules/nlohmann_json.json

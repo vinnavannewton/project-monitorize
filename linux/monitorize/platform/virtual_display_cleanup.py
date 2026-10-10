@@ -8,7 +8,7 @@ import sys
 import time
 
 from monitorize.platform.display_controller import DisplayController
-from monitorize.platform.monitorize_vkms_cli import MonitorizeVkmsClient
+from monitorize.platform.monitorize_vkms_dbus import MonitorizeVkmsClient
 
 
 def _is_display_owner(args):
@@ -82,17 +82,16 @@ def remove_virtual_displays(desktop):
     if client.is_available():
         try:
             status = client.get_status()
-            topology = status.get('topology', {})
-            connected = topology.get('connector0_connected') or any(
-                entry.get('status') == 'connected'
-                for entry in status.get('drm', {}).get('active_connectors', [])
-            )
+            connected = any(entry.get('connector_connected') for entry in status.get('displays', {}).values())
             if connected:
-                result = client.remove_display()
-                if result.get('success', False):
-                    removed += 1
-                else:
-                    errors.append(result.get('message') or 'VKMS display could not be removed')
+                result = client.remove_all()
+                outcomes = result.get('results', {})
+                removed += sum(bool(item.get('changed')) for item in outcomes.values())
+                for display, item in outcomes.items():
+                    if item.get('error'):
+                        errors.append(f"{display}: {item['error']}")
+                if not result.get('success', False) and not any(item.get('error') for item in outcomes.values()):
+                    errors.append(result.get('message') or 'VKMS displays could not be removed')
         except Exception as exc:
             errors.append(f'VKMS cleanup failed: {exc}')
     if errors:

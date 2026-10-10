@@ -482,9 +482,6 @@ def main():
     fps = (float(sys.argv[3]) if creator == "vkms" else int(sys.argv[3])) if len(sys.argv) > 3 else 60
 
     if creator == "vkms":
-        if os.path.isfile("/.flatpak-info"):
-            print("[ERROR] VKMS display creation is available only in the native source installation", flush=True)
-            return 1
         from monitorize.platform.vkms_backend import run_vkms_headless
 
         return run_vkms_headless(slot, width, height, fps, de)

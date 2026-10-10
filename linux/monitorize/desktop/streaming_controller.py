@@ -2,6 +2,7 @@
 
 import json
 import logging
+import math
 import os
 import re
 import subprocess
@@ -53,6 +54,20 @@ GNOME_DISPLAY_CONFIG_SERVICE = "org.gnome.Mutter.DisplayConfig"
 GNOME_DISPLAY_CONFIG_PATH = "/org/gnome/Mutter/DisplayConfig"
 GNOME_DISPLAY_CONFIG_IFACE = "org.gnome.Mutter.DisplayConfig"
 GNOME_DISPLAY_CONFIG_SIGNAL = "MonitorsChanged"
+
+
+def _vkms_requested_mode(resolution, refresh):
+    match = re.fullmatch(r"(\d+)[xX](\d+)", str(resolution).split()[0] if str(resolution).split() else "")
+    try:
+        if not match:
+            raise ValueError()
+        width, height = int(match[1]), int(match[2])
+        fps = float(refresh)
+        if not (1 <= width <= 4095 and 1 <= height <= 4095 and math.isfinite(fps) and 24 <= fps <= 240):
+            raise ValueError()
+    except (ValueError, TypeError):
+        raise ValueError("Invalid VKMS resolution or refresh rate; correct the display card before starting.") from None
+    return width, height, fps
 
 
 def _moonlight_codec_name(codec):
@@ -201,6 +216,10 @@ class StreamingController(QObject):
         self._pending_sunshine_ready = {}
         self.prepare_only = False
         self.display_events = {}
+        self._vkms_retiring = {}
+        self._vkms_cleanup_timer = QTimer(self)
+        self._vkms_cleanup_timer.setInterval(250)
+        self._vkms_cleanup_timer.timeout.connect(self._poll_vkms_cleanup)
 
         self.sunshine_watchdog_timer = QTimer(self)
         self.sunshine_watchdog_timer.setInterval(1000)
@@ -256,7 +275,7 @@ class StreamingController(QObject):
         virtual_display_creator="native",
         capture="auto",
     ):
-        if self._is_stopping:
+        if self._is_stopping or self._vkms_retiring:
             self._set_status("Previous session is still stopping — please wait")
             return
         if self.streaming and not self.primary_ready:
@@ -264,6 +283,9 @@ class StreamingController(QObject):
             return
 
         self.stop()
+        if self._vkms_retiring:
+            self._set_status("Previous VKMS displays are still stopping — please wait")
+            return
         self.prepare_only = bool((options or {}).get("prepare_only"))
         self.generation += 1
         self.display_type = sanitize_display_type(display_type)
@@ -273,8 +295,16 @@ class StreamingController(QObject):
             and virtual_display_creator in ("native", "vkms")
             else "native"
         )
-        self.width, self.height = sanitize_resolution(res, DEFAULT_PRIMARY_RESOLUTION)
-        self.fps = sanitize_fps(fps)
+        try:
+            if self.virtual_display_creator == "vkms":
+                self.width, self.height, self.fps = _vkms_requested_mode(res, fps)
+            else:
+                self.width, self.height = sanitize_resolution(res, DEFAULT_PRIMARY_RESOLUTION)
+                self.fps = sanitize_fps(fps)
+        except ValueError as exc:
+            self._set_status(str(exc))
+            self.startFailed.emit()
+            return
         self.encoder = str(encoder or "Auto")
         self.gpu_id = normalize_pci_id(gpu_id)
         self.codec = str(codec or "Auto")
@@ -712,9 +742,10 @@ class StreamingController(QObject):
                 self.startFailed.emit()
         else:
             self.third_streamer = None
-            if self.third_streaming and self.third_ready:
+            if self.third_streaming:
                 self.logAppended.emit("DISPLAY", f"Second display exited with code {code}")
                 self.stop_third()
+                self.startFailed.emit()
 
     def start_third(
         self,
@@ -730,15 +761,26 @@ class StreamingController(QObject):
         if not self.streaming or not self.primary_ready:
             self._set_status("Start the primary display before adding another display")
             return
-        if self.de not in ("kde", "gnome", "hyprland", "sway"):
+        if self.virtual_display_creator != "vkms" and self.de not in ("kde", "gnome", "hyprland", "sway"):
             self._set_status("Additional displays require KDE, GNOME, Hyprland, or Sway")
+            return
+        if self._vkms_retiring:
+            self._set_status("VKMS display cleanup is still in progress — please wait")
             return
         if self.third_streaming:
             self.stop_third()
-        self.third_width, self.third_height = sanitize_resolution(
-            res, DEFAULT_SECONDARY_RESOLUTION
-        )
-        self.third_fps = sanitize_fps(fps)
+            if self._vkms_retiring:
+                return
+        try:
+            if self.virtual_display_creator == "vkms":
+                self.third_width, self.third_height, self.third_fps = _vkms_requested_mode(res, fps)
+            else:
+                self.third_width, self.third_height = sanitize_resolution(res, DEFAULT_SECONDARY_RESOLUTION)
+                self.third_fps = sanitize_fps(fps)
+        except ValueError as exc:
+            self._set_status(str(exc))
+            self.startFailed.emit()
+            return
         self.third_encoder = str(encoder or "Auto")
         self.third_gpu_id = normalize_pci_id(gpu_id)
         self.third_codec = str(codec or "Auto")
@@ -759,6 +801,54 @@ class StreamingController(QObject):
             self.third_generation,
         )
 
+    def _retire_vkms_process(self, process, slot):
+        if process.state() == QProcess.ProcessState.NotRunning:
+            return
+        self._vkms_retiring[process] = {"slot": slot, "deadline": None, "reported": False}
+        process.readyReadStandardOutput.connect(lambda: self._read_vkms_cleanup(process))
+        process.finished.connect(lambda code, _status: self._vkms_cleanup_finished(process, code))
+        self._read_vkms_cleanup(process)
+        self._request_next_vkms_cleanup()
+        self._vkms_cleanup_timer.start()
+        self.primaryReadyChanged.emit(self.primary_ready)
+
+    def _request_next_vkms_cleanup(self):
+        # Host helper uses a nonblocking lifecycle lock: never disconnect both
+        # holders concurrently, including while a cancelled create completes.
+        if any(item["deadline"] is not None for item in self._vkms_retiring.values()):
+            return
+        for process, record in self._vkms_retiring.items():
+            record["deadline"] = time.monotonic() + 360
+            process.write(b"quit\n")
+            break
+
+    def _read_vkms_cleanup(self, process):
+        raw = bytes(process.readAllStandardOutput()).decode("utf-8", errors="replace")
+        if raw:
+            self.logAppended.emit("DISPLAY", raw)
+            for line in raw.splitlines():
+                if line.startswith("[ERROR]"):
+                    self._set_status(line.removeprefix("[ERROR]").strip())
+
+    def _vkms_cleanup_finished(self, process, code):
+        self._read_vkms_cleanup(process)
+        record = self._vkms_retiring.pop(process, None)
+        if record and code:
+            self._set_status(f"VKMS {record['slot']} cleanup could not be confirmed. Use Remove virtual displays for recovery.")
+        if not self._vkms_retiring:
+            self._vkms_cleanup_timer.stop()
+        else:
+            self._request_next_vkms_cleanup()
+        self.primaryReadyChanged.emit(self.primary_ready)
+
+    def _poll_vkms_cleanup(self):
+        for process, record in list(self._vkms_retiring.items()):
+            if process.state() == QProcess.ProcessState.NotRunning:
+                self._vkms_cleanup_finished(process, process.exitCode())
+            elif record["deadline"] is not None and time.monotonic() >= record["deadline"] and not record["reported"]:
+                record["reported"] = True
+                self._set_status("VKMS cleanup is taking too long; its holder remains alive for safe recovery.")
+
     def stop_third(self):
         self._pending_sunshine_ready.pop(2, None)
         if not self.third_streaming and self.third_streamer is None:
@@ -771,12 +861,15 @@ class StreamingController(QObject):
         self.third_streamer = None
         if process is not None:
             try:
-                if process.state() == QProcess.ProcessState.Running:
+                if self.virtual_display_creator != "vkms" and process.state() == QProcess.ProcessState.Running:
                     process.write(b"quit\n")
                     process.waitForBytesWritten(500)
             except Exception:
                 pass
-            stop_processes(process)
+            if self.virtual_display_creator == "vkms":
+                self._retire_vkms_process(process, "additional")
+            else:
+                stop_processes(process)
         self.gnome_outputs.pop("additional", None)
         self.display_events.pop("additional", None)
         self.third_streaming = False
@@ -1049,15 +1142,15 @@ class StreamingController(QObject):
             self.streamer = None
             if process is not None:
                 try:
-                    if process.state() == QProcess.ProcessState.Running:
+                    if self.virtual_display_creator != "vkms" and process.state() == QProcess.ProcessState.Running:
                         process.write(b"quit\n")
                         process.waitForBytesWritten(500)
                 except Exception:
                     pass
-                if (self.virtual_display_creator == "vkms"
-                        and process.state() == QProcess.ProcessState.Running):
-                    process.waitForFinished(15000)
-                stop_processes(process)
+                if self.virtual_display_creator == "vkms":
+                    self._retire_vkms_process(process, "primary")
+                else:
+                    stop_processes(process)
             self.gnome_outputs.clear()
             self.display_events.clear()
             self._set_primary_ready(False)

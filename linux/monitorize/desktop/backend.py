@@ -55,7 +55,7 @@ from monitorize.platform.system_setup import (
     system_setup_command,
 )
 from monitorize.platform.utils import LINUX_DIR, get_local_ip
-from monitorize.platform.monitorize_vkms_cli import MonitorizeVkmsClient
+from monitorize.platform.monitorize_vkms_dbus import MonitorizeVkmsClient
 from monitorize.platform.vkms_backend import open_monitorize_vkms_install_page
 
 
@@ -79,6 +79,7 @@ class MonitorizeBackend(QObject):
     systemSetupPendingChanged = pyqtSignal(bool)
     streamingBackendChanged = pyqtSignal(str)
     vkmsHelperAvailabilityChanged = pyqtSignal()
+    _vkmsWorkerFinished = pyqtSignal(bool, str)
     virtualDisplayCleanupChanged = pyqtSignal()
     virtualDisplayCleanupFinished = pyqtSignal(bool, str)
     uiVisibleChanged = pyqtSignal(bool)
@@ -150,7 +151,13 @@ class MonitorizeBackend(QObject):
             "1280x720", "1280x800", "1920x1080", "1920x1200",
             "2560x1440", "2560x1600", "3840x2160", "Custom...",
         ]
-        self._vkms_helper_available = MonitorizeVkmsClient().is_available()
+        self._vkms_helper_available = False
+        self._vkms_status_message = "Checking host monitorize-vkms…"
+        self._vkms_check_running = False
+        self._vkms_pending_start = None
+        self._vkms_pending_preset = None
+        self.streaming.primaryReadyChanged.connect(self._resume_vkms_preset)
+        self._vkmsWorkerFinished.connect(self._finish_vkms_check)
         self._system_setup_available = bool(get_system_setup_status()["available"])
         self._system_setup_decided = bool(
             general.get("system_setup_decided", False)
@@ -280,7 +287,7 @@ class MonitorizeBackend(QObject):
 
     @pyqtProperty(bool, notify=sessionChanged)
     def sessionBusy(self):
-        return self.session.busy
+        return self.session.busy or self._vkms_pending_start is not None or self._vkms_pending_preset is not None or bool(self.streaming._vkms_retiring)
 
     @pyqtProperty(bool, notify=sessionChanged)
     def sessionRunning(self):
@@ -300,6 +307,12 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot()
     def startSession(self):
+        self._start_session_checked()
+
+    def _start_session_checked(self, checked=False):
+        if self.streaming._vkms_retiring:
+            self.streaming._set_status("VKMS displays are still stopping — please wait")
+            return
         if self.sunshineChoicesSaving:
             self._pending_session_start = True
             return
@@ -308,11 +321,10 @@ class MonitorizeBackend(QObject):
         config = self.session.configuration()
         if (config["display_type"] == "Extend"
                 and config["virtual_display_creator"] == "vkms"):
-            self.refreshVkmsHelperAvailability()
-            if not self.vkmsHelperAvailable:
-                message = "Install monitorize-vkms to create a VKMS display."
-                self.streaming._set_status(message)
-                self.streamingStartFailed.emit()
+            if not checked:
+                self._vkms_pending_start = ("session", None)
+                self.refreshVkmsHelperAvailability()
+                self.sessionChanged.emit()
                 return
         self._sync_web_settings()
         if (config["display_type"] == "Extend"
@@ -324,6 +336,8 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot()
     def stopSession(self):
+        self._vkms_pending_preset = None
+        self._vkms_pending_start = None
         self._pending_session_start = False
         self._cancel_settings_open()
         self.session.stop()
@@ -387,7 +401,7 @@ class MonitorizeBackend(QObject):
 
     @pyqtProperty(bool, constant=True)
     def vkmsCreatorAvailable(self):
-        return not os.path.isfile("/.flatpak-info")
+        return True
 
     @pyqtProperty("QVariant", constant=True)
     def vkmsResolutionOptions(self):
@@ -397,12 +411,43 @@ class MonitorizeBackend(QObject):
     def vkmsHelperAvailable(self):
         return self._vkms_helper_available
 
+    @pyqtProperty(str, notify=vkmsHelperAvailabilityChanged)
+    def vkmsAvailabilityMessage(self):
+        return self._vkms_status_message
+
     @pyqtSlot()
     def refreshVkmsHelperAvailability(self):
-        available = MonitorizeVkmsClient().is_available()
-        if available != self._vkms_helper_available:
-            self._vkms_helper_available = available
-            self.vkmsHelperAvailabilityChanged.emit()
+        if self._vkms_check_running or self._closing:
+            return
+        self._vkms_check_running = True
+        def check():
+            try:
+                MonitorizeVkmsClient().require_ready()
+                result = (True, "")
+            except Exception as exc:
+                result = (False, str(exc))
+            if not self._closing:
+                self._vkmsWorkerFinished.emit(*result)
+        self._background_executor.submit(check)
+
+    def _finish_vkms_check(self, ready, message):
+        self._vkms_check_running = False
+        self._vkms_helper_available = ready
+        self._vkms_status_message = message
+        self.vkmsHelperAvailabilityChanged.emit()
+        pending, self._vkms_pending_start = self._vkms_pending_start, None
+        self.sessionChanged.emit()
+        if pending is None or self._closing:
+            return
+        if not ready:
+            self.streaming._set_status(message)
+            if pending[0] == "preset":
+                self._set_preset_launch_status(message)
+            self.streamingStartFailed.emit()
+        elif pending[0] == "session":
+            self._start_session_checked(True)
+        else:
+            self._launch_preset_checked(pending[1], True)
 
     @pyqtSlot(result=bool)
     def openMonitorizeVkmsInstallPage(self):
@@ -611,6 +656,9 @@ class MonitorizeBackend(QObject):
             second["enabled"] = True
         else:
             second["enabled"] = False
+            if self.streaming.third_streaming:
+                self.streaming.stop_third()
+                self.session.count = 1
         save_second_display_settings(**second)
 
         self.session.preset_configuration = None
@@ -931,7 +979,7 @@ class MonitorizeBackend(QObject):
     def removeStagnantVirtualDisplays(self):
         if self.virtualDisplayCleanupRunning:
             return
-        if self.isStreaming:
+        if self.isStreaming or self.sessionBusy:
             self.virtualDisplayCleanupFinished.emit(False, "Stop streaming before removing virtual displays")
             return
         process = QProcess(self)
@@ -1249,14 +1297,35 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot(int)
     def launchPreset(self, index):
+        self._launch_preset_checked(index)
+
+    def _resume_vkms_preset(self, *_args):
+        if self._vkms_pending_preset is None or self.streaming._vkms_retiring or self._closing:
+            return
+        index = self._vkms_pending_preset
+        def resume():
+            if self._vkms_pending_preset == index and not self._closing:
+                self._vkms_pending_preset = None
+                self._launch_preset_checked(index)
+        QTimer.singleShot(0, resume)
+
+    def _launch_preset_checked(self, index, checked=False):
+        if self._closing:
+            return
+        if index < 0 or index >= len(self._presets):
+            self._set_preset_launch_status("Preset no longer exists.")
+            return
+        if self.streaming.streaming and self.streaming.virtual_display_creator == "vkms":
+            self.streaming.stop()
+        if self.streaming._vkms_retiring:
+            self._vkms_pending_preset = index
+            self._set_preset_launch_status("Stopping the previous VKMS session…")
+            return
         if self.sunshineChoicesSaving:
             self._set_preset_launch_status("Wait for Sunshine settings to finish saving.")
             return
         if self.virtualDisplayCleanupRunning:
             self._set_preset_launch_status("Wait for virtual display setup to finish.")
-            return
-        if index < 0 or index >= len(self._presets):
-            self._set_preset_launch_status("Preset no longer exists.")
             return
         self._set_preset_launch_status("")
         preset = self._presets[index]
@@ -1264,9 +1333,10 @@ class MonitorizeBackend(QObject):
         primary = preset["primary"]
         if (primary["display_type"] == "Extend"
                 and primary.get("virtual_display_creator") == "vkms"):
-            self.refreshVkmsHelperAvailability()
-            if not self.vkmsHelperAvailable:
-                self._set_preset_launch_status("Install monitorize-vkms to use this VKMS preset.")
+            if not checked:
+                self._vkms_pending_start = ("preset", index)
+                self.refreshVkmsHelperAvailability()
+                self.sessionChanged.emit()
                 return
         self._sync_web_settings()
         if (primary["display_type"] == "Extend"
@@ -1337,6 +1407,8 @@ class MonitorizeBackend(QObject):
             self.streaming.update_ip(current)
 
     def close(self):
+        self._vkms_pending_preset = None
+        self._vkms_pending_start = None
         self._closing = True
         self._background_executor.shutdown(wait=False, cancel_futures=True)
         if self._system_setup_process is not None:

@@ -589,11 +589,11 @@ exit 0
             qml,
         )
 
-    def test_source_vkms_ui_and_standalone_cli_backend_integration(self):
+    def test_source_vkms_ui_and_host_service_backend_integration(self):
         qml = (ROOT / "linux/monitorize/qml/DisplaySetupPage.qml").read_text()
         display_card = (ROOT / "linux/monitorize/qml/VirtualDisplayModeCard.qml").read_text()
         installer = (ROOT / "linux/scripts/install.sh").read_text()
-        cli_adapter = (ROOT / "linux/monitorize/platform/monitorize_vkms_cli.py").read_text()
+        cli_adapter = (ROOT / "linux/monitorize/platform/monitorize_vkms_dbus.py").read_text()
         self.assertIn('text: "Virtual Display Creator"', qml)
         self.assertIn('"VKMS (Experimental)"', qml)
         self.assertIn('backend.vkmsHelperAvailable', qml)
@@ -669,13 +669,14 @@ exit 0
         self.assertIn("backend.removeSessionDisplay(1)", streaming)
         self.assertNotIn('text: "Add Display"', streaming)
 
-    def test_add_display_is_disabled_in_vkms_mode(self):
+    def test_add_display_uses_the_same_two_card_limit_in_vkms_mode(self):
         qml = (ROOT / "linux/monitorize/qml/DisplaySetupPage.qml").read_text()
         button = qml.split("id: addDisplayButton", 1)[1].split("SectionCard {", 1)[0]
-        self.assertIn("enabled: !page.vkmsSelected", button)
+        self.assertIn("enabled: !backend.sessionBusy", button)
+        self.assertNotIn("!page.vkmsSelected", button)
         self.assertIn('color: addDisplayButton.enabled ? "#94caff" : theme.textMuted', button)
         self.assertIn("addDisplayButton.enabled && addDisplayButton.hovered", button)
-        self.assertIn("if (vkmsSelected || virtualDisplays.length >= 2) return", qml)
+        self.assertIn("if (virtualDisplays.length >= 2) return", qml)
         self.assertNotIn("Creates up to two displays using Linux's experimental VKMS path", qml)
 
     def test_navigation_avoids_hidden_synchronous_work(self):

@@ -17,8 +17,8 @@ class VirtualDisplayCleanupTest(unittest.TestCase):
     def run_cleanup(self, desktop, connected=True, removal=None, owner_result=None, native=0):
         client = Mock()
         client.is_available.return_value = True
-        client.get_status.return_value = {'topology': {'connector0_connected': connected}}
-        client.remove_display.return_value = removal or {'success': True}
+        client.get_status.return_value = {'displays': {'mon1': {'connector_connected': connected}, 'mon2': {'connector_connected': connected}}}
+        client.remove_all.return_value = removal or {'success': True, 'results': {'mon1': {'changed': True}, 'mon2': {'changed': True}}}
         with (patch.object(cleanup, '_close_display_owners', return_value=owner_result or (0, [])),
               patch.object(cleanup, 'DisplayController') as controller,
               patch.object(cleanup, 'MonitorizeVkmsClient', return_value=client)):
@@ -32,11 +32,11 @@ class VirtualDisplayCleanupTest(unittest.TestCase):
             with self.subTest(desktop=desktop):
                 result, client = self.run_cleanup(desktop)
                 self.assertTrue(result['success'])
-                client.remove_display.assert_called_once()
+                client.remove_all.assert_called_once()
 
     def test_disconnected_vkms_does_not_request_authorization(self):
         result, client = self.run_cleanup('gnome', connected=False)
-        client.remove_display.assert_not_called()
+        client.remove_all.assert_not_called()
         self.assertEqual(result, {'success': True, 'message': 'No virtual displays found'})
 
     def test_compositor_owner_cleanup_is_reported_without_vkms(self):
@@ -67,4 +67,4 @@ class VirtualDisplayCleanupTest(unittest.TestCase):
                 result, client = self.run_cleanup('kde', connected=False)
         self.assertFalse(result['success'])
         self.assertIn('legacy stock VKMS recovery record', result['message'])
-        client.remove_display.assert_not_called()
+        client.remove_all.assert_not_called()

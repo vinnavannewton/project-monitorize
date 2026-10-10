@@ -32,7 +32,7 @@ class Session(QObject):
     @property
     def busy(self):
         c = self.controller
-        return self.start_requested or (c.streaming and not c.primary_ready) or (
+        return bool(c._vkms_retiring) or self.start_requested or (c.streaming and not c.primary_ready) or (
             c.third_streaming and not c.third_ready
         )
 
@@ -78,8 +78,7 @@ class Session(QObject):
         return dict(
             res=res, fps=fps, display_type=saved.get("display_type", "Extend"),
             virtual_display_creator=(
-                "native" if os.path.isfile("/.flatpak-info")
-                else virtual_display_creator or saved.get("virtual_display_creator", "native")
+                virtual_display_creator or saved.get("virtual_display_creator", "native")
             ),
             encoder=saved.get("sunshine_encoder", "Auto") if custom else "Auto",
             codec=saved.get("sunshine_codec", "Auto") if custom else "Auto",
@@ -95,8 +94,7 @@ class Session(QObject):
         return dict(res=saved["resolution"], fps=saved["fps"],
                     display_type=saved.get("display_type", "Extend"),
                     virtual_display_creator=(
-                        "native" if os.path.isfile("/.flatpak-info")
-                        else saved.get("virtual_display_creator", "native")
+                        saved.get("virtual_display_creator", "native")
                     ),
                     encoder=saved.get("sunshine_encoder", "Auto"),
                     codec=saved.get("sunshine_codec", "Auto"),
@@ -222,7 +220,8 @@ class Session(QObject):
         self.start_requested = False
         self.running = False
         self.controller.stop()
-        self.controller._set_status("Session stopped. Start to recreate your displays." if self.count else "Session stopped.")
+        self.controller._set_status("Stopping VKMS displays…" if self.controller._vkms_retiring else
+                                    "Session stopped. Start to recreate your displays." if self.count else "Session stopped.")
         self.changed.emit()
 
     def remove(self, index):
