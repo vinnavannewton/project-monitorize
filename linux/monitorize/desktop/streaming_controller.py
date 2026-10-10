@@ -33,6 +33,7 @@ from monitorize.platform.gpu_discovery import normalize_pci_id, resolve_encoding
 from monitorize.platform.process_utils import stop_processes
 from monitorize.platform.sunshine_service import (
     check_sunshine_health,
+    get_sunshine_startup_status,
     is_sunshine_settings_instance,
     get_sunshine_log_size,
     get_sunshine_kms_setup_error,
@@ -53,6 +54,20 @@ GNOME_DISPLAY_CONFIG_SERVICE = "org.gnome.Mutter.DisplayConfig"
 GNOME_DISPLAY_CONFIG_PATH = "/org/gnome/Mutter/DisplayConfig"
 GNOME_DISPLAY_CONFIG_IFACE = "org.gnome.Mutter.DisplayConfig"
 GNOME_DISPLAY_CONFIG_SIGNAL = "MonitorsChanged"
+
+
+def _vkms_requested_mode(resolution, refresh):
+    match = re.fullmatch(r"(\d+)[xX](\d+)", str(resolution).split()[0] if str(resolution).split() else "")
+    try:
+        if not match:
+            raise ValueError()
+        width, height = int(match[1]), int(match[2])
+        fps = float(refresh)
+        if not (1 <= width <= 4095 and 1 <= height <= 4095 and math.isfinite(fps) and 24 <= fps <= 240):
+            raise ValueError()
+    except (ValueError, TypeError):
+        raise ValueError("Invalid VKMS resolution or refresh rate; correct the display card before starting.") from None
+    return width, height, fps
 
 
 def _moonlight_codec_name(codec):
@@ -151,12 +166,12 @@ def _x11_capture_output(requested):
 class StreamingController(QObject):
     streamingChanged = pyqtSignal(bool)
     startFailed = pyqtSignal()
+    vkmsReinstallRequired = pyqtSignal()
     codecMismatch = pyqtSignal(str)
     statusChanged = pyqtSignal(str)
     secondStreamChanged = pyqtSignal(bool)
     primaryReadyChanged = pyqtSignal(bool)
     logAppended = pyqtSignal(str, str)
-    vkmsCustomEdidUnsupported = pyqtSignal()
 
     def __init__(self, de, local_ip="", parent=None):
         super().__init__(parent)
@@ -178,17 +193,17 @@ class StreamingController(QObject):
         self.fps = DEFAULT_FPS
         self.display_type = "Extend"
         self.virtual_display_creator = "native"
-        self.vkms_custom_mode = False
         self.encoder = "Auto"
         self.gpu_id = ""
+        self.capture = "auto"
         self.codec = "Auto"
         self.native_pen_touch = True
         self.mirror_output = ""
         self.audio_enabled = False
         self.third_width, self.third_height = DEFAULT_SECONDARY_RESOLUTION
         self.third_fps = DEFAULT_FPS
-        self.third_vkms_custom_mode = False
         self.third_encoder = "Auto"
+        self.third_capture = "auto"
         self.third_gpu_id = ""
         self.third_codec = "Auto"
         self.third_native_pen_touch = True
@@ -198,8 +213,13 @@ class StreamingController(QObject):
         self.streaming_backend = "sunshine"
         self._sunshine_log_offsets = {1: 0, 2: 0}
         self._x11_capture_targets = {}
+        self._pending_sunshine_ready = {}
         self.prepare_only = False
         self.display_events = {}
+        self._vkms_retiring = {}
+        self._vkms_cleanup_timer = QTimer(self)
+        self._vkms_cleanup_timer.setInterval(250)
+        self._vkms_cleanup_timer.timeout.connect(self._poll_vkms_cleanup)
 
         self.sunshine_watchdog_timer = QTimer(self)
         self.sunshine_watchdog_timer.setInterval(1000)
@@ -225,6 +245,12 @@ class StreamingController(QObject):
         self.status = value
         self.statusChanged.emit(value)
 
+    def _capture_start_error(self, instance, detail):
+        capture = self.capture if instance == 1 else self.third_capture
+        if capture != "auto" and detail:
+            return f"{capture} capture could not start: {detail}"
+        return detail
+
     def _set_primary_ready(self, value):
         if self.primary_ready == value:
             return
@@ -247,10 +273,9 @@ class StreamingController(QObject):
         gpu_id="",
         mirror_output="",
         virtual_display_creator="native",
-        vkms_custom_mode=False,
-        vkms_connector="",
+        capture="auto",
     ):
-        if self._is_stopping:
+        if self._is_stopping or self._vkms_retiring:
             self._set_status("Previous session is still stopping — please wait")
             return
         if self.streaming and not self.primary_ready:
@@ -258,6 +283,9 @@ class StreamingController(QObject):
             return
 
         self.stop()
+        if self._vkms_retiring:
+            self._set_status("Previous VKMS displays are still stopping — please wait")
+            return
         self.prepare_only = bool((options or {}).get("prepare_only"))
         self.generation += 1
         self.display_type = sanitize_display_type(display_type)
@@ -267,26 +295,20 @@ class StreamingController(QObject):
             and virtual_display_creator in ("native", "vkms")
             else "native"
         )
-        self.vkms_custom_mode = bool(vkms_custom_mode) and self.virtual_display_creator == "vkms"
-        self.vkms_connector = str(vkms_connector or "")
-        if self.virtual_display_creator == "vkms" and not self.vkms_custom_mode:
-            match = re.fullmatch(r"(\d+)x(\d+)", str(res or ""))
-            try:
-                requested_fps = float(fps)
-            except (TypeError, ValueError):
-                requested_fps = 0
-            if not match or not math.isfinite(requested_fps) or not 24 <= requested_fps <= 240:
-                self._set_status("Select an advertised stock VKMS resolution and refresh rate")
-                self.startFailed.emit()
-                return
-            self.width, self.height = map(int, match.groups())
-            self.fps = requested_fps
-        else:
-            self.width, self.height = sanitize_resolution(res, DEFAULT_PRIMARY_RESOLUTION)
-            self.fps = sanitize_fps(fps)
+        try:
+            if self.virtual_display_creator == "vkms":
+                self.width, self.height, self.fps = _vkms_requested_mode(res, fps)
+            else:
+                self.width, self.height = sanitize_resolution(res, DEFAULT_PRIMARY_RESOLUTION)
+                self.fps = sanitize_fps(fps)
+        except ValueError as exc:
+            self._set_status(str(exc))
+            self.startFailed.emit()
+            return
         self.encoder = str(encoder or "Auto")
         self.gpu_id = normalize_pci_id(gpu_id)
         self.codec = str(codec or "Auto")
+        self.capture = str(capture or "auto")
         self.native_pen_touch = bool(native_pen_touch)
         self.mirror_output = str(mirror_output or "")
         self.audio_enabled = bool(enable_audio)
@@ -333,14 +355,15 @@ class StreamingController(QObject):
                 self._set_streaming(False)
                 self.startFailed.emit()
                 return
-            self._set_primary_ready(True)
-            self._set_status(f"Mirroring {self.mirror_output} — ready for Moonlight")
-            self._start_pending_second(options)
+            def ready():
+                self._set_primary_ready(True)
+                self._set_status(f"Mirroring {self.mirror_output} — ready for Moonlight")
+                self._start_pending_second(options)
+            self._await_sunshine_ready(1, ready)
             return
 
         self._set_status(
-            ("Creating a custom VKMS display…" if self.vkms_custom_mode
-             else "Configuring the selected stock VKMS display…")
+            "Creating a Monitorize VKMS display…"
             if self.virtual_display_creator == "vkms"
             else f"Creating a virtual display on {self.de.capitalize()}…"
         )
@@ -391,10 +414,6 @@ class StreamingController(QObject):
                 slot,
                 str(self.de),
                 str(self.virtual_display_creator),
-                "custom" if (
-                    self.vkms_custom_mode if slot == "primary" else self.third_vkms_custom_mode
-                ) else "standard",
-                self.vkms_connector if slot == "primary" else "",
             ],
         )
         if self.de == "gnome":
@@ -427,8 +446,9 @@ class StreamingController(QObject):
             event = self._structured_event(line)
             if event and event.get("type") == "headless_ready":
                 self._display_ready(slot, event)
-            elif event and event.get("type") == "vkms_custom_edid_unsupported":
-                self.vkmsCustomEdidUnsupported.emit()
+            elif event and event.get("type") == "vkms_reinstall_required":
+                self._set_status("Reinstall monitorize-vkms to repair its helper for this kernel.")
+                self.vkmsReinstallRequired.emit()
             elif line.startswith("[ERROR]"):
                 self._set_status(line.removeprefix("[ERROR]").strip())
 
@@ -504,20 +524,32 @@ class StreamingController(QObject):
                 self.startFailed.emit()
             return
 
-        if instance == 1:
-            self._set_primary_ready(True)
-            self._set_status(
-                f"Virtual display {output_name} ({width}x{height}) is ready for Moonlight"
-                if event.get("portal") else
-                f"Virtual display {output_name} ({width}x{height}@{fps:g}Hz) is ready for Moonlight"
-            )
-            self._start_pending_second(self.pending_options)
+        def ready():
+            if instance == 1:
+                self._set_primary_ready(True)
+                self._set_status(
+                    f"Virtual display {output_name} ({width}x{height}) is ready for Moonlight"
+                    if event.get("portal") else
+                    f"Virtual display {output_name} ({width}x{height}@{fps:g}Hz) is ready for Moonlight"
+                )
+                self._start_pending_second(self.pending_options)
+            else:
+                self.third_ready = True
+                self._set_status(
+                    f"Second display {output_name} ({width}x{height}@{fps:g}Hz) is ready on Sunshine port 49089"
+                )
+                self.secondStreamChanged.emit(True)
+        self._await_sunshine_ready(instance, ready)
+
+    def _await_sunshine_ready(self, instance, callback):
+        """Keep the session starting until Sunshine finishes initialization."""
+        state, _ = get_sunshine_startup_status(instance)
+        if state == "ready":
+            callback()
         else:
-            self.third_ready = True
-            self._set_status(
-                f"Second display {output_name} ({width}x{height}@{fps:g}Hz) is ready on Sunshine port 49089"
-            )
-            self.secondStreamChanged.emit(True)
+            self._pending_sunshine_ready[instance] = (time.monotonic(), callback)
+            self._set_status(f"Starting Sunshine instance {instance}…")
+            self.sunshine_watchdog_timer.start()
 
     def _start_instance(
         self,
@@ -584,28 +616,14 @@ class StreamingController(QObject):
             pipewire_node=pipewire_node,
             portal_source_type=portal_source_type,
         )
+        requested = self.capture if instance == 1 else self.third_capture
+        if requested != "auto":
+            capture = requested
         cosmic_portal = (
             self.de == "cosmic"
             and os.environ.get("XDG_SESSION_TYPE", "").lower() == "wayland"
             and capture == "portal"
         )
-        if (load_general_settings().get("sunshine_web_settings_enabled")
-                and not portal_source_type and not pipewire_node):
-            requested = get_saved_sunshine_config(instance).get("capture", "").lower()
-            if cosmic_portal:
-                compatible = requested == "portal"
-            elif self.de == "cinnamon" and capture == "kms":
-                # Cinnamon's current Xapp portal has no ScreenCast interface.
-                compatible = requested == "kms"
-            else:
-                compatible = (
-                    requested in ("portal", "kms")
-                    or requested == "x11" and os.environ.get("XDG_SESSION_TYPE", "").lower() == "x11"
-                    or requested == "kwin" and self.de == "kde"
-                    or requested == "wlr" and self.de in ("hyprland", "sway")
-                )
-            if compatible and os.environ.get("XDG_SESSION_TYPE", "").lower() != "x11":
-                capture = requested
         if cosmic_portal:
             target_output = sunshine_environment.get("MONITORIZE_CAPTURE_OUTPUT", "")
             if not target_output:
@@ -669,6 +687,7 @@ class StreamingController(QObject):
         self._sunshine_log_offsets[instance] = get_sunshine_log_size(instance)
         ok, message = start_sunshine(instance, **start_kwargs)
         if not ok:
+            message = self._capture_start_error(instance, message)
             self._set_status(message)
             self.logAppended.emit("SUNSHINE", f"ERROR: {message}")
             return False
@@ -723,9 +742,10 @@ class StreamingController(QObject):
                 self.startFailed.emit()
         else:
             self.third_streamer = None
-            if self.third_streaming and self.third_ready:
+            if self.third_streaming:
                 self.logAppended.emit("DISPLAY", f"Second display exited with code {code}")
                 self.stop_third()
+                self.startFailed.emit()
 
     def start_third(
         self,
@@ -736,26 +756,35 @@ class StreamingController(QObject):
         native_pen_touch=True,
         enable_audio=False,
         gpu_id="",
-        vkms_custom_mode=False,
+        capture="auto",
     ):
         if not self.streaming or not self.primary_ready:
             self._set_status("Start the primary display before adding another display")
             return
-        if self.de not in ("kde", "gnome", "hyprland", "sway"):
+        if self.virtual_display_creator != "vkms" and self.de not in ("kde", "gnome", "hyprland", "sway"):
             self._set_status("Additional displays require KDE, GNOME, Hyprland, or Sway")
+            return
+        if self._vkms_retiring:
+            self._set_status("VKMS display cleanup is still in progress — please wait")
             return
         if self.third_streaming:
             self.stop_third()
-        self.third_width, self.third_height = sanitize_resolution(
-            res, DEFAULT_SECONDARY_RESOLUTION
-        )
-        self.third_fps = sanitize_fps(fps)
-        self.third_vkms_custom_mode = (
-            bool(vkms_custom_mode) and self.virtual_display_creator == "vkms"
-        )
+            if self._vkms_retiring:
+                return
+        try:
+            if self.virtual_display_creator == "vkms":
+                self.third_width, self.third_height, self.third_fps = _vkms_requested_mode(res, fps)
+            else:
+                self.third_width, self.third_height = sanitize_resolution(res, DEFAULT_SECONDARY_RESOLUTION)
+                self.third_fps = sanitize_fps(fps)
+        except ValueError as exc:
+            self._set_status(str(exc))
+            self.startFailed.emit()
+            return
         self.third_encoder = str(encoder or "Auto")
         self.third_gpu_id = normalize_pci_id(gpu_id)
         self.third_codec = str(codec or "Auto")
+        self.third_capture = str(capture or "auto")
         self.third_native_pen_touch = bool(native_pen_touch)
         self.third_audio_enabled = bool(enable_audio)
         self.third_generation += 1
@@ -772,7 +801,56 @@ class StreamingController(QObject):
             self.third_generation,
         )
 
+    def _retire_vkms_process(self, process, slot):
+        if process.state() == QProcess.ProcessState.NotRunning:
+            return
+        self._vkms_retiring[process] = {"slot": slot, "deadline": None, "reported": False}
+        process.readyReadStandardOutput.connect(lambda: self._read_vkms_cleanup(process))
+        process.finished.connect(lambda code, _status: self._vkms_cleanup_finished(process, code))
+        self._read_vkms_cleanup(process)
+        self._request_next_vkms_cleanup()
+        self._vkms_cleanup_timer.start()
+        self.primaryReadyChanged.emit(self.primary_ready)
+
+    def _request_next_vkms_cleanup(self):
+        # Host helper uses a nonblocking lifecycle lock: never disconnect both
+        # holders concurrently, including while a cancelled create completes.
+        if any(item["deadline"] is not None for item in self._vkms_retiring.values()):
+            return
+        for process, record in self._vkms_retiring.items():
+            record["deadline"] = time.monotonic() + 360
+            process.write(b"quit\n")
+            break
+
+    def _read_vkms_cleanup(self, process):
+        raw = bytes(process.readAllStandardOutput()).decode("utf-8", errors="replace")
+        if raw:
+            self.logAppended.emit("DISPLAY", raw)
+            for line in raw.splitlines():
+                if line.startswith("[ERROR]"):
+                    self._set_status(line.removeprefix("[ERROR]").strip())
+
+    def _vkms_cleanup_finished(self, process, code):
+        self._read_vkms_cleanup(process)
+        record = self._vkms_retiring.pop(process, None)
+        if record and code:
+            self._set_status(f"VKMS {record['slot']} cleanup could not be confirmed. Use Remove virtual displays for recovery.")
+        if not self._vkms_retiring:
+            self._vkms_cleanup_timer.stop()
+        else:
+            self._request_next_vkms_cleanup()
+        self.primaryReadyChanged.emit(self.primary_ready)
+
+    def _poll_vkms_cleanup(self):
+        for process, record in list(self._vkms_retiring.items()):
+            if process.state() == QProcess.ProcessState.NotRunning:
+                self._vkms_cleanup_finished(process, process.exitCode())
+            elif record["deadline"] is not None and time.monotonic() >= record["deadline"] and not record["reported"]:
+                record["reported"] = True
+                self._set_status("VKMS cleanup is taking too long; its holder remains alive for safe recovery.")
+
     def stop_third(self):
+        self._pending_sunshine_ready.pop(2, None)
         if not self.third_streaming and self.third_streamer is None:
             return
         self._save_gnome_virtual_layout()
@@ -783,12 +861,15 @@ class StreamingController(QObject):
         self.third_streamer = None
         if process is not None:
             try:
-                if process.state() == QProcess.ProcessState.Running:
+                if self.virtual_display_creator != "vkms" and process.state() == QProcess.ProcessState.Running:
                     process.write(b"quit\n")
                     process.waitForBytesWritten(500)
             except Exception:
                 pass
-            stop_processes(process)
+            if self.virtual_display_creator == "vkms":
+                self._retire_vkms_process(process, "additional")
+            else:
+                stop_processes(process)
         self.gnome_outputs.pop("additional", None)
         self.display_events.pop("additional", None)
         self.third_streaming = False
@@ -807,11 +888,10 @@ class StreamingController(QObject):
                 "fps": str(self.fps),
                 "display_type": self.display_type,
                 "virtual_display_creator": self.virtual_display_creator,
-                "vkms_custom_mode": self.vkms_custom_mode,
-                "vkms_connector": self.vkms_connector,
                 "sunshine_encoder": self.encoder,
                 "sunshine_gpu": self.gpu_id,
                 "sunshine_codec": self.codec,
+                "sunshine_capture": self.capture,
                 "sunshine_native_pen_touch": self.native_pen_touch,
                 "mirror_output": self.mirror_output,
                 "enable_audio": self.audio_enabled,
@@ -825,9 +905,9 @@ class StreamingController(QObject):
                 sunshine_encoder=self.third_encoder,
                 sunshine_gpu=self.third_gpu_id,
                 sunshine_codec=self.third_codec,
+                sunshine_capture=self.third_capture,
                 sunshine_native_pen_touch=self.third_native_pen_touch,
                 enable_audio=self.third_audio_enabled,
-                vkms_custom_mode=self.third_vkms_custom_mode,
             )
         return config
 
@@ -835,9 +915,12 @@ class StreamingController(QObject):
         second = (options or {}).get("second")
         if not second or not second.get("enabled"):
             return
-        QTimer.singleShot(
-            0,
-            lambda: self.start_third(
+        generation = self.generation
+
+        def start_second():
+            if generation != self.generation or not self.streaming:
+                return
+            self.start_third(
                 second["resolution"],
                 second["fps"],
                 second.get("sunshine_encoder", "Auto"),
@@ -845,9 +928,12 @@ class StreamingController(QObject):
                 second.get("sunshine_native_pen_touch", True),
                 second.get("enable_audio", False),
                 gpu_id=second.get("sunshine_gpu", ""),
-                vkms_custom_mode=second.get("vkms_custom_mode", False),
-            ),
-        )
+                capture=second.get("sunshine_capture", "auto"),
+            )
+            if self.pending_options is options:
+                self.pending_options = None
+
+        QTimer.singleShot(0, start_second)
 
     def _check_sunshine_health(self):
         if not self.streaming:
@@ -857,16 +943,31 @@ class StreamingController(QObject):
             alive, exit_code, error = check_sunshine_health(1)
             if not alive:
                 self.sunshine_watchdog_timer.stop()
-                message = "Sunshine instance 1 stopped unexpectedly"
+                message = ("Sunshine instance 1 failed" if exit_code is None
+                           else "Sunshine instance 1 stopped unexpectedly")
                 if exit_code is not None:
                     message += f" (exit code {exit_code})"
                 if error:
                     message += f": {error}"
+                if 1 in self._pending_sunshine_ready:
+                    message = self._capture_start_error(1, message)
                 app_log.write("SUNSHINE", message, level=logging.ERROR)
                 self.logAppended.emit("SUNSHINE", f"ERROR: {message}")
                 self._set_status(message)
                 QTimer.singleShot(0, self.stop)
                 return
+            pending = self._pending_sunshine_ready.get(1)
+            if pending:
+                state, detail = get_sunshine_startup_status(1)
+                if state == "ready":
+                    self._pending_sunshine_ready.pop(1, None)
+                    pending[1]()
+                elif state == "failed" or time.monotonic() - pending[0] > 120:
+                    self._pending_sunshine_ready.pop(1, None)
+                    self._set_status(self._capture_start_error(1, detail or "Sunshine startup timed out"))
+                    self.startFailed.emit()
+                    QTimer.singleShot(0, self.stop)
+                    return
             target = self._x11_capture_targets.get(1)
             if target and get_sunshine_x11_capture_status(
                 1, target, self._sunshine_log_offsets[1]
@@ -905,16 +1006,31 @@ class StreamingController(QObject):
             if self.third_streaming:
                 alive, exit_code, error = check_sunshine_health(2)
                 if not alive:
-                    message = "Sunshine instance 2 stopped unexpectedly"
+                    message = ("Sunshine instance 2 failed" if exit_code is None
+                               else "Sunshine instance 2 stopped unexpectedly")
                     if exit_code is not None:
                         message += f" (exit code {exit_code})"
                     if error:
                         message += f": {error}"
+                    if 2 in self._pending_sunshine_ready:
+                        message = self._capture_start_error(2, message)
                     app_log.write("SUNSHINE", message, level=logging.ERROR)
                     self.logAppended.emit("SUNSHINE", f"ERROR: {message}")
                     self._set_status(message)
                     QTimer.singleShot(0, self.stop_third)
                     return
+                pending = self._pending_sunshine_ready.get(2)
+                if pending:
+                    state, detail = get_sunshine_startup_status(2)
+                    if state == "ready":
+                        self._pending_sunshine_ready.pop(2, None)
+                        pending[1]()
+                    elif state == "failed" or time.monotonic() - pending[0] > 120:
+                        self._pending_sunshine_ready.pop(2, None)
+                        self._set_status(self._capture_start_error(2, detail or "Sunshine startup timed out"))
+                        self.startFailed.emit()
+                        QTimer.singleShot(0, self.stop_third)
+                        return
                 target = self._x11_capture_targets.get(2)
                 if target and get_sunshine_x11_capture_status(
                     2, target, self._sunshine_log_offsets[2]
@@ -1007,6 +1123,7 @@ class StreamingController(QObject):
             self.gnome_layout_change_timer.start()
 
     def stop(self):
+        self._pending_sunshine_ready.clear()
         if self._is_stopping:
             return
         self._is_stopping = True
@@ -1025,16 +1142,15 @@ class StreamingController(QObject):
             self.streamer = None
             if process is not None:
                 try:
-                    if process.state() == QProcess.ProcessState.Running:
+                    if self.virtual_display_creator != "vkms" and process.state() == QProcess.ProcessState.Running:
                         process.write(b"quit\n")
                         process.waitForBytesWritten(500)
                 except Exception:
                     pass
-                if (self.virtual_display_creator == "vkms"
-                        and not self.vkms_custom_mode
-                        and process.state() == QProcess.ProcessState.Running):
-                    process.waitForFinished(15000)
-                stop_processes(process)
+                if self.virtual_display_creator == "vkms":
+                    self._retire_vkms_process(process, "primary")
+                else:
+                    stop_processes(process)
             self.gnome_outputs.clear()
             self.display_events.clear()
             self._set_primary_ready(False)

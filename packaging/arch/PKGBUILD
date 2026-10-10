@@ -1,0 +1,201 @@
+# Local source recipe. The later AUR monitorize-bin recipe will consume prebuilt files.
+source "${BASH_SOURCE[0]%/*}/dependencies.sh"
+
+pkgname=monitorize
+pkgver=0.33.3
+pkgrel=1
+pkgdesc='Sunshine-backed virtual displays for Moonlight clients'
+arch=('x86_64')
+url='https://github.com/vinnavannewton/project-monitorize'
+license=('GPL-3.0-only')
+install=monitorize.install
+options=('!debug')
+
+_boost_version=1.89.0
+_python_minor="$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+_python_next_minor="$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor + 1}")')"
+depends=("${monitorize_runtime_deps[@]}" "python>=${_python_minor}" "python<${_python_next_minor}")
+makedepends=("${monitorize_build_deps[@]}")
+optdepends=(
+    'firewalld: optional firewall integration'
+    'ufw: optional firewall integration'
+    'monitorize-vkms: VKMS virtual displays (preset and custom modes)'
+)
+if [[ "${MONITORIZE_ENABLE_CUDA:-1}" == 1 ]]; then
+    optdepends+=('nvidia-utils: NVIDIA GPU encoding and capture')
+fi
+
+source=(
+    "monitorize-${pkgver}.tar.gz"
+    'Linux-x86_64-ffmpeg.tar.gz'
+    "boost-${_boost_version}-cmake.tar.xz"
+)
+noextract=('Linux-x86_64-ffmpeg.tar.gz' "boost-${_boost_version}-cmake.tar.xz")
+sha256sums=(
+    '__MONITORIZE_SOURCE_SHA256__'
+    '__SUNSHINE_FFMPEG_SHA256__'
+    '__BOOST_SHA256__'
+)
+
+prepare() {
+    cd "${srcdir}/monitorize-${pkgver}"
+    patch --batch --forward -d external/sunshine -p1 \
+        < packaging/sunshine-strict-selection.patch
+    patch --batch --forward -d external/sunshine -p1 \
+        < packaging/sunshine-npm-offline-flags.patch
+
+    mkdir .ffmpeg-prepared .boost-prepared
+    tar -xzf "${startdir}/Linux-x86_64-ffmpeg.tar.gz" \
+        -C .ffmpeg-prepared --strip-components=1 --no-same-owner
+    tar -xJf "${startdir}/boost-${_boost_version}-cmake.tar.xz" \
+        -C .boost-prepared --strip-components=1 --no-same-owner
+    test -f .ffmpeg-prepared/lib/libavcodec.a
+    test -f .boost-prepared/CMakeLists.txt
+
+    # Sunshine requests Boost 1.89 EXACT; Arch can provide a newer compatible one.
+    sed -i 's/find_package(Boost CONFIG ${BOOST_VERSION} EXACT /find_package(Boost CONFIG ${BOOST_VERSION} /' \
+        external/sunshine/cmake/dependencies/Boost_Sunshine.cmake
+}
+
+build() {
+    cd "${srcdir}/monitorize-${pkgver}"
+    python -m build --wheel --no-isolation
+
+    CC="${MONITORIZE_CUDA_HOST_CC:-/usr/bin/gcc}" \
+    CFLAGS_EXTRA="${CFLAGS}" LDFLAGS="${LDFLAGS}" \
+        linux/native/kde_virtual_output/build.sh monitorize-kde-virtual-output
+
+    export CC="${MONITORIZE_CUDA_HOST_CC:-/usr/bin/gcc}"
+    export CXX="${MONITORIZE_CUDA_HOST_CXX:-/usr/bin/g++}"
+    export BRANCH=monitorize BUILD_VERSION=0.0.0
+    export COMMIT="${MONITORIZE_SUNSHINE_COMMIT}"
+    if [[ "${MONITORIZE_OFFLINE:-0}" == 1 ]]; then
+        npm_offline=ON
+    else
+        npm_offline=OFF
+    fi
+
+    local cuda_enabled=ON
+    local cuda_required=ON
+    local -a cuda_args=(
+        -DCMAKE_CUDA_COMPILER=/opt/cuda/bin/nvcc
+        -DCMAKE_CUDA_FLAGS=-Xcompiler=-fPIC
+        -DCMAKE_CUDA_HOST_COMPILER="${CC}"
+    )
+    if [[ "${MONITORIZE_ENABLE_CUDA:-1}" == 0 ]]; then
+        cuda_enabled=OFF
+        cuda_required=OFF
+        cuda_args=()
+    fi
+
+    cmake -B sunshine-build -S external/sunshine \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DBUILD_DOCS=OFF -DBUILD_TESTS=OFF \
+        -DBOOST_USE_STATIC=OFF -DBUILD_SHARED_LIBS=OFF \
+        -DCUDA_FAIL_ON_MISSING="${cuda_required}" \
+        "${cuda_args[@]}" \
+        -DFETCHCONTENT_SOURCE_DIR_BOOST="${PWD}/.boost-prepared" \
+        -DFETCHCONTENT_FULLY_DISCONNECTED=ON \
+        -DFFMPEG_PREPARED_BINARIES="${PWD}/.ffmpeg-prepared" \
+        -DGLAD_SKIP_PIP_INSTALL=ON \
+        -DNPM_OFFLINE="${npm_offline}" \
+        -DNPM=/usr/bin/npm \
+        -DPython_EXECUTABLE=/usr/bin/python \
+        -DSUNSHINE_ASSETS_DIR=/usr/share/monitorize/sunshine/assets \
+        -DSUNSHINE_ENABLE_CUDA="${cuda_enabled}" \
+        -DSUNSHINE_ENABLE_DRM=ON \
+        -DSUNSHINE_ENABLE_KWIN=ON \
+        -DSUNSHINE_ENABLE_PORTAL=ON \
+        -DSUNSHINE_ENABLE_TRAY=OFF \
+        -DSUNSHINE_ENABLE_VAAPI=ON \
+        -DSUNSHINE_ENABLE_VULKAN=ON \
+        -DSUNSHINE_ENABLE_WAYLAND=ON \
+        -DSUNSHINE_ENABLE_X11=ON \
+        -DSUNSHINE_EXECUTABLE_PATH=/usr/libexec/monitorize/sunshine
+
+    cmake --build sunshine-build --parallel "${MONITORIZE_BUILD_JOBS:-$(nproc)}"
+    if [[ "${MONITORIZE_ENABLE_CUDA:-1}" == 1 ]]; then
+        grep -q 'src/platform/linux/cuda.cu' sunshine-build/compile_commands.json
+    else
+        ! grep -q 'src/platform/linux/cuda.cu' sunshine-build/compile_commands.json
+    fi
+}
+
+check() {
+    cd "${srcdir}/monitorize-${pkgver}"
+    desktop-file-validate packaging/fedora/monitorize.desktop
+    desktop-file-validate packaging/fedora/monitorize-kde-virtual-output.desktop
+    test -x monitorize-kde-virtual-output
+    test -x sunshine-build/sunshine
+    test -d sunshine-build/assets/web
+    helper_links="$(ldd monitorize-kde-virtual-output)" || return 1
+    sunshine_links="$(ldd sunshine-build/sunshine)" || return 1
+    [[ "${helper_links}" != *'not found'* ]] || return 1
+    [[ "${sunshine_links}" != *'not found'* ]] || return 1
+    sunshine-build/sunshine --version
+
+    MONITORIZE_SUNSHINE_BIN="${PWD}/sunshine-build/sunshine" \
+    MONITORIZE_SUNSHINE_ASSETS_DIR="${PWD}/sunshine-build/assets" \
+    PYTHONPATH=linux QT_QPA_PLATFORM=offscreen python - <<'PYTHON'
+from PyQt6.QtCore import QUrl
+from PyQt6.QtGui import QGuiApplication
+from PyQt6.QtQml import QQmlComponent, QQmlEngine
+from PyQt6.QtQuickWidgets import QQuickWidget
+from monitorize.desktop import main_window
+from monitorize.platform.sunshine_service import get_sunshine_assets_dir, get_sunshine_candidates
+from monitorize.platform.utils import QML_DIR
+
+command = get_sunshine_candidates()[0]
+assert command[0].endswith('/sunshine-build/sunshine')
+assert get_sunshine_assets_dir(command[0]).endswith('/sunshine-build/assets')
+assert QQuickWidget is not None and main_window is not None
+app = QGuiApplication([])
+engine = QQmlEngine()
+component = QQmlComponent(engine, QUrl.fromLocalFile(f'{QML_DIR}/main.qml'))
+assert not component.isError(), '\n'.join(error.toString() for error in component.errors())
+PYTHON
+}
+
+package() {
+    cd "${srcdir}/monitorize-${pkgver}"
+    python -m installer --destdir="${pkgdir}" dist/*.whl
+
+    install -Dpm 0755 "${startdir}/monitorize-wrapper" \
+        "${pkgdir}/usr/bin/monitorize"
+    install -Dpm 0755 monitorize-kde-virtual-output \
+        "${pkgdir}/usr/bin/monitorize-kde-virtual-output"
+    install -Dpm 0755 sunshine-build/sunshine \
+        "${pkgdir}/usr/libexec/monitorize/sunshine"
+    install -Dpm 0755 packaging/common/monitorize-system-setup \
+        "${pkgdir}/usr/libexec/monitorize/monitorize-system-setup"
+    install -dpm 0755 "${pkgdir}/usr/share/monitorize/sunshine/assets"
+    cp -aL sunshine-build/assets/. \
+        "${pkgdir}/usr/share/monitorize/sunshine/assets/"
+
+    install -Dpm 0644 packaging/fedora/monitorize.desktop \
+        "${pkgdir}/usr/share/applications/monitorize.desktop"
+    install -Dpm 0644 packaging/fedora/monitorize-kde-virtual-output.desktop \
+        "${pkgdir}/usr/share/applications/monitorize-kde-virtual-output.desktop"
+    install -Dpm 0644 linux/monitorize/assets/monitorize_desktop_logo.png \
+        "${pkgdir}/usr/share/icons/hicolor/512x512/apps/monitorize.png"
+    install -Dpm 0644 packaging/fedora/monitorize.xml \
+        "${pkgdir}/usr/lib/firewalld/services/monitorize.xml"
+    install -Dpm 0644 packaging/deb/common/monitorize.ufw.profile \
+        "${pkgdir}/etc/ufw/applications.d/monitorize"
+    install -Dpm 0644 packaging/common/io.github.vinnavannewton.monitorize.system-setup.policy \
+        "${pkgdir}/usr/share/polkit-1/actions/io.github.vinnavannewton.monitorize.system-setup.policy"
+    install -Dpm 0644 packaging/fedora/70-monitorize-uinput.rules \
+        "${pkgdir}/usr/lib/udev/rules.d/70-monitorize-uinput.rules"
+    install -Dpm 0644 packaging/fedora/monitorize.sysusers \
+        "${pkgdir}/usr/lib/sysusers.d/monitorize.conf"
+    install -dpm 0755 "${pkgdir}/usr/lib/modules-load.d"
+    printf 'uinput\n' > "${pkgdir}/usr/lib/modules-load.d/monitorize.conf"
+    install -Dpm 0644 LICENSE \
+        "${pkgdir}/usr/share/licenses/monitorize/Monitorize-LICENSE"
+    install -Dpm 0644 external/sunshine/LICENSE \
+        "${pkgdir}/usr/share/licenses/monitorize/Sunshine-LICENSE"
+    install -Dpm 0644 README.md \
+        "${pkgdir}/usr/share/doc/monitorize/README.md"
+}

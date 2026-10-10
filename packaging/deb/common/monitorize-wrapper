@@ -1,0 +1,4 @@
+#!/bin/sh
+export MONITORIZE_SUNSHINE_BIN=/usr/libexec/monitorize/sunshine
+export MONITORIZE_SUNSHINE_ASSETS_DIR=/usr/share/monitorize/sunshine/assets
+exec /usr/bin/python3 -m monitorize "$@"

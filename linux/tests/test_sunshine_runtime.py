@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 import unittest
@@ -8,6 +9,80 @@ from monitorize.platform import sunshine_service as service
 
 
 class SunshineRuntimeTest(unittest.TestCase):
+    def test_nix_sunshine_requires_binary_and_assets_from_same_store_output(self):
+        binary = "/nix/store/abc-monitorize-sunshine/bin/sunshine"
+        assets = "/nix/store/abc-monitorize-sunshine/assets"
+        self.assertEqual(
+            service._nix_store_sunshine_bundle(binary, assets),
+            (binary, assets),
+        )
+        self.assertIsNone(service._nix_store_sunshine_bundle(binary, ""))
+        self.assertIsNone(
+            service._nix_store_sunshine_bundle(
+                binary, "/nix/store/other-monitorize-sunshine/assets"
+            )
+        )
+        self.assertIsNone(
+            service._nix_store_sunshine_bundle("/usr/bin/sunshine", assets)
+        )
+
+        with patch.dict(
+            os.environ,
+            {
+                "MONITORIZE_SUNSHINE_BIN": binary,
+                "MONITORIZE_SUNSHINE_ASSETS_DIR": assets,
+            },
+            clear=False,
+        ):
+            self.assertEqual(service._sunshine_bundles()[0], (binary, assets))
+
+    def test_reset_config_restores_managed_defaults_and_keeps_pairing(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {"XDG_CONFIG_HOME": tmp}):
+            for instance in (1, 2):
+                directory = Path(service.get_sunshine_config_dir(instance))
+                directory.mkdir(parents=True)
+                (directory / "sunshine.conf").write_text("encoder = software\nupnp = enabled\n")
+                (directory / "apps.json").write_text('{"apps": [{"name": "Custom"}]}')
+                (directory / "credentials").write_text("pairing-data")
+                ok, _ = service.reset_sunshine_config(instance)
+                self.assertTrue(ok)
+                config = (directory / "sunshine.conf").read_text()
+                self.assertNotIn("encoder", config)
+                self.assertNotIn("upnp = enabled", config)
+                self.assertIn(f"port = {service.get_sunshine_port(instance)}", config)
+                self.assertEqual(
+                    json.loads((directory / "apps.json").read_text()),
+                    service.DEFAULT_SUNSHINE_APPS,
+                )
+                self.assertEqual((directory / "credentials").read_text(), "pairing-data")
+
+    def test_capture_failure_survives_successful_encoder_probe(self):
+        process = MagicMock()
+        process.poll.return_value = None
+        with tempfile.TemporaryDirectory() as tmp, patch.object(
+                service, "get_sunshine_config_dir", return_value=tmp), patch.object(
+                service, "get_sunshine_process", return_value=process):
+            log = Path(tmp) / "sunshine.log"
+            prefix = "Info: Sunshine version: test\n"
+            error = "Info: [pipewire] PipeWire stream error 'no target node available'\n"
+            ready = "Info: Found H.264 encoder: libx264 [software]\nInfo: Configuration UI available at [https://localhost:47990]\n"
+            log.write_text(prefix + error)
+            self.assertEqual(service.get_sunshine_startup_status(), ("pending", ""))
+            log.write_text(prefix + error + ready + "Error: Failed to create client: Daemon not running\n")
+            self.assertEqual(service.get_sunshine_startup_status()[0], "failed")
+            self.assertFalse(service.check_sunshine_health()[0])
+            self.assertIn("no target node", service.check_sunshine_health()[2])
+            log.write_text(prefix + error + "Info: [pipewire] PipeWire stream state: paused -> streaming\n" + ready)
+            self.assertEqual(service.get_sunshine_startup_status(), ("ready", ""))
+            service._SUNSHINE_PREVIOUS_LOG_HEADERS[1] = prefix.strip()
+            self.assertEqual(service.get_sunshine_startup_status(), ("pending", ""))
+            service._SUNSHINE_PREVIOUS_LOG_HEADERS.clear()
+            self.assertTrue(service.check_sunshine_health()[0])
+            log.write_text(prefix + error + ready + prefix)
+            self.assertEqual(service.get_sunshine_startup_status(), ("pending", ""))
+            log.write_text(prefix + ready + "Error: Failed to create client: Daemon not running\n")
+            self.assertEqual(service.get_sunshine_startup_status(), ("ready", ""))
+
     def test_kms_preflight_requires_capability_on_bundled_binary(self):
         with (
             patch.object(service, "find_sunshine_command", return_value=["/tmp/monitorize-sunshine"]),
@@ -55,6 +130,7 @@ class SunshineRuntimeTest(unittest.TestCase):
             self.assertEqual(service.check_sunshine_health(1), (True, None, ""))
 
     def tearDown(self):
+        service._SUNSHINE_PREVIOUS_LOG_HEADERS.clear()
         service._SUNSHINE_PROCESS = None
         service._SUNSHINE_PROCESSES.clear()
         service._SUNSHINE_SETTINGS_INSTANCES.clear()

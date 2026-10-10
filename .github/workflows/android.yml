@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "android/**"
+      - ".github/workflows/android.yml"
   push:
     branches:
       - main
@@ -13,13 +14,37 @@ on:
       - "android-v*.*.*"
     paths:
       - "android/**"
+      - ".github/workflows/android.yml"
 
 permissions:
   contents: read
 
 jobs:
+  source-check:
+    name: Check Android source availability
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      available: ${{ steps.sources.outputs.available }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Gradle project
+        id: sources
+        run: |
+          if [ -d android ]; then
+            test -f android/gradlew
+            test -f android/app/build.gradle.kts
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Android sources are absent from this branch; Android build is skipped."
+          fi
+
   ci:
     name: Android CI
+    needs: source-check
+    if: needs.source-check.outputs.available == 'true'
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     defaults:
       run:

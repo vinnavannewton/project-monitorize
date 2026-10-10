@@ -1,0 +1,23 @@
+post_install() {
+    if command -v systemd-sysusers >/dev/null 2>&1; then
+        systemd-sysusers /usr/lib/sysusers.d/monitorize.conf
+    fi
+    setcap cap_sys_admin,cap_sys_nice+p /usr/libexec/monitorize/sunshine || return 1
+    if command -v udevadm >/dev/null 2>&1; then
+        udevadm control --reload-rules >/dev/null 2>&1 || :
+        udevadm trigger --subsystem-match=misc --sysname-match=uinput >/dev/null 2>&1 || :
+    fi
+    if command -v modprobe >/dev/null 2>&1; then
+        modprobe uinput >/dev/null 2>&1 || :
+    fi
+}
+
+post_upgrade() {
+    post_install
+}
+
+post_remove() {
+    if command -v udevadm >/dev/null 2>&1; then
+        udevadm control --reload-rules >/dev/null 2>&1 || :
+    fi
+}

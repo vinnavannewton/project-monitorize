@@ -45,7 +45,10 @@ class SunshineOnlyPackagingTest(unittest.TestCase):
             "!force_non_h264 && video::last_encoder_probe_supported_yuv444_for_codec[0]",
             patch_text,
         )
-        self.assertIn("MONITORIZE_STRICT_CODEC_REJECTED", patch_text)
+        self.assertIn(
+            "MONITORIZE_STRICT_CODEC_REJECTED",
+            (ROOT / "external/sunshine/src/rtsp.cpp").read_text(),
+        )
         self.assertIn(
             "config::video.hevc_mode == 1 && config::video.av1_mode == 1",
             patch_text,
@@ -99,12 +102,11 @@ node_version_supported 22.12.0
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_cuda_auto_disables_without_nvidia_hardware(self):
+    def test_cuda_off_disables_without_probing_toolchain(self):
         result = self.run_installer_prelude(
             r'''
-CUDA_POLICY="auto"
+CUDA_POLICY="off"
 SUNSHINE_CC="/usr/bin/gcc"
-nvidia_gpu_present() { return 1; }
 probe_cuda_toolchain() { echo "probe must not run" >&2; return 99; }
 configure_sunshine_cuda
 printf 'enabled=%s\nflags=%s\n' "${SUNSHINE_CUDA_ENABLED}" "${SUNSHINE_CUDA_CMAKE_FLAGS[*]}"
@@ -115,35 +117,11 @@ printf 'enabled=%s\nflags=%s\n' "${SUNSHINE_CUDA_ENABLED}" "${SUNSHINE_CUDA_CMAK
         self.assertIn("-DSUNSHINE_ENABLE_CUDA=OFF", result.stdout)
         self.assertNotIn("probe must not run", result.stderr)
 
-    def test_nvidia_detection_uses_display_class_pci_devices_without_lspci(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            pci_root = Path(tmp) / "pci"
-            nvidia = pci_root / "0000:01:00.0"
-            nvidia.mkdir(parents=True)
-            (nvidia / "vendor").write_text("0x10de\n")
-            (nvidia / "class").write_text("0x030200\n")
-            env = os.environ.copy()
-            env["MONITORIZE_PCI_SYSFS_ROOT"] = str(pci_root)
-            result = self.run_installer_prelude(
-                r'''
-command() {
-    if [[ "${1:-}" == "-v" && "${2:-}" == "nvidia-smi" ]]; then
-        return 1
-    fi
-    builtin command "$@"
-}
-nvidia_gpu_present
-''',
-                env=env,
-            )
-            self.assertEqual(result.returncode, 0, result.stderr)
-
-    def test_cuda_auto_enables_only_after_successful_toolchain_probe(self):
+    def test_cuda_on_enables_after_successful_toolchain_probe(self):
         result = self.run_installer_prelude(
             r'''
-CUDA_POLICY="auto"
+CUDA_POLICY="on"
 SUNSHINE_CC="/usr/bin/gcc-14"
-nvidia_gpu_present() { return 0; }
 probe_cuda_toolchain() {
     SUNSHINE_CUDA_COMPILER="/opt/cuda/bin/nvcc"
     SUNSHINE_CUDA_VERSION="12.8"
@@ -209,25 +187,6 @@ printf 'compiler=%s\nversion=%s\n' "${SUNSHINE_CUDA_COMPILER}" "${SUNSHINE_CUDA_
             self.assertIn("-DCMAKE_CUDA_HOST_COMPILER=/usr/bin/gcc-14", probe_args)
             self.assertIn(f"-DCMAKE_CUDA_COMPILER={nvcc}", probe_args)
             self.assertEqual(list(probe_tmp.iterdir()), [])
-
-    def test_cuda_auto_falls_back_when_gpu_has_no_usable_toolchain(self):
-        result = self.run_installer_prelude(
-            r'''
-CUDA_POLICY="auto"
-SUNSHINE_CC="/usr/bin/gcc-14"
-nvidia_gpu_present() { return 0; }
-probe_cuda_toolchain() {
-    SUNSHINE_CUDA_PROBE_ERROR="unsupported host compiler"
-    return 1
-}
-configure_sunshine_cuda
-printf 'enabled=%s\nflags=%s\n' "${SUNSHINE_CUDA_ENABLED}" "${SUNSHINE_CUDA_CMAKE_FLAGS[*]}"
-'''
-        )
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("enabled=off", result.stdout)
-        self.assertIn("-DSUNSHINE_ENABLE_CUDA=OFF", result.stdout)
-        self.assertIn("toolchain is unusable", result.stderr)
 
     def test_cuda_on_is_strict_when_toolchain_probe_fails(self):
         result = self.run_installer_prelude(
@@ -342,7 +301,7 @@ check_sunshine_node_modules_permissions
         self.assertIn("--complete", help_result.stdout)
         self.assertIn("--partial", help_result.stdout)
         self.assertIn("--cuda=POLICY", help_result.stdout)
-        self.assertIn("MONITORIZE_CUDA=auto|on|off", help_result.stdout)
+        self.assertIn("MONITORIZE_CUDA=on|off", help_result.stdout)
 
         conflict = subprocess.run(
             [script, "--complete", "--partial"],
@@ -363,7 +322,7 @@ check_sunshine_node_modules_permissions
         self.assertIn("cannot be used together", cuda_partial_conflict.stderr)
 
         spaced_cuda_conflict = subprocess.run(
-            [script, "--partial", "--cuda", "auto"],
+            [script, "--partial", "--cuda", "on"],
             text=True,
             capture_output=True,
             check=False,
@@ -372,13 +331,13 @@ check_sunshine_node_modules_permissions
         self.assertIn("cannot be used together", spaced_cuda_conflict.stderr)
 
         invalid_cuda = subprocess.run(
-            [script, "--cuda=maybe"],
+            [script, "--cuda=auto"],
             text=True,
             capture_output=True,
             check=False,
         )
         self.assertEqual(invalid_cuda.returncode, 2)
-        self.assertIn("expected auto, on, or off", invalid_cuda.stderr)
+        self.assertIn("expected on or off", invalid_cuda.stderr)
 
     def test_complete_install_reaches_build_without_ccache_and_with_vulkan_tools(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -590,13 +549,12 @@ exit 0
         self.assertNotIn("zeroconf", script)
         self.assertNotIn("evdev", script)
 
-        workflow = (ROOT / ".github/workflows/desktop.yml").read_text()
-        self.assertIn("linux/scripts/install.sh --partial", workflow)
-
     def test_nix_closure_has_no_monitorize_gstreamer_or_adb_runtime(self):
         package = (ROOT / "nix/package.nix").read_text()
         self.assertIn("monitorizeSunshine", package)
-        self.assertIn("sunshine-portal-token-scope.patch", package)
+        self.assertIn('COMMIT = "8d043f2b929705a4f6bad30d1e7f700a2de607b6";', package)
+        self.assertIn('SUNSHINE_ENABLE_CUDA" cudaSupport', package)
+        self.assertIn('SUNSHINE_ENABLE_VAAPI" true', package)
         self.assertNotIn("gst_all_1", package)
         self.assertNotIn("android-tools", package)
         self.assertNotIn("monitorize-rtp-sender", package)
@@ -606,18 +564,19 @@ exit 0
             path.read_text()
             for path in (ROOT / "linux/monitorize/qml").glob("*.qml")
         )
-        self.assertIn("Create a Virtual Display", qml)
+        self.assertIn("Create virtual display only", qml)
         for legacy in ("USB Mode", "Receiver Mode", 'model: ["Monitorize", "Sunshine"]'):
             self.assertNotIn(legacy, qml)
 
     def test_display_setup_groups_streaming_and_virtual_only_controls(self):
         qml = (ROOT / "linux/monitorize/qml/DisplaySetupPage.qml").read_text()
-        headings = ('title: "DISPLAY"', 'title: "STREAMING"', 'title: "EXTRAS"')
+        sunshine_card = (ROOT / "linux/monitorize/qml/SunshineDisplayCard.qml").read_text()
+        headings = ('title: "DISPLAY"', 'title: "SUNSHINE · MIRROR"', 'title: "ADVANCED"')
         for heading in headings:
             self.assertIn(heading, qml)
         self.assertLess(qml.index(headings[0]), qml.index(headings[1]))
         self.assertLess(qml.index(headings[1]), qml.index(headings[2]))
-        self.assertIn('model: ["Automatic (Recommended)", "Customize ›"]', qml)
+        self.assertIn('model: ["Automatic (Recommended)", "Customize ›"]', sunshine_card)
         self.assertIn('text: "Create virtual display only"', qml)
         self.assertNotIn('text: "Launch"', qml)
         self.assertNotIn("Moonlight will discover", qml)
@@ -630,19 +589,16 @@ exit 0
             qml,
         )
 
-    def test_source_vkms_ui_and_standalone_cli_backend_integration(self):
+    def test_source_vkms_ui_and_host_service_backend_integration(self):
         qml = (ROOT / "linux/monitorize/qml/DisplaySetupPage.qml").read_text()
         display_card = (ROOT / "linux/monitorize/qml/VirtualDisplayModeCard.qml").read_text()
         installer = (ROOT / "linux/scripts/install.sh").read_text()
-        cli_adapter = (ROOT / "linux/monitorize/platform/monitorize_vkms_cli.py").read_text()
+        cli_adapter = (ROOT / "linux/monitorize/platform/monitorize_vkms_dbus.py").read_text()
         self.assertIn('text: "Virtual Display Creator"', qml)
         self.assertIn('"VKMS (Experimental)"', qml)
-        self.assertIn('backend.checkVkmsCustomEdidSupport()', qml)
+        self.assertIn('backend.vkmsHelperAvailable', qml)
         self.assertIn('VirtualDisplayModeCard', qml)
-        self.assertIn('backend.vkmsCustomEdidCapability', qml)
-        self.assertIn('Custom VKMS resolution unavailable', qml)
-        self.assertIn('Could not check VKMS custom-resolution support', qml)
-        self.assertIn('"Install monitorize-vkms"', qml)
+        self.assertNotIn('stock VKMS connector', qml)
         self.assertIn('currentText === "Custom..."', display_card)
         self.assertIn("check_vkms_cli", installer)
         self.assertIn("class MonitorizeVkmsClient", cli_adapter)
@@ -664,20 +620,21 @@ exit 0
             installer,
         )
 
-    def test_choice_chips_and_preset_menu_use_the_requested_layout(self):
+    def test_choice_chips_and_presets_placeholder_use_the_requested_layout(self):
         chips = (ROOT / "linux/monitorize/qml/ChoiceChips.qml").read_text()
-        menu = (ROOT / "linux/monitorize/qml/MainMenuPage.qml").read_text()
+        presets = (ROOT / "linux/monitorize/qml/PresetsPage.qml").read_text()
         self.assertIn("columns: 3", chips)
-        self.assertIn('text: "⋮"', menu)
-        self.assertIn('text: "Rename"', menu)
-        self.assertIn('text: "Remove"', menu)
-        self.assertIn("backend.renamePreset", menu)
-        self.assertNotIn('text: "×"', menu)
+        self.assertIn('text: "WIP"', presets)
+        self.assertIn("anchors.centerIn: parent", presets)
+        self.assertIn("enabled: false", presets)
+        self.assertIn("color: theme.textMuted", presets)
+        self.assertNotIn("backend.", presets)
 
     def test_successful_pairing_closes_the_pin_popup(self):
         qml = (ROOT / "linux/monitorize/qml/StreamingPage.qml").read_text()
         self.assertIn("interval: 2000", qml)
-        self.assertIn('if (result["success"]) pinSuccessCloseTimer.restart()', qml)
+        self.assertIn('if (success) pinSuccessCloseTimer.restart()', qml)
+        self.assertIn("backend.startPairMoonlightPin(pinField.text, page.pairInstance)", qml)
         self.assertIn("onTriggered: pinPopup.close()", qml)
 
     def test_navigation_direction_and_display_picker_actions_are_unambiguous(self):
@@ -686,35 +643,23 @@ exit 0
         display_setup = (ROOT / "linux/monitorize/qml/DisplaySetupPage.qml").read_text()
         streaming = (ROOT / "linux/monitorize/qml/StreamingPage.qml").read_text()
 
-        self.assertIn("function pageOrder(page)", main)
-        self.assertIn("property int pageTransitionDirection: 1", main)
-        self.assertIn(
-            "pageTransitionDirection = pageOrder(page) > pageOrder(selectedPage) ? 1 : -1",
-            main,
-        )
-        self.assertIn(
-            "from: root.pageTransitionDirection * stack.height",
-            main,
-        )
-        self.assertIn(
-            "to: -root.pageTransitionDirection * stack.height",
-            main,
-        )
+        self.assertIn('property string pendingNavigation: ""', main)
+        self.assertIn('property: "opacity"; from: 0; to: 1; duration: 160', main)
         self.assertIn("property int disabledIndex: -1", combo)
         self.assertIn("enabled: index !== cb.disabledIndex", combo)
         self.assertIn("indicator: Text", combo)
         self.assertIn("color: theme.textPrimary", combo)
         self.assertIn("disabledIndex: 0", display_setup)
         self.assertIn(
-            'model: displayType.currentText === "Extend" ? page.virtualDisplays : []',
+            'model: displayType.currentText === "Extend" ? displayModel : 0',
             display_setup,
         )
         self.assertIn(
             'visible: displayType.currentText === "Extend" && page.virtualDisplays.length < 2',
             display_setup,
         )
-        self.assertIn("displayNumber: Number(modelData.id)", display_setup)
-        self.assertIn("canRemove: Number(modelData.id) === 2", display_setup)
+        self.assertIn("displayNumber: displayId", display_setup)
+        self.assertIn("canRemove: displayId === 2", display_setup)
         self.assertIn("function mirrorResolutionLabel()", display_setup)
         self.assertEqual(streaming.count('text: "Pair Moonlight PIN"'), 1)
         self.assertIn("model: backend.sessionDisplays", streaming)
@@ -724,13 +669,14 @@ exit 0
         self.assertIn("backend.removeSessionDisplay(1)", streaming)
         self.assertNotIn('text: "Add Display"', streaming)
 
-    def test_add_display_is_disabled_in_vkms_mode(self):
+    def test_add_display_uses_the_same_two_card_limit_in_vkms_mode(self):
         qml = (ROOT / "linux/monitorize/qml/DisplaySetupPage.qml").read_text()
         button = qml.split("id: addDisplayButton", 1)[1].split("SectionCard {", 1)[0]
-        self.assertIn("enabled: !page.vkmsSelected", button)
-        self.assertIn("opacity: enabled ? 1.0 : 0.4", button)
+        self.assertIn("enabled: !backend.sessionBusy", button)
+        self.assertNotIn("!page.vkmsSelected", button)
+        self.assertIn('color: addDisplayButton.enabled ? "#94caff" : theme.textMuted', button)
         self.assertIn("addDisplayButton.enabled && addDisplayButton.hovered", button)
-        self.assertIn("if (vkmsSelected || virtualDisplays.length >= 2) return", qml)
+        self.assertIn("if (virtualDisplays.length >= 2) return", qml)
         self.assertNotIn("Creates up to two displays using Linux's experimental VKMS path", qml)
 
     def test_navigation_avoids_hidden_synchronous_work(self):
@@ -742,19 +688,15 @@ exit 0
         self.assertIn("if (hasChanges) {", display_setup)
         self.assertNotIn("Component.onCompleted: refreshDiagnostics()", streaming)
         self.assertNotIn("function onLogAppended", streaming)
-        self.assertIn(
-            "if (logsExpanded) Qt.callLater(function() { page.refreshDiagnostics() })",
-            streaming,
-        )
-        self.assertIn("running: page.logsExpanded", streaming)
+        self.assertIn("if (running) Qt.callLater(function() { if (running) page.refreshDiagnostics() })", streaming)
+        self.assertIn("running: page.logsExpanded && backend.uiVisible", streaming)
+        self.assertIn("page.StackView.view.currentItem === page", streaming)
 
-    def test_choice_chips_and_start_card_fit_their_containers(self):
+    def test_choice_chips_fit_their_container(self):
         chips = (ROOT / "linux/monitorize/qml/ChoiceChips.qml").read_text()
-        menu = (ROOT / "linux/monitorize/qml/MainMenuPage.qml").read_text()
         self.assertIn("GridLayout", chips)
         self.assertIn("columns: 3", chips)
         self.assertIn("rowSpacing: 8", chips)
-        self.assertIn("Layout.preferredWidth: Math.min(440, page.width - 40)", menu)
 
     def test_retired_runtime_modules_are_absent(self):
         package = ROOT / "linux/monitorize"
@@ -795,7 +737,8 @@ exit 0
         self.assertIn("%dir %{_datadir}/monitorize/sunshine", spec)
         self.assertIn("MONITORIZE_SUNSHINE_BIN", spec)
         self.assertIn("MONITORIZE_SUNSHINE_ASSETS_DIR", spec)
-        self.assertIn("sunshine-portal-token-scope.patch", spec)
+        self.assertIn("SUNSHINE_ENABLE_CUDA=ON", spec)
+        self.assertIn("CUDA_FAIL_ON_MISSING=ON", spec)
         self.assertIn("sunshine_ffmpeg_sha256", spec)
         self.assertIn("BuildRequires:  boost-devel >= 1.89.0", spec)
         self.assertIn("BuildRequires:  firewalld-filesystem", spec)

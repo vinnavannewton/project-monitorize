@@ -17,21 +17,23 @@
 , gnutar
 , gzip
 , libva-utils
+, cudaSupport ? (stdenv.hostPlatform.system == "x86_64-linux")
 }:
 
 let
   python = python3Packages.python;
   sunshineSource = lib.cleanSource ../external/sunshine;
-  sunshineVersion = "0-unstable-2026-08-19";
+  sunshineVersion = "0-unstable-2026-10-03";
+  sunshineForBuild = sunshine.override { inherit cudaSupport; };
   ffmpegArch = {
     x86_64-linux = "Linux-x86_64";
     aarch64-linux = "Linux-aarch64";
   }.${stdenv.hostPlatform.system};
   ffmpegArchive = fetchurl {
-    url = "https://github.com/LizardByte/build-deps/releases/download/v2026.724.203728/${ffmpegArch}-ffmpeg.tar.gz";
+    url = "https://github.com/LizardByte/build-deps/releases/download/v2026.910.121303/${ffmpegArch}-ffmpeg.tar.gz";
     hash = {
-      x86_64-linux = "sha256-LCfUaUtO0Oc09JfUvWLxs2Ysu8Te0qafLcS3A0Qe67M=";
-      aarch64-linux = "sha256-/WSS9V15rheNuX5I1jlbTKwqLhCy8Vew1ANVz9fBYOg=";
+      x86_64-linux = "sha256-SW0ru2dNAeYDPjG538FcvJ3BSU6IKkUF9qseA/dbOFw=";
+      aarch64-linux = "sha256-IfmUCeGroJGR+d8oaI+3+dRPmOZTeKZRMkxjLBmCOqA=";
     }.${stdenv.hostPlatform.system};
   };
   ffmpegPrepared = runCommand "monitorize-sunshine-ffmpeg" {
@@ -53,19 +55,25 @@ let
       runHook postInstall
     '';
   };
-  monitorizeSunshine = sunshine.overrideAttrs (finalAttrs: previousAttrs: {
+  monitorizeSunshine = sunshineForBuild.overrideAttrs (finalAttrs: previousAttrs: {
     pname = "monitorize-sunshine";
     version = sunshineVersion;
     src = sunshineSource;
     ui = sunshineUi;
     patches = (previousAttrs.patches or []) ++ [
       ../packaging/sunshine-strict-selection.patch
-      ../packaging/sunshine-portal-token-scope.patch
+      # Portal token scoping is already part of the pinned Monitorize fork.
     ];
     cmakeFlags = builtins.filter
       (flag: !(lib.hasPrefix "-DFFMPEG_PREPARED_BINARIES=" flag))
       previousAttrs.cmakeFlags ++ [
         (lib.cmakeFeature "FFMPEG_PREPARED_BINARIES" "${ffmpegPrepared}")
+        (lib.cmakeBool "SUNSHINE_ENABLE_CUDA" cudaSupport)
+        (lib.cmakeBool "CUDA_FAIL_ON_MISSING" cudaSupport)
+        (lib.cmakeBool "SUNSHINE_ENABLE_VAAPI" true)
+        (lib.cmakeBool "SUNSHINE_ENABLE_KWIN" true)
+        (lib.cmakeBool "SUNSHINE_ENABLE_WAYLAND" true)
+        (lib.cmakeBool "SUNSHINE_ENABLE_PORTAL" true)
         (lib.cmakeBool "SUNSHINE_ENABLE_TRAY" false)
         (lib.cmakeBool "BUILD_TESTS" false)
         (lib.cmakeBool "BUILD_DOCS" false)
@@ -73,14 +81,14 @@ let
     env = previousAttrs.env // {
       BUILD_VERSION = finalAttrs.version;
       BRANCH = "monitorize";
-      COMMIT = "569480fb749411432261cc0fd617d385ddefd468";
+      COMMIT = "8d043f2b929705a4f6bad30d1e7f700a2de607b6";
     };
   });
 in
 python3Packages.buildPythonApplication rec {
   pname = "monitorize";
-  version = "0-unstable";
-  pyproject = false;                    # no setup.py / pyproject.toml yet
+  version = "0.33.3";
+  pyproject = false;                    # Nix installs the linux/ tree directly.
 
   # Use lib.cleanSource to exclude editor artefacts, __pycache__, venv/, etc.
   # so only the intended tree is packaged and builds remain reproducible.

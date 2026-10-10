@@ -1,0 +1,15 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: Monitorize
+Source: https://github.com/vinnavannewton/project-monitorize
+
+Files: *
+Copyright: Monitorize contributors
+License: GPL-3.0-only
+
+Files: external/sunshine/*
+Copyright: Sunshine contributors
+License: GPL-3.0-only
+
+License: GPL-3.0-only
+ On Debian systems, the complete text of the GNU General Public License
+ version 3 can be found in /usr/share/common-licenses/GPL-3.

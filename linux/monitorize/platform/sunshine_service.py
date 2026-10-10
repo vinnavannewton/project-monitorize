@@ -13,13 +13,16 @@ import signal
 import socket
 import ssl
 import subprocess
+import tempfile
 import time
 import webbrowser
+from pathlib import Path
 
 PR_SET_PDEATHSIG = 1
 _SUNSHINE_PROCESS: subprocess.Popen | None = None
 _SUNSHINE_PROCESSES: dict[int, subprocess.Popen] = {}
 _SUNSHINE_SETTINGS_INSTANCES: set[int] = set()
+_SUNSHINE_PREVIOUS_LOG_HEADERS: dict[int, str] = {}
 
 
 def _set_pdeathsig() -> None:
@@ -45,6 +48,10 @@ PORTAL_RESTORE_TOKEN_FILES = (
     "portal_token_mirror",
     "portal_token_extend",
 )
+DEFAULT_SUNSHINE_APPS = {
+    "apps": [{"image-path": "desktop.png", "name": "Desktop"}],
+    "env": {"PATH": "$(PATH):$(HOME)/.local/bin"},
+}
 
 
 def get_sunshine_log_size(instance: int = 1) -> int:
@@ -121,6 +128,46 @@ def get_sunshine_config_dir(instance: int = 1) -> str:
 def get_sunshine_config_path(instance: int = 1) -> str:
     """Return the absolute path to the active isolated sunshine.conf file."""
     return os.path.join(get_sunshine_config_dir(instance), "sunshine.conf")
+
+
+def reset_sunshine_config(instance: int = 1) -> tuple[bool, str]:
+    """Restore a Monitorize instance's initial config and apps, keeping pairing data."""
+    path = get_sunshine_config_path(instance)
+    directory = os.path.dirname(path)
+    config_home = os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config"))
+    profile_apps = os.path.join(
+        config_home, "monitorize", f"sunshine-profile-{instance}", "sunshine", "apps.json"
+    )
+    files = {
+        path: (
+            f"sunshine_name = {get_sunshine_device_name(instance)}\n"
+            "system_tray = disabled\n"
+            f"port = {get_sunshine_port(instance)}\n"
+            "origin_web_ui_allowed = lan\n"
+        ),
+        os.path.join(directory, "apps.json"): json.dumps(DEFAULT_SUNSHINE_APPS, indent=4),
+        profile_apps: json.dumps(DEFAULT_SUNSHINE_APPS, indent=4),
+    }
+    try:
+        for target, content in files.items():
+            target_dir = os.path.dirname(target)
+            os.makedirs(target_dir, exist_ok=True)
+            temporary = None
+            try:
+                with tempfile.NamedTemporaryFile(
+                    mode="w", encoding="utf-8", dir=target_dir, prefix=".monitorize-reset-",
+                    delete=False,
+                ) as output:
+                    temporary = output.name
+                    output.write(content)
+                os.chmod(temporary, 0o600)
+                os.replace(temporary, target)
+            finally:
+                if temporary is not None and os.path.exists(temporary):
+                    os.unlink(temporary)
+    except OSError as exc:
+        return False, f"Could not reset Sunshine instance {instance}: {exc}"
+    return True, f"Sunshine instance {instance} settings reset."
 
 
 def clear_sunshine_portal_restore_tokens() -> tuple[int, list[str]]:
@@ -218,6 +265,47 @@ def get_sunshine_last_error(instance: int = 1, max_lines: int = 5) -> str:
     return ""
 
 
+def get_sunshine_startup_status(instance: int = 1) -> tuple[str, str]:
+    """Return pending/ready/failed for the latest launch, including capture health.
+
+    Encoder probes can succeed with synthetic frames while PipeWire fails.
+    Allow probe retries until initialization finishes; a later streaming state
+    clears a previous PipeWire failure. Ignore diagnostics from older launches.
+    """
+    try:
+        with open(os.path.join(get_sunshine_config_dir(instance), "sunshine.log"),
+                  encoding="utf-8", errors="replace") as source:
+            log = source.read()
+    except OSError:
+        return "pending", ""
+    marker = log.rfind("Info: Sunshine version:")
+    if marker < 0:
+        return "pending", ""
+    line_start = log.rfind("\n", 0, marker) + 1
+    header = log[line_start:].splitlines()[0]
+    if header == _SUNSHINE_PREVIOUS_LOG_HEADERS.get(instance):
+        return "pending", ""
+    log = log[marker:]
+    initialized = False
+    encoder = False
+    capture_error = ""
+    for line in log.splitlines():
+        if "Video failed to find working encoder" in line or "Fatal:" in line:
+            return "failed", line.strip()
+        if "[pipewire]" in line:
+            if "PipeWire stream error" in line or "Pipewire Error" in line:
+                capture_error = line.strip()
+            elif "PipeWire stream state:" in line and "-> streaming" in line:
+                capture_error = ""
+        if "Found H.264 encoder:" in line:
+            encoder = True
+        if "Configuration UI available at" in line:
+            initialized = True
+    if initialized and capture_error:
+        return "failed", "Screen capture failed: " + capture_error
+    return ("ready", "") if initialized and encoder else ("pending", "")
+
+
 def check_sunshine_health(instance: int = 1) -> tuple[bool, int | None, str]:
     """Check if Sunshine instance is alive.
 
@@ -233,6 +321,9 @@ def check_sunshine_health(instance: int = 1) -> tuple[bool, int | None, str]:
             error = get_sunshine_last_error(instance)
             if "Video failed to find working encoder" in error:
                 return False, None, error
+            state, detail = get_sunshine_startup_status(instance)
+            if state == "failed":
+                return False, None, detail
             return True, None, ""
 
 
@@ -267,9 +358,38 @@ def _sunshine_bundles():
     if explicit.endswith(suffix) and explicit != suffix:
         prefix = explicit[:-len(suffix)]
         bundles.insert(0, (explicit, prefix + "/usr/share/monitorize/sunshine/assets"))
+    nix_bundle = _nix_store_sunshine_bundle(
+        explicit, os.environ.get("MONITORIZE_SUNSHINE_ASSETS_DIR", "").strip()
+    )
+    if nix_bundle:
+        bundles.insert(0, nix_bundle)
     if explicit:
         bundles.sort(key=lambda pair: pair[0] != explicit)
     return bundles
+
+
+def _nix_store_sunshine_bundle(binary: str, assets: str) -> tuple[str, str] | None:
+    """Accept only an explicit Sunshine/assets pair in one Nix store output."""
+    if not binary or not assets:
+        return None
+    if os.path.normpath(binary) != binary or os.path.normpath(assets) != assets:
+        return None
+
+    binary_path = Path(binary)
+    try:
+        relative_binary = binary_path.relative_to("/nix/store")
+    except ValueError:
+        return None
+    if (
+        len(relative_binary.parts) != 3
+        or relative_binary.parts[1:] != ("bin", "sunshine")
+    ):
+        return None
+
+    package_root = binary_path.parent.parent
+    if Path(assets) != package_root / "assets":
+        return None
+    return binary, assets
 
 
 def get_sunshine_candidates(instance: int = 1) -> list[list[str]]:
@@ -390,22 +510,11 @@ def ensure_sunshine_tray_disabled(instance: int = 1) -> None:
 
     apps_json_path = os.path.join(config_dir, "apps.json")
     profile_apps_json = os.path.join(profile_sunshine_dir, "apps.json")
-    default_apps = {
-        "apps": [
-            {
-                "image-path": "desktop.png",
-                "name": "Desktop",
-            }
-        ],
-        "env": {
-            "PATH": "$(PATH):$(HOME)/.local/bin"
-        }
-    }
     for p in (apps_json_path, profile_apps_json):
         if not os.path.exists(p):
             try:
                 with open(p, "w", encoding="utf-8") as f:
-                    json.dump(default_apps, f, indent=4)
+                    json.dump(DEFAULT_SUNSHINE_APPS, f, indent=4)
             except OSError:
                 pass
 
@@ -571,6 +680,14 @@ def start_sunshine(
         if assets_dir:
             candidate_env["SUNSHINE_ASSETS_DIR"] = assets_dir
         try:
+            try:
+                with open(os.path.join(get_sunshine_config_dir(instance), "sunshine.log"),
+                          "rb") as source:
+                    headers = [line.decode("utf-8", "replace").strip()
+                               for line in source if b"Info: Sunshine version:" in line]
+                _SUNSHINE_PREVIOUS_LOG_HEADERS[instance] = headers[-1] if headers else ""
+            except OSError:
+                _SUNSHINE_PREVIOUS_LOG_HEADERS.pop(instance, None)
             proc = subprocess.Popen(
                 cmd,
                 env=candidate_env,
@@ -695,8 +812,8 @@ def open_sunshine_dashboard(path_or_instance: str | int = "", path: str = "", in
 def pair_moonlight_pin(pin: str, name: str = "Monitorize Display", instance: int | None = None) -> tuple[bool, str]:
     """Submit a 4-digit Moonlight pairing PIN to Sunshine's local API.
 
-    Broadcasts to active Sunshine instances so pairing works effortlessly
-    regardless of which virtual monitor instance is awaiting authentication.
+    Tries the preferred instance first, falling back only when it has no
+    pending request. Success requires the final Moonlight handshake result.
 
     Returns:
         tuple[bool, str]: (success, status_message)
@@ -734,23 +851,26 @@ def pair_moonlight_pin(pin: str, name: str = "Monitorize Display", instance: int
         )
 
         try:
-            with urllib.request.urlopen(req, context=ctx, timeout=4.0) as resp:
+            with urllib.request.urlopen(req, context=ctx, timeout=15.0) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
                 if data.get("status") is True:
-                    return True, "Paired successfully! Moonlight is now unlocked."
-                else:
-                    err = data.get("error", "")
-                    if err:
-                        last_error = err
+                    if data.get("pairing_complete") is True:
+                        return True, "Paired successfully! Moonlight is now unlocked."
+                    return False, "PIN submitted; pairing is not yet confirmed. Check Moonlight."
+                last_error = data.get("error") or "Pairing failed. Request a new PIN in Moonlight and try again."
+                if data.get("error_code") != "no_pending":
+                    return False, last_error
         except urllib.error.HTTPError as exc:
             try:
                 err_data = json.loads(exc.read().decode("utf-8"))
                 last_error = err_data.get("error", f"Pairing error ({exc.code})")
             except Exception:
                 last_error = f"Pairing failed with HTTP error {exc.code}."
+            return False, last_error
         except Exception as exc:
             if not last_error:
                 last_error = f"Could not connect to Sunshine API: {exc}"
+            return False, last_error
 
     return False, last_error or "Pairing failed. Make sure Moonlight is asking for a PIN."
 

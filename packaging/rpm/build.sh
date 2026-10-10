@@ -8,7 +8,23 @@ readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 readonly SPEC_FILE="${SCRIPT_DIR}/monitorize.spec"
 readonly SYSUSERS_FILE="${PROJECT_ROOT}/packaging/fedora/monitorize.sysusers"
-readonly OUTPUT_ROOT="${PROJECT_ROOT}/dist/rpm/fedora-${FEDORA_VERSION}"
+output_root="${PROJECT_ROOT}/dist/rpm/fedora-${FEDORA_VERSION}"
+
+rebuild=false
+enable_cuda=1
+while (( $# )); do
+    case "$1" in
+        --rebuild-offline) rebuild=true ;;
+        --no-cuda) enable_cuda=0 ;;
+        --help) echo "Usage: $0 [--no-cuda] [--rebuild-offline]"; exit 0 ;;
+        *) echo "Usage: $0 [--no-cuda] [--rebuild-offline]" >&2; exit 2 ;;
+    esac
+    shift
+done
+if (( ! enable_cuda )); then output_root="${output_root}/no-cuda"; fi
+readonly OUTPUT_ROOT="${output_root}"
+normal_command="./packaging/rpm/build.sh"
+if (( ! enable_cuda )); then normal_command+=' --no-cuda'; fi
 
 die() {
     echo "Error: $*" >&2
@@ -45,7 +61,7 @@ for line in "${submodule_status[@]}"; do
     submodule_paths+=("${path}")
 done
 
-[[ -z "$(git status --porcelain)" ]] || die "The working tree must be clean. Commit or stash tracked and untracked changes before building."
+[[ -z "$(git status --porcelain --untracked-files=no)" ]] || die "Tracked changes must be committed or stashed before building."
 
 version="$(sed -n 's/^version = "\([^"]*\)"/\1/p' pyproject.toml | head -n 1)"
 spec_version="$(awk '$1 == "Version:" { print $2; exit }' "${SPEC_FILE}")"
@@ -62,16 +78,32 @@ actual_ffmpeg_tag="$(git -C external/sunshine/third-party/build-deps describe --
 [[ "${ffmpeg_tag}" == "${actual_ffmpeg_tag}" ]] || \
     die "The RPM spec FFmpeg tag (${ffmpeg_tag}) does not match build-deps (${actual_ffmpeg_tag:-untagged})."
 
+cuda_version="$(spec_global cuda_version)"
+cuda_build="$(spec_global cuda_build)"
+[[ -n "${cuda_version}" && -n "${cuda_build}" ]] || die "Missing CUDA version or build in the RPM spec."
+cuda_archive_name="cuda_${cuda_version}_${cuda_build}_linux.run"
+buildreq_hash="$( { printf 'cuda=%s\n' "${enable_cuda}"; sed -n '/^BuildRequires:/p' "${SPEC_FILE}"; sed -n '/^\[build-system\]/,/^\[/p' pyproject.toml; } | sha256sum | awk '{print substr($1, 1, 16)}')"
+deps_image="localhost/monitorize-builddeps:fedora-${FEDORA_VERSION}-${buildreq_hash}"
+if [[ "${rebuild}" == true ]]; then
+    podman image exists "${deps_image}" || die "No prepared build image (${deps_image}). Run ${normal_command} once first."
+fi
+
 cpu_count="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)"
 [[ "${cpu_count}" =~ ^[1-9][0-9]*$ ]] || cpu_count=1
 default_jobs="${cpu_count}"
-(( default_jobs > 4 )) && default_jobs=4
 build_jobs="${MONITORIZE_BUILD_JOBS:-${default_jobs}}"
 [[ "${build_jobs}" =~ ^[1-9][0-9]*$ ]] || die "MONITORIZE_BUILD_JOBS must be a positive integer."
 
 mkdir -p "${OUTPUT_ROOT}"
 tmp_root="$(mktemp -d "${OUTPUT_ROOT}/.build.XXXXXX")"
 cleanup() {
+    local status=$?
+    if [[ -n "${deps_container:-}" ]]; then
+        podman rm -f "${deps_container}" >/dev/null 2>&1 || true
+    fi
+    if (( status != 0 )) && [[ -f "${build_log:-}" ]]; then
+        cp "${build_log}" "${OUTPUT_ROOT}/failed-build.log" || true
+    fi
     chmod -R u+rwX "${tmp_root}" 2>/dev/null || true
     rm -rf "${tmp_root}"
 }
@@ -96,44 +128,81 @@ tar --sort=name --mtime="@${source_date_epoch}" --owner=0 --group=0 --numeric-ow
 cp "${SPEC_FILE}" "${topdir}/SPECS/monitorize.spec"
 cp "${SYSUSERS_FILE}" "${topdir}/SOURCES/monitorize.sysusers"
 
-mkdir -p "${OUTPUT_ROOT}/x86_64" "${OUTPUT_ROOT}/source"
-find "${OUTPUT_ROOT}" -type f -name '*.rpm' -delete
-build_log="${OUTPUT_ROOT}/build.log"
+artifact_stage="${tmp_root}/artifacts"
+mkdir -p "${artifact_stage}/x86_64" "${artifact_stage}/source" \
+    "${OUTPUT_ROOT}/cache/sources" "${OUTPUT_ROOT}/cache/npm"
+build_log="${artifact_stage}/build.log"
+if [[ "${rebuild}" == false ]]; then
+    deps_container="monitorize-fedora-builddeps-$$"
+    podman run --name "${deps_container}" \
+        --arch amd64 \
+        --security-opt label=disable \
+        --env "MONITORIZE_ENABLE_CUDA=${enable_cuda}" \
+        --volume "${topdir}:/work" \
+        "${IMAGE}" \
+        bash -euxo pipefail -c '
+            dnf -y --setopt=install_weak_deps=False install curl dnf-plugins-core rpm-build rpmlint
+            builddep_args=()
+            if [[ "${MONITORIZE_ENABLE_CUDA}" == 0 ]]; then builddep_args=(--without=cuda); fi
+            dnf -y --setopt=install_weak_deps=False builddep "${builddep_args[@]}" /work/SPECS/monitorize.spec
+        ' 2>&1 | tee "${build_log}"
+    podman commit "${deps_container}" "${deps_image}" >/dev/null
+    podman rm "${deps_container}" >/dev/null
+    deps_container=""
+fi
 echo "Building Monitorize ${version} for Fedora ${FEDORA_VERSION} x86_64 with ${build_jobs} job(s)…"
-podman run --rm \
-    --arch amd64 \
-    --security-opt label=disable \
+run_options=(--rm --pull=never --arch amd64 --security-opt label=disable)
+if [[ "${rebuild}" == true ]]; then
+    run_options+=(--network=none --env MONITORIZE_OFFLINE=1 --env npm_config_offline=true)
+fi
+podman run "${run_options[@]}" \
     --env "MONITORIZE_RPM_JOBS=${build_jobs}" \
-    --volume "${OUTPUT_ROOT}:/artifacts" \
+    --env "MONITORIZE_ENABLE_CUDA=${enable_cuda}" \
+    --env "MONITORIZE_CUDA_ARCHIVE=/cuda-cache/${cuda_archive_name}" \
+    --env npm_config_cache=/npm-cache \
+    --volume "${artifact_stage}:/artifacts" \
+    --volume "${OUTPUT_ROOT}/cache:/cuda-cache" \
+    --volume "${OUTPUT_ROOT}/cache/sources:/source-cache" \
+    --volume "${OUTPUT_ROOT}/cache/npm:/npm-cache" \
     --volume "${topdir}:/work" \
-    "${IMAGE}" \
+    "${deps_image}" \
     bash -euxo pipefail -c '
-        dnf -y --setopt=install_weak_deps=False install curl dnf-plugins-core rpm-build rpmlint
-        dnf -y --setopt=install_weak_deps=False builddep /work/SPECS/monitorize.spec
-
-        ffmpeg_url="$(rpmspec -P /work/SPECS/monitorize.spec | awk '\''$1 == "Source1:" && !found { value = $2; found = 1 } END { print value }'\'')"
+        cache_source() {
+            local url="$1" sha="$2" archive
+            archive="/source-cache/$(basename "${url}")"
+            if ! echo "${sha}  ${archive}" | sha256sum --check --strict --status; then
+                [[ "${MONITORIZE_OFFLINE:-0}" != 1 ]] || { echo "Missing cached source: ${archive}. Run a normal build first." >&2; exit 1; }
+                curl --fail --location --retry 3 --output "${archive}.part" "${url}"
+                echo "${sha}  ${archive}.part" | sha256sum --check --strict
+                mv "${archive}.part" "${archive}"
+            fi
+            cp "${archive}" /work/SOURCES/
+        }
+        ffmpeg_url="$(rpmspec -P /work/SPECS/monitorize.spec | awk '\''$1 == "Source1:" && !found { print $2; found = 1 } END { if (!found) exit 1 }'\'')"
         ffmpeg_sha="$(awk '\''$1 == "%global" && $2 == "sunshine_ffmpeg_sha256" { print $3; exit }'\'' /work/SPECS/monitorize.spec)"
-        ffmpeg_archive="/work/SOURCES/$(basename "${ffmpeg_url}")"
-        curl --fail --location --retry 3 --output "${ffmpeg_archive}" "${ffmpeg_url}"
-        echo "${ffmpeg_sha}  ${ffmpeg_archive}" | sha256sum --check --strict
+        cache_source "${ffmpeg_url}" "${ffmpeg_sha}"
 
         export HOME=/tmp/monitorize-rpmbuild-home
         mkdir -p "${HOME}"
+        variant_args=()
+        if [[ "${MONITORIZE_ENABLE_CUDA}" == 0 ]]; then variant_args=(--without cuda); fi
         rpmbuild -ba \
+            "${variant_args[@]}" \
             --define "_topdir /work" \
             --define "_smp_build_ncpus ${MONITORIZE_RPM_JOBS}" \
             /work/SPECS/monitorize.spec
         rpmlint /work/SRPMS/*.src.rpm /work/RPMS/x86_64/*.rpm
         cp /work/RPMS/x86_64/*.rpm /artifacts/x86_64/
         cp /work/SRPMS/*.src.rpm /artifacts/source/
-    ' 2>&1 | tee "${build_log}"
+    ' 2>&1 | tee -a "${build_log}"
 
-mapfile -t main_rpms < <(find "${OUTPUT_ROOT}/x86_64" -maxdepth 1 -type f \
+mapfile -t main_rpms < <(find "${artifact_stage}/x86_64" -maxdepth 1 -type f \
     -name "monitorize-${version}-*.fc${FEDORA_VERSION}.x86_64.rpm" \
     ! -name '*-debuginfo-*' ! -name '*-debugsource-*' | sort)
 (( ${#main_rpms[@]} == 1 )) || die "Expected exactly one primary Monitorize RPM, found ${#main_rpms[@]}."
 main_rpm="${main_rpms[0]}"
 
+if [[ "${rebuild}" == false ]]; then
 echo "Smoke-testing $(basename "${main_rpm}") in a fresh Fedora ${FEDORA_VERSION} container…"
 podman run --rm \
     --arch amd64 \
@@ -144,6 +213,7 @@ podman run --rm \
         dnf -y --setopt=install_weak_deps=False install /tmp/monitorize.rpm desktop-file-utils
         test ! -e /root/.config/monitorize
         rpm -V monitorize
+        rpm -q --filecaps monitorize | grep -q "cap_sys_admin"
         getent group monitorize-input
         test -x /usr/bin/monitorize
         test -x /usr/bin/monitorize-kde-virtual-output
@@ -172,6 +242,17 @@ assert get_sunshine_assets_dir(command[0]) == "/usr/share/monitorize/sunshine/as
 assert QQuickWidget is not None
 assert main_window is not None
 PYTHON
+        QT_QPA_PLATFORM=offscreen python3 - <<'\''PYTHON'\''
+from PyQt6.QtCore import QUrl
+from PyQt6.QtGui import QGuiApplication
+from PyQt6.QtQml import QQmlComponent, QQmlEngine
+from monitorize.platform.utils import QML_DIR
+
+app = QGuiApplication([])
+engine = QQmlEngine()
+component = QQmlComponent(engine, QUrl.fromLocalFile(f"{QML_DIR}/main.qml"))
+assert not component.isError(), "\n".join(error.toString() for error in component.errors())
+PYTHON
         dnf -y remove monitorize
         test ! -e /usr/bin/monitorize
         test ! -e /usr/bin/monitorize-kde-virtual-output
@@ -181,6 +262,14 @@ PYTHON
         test ! -e /usr/share/applications/monitorize.desktop
     '
 
+fi
+
+mkdir -p "${OUTPUT_ROOT}/x86_64" "${OUTPUT_ROOT}/source"
+cp "${artifact_stage}/x86_64/"*.rpm "${OUTPUT_ROOT}/x86_64/"
+cp "${artifact_stage}/source/"*.rpm "${OUTPUT_ROOT}/source/"
+cp "${build_log}" "${OUTPUT_ROOT}/"
+printf 'source_commit=%s\ncuda_enabled=%s\n' "$(git rev-parse HEAD)" "${enable_cuda}" \
+    > "${OUTPUT_ROOT}/build-manifest.txt"
 echo "Fedora ${FEDORA_VERSION} RPM build and smoke test completed."
-echo "Primary RPM: ${main_rpm}"
+echo "Primary RPM: ${OUTPUT_ROOT}/x86_64/$(basename "${main_rpm}")"
 echo "Source RPM: ${OUTPUT_ROOT}/source/"

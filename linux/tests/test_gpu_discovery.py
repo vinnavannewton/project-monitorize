@@ -92,10 +92,10 @@ class GpuDiscoveryTest(unittest.TestCase):
 
     def test_configuration_exposes_conditional_gpu_selection(self):
         qml_dir = Path(__file__).parents[1] / "monitorize" / "qml"
-        primary = (qml_dir / "DisplaySetupPage.qml").read_text()
-        self.assertIn('text: "Encoding GPU"', primary)
-        self.assertIn("visible: gpuOptions.length > 0", primary)
-        self.assertIn("page.selectedGpuId()", primary)
+        card = (qml_dir / "SunshineDisplayCard.qml").read_text()
+        self.assertIn('text: "Encoding GPU"', card)
+        self.assertIn("visible: card.gpuOptions.length > 0", card)
+        self.assertIn("card.gpuId = card.gpuOptions[currentIndex]", card)
 
 
 if __name__ == "__main__":

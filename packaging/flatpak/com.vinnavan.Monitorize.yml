@@ -27,6 +27,7 @@ finish-args:
   - --talk-name=org.gnome.Mutter.ScreenCast
   - --talk-name=org.gnome.Mutter.DisplayConfig
   - --system-talk-name=org.freedesktop.Avahi
+  - --system-talk-name=io.github.vinnavannewton.MonitorizeVkms1
 
 modules:
   - ../../external/sunshine/packaging/linux/flatpak/modules/nlohmann_json.json
@@ -46,6 +47,18 @@ modules:
   - ../../external/sunshine/packaging/linux/flatpak/modules/libevdev.json
   - ../../external/sunshine/packaging/linux/flatpak/modules/miniupnpc.json
   - ../../external/sunshine/packaging/linux/flatpak/modules/numactl.json
+  # Monitorize probes VA-API render devices with vainfo inside the sandbox.
+  - name: libva-utils
+    buildsystem: simple
+    build-commands:
+      - ./configure --prefix=${FLATPAK_DEST} --enable-drm --disable-x11 --disable-wayland --disable-tests
+      - make -C common -j2
+      - make -C vainfo -j2
+      - make -C vainfo install
+    sources:
+      - type: archive
+        url: https://github.com/intel/libva-utils/releases/download/2.22.0/libva-utils-2.22.0.tar.bz2
+        sha256: 6d64f0d44ef455442a22633331bf81d5eef722fea564942dfda32fb89f7adc45
   # Sunshine's upstream build-only CUDA toolkit module enables NVENC. The host
   # NVIDIA driver remains supplied by Flatpak's matching GL runtime extension.
   - ../../external/sunshine/packaging/linux/flatpak/modules/cuda.json
@@ -119,7 +132,7 @@ modules:
     build-options:
       append-path: /usr/lib/sdk/node20/bin
       env:
-        BUILD_VERSION: 0.39
+        BUILD_VERSION: 0.33
         BRANCH: monitorize
         COMMIT: e3ce79f3b966df388e905a3c6b3784832a328e34
         PYTHONPATH: /app/lib/python3.12/site-packages
@@ -154,6 +167,8 @@ modules:
       - type: git
         url: https://github.com/vinnavannewton/monitorize-sunshine.git
         commit: e3ce79f3b966df388e905a3c6b3784832a328e34
+      # This pinned revision predates the shared native PipeWire targeting fix.
+      # Keep the portal patch targeting hunks until the source pin is updated.
       - type: patch
         path: sunshine-flatpak-portal.patch
       # Portal DMA-BUFs are not reliably importable by a different Intel/AMD
@@ -167,8 +182,9 @@ modules:
         path: sunshine-flatpak-ffmpeg9-nvenc-preset.patch
       - type: patch
         path: sunshine-flatpak-session-reuse.patch
+      # The pinned source lacks the native RTSP codec-rejection block.
       - type: patch
-        path: ../sunshine-strict-selection.patch
+        path: sunshine-flatpak-strict-selection.patch
       - type: patch
         path: sunshine-mirror-selection.patch
 

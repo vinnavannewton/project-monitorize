@@ -46,6 +46,8 @@ Want to contribute? See the [Contributing guide](https://github.com/vinnavannewt
 
 ## Usage
 
+For VKMS, install the host [monitorize-vkms](https://github.com/vinnavannewton/monitorize-vkms) service and reboot. Native and Flatpak builds use the same Extend → VKMS → Add Display flow, with up to two independent displays.
+
 1. If the stream is black or crashes, try changing the stream from auto to other options in monitorize based on what your hardware supports.
 
 ## Star History

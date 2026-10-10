@@ -8,10 +8,7 @@ import sys
 import time
 
 from monitorize.platform.display_controller import DisplayController
-from monitorize.platform.monitorize_vkms_cli import MonitorizeVkmsClient
-from monitorize.platform.stock_vkms_output import StockVkmsOutput, recover_disabled_output
-from monitorize.platform.vkms_backend import stock_vkms_connectors
-from monitorize.config.settings import load_display_settings
+from monitorize.platform.monitorize_vkms_dbus import MonitorizeVkmsClient
 
 
 def _is_display_owner(args):
@@ -73,48 +70,33 @@ def remove_virtual_displays(desktop):
     except Exception as exc:
         errors.append(f'Compositor cleanup failed: {exc}')
 
-    try:
-        removed += recover_disabled_output(desktop)
-        saved = load_display_settings()
-        if (saved.get('display_type') == 'Extend'
-                and saved.get('virtual_display_creator') == 'vkms'):
-            connectors = stock_vkms_connectors()
-            selected = saved.get('vkms_connector', '')
-            matches = [entry for entry in connectors if entry['id'] == selected]
-            if not matches and len(connectors) == 1:
-                matches = connectors
-            if len(matches) == 1:
-                entry = matches[0]
-                output = StockVkmsOutput(entry['id'], desktop, entry['connector_id'])
-                output.snapshot()
-                if output.before_mode is not None:
-                    output.disable()
-                    removed += 1
-            elif connectors:
-                errors.append('Choose the stock VKMS connector in Configuration before cleanup.')
-    except Exception as exc:
-        errors.append(f'Stock VKMS cleanup failed: {exc}')
+    legacy_recovery = Path.home() / '.config' / 'monitorize' / 'stock-vkms-recovery.json'
+    if legacy_recovery.exists():
+        errors.append(
+            'A legacy stock VKMS recovery record remains. This version will not '
+            'modify stock VKMS outputs. Disable the output in desktop display '
+            'settings, then remove the stale recovery record after verifying it.'
+        )
 
     client = MonitorizeVkmsClient()
     if client.is_available():
         try:
             status = client.get_status()
-            topology = status.get('topology', {})
-            connected = topology.get('connector0_connected') or any(
-                entry.get('status') == 'connected'
-                for entry in status.get('drm', {}).get('active_connectors', [])
-            )
+            connected = any(entry.get('connector_connected') for entry in status.get('displays', {}).values())
             if connected:
-                result = client.remove_display()
-                if result.get('success', False):
-                    removed += 1
-                else:
-                    errors.append(result.get('message') or 'VKMS display could not be removed')
+                result = client.remove_all()
+                outcomes = result.get('results', {})
+                removed += sum(bool(item.get('changed')) for item in outcomes.values())
+                for display, item in outcomes.items():
+                    if item.get('error'):
+                        errors.append(f"{display}: {item['error']}")
+                if not result.get('success', False) and not any(item.get('error') for item in outcomes.values()):
+                    errors.append(result.get('message') or 'VKMS displays could not be removed')
         except Exception as exc:
             errors.append(f'VKMS cleanup failed: {exc}')
     if errors:
         return {'success': False, 'message': 'Some virtual displays could not be removed. ' + ' '.join(errors)}
-    return {'success': True, 'message': 'Removed or disabled virtual displays' if removed else 'No virtual displays found'}
+    return {'success': True, 'message': 'Removed virtual displays' if removed else 'No virtual displays found'}
 
 
 if __name__ == '__main__':

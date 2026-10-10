@@ -64,13 +64,6 @@ class MonitorizeWindow(QMainWindow):
             print(error.toString())
         self.content_stack.addWidget(self.quick_widget)
         self.setCentralWidget(self.content_stack)
-        self._saved_vkms_checked = False
-
-    def _load_saved_vkms_on_open(self):
-        if self._saved_vkms_checked:
-            return
-        self._saved_vkms_checked = True
-        QTimer.singleShot(0, self.backend.loadSavedStockVkmsAtStartup)
 
     def _setup_tray(self):
         self.tray = QSystemTrayIcon(self)
@@ -114,11 +107,33 @@ class MonitorizeWindow(QMainWindow):
         self.showNormal()
         self.raise_()
         self.activateWindow()
-        self._load_saved_vkms_on_open()
+
+    def _update_ui_visibility(self):
+        backend = getattr(self, "backend", None)
+        if backend is not None:
+            backend.set_ui_visible(self.isVisible() and not self.isMinimized())
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self._update_ui_visibility()
+
+    def hideEvent(self, event):
+        super().hideEvent(event)
+        self._update_ui_visibility()
+
+    def changeEvent(self, event):
+        super().changeEvent(event)
+        self._update_ui_visibility()
 
     def _quit_app(self):
         app_log.write("APP", "Application shutting down.")
         self.backend.close()
+        self._finish_quit_when_displays_stop()
+
+    def _finish_quit_when_displays_stop(self):
+        if self.backend.streaming._vkms_retiring:
+            QTimer.singleShot(250, self._finish_quit_when_displays_stop)
+            return
         app_log.close()
         QApplication.quit()
 
@@ -311,8 +326,7 @@ def main():
     server.newConnection.connect(
         lambda: _handle_instance_command(server, window)
     )
-    if _show_initial_window(window, start_in_tray) and preset_index is None:
-        window._load_saved_vkms_on_open()
+    _show_initial_window(window, start_in_tray)
     if preset_index is not None:
         QTimer.singleShot(0, lambda: window.backend.launchPreset(preset_index))
     sys.exit(app.exec())

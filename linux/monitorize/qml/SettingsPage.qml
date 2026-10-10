@@ -8,6 +8,8 @@ Item {
     property bool settingsMinimizeToTray: false
     property bool settingsAutostartEnabled: false
     property string settingsError: ""
+    property string sunshineResetMessage: ""
+    property bool sunshineResetSucceeded: false
     Component.onCompleted: loadAppSettings()
     function loadAppSettings() {
         settingsLoading = true
@@ -63,15 +65,36 @@ Item {
             }
             SectionCard {
                 title: "MISCELLANEOUS"; symbol: "extras"; Layout.fillWidth: true
-                CustomButton {
-                    text: backend.virtualDisplayCleanupRunning ? "Removing…" : "Remove virtual display"; primary: false
+                SettingsActionRow {
+                    title: "Reset Sunshine settings to defaults"
+                    description: "Restore Sunshine settings to their default values."
+                    symbol: "reset"; actionText: "Reset to defaults"
                     Layout.fillWidth: true
-                    enabled: !backend.isStreaming && !backend.virtualDisplayCleanupRunning
+                    actionEnabled: !backend.isStreaming && !backend.sessionBusy
+                    onClicked: sunshineResetDialog.open()
+                }
+                Text {
+                    text: page.sunshineResetMessage
+                    visible: text.length > 0
+                    Layout.fillWidth: true; wrapMode: Text.WordWrap
+                    color: page.sunshineResetSucceeded ? theme.textSecondary : "#fca5a5"
+                }
+                SettingsActionRow {
+                    title: "Remove virtual display"
+                    description: "Remove Monitorize’s leftover virtual displays."
+                    symbol: "display-minus"
+                    actionText: backend.virtualDisplayCleanupRunning ? "Removing…" : "Remove display"
+                    Layout.fillWidth: true
+                    actionEnabled: !backend.isStreaming && !backend.virtualDisplayCleanupRunning
                     onClicked: root.removeStagnantVirtualDisplays()
                 }
-                CustomButton {
-                    visible: backend.sunshineAvailable; enabled: !backend.isStreaming
-                    text: "Clear restore tokens"; primary: false; Layout.fillWidth: true
+                SettingsActionRow {
+                    visible: backend.sunshineAvailable
+                    title: "Clear restore tokens"
+                    description: "Delete saved screen-sharing restore tokens."
+                    symbol: "document-x"; actionText: "Clear tokens"
+                    actionEnabled: !backend.isStreaming
+                    Layout.fillWidth: true
                     onClicked: root.clearRestoreTokens()
                 }
                 CustomButton {
@@ -80,6 +103,25 @@ Item {
                     onClicked: page.StackView.view.push("SystemSetupPage.qml")
                 }
             }
+        }
+    }
+
+    Dialog {
+        id: sunshineResetDialog
+        anchors.centerIn: parent
+        title: "Reset Sunshine settings?"
+        modal: true
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        width: Math.min(420, page.width - 40)
+        contentItem: Text {
+            text: "Restore Monitorize's default Sunshine settings and application list for both displays? Pairing and saved display layouts will be kept."
+            color: theme.textPrimary
+            wrapMode: Text.WordWrap
+        }
+        onAccepted: {
+            let result = backend.resetSunshineSettings()
+            page.sunshineResetSucceeded = result["success"] === true
+            page.sunshineResetMessage = result["message"] || "Could not reset Sunshine settings"
         }
     }
 }

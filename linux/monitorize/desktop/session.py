@@ -32,7 +32,7 @@ class Session(QObject):
     @property
     def busy(self):
         c = self.controller
-        return self.start_requested or (c.streaming and not c.primary_ready) or (
+        return bool(c._vkms_retiring) or self.start_requested or (c.streaming and not c.primary_ready) or (
             c.third_streaming and not c.third_ready
         )
 
@@ -78,18 +78,11 @@ class Session(QObject):
         return dict(
             res=res, fps=fps, display_type=saved.get("display_type", "Extend"),
             virtual_display_creator=(
-                "native" if os.path.isfile("/.flatpak-info")
-                else virtual_display_creator or saved.get("virtual_display_creator", "native")
+                virtual_display_creator or saved.get("virtual_display_creator", "native")
             ),
-            vkms_custom_mode=(
-                resolution_is_custom
-                and saved.get("display_type", "Extend") == "Extend"
-                and not os.path.isfile("/.flatpak-info")
-                and (virtual_display_creator or saved.get("virtual_display_creator", "native")) == "vkms"
-            ),
-            vkms_connector=saved.get("vkms_connector", ""),
             encoder=saved.get("sunshine_encoder", "Auto") if custom else "Auto",
             codec=saved.get("sunshine_codec", "Auto") if custom else "Auto",
+            capture=saved.get("sunshine_capture", "auto"),
             gpu_id=saved.get("sunshine_gpu", "") if custom else "",
             native_pen_touch=saved.get("sunshine_native_pen_touch", True),
             mirror_output=saved.get("mirror_output", ""),
@@ -101,13 +94,11 @@ class Session(QObject):
         return dict(res=saved["resolution"], fps=saved["fps"],
                     display_type=saved.get("display_type", "Extend"),
                     virtual_display_creator=(
-                        "native" if os.path.isfile("/.flatpak-info")
-                        else saved.get("virtual_display_creator", "native")
+                        saved.get("virtual_display_creator", "native")
                     ),
-                    vkms_custom_mode=bool(saved.get("vkms_custom_mode", False)),
-                    vkms_connector=saved.get("vkms_connector", ""),
                     encoder=saved.get("sunshine_encoder", "Auto"),
                     codec=saved.get("sunshine_codec", "Auto"),
+                    capture=saved.get("sunshine_capture", "auto"),
                     gpu_id=saved.get("sunshine_gpu", ""),
                     native_pen_touch=saved.get("sunshine_native_pen_touch", True),
                     mirror_output=saved.get("mirror_output", ""),
@@ -133,7 +124,7 @@ class Session(QObject):
             "DISPLAY",
             f"Session display request (primary): res={config.get('res')} fps={config.get('fps')} "
             f"display_type={config.get('display_type')} creator={config.get('virtual_display_creator')} "
-            f"vkms_custom_mode={config.get('vkms_custom_mode')}",
+            f"vkms={config.get('virtual_display_creator') == 'vkms'}",
         )
         self.controller.start(**config, options={"prepare_only": True})
 
@@ -142,12 +133,11 @@ class Session(QObject):
         app_log.write(
             "DISPLAY",
             f"Session display request (second): res={config.get('res')} fps={config.get('fps')} "
-            f"vkms_custom_mode={config.get('vkms_custom_mode')}",
+            f"vkms={self.configuration().get('virtual_display_creator') == 'vkms'}",
         )
         config.pop("display_type")
         config.pop("mirror_output", None)
         config.pop("virtual_display_creator", None)
-        config.pop("vkms_connector", None)
         self.controller.start_third(**config)
 
     @property
@@ -212,6 +202,7 @@ class Session(QObject):
             for prefix in ("", "third_"):
                 config = self.second_configuration() if prefix else self.configuration()
                 for field, key in (("encoder", "encoder"), ("codec", "codec"),
+                                   ("capture", "capture"),
                                    ("gpu_id", "gpu_id"), ("native_pen_touch", "native_pen_touch"),
                                    ("audio_enabled", "enable_audio")):
                     setattr(c, prefix + field, config[key])
@@ -229,7 +220,8 @@ class Session(QObject):
         self.start_requested = False
         self.running = False
         self.controller.stop()
-        self.controller._set_status("Session stopped. Start to recreate your displays." if self.count else "Session stopped.")
+        self.controller._set_status("Stopping VKMS displays…" if self.controller._vkms_retiring else
+                                    "Session stopped. Start to recreate your displays." if self.count else "Session stopped.")
         self.changed.emit()
 
     def remove(self, index):

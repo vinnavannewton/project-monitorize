@@ -1,0 +1,234 @@
+name: Desktop package release
+
+on:
+  push:
+    tags:
+      - "monitorize-v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate release tag
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - name: Checkout tagged sources
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Verify tag, main branch, and package versions
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ ! "${GITHUB_REF_NAME}" =~ ^monitorize-v((0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))?)$ ]]; then
+            echo "Tag ${GITHUB_REF_NAME} must use monitorize-vMAJOR.MINOR or monitorize-vMAJOR.MINOR.PATCH format, for example monitorize-v0.33.2." >&2
+            exit 1
+          fi
+          tag_version="${BASH_REMATCH[1]}"
+
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          tag_commit="$(git rev-list -n 1 "${GITHUB_REF_NAME}")"
+          if ! git merge-base --is-ancestor "${tag_commit}" origin/main; then
+            echo "Tag ${GITHUB_REF_NAME} does not point to a commit on origin/main." >&2
+            exit 1
+          fi
+
+          python3 - "${tag_version}" <<'PYTHON'
+          from pathlib import Path
+          import re
+          import sys
+          import tomllib
+
+          expected = sys.argv[1]
+          project = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
+          if project != expected:
+              raise SystemExit(
+                  f"Tag version {expected} does not match pyproject.toml version {project}."
+              )
+
+          checks = {
+              "packaging/arch/PKGBUILD": r"(?m)^pkgver=(\S+)$",
+              "packaging/rpm/monitorize.spec": r"(?m)^Version:\s+(\S+)$",
+              "packaging/tumbleweed/monitorize.spec": r"(?m)^Version:\s+(\S+)$",
+              "packaging/deb/debian-trixie/debian/changelog": r"^monitorize \(([^)]+)\)",
+              "packaging/deb/ubuntu-24.04/debian/changelog": r"^monitorize \(([^)]+)\)",
+              "packaging/deb/ubuntu-26.04/debian/changelog": r"^monitorize \(([^)]+)\)",
+          }
+          for relative, pattern in checks.items():
+              match = re.search(pattern, Path(relative).read_text())
+              actual = match.group(1) if match else "missing"
+              if actual != expected:
+                  raise SystemExit(f"{relative} has version {actual}; expected {expected}.")
+
+          nix = Path("nix/package.nix").read_text()
+          versions = re.findall(r'(?m)^\s*version\s*=\s*"([^"]+)";', nix)
+          if versions != [expected]:
+              raise SystemExit(
+                  f"nix/package.nix main package version is {versions or 'missing'}; expected {expected}."
+              )
+          PYTHON
+
+          echo "version=${tag_version}" >> "${GITHUB_OUTPUT}"
+
+  build:
+    name: Build ${{ matrix.label }}
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: arch
+            label: Arch Linux x86_64
+          - target: fedora-44
+            label: Fedora 44 x86_64
+          - target: tumbleweed
+            label: openSUSE Tumbleweed x86_64
+          - target: debian-trixie
+            label: Debian Trixie AMD64
+          - target: ubuntu-24.04
+            label: Ubuntu 24.04 AMD64
+          - target: ubuntu-26.04
+            label: Ubuntu 26.04 AMD64
+    steps:
+      - name: Reclaim runner disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
+          sudo apt-get clean
+          df -h /
+
+      - name: Checkout tagged sources
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Verify rootless Podman
+        run: |
+          set -euo pipefail
+          podman --version
+          test "$(podman info --format '{{.Host.Security.Rootless}}')" = true
+          podman info
+
+      - name: Build and smoke-test CUDA package
+        env:
+          MONITORIZE_BUILD_JOBS: "2"
+        run: |
+          set -euo pipefail
+          case "${{ matrix.target }}" in
+            arch) ./packaging/arch/build.sh ;;
+            fedora-44) ./packaging/rpm/build.sh ;;
+            tumbleweed) ./packaging/tumbleweed/build.sh ;;
+            debian-trixie) ./packaging/deb/debian-trixie/build.sh ;;
+            ubuntu-24.04) ./packaging/deb/ubuntu-24.04/build.sh ;;
+            ubuntu-26.04) ./packaging/deb/ubuntu-26.04/build.sh ;;
+            *) echo "Unknown build target: ${{ matrix.target }}" >&2; exit 2 ;;
+          esac
+
+      - name: Stage installable release asset
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          mkdir -p release-assets
+
+          case "${{ matrix.target }}" in
+            arch)
+              candidates=(dist/arch/x86_64/monitorize-"${VERSION}"-*-x86_64.pkg.tar.zst)
+              asset="monitorize-${VERSION}-archlinux-x86_64.pkg.tar.zst"
+              ;;
+            fedora-44)
+              candidates=(dist/rpm/fedora-44/x86_64/monitorize-"${VERSION}"-*.fc44.x86_64.rpm)
+              asset="monitorize-${VERSION}-fedora-44-x86_64.rpm"
+              ;;
+            tumbleweed)
+              candidates=(dist/rpm/tumbleweed/x86_64/monitorize-"${VERSION}"-*.x86_64.rpm)
+              asset="monitorize-${VERSION}-tumbleweed-x86_64.rpm"
+              ;;
+            debian-trixie|ubuntu-24.04|ubuntu-26.04)
+              candidates=(dist/deb/${{ matrix.target }}/amd64/monitorize_"${VERSION}"_amd64.deb)
+              asset="monitorize_${VERSION}_${{ matrix.target }}_amd64.deb"
+              ;;
+            *) echo "Unknown build target: ${{ matrix.target }}" >&2; exit 2 ;;
+          esac
+
+          if (( ${#candidates[@]} != 1 )); then
+            echo "Expected exactly one installable package for ${{ matrix.target }}, found ${#candidates[@]}." >&2
+            exit 1
+          fi
+          cp "${candidates[0]}" "release-assets/${asset}"
+
+      - name: Upload installable package
+        uses: actions/upload-artifact@v4
+        with:
+          name: monitorize-desktop-${{ matrix.target }}
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+  release:
+    name: Publish GitHub Release
+    needs: [validate, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download all successful packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: monitorize-desktop-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Verify release asset set
+        run: |
+          set -euo pipefail
+          mapfile -t assets < <(find release-assets -maxdepth 1 -type f -print | sort)
+          if (( ${#assets[@]} != 6 )); then
+            echo "Expected six installable release assets, found ${#assets[@]}." >&2
+            printf '%s\n' "${assets[@]}" >&2
+            exit 1
+          fi
+          printf '%s\n' "${assets[@]}"
+
+      - name: Stage draft, verify uploads, and publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+          gh release create "${GITHUB_REF_NAME}" \
+            --verify-tag \
+            --title "Monitorize ${VERSION}" \
+            --generate-notes \
+            --draft
+
+          gh release upload "${GITHUB_REF_NAME}" release-assets/*
+          gh release view "${GITHUB_REF_NAME}" --json assets,isDraft > uploaded-release.json
+          python3 - <<'PYTHON'
+          import json
+          from pathlib import Path
+
+          release = json.loads(Path("uploaded-release.json").read_text())
+          expected = {path.name: path.stat().st_size for path in Path("release-assets").iterdir() if path.is_file()}
+          assets = release["assets"]
+          actual = {asset["name"]: asset["size"] for asset in assets}
+          if not release["isDraft"] or len(assets) != 6 or actual != expected:
+              raise SystemExit("Draft release uploads do not match the complete local package set.")
+          PYTHON
+          gh release edit "${GITHUB_REF_NAME}" --draft=false --latest

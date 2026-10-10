@@ -3,15 +3,18 @@
 import json
 import logging
 import os
-import shutil
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from PyQt6.QtCore import QObject, QProcess, QTimer, pyqtProperty, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import QObject, QProcess, QTimer, QUrl, pyqtProperty, pyqtSignal, pyqtSlot
+from PyQt6.QtGui import QDesktopServices, QGuiApplication
 
 from monitorize.config import app_log, autostart
 from monitorize.config.settings import (
+    CAPTURE_MODES,
+    DISPLAY_DEFAULTS,
     MAX_PRESETS,
     load_display_settings,
     load_general_settings,
@@ -34,36 +37,37 @@ from monitorize.platform.sunshine_service import (
     get_sunshine_web_url,
     open_sunshine_dashboard,
     is_sunshine_running,
+    is_sunshine_settings_instance,
     start_sunshine,
+    stop_sunshine,
     sunshine_web_ready,
     pair_moonlight_pin,
     restart_sunshine,
+    reset_sunshine_config,
     save_sunshine_config,
     save_sunshine_adapter,
     set_sunshine_codec,
     set_sunshine_encoder,
     set_sunshine_native_pen_touch,
 )
-from monitorize.platform.system_setup import apply_system_setup, get_system_setup_status
-from monitorize.platform.utils import LINUX_DIR, get_local_ip
-from monitorize.platform.monitorize_vkms_cli import MonitorizeVkmsClient
-from monitorize.platform.vkms_backend import (
-    CustomEdidCapability,
-    VkmsError,
-    custom_edid_capability_from_response,
-    open_monitorize_vkms_install_page,
-    resolution_options as vkms_resolution_options,
-    stock_vkms_connectors,
+from monitorize.platform.system_setup import (
+    apply_system_setup, get_system_setup_status, parse_system_setup_result,
+    system_setup_command,
 )
+from monitorize.platform.utils import LINUX_DIR, get_local_ip
+from monitorize.platform.monitorize_vkms_dbus import MonitorizeVkmsClient
+from monitorize.platform.vkms_backend import open_monitorize_vkms_install_page
 
 
 class MonitorizeBackend(QObject):
+    UI_LOG_TAIL_BYTES = 16 * 1024
     sunshineSettingsChanged = pyqtSignal()
     sessionChanged = pyqtSignal()
     detectedDeChanged = pyqtSignal(str)
     localIpChanged = pyqtSignal(str)
     isStreamingChanged = pyqtSignal(bool)
     streamingStartFailed = pyqtSignal()
+    vkmsReinstallRequired = pyqtSignal()
     streamingCodecMismatch = pyqtSignal(str)
     streamingStatusChanged = pyqtSignal(str)
     logAppended = pyqtSignal(str, str)
@@ -74,20 +78,30 @@ class MonitorizeBackend(QObject):
     systemSetupAvailableChanged = pyqtSignal(bool)
     systemSetupPendingChanged = pyqtSignal(bool)
     streamingBackendChanged = pyqtSignal(str)
-    vkmsResolutionOptionsChanged = pyqtSignal()
-    vkmsConnectorsChanged = pyqtSignal()
-    vkmsModuleLoadingChanged = pyqtSignal()
-    vkmsModuleLoadFinished = pyqtSignal(bool, str)
-    vkmsStartFailed = pyqtSignal(str)
-    vkmsCustomCapabilityCheckingChanged = pyqtSignal()
-    vkmsCustomEdidCapabilityChanged = pyqtSignal()
-    vkmsCustomCapabilityChecked = pyqtSignal(str)
+    vkmsHelperAvailabilityChanged = pyqtSignal()
+    _vkmsWorkerFinished = pyqtSignal(bool, str)
     virtualDisplayCleanupChanged = pyqtSignal()
     virtualDisplayCleanupFinished = pyqtSignal(bool, str)
+    uiVisibleChanged = pyqtSignal(bool)
+    systemSetupFinished = pyqtSignal("QVariantMap")
+    systemSetupRunningChanged = pyqtSignal(bool)
+    pairMoonlightFinished = pyqtSignal(int, bool, str)
+    pairingRunningChanged = pyqtSignal(bool)
+    _pairingWorkerFinished = pyqtSignal(int, bool, str)
+    encodingGpuOptionsReady = pyqtSignal(int, str, "QVariant")
+    _encodingGpuWorkerFinished = pyqtSignal(int, str, object)
+    mirrorScreensChanged = pyqtSignal()
+    mirrorOutputsReady = pyqtSignal(int, "QVariant")
+    _mirrorWorkerFinished = pyqtSignal(int, object, object)
+    sunshineChoicesSavingChanged = pyqtSignal(bool)
+    sunshineChoicesFinished = pyqtSignal(int, bool, str)
+    _sunshineChoicesWorkerFinished = pyqtSignal(int, bool, str)
+    sunshineSettingsRevisionChanged = pyqtSignal(int)
 
     def __init__(self, de, parent=None):
         super().__init__(parent)
         self._detected_de = de
+        self._ui_visible = False
         self.native_compositor_resolver = None
         self._settings_instance = None
         self._settings_deadline = 0.0
@@ -96,6 +110,28 @@ class MonitorizeBackend(QObject):
         self._settings_timer.setInterval(250)
         self._settings_timer.timeout.connect(self._poll_sunshine_settings)
         self._virtual_display_cleanup_process = None
+        self._system_setup_process = None
+        self._system_setup_timed_out = False
+        self._system_setup_cancelled = False
+        self._background_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="monitorize-ui")
+        self._closing = False
+        self._pairing_serial = 0
+        self._pairing_active = 0
+        self._pairingWorkerFinished.connect(self._finish_pairing)
+        self._gpu_request_serial = 0
+        self._encodingGpuWorkerFinished.connect(self._finish_gpu_options)
+        self._mirror_request_serial = 0
+        self._mirrorWorkerFinished.connect(self._finish_mirror_outputs)
+        self._observed_screens = []
+        self._sunshine_save_pending = {}
+        self._sunshine_save_active = None
+        self._sunshine_save_serial = 0
+        self._sunshine_settings_revision = 0
+        self._pending_session_start = False
+        self._sunshineChoicesWorkerFinished.connect(self._finish_sunshine_choices)
+        self._system_setup_timeout = QTimer(self)
+        self._system_setup_timeout.setSingleShot(True)
+        self._system_setup_timeout.timeout.connect(self._timeout_system_setup)
         self._local_ip = get_local_ip()
         self._sunshine_available = find_sunshine_command(1) is not None
         general = load_general_settings()
@@ -108,31 +144,29 @@ class MonitorizeBackend(QObject):
         from monitorize.desktop.session import Session
         self.session = Session(self.streaming, self)
         self.session.changed.connect(self.sessionChanged)
-        self._session_log = ""
-        self.logAppended.connect(self._remember_session_log)
+        self._diagnostic_log_cache = {}
         self._presets = load_presets()
         self._preset_launch_status = ""
-        self._vkms_connectors = stock_vkms_connectors()
-        self._vkms_resolution_options = ["Custom..."]
-        self._vkms_refresh_rates = {}
-        self._vkms_module_load_process = None
-        self._vkms_module_finishing = False
-        self._vkms_module_deadline = 0.0
-        self._pending_vkms_start = None
-        self.refreshVkmsResolutionOptions()
-        self._vkms_custom_capability = None
-        self._vkms_custom_capability_process = None
+        self._vkms_resolution_options = [
+            "1280x720", "1280x800", "1920x1080", "1920x1200",
+            "2560x1440", "2560x1600", "3840x2160", "Custom...",
+        ]
+        self._vkms_helper_available = False
+        self._vkms_status_message = "Checking host monitorize-vkms…"
+        self._vkms_check_running = False
+        self._vkms_pending_start = None
+        self._vkms_pending_preset = None
+        self.streaming.primaryReadyChanged.connect(self._resume_vkms_preset)
+        self._vkmsWorkerFinished.connect(self._finish_vkms_check)
         self._system_setup_available = bool(get_system_setup_status()["available"])
         self._system_setup_decided = bool(
             general.get("system_setup_decided", False)
         )
         self.streaming.streamingChanged.connect(self.isStreamingChanged)
         self.streaming.startFailed.connect(self.streamingStartFailed)
+        self.streaming.vkmsReinstallRequired.connect(self.vkmsReinstallRequired)
         self.streaming.codecMismatch.connect(self.streamingCodecMismatch)
         self.streaming.statusChanged.connect(self.streamingStatusChanged)
-        self.streaming.vkmsCustomEdidUnsupported.connect(
-            self._handle_vkms_custom_edid_unsupported
-        )
         self.streaming.secondStreamChanged.connect(self.secondStreamActiveChanged)
         self.streaming.logAppended.connect(app_log.write)
         self.streaming.logAppended.connect(self.logAppended)
@@ -140,6 +174,40 @@ class MonitorizeBackend(QObject):
         self.network_timer.setInterval(5000)
         self.network_timer.timeout.connect(self._check_network_ip)
         self.network_timer.start()
+        app = QGuiApplication.instance()
+        if app is not None and hasattr(app, "screens"):
+            app.screenAdded.connect(self._screen_added)
+            app.screenRemoved.connect(self._screen_removed)
+            for screen in app.screens():
+                self._observe_screen(screen)
+
+    def _observe_screen(self, screen):
+        if screen in self._observed_screens:
+            return
+        self._observed_screens.append(screen)
+        for name in ("geometryChanged", "refreshRateChanged"):
+            signal = getattr(screen, name, None)
+            if signal is not None:
+                signal.connect(self._screen_output_changed)
+
+    def _screen_added(self, screen):
+        self._observe_screen(screen)
+        self.mirrorScreensChanged.emit()
+
+    def _screen_removed(self, screen):
+        if screen in self._observed_screens:
+            self._observed_screens.remove(screen)
+            for name in ("geometryChanged", "refreshRateChanged"):
+                signal = getattr(screen, name, None)
+                if signal is not None:
+                    try:
+                        signal.disconnect(self._screen_output_changed)
+                    except (TypeError, RuntimeError):
+                        pass
+        self.mirrorScreensChanged.emit()
+
+    def _screen_output_changed(self, *_args):
+        self.mirrorScreensChanged.emit()
 
     @pyqtProperty(str, notify=detectedDeChanged)
     def detectedDe(self):
@@ -160,8 +228,15 @@ class MonitorizeBackend(QObject):
         self.detectedDeChanged.emit(selected)
         return True
 
-    def _remember_session_log(self, category, message):
-        self._session_log = (self._session_log + f"[{category}] {message}\n")[-100000:]
+    @pyqtProperty(bool, notify=uiVisibleChanged)
+    def uiVisible(self):
+        return self._ui_visible
+
+    def set_ui_visible(self, visible):
+        visible = bool(visible)
+        if visible != self._ui_visible:
+            self._ui_visible = visible
+            self.uiVisibleChanged.emit(visible)
 
     @pyqtSlot(result=str)
     def sessionLog(self):
@@ -173,10 +248,30 @@ class MonitorizeBackend(QObject):
         ]
         sections = []
         for label, path in sources:
-            content = app_log.read_tail(path)
+            try:
+                state = path.stat()
+                signature = (state.st_dev, state.st_ino, state.st_size, state.st_mtime_ns)
+            except OSError:
+                signature = None
+            cached = self._diagnostic_log_cache.get(label)
+            if cached is not None and cached[0] == path and cached[1] == signature:
+                content = cached[2]
+            else:
+                content = app_log.read_tail(path, max_bytes=self.UI_LOG_TAIL_BYTES)
+                self._diagnostic_log_cache[label] = (path, signature, content)
             if content:
                 sections.append(f"===== {label} =====\n{content}")
         return "\n\n".join(sections) or "No retained diagnostic logs yet."
+
+    @pyqtSlot(int, result=bool)
+    def openDiagnosticLog(self, source):
+        if source == 0:
+            path = Path(app_log.LOG_FILE)
+        elif source in (1, 2):
+            path = Path(get_sunshine_config_dir(source)) / "sunshine.log"
+        else:
+            return False
+        return path.is_file() and QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
 
     @pyqtProperty("QVariant", notify=sessionChanged)
     def sessionDisplays(self):
@@ -192,11 +287,11 @@ class MonitorizeBackend(QObject):
 
     @pyqtProperty(bool, notify=sessionChanged)
     def sessionBusy(self):
-        return self.session.busy
+        return self.session.busy or self._vkms_pending_start is not None or self._vkms_pending_preset is not None or bool(self.streaming._vkms_retiring)
 
     @pyqtProperty(bool, notify=sessionChanged)
     def sessionRunning(self):
-        return self.session.running
+        return self.streaming.streaming and self.streaming.primary_ready
 
     @pyqtProperty(str, notify=sessionChanged)
     def sessionMode(self):
@@ -212,17 +307,24 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot()
     def startSession(self):
-        if self.virtualDisplayCleanupRunning or self.vkmsModuleLoading:
+        self._start_session_checked()
+
+    def _start_session_checked(self, checked=False):
+        if self.streaming._vkms_retiring:
+            self.streaming._set_status("VKMS displays are still stopping — please wait")
+            return
+        if self.sunshineChoicesSaving:
+            self._pending_session_start = True
+            return
+        if self.virtualDisplayCleanupRunning:
             return
         config = self.session.configuration()
         if (config["display_type"] == "Extend"
                 and config["virtual_display_creator"] == "vkms"):
-            if not self.vkmsModuleLoaded:
-                self._pending_vkms_start = ("session", None)
-                self.loadStockVkmsModule()
-                return
-            if (not config["vkms_custom_mode"]
-                    and not self._resolve_stock_connector(self.session.preset_configuration)):
+            if not checked:
+                self._vkms_pending_start = ("session", None)
+                self.refreshVkmsHelperAvailability()
+                self.sessionChanged.emit()
                 return
         self._sync_web_settings()
         if (config["display_type"] == "Extend"
@@ -234,6 +336,9 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot()
     def stopSession(self):
+        self._vkms_pending_preset = None
+        self._vkms_pending_start = None
+        self._pending_session_start = False
         self._cancel_settings_open()
         self.session.stop()
 
@@ -254,6 +359,13 @@ class MonitorizeBackend(QObject):
     @pyqtProperty(bool, notify=isStreamingChanged)
     def isStreaming(self):
         return self.streaming.streaming
+
+    @pyqtProperty(bool, notify=sessionChanged)
+    def canSavePreset(self):
+        if not self.streaming.streaming or not self.streaming.primary_ready or self.session.busy:
+            return False
+        second = (self.streaming.pending_options or {}).get("second") or {}
+        return not second.get("enabled") or self.streaming.third_ready
 
     @pyqtProperty(str, notify=streamingStatusChanged)
     def streamingStatus(self):
@@ -289,383 +401,53 @@ class MonitorizeBackend(QObject):
 
     @pyqtProperty(bool, constant=True)
     def vkmsCreatorAvailable(self):
-        return not os.path.isfile("/.flatpak-info")
+        return True
 
-    @pyqtProperty("QVariant", notify=vkmsResolutionOptionsChanged)
+    @pyqtProperty("QVariant", constant=True)
     def vkmsResolutionOptions(self):
         return list(self._vkms_resolution_options)
 
-    @pyqtProperty("QVariant", notify=vkmsConnectorsChanged)
-    def vkmsConnectors(self):
-        return [dict(entry) for entry in self._vkms_connectors]
+    @pyqtProperty(bool, notify=vkmsHelperAvailabilityChanged)
+    def vkmsHelperAvailable(self):
+        return self._vkms_helper_available
 
-    @pyqtProperty(bool, notify=vkmsModuleLoadingChanged)
-    def vkmsModuleLoading(self):
-        return self._vkms_module_load_process is not None or self._vkms_module_finishing
+    @pyqtProperty(str, notify=vkmsHelperAvailabilityChanged)
+    def vkmsAvailabilityMessage(self):
+        return self._vkms_status_message
 
-    @pyqtProperty(bool)
-    def vkmsModuleLoaded(self):
-        return Path("/sys/module/vkms").is_dir()
-
-    def _finish_vkms_module_load(self, process, success, message=""):
-        if process is not self._vkms_module_load_process:
+    @pyqtSlot()
+    def refreshVkmsHelperAvailability(self):
+        if self._vkms_check_running or self._closing:
             return
-        if success:
+        self._vkms_check_running = True
+        def check():
             try:
-                from monitorize.platform.stock_vkms_output import recover_disabled_output
-                recover_disabled_output(self._detected_de)
+                MonitorizeVkmsClient().require_ready()
+                result = (True, "")
             except Exception as exc:
-                success = False
-                message = f"Stock VKMS loaded, but previous output cleanup failed: {exc}"
-        self._vkms_module_load_process = None
-        self._vkms_module_finishing = False
-        process.deleteLater()
-        self.vkmsModuleLoadingChanged.emit()
-        if success:
-            self.refreshVkmsResolutionOptions()
+                result = (False, str(exc))
+            if not self._closing:
+                self._vkmsWorkerFinished.emit(*result)
+        self._background_executor.submit(check)
+
+    def _finish_vkms_check(self, ready, message):
+        self._vkms_check_running = False
+        self._vkms_helper_available = ready
+        self._vkms_status_message = message
+        self.vkmsHelperAvailabilityChanged.emit()
+        pending, self._vkms_pending_start = self._vkms_pending_start, None
+        self.sessionChanged.emit()
+        if pending is None or self._closing:
+            return
+        if not ready:
+            self.streaming._set_status(message)
+            if pending[0] == "preset":
+                self._set_preset_launch_status(message)
+            self.streamingStartFailed.emit()
+        elif pending[0] == "session":
+            self._start_session_checked(True)
         else:
-            app_log.write("DISPLAY", f"Could not load stock VKMS: {message}", level=logging.ERROR)
-        self.vkmsModuleLoadFinished.emit(success, message)
-        pending = self._pending_vkms_start
-        self._pending_vkms_start = None
-        if pending:
-            if success:
-                QTimer.singleShot(0, lambda: self._resume_vkms_start(*pending))
-            else:
-                self.vkmsStartFailed.emit(message)
-
-    def _resume_vkms_start(self, kind, index):
-        if kind == "session":
-            self.startSession()
-        else:
-            self.launchPreset(index)
-
-    def _fail_vkms_load_without_process(self, message):
-        self.vkmsModuleLoadFinished.emit(False, message)
-        pending = self._pending_vkms_start
-        self._pending_vkms_start = None
-        if pending:
-            self.vkmsStartFailed.emit(message)
-
-    def _finish_existing_vkms_load(self):
-        self.vkmsModuleLoadFinished.emit(True, "")
-        pending = self._pending_vkms_start
-        self._pending_vkms_start = None
-        if pending:
-            QTimer.singleShot(0, lambda: self._resume_vkms_start(*pending))
-
-    def _resolve_stock_connector(self, preset=None):
-        """Keep a valid choice; recover a sole connector after card renumbering."""
-        self.refreshVkmsResolutionOptions()
-        connectors = self._vkms_connectors
-        selected = (preset["primary"].get("vkms_connector", "") if preset
-                    else load_display_settings().get("vkms_connector", ""))
-        if any(entry["id"] == selected for entry in connectors):
-            return True
-        if len(connectors) == 1:
-            selected = connectors[0]["id"]
-            if preset:
-                preset["primary"]["vkms_connector"] = selected
-            else:
-                save_display_settings(**{**load_display_settings(), "vkms_connector": selected})
-                self.session.configuration_changed()
-            self.refreshVkmsResolutionOptions()
-            return True
-        message = ("No connected stock VKMS connector is available." if not connectors
-                   else "Choose a stock VKMS connector in Configuration before starting.")
-        self.vkmsStartFailed.emit(message)
-        return False
-
-    def _disable_new_stock_output(self, process):
-        if process is not self._vkms_module_load_process:
-            return
-        connectors = stock_vkms_connectors()
-        if len(connectors) == 1:
-            from monitorize.platform.stock_vkms_output import StockVkmsOutput
-            connector = connectors[0]
-            try:
-                StockVkmsOutput(
-                    connector["id"], self._detected_de, connector["connector_id"]
-                ).disable()
-            except Exception as exc:
-                if time.monotonic() < self._vkms_module_deadline:
-                    QTimer.singleShot(250, lambda: self._disable_new_stock_output(process))
-                    return
-                self._finish_vkms_module_load(
-                    process, False, f"Stock VKMS loaded, but its default output could not be disabled: {exc}"
-                )
-                return
-            self._finish_vkms_module_load(process, True)
-            return
-        if time.monotonic() < self._vkms_module_deadline:
-            QTimer.singleShot(250, lambda: self._disable_new_stock_output(process))
-            return
-        self._finish_vkms_module_load(
-            process, False,
-            "Stock VKMS loaded, but its new default connector could not be identified."
-        )
-
-    def _complete_vkms_module_load(self, process, exit_code):
-        if process is not self._vkms_module_load_process:
-            return
-        loaded = Path("/sys/module/vkms").is_dir()
-        if exit_code == 0 and loaded:
-            message = ""
-        elif exit_code == 0:
-            message = "modprobe returned success, but stock VKMS is not loaded."
-        else:
-            message = (
-                bytes(process.readAllStandardOutput()).decode("utf-8", "replace").strip()[:300]
-                or "Authentication was cancelled or module loading failed."
-            )
-        if exit_code == 0 and loaded:
-            self._vkms_module_finishing = True
-            self._vkms_module_deadline = time.monotonic() + 5
-            self._disable_new_stock_output(process)
-        else:
-            self._finish_vkms_module_load(process, False, message)
-
-    @pyqtSlot()
-    def loadStockVkmsModule(self):
-        """Load stock VKMS for a selected, saved, or starting VKMS display."""
-        if self._vkms_module_load_process is not None:
-            return
-        if self.vkmsModuleLoaded:
-            self.refreshVkmsResolutionOptions()
-            QTimer.singleShot(0, self._finish_existing_vkms_load)
-            return
-
-        pkexec = shutil.which("pkexec")
-        modprobe = next(
-            (path for path in ("/usr/sbin/modprobe", "/sbin/modprobe", "/usr/bin/modprobe", "/bin/modprobe")
-             if Path(path).is_file() and os.access(path, os.X_OK)),
-            None,
-        )
-        if not pkexec or not modprobe:
-            missing = "Polkit (pkexec)" if not pkexec else "modprobe"
-            QTimer.singleShot(0, lambda: self._fail_vkms_load_without_process(
-                f"{missing} is not installed."
-            ))
-            return
-
-        process = QProcess(self)
-        process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
-        process.finished.connect(
-            lambda exit_code, _status: self._complete_vkms_module_load(process, exit_code)
-        )
-        process.errorOccurred.connect(
-            lambda error: self._finish_vkms_module_load(
-                process, False, process.errorString()
-            ) if error == QProcess.ProcessError.FailedToStart else None
-        )
-        self._vkms_module_load_process = process
-        self.vkmsModuleLoadingChanged.emit()
-        process.start(pkexec, [modprobe, "vkms"])
-
-    @pyqtSlot()
-    def loadSavedStockVkmsAtStartup(self):
-        """Restore the saved VKMS choice once the main window has loaded."""
-        saved = load_display_settings()
-        if (saved["display_type"] != "Extend"
-                or saved["virtual_display_creator"] != "vkms"
-                or not self.vkmsCreatorAvailable):
-            return
-        if self.vkmsModuleLoaded:
-            try:
-                from monitorize.platform.stock_vkms_output import recover_disabled_output
-                recover_disabled_output(self._detected_de)
-                self.refreshVkmsResolutionOptions()
-            except Exception as exc:
-                self.vkmsModuleLoadFinished.emit(
-                    False, f"Could not clean up the previous VKMS output: {exc}"
-                )
-        else:
-            self.loadStockVkmsModule()
-
-    @pyqtProperty("QVariant", notify=vkmsResolutionOptionsChanged)
-    def vkmsRefreshRates(self):
-        return {size: list(rates) for size, rates in self._vkms_refresh_rates.items()}
-
-    @pyqtProperty(bool, notify=vkmsCustomCapabilityCheckingChanged)
-    def vkmsCustomCapabilityChecking(self):
-        return self._vkms_custom_capability_process is not None
-
-    @pyqtProperty(str, notify=vkmsCustomEdidCapabilityChanged)
-    def vkmsCustomEdidCapability(self):
-        if self._vkms_custom_capability is None:
-            return "unknown"
-        return self._vkms_custom_capability.value
-
-    @pyqtSlot()
-    def refreshVkmsResolutionOptions(self):
-        connectors = stock_vkms_connectors()
-        if connectors != self._vkms_connectors:
-            self._vkms_connectors = connectors
-            self.vkmsConnectorsChanged.emit()
-        options = vkms_resolution_options(
-            connector_id=load_display_settings().get("vkms_connector", "")
-        )
-        rates = {}
-        selected = load_display_settings().get("vkms_connector", "")
-        if selected and any(entry["id"] == selected for entry in connectors):
-            from monitorize.platform.stock_vkms_output import StockVkmsOutput
-            try:
-                connector_number = next(
-                    entry["connector_id"] for entry in connectors if entry["id"] == selected
-                )
-                output = StockVkmsOutput(selected, self._detected_de, connector_number)
-                drm_sizes = set(options[:-1])
-                for mode in output.modes():
-                    size = f"{mode['width']}x{mode['height']}"
-                    if size in drm_sizes:
-                        label = f"{mode['refresh_rate']:g} Hz"
-                        rates.setdefault(size, set()).add(label)
-            except Exception as exc:
-                app_log.write("DISPLAY", f"Could not read stock VKMS desktop modes: {exc}", level=logging.WARNING)
-        rates = {size: sorted(values, key=lambda label: float(label.split()[0]))
-                 for size, values in rates.items()}
-        if options != self._vkms_resolution_options or rates != self._vkms_refresh_rates:
-            self._vkms_resolution_options = options
-            self._vkms_refresh_rates = rates
-            self.vkmsResolutionOptionsChanged.emit()
-
-    def _finish_vkms_custom_capability(self, capability, detail=""):
-        process = self._vkms_custom_capability_process
-        self._vkms_custom_capability_process = None
-        if process is not None:
-            process.deleteLater()
-        self.vkmsCustomCapabilityCheckingChanged.emit()
-
-        if capability in (
-            CustomEdidCapability.SUPPORTED,
-            CustomEdidCapability.UNSUPPORTED,
-        ):
-            self._vkms_custom_capability = capability
-            self.vkmsCustomEdidCapabilityChanged.emit()
-            app_log.write(
-                "VKMS",
-                f"VKMS custom EDID capability: {capability.value}",
-            )
-        else:
-            app_log.write(
-                "VKMS",
-                "Failed to determine VKMS custom EDID capability: " + detail,
-                level=logging.ERROR,
-            )
-        self.vkmsCustomCapabilityChecked.emit(capability.value)
-
-    def _handle_vkms_custom_edid_unsupported(self):
-        """Carry a launch-time capability failure back to the existing QML UI."""
-        self._vkms_custom_capability = CustomEdidCapability.UNSUPPORTED
-        self.vkmsCustomEdidCapabilityChanged.emit()
-        self.vkmsCustomCapabilityChecked.emit(
-            CustomEdidCapability.UNSUPPORTED.value
-        )
-
-    def _complete_vkms_custom_capability(self, process, exit_code):
-        if process is not self._vkms_custom_capability_process:
-            return
-        output = bytes(process.readAllStandardOutput()).decode("utf-8", "replace")
-        response = None
-        for line in reversed(output.splitlines()):
-            try:
-                candidate = json.loads(line)
-                if isinstance(candidate, dict):
-                    response = candidate
-                    break
-            except (TypeError, json.JSONDecodeError):
-                continue
-        if response is None:
-            try:
-                parsed = json.loads(output)
-                if isinstance(parsed, dict):
-                    response = parsed
-            except (TypeError, json.JSONDecodeError):
-                pass
-        try:
-            if exit_code or not isinstance(response, dict) or not response.get("success"):
-                detail = ""
-                if isinstance(response, dict):
-                    detail = str(response.get("message") or "")
-                raise VkmsError(detail or "The capability check did not complete.")
-            if "capability" in response:
-                capability = custom_edid_capability_from_response(response)
-            else:
-                mod_loaded = response.get("kernel_module", {}).get("loaded", False)
-                topo_enabled = response.get("topology", {}).get("device_enabled", False)
-                capability = (
-                    CustomEdidCapability.SUPPORTED
-                    if mod_loaded and topo_enabled
-                    else CustomEdidCapability.UNSUPPORTED
-                )
-        except VkmsError as exc:
-            self._finish_vkms_custom_capability(
-                CustomEdidCapability.CHECK_FAILED, str(exc)
-            )
-            return
-        self._finish_vkms_custom_capability(capability)
-
-    def _handle_vkms_custom_capability_error(self, process, error):
-        if (
-            error == QProcess.ProcessError.FailedToStart
-            and process is self._vkms_custom_capability_process
-        ):
-            self._finish_vkms_custom_capability(
-                CustomEdidCapability.CHECK_FAILED,
-                process.errorString(),
-            )
-
-    @pyqtSlot()
-    def checkVkmsCustomEdidSupport(self):
-        if self._vkms_custom_capability_process is not None:
-            return
-        if self._vkms_custom_capability is not None:
-            QTimer.singleShot(
-                0,
-                lambda: self.vkmsCustomCapabilityChecked.emit(
-                    self._vkms_custom_capability.value
-                ),
-            )
-            return
-        if os.path.isfile("/.flatpak-info"):
-            self._finish_vkms_custom_capability(
-                CustomEdidCapability.CHECK_FAILED,
-                "VKMS capability checks are unavailable in Flatpak.",
-            )
-            return
-
-        client = MonitorizeVkmsClient()
-        exe = client.find_executable()
-        if not exe:
-            self._finish_vkms_custom_capability(
-                CustomEdidCapability.UNSUPPORTED,
-                "The standalone monitorize-vkms package is not installed.",
-            )
-            return
-
-        process = QProcess(self)
-        process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
-        process.finished.connect(
-            lambda exit_code, _status: self._complete_vkms_custom_capability(
-                process, exit_code
-            )
-        )
-        process.errorOccurred.connect(
-            lambda error: self._handle_vkms_custom_capability_error(process, error)
-        )
-        self._vkms_custom_capability_process = process
-        self.vkmsCustomCapabilityCheckingChanged.emit()
-        process.start(str(exe), ["status", "--json"])
-
-    @pyqtSlot()
-    def recheckVkmsCustomEdidSupport(self):
-        """Discard a stale unsupported result before an explicit user retry."""
-        if self._vkms_custom_capability_process is not None:
-            return
-        if self._vkms_custom_capability is not None:
-            self._vkms_custom_capability = None
-            self.vkmsCustomEdidCapabilityChanged.emit()
-        self.checkVkmsCustomEdidSupport()
+            self._launch_preset_checked(pending[1], True)
 
     @pyqtSlot(result=bool)
     def openMonitorizeVkmsInstallPage(self):
@@ -709,6 +491,69 @@ class MonitorizeBackend(QObject):
         if was_pending != self.systemSetupPending:
             self.systemSetupPendingChanged.emit(self.systemSetupPending)
         return result
+
+    @pyqtProperty(bool, notify=systemSetupRunningChanged)
+    def systemSetupRunning(self):
+        return self._system_setup_process is not None
+
+    @pyqtSlot(bool, bool)
+    def startSystemSetup(self, enable_input: bool, enable_firewall: bool):
+        if self._system_setup_process is not None:
+            return
+        command, error = system_setup_command(enable_input, enable_firewall)
+        if error:
+            self.systemSetupFinished.emit(error)
+            return
+        process = QProcess(self)
+        self._system_setup_timed_out = False
+        self._system_setup_cancelled = False
+        self._system_setup_process = process
+        self.systemSetupRunningChanged.emit(True)
+        process.finished.connect(self._finish_system_setup)
+        process.errorOccurred.connect(self._system_setup_process_error)
+        process.start(command[0], command[1:])
+        if self._system_setup_process is process:
+            self._system_setup_timeout.start(60000)
+
+    def _complete_system_setup(self, result):
+        process = self._system_setup_process
+        if process is None:
+            return
+        self._system_setup_process = None
+        self._system_setup_timeout.stop()
+        process.deleteLater()
+        self.systemSetupRunningChanged.emit(False)
+        updated = bool(get_system_setup_status()["available"])
+        if updated != self._system_setup_available:
+            self._system_setup_available = updated
+            self.systemSetupAvailableChanged.emit(updated)
+        self.systemSetupFinished.emit(result)
+
+    def _finish_system_setup(self, exit_code, _exit_status):
+        process = self._system_setup_process
+        if process is None:
+            return
+        if self._system_setup_cancelled:
+            result = {"success": False, "message": "System setup cancelled."}
+        elif self._system_setup_timed_out:
+            result = {"success": False, "message": "System setup timed out."}
+        else:
+            result = parse_system_setup_result(
+                exit_code,
+                bytes(process.readAllStandardOutput()).decode("utf-8", "replace"),
+                bytes(process.readAllStandardError()).decode("utf-8", "replace"),
+            )
+        self._complete_system_setup(result)
+
+    def _system_setup_process_error(self, error):
+        if error == QProcess.ProcessError.FailedToStart:
+            self._complete_system_setup({"success": False, "message": "Could not start system setup."})
+
+    def _timeout_system_setup(self):
+        process = self._system_setup_process
+        if process is not None:
+            self._system_setup_timed_out = True
+            process.kill()
 
     @pyqtSlot()
     def markSystemSetupDecided(self):
@@ -811,6 +656,9 @@ class MonitorizeBackend(QObject):
             second["enabled"] = True
         else:
             second["enabled"] = False
+            if self.streaming.third_streaming:
+                self.streaming.stop_third()
+                self.session.count = 1
         save_second_display_settings(**second)
 
         self.session.preset_configuration = None
@@ -820,13 +668,64 @@ class MonitorizeBackend(QObject):
     def getEncodingGpuOptions(self, encoder):
         return encoding_gpu_options(encoder)
 
+    @pyqtSlot(str, result=int)
+    def requestEncodingGpuOptions(self, encoder):
+        if self._closing:
+            return 0
+        self._gpu_request_serial += 1
+        request = self._gpu_request_serial
+
+        def work():
+            try:
+                options = encoding_gpu_options(encoder)
+            except Exception:
+                options = []
+            self._encodingGpuWorkerFinished.emit(request, encoder, options)
+
+        self._background_executor.submit(work)
+        return request
+
+    @pyqtSlot(int, str, object)
+    def _finish_gpu_options(self, request, encoder, options):
+        if not self._closing:
+            self.encodingGpuOptionsReady.emit(request, encoder, options)
+
     @pyqtSlot(result="QVariant")
     def getMirrorOutputs(self):
         from monitorize.platform.mirror_outputs import active_outputs
 
         return active_outputs(self._detected_de)
 
-    @pyqtSlot(str, str, str, str, str, str, str, str, str, bool, bool, bool, str, str, str)
+    @pyqtSlot(result=int)
+    def requestMirrorOutputs(self):
+        if self._closing:
+            return 0
+        from monitorize.platform.mirror_outputs import screen_outputs, _compositor_modes
+
+        outputs = screen_outputs()
+        self._mirror_request_serial += 1
+        request = self._mirror_request_serial
+        desktop = self._detected_de
+
+        def work():
+            try:
+                modes = _compositor_modes(str(desktop or "").lower())
+            except Exception:
+                modes = {}
+            self._mirrorWorkerFinished.emit(request, outputs, modes)
+
+        self._background_executor.submit(work)
+        return request
+
+    @pyqtSlot(int, object, object)
+    def _finish_mirror_outputs(self, request, outputs, modes):
+        if self._closing:
+            return
+        from monitorize.platform.mirror_outputs import apply_modes
+
+        self.mirrorOutputsReady.emit(request, apply_modes(outputs, modes))
+
+    @pyqtSlot(str, str, str, str, str, str, str, str, str, bool, bool, bool, str, str)
     def saveDisplaySettings(
         self,
         resolution,
@@ -843,9 +742,9 @@ class MonitorizeBackend(QObject):
         enable_audio,
         mirror_output="",
         virtual_display_creator="native",
-        vkms_connector="",
     ):
-        previous_gpu = load_display_settings().get("sunshine_gpu", "")
+        previous = load_display_settings()
+        previous_gpu = previous.get("sunshine_gpu", "")
         save_display_settings(
             resolution=resolution,
             custom_w=custom_w,
@@ -856,6 +755,7 @@ class MonitorizeBackend(QObject):
             sunshine_encoder=sunshine_encoder,
             sunshine_gpu=sunshine_gpu,
             sunshine_codec=sunshine_codec,
+            sunshine_capture=previous.get("sunshine_capture", "auto"),
             streaming_customized=streaming_customized,
             sunshine_native_pen_touch=sunshine_native_pen_touch,
             enable_audio=enable_audio,
@@ -864,7 +764,6 @@ class MonitorizeBackend(QObject):
                 virtual_display_creator
                 if self.vkmsCreatorAvailable else "native"
             ),
-            vkms_connector=vkms_connector,
         )
         if self._web_settings_enabled and sunshine_gpu != previous_gpu:
             selected = resolve_encoding_gpu(sunshine_encoder, sunshine_gpu)
@@ -872,6 +771,168 @@ class MonitorizeBackend(QObject):
                 app_log.write("SUNSHINE", "Could not save the selected encoding GPU.", level=logging.ERROR)
         self.session.preset_configuration = None
         self.session.configuration_changed()
+
+    @pyqtSlot(int, "QVariantMap")
+    def saveSunshineDisplaySettings(self, instance, values, sync_adapter=True):
+        if instance not in (1, 2) or self.isStreaming or self.sessionBusy:
+            return
+        load = load_display_settings if instance == 1 else load_second_display_settings
+        save = save_display_settings if instance == 1 else save_second_display_settings
+        saved = load()
+        previous_gpu = saved.get("sunshine_gpu", "")
+        capture = str(values.get("sunshine_capture", "auto")).lower()
+        if capture not in CAPTURE_MODES:
+            capture = "auto"
+        for key in (
+            "sunshine_encoder", "sunshine_gpu", "sunshine_codec",
+            "sunshine_native_pen_touch", "enable_audio", "streaming_customized",
+        ):
+            if key in values:
+                saved[key] = values[key]
+        saved["sunshine_capture"] = capture
+        save(**saved)
+        if sync_adapter and self._web_settings_enabled and saved.get("sunshine_gpu", "") != previous_gpu:
+            selected = resolve_encoding_gpu(saved["sunshine_encoder"], saved["sunshine_gpu"])
+            save_sunshine_adapter(
+                selected.get("render_node", "") if selected else "", instance=instance
+            )
+        self.session.preset_configuration = None
+        self.session.configuration_changed()
+        self._sunshine_settings_revision += 1
+        self.sunshineSettingsRevisionChanged.emit(self._sunshine_settings_revision)
+
+    @pyqtProperty(int, notify=sunshineSettingsRevisionChanged)
+    def sunshineSettingsRevision(self):
+        return self._sunshine_settings_revision
+
+    def _prepare_sunshine_choices(self, instance, submitted):
+        if instance not in (1, 2) or self.isStreaming or self.sessionBusy:
+            return {"error": "Stop the session before editing Sunshine settings."}
+        if self._closing:
+            return {"error": "Monitorize is closing."}
+        customized = bool(submitted.get("streaming_customized"))
+        encoder = str(submitted.get("sunshine_encoder", "Auto")) if customized else "Auto"
+        codec = str(submitted.get("sunshine_codec", "Auto")) if customized else "Auto"
+        encoder_values = {"Auto": "", "NVIDIA": "nvenc", "VA-API": "vaapi",
+                          "Vulkan": "vulkan", "Software": "software"}
+        codec_values = {"Auto": ("0", "0"), "H.264": ("1", "1"),
+                        "HEVC": ("2", "1"), "AV1": ("1", "2")}
+        if encoder not in encoder_values or codec not in codec_values:
+            return {"error": "Unsupported Sunshine encoder or codec."}
+        capture = str(submitted.get("sunshine_capture", "auto")).lower()
+        if capture not in CAPTURE_MODES:
+            return {"error": "Unsupported capture mode."}
+        values = {
+            "sunshine_encoder": encoder,
+            "sunshine_gpu": str(submitted.get("sunshine_gpu", "")) if customized else "",
+            "sunshine_codec": codec,
+            "sunshine_capture": capture,
+            "streaming_customized": customized,
+            "sunshine_native_pen_touch": bool(submitted.get("sunshine_native_pen_touch")),
+            "enable_audio": bool(submitted.get("enable_audio")),
+        }
+        hevc, av1 = codec_values[codec]
+        config_patch = {
+            "encoder": encoder_values[encoder],
+            "hevc_mode": hevc,
+            "av1_mode": av1,
+            "native_pen_touch": "enabled" if values["sunshine_native_pen_touch"] else "disabled",
+            "stream_audio": "enabled" if values["enable_audio"] else "disabled",
+        }
+        load = load_display_settings if instance == 1 else load_second_display_settings
+        saved = load()
+        if self._web_settings_enabled and values["sunshine_gpu"] != saved.get("sunshine_gpu", ""):
+            selected = resolve_encoding_gpu(encoder, values["sunshine_gpu"])
+            config_patch["adapter_name"] = selected.get("render_node", "") if selected else ""
+        current_config = get_saved_sunshine_config(instance)
+        settings_changed = any(saved.get(key) != value for key, value in values.items())
+        config_changed = any(current_config.get(key, "") != value for key, value in config_patch.items())
+        return {"values": values, "config_patch": config_patch,
+                "settings_changed": settings_changed, "config_changed": config_changed}
+
+    @pyqtSlot(int, "QVariantMap", result="QVariantMap")
+    def saveSunshineChoices(self, instance, submitted):
+        """Synchronous compatibility path for callers outside the QML form."""
+        prepared = self._prepare_sunshine_choices(instance, submitted)
+        if "error" in prepared:
+            return {"success": False, "message": prepared["error"]}
+        if not prepared["settings_changed"] and not prepared["config_changed"]:
+            return {"success": True, "message": ""}
+        if prepared["config_changed"]:
+            success, message = save_sunshine_config(prepared["config_patch"], instance=instance)
+            if not success:
+                return {"success": False, "message": message}
+        if prepared["settings_changed"]:
+            self.saveSunshineDisplaySettings(instance, prepared["values"], sync_adapter=False)
+        return {"success": True, "message": ""}
+
+    @pyqtProperty(bool, notify=sunshineChoicesSavingChanged)
+    def sunshineChoicesSaving(self):
+        return self._sunshine_save_active is not None or bool(self._sunshine_save_pending)
+
+    @pyqtSlot(int, "QVariantMap", result="QVariantMap")
+    def requestSaveSunshineChoices(self, instance, submitted):
+        prepared = self._prepare_sunshine_choices(instance, submitted)
+        if "error" in prepared:
+            return {"accepted": False, "message": prepared["error"]}
+        was_saving = self.sunshineChoicesSaving
+        self._sunshine_save_pending[instance] = dict(submitted)
+        if not was_saving:
+            self.sunshineChoicesSavingChanged.emit(True)
+        self._launch_next_sunshine_save()
+        return {"accepted": True, "message": ""}
+
+    def _launch_next_sunshine_save(self):
+        if self._closing or self._sunshine_save_active is not None:
+            return
+        while self._sunshine_save_pending:
+            instance = next(iter(self._sunshine_save_pending))
+            submitted = self._sunshine_save_pending.pop(instance)
+            prepared = self._prepare_sunshine_choices(instance, submitted)
+            if "error" in prepared:
+                self.sunshineChoicesFinished.emit(instance, False, prepared["error"])
+                continue
+            if not prepared["config_changed"]:
+                if prepared["settings_changed"]:
+                    self.saveSunshineDisplaySettings(instance, prepared["values"], sync_adapter=False)
+                self.sunshineChoicesFinished.emit(instance, True, "")
+                continue
+            self._sunshine_save_serial += 1
+            request = self._sunshine_save_serial
+            self._sunshine_save_active = (request, instance, prepared)
+            config_patch = prepared["config_patch"]
+
+            def work():
+                try:
+                    success, message = save_sunshine_config(config_patch, instance=instance)
+                except Exception as exc:
+                    success, message = False, f"Could not save Sunshine settings: {exc}"
+                self._sunshineChoicesWorkerFinished.emit(request, success, message)
+
+            self._background_executor.submit(work)
+            return
+        self.sunshineChoicesSavingChanged.emit(False)
+        if self._pending_session_start:
+            self._pending_session_start = False
+            QTimer.singleShot(0, self.startSession)
+
+    @pyqtSlot(int, bool, str)
+    def _finish_sunshine_choices(self, request, success, message):
+        active = self._sunshine_save_active
+        if self._closing or active is None or active[0] != request:
+            return
+        _, instance, prepared = active
+        self._sunshine_save_active = None
+        if success and prepared["settings_changed"]:
+            if self.isStreaming or self.sessionBusy:
+                success, message = False, "Session started before Sunshine settings were saved."
+            else:
+                self.saveSunshineDisplaySettings(instance, prepared["values"], sync_adapter=False)
+        if not success:
+            self._pending_session_start = False
+            app_log.write("SUNSHINE", message, level=logging.ERROR)
+        self.sunshineChoicesFinished.emit(instance, success, "" if success else message)
+        self._launch_next_sunshine_save()
 
     @pyqtSlot(result="QVariant")
     def loadGeneralSettings(self):
@@ -918,7 +979,7 @@ class MonitorizeBackend(QObject):
     def removeStagnantVirtualDisplays(self):
         if self.virtualDisplayCleanupRunning:
             return
-        if self.isStreaming:
+        if self.isStreaming or self.sessionBusy:
             self.virtualDisplayCleanupFinished.emit(False, "Stop streaming before removing virtual displays")
             return
         process = QProcess(self)
@@ -956,6 +1017,39 @@ class MonitorizeBackend(QObject):
             "message": "No restore tokens were found",
         }
 
+    @pyqtSlot(result="QVariantMap")
+    def resetSunshineSettings(self):
+        if self.isStreaming or self.sessionBusy:
+            return {"success": False, "message": "Stop the session before resetting Sunshine settings"}
+        for instance in (1, 2):
+            if is_sunshine_running(instance) and not is_sunshine_settings_instance(instance):
+                return {"success": False, "message": "Stop Sunshine before resetting its settings"}
+        if self._settings_instance is not None:
+            self._cancel_settings_open()
+        for instance in (1, 2):
+            if is_sunshine_settings_instance(instance):
+                stop_sunshine(instance, clear_output_name=False)
+                if is_sunshine_running(instance):
+                    return {"success": False, "message": f"Could not stop Sunshine instance {instance} before resetting its settings"}
+            success, message = reset_sunshine_config(instance)
+            if not success:
+                return {"success": False, "message": message}
+        defaults = {key: DISPLAY_DEFAULTS[key] for key in (
+            "sunshine_encoder", "sunshine_gpu", "sunshine_codec", "sunshine_capture",
+            "streaming_customized", "sunshine_native_pen_touch", "enable_audio",
+        )}
+        primary = load_display_settings()
+        primary.update(defaults)
+        save_display_settings(**primary)
+        second = load_second_display_settings()
+        second.update(defaults)
+        save_second_display_settings(**second)
+        self._web_settings_enabled = False
+        save_general_settings(sunshine_web_settings_enabled=False)
+        self.session.preset_configuration = None
+        self.session.configuration_changed()
+        return {"success": True, "message": "Sunshine settings restored to Monitorize defaults"}
+
     @pyqtSlot(str, str, str, str, str, str, bool, bool)
     def startStreaming(
         self,
@@ -979,6 +1073,7 @@ class MonitorizeBackend(QObject):
             native_pen_touch,
             enable_audio,
             gpu_id=gpu_id,
+            capture=load_display_settings().get("sunshine_capture", "auto"),
         )
 
     @pyqtSlot()
@@ -1042,6 +1137,37 @@ class MonitorizeBackend(QObject):
         success, message = pair_moonlight_pin(pin, instance=instance)
         return {"success": success, "message": message}
 
+    @pyqtProperty(bool, notify=pairingRunningChanged)
+    def pairingRunning(self):
+        return self._pairing_active != 0
+
+    @pyqtSlot(str, int, result=int)
+    def startPairMoonlightPin(self, pin, instance):
+        if self._closing or self._pairing_active:
+            return 0
+        self._pairing_serial += 1
+        request = self._pairing_serial
+        self._pairing_active = request
+        self.pairingRunningChanged.emit(True)
+
+        def work():
+            try:
+                success, message = pair_moonlight_pin(pin, instance=instance)
+            except Exception as exc:
+                success, message = False, f"Pairing failed: {exc}"
+            self._pairingWorkerFinished.emit(request, success, message)
+
+        self._background_executor.submit(work)
+        return request
+
+    @pyqtSlot(int, bool, str)
+    def _finish_pairing(self, request, success, message):
+        if self._closing or request != self._pairing_active:
+            return
+        self._pairing_active = 0
+        self.pairingRunningChanged.emit(False)
+        self.pairMoonlightFinished.emit(request, success, message)
+
     @pyqtSlot(result="QVariantMap")
     @pyqtSlot(int, result="QVariantMap")
     def restartSunshine(self, instance: int = 1):
@@ -1097,6 +1223,7 @@ class MonitorizeBackend(QObject):
         native_pen_touch,
         enable_audio,
     ):
+        previous = load_second_display_settings()
         save_second_display_settings(
             resolution=resolution,
             custom_w=custom_w,
@@ -1106,6 +1233,7 @@ class MonitorizeBackend(QObject):
             sunshine_encoder=encoder,
             sunshine_gpu=gpu_id,
             sunshine_codec=codec,
+            sunshine_capture=previous.get("sunshine_capture", "auto"),
             sunshine_native_pen_touch=native_pen_touch,
             enable_audio=enable_audio,
         )
@@ -1117,7 +1245,9 @@ class MonitorizeBackend(QObject):
         if self.virtualDisplayCleanupRunning:
             return
         self.streaming.start_third(
-            res, fps, encoder, codec, native_pen_touch, enable_audio, gpu_id=gpu_id
+            res, fps, encoder, codec, native_pen_touch, enable_audio,
+            gpu_id=gpu_id,
+            capture=load_second_display_settings().get("sunshine_capture", "auto"),
         )
 
     @pyqtSlot()
@@ -1133,8 +1263,8 @@ class MonitorizeBackend(QObject):
     @pyqtSlot(str, int, result=str)
     def saveCurrentPreset(self, name, replace_index=-1):
         name = name.strip()
-        if not self.streaming.streaming:
-            return "No active display to save."
+        if not self.canSavePreset:
+            return "Wait until the session is ready before saving a preset."
         if not name:
             return "Enter a preset name."
         if len(name) > 32:
@@ -1149,7 +1279,7 @@ class MonitorizeBackend(QObject):
             -1,
         )
         if duplicate >= 0:
-            return f"duplicate:{duplicate}"
+            return "A preset with this name already exists. Choose it under Replace preset."
         if replace_index < -1 or replace_index >= len(self._presets):
             return "Invalid preset selection."
         if replace_index == -1 and len(self._presets) >= MAX_PRESETS:
@@ -1167,33 +1297,56 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot(int)
     def launchPreset(self, index):
-        if self.virtualDisplayCleanupRunning or self.vkmsModuleLoading:
+        self._launch_preset_checked(index)
+
+    def _resume_vkms_preset(self, *_args):
+        if self._vkms_pending_preset is None or self.streaming._vkms_retiring or self._closing:
+            return
+        index = self._vkms_pending_preset
+        def resume():
+            if self._vkms_pending_preset == index and not self._closing:
+                self._vkms_pending_preset = None
+                self._launch_preset_checked(index)
+        QTimer.singleShot(0, resume)
+
+    def _launch_preset_checked(self, index, checked=False):
+        if self._closing:
             return
         if index < 0 or index >= len(self._presets):
             self._set_preset_launch_status("Preset no longer exists.")
             return
+        if self.streaming.streaming and self.streaming.virtual_display_creator == "vkms":
+            self.streaming.stop()
+        if self.streaming._vkms_retiring:
+            self._vkms_pending_preset = index
+            self._set_preset_launch_status("Stopping the previous VKMS session…")
+            return
+        if self.sunshineChoicesSaving:
+            self._set_preset_launch_status("Wait for Sunshine settings to finish saving.")
+            return
+        if self.virtualDisplayCleanupRunning:
+            self._set_preset_launch_status("Wait for virtual display setup to finish.")
+            return
+        self._set_preset_launch_status("")
         preset = self._presets[index]
         import copy
         primary = preset["primary"]
         if (primary["display_type"] == "Extend"
                 and primary.get("virtual_display_creator") == "vkms"):
-            if not self.vkmsModuleLoaded:
-                self._pending_vkms_start = ("preset", index)
-                self.loadStockVkmsModule()
-                return
-            preset = copy.deepcopy(preset)
-            primary = preset["primary"]
-            if not primary.get("vkms_custom_mode", False) and not self._resolve_stock_connector(preset):
+            if not checked:
+                self._vkms_pending_start = ("preset", index)
+                self.refreshVkmsHelperAvailability()
+                self.sessionChanged.emit()
                 return
         self._sync_web_settings()
         if (primary["display_type"] == "Extend"
                 and (primary.get("virtual_display_creator", "native") != "vkms"
                      or not self.vkmsCreatorAvailable)
                 and not self.ensureNativeCompositor()):
+            self._set_preset_launch_status("Select a supported desktop before starting this preset.")
             return
         self._cancel_settings_open()
         self.session.preset_configuration = copy.deepcopy(preset)
-        self._set_preset_launch_status("")
         self.streaming.start(
             primary["resolution"],
             primary["fps"],
@@ -1209,8 +1362,7 @@ class MonitorizeBackend(QObject):
                 primary.get("virtual_display_creator", "native")
                 if self.vkmsCreatorAvailable else "native"
             ),
-            vkms_custom_mode=bool(primary.get("vkms_custom_mode", False)),
-            vkms_connector=primary.get("vkms_connector", ""),
+            capture=primary.get("sunshine_capture", "auto"),
         )
 
     @pyqtSlot(int, str, result=str)
@@ -1255,6 +1407,16 @@ class MonitorizeBackend(QObject):
             self.streaming.update_ip(current)
 
     def close(self):
+        self._vkms_pending_preset = None
+        self._vkms_pending_start = None
+        self._closing = True
+        self._background_executor.shutdown(wait=False, cancel_futures=True)
+        if self._system_setup_process is not None:
+            process = self._system_setup_process
+            self._system_setup_cancelled = True
+            process.kill()
+            process.waitForFinished(1000)
+            self._complete_system_setup({"success": False, "message": "System setup cancelled."})
         self._cancel_settings_open()
         self.network_timer.stop()
         self.streaming.stop()

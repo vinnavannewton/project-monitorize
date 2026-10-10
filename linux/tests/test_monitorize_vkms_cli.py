@@ -8,10 +8,8 @@ from pathlib import Path
 import subprocess
 import sys
 import unittest
-from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-from monitorize.desktop.backend import MonitorizeBackend
 from monitorize.platform.monitorize_vkms_cli import (
     DEFAULT_REMOVE_TIMEOUT,
     DEFAULT_TIMEOUT,
@@ -25,6 +23,7 @@ from monitorize.platform.monitorize_vkms_cli import (
     format_mode,
 )
 from monitorize.platform import vkms_backend
+from monitorize.platform.monitorize_vkms_dbus import MonitorizeVkmsClient as HostClient
 
 
 class MonitorizeVkmsCliTest(unittest.TestCase):
@@ -47,34 +46,6 @@ class MonitorizeVkmsCliTest(unittest.TestCase):
         formatted = format_mode(1920, 1080, 59.94)
         self.assertNotIn(",", formatted)
         self.assertNotIn("60.00000000000001", formatted)
-
-    def test_capability_completion_parses_multiline_status_json(self):
-        process = MagicMock()
-        process.readAllStandardOutput.return_value = json.dumps(
-            {
-                "success": True,
-                "kernel_module": {"loaded": True},
-                "topology": {"device_enabled": True},
-                "drm": {
-                    "active_connectors": [
-                        {
-                            "name": "Virtual-1",
-                            "modes": ["2340x1080"],
-                        }
-                    ]
-                },
-            },
-            indent=2,
-        ).encode()
-        owner = SimpleNamespace(_vkms_custom_capability_process=process)
-        owner._finish_vkms_custom_capability = MagicMock()
-
-        MonitorizeBackend._complete_vkms_custom_capability(owner, process, 0)
-
-        self.assertEqual(
-            owner._finish_vkms_custom_capability.call_args.args[0].value,
-            "supported",
-        )
 
     def test_client_parses_multiline_status_json_with_mode_array(self):
         payload = {
@@ -128,7 +99,7 @@ class MonitorizeVkmsCliTest(unittest.TestCase):
             "drm_path": "/sys/class/drm/card0-Virtual-1",
             "compositor": "gnome",
             "compositor_details": {"mode": "2340x1080@59.997"},
-            "status": "active",
+            "status": "active", "created": True, "generation": "g1",
         }
         mock_proc = MagicMock(returncode=0, stdout=json.dumps(payload), stderr="")
         with (
@@ -264,7 +235,7 @@ class MonitorizeVkmsCliTest(unittest.TestCase):
     # ----------------------------------------------------------------------
     def test_session_integration_lifecycle(self):
         """Verify run_vkms_headless lifecycle: create, emit event, wait, remove."""
-        mock_client = MagicMock(spec=MonitorizeVkmsClient)
+        mock_client = MagicMock(spec=HostClient)
         mock_client.is_available.return_value = True
         mock_client.create_display.return_value = {
             "name": "Virtual-3",
@@ -272,7 +243,7 @@ class MonitorizeVkmsCliTest(unittest.TestCase):
             "height": 1080,
             "fps": 60.0,
             "card": "card0",
-            "status": "active",
+            "status": "active", "created": True, "generation": "g1",
         }
         mock_client.remove_display.return_value = {"success": True}
 
@@ -282,15 +253,15 @@ class MonitorizeVkmsCliTest(unittest.TestCase):
         with (
             patch("sys.stdin", fake_stdin),
             patch("sys.stdout", captured_stdout),
-            patch("select.select", return_value=([fake_stdin], [], [])),
+            patch("select.select", side_effect=[([], [], []), ([fake_stdin], [], [])]),
         ):
             rc = vkms_backend.run_vkms_headless(
                 "primary", 2340, 1080, 60, "kde", client=mock_client
             )
 
         self.assertEqual(rc, 0)
-        mock_client.create_display.assert_called_once_with(2340, 1080, 60)
-        mock_client.remove_display.assert_called_once_with("Virtual-3")
+        mock_client.create_display.assert_called_once_with(2340, 1080, 60, display="mon1")
+        mock_client.remove_display.assert_called_once_with("mon1", "g1")
 
         output = captured_stdout.getvalue()
         self.assertIn("MONITORIZE_EVENT", output)
@@ -305,7 +276,7 @@ class MonitorizeVkmsCliTest(unittest.TestCase):
     # ----------------------------------------------------------------------
     def test_create_fail_does_not_call_remove(self):
         """Verify failed create never invokes remove on unknown connector."""
-        mock_client = MagicMock(spec=MonitorizeVkmsClient)
+        mock_client = MagicMock(spec=HostClient)
         mock_client.is_available.return_value = True
         mock_client.create_display.side_effect = VkmsCommandError("Create failed", error_type="invalid_mode")
 
@@ -324,7 +295,7 @@ class MonitorizeVkmsCliTest(unittest.TestCase):
     # ----------------------------------------------------------------------
     def test_failure_after_create_triggers_cleanup(self):
         """Verify cleanup removes display if session terminates unexpectedly after create."""
-        mock_client = MagicMock(spec=MonitorizeVkmsClient)
+        mock_client = MagicMock(spec=HostClient)
         mock_client.is_available.return_value = True
         mock_client.create_display.return_value = {
             "name": "Virtual-2",
@@ -332,7 +303,7 @@ class MonitorizeVkmsCliTest(unittest.TestCase):
             "height": 1080,
             "fps": 60,
             "card": "card0",
-            "status": "active",
+            "status": "active", "created": True, "generation": "g1",
         }
         mock_client.remove_display.return_value = {"success": True}
 
@@ -346,7 +317,7 @@ class MonitorizeVkmsCliTest(unittest.TestCase):
             )
 
         self.assertEqual(rc, 1)
-        mock_client.remove_display.assert_called_once_with("Virtual-2")
+        mock_client.remove_display.assert_called_once_with("mon1", "g1")
 
     # ----------------------------------------------------------------------
     # TEST 11 — NON-VKMS REGRESSION
@@ -377,7 +348,7 @@ class MonitorizeVkmsCliTest(unittest.TestCase):
             "refresh_rate": 60.0,
             "drm_connector": "Virtual-1",
             "drm_card": "card0",
-            "status": "active",
+            "status": "active", "created": True, "generation": "g1",
         }
         mock_proc = MagicMock(returncode=0, stdout=json.dumps(payload), stderr="")
         with (
@@ -406,7 +377,7 @@ class MonitorizeVkmsCliTest(unittest.TestCase):
             "refresh_rate": 60.0,
             "drm_connector": "Virtual-1",
             "drm_card": "card0",
-            "status": "active",
+            "status": "active", "created": True, "generation": "g1",
         }
         mock_proc = MagicMock(returncode=0, stdout=json.dumps(payload), stderr="")
         with (
@@ -435,7 +406,7 @@ class MonitorizeVkmsCliTest(unittest.TestCase):
             "refresh_rate": 60.0,
             "drm_connector": "Virtual-7",
             "drm_card": "card1",
-            "status": "active",
+            "status": "active", "created": True, "generation": "g1",
         }
         mock_proc = MagicMock(returncode=0, stdout=json.dumps(payload), stderr="")
         with (

@@ -1,10 +1,15 @@
-%global sunshine_commit e3ce79f3b966df388e905a3c6b3784832a328e34
-%global sunshine_ffmpeg_tag v2026.724.203728
-%global sunshine_ffmpeg_sha256 2c27d4694b4ed0e734f497d4bd62f1b3662cbbc4ded2a69f2dc4b703441eebb3
+%global sunshine_commit 8d043f2b929705a4f6bad30d1e7f700a2de607b6
+%global cuda_version 12.9.1
+%global cuda_build 575.57.08
+%global cuda_sha256 0f6d806ddd87230d2adbe8a6006a9d20144fdbda9de2d6acc677daa5d036417a
+%global sunshine_ffmpeg_tag v2026.910.121303
+%global sunshine_ffmpeg_sha256 496d2bbb674d01e6033e31b9dfc15cbc9dc1494e882a4505f6ab1e03f75b385c
+%global cuda_libxml2_sha256 56637a1b406c68da030032da1191a063bf56df7fd4f99ec2ae4ec6431bf1ee4f
+%bcond_without cuda
 %global _firewalld_dir %{_prefix}/lib/firewalld
 
 Name:           monitorize
-Version:        0.39
+Version:        0.33.3
 Release:        0
 Summary:        Sunshine-backed virtual displays for Moonlight clients
 License:        GPL-3.0-only
@@ -12,18 +17,33 @@ URL:            https://github.com/vinnavannewton/project-monitorize
 Source0:        %{name}-%{version}.tar.gz
 Source1:        https://github.com/LizardByte/build-deps/releases/download/%{sunshine_ffmpeg_tag}/Linux-x86_64-ffmpeg.tar.gz
 Source2:        monitorize.sysusers
+%if %{with cuda}
+# CUDA 12.9's installer still needs libxml2.so.2; Tumbleweed ships libxml2.so.16.
+Source3:        https://download.opensuse.org/distribution/leap/15.6/repo/oss/x86_64/libxml2-2-2.10.3-150500.5.14.1.x86_64.rpm
+%endif
 ExclusiveArch:  x86_64
 
 BuildRequires:  boost-devel >= 1.89.0
+%if %{with cuda}
+BuildRequires:  aria2
+%endif
 BuildRequires:  libboost_filesystem-devel
 BuildRequires:  libboost_locale-devel
 BuildRequires:  libboost_log-devel
 BuildRequires:  libboost_program_options-devel
 BuildRequires:  cmake >= 3.26
+%if %{with cuda}
+BuildRequires:  cpio
+%endif
+BuildRequires:  curl
 BuildRequires:  desktop-file-utils
 BuildRequires:  firewall-macros
 BuildRequires:  firewalld
 BuildRequires:  gcc-c++
+%if %{with cuda}
+BuildRequires:  gcc14
+BuildRequires:  gcc14-c++
+%endif
 BuildRequires:  git-core
 BuildRequires:  glib2-devel
 BuildRequires:  libX11-devel
@@ -48,6 +68,7 @@ BuildRequires:  libxcb-devel
 BuildRequires:  Mesa-libGL-devel
 BuildRequires:  nodejs
 BuildRequires:  npm
+BuildRequires:  patch
 BuildRequires:  nlohmann_json-devel
 BuildRequires:  pkgconfig
 BuildRequires:  pipewire-devel
@@ -71,7 +92,9 @@ BuildRequires:  wayland-protocols-devel
 Requires:       avahi
 Requires:       firewalld
 Requires:       iproute2
+Requires:       libcap-progs
 Requires:       libva-utils
+Requires:       pkexec
 Requires:       polkit
 Requires:       python3-Jinja2
 Requires:       python3-PyQt6
@@ -81,6 +104,7 @@ Requires:       python3-gobject
 Requires:       udev
 Requires:       which
 Requires:       xdg-desktop-portal
+Suggests:       monitorize-vkms
 Requires(pre):  sysuser-tools
 Requires(post): kmod
 Requires(post): udev
@@ -89,12 +113,12 @@ Requires(postun): udev
 %description
 Monitorize creates compositor-native virtual displays on KDE Plasma, GNOME,
 and Hyprland and streams them to Moonlight clients through isolated, bundled
-Sunshine instances.
+Sunshine instances. Optional kernel-backed virtual displays for preset and
+custom resolutions use the separately packaged helper suggested by this RPM.
 
 %prep
 %autosetup
 patch --batch --forward -d external/sunshine -p1 < packaging/sunshine-strict-selection.patch
-patch --batch --forward -d external/sunshine -p1 < packaging/sunshine-portal-token-scope.patch
 mkdir .ffmpeg-prepared
 tar -xzf %{SOURCE1} -C .ffmpeg-prepared --strip-components=1 --no-same-owner
 # Tumbleweed can ship a newer compatible Boost than Sunshine's exact request.
@@ -102,11 +126,51 @@ sed -i 's/find_package(Boost CONFIG ${BOOST_VERSION} EXACT /find_package(Boost C
     external/sunshine/cmake/dependencies/Boost_Sunshine.cmake
 
 %build
-CC=gcc RPM_OPT_FLAGS="%{optflags}" \
+%if %{with cuda}
+cuda_archive=${MONITORIZE_CUDA_ARCHIVE:-%{_builddir}/cuda_%{cuda_version}_%{cuda_build}_linux.run}
+mkdir -p "$(dirname "$cuda_archive")"
+if echo '%{cuda_sha256}  '"$cuda_archive" | sha256sum --check --strict --status; then
+    echo "Using cached CUDA installer: $cuda_archive"
+else
+    if [ "${MONITORIZE_OFFLINE:-0}" = 1 ]; then
+        echo "Missing cached CUDA installer: $cuda_archive. Run a normal build first." >&2
+        exit 1
+    fi
+    aria2c --continue=true --max-connection-per-server=8 --split=8 --min-split-size=1M \
+        --file-allocation=none --max-tries=3 --retry-wait=5 \
+        --summary-interval=30 --console-log-level=warn \
+        --dir="$(dirname "$cuda_archive")" --out="$(basename "$cuda_archive")" \
+        https://developer.download.nvidia.com/compute/cuda/%{cuda_version}/local_installers/cuda_%{cuda_version}_%{cuda_build}_linux.run
+    echo '%{cuda_sha256}  '"$cuda_archive" | sha256sum --check --strict
+fi
+echo '%{cuda_libxml2_sha256}  %{SOURCE3}' | sha256sum --check --strict
+mkdir -p %{_builddir}/cuda-installer-compat
+cd %{_builddir}/cuda-installer-compat
+rpm2cpio %{SOURCE3} | cpio -idm --quiet './usr/lib64/libxml2.so.2*'
+test -e usr/lib64/libxml2.so.2
+cd -
+LD_LIBRARY_PATH=%{_builddir}/cuda-installer-compat/usr/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH} \
+bash "$cuda_archive" --silent --toolkit --toolkitpath=%{_builddir}/cuda \
+    --no-drm --no-man-page --no-opengl-libs --override
+patch -p2 --directory=%{_builddir}/cuda \
+    < external/sunshine/packaging/linux/patches/x86_64/cuda-12-math_functions.patch
+test -x %{_builddir}/cuda/bin/nvcc
+%endif
+
+%if %{with cuda}
+build_cc=/usr/bin/gcc-14
+build_cxx=/usr/bin/g++-14
+cuda_args='-DCUDA_FAIL_ON_MISSING=ON -DSUNSHINE_ENABLE_CUDA=ON -DCMAKE_CUDA_COMPILER=%{_builddir}/cuda/bin/nvcc -DCMAKE_CUDA_FLAGS=-Xcompiler=-fPIC -DCMAKE_CUDA_HOST_COMPILER=/usr/bin/gcc-14'
+%else
+build_cc=/usr/bin/gcc
+build_cxx=/usr/bin/g++
+cuda_args='-DCUDA_FAIL_ON_MISSING=OFF -DSUNSHINE_ENABLE_CUDA=OFF'
+%endif
+CC="$build_cc" RPM_OPT_FLAGS="%{optflags}" \
     linux/native/kde_virtual_output/build.sh monitorize-kde-virtual-output
 
-export CC=gcc
-export CXX=g++
+export CC="$build_cc"
+export CXX="$build_cxx"
 export CFLAGS="%{optflags}"
 export CXXFLAGS="%{optflags}"
 unset LDFLAGS
@@ -116,17 +180,17 @@ export COMMIT=%{sunshine_commit}
 
 cmake -B sunshine-build -S external/sunshine \
     -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
     -DCMAKE_INSTALL_PREFIX=%{_prefix} \
     -DBUILD_DOCS=OFF \
     -DBUILD_TESTS=OFF \
     -DBOOST_USE_STATIC=OFF \
-    -DCUDA_FAIL_ON_MISSING=OFF \
+    $cuda_args \
     -DFFMPEG_PREPARED_BINARIES="$PWD/.ffmpeg-prepared" \
     -DGLAD_SKIP_PIP_INSTALL=ON \
     -DNPM=/usr/bin/npm \
     -DPython_EXECUTABLE=/usr/bin/python3 \
     -DSUNSHINE_ASSETS_DIR=%{_datadir}/monitorize/sunshine/assets \
-    -DSUNSHINE_ENABLE_CUDA=ON \
     -DSUNSHINE_ENABLE_DRM=ON \
     -DSUNSHINE_ENABLE_KWIN=ON \
     -DSUNSHINE_ENABLE_PORTAL=ON \
@@ -137,6 +201,11 @@ cmake -B sunshine-build -S external/sunshine \
     -DSUNSHINE_ENABLE_X11=ON \
     -DSUNSHINE_EXECUTABLE_PATH=%{_libexecdir}/monitorize/sunshine
 cmake --build sunshine-build --parallel %{_smp_build_ncpus}
+%if %{with cuda}
+grep -q 'src/platform/linux/cuda.cu' sunshine-build/compile_commands.json
+%else
+! grep -q 'src/platform/linux/cuda.cu' sunshine-build/compile_commands.json
+%endif
 
 %install
 install -d %{buildroot}%{python3_sitelib}
@@ -227,7 +296,7 @@ PYTHON
 %{python3_sitelib}/monitorize/
 %{_bindir}/monitorize
 %{_bindir}/monitorize-kde-virtual-output
-%{_libexecdir}/monitorize/sunshine
+%caps(cap_sys_admin,cap_sys_nice+p) %{_libexecdir}/monitorize/sunshine
 %{_libexecdir}/monitorize/monitorize-system-setup
 %dir %{_datadir}/monitorize
 %dir %{_datadir}/monitorize/sunshine
@@ -244,6 +313,21 @@ PYTHON
 %{_modulesloaddir}/monitorize.conf
 
 %changelog
+* Sat Oct 10 2026 Monitorize contributors <noreply@example.com> - 0.33.3-0
+- Release Monitorize 0.33.3.
+
+* Thu Oct 08 2026 Monitorize contributors <noreply@example.com> - 0.33.2-0
+- Release Monitorize 0.33.2.
+
+* Sun Oct 04 2026 Monitorize contributors <noreply@example.com> - 0.33.1-0
+- Release Monitorize 0.33.1.
+
+* Tue Sep 29 2026 Monitorize contributors <noreply@example.com> - 0.33-0
+- Set current Monitorize package version to 0.33.
+- Supply the legacy libxml2 ABI required by the CUDA installer on Tumbleweed.
+- Reuse cached CUDA, FFmpeg, and zypper downloads across local build attempts.
+- Add an offline --rebuild-offline mode using a prepared dependency image.
+
 * Mon Sep 21 2026 Monitorize contributors <noreply@example.com> - 0.39-0
 - Release Monitorize 0.39 with compositor-native and VKMS virtual displays.
 

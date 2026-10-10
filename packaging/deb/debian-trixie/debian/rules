@@ -1,0 +1,3 @@
+#!/usr/bin/make -f
+MONITORIZE_DEB_TARGET := debian-trixie
+include packaging/deb/common/rules.mk

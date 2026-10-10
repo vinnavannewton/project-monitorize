@@ -1,0 +1,3 @@
+#!/usr/bin/make -f
+MONITORIZE_DEB_TARGET := ubuntu-24.04
+include packaging/deb/common/rules.mk

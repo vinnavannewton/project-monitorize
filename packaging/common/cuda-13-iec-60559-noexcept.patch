@@ -1,0 +1,11 @@
+--- a/targets/x86_64-linux/include/crt/math_functions.h
++++ b/targets/x86_64-linux/include/crt/math_functions.h
+@@ -2577,7 +2577,7 @@
+ #if __NV_GLIBC_PROVIDES_IEC_60559_FUNCS
+ #define __NV_IEC_60559_FUNCS_EXCEPTION_SPECIFIER __THROW
+ #else
+-#define __NV_IEC_60559_FUNCS_EXCEPTION_SPECIFIER
++#define __NV_IEC_60559_FUNCS_EXCEPTION_SPECIFIER noexcept (true)
+ #endif
+ /**
+  * \ingroup CUDA_MATH_DOUBLE

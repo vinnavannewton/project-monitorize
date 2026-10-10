@@ -1,4 +1,27 @@
 -------------------------------------------------------------------
+Sat Oct 10 2026 Monitorize contributors <noreply@example.com>
+
+- Release Monitorize 0.33.3.
+
+-------------------------------------------------------------------
+Thu Oct 08 2026 Monitorize contributors <noreply@example.com>
+
+- Release Monitorize 0.33.2.
+
+-------------------------------------------------------------------
+Sun Oct 04 2026 Monitorize contributors <noreply@example.com>
+
+- Release Monitorize 0.33.1.
+
+-------------------------------------------------------------------
+Tue Sep 29 2026 Monitorize contributors <noreply@example.com>
+
+- Set current Monitorize package version to 0.33.
+- Supply the legacy libxml2 ABI required by the CUDA installer on Tumbleweed.
+- Reuse cached CUDA, FFmpeg, and zypper downloads across local build attempts.
+- Add an offline --rebuild-offline mode using a prepared dependency image.
+
+-------------------------------------------------------------------
 Mon Aug 24 2026 Monitorize contributors <noreply@example.com>
 
 - Add the openSUSE Tumbleweed package with the bundled Monitorize Sunshine fork.

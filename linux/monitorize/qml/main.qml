@@ -19,14 +19,7 @@ Rectangle {
     property string selectedPage: "DisplaySetupPage.qml"
     property string highlightedPage: "DisplaySetupPage.qml"
     property bool navHighlightFading: false
-    property int pageTransitionDirection: 1
-
-    function pageOrder(page) {
-        if (page === "DisplaySetupPage.qml") return 0
-        if (page === "StreamingPage.qml") return 1
-        if (page === "PresetsPage.qml") return 2
-        return 3
-    }
+    property string pendingNavigation: ""
 
     function navigationGroup(page) {
         return (page === "DisplaySetupPage.qml" || page === "StreamingPage.qml")
@@ -61,12 +54,17 @@ Rectangle {
     }
 
     function navigate(page) {
-        if (backend.vkmsModuleLoading) return
-        if (page === selectedPage) return
+        if (page === selectedPage) {
+            pendingNavigation = ""
+            return
+        }
+        if (stack.busy) {
+            pendingNavigation = page
+            return
+        }
         if (stack.currentItem && typeof stack.currentItem.commitAllPendingDisplaySettings === "function") {
             stack.currentItem.commitAllPendingDisplaySettings()
         }
-        pageTransitionDirection = pageOrder(page) > pageOrder(selectedPage) ? 1 : -1
         selectedPage = page
         stack.replace(page)
     }
@@ -88,11 +86,6 @@ Rectangle {
 
     color: theme.background
 
-    gradient: Gradient {
-        GradientStop { position: 0.0; color: theme.background }
-        GradientStop { position: 1.0; color: theme.background }
-    }
-
     // --- Navigate between pages when streaming state changes ---
     Connections {
         target: backend
@@ -107,15 +100,16 @@ Rectangle {
             }
         }
         function onStreamingStartFailed() {
+            if (vkmsReinstallPopup.visible) return
             root.startFailureMessage = "Failed to start stream"
             startFailedToast.open()
         }
+        function onVkmsReinstallRequired() {
+            startFailedToast.close()
+            vkmsReinstallPopup.open()
+        }
         function onStreamingCodecMismatch(message) {
             root.startFailureMessage = message
-            startFailedToast.open()
-        }
-        function onVkmsStartFailed(message) {
-            root.startFailureMessage = message || "Could not start the VKMS display"
             startFailedToast.open()
         }
     }
@@ -129,37 +123,37 @@ Rectangle {
         id: stack
         objectName: "mainStack"
         clip: true
-        property string lastStreamingSetupPage: "MainMenuPage.qml"
         anchors.fill: parent
         anchors.leftMargin: 134
         anchors.rightMargin: 28
         anchors.topMargin: 28
         anchors.bottomMargin: 20
         initialItem: "DisplaySetupPage.qml"
+        onBusyChanged: {
+            if (!busy && root.pendingNavigation) {
+                let destination = root.pendingNavigation
+                root.pendingNavigation = ""
+                Qt.callLater(function() { root.navigate(destination) })
+            }
+        }
 
         replaceEnter: Transition {
-            PropertyAnimation { property: "y"; from: root.pageTransitionDirection * stack.height; to: 0; duration: 300; easing.type: Easing.OutCubic }
-            PropertyAnimation { property: "opacity"; from: 0; to: 1; duration: 250 }
+            PropertyAnimation { property: "opacity"; from: 0; to: 1; duration: 160 }
         }
         replaceExit: Transition {
-            PropertyAnimation { property: "y"; to: -root.pageTransitionDirection * stack.height; duration: 300; easing.type: Easing.OutCubic }
-            PropertyAnimation { property: "opacity"; to: 0; duration: 250 }
+            PropertyAnimation { property: "opacity"; to: 0; duration: 1 }
         }
         pushEnter: Transition {
-            PropertyAnimation { property: "x"; from: stack.width; to: 0; duration: 300; easing.type: Easing.OutCubic }
-            PropertyAnimation { property: "opacity"; from: 0; to: 1; duration: 250 }
+            PropertyAnimation { property: "opacity"; from: 0; to: 1; duration: 160 }
         }
         pushExit: Transition {
-            PropertyAnimation { property: "x"; to: -stack.width; duration: 300; easing.type: Easing.OutCubic }
-            PropertyAnimation { property: "opacity"; to: 0; duration: 250 }
+            PropertyAnimation { property: "opacity"; to: 0; duration: 1 }
         }
         popEnter: Transition {
-            PropertyAnimation { property: "x"; from: -stack.width; to: 0; duration: 300; easing.type: Easing.OutCubic }
-            PropertyAnimation { property: "opacity"; from: 0; to: 1; duration: 250 }
+            PropertyAnimation { property: "opacity"; from: 0; to: 1; duration: 160 }
         }
         popExit: Transition {
-            PropertyAnimation { property: "x"; to: stack.width; duration: 300; easing.type: Easing.OutCubic }
-            PropertyAnimation { property: "opacity"; to: 0; duration: 250 }
+            PropertyAnimation { property: "opacity"; to: 0; duration: 1 }
         }
     }
 
@@ -183,10 +177,6 @@ Rectangle {
                 enabled: !root.navHighlightFading
                 NumberAnimation { duration: 260; easing.type: Easing.InOutCubic }
             }
-            Behavior on height {
-                enabled: !root.navHighlightFading
-                NumberAnimation { duration: 180; easing.type: Easing.InOutCubic }
-            }
         }
 
         ColumnLayout {
@@ -197,14 +187,12 @@ Rectangle {
             NavigationButton {
                 id: configureButton
                 label: "Configure"; symbol: "display"; Layout.fillWidth: true
-                enabled: !backend.vkmsModuleLoading
                 selected: root.selectedPage === "DisplaySetupPage.qml"
                 onClicked: root.navigate("DisplaySetupPage.qml")
             }
             NavigationButton {
                 id: sessionButton
                 label: "Session"; symbol: "session"; Layout.fillWidth: true
-                enabled: !backend.vkmsModuleLoading
                 selected: root.selectedPage === "StreamingPage.qml"
                 onClicked: root.navigate("StreamingPage.qml")
             }
@@ -212,14 +200,12 @@ Rectangle {
             NavigationButton {
                 id: presetsButton
                 label: "Presets"; symbol: "logs"; Layout.fillWidth: true
-                enabled: !backend.vkmsModuleLoading
                 selected: root.selectedPage === "PresetsPage.qml"
                 onClicked: root.navigate("PresetsPage.qml")
             }
             NavigationButton {
                 id: settingsButton
                 label: "Settings"; symbol: "settings"; Layout.fillWidth: true
-                enabled: !backend.vkmsModuleLoading
                 selected: root.selectedPage === "SettingsPage.qml"
                 onClicked: root.navigate("SettingsPage.qml")
             }
@@ -264,6 +250,59 @@ Rectangle {
             id: startFailedToastTimer
             interval: 2800
             onTriggered: startFailedToast.close()
+        }
+    }
+
+    Popup {
+        id: vkmsReinstallPopup
+        objectName: "vkmsReinstallPopup"
+        modal: true
+        focus: true
+        closePolicy: Popup.CloseOnEscape
+        anchors.centerIn: parent
+        width: Math.min(440, root.width - 40)
+        height: vkmsReinstallContent.implicitHeight + 44
+        padding: 22
+        background: Rectangle {
+            color: theme.surface
+            border.color: theme.border
+            border.width: 1
+            radius: theme.cardRadius
+        }
+        Overlay.modal: Rectangle { color: "#99000000" }
+
+        ColumnLayout {
+            id: vkmsReinstallContent
+            anchors.fill: parent
+            spacing: 14
+
+            Text {
+                text: "Reinstall monitorize-vkms"
+                color: theme.textPrimary
+                font.pixelSize: 18
+                font.weight: Font.Bold
+                Layout.fillWidth: true
+            }
+            Text {
+                text: "monitorize-vkms is installed, but its helper or kernel module is not ready. Run sudo ./install.sh from the monitorize-vkms directory, follow any reboot instructions, then try again."
+                color: theme.textSecondary
+                font.pixelSize: 12
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+            RowLayout {
+                Layout.alignment: Qt.AlignRight
+                spacing: 10
+                CustomButton {
+                    text: "Installation instructions"
+                    primary: false
+                    onClicked: backend.openMonitorizeVkmsInstallPage()
+                }
+                CustomButton {
+                    text: "Close"
+                    onClicked: vkmsReinstallPopup.close()
+                }
+            }
         }
     }
 
@@ -348,6 +387,7 @@ Rectangle {
             id: firstRunSetupLoader
             anchors.fill: parent
             source: "SystemSetupPage.qml"
+            active: firstRunSetupPopup.visible
             onLoaded: item.firstRun = true
         }
 

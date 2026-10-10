@@ -24,6 +24,30 @@ Canvas {
             if (symbol === "session") {
                 c.moveTo(10, 8); c.lineTo(15, 11); c.lineTo(10, 14); c.closePath()
             }
+        } else if (symbol === "reset") {
+            c.moveTo(4, 11); c.arc(12, 12, 8, Math.PI + 0.13, Math.PI * 1.84)
+            line(19, 3, 19, 8); line(19, 8, 14, 8)
+            c.moveTo(20, 13); c.arc(12, 12, 8, 0.13, Math.PI * 0.84)
+            line(5, 21, 5, 16); line(5, 16, 10, 16)
+        } else if (symbol === "display-minus") {
+            line(13, 17, 3, 17); line(3, 17, 3, 4)
+            line(3, 4, 21, 4); line(21, 4, 21, 11)
+            line(11, 17, 11, 20); line(7, 20, 12, 20)
+            c.stroke(); c.beginPath()
+            c.arc(19, 18, 4.5, 0, Math.PI * 2)
+            c.fillStyle = tint; c.fill()
+            c.beginPath(); c.strokeStyle = "#1b2c40"
+            line(16.5, 18, 21.5, 18)
+        } else if (symbol === "document-x") {
+            c.moveTo(12, 21); c.lineTo(4, 21); c.lineTo(4, 3)
+            c.lineTo(13, 3); c.lineTo(18, 8); c.lineTo(18, 11)
+            line(13, 3, 13, 8); line(13, 8, 18, 8)
+            line(7, 8, 10, 8); line(7, 12, 13, 12); line(7, 16, 10, 16)
+            c.stroke(); c.beginPath()
+            c.arc(18, 18, 4.5, 0, Math.PI * 2)
+            c.fillStyle = tint; c.fill()
+            c.beginPath(); c.strokeStyle = "#1b2c40"
+            line(16, 16, 20, 20); line(20, 16, 16, 20)
         } else if (symbol === "settings") {
             c.arc(12, 12, 6, 0, Math.PI * 2)
             c.moveTo(14, 12); c.arc(12, 12, 2, 0, Math.PI * 2)
@@ -46,6 +70,27 @@ Canvas {
             c.moveTo(17, 4); c.bezierCurveTo(21, 7, 21, 12, 17, 15)
         } else if (symbol === "plus") {
             line(12, 4, 12, 20); line(4, 12, 20, 12)
+        } else if (symbol === "trash") {
+            line(4, 7, 20, 7)
+            line(9, 7, 9, 4); line(9, 4, 15, 4); line(15, 4, 15, 7)
+            line(6, 9, 7, 20); line(7, 20, 17, 20); line(17, 20, 18, 9)
+            line(10, 11, 10, 17); line(14, 11, 14, 17)
+        } else if (symbol === "bookmark") {
+            c.moveTo(6, 3); c.lineTo(6, 21); c.lineTo(12, 17)
+            c.lineTo(18, 21); c.lineTo(18, 3); c.closePath()
+        } else if (symbol === "link") {
+            c.moveTo(10, 8); line(12, 6, 14, 4)
+            c.bezierCurveTo(18, 1, 23, 6, 20, 10)
+            line(20, 10, 16, 14)
+            c.moveTo(14, 16); line(12, 18, 10, 20)
+            c.bezierCurveTo(6, 23, 1, 18, 4, 14)
+            line(4, 14, 8, 10); line(8, 10, 16, 10)
+        } else if (symbol === "play") {
+            c.moveTo(7, 4); c.lineTo(7, 20); c.lineTo(20, 12); c.closePath()
+            c.fillStyle = tint; c.fill()
+        } else if (symbol === "stop") {
+            c.rect(5, 5, 14, 14)
+            c.fillStyle = tint; c.fill()
         } else {
             c.rect(5, 3, 14, 18)
             line(8, 8, 16, 8); line(8, 12, 16, 12); line(8, 16, 13, 16)

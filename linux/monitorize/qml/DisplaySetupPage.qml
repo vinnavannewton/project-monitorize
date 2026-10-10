@@ -6,71 +6,33 @@ Item {
     id: page
     property string returnPageSource: "DisplaySetupPage.qml"
     property bool loading: true
-    property var gpuOptions: []
     property var mirrorOutputs: []
+    property bool mirrorOutputsInitialized: false
+    property int mirrorRequest: 0
+    property bool mirrorRefreshQueued: false
     property string mirrorOutputId: ""
     property var nativeResolutionOptions: ["1280x720 (16:9)", "1280x800 (16:10)", "1920x1080 (16:9)", "1920x1200 (16:10)", "2560x1440 (16:9)", "2560x1600 (16:10)", "3840x2160 (16:9)", "Custom..."]
     property var virtualDisplays: []
-    property string selectedVkmsConnector: ""
-    property string vkmsLoadError: ""
-    property bool vkmsSelectionPending: false
-    readonly property var vkmsConnectorOptions: {
-        let labels = ["Select stock VKMS connector…"]
-        for (let i = 0; i < backend.vkmsConnectors.length; ++i)
-            labels.push(backend.vkmsConnectors[i].id)
-        return labels
+    ListModel { id: displayModel }
+
+    function displayRow(config) {
+        return {
+            displayId: Number(config.id),
+            modeResolution: String(config.resolution || ""),
+            customWidth: String(config.custom_w || ""),
+            customHeight: String(config.custom_h || ""),
+            refreshRate: String(config.fps || ""),
+            customRefresh: String(config.custom_fps || "")
+        }
+    }
+
+    function resetDisplayModel() {
+        displayModel.clear()
+        for (let i = 0; i < virtualDisplays.length; ++i)
+            displayModel.append(displayRow(virtualDisplays[i]))
     }
     readonly property bool vkmsSelected: displayType.currentText === "Extend"
         && displayCreator.currentText === "VKMS (Experimental)"
-
-    Connections {
-        target: backend
-        function onVkmsModuleLoadFinished(success, message) {
-            if (!page.vkmsSelectionPending) {
-                if (success) {
-                    page.vkmsLoadError = ""
-                    backend.refreshVkmsResolutionOptions()
-                    if (page.vkmsSelected && page.reconcileVkmsConnector()) {
-                        page.saveSettings()
-                        backend.refreshVkmsResolutionOptions()
-                    }
-                } else if (page.vkmsSelected) {
-                    page.vkmsLoadError = message || "Could not load stock VKMS."
-                }
-                return
-            }
-            page.vkmsSelectionPending = false
-            if (success) {
-                page.vkmsLoadError = ""
-                displayCreator.selectValue("VKMS (Experimental)")
-                backend.refreshVkmsResolutionOptions()
-                page.reconcileVkmsConnector()
-                page.saveSettings()
-                backend.refreshVkmsResolutionOptions()
-            } else {
-                page.vkmsLoadError = message || "Could not load stock VKMS."
-                displayCreator.selectValue("Compositor")
-                page.saveSettings()
-            }
-        }
-    }
-
-    function reconcileVkmsConnector() {
-        let connectors = backend.vkmsConnectors
-        let selected = page.selectedVkmsConnector
-        if (connectors.length === 1) {
-            selected = connectors[0].id
-        } else {
-            let present = false
-            for (let i = 0; i < connectors.length; ++i) {
-                if (connectors[i].id === selected) present = true
-            }
-            if (!present) selected = ""
-        }
-        if (selected === page.selectedVkmsConnector) return false
-        page.selectedVkmsConnector = selected
-        return true
-    }
 
     function mirrorResolutionLabel() {
         for (let i = 0; i < mirrorOutputs.length; ++i) {
@@ -85,7 +47,18 @@ Item {
     }
 
     function refreshMirrorOutputs() {
-        mirrorOutputs = backend.getMirrorOutputs()
+        if (mirrorRequest !== 0) {
+            mirrorRefreshQueued = true
+            return
+        }
+        mirrorRequest = backend.requestMirrorOutputs()
+    }
+
+    function applyMirrorOutputs(refreshed) {
+        if (mirrorOutputsInitialized
+                && JSON.stringify(refreshed) === JSON.stringify(mirrorOutputs)) return
+        mirrorOutputsInitialized = true
+        mirrorOutputs = refreshed
         let labels = ["Select a monitor…"]
         let selected = 0
         for (let i = 0; i < mirrorOutputs.length; ++i) {
@@ -103,11 +76,39 @@ Item {
         mirrorMonitor.currentIndex = selected
     }
 
+    Connections {
+        target: backend
+        function onMirrorOutputsReady(request, outputs) {
+            if (request !== page.mirrorRequest) return
+            page.mirrorRequest = 0
+            if (displayType.currentText === "Mirror") page.applyMirrorOutputs(outputs)
+            if (page.mirrorRefreshQueued) {
+                page.mirrorRefreshQueued = false
+                if (mirrorPoll.running) page.refreshMirrorOutputs()
+            }
+        }
+        function onMirrorScreensChanged() {
+            if (mirrorPoll.running) screenChangeDebounce.restart()
+        }
+    }
+
     Timer {
-        interval: 2000; repeat: true; running: !page.loading && !backend.isStreaming
+        id: screenChangeDebounce
+        interval: 150
+        onTriggered: { if (mirrorPoll.running) page.refreshMirrorOutputs() }
+    }
+
+    Timer {
+        id: mirrorPoll
+        interval: 2000; repeat: true
+        running: !page.loading && backend.uiVisible && !backend.isStreaming
+            && !backend.sessionBusy && displayType.currentText === "Mirror"
+            && page.StackView.view && page.StackView.view.currentItem === page
+        onRunningChanged: {
+            if (running) Qt.callLater(function() { if (running) page.refreshMirrorOutputs() })
+        }
         onTriggered: page.refreshMirrorOutputs()
     }
-    readonly property bool streamingCustomized: streamingMode.currentIndex === 1
 
     function primaryDisplay() {
         return virtualDisplays.length > 0 ? virtualDisplays[0] : {
@@ -127,6 +128,7 @@ Item {
         let updated = virtualDisplays.slice()
         updated[index] = configuration
         virtualDisplays = updated
+        displayModel.set(index, displayRow(configuration))
         if (index === 0) {
             page.saveSettings()
         } else {
@@ -149,12 +151,12 @@ Item {
         let updated = virtualDisplays.slice()
         let hasChanges = false
         for (let i = 0; i < displayRepeater.count; ++i) {
-            let item = displayRepeater.itemAt(i)
-            if (!item || typeof item.getCurrentMode !== "function" || !item.displayConfig) {
+            let card = displayRepeater.itemAt(i)
+            if (!card || typeof card.getCurrentMode !== "function" || !card.displayConfig) {
                 console.warn("DisplaySetupPage: skipping uninitialized display card at index " + i)
                 continue
             }
-            let current = item.getCurrentMode()
+            let current = card.getCurrentMode()
             if (current && current.resolution && updated[i]
                     && !page.sameDisplayMode(current, updated[i])) {
                 updated[i] = Object.assign({}, updated[i], current)
@@ -163,57 +165,31 @@ Item {
         }
         if (hasChanges) {
             virtualDisplays = updated
+            for (let i = 0; i < updated.length; ++i)
+                displayModel.set(i, displayRow(updated[i]))
             page.saveSettings()
         }
     }
 
     function addDisplay() {
-        if (vkmsSelected || virtualDisplays.length >= 2) return
+        if (virtualDisplays.length >= 2) return
         let duplicate = Object.assign({}, primaryDisplay(), { id: 2 })
         virtualDisplays = [primaryDisplay(), duplicate]
+        displayModel.append(displayRow(duplicate))
         saveDisplayModes()
     }
 
     function removeDisplay() {
         if (virtualDisplays.length < 2) return
         virtualDisplays = [primaryDisplay()]
+        displayModel.remove(1)
         saveDisplayModes()
-    }
-
-    function encoderDisplayValue(value) {
-        return String(value || "").toLowerCase().indexOf("software") === 0
-            ? "Software"
-            : (value || "Auto")
-    }
-
-    function codecDisplayValue(value) {
-        let normalized = String(value || "").toLowerCase()
-        if (normalized.indexOf("h.264") !== -1 || normalized === "h264" || normalized.indexOf("avc") !== -1) return "H.264"
-        if (normalized.indexOf("h.265") !== -1 || normalized === "h265" || normalized.indexOf("hevc") !== -1) return "HEVC"
-        if (normalized.indexOf("av1") !== -1) return "AV1"
-        return "Auto"
-    }
-
-    function selectedGpuId() {
-        if (gpuCombo.currentIndex < 0 || gpuCombo.currentIndex >= gpuOptions.length) return ""
-        return gpuOptions[gpuCombo.currentIndex]["id"] || ""
-    }
-
-    function refreshGpuOptions(savedId) {
-        gpuOptions = backend.getEncodingGpuOptions(encoder.currentText)
-        let labels = []
-        let selected = 0
-        for (let i = 0; i < gpuOptions.length; i++) {
-            labels.push(gpuOptions[i]["label"])
-            if (savedId && gpuOptions[i]["id"] === savedId) selected = i
-        }
-        gpuCombo.model = labels
-        gpuCombo.currentIndex = labels.length > 0 ? selected : -1
     }
 
     function saveSettings() {
         if (loading) return
         let primary = primaryDisplay()
+        let saved = backend.loadDisplaySettings()
         backend.saveDisplaySettings(
             primary.resolution,
             primary.custom_w,
@@ -221,26 +197,20 @@ Item {
             primary.fps,
             primary.custom_fps,
             displayType.currentText,
-            encoder.currentText,
-            page.selectedGpuId(),
-            codec.currentText,
-            page.streamingCustomized,
-            nativeInput.checked,
-            audio.checked,
+            saved["sunshine_encoder"],
+            saved["sunshine_gpu"],
+            saved["sunshine_codec"],
+            saved["streaming_customized"],
+            saved["sunshine_native_pen_touch"],
+            saved["enable_audio"],
             page.mirrorOutputId,
-            displayCreator.currentText === "VKMS (Experimental)" ? "vkms" : "native",
-            page.selectedVkmsConnector
+            displayCreator.currentText === "VKMS (Experimental)" ? "vkms" : "native"
         )
         saveDisplayModes()
     }
 
-    function selectAutomaticStreaming() {
-        backend.setSunshineEncoder("Auto")
-        backend.setSunshineCodec("Auto")
-        page.saveSettings()
-    }
-
     Component.onCompleted: {
+        backend.refreshVkmsHelperAvailability()
         let saved = backend.loadDisplaySettings()
         displayType.selectValue(saved["display_type"] || "Extend")
         displayCreator.selectValue(
@@ -248,29 +218,12 @@ Item {
                 ? "VKMS (Experimental)"
                 : "Compositor"
         )
-        selectedVkmsConnector = saved["vkms_connector"] || ""
         virtualDisplays = backend.loadVirtualDisplaySettings()
-        encoder.selectValue(page.encoderDisplayValue(saved["sunshine_encoder"]))
-        page.refreshGpuOptions(saved["sunshine_gpu"] || "")
-        codec.selectValue(page.codecDisplayValue(saved["sunshine_codec"]))
-        streamingMode.selectValue(
-            saved["streaming_customized"] === true
-                ? "Customize ›"
-                : "Automatic (Recommended)"
-        )
-        nativeInput.checked = saved["sunshine_native_pen_touch"] !== false
+        resetDisplayModel()
         mirrorOutputId = saved["mirror_output"] || ""
-        refreshMirrorOutputs()
-        audio.checked = saved["enable_audio"] === true
+        if (displayType.currentText === "Mirror") refreshMirrorOutputs()
         createOnly.checked = backend.streamingBackend === "none"
         loading = false
-        backend.refreshVkmsResolutionOptions()
-        if (page.vkmsSelected && backend.vkmsModuleLoaded) {
-            if (page.reconcileVkmsConnector()) {
-                page.saveSettings()
-                backend.refreshVkmsResolutionOptions()
-            }
-        }
     }
 
     ScrollView {
@@ -291,7 +244,7 @@ Item {
             SectionCard {
                 title: "DISPLAY"; symbol: "display"
                 Layout.fillWidth: true
-                enabled: !backend.isStreaming && !backend.vkmsModuleLoading
+                enabled: !backend.isStreaming
                 GridLayout {
                     Layout.fillWidth: true
                     columns: 2; columnSpacing: 24; rowSpacing: 12
@@ -300,6 +253,9 @@ Item {
                         id: displayType; model: ["Extend", "Mirror"]; chipWidth: 124
                         disabledValues: createOnly.checked || !backend.sunshineAvailable ? ["Mirror"] : []
                         onActivated: page.saveSettings()
+                        onCurrentTextChanged: {
+                            if (!page.loading && currentText === "Mirror") page.refreshMirrorOutputs()
+                        }
                     }
                     Text {
                         text: "Virtual Display Creator"
@@ -315,110 +271,72 @@ Item {
                             : ["Compositor"]
                         onActivated: {
                             if (page.vkmsSelected) {
-                                page.vkmsLoadError = ""
-                                if (backend.vkmsModuleLoaded) {
-                                    backend.refreshVkmsResolutionOptions()
-                                    page.reconcileVkmsConnector()
-                                    page.saveSettings()
-                                    backend.refreshVkmsResolutionOptions()
-                                } else {
-                                    page.vkmsSelectionPending = true
-                                    displayCreator.selectValue("Compositor")
-                                    backend.loadStockVkmsModule()
-                                }
+                                page.saveSettings()
                             } else {
-                                page.vkmsLoadError = ""
                                 backend.ensureNativeCompositor()
                                 page.saveSettings()
                             }
                         }
                     }
                     Text {
-                        visible: backend.vkmsModuleLoading || page.vkmsLoadError !== ""
+                        visible: page.vkmsSelected && !backend.vkmsHelperAvailable
                         Layout.columnSpan: 2; Layout.fillWidth: true
                         wrapMode: Text.WordWrap
-                        color: page.vkmsLoadError ? "#ff9a9a" : theme.textMuted
-                        text: page.vkmsLoadError || "Waiting for authorization to load stock VKMS…"
+                        color: "#ff9a9a"
+                        text: backend.vkmsAvailabilityMessage
                     }
-                    Text {
-                        visible: page.vkmsSelected
-                        Layout.columnSpan: 2; Layout.fillWidth: true
-                        wrapMode: Text.WordWrap; color: theme.textMuted
-                        text: "DRM modes use stock VKMS. Custom resolutions use monitorize-vkms. Adding another display is unavailable in VKMS mode."
+                    CustomButton {
+                        visible: page.vkmsSelected && !backend.vkmsHelperAvailable
+                        text: "Install monitorize-vkms"
+                        onClicked: backend.openMonitorizeVkmsInstallPage()
                     }
-                    Text {
-                        visible: page.vkmsSelected && backend.vkmsConnectors.length > 1
-                        text: "Stock VKMS connector (DRM modes)"
-                        color: theme.textSecondary
-                    }
-                    CustomComboBox {
-                        id: vkmsConnector
-                        visible: page.vkmsSelected && backend.vkmsConnectors.length > 1
-                        Layout.fillWidth: true
-                        model: page.vkmsConnectorOptions
-                        disabledIndex: 0
-                        currentIndex: Math.max(0, page.vkmsConnectorOptions.indexOf(page.selectedVkmsConnector))
-                        onActivated: {
-                            page.selectedVkmsConnector = currentIndex > 0 ? currentText : ""
-                            page.saveSettings()
-                            backend.refreshVkmsResolutionOptions()
-                        }
+                    CustomButton {
+                        visible: page.vkmsSelected && !backend.vkmsHelperAvailable
+                        text: "Recheck"
+                        primary: false
+                        onClicked: backend.refreshVkmsHelperAvailability()
                     }
                     Text { text: "Monitor"; color: theme.textSecondary; visible: displayType.currentText === "Mirror" }
                     CustomComboBox {
                         id: mirrorMonitor
                         visible: displayType.currentText === "Mirror"
                         Layout.fillWidth: true
+                        model: ["Checking monitors…"]
                         disabledIndex: 0
                         onActivated: {
                             page.mirrorOutputId = currentIndex > 0 ? page.mirrorOutputs[currentIndex - 1].id : ""
                             page.saveSettings()
                         }
                     }
-                    Text {
-                        visible: displayType.currentText === "Mirror"
-                        Layout.columnSpan: 2; Layout.fillWidth: true
-                        wrapMode: Text.WordWrap; color: theme.textMuted
-                        text: "If the desktop asks what to share, select this same monitor. A missing or different monitor will not be substituted."
-                    }
-                }
-                Text {
-                    visible: displayType.currentText !== "Mirror"
-                    text: "Each virtual display keeps its own resolution and refresh rate."
-                    color: theme.textMuted; font.pixelSize: 12
                 }
                 Repeater {
                     id: displayRepeater
-                    model: displayType.currentText === "Extend" ? page.virtualDisplays : []
+                    model: displayType.currentText === "Extend" ? displayModel : 0
                     delegate: VirtualDisplayModeCard {
                         id: modeCard
+                        required property int index
                         Layout.fillWidth: true
-                        displayNumber: Number(modelData.id)
-                        displayConfig: modelData
-                        canRemove: Number(modelData.id) === 2
+                        displayNumber: displayId
+                        displayConfig: ({id: displayId, resolution: modeResolution,
+                            custom_w: customWidth, custom_h: customHeight,
+                            fps: refreshRate, custom_fps: customRefresh})
+                        canRemove: displayId === 2
                         vkmsSelected: page.vkmsSelected
-                        vkmsConnectorSelected: page.selectedVkmsConnector !== ""
                         nativeResolutionOptions: page.nativeResolutionOptions
                         vkmsResolutionOptions: backend.vkmsResolutionOptions
-                        vkmsRefreshRates: backend.vkmsRefreshRates
-                        vkmsCustomCapabilityChecking: backend.vkmsCustomCapabilityChecking
-                        vkmsCustomEdidCapability: backend.vkmsCustomEdidCapability
+                        sunshineEnabled: !backend.isStreaming && !backend.sessionBusy
+                            && !createOnly.checked && backend.sunshineAvailable
                         onConfigurationChanged: function(configuration) {
-                            let targetIndex = modeCard.displayNumber > 0 ? (modeCard.displayNumber - 1) : index
+                            let targetIndex = modeCard.displayNumber > 0 ? (modeCard.displayNumber - 1) : modeCard.index
                             page.updateDisplay(targetIndex, configuration)
                         }
                         onRemoveRequested: page.removeDisplay()
-                        onCustomCapabilityFailed: function(capability) {
-                            if (capability === "unsupported") vkmsCustomUnsupported.open()
-                            else vkmsCustomCheckFailed.open()
-                        }
                     }
                 }
                 AbstractButton {
                     id: addDisplayButton
                     visible: displayType.currentText === "Extend" && page.virtualDisplays.length < 2
-                    enabled: !page.vkmsSelected
-                    opacity: enabled ? 1.0 : 0.4
+                    enabled: !backend.sessionBusy
                     Layout.fillWidth: true
                     implicitHeight: 54
                     onClicked: page.addDisplay()
@@ -431,69 +349,23 @@ Item {
                         anchors { left: parent.left; right: parent.right; margins: 14 }
                         spacing: 10
                         LineIcon { symbol: "plus"; Layout.preferredWidth: 20; Layout.preferredHeight: 20 }
-                        Text { text: "Add Display"; color: "#94caff"; font.pixelSize: 14; font.weight: Font.DemiBold }
+                        Text { text: "Add Display"; color: addDisplayButton.enabled ? "#94caff" : theme.textMuted; font.pixelSize: 14; font.weight: Font.DemiBold }
                     }
                 }
             }
             SectionCard {
-                title: "STREAMING"; symbol: "streaming"
+                title: "SUNSHINE · MIRROR"; symbol: "streaming"
                 Layout.fillWidth: true
-                enabled: !backend.isStreaming && !backend.sessionBusy && !createOnly.checked && backend.sunshineAvailable
-                CustomComboBox {
-                    id: streamingMode; Layout.fillWidth: true
-                    model: ["Automatic (Recommended)", "Customize ›"]
-                    onActivated: {
-                        if (currentIndex === 0) page.selectAutomaticStreaming()
-                        else page.saveSettings()
-                    }
-                }
-                CustomButton {
-                    text: backend.sunshineSettingsOpening ? "Opening settings…" : "Sunshine settings"
-                    primary: false
-                    enabled: !backend.sunshineSettingsOpening
-                    onClicked: backend.openSunshineWebUi(1)
-                }
-                Text {
-                    text: backend.sunshineSettingsMessage
-                    visible: text.length > 0
+                visible: displayType.currentText === "Mirror"
+                enabled: !backend.sessionBusy && !createOnly.checked && backend.sunshineAvailable
+                Loader {
                     Layout.fillWidth: true
-                    wrapMode: Text.WordWrap
-                    color: theme.textSecondary
-                }
-                GridLayout {
-                    visible: page.streamingCustomized; Layout.fillWidth: true
-                    columns: 2; columnSpacing: 24; rowSpacing: 12
-                    Text { text: "Encoder"; color: theme.textSecondary; Layout.preferredWidth: 145 }
-                    CustomComboBox {
-                        id: encoder; Layout.fillWidth: true
-                        model: ["Auto", "NVIDIA", "VA-API", "Vulkan", "Software"]
-                        onActivated: { backend.setSunshineEncoder(currentText); page.refreshGpuOptions(""); page.saveSettings() }
-                    }
-                    Text { text: "Codec"; color: theme.textSecondary }
-                    CustomComboBox {
-                        id: codec; Layout.fillWidth: true; model: ["Auto", "H.264", "HEVC", "AV1"]
-                        onActivated: { backend.setSunshineCodec(currentText); page.saveSettings() }
-                    }
-                    Text { text: "Encoding GPU"; color: theme.textSecondary; visible: gpuOptions.length > 0 }
-                    CustomComboBox { id: gpuCombo; Layout.fillWidth: true; visible: gpuOptions.length > 0; onActivated: page.saveSettings() }
-                }
-            }
-            SectionCard {
-                title: "EXTRAS"; symbol: "extras"
-                Layout.fillWidth: true
-                enabled: !createOnly.checked && !backend.isStreaming && !backend.sessionBusy
-                CustomToggle {
-                    id: nativeInput; text: "Touch input"
-                    onCheckedChanged: {
-                        if (!page.loading) backend.setSunshineNativePenTouch(checked)
-                        page.saveSettings()
-                    }
-                }
-                CustomToggle {
-                    id: audio; text: "Audio"
-                    onCheckedChanged: {
-                        if (!page.loading) backend.saveSunshineConfig({"stream_audio": checked ? "enabled" : "disabled"})
-                        page.saveSettings()
+                    active: displayType.currentText === "Mirror"
+                    sourceComponent: Component {
+                        SunshineDisplayCard {
+                            instance: 1
+                            showHeading: false
+                        }
                     }
                 }
             }
@@ -513,84 +385,30 @@ Item {
                             page.saveSettings()
                         }
                     }
-                    CustomButton { text: "?"; primary: false; implicitWidth: 32; onClicked: virtualOnlyHint.open() }
+                    CustomButton {
+                        id: virtualOnlyHelpButton
+                        text: "?"; primary: false; implicitWidth: 32
+                        onClicked: virtualOnlyHint.open()
+                    }
                 }
             }
         }
     }
     Popup {
         id: virtualOnlyHint; parent: Overlay.overlay
-        anchors.centerIn: parent
-        width: Math.min(390, parent.width - 40); padding: 18; focus: true
+        width: Math.min(390, parent.width - 24); padding: 18; focus: true
+        onAboutToShow: {
+            let button = virtualOnlyHelpButton.mapToItem(parent, 0, 0)
+            x = Math.max(12, Math.min(button.x + virtualOnlyHelpButton.width - width, parent.width - width - 12))
+            let above = button.y - height - 8
+            y = Math.max(12, Math.min(above >= 12 ? above : button.y + virtualOnlyHelpButton.height + 8,
+                                     parent.height - height - 12))
+        }
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
         background: Rectangle { color: theme.surface; border.color: theme.borderHover; radius: theme.cardRadius }
         contentItem: Text {
             text: "Creates the virtual display without starting Monitorize’s streaming backend. Use your preferred streamer instead."
             color: theme.textSecondary; font.pixelSize: 12; wrapMode: Text.WordWrap
-        }
-    }
-    Popup {
-        id: vkmsCustomUnsupported; parent: Overlay.overlay
-        anchors.centerIn: parent
-        width: Math.min(430, parent.width - 40); padding: 18; focus: true
-        modal: true
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-        background: Rectangle { color: theme.surface; border.color: theme.borderHover; radius: theme.cardRadius }
-        contentItem: ColumnLayout {
-            spacing: 16
-            Text {
-                text: "Custom VKMS resolution unavailable"
-                color: theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold
-                wrapMode: Text.WordWrap; Layout.fillWidth: true
-            }
-            Text {
-                text: "Your current VKMS driver does not support custom resolutions and refresh rates.\n\nCustom VKMS resolutions require monitorize-vkms."
-                color: theme.textSecondary; font.pixelSize: 13; wrapMode: Text.WordWrap
-                Layout.fillWidth: true
-            }
-            RowLayout {
-                Layout.alignment: Qt.AlignRight; spacing: 10
-                CustomButton { text: "Cancel"; primary: false; onClicked: vkmsCustomUnsupported.close() }
-                CustomButton {
-                    text: "Install monitorize-vkms"
-                    onClicked: {
-                        backend.openMonitorizeVkmsInstallPage()
-                        vkmsCustomUnsupported.close()
-                    }
-                }
-            }
-        }
-    }
-    Popup {
-        id: vkmsCustomCheckFailed; parent: Overlay.overlay
-        anchors.centerIn: parent
-        width: Math.min(430, parent.width - 40); padding: 18; focus: true
-        modal: true
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-        background: Rectangle { color: theme.surface; border.color: theme.borderHover; radius: theme.cardRadius }
-        contentItem: ColumnLayout {
-            spacing: 16
-            Text {
-                text: "Could not check VKMS custom-resolution support"
-                color: theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold
-                wrapMode: Text.WordWrap; Layout.fillWidth: true
-            }
-            Text {
-                text: "Monitorize could not determine whether the current VKMS driver supports custom resolutions."
-                color: theme.textSecondary; font.pixelSize: 13; wrapMode: Text.WordWrap
-                Layout.fillWidth: true
-            }
-            RowLayout {
-                Layout.alignment: Qt.AlignRight; spacing: 10
-                CustomButton { text: "Cancel"; primary: false; onClicked: vkmsCustomCheckFailed.close() }
-                CustomButton {
-                    text: "Try Again"
-                    onClicked: {
-                        vkmsCustomCheckFailed.close()
-                        backend.checkVkmsCustomEdidSupport()
-                    }
-                }
-            }
         }
     }
 }

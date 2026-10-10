@@ -15,9 +15,19 @@ from monitorize.desktop.streaming_controller import (
 
 class SunshineControllerTest(unittest.TestCase):
     def setUp(self):
+        readiness = patch("monitorize.desktop.streaming_controller.get_sunshine_startup_status",
+                          return_value=("ready", ""))
+        self.readiness = readiness.start()
+        self.addCleanup(readiness.stop)
         session = patch.dict(os.environ, {"XDG_SESSION_TYPE": "wayland"})
         session.start()
         self.addCleanup(session.stop)
+        saved_config = patch(
+            "monitorize.desktop.streaming_controller.get_saved_sunshine_config",
+            return_value={},
+        )
+        saved_config.start()
+        self.addCleanup(saved_config.stop)
         p = patch(
             "monitorize.platform.mirror_outputs.active_outputs",
             return_value=[
@@ -34,6 +44,65 @@ class SunshineControllerTest(unittest.TestCase):
         controller = StreamingController(de, "192.0.2.1")
         self.addCleanup(lambda: controller.sunshine_watchdog_timer.stop())
         return controller
+
+    def test_readiness_waits_for_initialization_and_cancels_on_stop(self):
+        controller = self.controller()
+        controller.streaming = True
+        callback = Mock()
+        self.readiness.return_value = ("pending", "")
+        controller._await_sunshine_ready(1, callback)
+        callback.assert_not_called()
+        self.assertFalse(controller.primary_ready)
+        with patch("monitorize.desktop.streaming_controller.check_sunshine_health",
+                   return_value=(True, None, "")), patch(
+                   "monitorize.desktop.streaming_controller.get_sunshine_strict_selection_error",
+                   return_value=""):
+            controller._check_sunshine_health()
+            callback.assert_not_called()
+            self.readiness.return_value = ("ready", "")
+            controller._check_sunshine_health()
+            callback.assert_called_once()
+            controller._check_sunshine_health()
+            callback.assert_called_once()
+        self.readiness.return_value = ("pending", "")
+        controller._await_sunshine_ready(1, callback)
+        with patch("monitorize.desktop.streaming_controller.stop_sunshine"):
+            controller.stop()
+        self.assertFalse(controller._pending_sunshine_ready)
+
+    def test_readiness_timeout_stops_without_marking_ready(self):
+        controller = self.controller()
+        controller.streaming = True
+        callback = Mock()
+        self.readiness.return_value = ("pending", "")
+        with patch("monitorize.desktop.streaming_controller.time.monotonic", return_value=0):
+            controller._await_sunshine_ready(1, callback)
+        with patch("monitorize.desktop.streaming_controller.check_sunshine_health",
+                   return_value=(True, None, "")), patch(
+                   "monitorize.desktop.streaming_controller.time.monotonic", return_value=121), patch(
+                   "monitorize.desktop.streaming_controller.QTimer.singleShot") as schedule:
+            controller._check_sunshine_health()
+        callback.assert_not_called()
+        self.assertIn("timed out", controller.status)
+        schedule.assert_called_once_with(0, controller.stop)
+
+    def test_second_display_waits_for_its_own_initialization(self):
+        controller = self.controller()
+        controller.streaming = True
+        controller.primary_ready = True
+        controller.third_streaming = True
+        callback = Mock()
+        self.readiness.return_value = ("pending", "")
+        controller._await_sunshine_ready(2, callback)
+        self.assertTrue(controller.primary_ready)
+        self.assertFalse(controller.third_ready)
+        with patch("monitorize.desktop.streaming_controller.check_sunshine_health",
+                   return_value=(True, None, "")), patch(
+                   "monitorize.desktop.streaming_controller.get_sunshine_strict_selection_error",
+                   return_value=""):
+            self.readiness.return_value = ("ready", "")
+            controller._check_sunshine_health()
+        callback.assert_called_once()
 
     def test_moonlight_codec_names_cover_all_strict_choices(self):
         self.assertEqual(_moonlight_codec_name("H.264 (AVC)"), "H.264 (AVC)")
@@ -105,6 +174,51 @@ Virtual-1-2 connected
             self.assertTrue(controller._start_instance(1, "Virtual-1", 2340, 1080))
         self.assertEqual(sync.call_args.args[0], "Virtual-1")
         self.assertEqual(sync.call_args.kwargs["capture"], "kms")
+
+    def test_gnome_auto_uses_pipewire_node_despite_old_sunshine_setting(self):
+        controller = self.controller("gnome")
+        with (
+            patch("monitorize.desktop.streaming_controller.load_general_settings",
+                  return_value={"sunshine_web_settings_enabled": False}),
+            patch("monitorize.desktop.streaming_controller.get_saved_sunshine_config",
+                  return_value={"capture": "kms", "adapter_name": ""}),
+            patch("monitorize.desktop.streaming_controller.get_sunshine_kms_setup_error",
+                  return_value=""),
+            patch("monitorize.desktop.streaming_controller.is_sunshine_settings_instance",
+                  return_value=False),
+            patch("monitorize.desktop.streaming_controller.sync_sunshine_stream_config",
+                  return_value=(True, "synced")) as sync,
+            patch("monitorize.desktop.streaming_controller.save_sunshine_config",
+                  return_value=(True, "saved")),
+            patch("monitorize.desktop.streaming_controller.start_sunshine",
+                  return_value=(True, "started")),
+        ):
+            self.assertTrue(controller._start_instance(1, "Virtual-1", 2340, 1080, pipewire_node=63))
+        self.assertEqual(sync.call_args.args[0], "Virtual-1")
+        self.assertEqual(sync.call_args.kwargs["capture"], "pipewire_node")
+
+    def test_manual_capture_overrides_auto_for_one_instance(self):
+        controller = self.controller("kde")
+        controller.capture = "portal"
+        controller.third_capture = "kms"
+        with (
+            patch("monitorize.desktop.streaming_controller.load_general_settings",
+                  return_value={"sunshine_web_settings_enabled": False}),
+            patch("monitorize.desktop.streaming_controller.is_sunshine_settings_instance",
+                  return_value=False),
+            patch("monitorize.desktop.streaming_controller.get_sunshine_kms_setup_error",
+                  return_value=""),
+            patch("monitorize.desktop.streaming_controller.sync_sunshine_stream_config",
+                  return_value=(True, "synced")) as sync,
+            patch("monitorize.desktop.streaming_controller.save_sunshine_config",
+                  return_value=(True, "saved")),
+            patch("monitorize.desktop.streaming_controller.start_sunshine",
+                  return_value=(True, "started")),
+        ):
+            self.assertTrue(controller._start_instance(1, "Virtual-1", 1920, 1080))
+            self.assertEqual(sync.call_args.kwargs["capture"], "portal")
+            self.assertTrue(controller._start_instance(2, "Virtual-2", 1920, 1080))
+            self.assertEqual(sync.call_args.kwargs["capture"], "kms")
 
     def test_cosmic_vkms_uses_portal_and_exact_output_even_with_saved_kms_setting(self):
         controller = self.controller("cosmic")

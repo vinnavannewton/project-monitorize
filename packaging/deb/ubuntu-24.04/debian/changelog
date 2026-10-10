@@ -1,0 +1,23 @@
+monitorize (0.33.3) noble; urgency=medium
+
+  * Release Monitorize 0.33.3.
+
+ -- Monitorize contributors <noreply@example.com>  Sat, 10 Oct 2026 18:59:48 +0530
+
+monitorize (0.33.2) noble; urgency=medium
+
+  * Release Monitorize 0.33.2.
+
+ -- Monitorize contributors <noreply@example.com>  Thu, 08 Oct 2026 21:38:27 +0530
+
+monitorize (0.33.1) noble; urgency=medium
+
+  * Release Monitorize 0.33.1.
+
+ -- Monitorize contributors <noreply@example.com>  Sun, 04 Oct 2026 20:37:21 +0530
+
+monitorize (0.33) noble; urgency=medium
+
+  * Build Monitorize with the bundled Sunshine fork for ubuntu-24.04.
+
+ -- Monitorize contributors <noreply@example.com>  Tue, 29 Sep 2026 17:26:19 +0530

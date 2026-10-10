@@ -10,19 +10,18 @@ PACKAGE_ROOT = PROJECT_ROOT / "packaging" / "deb" / "ubuntu-26.04"
 
 def test_ubuntu_deb_builder_contract() -> None:
     builder = (PACKAGE_ROOT / "build.sh").read_text()
+    shared_builder = (PROJECT_ROOT / "packaging/deb/build.sh").read_text()
 
-    assert 'readonly UBUNTU_VERSION=26.04' in builder
-    assert 'readonly IMAGE="ubuntu:${UBUNTU_VERSION}"' in builder
-    assert '[[ "$(uname -m)" == "x86_64" ]]' in builder
-    assert "git submodule status --recursive" in builder
-    assert "git status --porcelain" in builder
-    assert "MONITORIZE_BUILD_JOBS must be a positive integer" in builder
-    assert "dpkg-buildpackage -b -us -uc" in builder
-    assert 'source_dir="$(find /work' in builder
-    assert "apt-get install -y --no-install-recommends /tmp/monitorize.deb" in builder
-    assert "apt-get purge -y monitorize" in builder
-    assert "sudo cmake --install" not in builder
-    assert "cmake --install" not in builder
+    assert '--target ubuntu-26.04 "$@"' in builder
+    assert "git submodule status --recursive" in shared_builder
+    assert "git status --porcelain" in shared_builder
+    assert "MONITORIZE_BUILD_JOBS must be a positive integer" in shared_builder
+    assert "dpkg-buildpackage -b -us -uc" in shared_builder
+    assert "--rebuild-offline" in shared_builder
+    assert "--network=none" in shared_builder
+    assert "apt-get install -y --no-install-recommends /tmp/monitorize.deb" in shared_builder
+    assert "apt-get purge -y monitorize" in shared_builder
+    assert "cmake --install" not in shared_builder
 
 
 def test_ubuntu_deb_metadata_matches_project_version_and_sunshine_pin() -> None:
@@ -45,17 +44,17 @@ def test_ubuntu_deb_metadata_matches_project_version_and_sunshine_pin() -> None:
 
 
 def test_ubuntu_deb_runtime_is_private_and_sets_sunshine_overrides() -> None:
-    rules = (PACKAGE_ROOT / "debian" / "rules").read_text()
-    wrapper = (PACKAGE_ROOT / "monitorize-wrapper").read_text()
+    rules = (PROJECT_ROOT / "packaging/deb/common/rules.mk").read_text()
+    wrapper = (PROJECT_ROOT / "packaging/deb/common/monitorize-wrapper").read_text()
     control = (PACKAGE_ROOT / "debian" / "control").read_text()
     postinst = (PACKAGE_ROOT / "debian" / "postinst").read_text()
-    ufw_profile = (PACKAGE_ROOT / "monitorize.ufw.profile").read_text()
+    ufw_profile = (PROJECT_ROOT / "packaging/deb/common/monitorize.ufw.profile").read_text()
 
     assert "/usr/libexec/monitorize/sunshine" in rules
     assert "/usr/share/monitorize/sunshine/assets" in rules
     assert "MONITORIZE_SUNSHINE_BIN=/usr/libexec/monitorize/sunshine" in wrapper
     assert "MONITORIZE_SUNSHINE_ASSETS_DIR=/usr/share/monitorize/sunshine/assets" in wrapper
-    assert "sunshine-portal-token-scope.patch" in rules
+    assert "packaging/deb/common/rules.mk" in (PACKAGE_ROOT / "debian" / "rules").read_text()
     assert "python3-pyqt6.qtquick" in control
     assert "         pkexec," in control
     assert "policykit-1" not in control
@@ -67,8 +66,33 @@ def test_ubuntu_deb_runtime_is_private_and_sets_sunshine_overrides() -> None:
     assert "/usr/libexec/monitorize/monitorize-system-setup" in rules
     assert "io.github.vinnavannewton.monitorize.system-setup.policy" in rules
     assert "packaging/common/monitorize-system-setup" in rules
-    assert "test -f packaging/common/monitorize-system-setup" in rules
+    common_rules = (PROJECT_ROOT / "packaging/deb/common/rules.mk").read_text()
+    assert "test -f packaging/common/monitorize-system-setup" in common_rules
     assert "debian/monitorize/usr/libexec/monitorize/monitorize-system-setup" not in rules.split("override_dh_auto_test:", 1)[1]
     assert "debian/monitorize/etc/ufw/applications.d/monitorize" in rules
     assert "[Monitorize]" in ufw_profile
     assert "5353,47998:48010,49098:49110/udp" in ufw_profile
+
+
+def test_deb_targets_match_current_sources() -> None:
+    project_version = re.search(r'^version = "([^"]+)"$', (PROJECT_ROOT / "pyproject.toml").read_text(), re.MULTILINE).group(1)
+    for target in ("ubuntu-24.04", "debian-trixie", "ubuntu-26.04"):
+        package_dir = PROJECT_ROOT / "packaging/deb" / target
+        changelog = (package_dir / "debian/changelog").read_text()
+        sunshine_mk = (package_dir / "sunshine.mk").read_text()
+        control = (package_dir / "debian/control").read_text()
+        assert re.search(rf"^monitorize \({re.escape(project_version)}\)", changelog)
+        assert "SUNSHINE_COMMIT = 8d043f2b929705a4f6bad30d1e7f700a2de607b6" in sunshine_mk
+        assert "qml6-module-qtquick-controls" in control
+        assert "libcap2-bin" in control
+
+
+def test_workerscript_is_required_for_build_and_fresh_runtime_install() -> None:
+    dependency = "qml6-module-qtqml-workerscript"
+    for target in ("ubuntu-24.04", "debian-trixie", "ubuntu-26.04"):
+        control = (PROJECT_ROOT / "packaging/deb" / target / "debian/control").read_text()
+        source, binary = control.split("Package: monitorize", 1)
+        assert dependency in re.search(r"^Build-Depends:.*?(?=^\S|\Z)", source, re.MULTILINE | re.DOTALL).group(0), target
+        assert dependency in re.search(r"^Depends:.*?(?=^\S|\Z)", binary, re.MULTILINE | re.DOTALL).group(0), target
+    builder = (PROJECT_ROOT / "packaging/deb/build.sh").read_text()
+    assert dependency in builder
