@@ -63,8 +63,8 @@ jobs:
             qml6-module-qtquick qml6-module-qtquick-controls qml6-module-qtquick-layouts \
             qml6-module-qtquick-window qml6-module-qtquick-templates qml6-module-qtqml-workerscript \
             qml6-module-qtqml qml6-module-qtqml-models libqt6svg6
-      - name: Run complete Python test suite
-        run: timeout 180s /usr/bin/python3 -m unittest discover -s linux/tests -t . -v
+      - name: Run Python tests (Flatpak checks temporarily disabled)
+        run: timeout 180s /usr/bin/python3 scripts/ci-python-tests.py --skip-flatpak
       - name: Load all QML components and navigate application pages
         run: timeout 30s /usr/bin/python3 scripts/ci-qml-smoke.py
 

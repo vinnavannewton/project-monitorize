@@ -46,7 +46,9 @@ let
     pname = "monitorize-sunshine-ui";
     version = sunshineVersion;
     src = sunshineSource;
-    npmDeps = importNpmLock { npmRoot = sunshineSource; };
+    # Read lock metadata through the original flake source accessor. The
+    # filtered source can have a store path that is not materialized at eval time.
+    npmDeps = importNpmLock { npmRoot = ../external/sunshine; };
     npmConfigHook = importNpmLock.npmConfigHook;
     installPhase = ''
       runHook preInstall
