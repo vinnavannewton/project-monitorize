@@ -32,8 +32,8 @@ Receiving is handled by the standard [Moonlight](https://moonlight-stream.org/) 
 This table shows whether each desktop environment supports via compositor-native virtual displays, [monitorize-vkms](https://github.com/vinnavannewton/monitorize-vkms), or both.
 | Desktop Environment | Compositor | monitorize-vkms |
 | --- | :---: | :---: |
-| KDE Plasma | ✅ | ✅ |
-| GNOME | ✅ | ✅ |
+| KDE Plasma 6.7+ | ✅ | ✅ |
+| GNOME 50+| ✅ | ✅ |
 | Hyprland | ✅ | ❌ |
 | Niri | ❌ | ✅ |
 | Cinnamon X11 | ❌ | ✅ |
