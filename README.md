@@ -12,6 +12,8 @@
 
 https://github.com/user-attachments/assets/14a21a68-011b-43bf-9f26-fc9ea731d80b
 
+![Monitorize configuration and session screens](assets/Demo.png)
+
 Monitorize creates and manages virtual displays on Linux using compositor-native outputs or [monitorize-vkms](https://github.com/vinnavannewton/monitorize-vkms). Use virtual displays on their own, or stream them to another device through built-in Sunshine integration.
 
 For streaming, connect with [Moonlight](https://moonlight-stream.org/) on Android, Linux, Windows, macOS, iOS, or another supported device.
