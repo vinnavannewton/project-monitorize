@@ -1,25 +1,31 @@
-name: Desktop packaging source checks
+name: Desktop CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, update/binaries]
     paths:
       - "linux/**"
       - "nix/**"
       - "packaging/**"
       - "pyproject.toml"
-      - "scripts/bump-version.py"
+      - "scripts/**"
+      - "flake.nix"
+      - "flake.lock"
+      - "external/sunshine"
       - ".gitmodules"
       - ".github/workflows/desktop.yml"
       - ".github/workflows/desktop-release.yml"
   push:
-    branches: [main]
+    branches: [main, update/binaries]
     paths:
       - "linux/**"
       - "nix/**"
       - "packaging/**"
       - "pyproject.toml"
-      - "scripts/bump-version.py"
+      - "scripts/**"
+      - "flake.nix"
+      - "flake.lock"
+      - "external/sunshine"
       - ".gitmodules"
       - ".github/workflows/desktop.yml"
       - ".github/workflows/desktop-release.yml"
@@ -28,10 +34,63 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: desktop-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  python-qml:
+    name: Python tests and QML startup
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONPATH: linux
+      QT_QPA_PLATFORM: offscreen
+      QT_QUICK_BACKEND: software
+      XDG_CONFIG_HOME: ${{ runner.temp }}/monitorize-ci-config
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install application test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-pyqt6 python3-pyqt6.qtquick python3-jinja2 python3-dbus python3-gi \
+            qml6-module-qtquick qml6-module-qtquick-controls qml6-module-qtquick-layouts \
+            qml6-module-qtquick-window qml6-module-qtquick-templates qml6-module-qtqml-workerscript \
+            qml6-module-qtqml qml6-module-qtqml-models libqt6svg6
+      - name: Run complete Python test suite
+        run: timeout 180s /usr/bin/python3 -m unittest discover -s linux/tests -t . -v
+      - name: Load all QML components and navigate application pages
+        run: timeout 30s /usr/bin/python3 scripts/ci-qml-smoke.py
+
+  nix-evaluation:
+    name: Evaluate Nix packages
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ github.token }}
+      - name: Check locked flake without building packages
+        run: nix flake check --no-build --all-systems --no-update-lock-file
+      - name: Evaluate CUDA and non-CUDA derivations on both architectures
+        run: |
+          set -euo pipefail
+          for system in x86_64-linux aarch64-linux; do
+            for package in monitorize monitorize-no-cuda; do
+              nix eval --raw --no-update-lock-file ".#packages.${system}.${package}.drvPath"
+            done
+          done
+
   rpm-source:
     runs-on: ubuntu-latest
     container: fedora:44
+    timeout-minutes: 15
     steps:
       - name: Install validation tools
         run: dnf -y install git patch python3 rpm-build pyproject-rpm-macros systemd-rpm-macros firewalld-filesystem
@@ -41,7 +100,7 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Validate native RPM sources
+      - name: Validate native packaging sources
         run: |
           set -euo pipefail
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -72,14 +131,31 @@ jobs:
           arch_sources = Path("packaging/arch/sources.conf").read_text()
           assert re.search(rf"(?m)^pkgver={re.escape(version)}$", arch_pkg)
           assert re.search(rf"(?m)^SUNSHINE_COMMIT={sunshine}$", arch_sources)
-          assert "-DCUDA_FAIL_ON_MISSING=ON" in arch_pkg
-          assert "-DSUNSHINE_ENABLE_CUDA=ON" in arch_pkg
+          assert 'local cuda_required=ON' in arch_pkg
+          assert 'local cuda_enabled=ON' in arch_pkg
+          assert '-DCUDA_FAIL_ON_MISSING="${cuda_required}"' in arch_pkg
+          assert '-DSUNSHINE_ENABLE_CUDA="${cuda_enabled}"' in arch_pkg
           PYTHON
           git -C external/sunshine apply --check ../../packaging/sunshine-strict-selection.patch
           rpmspec -P packaging/rpm/monitorize.spec >/dev/null
-          PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=linux python3 -m unittest \
-            linux.tests.test_bump_version \
-            linux.tests.test_desktop_release_workflow \
-            linux.tests.test_arch_builder \
-            linux.tests.test_tumbleweed_rpm \
-            linux.tests.test_installer.SunshineOnlyPackagingTest.test_forced_codec_participates_in_moonlight_negotiation -q
+          bash -n packaging/deb/build.sh packaging/deb/*/build.sh \
+            packaging/deb/common/monitorize-wrapper packaging/deb/ubuntu-26.04/monitorize-wrapper
+          for script in packaging/deb/*/debian/postinst packaging/deb/*/debian/postrm; do
+            sh -n "$script"
+          done
+          python3 - <<'PYTHON'
+          from pathlib import Path
+          import re
+          import subprocess
+          import tomllib
+
+          version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
+          commit = subprocess.check_output(["git", "-C", "external/sunshine", "rev-parse", "HEAD"], text=True).strip()
+          for target in ("debian-trixie", "ubuntu-24.04", "ubuntu-26.04"):
+              directory = Path("packaging/deb") / target
+              assert re.match(rf"monitorize \({re.escape(version)}\)", (directory / "debian/changelog").read_text()), target
+              assert re.search(rf"(?m)^SUNSHINE_COMMIT = {commit}$", (directory / "sunshine.mk").read_text()), target
+          rules = Path("packaging/deb/common/rules.mk").read_text()
+          assert "-DCUDA_FAIL_ON_MISSING=ON" in rules
+          assert "-DSUNSHINE_ENABLE_CUDA=ON" in rules
+          PYTHON
