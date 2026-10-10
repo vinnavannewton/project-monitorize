@@ -1,34 +1,35 @@
 <div align="center">
   <img src="linux/monitorize/assets/monitorize_desktop_logo.png" alt="Monitorize logo" width="160" />
   <h1>Monitorize</h1>
-  <p><strong>Use any Moonlight-compatible device as an extra monitor for your Linux desktop.</strong></p>
+  <p><strong>A virtual display manager for Linux with built-in streaming.</strong></p>
   <p>
-    <a href="https://github.com/vinnavannewton/project-monitorize/actions/workflows/desktop.yml"><img src="https://img.shields.io/github/actions/workflow/status/vinnavannewton/project-monitorize/desktop.yml?branch=main&amp;label=Desktop%20CI" alt="Desktop CI" /></a>
+    <a href="https://github.com/vinnavannewton/project-monitorize/actions/workflows/desktop.yml"><img src="https://img.shields.io/github/actions/workflow/status/vinnavannewton/project-monitorize/desktop.yml?branch=main&label=Desktop%20CI" alt="Desktop CI" /></a>
     <a href="https://github.com/vinnavannewton/project-monitorize/actions/workflows/desktop-release.yml"><img src="https://img.shields.io/github/actions/workflow/status/vinnavannewton/project-monitorize/desktop-release.yml?label=Desktop%20CD" alt="Desktop CD" /></a>
-    <a href="https://github.com/vinnavannewton/project-monitorize/releases/latest"><img src="https://img.shields.io/github/v/release/vinnavannewton/project-monitorize?sort=date&amp;filter=monitorize-v*&amp;display_name=tag&amp;label=Latest%20release" alt="Latest release" /></a>
+    <a href="https://github.com/vinnavannewton/project-monitorize/releases/latest"><img src="https://img.shields.io/github/v/release/vinnavannewton/project-monitorize?sort=date&filter=monitorize-v*&display_name=tag&label=Latest%20release" alt="Latest release" /></a>
     <a href="https://github.com/vinnavannewton/project-monitorize/releases"><img src="https://img.shields.io/github/downloads/vinnavannewton/project-monitorize/total?label=Downloads" alt="Total release asset downloads" /></a>
   </p>
 </div>
 
 https://github.com/user-attachments/assets/14a21a68-011b-43bf-9f26-fc9ea731d80b
 
-Monitorize is a Linux host application for KDE Plasma, GNOME, and Hyprland. It creates and preserves compositor-native virtual displays, and streams using an isolated Sunshine server for each display.
+Monitorize creates and manages virtual displays on Linux using compositor-native outputs or [monitorize-vkms](https://github.com/vinnavannewton/monitorize-vkms). Use virtual displays on their own, or stream them to another device through built-in Sunshine integration.
 
-Receiving is handled by the standard [Moonlight](https://moonlight-stream.org/) application on Android, Linux, Windows, macOS, iOS, and other supported clients.
+For streaming, connect with [Moonlight](https://moonlight-stream.org/) on Android, Linux, Windows, macOS, iOS, or another supported device.
 
 ## Features
 
-- Extend or mirror a Linux desktop.
+- Create and manage up to two virtual displays.
 
-- Stream upto two virtual displays to any Moonlight-compatible device.
+- Support compositor-native virtual displays and monitorize-vkms.
 
-- All Sunshine features such as encoder, codec, audio, touch, and stylus configuration.
+- Stream virtual displays or mirror an existing monitor through Sunshine.
 
-- KDE, GNOME, and Hyprland native virtual monitors.
+- Configure streaming encoders, codecs, audio, touch, and stylus options via the integrated sunshine.
 
-- Doesn't interfere with existing user's sunshine.
+- Keeps Monitorize's Sunshine instances separate from your existing Sunshine setup.
 
 ## Supported desktops
+
 This table shows whether each desktop environment supports via compositor-native virtual displays, [monitorize-vkms](https://github.com/vinnavannewton/monitorize-vkms), or both.
 | Desktop Environment | Compositor | monitorize-vkms |
 | --- | :---: | :---: |
@@ -52,9 +53,9 @@ Want to contribute? See the [Contributing guide](https://github.com/vinnavannewt
 
 ## Usage
 
-For VKMS, install the host [monitorize-vkms](https://github.com/vinnavannewton/monitorize-vkms) service and reboot. Native and Flatpak builds use the same Extend → VKMS → Add Display flow, with up to two independent displays.
+For DE's with no compositor-native virtual display support, use via VKMS by installing [monitorize-vkms](https://github.com/vinnavannewton/monitorize-vkms).
 
-1. If the stream is black or crashes, try changing the stream from auto to other options in monitorize based on what your hardware supports.
+Tip: If the stream is black or crashes, try changing the stream from auto to other options in monitorize based on what your hardware supports.
 
 ## Star History
 
