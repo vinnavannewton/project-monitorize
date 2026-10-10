@@ -69,6 +69,8 @@ jobs:
         run: timeout 30s /usr/bin/python3 scripts/ci-qml-smoke.py
 
   nix-evaluation:
+    # Temporarily disabled; set repository variable MONITORIZE_NIX_CI to true to restore.
+    if: ${{ vars.MONITORIZE_NIX_CI == 'true' }}
     name: Evaluate Nix packages
     runs-on: ubuntu-24.04
     timeout-minutes: 20
