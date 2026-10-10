@@ -2,6 +2,12 @@
   <img src="linux/monitorize/assets/monitorize_desktop_logo.png" alt="Monitorize logo" width="160" />
   <h1>Monitorize</h1>
   <p><strong>Use any Moonlight-compatible device as an extra monitor for your Linux desktop.</strong></p>
+  <p>
+    <a href="https://github.com/vinnavannewton/project-monitorize/actions/workflows/desktop.yml"><img src="https://img.shields.io/github/actions/workflow/status/vinnavannewton/project-monitorize/desktop.yml?branch=main&amp;label=Desktop%20CI" alt="Desktop CI" /></a>
+    <a href="https://github.com/vinnavannewton/project-monitorize/actions/workflows/desktop-release.yml"><img src="https://img.shields.io/github/actions/workflow/status/vinnavannewton/project-monitorize/desktop-release.yml?label=Desktop%20CD" alt="Desktop CD" /></a>
+    <a href="https://github.com/vinnavannewton/project-monitorize/releases/latest"><img src="https://img.shields.io/github/v/release/vinnavannewton/project-monitorize?sort=date&amp;label=Latest%20release" alt="Latest release" /></a>
+    <a href="https://github.com/vinnavannewton/project-monitorize/releases"><img src="https://img.shields.io/github/downloads/vinnavannewton/project-monitorize/total?label=Downloads" alt="Total release asset downloads" /></a>
+  </p>
 </div>
 
 https://github.com/user-attachments/assets/14a21a68-011b-43bf-9f26-fc9ea731d80b
