@@ -159,7 +159,7 @@ def write_all(changes: dict[str, str]) -> None:
 
 def main() -> int:
     if len(sys.argv) != 2 or not VERSION.fullmatch(sys.argv[1]):
-        print("Usage: ./scripts/bump-version.py NEW_VERSION (for example, 0.33.1)", file=sys.stderr)
+        print("Usage: ./scripts/bump-version.py NEW_VERSION (MAJOR.MINOR or MAJOR.MINOR.PATCH, for example, 0.33.2)", file=sys.stderr)
         return 2
     new = sys.argv[1]
     try:

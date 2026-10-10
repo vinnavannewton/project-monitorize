@@ -117,6 +117,12 @@ class BumpVersionTest(unittest.TestCase):
         for target, codename in (("debian-trixie", "trixie"), ("ubuntu-24.04", "noble"), ("ubuntu-26.04", "resolute")):
             self.assertTrue(self.read(f"packaging/deb/{target}/debian/changelog").startswith(f"monitorize (0.33.1) {codename};"))
 
+        result = self.bump("0.33.2")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('version = "0.33.2"', self.read("pyproject.toml"))
+        for relative in FILES:
+            self.assertIn("0.33.2", self.read(relative))
+
         result = self.bump("0.34")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('version = "0.34"', self.read("pyproject.toml"))

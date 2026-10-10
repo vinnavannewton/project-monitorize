@@ -31,8 +31,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [[ ! "${GITHUB_REF_NAME}" =~ ^monitorize-v([0-9]+\.[0-9]+)$ ]]; then
-            echo "Tag ${GITHUB_REF_NAME} must use monitorize-vMAJOR.MINOR format, for example monitorize-v0.34." >&2
+          if [[ ! "${GITHUB_REF_NAME}" =~ ^monitorize-v((0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))?)$ ]]; then
+            echo "Tag ${GITHUB_REF_NAME} must use monitorize-vMAJOR.MINOR or monitorize-vMAJOR.MINOR.PATCH format, for example monitorize-v0.33.2." >&2
             exit 1
           fi
           tag_version="${BASH_REMATCH[1]}"
@@ -205,15 +205,30 @@ jobs:
           fi
           printf '%s\n' "${assets[@]}"
 
-      - name: Create release and upload packages
+      - name: Stage draft, verify uploads, and publish release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           VERSION: ${{ needs.validate.outputs.version }}
         run: |
           set -euo pipefail
-          gh release create "${GITHUB_REF_NAME}" release-assets/* \
+          gh release create "${GITHUB_REF_NAME}" \
             --verify-tag \
             --title "Monitorize ${VERSION}" \
             --generate-notes \
-            --latest
+            --draft
+
+          gh release upload "${GITHUB_REF_NAME}" release-assets/*
+          gh release view "${GITHUB_REF_NAME}" --json assets,isDraft > uploaded-release.json
+          python3 - <<'PYTHON'
+          import json
+          from pathlib import Path
+
+          release = json.loads(Path("uploaded-release.json").read_text())
+          expected = {path.name: path.stat().st_size for path in Path("release-assets").iterdir() if path.is_file()}
+          assets = release["assets"]
+          actual = {asset["name"]: asset["size"] for asset in assets}
+          if not release["isDraft"] or len(assets) != 6 or actual != expected:
+              raise SystemExit("Draft release uploads do not match the complete local package set.")
+          PYTHON
+          gh release edit "${GITHUB_REF_NAME}" --draft=false --latest
