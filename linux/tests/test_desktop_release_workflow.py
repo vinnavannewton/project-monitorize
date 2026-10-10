@@ -1,5 +1,7 @@
 """Policy checks for the desktop package release workflow."""
 
+import json
+import sys
 import os
 import re
 import subprocess
@@ -56,31 +58,50 @@ elif command == 'edit':
             with self.subTest(scenario=scenario), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
                 (root / 'release-assets').mkdir()
-                for index in range(6):
-                    (root / 'release-assets' / f'package-{index}').write_text('package')
+                names = json.loads(subprocess.check_output(
+                    [sys.executable, str(ROOT / "scripts/package-assets.py"), "manifest", "0.33.2"], text=True))
+                for name in names:
+                    (root / 'release-assets' / name).write_text('package')
                 gh = root / 'gh'
                 gh.write_text(stub)
                 gh.chmod(0o755)
                 result = subprocess.run(['bash', '-c', script], cwd=root, capture_output=True, text=True,
                                         env={**os.environ, 'PATH': str(root) + os.pathsep + os.environ['PATH'],
                                              'GITHUB_REF_NAME': 'monitorize-v0.33.2', 'VERSION': '0.33.2',
-                                             'SCENARIO': scenario})
+                                             'SCENARIO': scenario, 'EXPECTED_ASSETS': json.dumps(names)})
                 calls = (root / 'calls').read_text().splitlines()
                 self.assertEqual(result.returncode == 0, scenario == 'success', result.stderr)
                 self.assertEqual('edit' in calls, scenario == 'success', calls)
 
-    def test_all_six_cuda_package_targets_are_built(self):
-        for target in (
-            "arch",
-            "fedora-44",
-            "tumbleweed",
-            "debian-trixie",
-            "ubuntu-24.04",
-            "ubuntu-26.04",
-        ):
-            self.assertIn(f"target: {target}", self.workflow)
+    def test_only_enabled_cuda_targets_are_built(self):
+        matrix = json.loads(subprocess.check_output(
+            [sys.executable, str(ROOT / "scripts/package-assets.py"), "matrix"], text=True))
+        self.assertEqual({leg["target"] for leg in matrix["include"]},
+                         {"arch", "fedora-44", "tumbleweed", "ubuntu-24.04", "ubuntu-26.04"})
+        self.assertIn("fromJSON(needs.validate.outputs.matrix)", self.workflow)
+        self.assertIn("debian-trixie) ./packaging/deb/debian-trixie/build.sh", self.workflow)
         self.assertNotIn("--no-cuda", self.workflow)
-        self.assertIn("Expected six installable release assets", self.workflow)
+
+    def test_asset_gate_rejects_missing_empty_and_substituted_packages(self):
+        script = textwrap.dedent(self.workflow.split("      - name: Verify release asset set", 1)[1]
+                                .split("        run: |\n", 1)[1].split("      - name: Stage draft", 1)[0])
+        names = json.loads(subprocess.check_output(
+            [sys.executable, str(ROOT / "scripts/package-assets.py"), "manifest", "0.33.2"], text=True))
+        for scenario in ("success", "missing", "empty", "substituted"):
+            with self.subTest(scenario=scenario), tempfile.TemporaryDirectory() as directory:
+                assets = Path(directory) / "release-assets"
+                assets.mkdir()
+                for name in names:
+                    (assets / name).write_text("package")
+                if scenario == "missing":
+                    (assets / names[0]).unlink()
+                elif scenario == "empty":
+                    (assets / names[0]).write_text("")
+                elif scenario == "substituted":
+                    (assets / names[0]).rename(assets / "wrong-distro.rpm")
+                result = subprocess.run(["bash", "-c", script], cwd=directory, capture_output=True,
+                                        env={**os.environ, "EXPECTED_ASSETS": json.dumps(names)})
+                self.assertEqual(result.returncode == 0, scenario == "success", result.stderr)
 
     def test_release_waits_for_builds_and_excludes_build_outputs(self):
         self.assertIn("needs: [validate, build]", self.workflow)

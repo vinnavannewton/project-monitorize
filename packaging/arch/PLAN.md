@@ -14,7 +14,7 @@ Implement these commands on the developer's existing x86_64 Linux workstation:
 MONITORIZE_BUILD_JOBS=4 ./packaging/arch/build.sh --rebuild-offline
 ```
 
-Produce a native `monitorize-<version>-<pkgrel>-x86_64.pkg.tar.zst` containing the
+Produce a native `monitorize-<version>-archlinux-x86_64.pkg.tar.zst` containing the
 Python application, compiled bundled Sunshine fork, KDE helper, assets, and
 system integration. The developer compiles once; package users do not compile.
 
@@ -263,7 +263,7 @@ unload kernel modules. Upgrade must preserve settings and restore capabilities.
 Use this output layout:
 
 ```text
-dist/arch/x86_64/monitorize-<version>-<pkgrel>-x86_64.pkg.tar.zst
+dist/arch/x86_64/monitorize-<version>-archlinux-x86_64.pkg.tar.zst
 dist/arch/build.log
 dist/arch/failed-build.log
 dist/arch/build-manifest.txt

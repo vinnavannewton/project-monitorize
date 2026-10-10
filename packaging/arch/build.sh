@@ -213,7 +213,8 @@ else
         | tee -a "${build_log}"
 fi
 
-published_package="${OUTPUT_ROOT}/x86_64/$(basename "${main_package}")"
+asset_name="$(python3 "${PROJECT_ROOT}/scripts/package-assets.py" name arch "${version}")"
+published_package="${OUTPUT_ROOT}/x86_64/${asset_name}"
 cp "${main_package}" "${published_package}.part"
 mv "${published_package}.part" "${published_package}"
 cp "${artifact_root}/build-manifest.txt" "${OUTPUT_ROOT}/build-manifest.txt"

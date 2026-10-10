@@ -11,7 +11,7 @@ Tumbleweed, all three DEB targets, and the main Nix package version, including
 current RPM and DEB changelog entries. Nix's separate Sunshine version is not
 the Monitorize release version and is left unchanged.
 
-After the release commit reaches `main`, create and push a two-part desktop tag:
+After the release commit reaches `main`, create and push a desktop tag (MAJOR.MINOR or MAJOR.MINOR.PATCH):
 
 ```bash
 git tag monitorize-v0.34
@@ -20,11 +20,22 @@ git push origin monitorize-v0.34
 
 The desktop release workflow requires the tag to match `pyproject.toml` and to
 point to a commit on `main`. It builds the CUDA package for Arch, Fedora 44,
-Tumbleweed, Debian Trixie, Ubuntu 24.04, and Ubuntu 26.04. GitHub publishes the
+Tumbleweed, Ubuntu 24.04, and Ubuntu 26.04. Debian 13 remains available locally
+but is temporarily disabled in CD. GitHub publishes the
 release only after every package build and smoke test succeeds. The release
-uploads the six installable packages; build logs, source RPMs, caches, and debug
+uploads the five enabled installable packages; build logs, source RPMs, caches, and debug
 packages stay out of the release. GitHub also displays its automatic source
 code archive links on every release.
+
+The shared names and CD target switches live in `scripts/package-assets.py`.
+Set Debian's `cd_enabled=True` to re-enable it; the matrix and expected asset
+manifest expand automatically. Packages upload to a draft and are verified
+before publication.
+
+The Fedora binary is named `monitorize-<version>-fedora-44-x86_64.rpm`.
+Installed package identity remains `monitorize`; debug and source RPMs retain
+native filenames. Non-CUDA variants use the same download names in their
+separate `no-cuda` output directories.
 
 ## Building
 

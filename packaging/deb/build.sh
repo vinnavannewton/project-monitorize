@@ -298,8 +298,9 @@ PYTHON
         ' 2>&1 | tee -a "${build_log}"
 fi
 
-cp "${artifact_root}/amd64/"*.deb "${OUTPUT_ROOT}/amd64/"
+asset_name="$(python3 "${PROJECT_ROOT}/scripts/package-assets.py" name "${target}" "${version}")"
+cp "${main_deb}" "${OUTPUT_ROOT}/amd64/${asset_name}"
 cp "${build_log}" "${OUTPUT_ROOT}/build.log"
 printf 'source_commit=%s\ncuda_enabled=%s\n' "$(git rev-parse HEAD)" "${enable_cuda}" \
     > "${OUTPUT_ROOT}/build-manifest.txt"
-echo "Completed ${DISTRO_LABEL} AMD64 DEB: ${OUTPUT_ROOT}/amd64/$(basename "${main_deb}")"
+echo "Completed ${DISTRO_LABEL} AMD64 DEB: ${OUTPUT_ROOT}/amd64/${asset_name}"

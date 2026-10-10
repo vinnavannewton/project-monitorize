@@ -277,11 +277,16 @@ PYTHON
 fi
 
 mkdir -p "${OUTPUT_ROOT}/x86_64" "${OUTPUT_ROOT}/source"
-cp "${artifact_stage}/x86_64/"*.rpm "${OUTPUT_ROOT}/x86_64/"
+asset_name="$(python3 "${PROJECT_ROOT}/scripts/package-assets.py" name "tumbleweed" "${version}")"
+for package in "${artifact_stage}/x86_64/"*.rpm; do
+    destination="$(basename "${package}")"
+    if [[ "${package}" == "${main_rpm}" ]]; then destination="${asset_name}"; fi
+    cp "${package}" "${OUTPUT_ROOT}/x86_64/${destination}"
+done
 cp "${artifact_stage}/source/"*.rpm "${OUTPUT_ROOT}/source/"
 cp "${build_log}" "${OUTPUT_ROOT}/"
 printf 'source_commit=%s\ncuda_enabled=%s\n' "$(git rev-parse HEAD)" "${enable_cuda}" \
     > "${OUTPUT_ROOT}/build-manifest.txt"
 echo "openSUSE Tumbleweed RPM build and smoke test completed."
-echo "Primary RPM: ${OUTPUT_ROOT}/x86_64/$(basename "${main_rpm}")"
+echo "Primary RPM: ${OUTPUT_ROOT}/x86_64/${asset_name}"
 echo "Source RPM: ${OUTPUT_ROOT}/source/"

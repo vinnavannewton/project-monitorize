@@ -10,6 +10,16 @@ git submodule update --init --recursive
 ./packaging/deb/ubuntu-26.04/build.sh
 ```
 
+Download filenames are distro-specific; the installed package remains `monitorize`:
+
+- Ubuntu 24.04: `monitorize-<version>-ubuntu-24.04-amd64.deb`
+- Ubuntu 26.04: `monitorize-<version>-ubuntu-26.04-amd64.deb`
+- Debian 13: `monitorize-<version>-debian-13-amd64.deb`
+
+Debian is temporarily disabled in GitHub CD, but its local builder and version
+synchronization remain available. The `cd_enabled` switch in
+`scripts/package-assets.py` controls release inclusion.
+
 Each target writes packages to `dist/deb/<target>/amd64/` and a transcript to
 `dist/deb/<target>/build.log`. A failed attempt leaves
 `dist/deb/<target>/failed-build.log`. The normal build prepares a target-specific

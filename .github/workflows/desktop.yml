@@ -48,11 +48,14 @@ jobs:
       PYTHONPATH: linux
       QT_QPA_PLATFORM: offscreen
       QT_QUICK_BACKEND: software
-      XDG_CONFIG_HOME: ${{ runner.temp }}/monitorize-ci-config
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+      - name: Isolate application settings
+        run: |
+          mkdir -p "${RUNNER_TEMP}/monitorize-ci-config"
+          echo "XDG_CONFIG_HOME=${RUNNER_TEMP}/monitorize-ci-config" >> "${GITHUB_ENV}"
       - name: Install application test dependencies
         run: |
           sudo apt-get update

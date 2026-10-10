@@ -9,7 +9,7 @@ git submodule update --init --recursive
 ./packaging/arch/build.sh
 ```
 
-The result is `dist/arch/x86_64/monitorize-<version>-<pkgrel>-x86_64.pkg.tar.zst`.
+The result is `dist/arch/x86_64/monitorize-<version>-archlinux-x86_64.pkg.tar.zst`.
 `dist/arch/build.log` and `dist/arch/build-manifest.txt` record the successful
 build. A failed attempt writes `dist/arch/failed-build.log` and leaves the last
 successful package in place.

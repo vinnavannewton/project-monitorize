@@ -148,7 +148,7 @@ class ArchBuilderPreflightTest(unittest.TestCase):
     def test_failed_build_preserves_previous_package_and_writes_log(self) -> None:
         package_dir = self.checkout / "dist/arch/x86_64"
         package_dir.mkdir(parents=True)
-        previous = package_dir / "monitorize-0.33-1-x86_64.pkg.tar.zst"
+        previous = package_dir / "monitorize-0.33-archlinux-x86_64.pkg.tar.zst"
         previous.write_text("previous successful package")
         result = subprocess.run(
             (str(self.checkout / "packaging/arch/build.sh"),),

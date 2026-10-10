@@ -18,6 +18,8 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.release.outputs.version }}
+      matrix: ${{ steps.release.outputs.matrix }}
+      asset_names: ${{ steps.release.outputs.asset_names }}
     steps:
       - name: Checkout tagged sources
         uses: actions/checkout@v4
@@ -80,6 +82,8 @@ jobs:
           PYTHON
 
           echo "version=${tag_version}" >> "${GITHUB_OUTPUT}"
+          echo "matrix=$(python3 scripts/package-assets.py matrix)" >> "${GITHUB_OUTPUT}"
+          echo "asset_names=$(python3 scripts/package-assets.py manifest "${tag_version}")" >> "${GITHUB_OUTPUT}"
 
   build:
     name: Build ${{ matrix.label }}
@@ -88,20 +92,8 @@ jobs:
     timeout-minutes: 360
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - target: arch
-            label: Arch Linux x86_64
-          - target: fedora-44
-            label: Fedora 44 x86_64
-          - target: tumbleweed
-            label: openSUSE Tumbleweed x86_64
-          - target: debian-trixie
-            label: Debian Trixie AMD64
-          - target: ubuntu-24.04
-            label: Ubuntu 24.04 AMD64
-          - target: ubuntu-26.04
-            label: Ubuntu 26.04 AMD64
+      # The shared target list retains Debian with cd_enabled=False.
+      matrix: ${{ fromJSON(needs.validate.outputs.matrix) }}
     steps:
       - name: Reclaim runner disk space
         run: |
@@ -142,34 +134,11 @@ jobs:
           VERSION: ${{ needs.validate.outputs.version }}
         run: |
           set -euo pipefail
-          shopt -s nullglob
           mkdir -p release-assets
-
-          case "${{ matrix.target }}" in
-            arch)
-              candidates=(dist/arch/x86_64/monitorize-"${VERSION}"-*-x86_64.pkg.tar.zst)
-              asset="monitorize-${VERSION}-archlinux-x86_64.pkg.tar.zst"
-              ;;
-            fedora-44)
-              candidates=(dist/rpm/fedora-44/x86_64/monitorize-"${VERSION}"-*.fc44.x86_64.rpm)
-              asset="monitorize-${VERSION}-fedora-44-x86_64.rpm"
-              ;;
-            tumbleweed)
-              candidates=(dist/rpm/tumbleweed/x86_64/monitorize-"${VERSION}"-*.x86_64.rpm)
-              asset="monitorize-${VERSION}-tumbleweed-x86_64.rpm"
-              ;;
-            debian-trixie|ubuntu-24.04|ubuntu-26.04)
-              candidates=(dist/deb/${{ matrix.target }}/amd64/monitorize_"${VERSION}"_amd64.deb)
-              asset="monitorize_${VERSION}_${{ matrix.target }}_amd64.deb"
-              ;;
-            *) echo "Unknown build target: ${{ matrix.target }}" >&2; exit 2 ;;
-          esac
-
-          if (( ${#candidates[@]} != 1 )); then
-            echo "Expected exactly one installable package for ${{ matrix.target }}, found ${#candidates[@]}." >&2
-            exit 1
-          fi
-          cp "${candidates[0]}" "release-assets/${asset}"
+          asset="$(python3 scripts/package-assets.py name "${{ matrix.target }}" "${VERSION}")"
+          package="$(python3 scripts/package-assets.py path "${{ matrix.target }}" "${VERSION}")"
+          test -s "${package}"
+          cp "${package}" "release-assets/${asset}"
 
       - name: Upload installable package
         uses: actions/upload-artifact@v4
@@ -195,21 +164,29 @@ jobs:
           merge-multiple: true
 
       - name: Verify release asset set
+        env:
+          EXPECTED_ASSETS: ${{ needs.validate.outputs.asset_names }}
         run: |
           set -euo pipefail
-          mapfile -t assets < <(find release-assets -maxdepth 1 -type f -print | sort)
-          if (( ${#assets[@]} != 6 )); then
-            echo "Expected six installable release assets, found ${#assets[@]}." >&2
-            printf '%s\n' "${assets[@]}" >&2
-            exit 1
-          fi
-          printf '%s\n' "${assets[@]}"
+          python3 - <<'PYTHON'
+          import json
+          import os
+          from pathlib import Path
+
+          expected = set(json.loads(os.environ["EXPECTED_ASSETS"]))
+          assets = list(Path("release-assets").iterdir())
+          actual = {path.name for path in assets if path.is_file() and path.stat().st_size > 0}
+          if len(assets) != len(expected) or actual != expected:
+              raise SystemExit(f"Expected complete enabled-target asset set {sorted(expected)}; found {sorted(actual)}.")
+          print("Verified release assets:", *sorted(actual), sep="\n")
+          PYTHON
 
       - name: Stage draft, verify uploads, and publish release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           VERSION: ${{ needs.validate.outputs.version }}
+          EXPECTED_ASSETS: ${{ needs.validate.outputs.asset_names }}
         run: |
           set -euo pipefail
           gh release create "${GITHUB_REF_NAME}" \
@@ -222,13 +199,16 @@ jobs:
           gh release view "${GITHUB_REF_NAME}" --json assets,isDraft > uploaded-release.json
           python3 - <<'PYTHON'
           import json
+          import os
           from pathlib import Path
 
           release = json.loads(Path("uploaded-release.json").read_text())
           expected = {path.name: path.stat().st_size for path in Path("release-assets").iterdir() if path.is_file()}
           assets = release["assets"]
           actual = {asset["name"]: asset["size"] for asset in assets}
-          if not release["isDraft"] or len(assets) != 6 or actual != expected:
+          if (not release["isDraft"] or len(assets) != len(expected)
+                  or set(expected) != set(json.loads(os.environ["EXPECTED_ASSETS"]))
+                  or actual != expected):
               raise SystemExit("Draft release uploads do not match the complete local package set.")
           PYTHON
           gh release edit "${GITHUB_REF_NAME}" --draft=false --latest

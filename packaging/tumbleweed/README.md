@@ -1,5 +1,8 @@
 # Tumbleweed RPM build
 
+The primary binary filename is `monitorize-<version>-opensuse-tumbleweed-x86_64.rpm`.
+The installed package remains `monitorize`; source and debug RPMs keep native names.
+
 Run `./packaging/tumbleweed/build.sh` from a clean, committed checkout with
 initialized recursive submodules. The default builds Sunshine with CUDA support.
 
