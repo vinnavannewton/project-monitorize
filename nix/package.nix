@@ -87,7 +87,7 @@ let
 in
 python3Packages.buildPythonApplication rec {
   pname = "monitorize";
-  version = "0.33.2";
+  version = "0.33.3";
   pyproject = false;                    # Nix installs the linux/ tree directly.
 
   # Use lib.cleanSource to exclude editor artefacts, __pycache__, venv/, etc.
