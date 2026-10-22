@@ -168,7 +168,7 @@ class Installer:
             if key=='enabled' and type(value.get(key)) is not bool:raise ValueError('Invalid enrollment state.')
             if value.get(key) is True:
                 raise ValueError('Disable remote login and release its protected display before explicit asset rollback. Pairing is retained.')
-    def install(self,stage):
+    def install(self,stage,*,host_only=False):
         stage=Path(stage)
         if stage.is_symlink() or not stage.is_dir():raise ValueError('Invalid staging tree.')
         sources=[]
@@ -177,6 +177,8 @@ class Installer:
             if source.is_dir():continue
             relative=source.relative_to(stage).as_posix()
             if not allowed(relative) or relative in RETIRED_FILES:raise ValueError('Unexpected staged asset: '+relative)
+            if host_only and relative not in HOST_FILES and not relative.startswith('usr/lib/monitorize-vkms/'):
+                continue
             # Read before mutating destinations; never execute staged scripts.
             data,_=self.read(source)
             sources.append((relative,data))
@@ -189,7 +191,7 @@ class Installer:
             except FileNotFoundError:old=None;mode=None
             caps=self.commands.capabilities(target) if relative==ENGINE and old is not None else ''
             snapshots.append((relative,old,mode,caps))
-        for relative in sorted(RETIRED_FILES):
+        for relative in sorted(RETIRED_FILES if not host_only else ()):
             target=self.root/relative
             if not target.exists() and not target.is_symlink():continue
             self.parents(target)
@@ -208,7 +210,7 @@ class Installer:
                 self.write(self.root/relative,data,0o755 if executable else 0o644)
             if any(relative==ENGINE for relative,_ in sources):
                 self.commands.set_capabilities(self.root/ENGINE,'cap_sys_admin+p')
-            for relative in RETIRED_FILES:
+            for relative in (RETIRED_FILES if not host_only else ()):
                 (self.root/relative).unlink(missing_ok=True)
             self.commands.reload()
         except Exception:
@@ -250,7 +252,9 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     group=parser.add_mutually_exclusive_group(required=True)
     group.add_argument('--stage',type=Path);group.add_argument('--rollback',type=Path)
+    parser.add_argument('--host-only',action='store_true',help='Update only source-managed VKMS host userspace from a fully validated bundle; app assets must be installed through their native package.')
     args=parser.parse_args()
+    if args.host_only and not args.stage:parser.error('--host-only requires --stage')
     if os.geteuid()!=0:parser.exit(1,'Run this explicit asset installation with sudo.\n')
     try:
         # Do not replace executable/code while an engine or supervisor is alive.
@@ -268,7 +272,7 @@ def main():
                        ('/etc/systemd/system','/usr/lib/systemd/system')):
                 raise RuntimeError('Install the Monitorize VKMS host/bootstrap first.')
             validate_bundle(args.stage)
-            backup=installer.install(args.stage)
+            backup=installer.install(args.stage,host_only=args.host_only)
             print('Installed assets only. No services enabled/started and no display changed.')
             print('Rollback: sudo /usr/bin/python3 -I '+str(Path(__file__).resolve())+' --rollback '+str(backup))
             print('Now launch Monitorize and explicitly enroll Remote login at boot in Settings.')

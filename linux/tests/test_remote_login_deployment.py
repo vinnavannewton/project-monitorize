@@ -78,6 +78,20 @@ class DeploymentTests(unittest.TestCase):
                 self.installer.install(self.stage)
         self.assertFalse((self.root/'usr').exists())
 
+    def test_host_only_update_leaves_native_app_files_untouched(self):
+        from unittest.mock import patch
+        self.file('usr/lib/monitorize-vkms/monitorize_vkms/helper.py',b'new host')
+        self.file('usr/libexec/monitorize/sunshine',b'must not install')
+        target=self.root/'usr/libexec/monitorize/sunshine'
+        target.parent.mkdir(parents=True);target.write_bytes(b'native engine')
+        def owner(path):return 'monitorize' if str(path).endswith('/sunshine') else None
+        with patch.object(self.module,'package_owner',side_effect=owner):
+            backup=self.installer.install(self.stage,host_only=True)
+        self.assertEqual(target.read_bytes(),b'native engine')
+        self.assertEqual((self.root/'usr/lib/monitorize-vkms/monitorize_vkms/helper.py').read_bytes(),b'new host')
+        manifest=__import__('json').loads((backup/'manifest.json').read_text())
+        self.assertEqual([item['path'] for item in manifest],['usr/lib/monitorize-vkms/monitorize_vkms/helper.py'])
+
     def test_rollback_does_not_delete_files_now_owned_by_a_package(self):
         from unittest.mock import patch
         relative='usr/lib/monitorize-vkms/monitorize_vkms/helper.py'
