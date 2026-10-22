@@ -44,7 +44,14 @@ def build_service(settings,bus):
         return lease.get('connector') or find_boot_output(require_enabled=False) or ('Virtual-0' if lease.get('protected') is True else None)
     # Publish listener identity without enabling capture. EnginePrepare activates
     # the output only for an authenticated launch, including after idle unplug.
-    store=DescriptorStore(settings,reserved_output,lambda uid,session:{'connector':reserved_output()},session_environment=helper._active_session)
+    def adopt_desktop(uid,session):
+        # Adoption happens before the desktop engine starts and acquires its
+        # identity lock. An on-demand reservation may not have a live DRM name
+        # yet; Virtual-0 stays a listener descriptor placeholder, never a lease
+        # identity or capture fallback. EnginePrepare returns the exact target.
+        result=desktop_operation_installed(uid,session,'adopt')
+        return dict(connector=result.get('connector') or reserved_output())
+    store=DescriptorStore(settings,reserved_output,adopt_desktop,session_environment=helper._active_session)
     def health(phase):
         from .health import read_health
         try:

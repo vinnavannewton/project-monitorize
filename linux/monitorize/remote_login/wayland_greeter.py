@@ -34,9 +34,10 @@ def activate_greeter(settings,context,session,environment,output,remaining,helpe
         raise RuntimeError('Weston did not activate the reserved output through DRM hotplug. This configuration needs a validated activation adapter.')
     check()
     environment=dict(environment,XDG_CURRENT_DESKTOP={'kde':'KDE','hyprland':'Hyprland','gnome':'GNOME'}[compositor])
-    helper._run_worker(context['greeter_uid'],environment,dict(action='activate',name=output['name'],
+    result=helper._run_worker(context['greeter_uid'],environment,dict(action='activate',name=output['name'],
         card=output['card'],connector_id=output['connector_id'],mode=[1920,1080,60],snapshot=None),timeout=min(remaining,8))
     if compositor=='gnome':
         from .gdm_context import verify
         verify(context,session,environment,helper)
     check()
+    return result
