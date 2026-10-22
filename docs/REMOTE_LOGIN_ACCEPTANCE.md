@@ -2,6 +2,31 @@
 
 Date: 2026-10-23. Code implemented and reviewed; live installation/boot acceptance pending.
 
+## Installation update (2026-10-23)
+
+The user authorized deployment. Installed Monitorize 0.33.4-1 through pacman because
+the existing app assets belong to the native monitorize package. A local rollback
+package of the prior 0.33.3-1 installation was prepared first. Updated the separately
+source-managed VKMS userspace to 0.3.0 with the validated bundle and the tested
+`--host-only` installer mode. The running kernel module was not rebuilt or unloaded.
+
+Installed static readiness reports `ready`, all protocol constants are 1, helper
+copies match, Sunshine has cap_sys_admin/cap_sys_nice, package integrity reports
+496 files with none missing, doctor passes and systemd unit verification succeeds.
+The host helper is active. The installed app was reopened and its ordinary idle
+listener resumed. Remote login units remain disabled; enrollment and live boot/
+headless acceptance have not been performed.
+
+The host transaction backup is
+`/var/lib/monitorize/remote-login-deployments/db00959aa9f90d4aff10e20ecbf81929`.
+Exact rollback instructions and package hashes are saved in
+`/home/vinnavan/.worktrees/remote-login-artifacts/installation-receipt.json`.
+The latest focused app suite has 168 passing tests, including mixed native-app /
+source-managed host installation without overwriting package-owned files.
+
+The implementation-time snapshot below records earlier evidence; this installation
+update supersedes its statements that deployment was pending.
+
 ## Source pair
 
 - Host: `/home/vinnavan/.worktrees/remote-login-host`, branch `codex/remote-login-host-support`, host version 0.3.0.
