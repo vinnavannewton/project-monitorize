@@ -130,6 +130,9 @@ def restore_linger(uid,*,commands):
 
 def enable(uid):
     if type(uid) is not int or uid<=0:raise RuntimeError('Select a non-root account.')
+    from monitorize.platform.remote_login_host import host_readiness
+    host=host_readiness()
+    if not host['available']:raise RuntimeError(host['message'])
     account=pwd.getpwuid(uid)
     from .display_managers import require_manager
     manager=require_manager()
@@ -239,10 +242,11 @@ def remove_reserved(uid, *, release=False):
         sys.path.insert(0,'/usr/lib/monitorize-vkms')
         from monitorize_vkms.boot_display import desktop_operation_installed
         require_installed(sys.modules['monitorize_vkms.boot_display'].__file__)
-        with acquire_identity_lock(identity_paths(settings.directory),uid=uid):
-            from monitorize_vkms import helper
-            session,_=helper._active_session(uid)
-            desktop_operation_installed(uid,session,'release' if release or not settings.enabled else 'idle',engines_stopped=True)
+        # The host holds this same identity lock across cgroup verification and
+        # disconnect. Reacquiring it here would reject our own recovery call.
+        from monitorize_vkms import helper
+        session,_=helper._active_session(uid)
+        desktop_operation_installed(uid,session,'release' if release or not settings.enabled else 'idle',engines_stopped=True)
         return dict(success=True,changed=True,message='Reserved remote-login display removed. '+('Pairing and reservation retained.' if settings.enabled else 'Slot released for normal streaming; pairing retained.'))
     finally:bus.close()
 

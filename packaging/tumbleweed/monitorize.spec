@@ -104,7 +104,7 @@ Requires:       python3-gobject
 Requires:       udev
 Requires:       which
 Requires:       xdg-desktop-portal
-Suggests:       monitorize-vkms
+Suggests:       monitorize-vkms >= 0.3.0
 Requires(pre):  sysuser-tools
 Requires(post): kmod
 Requires(post): udev
@@ -278,6 +278,16 @@ assert get_sunshine_assets_dir(command[0]).endswith("/usr/share/monitorize/sunsh
 assert QQuickWidget is not None
 assert main_window is not None
 PYTHON
+
+%pretrans -p /bin/sh
+if [ -f /usr/libexec/monitorize/remote-login/package-guard.py ]; then
+    /usr/bin/python3 -I /usr/libexec/monitorize/remote-login/package-guard.py || exit 1
+fi
+
+%preun
+if [ "$1" = 0 ] && [ -f /usr/libexec/monitorize/remote-login/package-guard.py ]; then
+    /usr/bin/python3 -I /usr/libexec/monitorize/remote-login/package-guard.py || exit 1
+fi
 
 %pre
 %sysusers_create_package %{name} %{SOURCE2}

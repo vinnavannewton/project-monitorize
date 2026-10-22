@@ -111,10 +111,12 @@ def remote_login_setup_status():
     entry=Path('/usr/libexec/monitorize/remote-login/entry.py')
     from monitorize.remote_login.display_managers import manager_capabilities
     capability=manager_capabilities()
-    result={'available':HELPER.is_file() and entry.is_file(),'enabled':False,
+    from monitorize.platform.remote_login_host import host_readiness
+    host=host_readiness()
+    result={'available':host['available'],'enabled':False,'reason':host['reason'],'protocols':host['protocols'],
             'supported':capability['supported'],'manager':capability['manager'],
             'compositor':capability['compositor'],'validated':capability['validated'],
-            'message':capability['message']}
+            'message':capability['message'] if host['available'] else host['message']}
     if capability['manager'] in ('sddm.service','gdm.service'):
         installed=Path('/usr/lib/monitorize-remote-login/monitorize/remote_login/display_managers.py')
         try:current=('GDM_WAYLAND_PROTOCOL = 1' if capability['manager']=='gdm.service' else 'SDDM_WAYLAND_PROTOCOL = 1') in installed.read_text()
@@ -130,8 +132,6 @@ def remote_login_setup_status():
                 if getattr(settings,'manager','plasmalogin.service')!=capability['manager']:
                     result.update(supported=False,message='Display manager changed after enrollment. Revalidate remote-login setup.')
         except ValueError:result.update(available=False,message='Remote-login configuration needs administrator repair.')
-    if not result['available'] and not SETTINGS.exists():
-        result['message']='Install the trusted remote-login service assets before enabling this feature.'
     return result
 
 

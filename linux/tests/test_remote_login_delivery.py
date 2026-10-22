@@ -69,7 +69,8 @@ class DeliveryTests(unittest.TestCase):
             assets=root/'assets';(assets/'web').mkdir(parents=True)
             host=root/'host/monitorize_vkms';host.mkdir(parents=True)
             (host/'helper.py').write_text('BOOT_DISPLAY_PROTOCOL = 1\n')
-            (host/'boot_display.py').write_text('GREETER_ON_DEMAND_PROTOCOL = 1\n')
+            (host/'boot_display.py').write_text('GREETER_ON_DEMAND_PROTOCOL = 1\nIDLE_DISPLAY_PROTOCOL = 1\n')
+            (host.parent/'VERSION').write_text('0.3.0\n')
             with patch.object(module.os,'geteuid',return_value=1000),patch.object(module,'exact_kms_engine',return_value=True):
                 module.prepare(root/'stage',binary,assets,vkms_source=host.parent)
             self.assertTrue((root/'stage/usr/lib/monitorize-vkms/monitorize_vkms/boot_display.py').is_file())
@@ -80,3 +81,20 @@ class DeliveryTests(unittest.TestCase):
             self.assertEqual((root/'stage/usr/lib/firewalld/services/monitorize.xml').read_bytes(),
                              (ROOT/'packaging/fedora/monitorize.xml').read_bytes())
             self.assertTrue((root/'stage/etc/ufw/applications.d/monitorize').is_file())
+
+    def test_source_staging_rejects_missing_idle_protocol_before_creating_output(self):
+        path=ROOT/'scripts/stage-remote-login.py'
+        spec=importlib.util.spec_from_file_location('source_remote_assets',path)
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);binary=root/'engine';binary.write_bytes(b'engine')
+            assets=root/'assets';(assets/'web').mkdir(parents=True)
+            host=root/'host/monitorize_vkms';host.mkdir(parents=True)
+            (host/'helper.py').write_text('BOOT_DISPLAY_PROTOCOL = 1\n')
+            (host/'boot_display.py').write_text('GREETER_ON_DEMAND_PROTOCOL = 1\n')
+            (host.parent/'VERSION').write_text('0.3.0\n')
+            with patch.object(module.os,'geteuid',return_value=1000),patch.object(module,'exact_kms_engine',return_value=True):
+                with self.assertRaisesRegex(ValueError,'idle'):
+                    module.prepare(root/'stage',binary,assets,vkms_source=host.parent)
+            self.assertFalse((root/'stage').exists())

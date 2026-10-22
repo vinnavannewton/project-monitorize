@@ -95,7 +95,7 @@ Requires:       python3-pyqt6
 Requires:       systemd-udev
 Requires:       which
 Requires:       xdg-desktop-portal
-Suggests:       monitorize-vkms
+Suggests:       monitorize-vkms >= 0.3.0
 Requires(post): kmod
 %{?sysusers_requires_compat}
 
@@ -281,6 +281,16 @@ assert QQuickWidget is not None
 assert main_window is not None
 PYTHON
 
+
+%pretrans -p /bin/sh
+if [ -f /usr/libexec/monitorize/remote-login/package-guard.py ]; then
+    /usr/bin/python3 -I /usr/libexec/monitorize/remote-login/package-guard.py || exit 1
+fi
+
+%preun
+if [ "$1" = 0 ] && [ -f /usr/libexec/monitorize/remote-login/package-guard.py ]; then
+    /usr/bin/python3 -I /usr/libexec/monitorize/remote-login/package-guard.py || exit 1
+fi
 
 %pre
 %sysusers_create_compat %{SOURCE2}

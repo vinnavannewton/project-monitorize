@@ -69,3 +69,34 @@ class DeploymentTests(unittest.TestCase):
     def test_retired_unit_cannot_be_reintroduced_by_staging(self):
         self.file('usr/lib/systemd/system/monitorize-remote-login-persistent@.service',b'old')
         with self.assertRaises(ValueError):self.installer.install(self.stage)
+
+    def test_package_owned_host_files_are_rejected_before_destination_mutation(self):
+        from unittest.mock import patch
+        self.file('usr/lib/monitorize-vkms/monitorize_vkms/helper.py',b'host')
+        with patch.object(self.module,'package_owner',return_value='monitorize-vkms'):
+            with self.assertRaisesRegex(ValueError,'package'):
+                self.installer.install(self.stage)
+        self.assertFalse((self.root/'usr').exists())
+
+    def test_rollback_does_not_delete_files_now_owned_by_a_package(self):
+        from unittest.mock import patch
+        relative='usr/lib/monitorize-vkms/monitorize_vkms/helper.py'
+        self.file(relative,b'new host')
+        with patch.object(self.module,'package_owner',return_value=None):
+            backup=self.installer.install(self.stage)
+        target=self.root/relative;target.write_bytes(b'native package host')
+        with patch.object(self.module,'package_owner',return_value='monitorize-vkms'):
+            with self.assertRaisesRegex(ValueError,'package'):self.installer.rollback(backup)
+        self.assertEqual(target.read_bytes(),b'native package host')
+
+    def test_rollback_refuses_enabled_enrollment_or_retained_protected_output(self):
+        self.file('usr/libexec/monitorize/sunshine',b'new')
+        backup=self.installer.install(self.stage)
+        config=self.root/'etc/monitorize/remote-login.json';config.parent.mkdir(parents=True)
+        config.write_text('{"enabled":true}');config.chmod(0o600)
+        with self.assertRaisesRegex(ValueError,'Disable'):self.installer.rollback(backup)
+        config.write_text('{"enabled":false}')
+        state=self.root/'run/monitorize-vkms/primary.json';state.parent.mkdir(parents=True)
+        state.write_text('{"protected":true}');state.chmod(0o600)
+        with self.assertRaisesRegex(ValueError,'release'):self.installer.rollback(backup)
+        self.assertEqual((self.root/'usr/libexec/monitorize/sunshine').read_bytes(),b'new')

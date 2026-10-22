@@ -136,7 +136,10 @@ def build_service(settings,bus):
             session,environment=helper._active_session(context['greeter_uid'])
             from .wayland_greeter import greeter_compositor
             greeter_compositor(settings,context,session,environment,helper)
-            def check():gate.check(sender,service.boot_generation,idle=operation=='idle')
+            # boot_gate proved idle/capture exit before the host transaction.
+            # The host now owns engine.lock and independently verifies cgroups;
+            # callbacks revalidate sender/session without probing our own lock.
+            def check():gate.check(sender,service.boot_generation)
             def activate(output,remaining):
                 # Resolve environment exclusively from the verified greeter UID.
                 session,environment=helper._active_session(context['greeter_uid'])
