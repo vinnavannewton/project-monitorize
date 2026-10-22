@@ -1,5 +1,24 @@
 # Remote login integration status
 
+## Compatible host implementation (2026-10-23)
+
+The companion monitorize-vkms 0.3.0 development tree now implements boot-display,
+on-demand greeter and idle-display protocol v1. Source bundles must include the
+matching host Python, executable copies, VERSION and capabilities manifest. Native
+host upgrades use the package manager; source installers and explicit rollback
+refuse package-owned files. Native replacements and explicit source rollback require
+disabled enrollment and a released protected display. Pairing is retained.
+
+Remote login still requires live physical-screen GNOME/GDM acceptance and a separate
+headless test; installing compatible protocols is not that validation. See
+`docs/REMOTE_LOGIN_ACCEPTANCE.md` for current evidence and deployment instructions.
+Native app builders include service assets and an optional monitorize-vkms >=0.3.0
+dependency. Portable binaries require companion native system packages and explicit
+administrator enrollment through Settings. No package install enables the feature.
+
+The following deployment notes include historical experiments; use newly staged
+bundles from the matching source pair instead of old temporary bundle paths.
+
 Local implementation is under validation. No package/staging operation enables
 remote login automatically. Current integration uses a protected fixed mon1 output,
 KMS and software encoding; automatic client-mode resizing, saved layout policies
@@ -51,12 +70,12 @@ rebuild/reload VKMS, enable services or disconnect the connected output.
 Prepare as your normal user, choosing an output directory that does not exist:
 
 ```sh
-cd /home/vinnavan/user/MegaProjects/Monitorize-testing
+cd /path/to/Monitorize
 PYTHONDONTWRITEBYTECODE=1 python scripts/stage-remote-login.py \
   --output /tmp/monitorize-remote-login-ready \
   --sunshine external/sunshine/build/sunshine \
   --assets external/sunshine/build/assets \
-  --vkms-source /home/vinnavan/user/MegaProjects/monitorize-vkms
+  --vkms-source /path/to/monitorize-vkms
 ```
 
 The optional host source supplies Python support and its executable helper copies;
@@ -221,7 +240,7 @@ User-run rollback deployment (Quit Monitorize from tray and disconnect first;
 run individually and stop on any error):
 
 ```sh
-cd /home/vinnavan/user/MegaProjects/Monitorize-testing
+cd /path/to/Monitorize
 cmake --build external/sunshine/build --target sunshine -j2 > /tmp/monitorize-reconnect-build.log 2>&1
 python scripts/stage-remote-login.py --output /tmp/monitorize-reconnect-restored --sunshine "$PWD/external/sunshine/build/sunshine" --assets "$PWD/external/sunshine/build/assets" --vkms-source ../monitorize-vkms
 sudo systemctl stop monitorize-remote-login.service monitorize-remote-login-persistent@1000.service monitorize-vkms.service
