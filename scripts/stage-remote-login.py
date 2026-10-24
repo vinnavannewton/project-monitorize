@@ -6,6 +6,7 @@ Review and install the staging tree separately, then enroll through Settings.
 """
 import argparse
 import importlib.util
+import json
 import os
 from pathlib import Path
 import shutil
@@ -14,6 +15,7 @@ import sys
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'linux'))
 from monitorize.remote_login.capability import exact_kms_engine
+from monitorize.platform.remote_login_host import REQUIRED_PROTOCOLS, _constant
 
 
 def prepare(destination,binary,assets,*,vkms_source=None):
@@ -22,12 +24,19 @@ def prepare(destination,binary,assets,*,vkms_source=None):
     if not exact_kms_engine(binary):raise ValueError('Select the built Monitorize engine with exact KMS output support.')
     if not (assets/'web').is_dir():raise ValueError('Select Sunshine assets containing web/.')
     host=None
+    host_version=None
     if vkms_source is not None:
         host=Path(vkms_source).resolve(strict=True)/'monitorize_vkms'
-        if not (host/'boot_display.py').is_file() or 'BOOT_DISPLAY_PROTOCOL = 1' not in (host/'helper.py').read_text():
+        if not (host/'boot_display.py').is_file() or _constant((host/'helper.py').read_text(),'BOOT_DISPLAY_PROTOCOL')!=1:
             raise ValueError('Select the monitorize-vkms checkout with boot-display protocol v1.')
-        if 'GREETER_ON_DEMAND_PROTOCOL = 1' not in (host/'boot_display.py').read_text():
+        if _constant((host/'boot_display.py').read_text(),'GREETER_ON_DEMAND_PROTOCOL')!=1:
             raise ValueError('Select the monitorize-vkms checkout with on-demand greeter protocol v1.')
+        if _constant((host/'boot_display.py').read_text(),'IDLE_DISPLAY_PROTOCOL')!=1:
+            raise ValueError('Select the monitorize-vkms checkout with idle-display protocol v1.')
+        host_version=(host.parent/'VERSION').read_text().strip()
+        import re
+        if not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+',host_version) or tuple(map(int,host_version.split('.')))<(0,3,0):
+            raise ValueError('Select monitorize-vkms 0.3.0 or newer.')
     destination.mkdir(mode=0o700)
     try:
         spec=importlib.util.spec_from_file_location('remote_assets',ROOT/'packaging/remote-login/install-assets.py')
@@ -42,9 +51,13 @@ def prepare(destination,binary,assets,*,vkms_source=None):
             for source in host.glob('*.py'):
                 if source.is_symlink():raise ValueError('Host Python files must not be symlinks.')
                 shutil.copyfile(source,target/source.name)
+            (target.parent/'VERSION').write_text(host_version+'\n')
+            manifest=destination/'usr/share/monitorize-vkms/capabilities.json'
+            manifest.parent.mkdir(parents=True,exist_ok=True)
+            manifest.write_text(json.dumps(dict(schema_version=1,version=host_version,remote_login_protocols=REQUIRED_PROTOCOLS))+'\n')
             # The standalone installer also keeps executable copies here. Update
             # them together so ordinary cleanup cannot bypass boot-lease guards.
-            for module,name in (('helper.py','monitorize-vkms-helper'),('dbus_service.py','monitorize-vkms-dbus-service'),('authorization.py','monitorize-vkms-authorization')):
+            for module,name in (('helper.py','monitorize-vkms-helper'),('dbus_service.py','monitorize-vkms-dbus-service'),('authorization_setup.py','monitorize-vkms-authorization')):
                 source=host/module
                 if source.is_file():
                     target=destination/'usr/libexec/monitorize-vkms'/name

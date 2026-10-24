@@ -131,7 +131,8 @@ def build_service(settings,bus):
         try:
             gate,context=boot_gate(sender,transport,idle=operation=='idle')
             if operation=='check':return dict(valid=True)
-            def check():gate.check(sender,service.boot_generation,idle=operation=='idle')
+            # The host transaction owns the identity lock; do not probe it again.
+            def check():gate.check(sender,service.boot_generation)
             def virtual():
                 from .wayland_greeter import greeter_compositor,greeter_environment
                 session,environment=greeter_environment(settings,context,helper)

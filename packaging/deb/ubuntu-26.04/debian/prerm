@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+case "$1" in
+    remove|deconfigure|upgrade)
+        if [ -f /usr/libexec/monitorize/remote-login/package-guard.py ]; then
+            /usr/bin/python3 -I /usr/libexec/monitorize/remote-login/package-guard.py
+        fi
+        ;;
+esac
+#DEBHELPER#

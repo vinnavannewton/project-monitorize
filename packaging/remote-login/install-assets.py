@@ -5,7 +5,7 @@ from pathlib import Path
 import shutil
 
 ROOT=Path(__file__).resolve().parents[2]
-MODULES=('remote_login','platform/remote_login_identity.py','platform/login_capture_probe.py')
+MODULES=('remote_login','platform/remote_login_identity.py','platform/login_capture_probe.py','platform/remote_login_host.py')
 
 
 def stage(destination,*,repository=ROOT):
@@ -23,6 +23,7 @@ def stage(destination,*,repository=ROOT):
         else:target.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(source,target)
     base=repository/'packaging/remote-login'
     for source,relative in [(base/'entry.py','usr/libexec/monitorize/remote-login/entry.py'),
+        (base/'package-guard.py','usr/libexec/monitorize/remote-login/package-guard.py'),
         (base/'apps.json','usr/share/monitorize/remote-login/apps.json'),
         (base/'io.github.vinnavannewton.MonitorizeRemoteLogin1.conf','usr/share/dbus-1/system.d/io.github.vinnavannewton.MonitorizeRemoteLogin1.conf')]:
         target=destination/relative;target.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(source,target)

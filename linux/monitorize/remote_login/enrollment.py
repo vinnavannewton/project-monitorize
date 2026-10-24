@@ -130,6 +130,9 @@ def restore_linger(uid,*,commands):
 
 def enable(uid):
     if type(uid) is not int or uid<=0:raise RuntimeError('Select a non-root account.')
+    from monitorize.platform.remote_login_host import host_readiness
+    host=host_readiness()
+    if not host['available']:raise RuntimeError(host['message'])
     account=pwd.getpwuid(uid)
     from .display_managers import require_manager
     manager=require_manager()

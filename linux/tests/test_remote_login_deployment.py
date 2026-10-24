@@ -81,3 +81,47 @@ class DeploymentTests(unittest.TestCase):
         self.file('usr/lib/monitorize-vkms/monitorize_vkms/boot_display.py',b'GREETER_ON_DEMAND_PROTOCOL = 1\nIDLE_DISPLAY_PROTOCOL = 1')
         with self.assertRaisesRegex(ValueError,'login_primary.py'):
             self.module.validate_bundle(self.stage)
+    def test_package_owned_host_files_are_rejected_before_destination_mutation(self):
+        from unittest.mock import patch
+        self.file('usr/lib/monitorize-vkms/monitorize_vkms/helper.py',b'host')
+        with patch.object(self.module,'package_owner',return_value='monitorize-vkms'):
+            with self.assertRaisesRegex(ValueError,'package'):
+                self.installer.install(self.stage)
+        self.assertFalse((self.root/'usr').exists())
+
+    def test_host_only_update_leaves_native_app_files_untouched(self):
+        from unittest.mock import patch
+        self.file('usr/lib/monitorize-vkms/monitorize_vkms/helper.py',b'new host')
+        self.file('usr/libexec/monitorize/sunshine',b'must not install')
+        target=self.root/'usr/libexec/monitorize/sunshine'
+        target.parent.mkdir(parents=True);target.write_bytes(b'native engine')
+        def owner(path):return 'monitorize' if str(path).endswith('/sunshine') else None
+        with patch.object(self.module,'package_owner',side_effect=owner):
+            backup=self.installer.install(self.stage,host_only=True)
+        self.assertEqual(target.read_bytes(),b'native engine')
+        self.assertEqual((self.root/'usr/lib/monitorize-vkms/monitorize_vkms/helper.py').read_bytes(),b'new host')
+        manifest=__import__('json').loads((backup/'manifest.json').read_text())
+        self.assertEqual([item['path'] for item in manifest],['usr/lib/monitorize-vkms/monitorize_vkms/helper.py'])
+
+    def test_rollback_does_not_delete_files_now_owned_by_a_package(self):
+        from unittest.mock import patch
+        relative='usr/lib/monitorize-vkms/monitorize_vkms/helper.py'
+        self.file(relative,b'new host')
+        with patch.object(self.module,'package_owner',return_value=None):
+            backup=self.installer.install(self.stage)
+        target=self.root/relative;target.write_bytes(b'native package host')
+        with patch.object(self.module,'package_owner',return_value='monitorize-vkms'):
+            with self.assertRaisesRegex(ValueError,'package'):self.installer.rollback(backup)
+        self.assertEqual(target.read_bytes(),b'native package host')
+
+    def test_rollback_refuses_enabled_enrollment_or_retained_protected_output(self):
+        self.file('usr/libexec/monitorize/sunshine',b'new')
+        backup=self.installer.install(self.stage)
+        config=self.root/'etc/monitorize/remote-login.json';config.parent.mkdir(parents=True)
+        config.write_text('{"enabled":true}');config.chmod(0o600)
+        with self.assertRaisesRegex(ValueError,'Disable'):self.installer.rollback(backup)
+        config.write_text('{"enabled":false}')
+        state=self.root/'run/monitorize-vkms/primary.json';state.parent.mkdir(parents=True)
+        state.write_text('{"protected":true}');state.chmod(0o600)
+        with self.assertRaisesRegex(ValueError,'release'):self.installer.rollback(backup)
+        self.assertEqual((self.root/'usr/libexec/monitorize/sunshine').read_bytes(),b'new')

@@ -18,6 +18,10 @@ class GreeterTests(unittest.TestCase):
         self.assertEqual(self.helper._run_worker.call_args.args[0],991)
         self.assertEqual(self.helper._run_worker.call_args.args[1]['XDG_CURRENT_DESKTOP'],'KDE')
         self.helper._validate_session_socket.assert_called_once()
+    def test_verified_activation_result_reaches_host_mode_check(self):
+        self.helper._run_worker.return_value=dict(success=True,details=dict(width=1920,height=1080,refresh_rate=60))
+        self.assertEqual(self.run_adapter('kde','kwin_wayland'),
+                         dict(success=True,details=dict(width=1920,height=1080,refresh_rate=60)))
     def test_hyprland_uses_its_own_session_socket(self):
         self.run_adapter('hyprland','Hyprland')
         self.assertEqual(self.helper._run_worker.call_args.args[1]['XDG_CURRENT_DESKTOP'],'Hyprland')

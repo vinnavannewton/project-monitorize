@@ -19,7 +19,7 @@ makedepends=("${monitorize_build_deps[@]}")
 optdepends=(
     'firewalld: optional firewall integration'
     'ufw: optional firewall integration'
-    'monitorize-vkms: VKMS virtual displays (preset and custom modes)'
+    'monitorize-vkms>=0.3.0: VKMS virtual displays and compatible remote-login host support'
 )
 if [[ "${MONITORIZE_ENABLE_CUDA:-1}" == 1 ]]; then
     optdepends+=('nvidia-utils: NVIDIA GPU encoding and capture')
@@ -163,6 +163,8 @@ package() {
     cd "${srcdir}/monitorize-${pkgver}"
     python -m installer --destdir="${pkgdir}" dist/*.whl
     python packaging/remote-login/install-assets.py --destdir "${pkgdir}"
+    install -Dpm 0644 "${startdir}/monitorize-remote-login-guard.hook" \
+        "${pkgdir}/usr/share/libalpm/hooks/monitorize-remote-login-guard.hook"
 
     install -Dpm 0755 "${startdir}/monitorize-wrapper" \
         "${pkgdir}/usr/bin/monitorize"
