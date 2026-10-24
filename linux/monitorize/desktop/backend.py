@@ -202,9 +202,7 @@ class MonitorizeBackend(QObject):
         self._streaming_backend = effective_general["streaming_backend"]
         self.streaming.streaming_backend = self._streaming_backend
         primary=load_display_settings()
-        # The reserved remote output always uses KMS. Desktop capture preferences
-        # (including Auto after fallback) do not change that service contract.
-        if self._remote_login.enabled:primary['sunshine_capture']='kms'
+        # Remote services use explicit KMS independently of the saved Auto choice.
         self.configuration_state = ConfigurationState(primary, load_second_display_settings(), effective_general)
         # Persisted intent is not evidence that a stream has ever started.
         self._verified_configuration = None
@@ -360,6 +358,11 @@ class MonitorizeBackend(QObject):
             return
         if self._remote_setup_busy or self._closing:
             return
+        if enabled and str(load_display_settings().get('sunshine_capture','auto')).strip().lower() not in ('auto','kms'):
+            message='Select KMS or Monitorize Auto in Sunshine settings before enabling Start at boot.'
+            self.remoteLoginSetupFinished.emit({'success':False,'message':message})
+            self.remoteLoginSetupBlocked.emit(message)
+            return
         if self.session.active or self.session.busy or (getattr(self, "_remote_login", None) is not None and self._remote_login.status.get("capture_ready")):
             self.remoteLoginSetupFinished.emit({"success": False, "message": "Stop the current stream before configuring remote login."})
             return
@@ -428,7 +431,6 @@ class MonitorizeBackend(QObject):
         self._verified_configuration=None
         if self.remoteLoginEnabled:
             for bundle in (self.configuration_state.applied,self.configuration_state.saved,self.configuration_state.draft):
-                bundle['primary']['sunshine_capture']='kms'
                 bundle['streaming_backend']='sunshine'
             self._streaming_backend='sunshine';self.streaming.streaming_backend='sunshine'
             self.session.runtime_configuration=copy.deepcopy(self.configuration_state.applied)
@@ -1503,8 +1505,8 @@ class MonitorizeBackend(QObject):
         self.clientDisplaySettingsChanged.emit()
 
     def _validate_remote_candidate(self, candidate):
-        if candidate['primary'].get('sunshine_capture')!='kms':
-            raise ValueError('Remote login requires KMS capture.')
+        if str(candidate['primary'].get('sunshine_capture','auto')).strip().lower() not in ('auto','kms'):
+            raise ValueError('Remote login requires KMS or Monitorize Auto capture.')
         if candidate['streaming_backend']!='sunshine':
             raise ValueError('Disable remote login before switching to display-only mode.')
         if self._remote_login.status.get('desktop_options_version',0)<1:
