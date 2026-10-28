@@ -135,7 +135,9 @@ class UiAsyncTest(unittest.TestCase):
         backend.configuration_state.draft=__import__('copy').deepcopy(baseline)
         backend.configuration_state.saved=__import__('copy').deepcopy(baseline)
         backend.configuration_state.update('primary',{'sunshine_codec':'Auto'})
-        with patch('monitorize.desktop.remote_login_runtime.legacy_stream_options') as legacy, patch.object(backend._restart,'begin') as begin:
+        with patch('monitorize.desktop.remote_login_runtime.legacy_stream_options') as legacy, \
+             patch.object(backend._kms_authorization, 'ensure', return_value=True), \
+             patch.object(backend._restart,'begin') as begin:
             backend.applyConfiguration()
             self.assertEqual(legacy.call_args.args[0]['hevc_mode'],'0')
             begin.assert_called_once()
