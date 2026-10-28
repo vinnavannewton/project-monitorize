@@ -16,7 +16,7 @@ SCENARIOS = r'''
             command='sudo setcap cap_sys_admin+p /test/monitorize/sunshine'
             error='KMS capture requires cap_sys_admin. Run: '+command
             backend.configuration_state.update('primary',{'sunshine_capture':'kms'})
-            with patch('monitorize.platform.sunshine_service.get_sunshine_kms_setup_error',return_value=error):
+            with patch('monitorize.desktop.kms_authorization.get_sunshine_kms_setup_status',return_value={'code':'check_failed','binary':'/test/monitorize/sunshine','message':error}):
                 backend.applyConfiguration()
             assert error in backend.sessionError
             original_failure=backend.sessionError
@@ -26,18 +26,19 @@ SCENARIOS = r'''
             loop=QEventLoop();QTimer.singleShot(5200,loop.quit);loop.exec()
             backend.stopSession()
             evaluate('navigate("StreamingPage.qml")');settle();settle()
-            card=view.rootObject().findChild(QObject,'sessionErrorCard')
-            text=view.rootObject().findChild(QObject,'sessionErrorText')
-            assert card.property('visible') and error in text.property('text')
+            assert view.rootObject().findChild(QObject,'sessionErrorCard') is None
+            assert view.rootObject().findChild(QObject,'dismissSessionErrorButton') is None
+            text=view.rootObject().findChild(QObject,'displayErrorText1')
+            assert error in text.property('text')
             assert text.property('readOnly') and text.property('selectByMouse')
-            copy=view.rootObject().findChild(QObject,'copySessionErrorButton')
+            copy=view.rootObject().findChild(QObject,'copyDisplayError1')
             QMetaObject.invokeMethod(copy,'clicked')
             assert app.clipboard().text()==backend.sessionError
             assert command in app.clipboard().text()
             # Recreating Session must not lose details held by the backend.
             evaluate('navigate("SettingsPage.qml")');settle()
             evaluate('navigate("StreamingPage.qml")');settle();settle()
-            text=view.rootObject().findChild(QObject,'sessionErrorText')
+            text=view.rootObject().findChild(QObject,'displayErrorText1')
             assert error in text.property('text')
             c.status='VA-API encoder unavailable. Select Software or install the driver.'
             backend.streamingStartFailed.emit()
@@ -65,18 +66,20 @@ SCENARIOS = r'''
             backend.configurationApplyFinished.emit(False,original_failure)
             backend.configurationApplyFinished.emit(True,'Settings saved.')
             assert backend.sessionError==before
-            dismiss=view.rootObject().findChild(QObject,'dismissSessionErrorButton')
-            QMetaObject.invokeMethod(dismiss,'clicked');settle()
-            assert not backend.sessionError
-            assert not view.rootObject().findChild(QObject,'sessionErrorCard').property('visible')
-            # Dismissal does not silence future errors, including on a hidden page.
-            evaluate('navigate("SettingsPage.qml")');settle()
+            # Each display retains its own latest error with a small copy action.
+            assert backend.displayError(2)==secondary
+            assert backend.copyDisplayError(2)
+            assert app.clipboard().text()==secondary
+            assert backend.displayError(1)!=secondary
+            assert view.rootObject().findChild(QObject,'dismissSessionErrorButton') is None
+            assert view.rootObject().findChild(QObject,'copySessionErrorButton') is None
+            # Clear card errors on a new user attempt, not on Stop/navigation.
+            backend._clear_display_errors()
+            assert not backend.displayError(1) and not backend.displayError(2)
             backend.sunshineChoicesFinished.emit(2,False,secondary)
-            evaluate('navigate("StreamingPage.qml")');settle();settle()
-            assert view.rootObject().findChild(QObject,'sessionErrorCard').property('visible')
-            assert secondary in view.rootObject().findChild(QObject,'sessionErrorText').property('text')
+            assert backend.displayError(2)==secondary
             view.setSource(QUrl());backend.close()
-print('Persistent Session errors, full command copying, navigation, cleanup and dismissal passed')
+print('Persistent Session errors, full command copying, navigation, cleanup and per-display copying passed')
 '''
 
 

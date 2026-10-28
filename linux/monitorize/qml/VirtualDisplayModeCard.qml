@@ -115,28 +115,10 @@ Rectangle {
                 color: theme.headingText; font.pixelSize: 14; font.weight: Font.DemiBold
                 Layout.fillWidth: true
             }
-            AbstractButton {
-                id: removeButton
-                visible: card.canRemove
-                implicitWidth: 36
-                implicitHeight: 36
-                Accessible.name: "Remove Virtual Display " + card.displayNumber
-                background: Rectangle {
-                    radius: theme.controlRadius
-                    color: "transparent"
-                    border.width: removeButton.visualFocus ? 1 : 0
-                    border.color: theme.borderHover
-                }
-                LineIcon {
-                    symbol: "trash"
-                    tint: theme.dark
-                        ? (removeButton.hovered ? "#ff9da3" : "#ff777f")
-                        : (removeButton.hovered ? "#d43b44" : "#b4232d")
-                    anchors.centerIn: parent
-                    width: 22
-                    height: 22
-                }
-                onClicked: card.removeRequested()
+            SunshineSettingsButton {
+                instance: card.displayNumber
+                canRemove: card.canRemove
+                onRemoveRequested: card.removeRequested()
             }
         }
 

@@ -1,4 +1,4 @@
-%global sunshine_commit bf7fd0a5e6b924eda5def42b682bd27c83004728
+%global sunshine_commit ba2c730e31139b25cb1942ecaf43951b5247ab15
 %global cuda_version 12.9.1
 %global cuda_build 575.57.08
 %global cuda_sha256 0f6d806ddd87230d2adbe8a6006a9d20144fdbda9de2d6acc677daa5d036417a

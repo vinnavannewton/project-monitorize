@@ -82,51 +82,6 @@ Item {
         ColumnLayout {
             width: parent.width
             spacing: 16
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 12
-                Rectangle {
-                    width: 12; height: 12; radius: 6
-                    color: backend.sessionBusy ? "#efbd5a" : (backend.sessionRunning ? "#34d681" : theme.textMuted)
-                }
-                Text {
-                    text: backend.sessionBusy ? "Preparing session" : (backend.sessionRunning ? "Session active" : "Session")
-                    color: theme.textPrimary; font.pixelSize: 28; font.weight: Font.Bold
-                    Layout.fillWidth: true
-                }
-            }
-            SectionCard {
-                objectName: "sessionErrorCard"
-                title: "SESSION ERRORS"
-                visible: backend.sessionError.length > 0
-                Layout.fillWidth: true
-                TextArea {
-                    objectName: "sessionErrorText"
-                    text: backend.sessionError
-                    textFormat: TextEdit.PlainText
-                    readOnly: true
-                    selectByMouse: true
-                    activeFocusOnPress: true
-                    wrapMode: TextEdit.Wrap
-                    color: theme.errorText
-                    Layout.fillWidth: true
-                    background: Item {}
-                }
-                RowLayout {
-                    CustomButton {
-                        objectName: "copySessionErrorButton"
-                        text: "Copy details"
-                        primary: false
-                        onClicked: backend.copySessionError()
-                    }
-                    CustomButton {
-                        objectName: "dismissSessionErrorButton"
-                        text: "Dismiss"
-                        primary: false
-                        onClicked: backend.dismissSessionError()
-                    }
-                }
-            }
             SectionCard {
                 objectName: "remoteLoginCard"
                 title: "REMOTE LOGIN"; symbol: "session"
@@ -134,6 +89,7 @@ Item {
                 Layout.fillWidth: true
                 Text {
                     text: backend.remoteLoginMessage
+                    visible: !remoteError.visible
                     color: theme.textPrimary; wrapMode: Text.WordWrap; Layout.fillWidth: true
                 }
                 TextEdit {
@@ -141,37 +97,7 @@ Item {
                     readOnly: true; selectByMouse: true
                     color: theme.textSecondary; Layout.fillWidth: true
                 }
-            }
-            RowLayout {
-                visible: !backend.remoteLoginEnabled && backend.sessionMode === "Extend"
-                Layout.fillWidth: true
-                Layout.topMargin: 18
-                spacing: 16
-                Rectangle {
-                    Layout.preferredWidth: 48; Layout.preferredHeight: 48
-                    radius: theme.controlRadius; color: theme.surfaceAlt
-                    LineIcon {
-                        symbol: "display"
-                        anchors.centerIn: parent
-                        width: 26; height: 26
-                    }
-                }
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 2
-                    Text {
-                        text: "Virtual Displays"
-                        color: theme.textPrimary; font.pixelSize: 18; font.weight: Font.DemiBold
-                    }
-                    TextEdit {
-                        text: backend.streamingStatus
-                        visible: text.length > 0
-                        color: theme.textSecondary; font.pixelSize: 13
-                        Layout.fillWidth: true; wrapMode: TextEdit.Wrap
-                        readOnly: true; selectByMouse: true
-                        activeFocusOnPress: true
-                    }
-                }
+                DisplayError { id: remoteError; instance: 1; Layout.fillWidth: true }
             }
             Rectangle {
                 visible: !backend.remoteLoginEnabled && backend.sessionMode === "Mirror"
@@ -191,6 +117,7 @@ Item {
                         }
                         TextEdit {
                             text: backend.streamingStatus || "Start to share your existing screen with Moonlight."
+                            visible: !mirrorError.visible
                             Layout.fillWidth: true; wrapMode: TextEdit.Wrap
                             color: theme.textSecondary; font.pixelSize: 13
                             readOnly: true; selectByMouse: true
@@ -203,13 +130,15 @@ Item {
                             readOnly: true; selectByMouse: true
                             activeFocusOnPress: true
                         }
+                        DisplayError { id: mirrorError; instance: 1; Layout.fillWidth: true }
                     }
                 }
             }
             Repeater {
-                model: backend.sessionDisplays
+                model: backend.sessionMode === "Mirror" ? [] : backend.sessionDisplays
                 delegate: Rectangle {
                     id: displayCard
+                    objectName: "sessionDisplayCard" + modelData.number
                     required property var modelData
                     required property int index
                     Layout.fillWidth: true
@@ -228,8 +157,8 @@ Item {
                             id: statusColumn
                             anchors.left: displayIcon.right
                             anchors.leftMargin: 18
-                            anchors.right: displayActions.left
-                            anchors.rightMargin: 16
+                            anchors.right: parent.right
+                            anchors.rightMargin: 0
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: 5
                             Text {
@@ -252,36 +181,7 @@ Item {
                                     activeFocusOnPress: true
                                 }
                             }
-                        }
-                        AbstractButton {
-                            id: displayActions
-                            anchors.right: parent.right
-                            anchors.verticalCenter: parent.verticalCenter
-                            implicitWidth: 36; implicitHeight: 36
-                            enabled: !backend.sessionBusy
-                            Accessible.name: "Virtual display " + displayCard.modelData.number + " actions"
-                            background: Rectangle {
-                                radius: theme.controlRadius
-                                color: displayActions.hovered ? theme.surfaceAlt : "transparent"
-                                border.color: theme.border
-                            }
-                            contentItem: Text {
-                                text: "⋮"; color: theme.textSecondary; font.pixelSize: 23
-                                horizontalAlignment: Text.AlignHCenter
-                                verticalAlignment: Text.AlignVCenter
-                            }
-                            onClicked: displayMenu.open()
-                            Menu {
-                                id: displayMenu
-                                width: 220
-                                background: Rectangle { color: theme.surface; border.color: theme.border; radius: theme.controlRadius }
-                                CardMenuItem { text: "Sunshine settings"; enabled: backend.sunshineAvailable && !backend.sunshineSettingsOpening; onTriggered: backend.openSunshineWebUi(displayCard.modelData.number) }
-                                CardMenuItem {
-                                    visible: displayCard.modelData.number === 2
-                                    text: "Remove"
-                                    onTriggered: backend.removeSessionDisplay(1)
-                                }
-                            }
+                            DisplayError { instance: displayCard.modelData.number; width: parent.width }
                         }
                     }
                 }
@@ -341,15 +241,6 @@ Item {
                 color: theme.textSecondary
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
-            }
-            TextEdit {
-                text: backend.sunshineSettingsMessage
-                visible: text.length > 0
-                Layout.fillWidth: true
-                wrapMode: TextEdit.Wrap
-                color: theme.textSecondary
-                readOnly: true; selectByMouse: true
-                activeFocusOnPress: true
             }
             SectionCard {
                 title: "Diagnostics & logs"; symbol: "logs"; expanded: page.logsExpanded

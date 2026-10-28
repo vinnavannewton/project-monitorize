@@ -28,6 +28,10 @@ Canvas {
             if (symbol === "session") {
                 c.moveTo(10, 8); c.lineTo(15, 11); c.lineTo(10, 14); c.closePath()
             }
+        } else if (symbol === "copy") {
+            c.rect(8, 8, 12, 13)
+            line(15, 8, 15, 3); line(15, 3, 3, 3)
+            line(3, 3, 3, 16); line(3, 16, 8, 16)
         } else if (symbol === "wifi-settings") {
             // W1: compact Wi-Fi arcs with a lower-right settings badge.
             c.moveTo(2, 8.5); c.quadraticCurveTo(10, 2.6, 18, 8.5)

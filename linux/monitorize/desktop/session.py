@@ -369,8 +369,6 @@ class Session(QObject):
                 card = live.get(instance, {})
                 target = card.get("target", {})
                 state = states.get(card.get("status"), "Not started")
-                if card.get("error"):
-                    state += ": " + card["error"]
                 if target:
                     state += f" — {target['width']} × {target['height']} @ {target['fps']:g} Hz"
                 result.append(dict(number=instance, title=f"Monitorize — Display {instance}",

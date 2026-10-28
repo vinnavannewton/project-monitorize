@@ -2,14 +2,91 @@
 """Root-only helper for selected Monitorize first-run setup actions."""
 
 import argparse
+import ctypes
+import errno
 import grp
 import json
+import mmap
 import os
 import pwd
 import stat
 import subprocess
 import sys
 from pathlib import Path
+
+KMS_SETUP_PROTOCOL = 1
+
+
+def grant_kms_capability(binary, device, inode):
+    """Grant only CAP_SYS_ADMIN permitted, on the authenticated, opened engine inode."""
+    username = invoking_user()
+    uid = pwd.getpwnam(username).pw_uid
+    path = Path(binary)
+    if not path.is_absolute() or path != path.resolve(strict=True):
+        raise RuntimeError('Select the canonical Monitorize Sunshine executable, without symlinks.')
+    packaged = path == Path('/usr/libexec/monitorize/sunshine')
+    source_root = None
+    if path.parts[-4:] == ('linux', 'venv', 'bin', 'sunshine'):
+        source_root = path.parents[3]
+    elif path.parts[-4:] == ('external', 'sunshine', 'build', 'sunshine'):
+        source_root = path.parents[3]
+    if not packaged and (source_root is None
+                         or not (source_root / 'linux/monitorize/platform/sunshine_service.py').is_file()
+                         or not (source_root / '.gitmodules').is_file()):
+        raise RuntimeError('KMS permission repair accepts only a Monitorize source or packaged Sunshine engine.')
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        info = os.fstat(descriptor)
+        if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1
+                or info.st_uid != (0 if packaged else uid)
+                or info.st_mode & 0o022 or not info.st_mode & 0o111
+                or (info.st_dev, info.st_ino) != (device, inode)):
+            raise RuntimeError('The Sunshine executable changed or has unsafe ownership/permissions. Retry from Monitorize.')
+        if os.pread(descriptor, 4, 0) != b'\x7fELF':
+            raise RuntimeError('The selected Sunshine engine is not an ELF executable.')
+        with mmap.mmap(descriptor, 0, access=mmap.ACCESS_READ) as image:
+            if image.find(b'MONITORIZE_CODEC_PROBE_FAILED') < 0:
+                raise RuntimeError('The selected executable is not a Monitorize Sunshine engine.')
+        # File-descriptor capability operations bind authorization to the checked
+        # inode. Never execute a user-writable binary or resolve its path again
+        # in a privileged setcap subprocess.
+        lib = ctypes.CDLL('libcap.so.2', use_errno=True)
+        lib.cap_get_fd.argtypes = [ctypes.c_int]
+        lib.cap_get_fd.restype = ctypes.c_void_p
+        lib.cap_init.restype = ctypes.c_void_p
+        lib.cap_set_flag.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int,
+                                    ctypes.POINTER(ctypes.c_int), ctypes.c_int]
+        lib.cap_set_fd.argtypes = [ctypes.c_int, ctypes.c_void_p]
+        lib.cap_get_flag.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.POINTER(ctypes.c_int)]
+        lib.cap_free.argtypes = [ctypes.c_void_p]
+        caps = lib.cap_get_fd(descriptor)
+        if not caps:
+            if ctypes.get_errno() not in (0, errno.ENODATA):
+                raise RuntimeError('Could not read Sunshine file capabilities.')
+            caps = lib.cap_init()
+        if not caps:
+            raise RuntimeError('Could not initialize Sunshine file capabilities.')
+        try:
+            capability = ctypes.c_int(21)  # CAP_SYS_ADMIN
+            if lib.cap_set_flag(caps, 1, 1, ctypes.byref(capability), 1) != 0 or lib.cap_set_fd(descriptor, caps) != 0:
+                raise RuntimeError('Could not grant Sunshine KMS capability: ' + os.strerror(ctypes.get_errno()))
+        finally:
+            lib.cap_free(caps)
+        verified = lib.cap_get_fd(descriptor)
+        if not verified:
+            raise RuntimeError('Could not verify Sunshine KMS capability.')
+        try:
+            flag = ctypes.c_int()
+            if lib.cap_get_flag(verified, 21, 1, ctypes.byref(flag)) != 0 or flag.value != 1:
+                raise RuntimeError('Sunshine KMS capability verification failed.')
+        finally:
+            lib.cap_free(verified)
+        current = path.stat()
+        if (current.st_dev, current.st_ino) != (device, inode):
+            raise RuntimeError('Sunshine was replaced during authorization. Click Start again.')
+    finally:
+        os.close(descriptor)
+    return {'success': True, 'message': 'Sunshine KMS permission is configured.'}
 
 
 def command_path(*candidates):
@@ -139,11 +216,24 @@ def main():
     parser.add_argument('--unattended-vkms', action='store_true')
     parser.add_argument('--remote-login', choices=('enable','enable-live','disable','remove','fallback','primary-on','primary-off','login-virtual-on','login-virtual-off','timeout'))
     parser.add_argument('--display-idle-timeout', type=int, choices=range(1,601), metavar='SECONDS')
+    parser.add_argument('--kms-binary')
+    parser.add_argument('--kms-device', type=int)
+    parser.add_argument('--kms-inode', type=int)
     args = parser.parse_args()
-    if not args.input and not args.firewall and not args.unattended_vkms and not args.remote_login:
+    if not args.input and not args.firewall and not args.unattended_vkms and not args.remote_login and not args.kms_binary:
         parser.error("select --input, --firewall and/or --unattended-vkms")
     if os.geteuid() != 0:
         raise RuntimeError("This helper requires root privileges.")
+
+    if args.kms_binary:
+        if (args.input or args.firewall or args.unattended_vkms or args.remote_login
+                or args.display_idle_timeout is not None
+                or args.kms_device is None or args.kms_inode is None):
+            parser.error('KMS permission repair is a separate operation requiring a file identity.')
+        print(json.dumps(grant_kms_capability(args.kms_binary, args.kms_device, args.kms_inode)))
+        return
+    if args.kms_device is not None or args.kms_inode is not None:
+        parser.error('A KMS file identity requires --kms-binary.')
 
     if (args.display_idle_timeout is not None) != (args.remote_login == 'timeout'):
         parser.error('--display-idle-timeout requires --remote-login timeout')
@@ -206,6 +296,6 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except RuntimeError as exc:
+    except (RuntimeError, OSError, ValueError) as exc:
         print(json.dumps({"success": False, "message": str(exc)}))
         sys.exit(1)

@@ -239,6 +239,11 @@ Item {
         loading = false
     }
 
+    Component {
+        id: mirrorSunshineActions
+        SunshineSettingsButton { instance: 1 }
+    }
+
     ScrollView {
         anchors.fill: parent
         clip: true
@@ -248,6 +253,7 @@ Item {
             spacing: 14
             SectionCard {
                 title: "DISPLAY"; symbol: "display"
+                headerAction: displayType.currentText === "Mirror" ? mirrorSunshineActions : null
                 Layout.fillWidth: true
                 enabled: !backend.applyingConfiguration
                 GridLayout {
@@ -357,6 +363,14 @@ Item {
                         onRemoveRequested: page.removeDisplay()
                     }
                 }
+                TextEdit {
+                    text: backend.sunshineSettingsMessage
+                    visible: text.length > 0
+                    Layout.fillWidth: true
+                    wrapMode: TextEdit.Wrap
+                    color: theme.textSecondary
+                    readOnly: true; selectByMouse: true
+                }
                 AbstractButton {
                     id: addDisplayButton
                     visible: displayType.currentText === "Extend" && page.virtualDisplays.length < 2
@@ -376,19 +390,13 @@ Item {
                         Text { text: "Add Display"; color: addDisplayButton.enabled ? theme.headingText : theme.textMuted; font.pixelSize: 14; font.weight: Font.DemiBold }
                     }
                 }
-            }
-            SectionCard {
-                title: "SUNSHINE · MIRROR"; symbol: "streaming"
-                Layout.fillWidth: true
-                visible: displayType.currentText === "Mirror"
-                enabled: !backend.applyingConfiguration && !createOnly.checked && backend.sunshineAvailable
                 Loader {
                     Layout.fillWidth: true
                     active: displayType.currentText === "Mirror"
                     sourceComponent: Component {
                         SunshineDisplayCard {
                             instance: 1
-                            showHeading: false
+                            enabled: !backend.applyingConfiguration && !createOnly.checked && backend.sunshineAvailable
                         }
                     }
                 }

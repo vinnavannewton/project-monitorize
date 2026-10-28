@@ -4,6 +4,7 @@ import QtQuick.Layouts
 
 Rectangle {
     id: root
+    PairingRequestDialog { coordinator: backend.incomingPairing }
     width: 860
     height: 580
     property bool settingsLoading: true

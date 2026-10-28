@@ -1113,6 +1113,15 @@ fi
 # An enrolled source install has a second, root-owned engine. A desktop rebuild
 # cannot update it; stage the exact new engine before claiming complete success.
 if [[ "${INSTALL_MODE}" == "complete" ]]; then
+    if ! grep -q '^KMS_SETUP_PROTOCOL = 1$' /usr/libexec/monitorize/monitorize-system-setup 2>/dev/null; then
+        echo "Graphical KMS permission repair needs the updated administrator helper. Install its assets with:"
+        printf '    sudo install -D -m 755 -- %q %q\n' \
+            "${REPOSITORY_DIR}/packaging/common/monitorize-system-setup" \
+            /usr/libexec/monitorize/monitorize-system-setup
+        printf '    sudo install -D -m 644 -- %q %q\n' \
+            "${REPOSITORY_DIR}/packaging/common/io.github.vinnavannewton.monitorize.system-setup.policy" \
+            /usr/share/polkit-1/actions/io.github.vinnavannewton.monitorize.system-setup.policy
+    fi
     "${VENV_DIR}/bin/python3" "${REPOSITORY_DIR}/scripts/check-source-remote-login.py" \
         --sunshine "${SUNSHINE_VENV_BIN}" --assets "${SUNSHINE_VENV_ASSETS}"
 fi

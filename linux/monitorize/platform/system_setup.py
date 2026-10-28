@@ -18,6 +18,27 @@ HELPER = Path("/usr/libexec/monitorize/monitorize-system-setup")
 VKMS_AUTHORIZATION_HELPER = Path('/usr/libexec/monitorize-vkms/monitorize-vkms-authorization')
 
 
+def kms_setup_command(binary):
+    """Authorize only the selected executable, bound to its current file identity."""
+    try:
+        helper_stat = HELPER.stat()
+        if (helper_stat.st_uid != 0 or helper_stat.st_mode & 0o022
+                or HELPER.is_symlink() or not os.access(HELPER, os.X_OK)
+                or "KMS_SETUP_PROTOCOL = 1" not in HELPER.read_text()):
+            raise ValueError("Install the updated Monitorize system-setup helper and Polkit policy for graphical KMS permission repair.")
+        path = Path(binary).resolve(strict=True)
+        info = path.stat()
+        if not stat.S_ISREG(info.st_mode):
+            raise ValueError("The selected Sunshine executable is not a regular file.")
+    except (OSError, ValueError) as exc:
+        return None, {"success": False, "message": str(exc)}
+    pkexec = shutil.which("pkexec")
+    if not pkexec:
+        return None, {"success": False, "message": "Polkit (pkexec) is not installed."}
+    return [pkexec, str(HELPER), "--kms-binary", str(path),
+            "--kms-device", str(info.st_dev), "--kms-inode", str(info.st_ino)], None
+
+
 def vkms_authorization_command(enabled):
     if not VKMS_AUTHORIZATION_HELPER.is_file():
         return None, {'success': False, 'message': 'Install or upgrade monitorize-vkms on the host first.'}

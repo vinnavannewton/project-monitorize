@@ -588,11 +588,12 @@ exit 0
     def test_display_setup_groups_streaming_and_virtual_only_controls(self):
         qml = (ROOT / "linux/monitorize/qml/DisplaySetupPage.qml").read_text()
         sunshine_card = (ROOT / "linux/monitorize/qml/SunshineDisplayCard.qml").read_text()
-        headings = ('title: "DISPLAY"', 'title: "SUNSHINE · MIRROR"', 'title: "ADVANCED"')
+        headings = ('title: "DISPLAY"', 'title: "ADVANCED"')
         for heading in headings:
             self.assertIn(heading, qml)
         self.assertLess(qml.index(headings[0]), qml.index(headings[1]))
-        self.assertLess(qml.index(headings[1]), qml.index(headings[2]))
+        self.assertNotIn('title: "SUNSHINE · MIRROR"', qml)
+        self.assertIn('headerAction: displayType.currentText === "Mirror" ? mirrorSunshineActions : null', qml)
         self.assertIn('model: ["Automatic (Recommended)", "Customize ›"]', sunshine_card)
         self.assertIn('text: "Create virtual display only"', qml)
         self.assertNotIn('text: "Launch"', qml)
@@ -679,11 +680,13 @@ exit 0
         self.assertIn("canRemove: displayId === 2", display_setup)
         self.assertIn("function mirrorResolutionLabel()", display_setup)
         self.assertEqual(streaming.count('text: "Pair Moonlight PIN"'), 1)
-        self.assertIn("model: backend.sessionDisplays", streaming)
+        self.assertIn('model: backend.sessionMode === "Mirror" ? [] : backend.sessionDisplays', streaming)
         self.assertIn("text: displayCard.modelData.title", streaming)
-        self.assertIn('text: "Sunshine settings"', streaming)
-        self.assertIn("visible: displayCard.modelData.number === 2", streaming)
-        self.assertIn("backend.removeSessionDisplay(1)", streaming)
+        mode_card = (ROOT / "linux/monitorize/qml/SunshineSettingsButton.qml").read_text()
+        self.assertIn('text: "Sunshine settings"', mode_card)
+        self.assertIn('visible: actions.canRemove', mode_card)
+        self.assertNotIn("backend.removeSessionDisplay(1)", streaming)
+        self.assertNotIn('text: "Sunshine settings"', streaming)
         self.assertNotIn('text: "Add Display"', streaming)
 
     def test_add_display_uses_the_same_two_card_limit_in_vkms_mode(self):

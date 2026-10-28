@@ -8,6 +8,7 @@ import ctypes
 import http.client
 import json
 import os
+import re
 import shlex
 import shutil
 import signal
@@ -433,12 +434,20 @@ def find_sunshine_command(instance: int = 1) -> list[str] | None:
 
 def get_sunshine_kms_setup_error(instance: int = 1) -> str:
     """Explain a missing capability before starting a KMS capture session."""
-    command = find_sunshine_command(instance)
+    return get_sunshine_kms_setup_status(instance)["message"]
+
+
+def get_sunshine_kms_setup_status(instance: int = 1, binary: str | None = None) -> dict:
+    """Distinguish missing permission from an unavailable executable or failed check."""
+    command = [binary] if binary else find_sunshine_command(instance)
+    result_info = {"binary": command[0] if command else "", "code": "ready", "message": ""}
+    def failure(code, message):
+        return dict(result_info, code=code, message=message)
     if not command:
-        return "Monitorize's Sunshine binary is unavailable."
+        return failure("missing_binary", "Monitorize's Sunshine binary is unavailable.")
     getcap = shutil.which("getcap")
     if not getcap:
-        return "KMS capture requires the getcap utility to verify Sunshine's capability."
+        return failure("missing_utility", "KMS capture requires the getcap utility to verify Sunshine's capability.")
     try:
         # Audited: use a static argv name while executing the absolute path
         # resolved above. List arguments and `--` keep the Sunshine path literal.
@@ -447,13 +456,15 @@ def get_sunshine_kms_setup_error(instance: int = 1) -> str:
             capture_output=True, text=True, timeout=3, check=False,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
-        return f"Could not verify Sunshine's KMS capability: {exc}"
-    if result.returncode != 0 or "cap_sys_admin" not in result.stdout.lower():
-        return (
+        return failure("check_failed", f"Could not verify Sunshine's KMS capability: {exc}")
+    if result.returncode != 0:
+        return failure("check_failed", "Could not verify Sunshine's KMS capability: " + (result.stderr.strip() or "getcap failed."))
+    if not re.search(r"\b(?:cap_[a-z0-9_]+,)*cap_sys_admin(?:,cap_[a-z0-9_]+)*=[eip]*p[eip]*\b", result.stdout.lower()):
+        return failure("missing_capability",
             "KMS capture requires cap_sys_admin on Monitorize's Sunshine binary. "
             f"Run: sudo setcap cap_sys_admin+p {shlex.quote(command[0])}"
         )
-    return ""
+    return result_info
 
 
 def get_sunshine_device_name(instance: int = 1) -> str:

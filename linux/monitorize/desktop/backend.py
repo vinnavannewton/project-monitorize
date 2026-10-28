@@ -122,6 +122,7 @@ class MonitorizeBackend(QObject):
         self._detected_de = de
         self._ui_visible = False
         self._session_errors = []
+        self._display_errors = {}
         self._observed_runtime_errors = set()
         self._observed_remote_error = ""
         self.native_compositor_resolver = None
@@ -137,6 +138,12 @@ class MonitorizeBackend(QObject):
         self._system_setup_cancelled = False
         self._background_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="monitorize-ui")
         self._closing = False
+        from monitorize.desktop.incoming_pairing import IncomingPairing
+        self._incoming_pairing = IncomingPairing(self)
+        from monitorize.desktop.kms_authorization import KmsAuthorization
+        self._kms_authorization = KmsAuthorization(self)
+        self._kms_authorization.changed.connect(self.sessionChanged)
+        self._kms_authorization.changed.connect(self.configurationChanged)
         self._vkms_authorization_busy = False
         self._vkmsAuthorizationWorkerFinished.connect(self._finish_vkms_authorization)
         self._remote_login = None
@@ -317,6 +324,10 @@ class MonitorizeBackend(QObject):
     @pyqtProperty(bool, notify=uiVisibleChanged)
     def uiVisible(self):
         return self._ui_visible
+
+    @pyqtProperty(QObject, constant=True)
+    def incomingPairing(self):
+        return self._incoming_pairing
 
     def set_ui_visible(self, visible):
         visible = bool(visible)
@@ -546,6 +557,7 @@ class MonitorizeBackend(QObject):
 
     @pyqtProperty(bool, notify=sessionChanged)
     def sessionBusy(self):
+        if self._kms_authorization.busy:return True
         if getattr(self,'_desktop_fallback_pending',False):return True
         if getattr(self, "remoteLoginEnabled", False):
             return self._remote_login.busy
@@ -626,8 +638,51 @@ class MonitorizeBackend(QObject):
     @pyqtSlot()
     def startSession(self):
         if self.applyingConfiguration:return
+        if self._remote_unavailable():
+            self._request_desktop_fallback('start')
+            return
+        self._session_start_generation += 1
         self._pending_listeners_only = False
+        self._clear_display_errors()
+        if not self._authorize_kms(self.configuration_state.applied, "start"):
+            return
         self._start_session_checked()
+
+    def _authorize_kms(self, bundle, action):
+        """Only explicit Start/Apply requests enter the graphical repair flow."""
+        expected = copy.deepcopy(bundle)
+        generation = self._session_start_generation
+
+        def completed(success, message, instance):
+            if self._closing or generation != self._session_start_generation:
+                return
+            current = (self.configuration_state.draft if action == "apply"
+                       else self.configuration_state.applied)
+            if expected != current:
+                success, message = False, "Configuration changed during authorization. Click Start or Restart again."
+            if not success:
+                message = ("Display 2: " if instance == 2 else "") + message
+                self._remember_session_error(message, instance)
+                if action == "apply":
+                    self.configurationApplyFinished.emit(False, message)
+                else:
+                    self.streaming._set_status(message)
+                self.sessionChanged.emit()
+                return
+            # All selected paths and file identities have been rechecked. Do not
+            # call ensure again: cancellation/failure must never cause a prompt loop.
+            if action == "apply":
+                self._apply_kms_verified = expected
+                try:self.applyConfiguration()
+                finally:self._apply_kms_verified = None
+            else:
+                self._start_session_checked()
+
+        ready = self._kms_authorization.ensure(expected, self._detected_de,
+                                               self.remoteLoginEnabled, completed)
+        if not ready and self._kms_authorization.busy:
+            self.streaming._set_status("Waiting for administrator authorization…")
+        return ready
 
     def startConfiguredListeners(self):
         """Start hosting once per genuine launch; tray restoration is handled by the window."""
@@ -675,6 +730,8 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot()
     def stopSession(self):
+        self._session_start_generation += 1
+        self._kms_authorization.cancel()
         if getattr(self,'_live_setup',None) is not None and self._live_setup.busy:
             self._live_setup.cancel()
         if getattr(self,'_desktop_fallback_pending',False):
@@ -730,13 +787,35 @@ class MonitorizeBackend(QObject):
     def sessionError(self):
         return "\n\n".join(self._session_errors)
 
-    def _remember_session_error(self, message):
+    def _remember_session_error(self, message, instance=None):
         if not isinstance(message, str) or not message.strip():
             return
         message = message.strip()
+        instance = instance or (2 if message.startswith(("Display 2:", "Second display:")) else 1)
+        changed = self._display_errors.get(instance) != message
+        self._display_errors[instance] = message
         if message not in self._session_errors:
             self._session_errors.append(message)
+            changed = True
+        if changed:
             self.sessionErrorChanged.emit()
+
+    def _clear_display_errors(self):
+        if self._display_errors:
+            self._display_errors.clear()
+            self.sessionErrorChanged.emit()
+
+    @pyqtSlot(int, result=str)
+    def displayError(self, instance):
+        return self._display_errors.get(instance, "")
+
+    @pyqtSlot(int, result=bool)
+    def copyDisplayError(self, instance):
+        message = self.displayError(instance)
+        if not message or not isinstance(QGuiApplication.instance(), QGuiApplication):
+            return False
+        QGuiApplication.clipboard().setText(message)
+        return True
 
     def _remember_session_failure(self, success, message):
         if not success:
@@ -753,15 +832,16 @@ class MonitorizeBackend(QObject):
         runtime = self.session.client_runtime
         errors = set()
         if runtime:
-            for slot in runtime.slots.values():
+            for instance, slot in runtime.slots.items():
                 if isinstance(slot.error, str) and slot.error:
-                    errors.add(slot.error)
-            for message in sorted(errors - self._observed_runtime_errors):
-                self._remember_session_error(message)
+                    errors.add((instance, slot.error))
+            for instance, message in sorted(errors - self._observed_runtime_errors):
+                self._remember_session_error(message, instance)
         self._observed_runtime_errors = errors
 
     @pyqtSlot()
     def dismissSessionError(self):
+        self._clear_display_errors()
         if self._session_errors:
             self._session_errors.clear()
             self.sessionErrorChanged.emit()
@@ -1499,7 +1579,7 @@ class MonitorizeBackend(QObject):
 
     @pyqtProperty(bool, notify=configurationChanged)
     def applyingConfiguration(self):
-        return bool(getattr(self,'_remote_setup_busy',False) or (hasattr(self, "_restart") and self._restart.busy))
+        return bool(self._kms_authorization.busy or getattr(self,'_remote_setup_busy',False) or (hasattr(self, "_restart") and self._restart.busy))
 
     @pyqtProperty(str, notify=configurationChanged)
     def configurationMessage(self):
@@ -1524,18 +1604,16 @@ class MonitorizeBackend(QObject):
             if self.remoteLoginEnabled:self._validate_remote_candidate(candidate)
             if candidate["streaming_backend"] == "sunshine" and not self.remoteLoginEnabled:
                 if not self.sunshineAvailable:raise ValueError("Install Monitorize Sunshine before enabling streaming.")
-                from monitorize.platform.sunshine_service import get_sunshine_kms_setup_error
-                for instance, raw in ((1, candidate["primary"]), (2, candidate["second"])):
-                    if instance == 2 and not raw.get("enabled"):continue
-                    if raw.get("sunshine_capture") == "kms":
-                        error = get_sunshine_kms_setup_error(instance)
-                        if error:raise ValueError(error)
                 if candidate["primary"].get("virtual_display_creator") == "vkms":
                     MonitorizeVkmsClient().require_unattended()
             for instance, raw in ((1,candidate["primary"]),(2,candidate["second"])):
                 if instance == 2 and not raw.get("enabled"):continue
                 if raw.get("streaming_customized") and raw.get("sunshine_gpu") and not resolve_encoding_gpu(raw.get("sunshine_encoder","Auto"),raw["sunshine_gpu"]):
                     raise ValueError("Selected encoding GPU is unavailable.")
+            if getattr(self, "_apply_kms_verified", None) != candidate:
+                self._clear_display_errors()
+                if not self._authorize_kms(candidate, "apply"):
+                    return
             self._restart_display_only = self.session.active and self._streaming_backend == "none"
             self._restart.begin(candidate, self._verified_configuration)
         except Exception as exc:
@@ -2239,6 +2317,8 @@ class MonitorizeBackend(QObject):
             self.streaming.update_ip(current)
 
     def close(self):
+        self._incoming_pairing.close()
+        self._kms_authorization.cancel()
         if getattr(self,'_live_setup',None) is not None:self._live_setup.cancel()
         if hasattr(self, "_restart"):
             self._restart.cancel()
