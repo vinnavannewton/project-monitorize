@@ -41,7 +41,8 @@ with tempfile.TemporaryDirectory() as d:
          patch('monitorize.desktop.backend.find_sunshine_command',return_value=['fixture']), \
          patch('monitorize.desktop.backend.get_system_setup_status',return_value={'available':False}), \
          patch('monitorize.desktop.backend.load_general_settings',return_value={'system_setup_decided':True}), \
-         patch('monitorize.desktop.backend.MonitorizeVkmsClient'):
+         patch('monitorize.desktop.backend.MonitorizeVkmsClient'), \
+         patch('monitorize.desktop.kms_authorization.KmsAuthorization.ensure', return_value=True):
         backend=MonitorizeBackend('kde');view=QQuickWidget();view.resize(1000,900)
         try:
             view.rootContext().setContextProperty('backend',backend)
