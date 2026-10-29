@@ -17,10 +17,9 @@ class RemoteLoginRepairCoordinator(QObject):
         self.timer.timeout.connect(self.advance)
         self._done.connect(self.finish)
 
-    def begin(self, package=''):
+    def begin(self):
         if self.busy or self.backend._closing or self.backend._remote_setup_busy:
             return
-        self.package = package
         session = self.backend.session
         runtime = session.client_runtime
         remote = self.backend._remote_login
@@ -61,7 +60,7 @@ class RemoteLoginRepairCoordinator(QObject):
             return
         self.timer.stop()
         from monitorize.platform.remote_login_repair import repair_remote_login
-        future = self.backend._background_executor.submit(repair_remote_login, self.package)
+        future = self.backend._background_executor.submit(repair_remote_login)
         def done(future):
             try:
                 result = future.result()
@@ -76,7 +75,7 @@ class RemoteLoginRepairCoordinator(QObject):
     def finish(self, result):
         self.timer.stop()
         if self.paused:
-            resume = (not self.backend._closing and not result.get('restart_required') and not self.backend.remoteLoginEnabled
+            resume = (not self.backend._closing and not self.backend.remoteLoginEnabled
                       and getattr(self, 'intent', None) == self.backend._session_start_generation)
             self.paused.resume_enrollment_pause(self.snapshot, instances=(1,) if resume else ())
             self.paused = None

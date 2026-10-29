@@ -163,7 +163,7 @@ def remote_login_setup_status():
     source_stage=Path(__file__).resolve().parents[3]/'scripts/stage-remote-login.py'
     source_install=source_stage.is_file()
     repair=('Use Repair remote login in Settings to install matching service files with administrator authorization.'
-            if source_install else 'Use Reinstall Monitorize package in Settings to select the matching native package, then reopen Monitorize.')
+            if source_install else 'The remote-login service files are managed by the Monitorize native package.')
     live=host_readiness(require_live=True)
     result={'available':host['available'],'live_available':bool(live['available'] and capability['supported']),
             'live_message':live['message'],'enabled':False,'create_login_virtual_display':False,'login_display_policy_available':login_display_policy_available(),'display_idle_timeout_seconds':20,'reason':host['reason'],'protocols':host['protocols'],

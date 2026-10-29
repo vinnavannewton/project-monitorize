@@ -35,8 +35,8 @@ def source_engine_update_error(*,repository=None,installed=ENGINE):
     if not source.is_relative_to(repository):return ''
     if matching_engines(source,installed):return ''
     return ('The source desktop engine ('+str(source)+') and installed remote-login engine differ. '
-            'Open Settings and choose Repair remote login to install matching service files with administrator authorization. '
-            'For package-owned service files, select a matching native Monitorize package in the repair dialog and reopen the app.')
+            'For source-managed service files, open Settings and choose Repair remote login to install matching files with administrator authorization. '
+            'Package-owned service files must match the running app version and remain managed by the package manager.')
 
 
 def exact_kms_engine(path):

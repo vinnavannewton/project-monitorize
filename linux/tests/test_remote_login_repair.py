@@ -176,32 +176,21 @@ class RepairTests(unittest.TestCase):
         self.assertEqual(result['backup'], '/var/lib/monitorize/backup')
         self.assertEqual(guard.call_args.args, ('--resume',))
 
-    def test_package_identity_is_checked_before_a_transaction(self):
-        for manager in ('pacman', 'deb', 'rpm'):
-            with self.subTest(manager=manager), patch.object(self.helper, 'run', return_value='other-package'), \
-                 patch.object(self.helper, 'guard') as guard:
-                with self.assertRaises(ValueError):
-                    self.helper.repair_package(self.root / 'package', manager)
-                guard.assert_not_called()
+    def test_privileged_helper_rejects_removed_native_package_actions(self):
+        import io
+        for kind in ('pacman', 'deb', 'rpm'):
+            with self.subTest(kind=kind), patch('sys.argv', ['repair', '--kind', kind, '--input', '/tmp/package']), \
+                 patch('sys.stderr', new=io.StringIO()), patch.object(self.helper, 'run') as run:
+                with self.assertRaises(SystemExit) as error:
+                    self.helper.main()
+                self.assertEqual(error.exception.code, 2)
+                run.assert_not_called()
 
-    def test_arch_package_uses_manager_without_overwrite_or_shell(self):
-        package = self.root / 'package'
-        with patch.object(self.helper, 'run', return_value='monitorize'):
-            command = self.helper.package_command(package, 'pacman')
-        self.assertEqual(command, ['/usr/bin/pacman', '-U', '--noconfirm', str(package)])
-
-    def test_package_failure_still_attempts_resume(self):
-        with patch.object(self.helper, 'package_command', return_value=['manager']), \
-             patch.object(self.helper, 'guard') as guard, patch.object(self.helper, 'run', side_effect=RuntimeError('transaction failed')):
-            with self.assertRaisesRegex(RuntimeError, 'transaction failed'):
-                self.helper.repair_package(self.root / 'package', 'pacman')
-        self.assertEqual([call.args for call in guard.call_args_list], [('--prepare', 'upgrade'), ('--resume',)])
-
-    def test_cancelling_package_selection_does_not_launch_polkit(self):
-        with patch.object(client, 'repair_options', return_value={'repair_kind': 'pacman'}), \
+    def test_package_managed_install_cannot_launch_a_repair_or_reinstall(self):
+        with patch.object(client, 'repair_options', return_value={'repair_kind': '', 'repair_message': 'Package managed'}), \
              patch.object(client.subprocess, 'run') as run:
-            result = client.repair_remote_login('')
-        self.assertTrue(result['cancelled'])
+            result = client.repair_remote_login()
+        self.assertFalse(result['success'])
         run.assert_not_called()
 
     def test_rpm_ownership_is_found_when_debian_tools_are_also_installed(self):
@@ -211,14 +200,13 @@ class RepairTests(unittest.TestCase):
              patch.object(client.subprocess, 'run', side_effect=query):
             self.assertEqual(client.owning_package_manager(Path('/usr/libexec/monitorize/sunshine')), 'rpm')
 
-    def test_source_launch_with_packaged_assets_uses_native_repair(self):
+    def test_package_owned_assets_have_no_graphical_reinstall_action(self):
         with patch.object(client, 'owning_package_manager', return_value='pacman'), \
-             patch.object(client, 'package_manager', return_value='pacman'), \
              patch.object(client.Path, 'exists', return_value=True), \
              patch.object(client.shutil, 'which', return_value='/usr/bin/pkexec'), \
              patch('monitorize.remote_login.capability.source_engine_update_error', return_value='mismatch'):
             result = client.repair_options(repository=ROOT)
-        self.assertEqual(result['repair_kind'], 'pacman')
+        self.assertEqual(result['repair_kind'], '')
         self.assertTrue(result['repair_needed'])
 
     def test_source_unowned_install_supports_bootstrapping_without_installed_helper(self):
@@ -227,16 +215,6 @@ class RepairTests(unittest.TestCase):
              patch('monitorize.remote_login.capability.source_engine_update_error', return_value='mismatch'):
             result = client.repair_options(repository=ROOT)
         self.assertEqual(result['repair_kind'], 'source')
-
-    def test_polkit_cancellation_is_a_failure_and_does_not_report_success(self):
-        with patch.object(client, 'repair_options', return_value={'repair_kind': 'pacman'}), \
-             patch.object(client.subprocess, 'run', return_value=subprocess.CompletedProcess([], 126, '', '')) as run:
-            package = self.root / 'monitorize.pkg.tar.zst'
-            package.touch()
-            result = client.repair_remote_login(str(package))
-        self.assertFalse(result['success'])
-        self.assertIn('--kind', run.call_args.args[0])
-        self.assertNotIn('shell', run.call_args.kwargs)
 
     def test_source_repair_stages_selected_engine_and_uses_polkit_without_terminal(self):
         repository = self.root / 'repository'

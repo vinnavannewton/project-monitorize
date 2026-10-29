@@ -103,16 +103,20 @@ with tempfile.TemporaryDirectory() as d:
                 for _ in range(20):
                     settle()
                     if not backend.remoteLoginSetupBusy:break
-                repair.assert_called_once_with('')
+                repair.assert_called_once_with()
                 assert not backend.remoteLoginSetupBusy
                 assert prop('startupNotice')=='Repaired'
                 assert not page.findChild(QObject,'bootStartupCheck').property('checked')
-            with patch('monitorize.platform.remote_login_repair.repair_options',return_value={'repair_kind':'pacman','repair_message':'Select package'}), patch('PyQt6.QtWidgets.QFileDialog.getOpenFileName',return_value=('','')), patch('monitorize.platform.remote_login_repair.repair_remote_login') as repair:
+            with patch('monitorize.platform.remote_login_repair.repair_options',return_value={'repair_kind':'','repair_message':'Package managed'}), patch('monitorize.platform.remote_login_repair.repair_remote_login') as repair:
+                page.setProperty('bootOptionsExpanded',True)
+                page.setProperty('settingsError','Package managed')
+                e=QQmlExpression(qmlContext(page),page,'page.refreshStartup()');e.evaluate();settle()
+                assert not page.findChild(QObject,'repairRemoteLoginButton').property('visible')
                 backend.repairRemoteLogin();settle()
                 repair.assert_not_called()
                 assert not backend.remoteLoginSetupBusy
-                assert 'cancelled' in prop('settingsError')
             page.setProperty('settingsError','')
+            page.setProperty('bootOptionsExpanded',False)
             backend.vkmsAuthorizationReady.emit({'success':False,'message':'Unavailable fixture'});settle()
             assert not prop('vkmsAuthorization.success')
             assert not prop('vkmsAuthorization.unattended_enabled === false')

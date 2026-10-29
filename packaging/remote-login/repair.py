@@ -7,10 +7,8 @@ import importlib.util
 import json
 import os
 from pathlib import Path
-import shutil
 import stat
 import subprocess
-import sys
 import tempfile
 
 REPAIR_PROTOCOL = 1
@@ -34,12 +32,12 @@ def run(command, *, timeout=180):
     return result.stdout.strip()
 
 
-def snapshot_file(source, target, uid, *, dir_fd=None, allow_root=False, limit=512 * 1024 * 1024):
+def snapshot_file(source, target, uid, *, dir_fd=None, limit=512 * 1024 * 1024):
     """Copy an opened regular file into a private root snapshot, with bounded reads."""
     fd = os.open(source, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC, dir_fd=dir_fd)
     with os.fdopen(fd, 'rb') as incoming:
         info = os.fstat(incoming.fileno())
-        if (not stat.S_ISREG(info.st_mode) or (info.st_uid != uid and not (allow_root and info.st_uid == 0 and info.st_mode & 0o004))
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != uid
                 or info.st_nlink != 1 or info.st_mode & 0o022 or info.st_size > limit):
             raise ValueError('Repair input has unsafe ownership, permissions or size.')
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -145,7 +143,7 @@ def repair_source(stage, deployer):
     installer.assert_unmanaged(relatives)
     for relative in relatives:
         if deployer.package_owner(Path('/') / relative):
-            raise ValueError('A service asset belongs to a package. Use native-package repair: ' + relative)
+            raise ValueError('A service asset belongs to a package. Manage this file through its owning package: ' + relative)
     # Reuse the lifecycle receipt/masks to block reactivation, refuse connected
     # clients and preserve enrollment/identity while code is replaced.
     prepare_upgrade()
@@ -164,47 +162,10 @@ def repair_source(stage, deployer):
             'backup': str(backup)}
 
 
-def package_command(package, manager):
-    """Inspect immutable snapshot metadata before allowing a fixed package action."""
-    if manager == 'pacman':
-        identity = run(['/usr/bin/pacman', '-Qqp', str(package)])
-        if identity != 'monitorize':
-            raise ValueError('Select a Monitorize Arch package.')
-        return ['/usr/bin/pacman', '-U', '--noconfirm', str(package)]
-    if manager == 'deb':
-        identity = run(['/usr/bin/dpkg-deb', '--field', str(package), 'Package'])
-        if identity != 'monitorize':
-            raise ValueError('Select a Monitorize Debian package.')
-        return ['/usr/bin/apt-get', 'install', '--yes', '--reinstall', str(package)]
-    if manager == 'rpm':
-        identity = run(['/usr/bin/rpm', '-qp', '--queryformat', '%{NAME}', str(package)])
-        if identity != 'monitorize':
-            raise ValueError('Select a Monitorize RPM package.')
-        # Let the native package manager verify dependencies/signatures/hooks.
-        if Path('/usr/bin/dnf').is_file():
-            installed = run(['/usr/bin/rpm', '-q', '--queryformat', '%{EVR}', 'monitorize'])
-            incoming = run(['/usr/bin/rpm', '-qp', '--queryformat', '%{EVR}', str(package)])
-            return ['/usr/bin/dnf', '-y', 'reinstall' if installed == incoming else 'install', str(package)]
-        if Path('/usr/bin/zypper').is_file():
-            return ['/usr/bin/zypper', '--non-interactive', 'install', '--force', str(package)]
-    raise ValueError('No supported native package manager was found.')
-
-
-def repair_package(package, manager):
-    command = package_command(package, manager)
-    prepare_upgrade()
-    try:
-        # Never kill a package manager halfway through a privileged transaction.
-        run(command, timeout=None)
-    finally:
-        guard('--resume')
-    return {'success': True, 'message': 'Monitorize package installed. Reopen Monitorize to load the installed version.',
-            'restart_required': True}
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--kind', required=True, choices=('source', 'pacman', 'deb', 'rpm'))
+    # Compatibility with existing source clients; package actions are rejected.
+    parser.add_argument('--kind', choices=('source',), default='source', help=argparse.SUPPRESS)
     parser.add_argument('--input', required=True, type=Path)
     args = parser.parse_args()
     try:
@@ -214,14 +175,9 @@ def main():
         uid = int(raw_uid)
         with tempfile.TemporaryDirectory(prefix='monitorize-repair-') as temporary:
             target = Path(temporary)
-            if args.kind == 'source':
-                deployer = load_deployer()
-                stage = snapshot_stage(args.input, target / 'stage', uid, deployer)
-                result = repair_source(stage, deployer)
-            else:
-                name = {'pacman': 'monitorize.pkg.tar.zst', 'deb': 'monitorize.deb', 'rpm': 'monitorize.rpm'}[args.kind]
-                snapshot_file(args.input, target / name, uid, allow_root=True)
-                result = repair_package(target / name, args.kind)
+            deployer = load_deployer()
+            stage = snapshot_stage(args.input, target / 'stage', uid, deployer)
+            result = repair_source(stage, deployer)
         print(json.dumps(result))
         return 0
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:

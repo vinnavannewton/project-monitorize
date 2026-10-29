@@ -71,7 +71,7 @@ Item {
                 page.settingsError = result.success ? "" : (result.message || "Remote-login repair failed.")
                 page.startupNotice = result.success ? result.message : ""
                 page.refreshStartup()
-                if (result.success && !result.restart_required && page.pendingBootAction >= 0) {
+                if (result.success && page.pendingBootAction >= 0) {
                     let requested = page.pendingBootAction === 1
                     Qt.callLater(function() { backend.configureRemoteLogin(requested) })
                 }
@@ -238,8 +238,8 @@ Item {
                 CustomButton {
                     id: repairRemoteLoginButton
                     objectName: "repairRemoteLoginButton"
-                    text: page.bootStatus.repair_kind === "source" ? "Repair remote login" : "Reinstall Monitorize package…"
-                    visible: page.bootOptionsExpanded && !!page.bootStatus.repair_kind && (!page.bootStatus.available || page.bootStatus.repair_needed || page.settingsError.length > 0)
+                    text: "Repair remote login"
+                    visible: page.bootOptionsExpanded && page.bootStatus.repair_kind === "source" && (!page.bootStatus.available || page.bootStatus.repair_needed || page.settingsError.length > 0)
                     enabled: !backend.remoteLoginSetupBusy && !backend.sessionBusy
                     onClicked: backend.repairRemoteLogin()
                 }

@@ -12,13 +12,13 @@ If service assets are missing or incompatible, Settings offers graphical repair:
   selected built engine and service files, asks for Polkit authorization, safely
   pauses idle hosting, installs with backups and restores the previous service
   state. A pending startup toggle is retried after successful source repair.
-- **Native package:** choose **Reinstall Monitorize package…**, select a matching
-  Monitorize `.pkg.tar.zst`, `.deb` or `.rpm` file, and authorize the native package
-  manager through Polkit. Reopen Monitorize afterward to load the installed app.
-  Source launches using package-owned service files also take this route.
+
+Native packages retain their package-manager-owned service files. Settings does
+not provide a package reinstall button or file picker and never runs package
+installation commands. Source repair refuses to overwrite package-owned files.
 
 Settings retains enrollment and pairing. Active streams must be stopped before
-repair; repair never forces a client disconnect. Cancelling selection or Polkit
+repair; repair never forces a client disconnect. Cancelling Polkit
 retains the saved startup options. Startup diagnostics support mouse selection,
 Ctrl+C, right-click Copy/Select all and a whole-message copy icon. The separately
 installed VKMS host/kernel is not replaced by app repair.
@@ -26,8 +26,7 @@ installed VKMS host/kernel is not replaced by app repair.
 New native packages and source deployments include the installed repair helper
 and a dedicated Polkit policy. An older source installation can bootstrap repair
 through the ordinary Polkit Python authorization prompt; no terminal commands are
-needed. An older native installation first needs a package containing this UI and
-helper. Source repair never overwrites package-owned assets. Repair stages are
+needed. Source repair never overwrites package-owned assets. Repair stages are
 snapshotted as private root data before validation/deployment, and staged code is
 not executed by the installed helper. Failed file deployment rolls back; a failed
 rollback keeps services paused and reports its protected backup for recovery.
