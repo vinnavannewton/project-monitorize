@@ -15,6 +15,8 @@ import sys
 from pathlib import Path
 
 KMS_SETUP_PROTOCOL = 1
+REMOTE_LOGIN_RECOVERY_PROTOCOL = 1
+SYSTEM_RECOVERY_PROTOCOL = 1
 
 
 def grant_kms_capability(binary, device, inode):
@@ -122,8 +124,26 @@ def invoking_user():
         raise RuntimeError("The authorizing user no longer exists.") from exc
 
 
+def recovery_module():
+    import importlib.util
+    path=Path(__file__).resolve().parent/'system_recovery.py'
+    spec=importlib.util.spec_from_file_location('monitorize_system_recovery',path)
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    return module
+
+
+def ensure_input_assets():
+    recovery_module().restore_asset('uinput.rules')
+    try:grp.getgrnam('monitorize-input')
+    except KeyError:
+        groupadd=command_path('/usr/sbin/groupadd','/usr/bin/groupadd')
+        if not groupadd:raise RuntimeError('The group-management dependency is missing.')
+        run([groupadd,'--system','monitorize-input'])
+
+
 def prepare_input_device():
     """Refresh the packaged rule and verify the device; never broaden its mode."""
+    ensure_input_assets()
     # The packaged static node may exist even when no uinput driver is loaded.
     modprobe = command_path('/usr/sbin/modprobe', '/usr/bin/modprobe', '/sbin/modprobe')
     if not modprobe:
@@ -150,6 +170,7 @@ def prepare_input_device():
 
 
 def enable_input(username):
+    ensure_input_assets()
     try:
         group = grp.getgrnam("monitorize-input")
         user = pwd.getpwnam(username)
@@ -176,7 +197,10 @@ def enable_firewall():
                 # A source install can add the XML after firewalld was started.
                 run([firewall_cmd, '--reload'])
                 if 'monitorize' not in run([firewall_cmd, '--permanent', '--get-services']).split():
-                    raise RuntimeError('Monitorize firewall profile is missing. Install packaging/fedora/monitorize.xml as /usr/lib/firewalld/services/monitorize.xml, reload firewalld, then retry setup.')
+                    recovery_module().restore_asset('firewalld.xml')
+                    run([firewall_cmd,'--reload'])
+                    if 'monitorize' not in run([firewall_cmd,'--permanent','--get-services']).split():
+                        raise RuntimeError('The Monitorize firewall profile could not be registered.')
             active = run([firewall_cmd, '--get-active-zones'])
             zones = list(dict.fromkeys(line.split()[0] for line in active.splitlines()
                                       if line.strip() and not line[0].isspace()))
@@ -199,6 +223,7 @@ def enable_firewall():
             raise RuntimeError('Could not check UFW status: ' + (state.stderr.strip() or state.stdout.strip() or 'unknown error'))
         lines = state.stdout.splitlines()
         if 'Status: active' in lines:
+            recovery_module().restore_asset('ufw.profile')
             run([ufw, 'allow', 'Monitorize'])
             rules = run([ufw, 'status'])
             if not any(line.split() and line.split()[0] == 'Monitorize' and 'ALLOW' in line.split() for line in rules.splitlines()):
@@ -211,19 +236,34 @@ def enable_firewall():
 
 def main():
     parser = argparse.ArgumentParser(description="Configure Monitorize input and firewall access.")
+    parser.add_argument("--recover-networkmanager",action="store_true")
+    parser.add_argument("--recover-host",action="store_true")
     parser.add_argument("--input", action="store_true", help="grant the authorizing user uinput access")
     parser.add_argument("--firewall", action="store_true", help="allow Monitorize through an active firewall")
     parser.add_argument('--unattended-vkms', action='store_true')
-    parser.add_argument('--remote-login', choices=('enable','enable-live','disable','remove','fallback','primary-on','primary-off','login-virtual-on','login-virtual-off','timeout'))
+    parser.add_argument('--remote-login', choices=('enable','enable-live','disable','recover','recover-disable','remove','fallback','primary-on','primary-off','login-virtual-on','login-virtual-off','timeout'))
     parser.add_argument('--display-idle-timeout', type=int, choices=range(1,601), metavar='SECONDS')
     parser.add_argument('--kms-binary')
     parser.add_argument('--kms-device', type=int)
     parser.add_argument('--kms-inode', type=int)
     args = parser.parse_args()
-    if not args.input and not args.firewall and not args.unattended_vkms and not args.remote_login and not args.kms_binary:
+    if not args.recover_host and not args.recover_networkmanager and not args.input and not args.firewall and not args.unattended_vkms and not args.remote_login and not args.kms_binary:
         parser.error("select --input, --firewall and/or --unattended-vkms")
     if os.geteuid() != 0:
         raise RuntimeError("This helper requires root privileges.")
+
+    if args.recover_host:
+        if args.recover_networkmanager or args.input or args.firewall or args.remote_login or args.kms_binary or args.unattended_vkms or args.kms_device is not None or args.kms_inode is not None or args.display_idle_timeout is not None:
+            parser.error('Host recovery is a separate action.')
+        invoking_user()
+        result=recovery_module().recover_host()
+        print(json.dumps(result));raise SystemExit(0 if result.get('success') else 1)
+
+    if args.recover_networkmanager:
+        if args.input or args.firewall or args.remote_login or args.kms_binary or args.unattended_vkms or args.kms_device is not None or args.kms_inode is not None or args.display_idle_timeout is not None:
+            parser.error('Network recovery is a separate action.')
+        invoking_user()
+        print(json.dumps(recovery_module().start_networkmanager(run)));return
 
     if args.kms_binary:
         if (args.input or args.firewall or args.unattended_vkms or args.remote_login

@@ -71,9 +71,22 @@ Item {
                 page.settingsError = result.success ? "" : (result.message || "Remote-login repair failed.")
                 page.startupNotice = result.success ? result.message : ""
                 page.refreshStartup()
-                if (result.success && page.pendingBootAction >= 0) {
+                if (result.success && !result.request_completed && page.pendingBootAction >= 0) {
                     let requested = page.pendingBootAction === 1
                     Qt.callLater(function() { backend.configureRemoteLogin(requested) })
+                }
+                if (result.cancelled) {
+                    page.pendingBootAction = -1
+                    page.loginAfterBootDisable = -1
+                }
+                if (result.success && result.request_completed) {
+                    if (!page.bootStatus.enabled && page.loginAfterBootDisable >= 0) {
+                        let error = backend.setAutostartEnabled(page.loginAfterBootDisable === 1)
+                        if (error.length > 0) page.settingsError = error
+                        page.refreshStartup()
+                    }
+                    page.pendingBootAction = -1
+                    page.loginAfterBootDisable = -1
                 }
                 return
             }
@@ -93,10 +106,15 @@ Item {
                 if (error.length > 0) page.settingsError = error
                 page.refreshStartup()
             }
-            if (result.success) {
+            if (result.success || result.cancelled) {
                 page.pendingBootAction = -1
                 page.loginAfterBootDisable = -1
             }
+        }
+        function onRecoveryOperationFinished(result) {
+            if (result.operation !== "host_recovery") return
+            page.vkmsAuthorizationMessage = result.message || "Host recovery finished."
+            page.refreshAuthorization()
         }
         function onSystemSetupFinished(result) {
             page.vkmsAuthorizationMessage = result.success ? "" : (result.message || "Authorization failed.")
@@ -244,6 +262,13 @@ Item {
                     onClicked: backend.repairRemoteLogin()
                 }
                 CustomButton {
+                    objectName: "resumeRemoteLoginMaintenance"
+                    text: "Resume remote-login recovery"
+                    visible: page.bootOptionsExpanded && page.bootStatus.maintenance_pending === true && page.bootStatus.recovery_available === true
+                    enabled: !backend.remoteLoginSetupBusy && !backend.sessionBusy
+                    onClicked: backend.recoverRemoteLogin(page.pendingBootAction === 0)
+                }
+                CustomButton {
                     objectName: "refreshBootStartupStatus"
                     text: "Refresh startup status"
                     visible: page.bootOptionsExpanded
@@ -257,7 +282,7 @@ Item {
                 }
                 SelectableMessage {
                     objectName: "startupNoticeText"
-                    text: backend.remoteLoginSetupBusy && !page.savingTimeout ? "Applying startup settings…" : page.startupNotice
+                    text: backend.remoteLoginSetupBusy && !page.savingTimeout ? (backend.remoteLoginSetupProgress || "Applying startup settings…") : page.startupNotice
                     visible: text.length > 0
                     color: theme.textSecondary; Layout.fillWidth: true; wrapMode: Text.WordWrap
                 }
@@ -360,12 +385,12 @@ Item {
                         ? (page.vkmsAuthorization.repair_required ? page.vkmsAuthorization.message : page.vkmsAuthorization.unattended_enabled ? "Enabled for your user. Display creation does not request a password." : "Authorize your user once for virtual display creation without recurring password prompts.")
                         : (page.vkmsAuthorization.message || "Install or upgrade monitorize-vkms first.")
                     symbol: "key-slash"
-                    actionText: page.vkmsChecking ? "Checking…" : !page.vkmsAuthorization.success ? (page.vkmsAuthorization.host_update_required ? "Check again" : "Retry") : page.vkmsAuthorization.repair_required ? "Reauthorize" : page.vkmsAuthorization.unattended_enabled ? "Disable" : "Enable"
+                    actionText: page.vkmsChecking ? "Checking…" : !page.vkmsAuthorization.success ? "Recover host" : page.vkmsAuthorization.repair_required ? "Reauthorize" : page.vkmsAuthorization.unattended_enabled ? "Disable" : "Enable"
                     actionEnabled: !page.vkmsChecking && !backend.isStreaming && !backend.sessionBusy && !backend.systemSetupRunning
                     Layout.fillWidth: true
                     onClicked: {
                         page.vkmsAuthorizationMessage = ""
-                        if (!page.vkmsAuthorization.success) page.refreshAuthorization()
+                        if (!page.vkmsAuthorization.success) backend.recoverVkmsHost()
                         else backend.setVkmsUnattended(page.vkmsAuthorization.repair_required || !page.vkmsAuthorization.unattended_enabled)
                     }
                 }

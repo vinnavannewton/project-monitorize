@@ -45,6 +45,43 @@ class SystemSetupTest(unittest.TestCase):
         self.assertIn('different compatibility checks',result['message'])
         self.assertIn('Repair remote login',result['message'])
 
+    def test_polkit_dismissal_is_explicitly_cancelled(self):
+        result=system_setup.parse_system_setup_result(126,'','')
+        self.assertFalse(result['success']);self.assertTrue(result['cancelled'])
+        self.assertFalse(system_setup.parse_system_setup_result(127,'','Denied').get('cancelled',False))
+
+    def test_malformed_success_cannot_claim_setup_completed(self):
+        self.assertFalse(system_setup.parse_system_setup_result(0,'{"success":"false"}','')['success'])
+
+    def test_startup_authorization_is_not_killed_by_a_gui_process_timeout(self):
+        with patch.object(system_setup,'remote_login_setup_status',return_value={'available':False}), \
+             patch.object(system_setup.shutil,'which',return_value='/usr/bin/pkexec'), \
+             patch.object(system_setup.subprocess,'run',return_value=subprocess.CompletedProcess([],0,'{"success":true,"action":"disable"}','')) as run:
+            self.assertTrue(system_setup.apply_remote_login_setup(False)['success'])
+        self.assertNotIn('timeout',run.call_args.kwargs)
+
+    def test_helper_action_mismatch_does_not_claim_disable_success(self):
+        with patch.object(system_setup,'remote_login_setup_status',return_value={'available':False}), \
+             patch.object(system_setup.shutil,'which',return_value='/usr/bin/pkexec'), \
+             patch.object(system_setup.subprocess,'run',return_value=subprocess.CompletedProcess([],0,'{"success":true,"action":"enable-live"}','')):
+            result=system_setup.apply_remote_login_setup(False)
+        self.assertFalse(result['success']);self.assertTrue(result['outcome_unknown'])
+
+    def test_recovery_of_pending_disable_dispatches_disable_without_resume_first(self):
+        with patch.object(system_setup,'remote_login_setup_status',return_value={'recovery_available':True}), \
+             patch.object(system_setup.shutil,'which',return_value='/usr/bin/pkexec'), \
+             patch.object(system_setup.subprocess,'run',return_value=subprocess.CompletedProcess([],0,'{"success":true,"action":"recover-disable","configured":false}','')) as run:
+            result=system_setup.apply_remote_login_recovery(True)
+        self.assertEqual(run.call_args.args[0][-1],'recover-disable')
+        self.assertTrue(result['request_completed'])
+        self.assertIs(result['configured'],False)
+
+    def test_old_helper_cannot_receive_unknown_maintenance_action(self):
+        with patch.object(system_setup,'remote_login_setup_status',return_value={'recovery_available':False}), \
+             patch.object(system_setup.subprocess,'run') as run:
+            self.assertFalse(system_setup.apply_remote_login_recovery()['success'])
+        run.assert_not_called()
+
     def test_new_firewall_profile_is_reloaded_before_adding_service(self):
         from unittest.mock import Mock
         namespace=runpy.run_path(str(ROOT/'packaging/common/monitorize-system-setup'))
@@ -69,8 +106,9 @@ class SystemSetupTest(unittest.TestCase):
         namespace=runpy.run_path(str(ROOT/'packaging/common/monitorize-system-setup'))
         function=namespace['enable_firewall'];glob=function.__globals__
         run=Mock(return_value='ssh')
+        glob['recovery_module']=lambda: __import__('types').SimpleNamespace(restore_asset=lambda name:None)
         with patch.dict(glob,command_path=lambda *args:'/usr/bin/firewall-cmd',run=run),patch.object(glob['subprocess'],'run',return_value=subprocess.CompletedProcess([],0,'running','')):
-            with self.assertRaisesRegex(RuntimeError,'monitorize.xml'):function()
+            with self.assertRaisesRegex(RuntimeError,'could not be registered'):function()
         self.assertFalse(any('--add-service=monitorize' in call.args[0] for call in run.call_args_list))
 
     def test_missing_agent_error_explains_how_to_restore_the_prompt(self):
@@ -98,7 +136,8 @@ class SystemSetupTest(unittest.TestCase):
             [], 0, json.dumps({"success": True, "message": "Configured", "logout_required": True}), ""
         )
 
-        result = system_setup.apply_system_setup(True, True)
+        with patch.object(system_setup,"setup_helper_command",return_value=(["/usr/bin/pkexec",str(system_setup.HELPER),"--input","--firewall"],None)):
+            result = system_setup.apply_system_setup(True, True)
 
         self.assertTrue(result["success"])
         self.assertTrue(result["logout_required"])

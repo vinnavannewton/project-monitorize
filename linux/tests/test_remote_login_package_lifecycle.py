@@ -75,6 +75,62 @@ class LifecycleTests(unittest.TestCase):
         self.assertEqual([e[0] for e in self.backend.events], ['pause', 'release', 'restore', 'unmask', 'start'])
         self.assertFalse(receipt.exists())
 
+    def test_setup_can_pause_leftover_units_even_when_disabled_without_a_lease(self):
+        self.backend.settings['enabled']=False;self.backend.protected=False
+        self.lifecycle.prepare('upgrade',include_idle_services=True)
+        self.assertEqual([e[0] for e in self.backend.events],['pause','release'])
+        self.assertTrue((self.root/RECEIPT).exists())
+        self.lifecycle.resume()
+        self.assertNotIn('start',[e[0] for e in self.backend.events])
+
+    def test_expired_maintenance_does_not_remove_current_administrator_masks(self):
+        self.lifecycle.prepare('upgrade')
+        self.backend.boot_id='next-boot'
+        self.backend.prior_masks.add(SUPERVISOR)
+        self.backend.events=[]
+        self.lifecycle.disable_enrollment(1000)
+        pause=self.backend.events[0]
+        self.assertNotIn(SUPERVISOR,pause[1])
+        self.assertNotIn(SUPERVISOR,self.backend.events[-1][1])
+        self.assertNotIn('start',[event[0] for event in self.backend.events])
+
+    def test_foreign_maintenance_cannot_be_consumed_by_disable(self):
+        self.lifecycle.prepare('upgrade')
+        value=self.lifecycle.load();value['uid']=2000;value['masks']=unit_names(2000)
+        self.lifecycle.save(value)
+        self.backend.events=[]
+        before=(self.root/RECEIPT).read_bytes()
+        with self.assertRaises(PermissionError):self.lifecycle.disable_enrollment(1000)
+        self.assertEqual((self.root/RECEIPT).read_bytes(),before)
+        self.assertEqual(self.backend.events,[])
+
+    def test_explicit_disable_never_restores_an_interrupted_upgrade(self):
+        self.lifecycle.prepare('upgrade')
+        self.lifecycle.disable_enrollment(1000)
+        self.assertFalse(self.backend.settings['enabled'])
+        self.assertFalse((self.root/RECEIPT).exists())
+        self.assertNotIn('restore',[event[0] for event in self.backend.events])
+        self.assertNotIn('start',[event[0] for event in self.backend.events])
+
+    def test_failed_release_keeps_saved_disable_and_retry_receipt(self):
+        self.backend.error='connector busy'
+        with self.assertRaisesRegex(RuntimeError,'connector busy'):
+            self.lifecycle.disable_enrollment(1000)
+        self.assertFalse(self.backend.settings['enabled'])
+        self.assertTrue((self.root/RECEIPT).exists())
+        self.backend.error=None
+        self.lifecycle.disable_enrollment(1000)
+        self.assertFalse((self.root/RECEIPT).exists())
+
+    def test_disabled_policy_still_stops_a_leftover_service(self):
+        self.backend.settings['enabled']=False;self.backend.protected=False
+        self.lifecycle.disable_enrollment(1000)
+        self.assertEqual([e[0] for e in self.backend.events],['pause','disable','release','unmask'])
+
+    def test_explicit_disable_rejects_foreign_enrollment(self):
+        with self.assertRaises(PermissionError):self.lifecycle.disable_enrollment(1001)
+        self.assertEqual(self.backend.events,[])
+
     def test_active_connection_requires_explicit_disconnect_before_any_mutation(self):
         self.backend.connected = True
         with self.assertRaisesRegex(RuntimeError, '--allow-disconnect'):

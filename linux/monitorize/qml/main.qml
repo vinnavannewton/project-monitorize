@@ -130,6 +130,7 @@ Rectangle {
 
     function clearRestoreTokens() {
         let result = backend.clearRestoreTokens()
+        if (result.pending) return
         restoreTokenClearSucceeded = result["success"] === true
         restoreTokenClearMessage = result["message"] || "No restore tokens were found"
         restoreTokenClearToast.open()
@@ -239,14 +240,14 @@ Rectangle {
             stagnantCleanupToastTimer.restart()
         }
         function onStreamingStartFailed() {
-            if (vkmsReinstallPopup.visible) return
+            if (vkmsRecoveryPopup.visible) return
             root.startFailureMessage = "Failed to start stream"
             startFailedToast.open()
             startFailedToastTimer.restart()
         }
-        function onVkmsReinstallRequired() {
+        function onVkmsRecoveryRequired() {
             startFailedToast.close()
-            vkmsReinstallPopup.open()
+            vkmsRecoveryPopup.open()
         }
         function onRemoteLoginSetupBlocked(message) {
             root.startFailureMessage = message
@@ -400,15 +401,70 @@ Rectangle {
         }
     }
 
+    Connections {
+        target: backend
+        function onRemoteLoginSetupFinished(result) {
+            if (result.request_id === recoveryDecision.requestId) recoveryDecision.close()
+        }
+        function onRecoveryOperationFinished(result) {
+            if (result.operation === "clear_tokens") {
+                root.restoreTokenClearSucceeded = result.success
+                root.restoreTokenClearMessage = result.message
+                restoreTokenClearToast.open()
+                restoreTokenClearToastTimer.restart()
+            } else {
+                root.stagnantCleanupSucceeded = result.success
+                root.stagnantCleanupMessage = result.message
+                stagnantCleanupToast.open()
+                stagnantCleanupToastTimer.restart()
+            }
+            if (result.operation === "host_recovery") {
+                vkmsRecoveryPopup.message = result.message
+                vkmsRecoveryPopup.rebootRequired = result.reboot_required === true
+            }
+            if (result.request_id === recoveryDecision.requestId) recoveryDecision.close()
+        }
+        function onRecoveryDecisionRequested(request) {
+            recoveryDecision.requestId = request.request_id
+            recoveryDecision.title = request.title
+            recoveryDecision.acceptText = request.accept_text || "Stop and continue"
+            recoveryExplanation.text = request.message
+            recoveryDecision.open()
+        }
+    }
+    Dialog {
+        id: recoveryDecision
+        objectName: "recoveryDecisionDialog"
+        property string requestId: ""
+        property string acceptText: "Stop and continue"
+        anchors.centerIn: parent
+        width: Math.min(440, root.width - 40)
+        modal: true
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        onOpened: standardButton(Dialog.Ok).text = acceptText
+        onAccepted: backend.resolveRecoveryDecision(requestId, true)
+        onRejected: backend.resolveRecoveryDecision(requestId, false)
+        contentItem: TextArea {
+            id: recoveryExplanation
+            readOnly: true
+            selectByMouse: true
+            background: null
+            wrapMode: TextEdit.Wrap
+            color: theme.textPrimary
+        }
+    }
+
     Popup {
-        id: vkmsReinstallPopup
-        objectName: "vkmsReinstallPopup"
+        id: vkmsRecoveryPopup
+        property string message: "Monitorize VKMS is not ready. Recovery will check the installed service, module and topology before making changes."
+        property bool rebootRequired: false
+        objectName: "vkmsRecoveryPopup"
         modal: true
         focus: true
         closePolicy: Popup.CloseOnEscape
         anchors.centerIn: parent
         width: Math.min(440, root.width - 40)
-        height: vkmsReinstallContent.implicitHeight + 44
+        height: vkmsRecoveryContent.implicitHeight + 44
         padding: 22
         background: Rectangle {
             color: theme.surface
@@ -419,35 +475,44 @@ Rectangle {
         Overlay.modal: Rectangle { color: "#99000000" }
 
         ColumnLayout {
-            id: vkmsReinstallContent
+            id: vkmsRecoveryContent
             anchors.fill: parent
             spacing: 14
 
             Text {
-                text: "Reinstall monitorize-vkms"
+                text: "Recover Monitorize VKMS"
                 color: theme.textPrimary
                 font.pixelSize: 18
                 font.weight: Font.Bold
                 Layout.fillWidth: true
             }
-            Text {
-                text: "monitorize-vkms is installed, but its helper or kernel module is not ready. Run sudo ./install.sh from the monitorize-vkms directory, follow any reboot instructions, then try again."
+            TextArea {
+                readOnly: true
+                selectByMouse: true
+                background: null
+                text: vkmsRecoveryPopup.message
                 color: theme.textSecondary
                 font.pixelSize: 12
-                wrapMode: Text.WordWrap
+                wrapMode: TextEdit.Wrap
                 Layout.fillWidth: true
             }
             RowLayout {
                 Layout.alignment: Qt.AlignRight
                 spacing: 10
                 CustomButton {
-                    text: "Installation instructions"
+                    text: "Restart system…"
+                    visible: vkmsRecoveryPopup.rebootRequired
+                    onClicked: backend.requestSystemRestart()
+                }
+                CustomButton {
+                    text: "Recover host"
                     primary: false
-                    onClicked: backend.openMonitorizeVkmsInstallPage()
+                    enabled: !backend.remoteLoginSetupBusy
+                    onClicked: backend.recoverVkmsHost()
                 }
                 CustomButton {
                     text: "Close"
-                    onClicked: vkmsReinstallPopup.close()
+                    onClicked: vkmsRecoveryPopup.close()
                 }
             }
         }

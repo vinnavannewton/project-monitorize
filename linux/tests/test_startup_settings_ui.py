@@ -97,6 +97,53 @@ with tempfile.TemporaryDirectory() as d:
             settle()
             assert not page.findChild(QObject,'bootStartupCheck').property('checked')
             page.setProperty('settingsError','')
+            # Active remote capture asks before stopping anything; cancel retains the saved state.
+            previous_status=backend._remote_login.status
+            backend._remote_login.status={'capture_ready':True,'state':'desktop_available'}
+            with patch('monitorize.desktop.remote_login_setup.is_sunshine_running',return_value=False), patch('monitorize.desktop.remote_login_setup.apply_remote_login_setup') as admin:
+                backend.configureRemoteLogin(False);settle()
+                dialog=view.rootObject().findChild(QObject,'recoveryDecisionDialog');assert dialog
+                assert dialog.property('visible') and backend.remoteLoginSetupBusy
+                admin.assert_not_called()
+                e=QQmlExpression(qmlContext(dialog),dialog,'reject()');e.evaluate()
+                assert not e.hasError(),e.error().toString()
+                settle()
+                assert not backend.remoteLoginSetupBusy
+                assert not dialog.property('visible')
+                assert prop('pendingBootAction')==-1
+                admin.assert_not_called()
+            backend._remote_login.status=previous_status
+            page.setProperty('settingsError','')
+            backend._remote_login.status={'capture_ready':True,'state':'desktop_available'}
+            with patch('monitorize.desktop.remote_login_setup.is_sunshine_running',return_value=False), patch('monitorize.desktop.remote_login_setup.apply_remote_login_setup',return_value={'success':True,'configured':False,'message':'Disabled'}) as admin, patch('monitorize.desktop.remote_login_setup.configure'), patch.object(backend,'_stop_owned_session') as stop_owned, patch.object(backend,'_owned_session_stopped',return_value=True):
+                backend.configureRemoteLogin(False);settle()
+                dialog=view.rootObject().findChild(QObject,'recoveryDecisionDialog')
+                e=QQmlExpression(qmlContext(dialog),dialog,'accept()');e.evaluate()
+                for _ in range(20):
+                    settle()
+                    if not backend.remoteLoginSetupBusy:break
+                stop_owned.assert_called_once()
+                admin.assert_called_once_with(False)
+                assert not backend.remoteLoginSetupBusy
+                assert not page.findChild(QObject,'bootStartupCheck').property('checked')
+            backend._remote_login.status=previous_status
+            # A pending disable is recovered directly, without first enabling hosting.
+            page.setProperty('bootOptionsExpanded',True)
+            page.setProperty('pendingBootAction',0)
+            status.return_value={'available':True,'live_available':True,'enabled':False,'supported':True,'maintenance_pending':True,'recovery_available':True}
+            e=QQmlExpression(qmlContext(page),page,'page.refreshStartup()');e.evaluate();settle()
+            resume=page.findChild(QObject,'resumeRemoteLoginMaintenance');assert resume.property('visible')
+            with patch('monitorize.desktop.remote_login_setup.apply_remote_login_setup',return_value={'success':True,'configured':False,'message':'Recovered'}) as recover, patch('monitorize.platform.sunshine_service.is_sunshine_running',return_value=False):
+                backend.recoverRemoteLogin(True)
+                for _ in range(20):
+                    settle()
+                    if not backend.remoteLoginSetupBusy:break
+                recover.assert_called_once_with(False)
+                assert not backend.remoteLoginSetupBusy
+                assert prop('pendingBootAction')==-1
+                assert not page.findChild(QObject,'bootStartupCheck').property('checked')
+            page.setProperty('bootOptionsExpanded',False)
+            status.return_value={'available':True,'live_available':True,'enabled':False,'supported':True}
             # Source repair runs asynchronously through the coordinator; no live helper is invoked.
             with patch('monitorize.platform.remote_login_repair.repair_options',return_value={'repair_kind':'source','repair_message':'Repair','repair_needed':True}), patch('monitorize.platform.remote_login_repair.repair_remote_login',return_value={'success':True,'message':'Repaired'}) as repair, patch('monitorize.platform.sunshine_service.is_sunshine_running',return_value=False):
                 backend.repairRemoteLogin()
@@ -202,7 +249,7 @@ with tempfile.TemporaryDirectory() as d:
             login_state[0]=previous_login
             backend.remoteLoginSetupChanged.emit();settle()
             # Cancelling parent disable keeps both options selected.
-            with patch('monitorize.platform.system_setup.apply_remote_login_setup',return_value={'success':False,'message':'Cancelled'}) as disable:
+            with patch('monitorize.desktop.remote_login_setup.apply_remote_login_setup',return_value={'success':False,'message':'Cancelled'}) as disable:
                 login.setProperty('checked',False)
                 e=QQmlExpression(qmlContext(page),page,'autostartCheck.clicked()');e.evaluate()
                 assert not e.hasError(),e.error().toString()

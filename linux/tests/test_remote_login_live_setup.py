@@ -3,7 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import os
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from monitorize.remote_login import live_setup as live
 
@@ -181,3 +181,50 @@ class LiveSetupTests(unittest.TestCase):
              patch.object(live,'setup_lock',return_value=nullcontext()),patch.object(live,'InstalledBackend',return_value=backend):
             live.complete_for_session(1000,'3')
         self.assertEqual(receipt.load()['stage'],'complete')
+
+
+class InstalledRecoveryTests(unittest.TestCase):
+    def test_owned_active_supervisor_can_be_snapshotted_without_manual_stop(self):
+        from types import SimpleNamespace
+        backend=object.__new__(live.InstalledBackend)
+        backend.boot_id='boot-a'
+        backend.commands=Mock()
+        backend.commands.enabled.return_value=True
+        backend.commands.run.side_effect=lambda args:'active' if 'show' in args else 'cap_sys_admin=p'
+        backend.status=Mock(return_value=dict(uid=1000,session='3'))
+        backend.host=Mock();backend.host.boot_output_status.return_value=None
+        backend.helper=SimpleNamespace(STATE_DIRECTORY='/fixture')
+        backend.fallback_masks=Mock(return_value=[])
+        with TemporaryDirectory() as directory, \
+             patch('monitorize.remote_login.settings.SETTINGS',Path(directory)/'absent'), \
+             patch('monitorize.remote_login.enrollment._no_engines') as no_engines:
+            result=backend.snapshot(1000,'3')
+        self.assertTrue(result['maintenance_required'])
+        no_engines.assert_not_called()
+        backend.status.return_value=dict(uid=2000,session='3')
+        with self.assertRaises(PermissionError):backend.snapshot(1000,'3')
+
+    def test_idle_maintenance_is_prepared_before_reconfiguring_an_active_service(self):
+        backend=object.__new__(live.InstalledBackend)
+        lifecycle=Mock();lifecycle.load.side_effect=[None,{'masks':['monitorize-remote-login.service']}]
+        backend.maintenance=Mock(return_value=lifecycle)
+        backend.commands=Mock()
+        journal=Mock();journal.value={'system':{'maintenance_required':True,'masks':[]}}
+        with patch('monitorize.remote_login.enrollment._no_engines') as no_engines, \
+             patch('monitorize.remote_login.enrollment.enable') as enable, \
+             patch('monitorize.remote_login.live_setup.TransactionFiles'):
+            backend.configure(1000,journal)
+        lifecycle.prepare.assert_called_once_with('upgrade',include_idle_services=True)
+        lifecycle.backend.unmask.assert_called_once_with(['monitorize-remote-login.service'])
+        self.assertTrue(journal.value['system']['maintenance_started'])
+        no_engines.assert_called_once();enable.assert_called_once()
+
+    def test_foreign_pending_maintenance_is_not_adopted(self):
+        backend=object.__new__(live.InstalledBackend)
+        lifecycle=Mock();lifecycle.load.return_value={'uid':2000}
+        backend.maintenance=Mock(return_value=lifecycle)
+        journal=Mock();journal.value={'system':{'maintenance_required':True,'masks':[]}}
+        with self.assertRaisesRegex(RuntimeError,'maintenance is pending'):
+            backend.configure(1000,journal)
+        lifecycle.prepare.assert_not_called()
+        self.assertNotIn('maintenance_started',journal.value['system'])

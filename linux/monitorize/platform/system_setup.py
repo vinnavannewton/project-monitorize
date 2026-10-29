@@ -13,9 +13,34 @@ import subprocess
 from pathlib import Path
 
 from monitorize.platform.polkit_errors import authentication_error_message
+from monitorize.platform.polkit_agent import run_authorized
 
 HELPER = Path("/usr/libexec/monitorize/monitorize-system-setup")
 VKMS_AUTHORIZATION_HELPER = Path('/usr/libexec/monitorize-vkms/monitorize-vkms-authorization')
+
+
+def source_bootstrap_command(arguments):
+    repository=Path(__file__).resolve().parents[3]
+    script=repository/'scripts/source-maintenance.py'
+    if not script.is_file():return None
+    from monitorize.platform.remote_login_repair import owning_package_manager
+    if owning_package_manager(HELPER):return None
+    pkexec=shutil.which('pkexec')
+    return [pkexec,'/usr/bin/python3','-I',str(script),'bootstrap','--',*arguments] if pkexec else None
+
+
+def setup_helper_command(arguments):
+    try:
+        info=HELPER.stat()
+        valid=info.st_uid==0 and not info.st_mode & 0o022 and not HELPER.is_symlink() and os.access(HELPER,os.X_OK) and "SYSTEM_RECOVERY_PROTOCOL = 1" in HELPER.read_text()
+    except OSError:valid=False
+    if valid:
+        pkexec=shutil.which('pkexec')
+        if pkexec:return [pkexec,str(HELPER),*arguments],None
+        return None,{'success':False,'message':'Polkit (pkexec) is not installed.'}
+    command=source_bootstrap_command(arguments)
+    if command:return command,None
+    return None,{'success':False,'code':'prerequisite_missing','message':'A trusted installed system setup helper is required. Native package files remain managed by their package manager.'}
 
 
 def kms_setup_command(binary):
@@ -31,6 +56,11 @@ def kms_setup_command(binary):
         if not stat.S_ISREG(info.st_mode):
             raise ValueError("The selected Sunshine executable is not a regular file.")
     except (OSError, ValueError) as exc:
+        try:
+            path=Path(binary).resolve(strict=True);info=path.stat()
+            command=source_bootstrap_command(['--kms-binary',str(path),'--kms-device',str(info.st_dev),'--kms-inode',str(info.st_ino)])
+            if command:return command,None
+        except (OSError,ValueError):pass
         return None, {"success": False, "message": str(exc)}
     pkexec = shutil.which("pkexec")
     if not pkexec:
@@ -85,7 +115,7 @@ def _input_ready() -> bool:
 def get_system_setup_status() -> dict[str, object]:
     """Separate saved enrollment, current session membership and device access."""
     return {
-        'available': HELPER.is_file() and os.access(HELPER, os.X_OK),
+        'available': (HELPER.is_file() and os.access(HELPER, os.X_OK)) or source_bootstrap_command([]) is not None,
         **_input_status(),
     }
 
@@ -97,7 +127,7 @@ def apply_system_setup(enable_input: bool, enable_firewall: bool) -> dict[str, o
         return error
 
     try:
-        result = subprocess.run(command, text=True, capture_output=True, timeout=60, check=False)
+        result = run_authorized(command, text=True, capture_output=True, check=False)
     except subprocess.TimeoutExpired:
         return {"success": False, "message": "System setup timed out."}
     except OSError as exc:
@@ -107,25 +137,13 @@ def apply_system_setup(enable_input: bool, enable_firewall: bool) -> dict[str, o
 
 def system_setup_command(enable_input: bool, enable_firewall: bool, enable_vkms=False):
     """Build the fixed privileged command without starting it."""
-    status = get_system_setup_status()
-    if not status["available"]:
-        return None, {"success": False, "message": "Install Monitorize system-setup assets from a native package or the source deployment installer."}
     if not enable_input and not enable_firewall and not enable_vkms:
         return None, {"success": False, "message": "Select at least one system setup action."}
-
-    pkexec = shutil.which("pkexec")
-    if not pkexec:
-        return None, {"success": False, "message": "Polkit (pkexec) is not installed."}
-
-    command = [pkexec, str(HELPER)]
-    if enable_input:
-        command.append("--input")
-    if enable_firewall:
-        command.append("--firewall")
-    if enable_vkms:
-        command.append('--unattended-vkms')
-
-    return command, None
+    options=[]
+    if enable_input:options.append('--input')
+    if enable_firewall:options.append('--firewall')
+    if enable_vkms:options.append('--unattended-vkms')
+    return setup_helper_command(options)
 
 
 def parse_system_setup_result(returncode, stdout, stderr):
@@ -138,6 +156,8 @@ def parse_system_setup_result(returncode, stdout, stderr):
                 response = failure
         except (TypeError, ValueError):
             pass
+        if returncode == 126 and not response:
+            response['cancelled'] = True
         detail = str(response.get('message') or stderr.strip() or 'Authorization was cancelled or setup failed.')
         response.update(success=False, message=authentication_error_message(detail) or detail)
         return response
@@ -145,10 +165,10 @@ def parse_system_setup_result(returncode, stdout, stderr):
     try:
         response = json.loads(stdout)
     except (TypeError, json.JSONDecodeError):
-        return {"success": False, "message": "System setup returned an invalid response."}
+        return {"success": False, "outcome_unknown": True, "message": "System setup returned an invalid response. Refresh status before retrying."}
     if not isinstance(response, dict):
-        return {"success": False, "message": "System setup returned an invalid response."}
-    response["success"] = bool(response.get("success", False))
+        return {"success": False, "outcome_unknown": True, "message": "System setup returned an invalid response. Refresh status before retrying."}
+    response["success"] = response.get("success") is True
     return response
 
 
@@ -199,6 +219,13 @@ def remote_login_setup_status():
         except ValueError:result.update(available=False,message='Remote-login configuration needs administrator repair.')
     if not result['available']:
         result.update(live_available=False,live_message=result['message'])
+    from monitorize.platform.remote_login_host import _constant
+    try:
+        result['recovery_available']=(_constant(Path('/usr/lib/monitorize-remote-login/monitorize/remote_login/enrollment.py').read_text(),'SETUP_RECOVERY_PROTOCOL')==1
+            and _constant(HELPER.read_text(),'REMOTE_LOGIN_RECOVERY_PROTOCOL')==1)
+    except (OSError,ValueError,SyntaxError):result['recovery_available']=False
+    try:result['maintenance_pending']=Path('/var/lib/monitorize/remote-login-package.json').exists()
+    except OSError:result['maintenance_pending']=False
     return result
 
 
@@ -213,11 +240,31 @@ def apply_remote_login_setup(enabled):
     pkexec=shutil.which('pkexec')
     if not pkexec:return {'success':False,'message':'Install Polkit and run an authentication agent in your desktop.'}
     try:
-        result=subprocess.run([pkexec,str(HELPER),'--remote-login','enable-live' if enabled else 'disable'],
-            text=True,capture_output=True,timeout=120,check=False)
-    except subprocess.TimeoutExpired:return {'success':False,'message':'Remote-login setup timed out. Inspect its enrollment status before retrying.'}
+        result=run_authorized([pkexec,str(HELPER),'--remote-login','enable-live' if enabled else 'disable'],
+            text=True,capture_output=True,check=False)
+    except subprocess.TimeoutExpired:return {'success':False,'outcome_unknown':True,'message':'Remote-login setup outcome is unknown. Refresh startup status before retrying.'}
     except OSError:return {'success':False,'message':'Could not start the installed administrator setup helper.'}
-    return parse_system_setup_result(result.returncode,result.stdout,result.stderr)
+    response=parse_system_setup_result(result.returncode,result.stdout,result.stderr)
+    if response.get('action','enable-live' if enabled else 'disable')!=('enable-live' if enabled else 'disable'):
+        return {'success':False,'outcome_unknown':True,'message':'The administrator helper reported a different startup action. Refresh startup status before retrying.'}
+    return response
+
+
+def apply_remote_login_recovery(disable_boot=False):
+    status=remote_login_setup_status()
+    if not status.get('recovery_available'):
+        return {'success':False,'message':'The installed remote-login helper does not support maintenance recovery.'}
+    pkexec=shutil.which('pkexec')
+    if not pkexec:return {'success':False,'message':'Polkit (pkexec) is not installed.'}
+    action='recover-disable' if disable_boot else 'recover'
+    try:
+        result=run_authorized([pkexec,str(HELPER),'--remote-login',action],capture_output=True,text=True,check=False)
+        response=parse_system_setup_result(result.returncode,result.stdout,result.stderr)
+        if response.get('action',action)!=action:
+            return {'success':False,'outcome_unknown':True,'message':'The administrator helper did not confirm the requested recovery action. Refresh startup status.'}
+        return {**response,'request_completed':bool(disable_boot and response.get('success'))}
+    except OSError:return {'success':False,'message':'Could not start administrator recovery.'}
+
 
 
 def prepare_desktop_fallback():
@@ -230,7 +277,7 @@ def prepare_desktop_fallback():
     pkexec=shutil.which('pkexec')
     if not pkexec:return {'success':False,'message':'Desktop fallback needs administrator authorization through Polkit.'}
     try:
-        result=subprocess.run([pkexec,str(HELPER),'--remote-login','fallback'],capture_output=True,text=True,timeout=90,check=False)
+        result=run_authorized([pkexec,str(HELPER),'--remote-login','fallback'],capture_output=True,text=True,timeout=90,check=False)
         return parse_system_setup_result(result.returncode,result.stdout,result.stderr)
     except (OSError,subprocess.TimeoutExpired):return {'success':False,'message':'Desktop fallback authorization or ownership release failed; inspect the remote-login journal.'}
 
@@ -258,7 +305,7 @@ def apply_login_virtual_display(enabled):
     pkexec=shutil.which('pkexec')
     if not pkexec:return {'success':False,'message':'Login-screen settings need administrator authorization through Polkit.'}
     try:
-        result=subprocess.run([pkexec,str(HELPER),'--remote-login','login-virtual-on' if enabled else 'login-virtual-off'],
+        result=run_authorized([pkexec,str(HELPER),'--remote-login','login-virtual-on' if enabled else 'login-virtual-off'],
             capture_output=True,text=True,timeout=120,check=False)
         return parse_system_setup_result(result.returncode,result.stdout,result.stderr)
     except (OSError,subprocess.TimeoutExpired):
@@ -284,7 +331,7 @@ def apply_display_idle_timeout(seconds):
     pkexec=shutil.which('pkexec')
     if not pkexec:return {'success':False,'message':'Display timeout settings need administrator authorization through Polkit.'}
     try:
-        result=subprocess.run([pkexec,str(HELPER),'--remote-login','timeout','--display-idle-timeout',str(seconds)],
+        result=run_authorized([pkexec,str(HELPER),'--remote-login','timeout','--display-idle-timeout',str(seconds)],
                               capture_output=True,text=True,timeout=60,check=False)
         return parse_system_setup_result(result.returncode,result.stdout,result.stderr)
     except (OSError,subprocess.TimeoutExpired):
@@ -306,3 +353,21 @@ def apply_general_display_idle_timeout(seconds):
         return {'success': False, 'message': 'Could not save the disconnect timer. Enter a value from 1 to 600 seconds and retry.'}
     return {'success': True, 'display_idle_timeout_seconds': seconds,
             'message': 'Disconnect timer saved. Applies after future disconnects; the current stream is unchanged.'}
+
+
+def recover_networkmanager():
+    command,error=setup_helper_command(['--recover-networkmanager'])
+    if error:return error
+    try:
+        result=run_authorized(command,capture_output=True,text=True,check=False)
+        return parse_system_setup_result(result.returncode,result.stdout,result.stderr)
+    except OSError:return {'success':False,'message':'NetworkManager recovery could not start.'}
+
+
+def recover_vkms_host():
+    command,error=setup_helper_command(['--recover-host'])
+    if error:return error
+    try:
+        result=run_authorized(command,capture_output=True,text=True,check=False)
+        return parse_system_setup_result(result.returncode,result.stdout,result.stderr)
+    except OSError:return {'success':False,'message':'Host recovery could not start.'}

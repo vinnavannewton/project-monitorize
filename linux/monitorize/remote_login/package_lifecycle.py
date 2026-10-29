@@ -46,7 +46,7 @@ class PackageLifecycle:
     def save(self, value):
         self.files.write(RECEIPT, json.dumps(value), 0o600)
 
-    def prepare(self, operation, *, allow_disconnect=False):
+    def prepare(self, operation, *, allow_disconnect=False, include_idle_services=False):
         if operation not in ('upgrade', 'remove'):
             raise ValueError('Invalid package operation.')
         value = self.load()
@@ -65,7 +65,11 @@ class PackageLifecycle:
         else:
             settings, protected = self.backend.state()
             if (not settings or not settings['enabled']) and not protected:
-                return
+                # Explicit setup recovery also handles leftover active units after
+                # an older disable operation. Ordinary package hooks stay silent.
+                if (not include_idle_services or not settings
+                        or not any(self.backend.active(name) for name in unit_names(settings['uid']))):
+                    return
             if settings is None:
                 raise RuntimeError('A protected display has no enrollment configuration; repair its ownership before retrying.')
             uid = settings['uid']
@@ -92,6 +96,33 @@ class PackageLifecycle:
             raise RuntimeError('Remote-login package cleanup failed: '+str(error)+
                 '. Package replacement is blocked; pairing/settings are retained. Fix the cause and retry, '
                 'or recover paused services with '+RECOVERY+' --resume.') from error
+
+    def disable_enrollment(self,uid):
+        """Explicit authorized disable, including stale upgrade maintenance.
+
+        Publish disabled policy before releasing outputs so cleanup failure cannot
+        restore boot startup. Never restart hosting while fulfilling an off request.
+        """
+        settings,_=self.backend.state()
+        if settings is None or settings.get('uid')!=uid:
+            raise PermissionError('Only the enrolled account can disable remote login.')
+        value=self.load()
+        if value is not None and value['uid']!=uid:
+            raise PermissionError('Maintenance belongs to another account.')
+        if value is not None and value['boot_id']!=self.backend.boot_id:
+            self.path.unlink()  # Old runtime masks do not belong to this boot.
+            value=None
+        if value is None:
+            value=dict(uid=uid,operation='remove',boot_id=self.backend.boot_id,restart=False,
+                masks=[name for name in unit_names(uid) if not self.backend.masked(name)],stage='pausing')
+        else:
+            value.update(operation='remove',restart=False,stage='pausing')
+        self.save(value)
+        self.backend.pause(uid,value['masks'],allow_disconnect=True)
+        self.backend.disable(uid,value['masks'])
+        self.backend.release(uid)
+        self.backend.unmask(value['masks'])
+        self.path.unlink()
 
     def resume(self):
         value = self.load()

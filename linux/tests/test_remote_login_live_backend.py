@@ -61,8 +61,55 @@ class CoordinatorTests(unittest.TestCase):
         self.backend._remote_login.changed.emit();self.assertFalse(self.results[-1]['success'])
     def test_active_client_blocks_before_root_or_user_changes(self):
         self.backend.session.active=True;self.begin()
-        self.assertFalse(self.results[-1]['success'])
+        self.assertEqual(self.results,[])
+        self.assertTrue(self.coordinator._awaiting_decision)
+        self.coordinator.resolve(self.coordinator.request.request_id,False)
+        self.assertTrue(self.results[-1]['cancelled'])
         self.backend._background_executor.submit.assert_not_called()
+    def test_disable_skips_enablement_checks_and_never_calls_enable(self):
+        self.backend.session.client_runtime=SimpleNamespace(active=True,
+            pause_idle_for_enrollment=Mock(return_value={'configs':{}}),
+            enrollment_pause_complete=Mock(return_value=True),resume_enrollment_pause=Mock())
+        self.backend.session.active=True  # Idle listener, not a connected stream.
+        with patch('monitorize.desktop.remote_login_setup.remote_login_setup_status',return_value=dict(live_available=False)), \
+             patch('monitorize.desktop.remote_login_setup.is_sunshine_running',return_value=False):
+            self.coordinator.begin(False)
+        with patch('monitorize.desktop.remote_login_setup.apply_remote_login_setup',return_value=dict(success=True,configured=False)) as setup, \
+             patch('monitorize.desktop.remote_login_setup.configure') as controller:
+            result=self.coordinator._work()
+        setup.assert_called_once_with(False);controller.assert_called_once_with(False)
+        self.coordinator._root_finished(result)
+        self.assertTrue(self.results[-1]['success'])
+        self.assertIs(self.results[-1]['requested_enabled'],False)
+        self.assertFalse(self.results[-1]['activated'])
+
+    def test_stale_or_rejected_interruption_request_has_no_side_effect(self):
+        self.backend.session.active=True;self.begin()
+        self.coordinator.resolve('old-request',True)
+        self.backend._background_executor.submit.assert_not_called()
+        self.assertTrue(self.coordinator._awaiting_decision)
+        self.coordinator.resolve(self.coordinator.request.request_id,False)
+        self.assertTrue(self.results[-1]['cancelled'])
+
+    def test_accepted_interruption_waits_for_owned_cleanup_before_root(self):
+        self.backend.session.active=True;self.begin()
+        self.backend._stop_owned_session=Mock()
+        self.backend._owned_session_stopped=Mock(return_value=False)
+        self.coordinator.resolve(self.coordinator.request.request_id,True)
+        self.backend._stop_owned_session.assert_called_once()
+        self.backend._background_executor.submit.assert_not_called()
+        self.backend._owned_session_stopped.return_value=True
+        self.coordinator._advance()
+        self.backend._background_executor.submit.assert_called_once()
+
+    def test_queued_advance_cannot_dismiss_a_pending_decision(self):
+        self.backend.session.active=True;self.begin()
+        self.coordinator._advance()
+        self.assertTrue(self.coordinator._awaiting_decision)
+        self.assertEqual(self.results,[])
+        self.coordinator.cancel()
+        self.assertTrue(self.results[-1]['cancelled'])
+
     def test_root_error_reports_partial_and_does_not_claim_activated(self):
         self.begin()
         self.coordinator._root_finished(dict(success=False,configured=True,partial=True,message='retry'))

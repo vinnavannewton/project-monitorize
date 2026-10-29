@@ -12,6 +12,8 @@ from .root_files import RootFiles
 from .runner import ENGINE,ASSETS,APPS,BOOT_CONFIG
 from .settings import SETTINGS,read_settings
 
+SETUP_RECOVERY_PROTOCOL = 1
+
 NEW_UNITS=('monitorize-vkms-boot-display.service','monitorize-remote-login.service')
 OLD_UNITS=('monitorize-login-capture.service','monitorize-remote-login-probe.service')
 
@@ -199,23 +201,65 @@ def enable(uid, *, files=None, commands=None):
 def disable(uid):
     settings=read_settings()
     if uid!=settings.uid:raise PermissionError('Only the enrolled account can disable remote login.')
-    commands=Commands()
-    commands.run(['/usr/bin/systemctl','stop','monitorize-remote-login.service',
-                  f'monitorize-remote-login-boot@{uid}.service',f'monitorize-remote-login-desktop@{uid}.service'])
-    with acquire_identity_lock(identity_paths(settings.directory),uid=uid):pass
-    files=RootFiles()
-    values=dict(schema_version=1,enabled=False,uid=settings.uid,gid=settings.gid,username=settings.username,
-                home=settings.home,profile=settings.profile,manager=getattr(settings,'manager','plasmalogin.service'),encoder=settings.encoder,adapter=settings.adapter,
-                create_login_virtual_display=getattr(settings,'create_login_virtual_display',False),
-                display_idle_timeout_seconds=getattr(settings,'display_idle_timeout_seconds',20))
-    configure_disabled(values,files=files,commands=commands)
-    restore_linger(uid,commands=commands)
-    try:remove_reserved(uid)
+    from .package_lifecycle import InstalledBackend,PackageLifecycle
+    try:
+        PackageLifecycle(InstalledBackend()).disable_enrollment(uid)
+        restore_linger(uid,commands=Commands())
+        # A later enable must not replay an interrupted setup from before disable.
+        from .live_setup import SetupReceipt
+        receipt=SetupReceipt(uid);value=receipt.load()
+        if value is not None:
+            value['stage']='rolled_back';receipt.save(value)
     except Exception as error:
-        return dict(success=False,partial=True,cleanup_pending=True,reboot_required=False,
-                    message='Boot startup is disabled, but display release needs retry: '+str(error))
-    return dict(success=True,reboot_required=False,message='Boot startup disabled. Normal streaming is available now. Pairing and Wi-Fi settings are retained.')
+        current=read_settings()
+        return dict(success=False,configured=current.enabled,partial=True,cleanup_pending=True,
+            reboot_required=False,code='disable_cleanup_pending',
+            message=('Boot startup is disabled, but cleanup needs retry: ' if not current.enabled
+                     else 'Boot startup could not be fully disabled: ')+str(error))
+    return dict(success=True,configured=False,reboot_required=False,
+        message='Boot startup disabled. Normal streaming is available now. Pairing and Wi-Fi settings are retained.')
 
+
+def recover_maintenance(uid):
+    """Resume only the authorizing account's existing service-maintenance receipt."""
+    from .package_lifecycle import InstalledBackend,PackageLifecycle
+    settings=read_settings()
+    if settings.uid!=uid:raise PermissionError('Only the enrolled account can recover remote login.')
+    lifecycle=PackageLifecycle(InstalledBackend());value=lifecycle.load()
+    if value is not None and value['uid']!=uid:
+        raise PermissionError('Maintenance belongs to another account.')
+    lifecycle.resume()
+    return dict(success=True,configured=read_settings().enabled,reboot_required=False,
+        message='Remote-login maintenance recovered. Settings and pairing retained.')
+
+
+
+def recover_host(uid):
+    from .package_lifecycle import InstalledBackend,PackageLifecycle
+    lifecycle=PackageLifecycle(InstalledBackend())
+    settings=read_settings()
+    if settings.uid!=uid:raise PermissionError('Only the enrolled account can recover this host.')
+    previous=lifecycle.load()
+    if previous is not None and (previous['uid']!=uid or previous['operation']!='upgrade'):
+        raise RuntimeError('A different remote-login maintenance operation is pending.')
+    if previous is not None and previous['boot_id']!=lifecycle.backend.boot_id:
+        lifecycle.resume();previous=None
+    # UI already obtained consent to stop this account's active desktop. The root
+    # boundary still refuses unknown/other account capture and connected clients.
+    if previous is not None and previous['stage']=='prepared':
+        lifecycle.backend.pause(uid,previous['masks'],allow_disconnect=False)
+    else:lifecycle.prepare('upgrade',include_idle_services=True)
+    helper=Path('/usr/libexec/monitorize-vkms/monitorize-vkms-recovery')
+    try:
+        completed=subprocess.run(['/usr/bin/python3','-I',str(helper),'recover'],capture_output=True,text=True,check=False)
+        result=json.loads(completed.stdout)
+        if not isinstance(result,dict) or type(result.get('success')) is not bool:raise ValueError('Invalid host recovery response.')
+        if completed.returncode:result['success']=False
+        if not result['success']:return {**result,'cleanup_pending':True}
+        lifecycle.resume()
+        return result
+    except Exception as error:
+        return dict(success=False,partial=True,cleanup_pending=True,message='Host recovery remains paused: '+str(error))
 
 def remove_reserved(uid, *, release=False):
     """Administrator recovery only when coordinator and engine cgroups exited."""
@@ -361,7 +405,7 @@ def main(action, seconds=None):
     from .live_setup import enable_live,setup_lock
     try:
         with setup_lock():
-            result={'enable':enable,'enable-live':enable_live,'disable':disable,'remove':remove_reserved,'fallback':desktop_fallback,
+            result={'enable':enable,'enable-live':enable_live,'disable':disable,'recover':recover_maintenance,'recover-host':recover_host,'recover-disable':disable,'remove':remove_reserved,'fallback':desktop_fallback,
                 'login-virtual-on':lambda uid:configure_login_virtual_display(uid,True),
                 'login-virtual-off':lambda uid:configure_login_virtual_display(uid,False),
                 'primary-on':lambda uid:configure_login_primary_display(uid,True),
@@ -369,4 +413,5 @@ def main(action, seconds=None):
                 'timeout':lambda uid:configure_display_idle_timeout(uid,seconds)}[action](int(raw))
     except Exception as error:
         result={'success':False,'message':str(error)}
+    result['action']=action
     print(json.dumps(result));return 0 if result['success'] else 1

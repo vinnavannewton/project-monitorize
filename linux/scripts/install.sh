@@ -69,21 +69,13 @@ check_vkms_cli() {
 }
 
 remove_vkms_helper() {
-    local pkexec_command rm_command
-    if [[ ! -e "${VKMS_HELPER_PATH}" && ! -e "${VKMS_POLICY_PATH}" ]]; then
-        return 0
+    if [[ ! -e "${VKMS_HELPER_PATH}" && ! -e "${VKMS_POLICY_PATH}" ]]; then return 0; fi
+    if ! command -v pkexec >/dev/null; then
+        echo "Legacy cleanup is incomplete: Polkit is required to authorize removal." >&2
+        return 1
     fi
-    pkexec_command="$(command -v pkexec 2>/dev/null || true)"
-    rm_command="$(command -v rm 2>/dev/null || true)"
-    if [[ -z "${pkexec_command}" || -z "${rm_command}" ]]; then
-        echo "Warning: Remove ${VKMS_HELPER_PATH} and ${VKMS_POLICY_PATH} as root to finish uninstalling VKMS support." >&2
-        return 0
-    fi
-    if "${pkexec_command}" "${rm_command}" -f -- "${VKMS_HELPER_PATH}" "${VKMS_POLICY_PATH}"; then
-        echo "✓ Experimental VKMS helper and Polkit policy removed"
-    else
-        echo "Warning: VKMS helper removal was cancelled or failed." >&2
-    fi
+    python3 "${REPOSITORY_DIR}/scripts/authorize-source-maintenance.py" legacy-cleanup
+
 }
 
 desktop_quote() {
@@ -429,10 +421,12 @@ check_sunshine_node_modules_permissions() {
     if [[ -n "${blocked_path}" ]]; then
         echo "Error: Sunshine's generated npm cache is not writable: ${blocked_path}" >&2
         echo "This is normally left behind by an earlier sudo or container build." >&2
-        echo "Repair it with:" >&2
-        echo "  sudo chown -R \"$(id -un)\":\"$(id -gn)\" \"${node_modules}\"" >&2
-        echo "Then rerun this installer without sudo." >&2
-        exit 1
+        echo "Requesting authorization to repair only this generated cache…" >&2
+        if ! python3 "${REPOSITORY_DIR}/scripts/authorize-source-maintenance.py" cache; then
+            echo "Cache repair was cancelled or incomplete; the build remains unprivileged." >&2
+            exit 1
+        fi
+        [[ -w "${node_modules}" ]] || { echo "Cache is still not writable." >&2; exit 1; }
     fi
     return 0
 }
@@ -1113,15 +1107,7 @@ fi
 # An enrolled source install has a second, root-owned engine. A desktop rebuild
 # cannot update it; stage the exact new engine before claiming complete success.
 if [[ "${INSTALL_MODE}" == "complete" ]]; then
-    if ! grep -q '^KMS_SETUP_PROTOCOL = 1$' /usr/libexec/monitorize/monitorize-system-setup 2>/dev/null; then
-        echo "Graphical KMS permission repair needs the updated administrator helper. Install its assets with:"
-        printf '    sudo install -D -m 755 -- %q %q\n' \
-            "${REPOSITORY_DIR}/packaging/common/monitorize-system-setup" \
-            /usr/libexec/monitorize/monitorize-system-setup
-        printf '    sudo install -D -m 644 -- %q %q\n' \
-            "${REPOSITORY_DIR}/packaging/common/io.github.vinnavannewton.monitorize.system-setup.policy" \
-            /usr/share/polkit-1/actions/io.github.vinnavannewton.monitorize.system-setup.policy
-    fi
+    echo "Open System setup in Monitorize for authorized input, firewall and KMS setup."
     "${VENV_DIR}/bin/python3" "${REPOSITORY_DIR}/scripts/check-source-remote-login.py" \
         --sunshine "${SUNSHINE_VENV_BIN}" --assets "${SUNSHINE_VENV_ASSETS}"
 fi

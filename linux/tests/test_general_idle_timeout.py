@@ -29,5 +29,7 @@ class GeneralIdleTimeoutTests(unittest.TestCase):
  def test_reenabling_remote_login_synchronizes_explicit_general_preference(self):
   from monitorize.desktop import remote_login_setup as setup
   with patch.object(setup,'controller_snapshot',return_value={}),patch.object(setup,'configure'),patch.object(setup,'apply_remote_login_setup',return_value=dict(success=True,configured=True)),patch.object(settings,'saved_display_idle_timeout',return_value=47),patch.object(setup,'remote_login_setup_status',return_value=dict(display_idle_timeout_seconds=20)),patch.object(system_setup,'apply_display_idle_timeout',return_value=dict(success=True)) as sync:
-   result=setup.RemoteLoginSetupCoordinator._work(None)
+   from types import SimpleNamespace
+   state=SimpleNamespace(request=SimpleNamespace(enabled=True),_restore_controller=False,_root_applied=None)
+   result=setup.RemoteLoginSetupCoordinator._work(state)
    self.assertTrue(result['success']);sync.assert_called_once_with(47)

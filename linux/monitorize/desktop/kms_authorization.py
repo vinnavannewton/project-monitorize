@@ -3,6 +3,7 @@ from pathlib import Path
 
 from PyQt6.QtCore import QObject, QProcess, QTimer, pyqtSignal
 
+from monitorize.platform.polkit_agent import agent_missing, start_agent
 from monitorize.platform.sunshine_service import get_sunshine_kms_setup_status
 from monitorize.platform.system_setup import kms_setup_command, parse_system_setup_result
 
@@ -40,7 +41,7 @@ class KmsAuthorization(QObject):
 
     @property
     def busy(self):
-        return self.request is not None
+        return self.request is not None or self.process is not None
 
     def ensure(self, bundle, desktop, remote, completed):
         """Return immediately when ready; otherwise report or repair through completed."""
@@ -100,6 +101,7 @@ class KmsAuthorization(QObject):
             self._complete(True, "", 1)
             return
         path, (instance, command) = request["targets"].pop(0)
+        request["active_target"] = (path, (instance, command))
         request["instance"] = instance
         request["identities"][path] = (int(command[-3]), int(command[-1]))
         process = QProcess(self)
@@ -108,31 +110,33 @@ class KmsAuthorization(QObject):
         process.errorOccurred.connect(lambda error: self._finished(process, -1)
                                      if error == QProcess.ProcessError.FailedToStart else None)
         process.start(command[0], command[1:])
-        if self.process is process:
-            self.timer.start(60000)
+        # The fixed root helper completes its transaction without a GUI timeout.
 
     def _finished(self, process, code):
         if self.process is not process:
             return
         self.timer.stop()
         self.process = None
-        result = parse_system_setup_result(code, bytes(process.readAllStandardOutput()).decode(errors="replace"),
-                                           bytes(process.readAllStandardError()).decode(errors="replace"))
+        stdout=bytes(process.readAllStandardOutput()).decode(errors="replace")
+        stderr=bytes(process.readAllStandardError()).decode(errors="replace")
+        result = parse_system_setup_result(code, stdout, stderr)
         process.deleteLater()
         if not self.request:
-            return
+            self.changed.emit();return
+        if code not in (0,126) and agent_missing(stderr+stdout) and not self.request.get('agent_retried'):
+            self.request['agent_retried']=True
+            if start_agent():
+                self.request['targets'].insert(0,self.request['active_target'])
+                QTimer.singleShot(500,self._next)
+                return
         if not result["success"]:
             self._complete(False, result["message"], self.request["instance"])
         else:
             self._next()
 
     def _timeout(self):
-        instance = self.request.get("instance", 1) if self.request else 1
-        process, self.process = self.process, None
-        if process:
-            process.finished.connect(process.deleteLater)
-            process.kill()
-        self._complete(False, "Administrator authorization timed out. Click Start to retry.", instance)
+        # Do not terminate an authorized helper while it commits root assets.
+        self.cancel()
 
     def _complete(self, success, message, instance):
         request, self.request = self.request, None
@@ -144,8 +148,6 @@ class KmsAuthorization(QObject):
         """Stop and shutdown invalidate the continuation even if authorization finishes."""
         self.timer.stop()
         self.request = None
-        process, self.process = self.process, None
-        if process:
-            process.finished.connect(process.deleteLater)
-            process.kill()
+        # Discard only the desktop continuation. _finished drains the one active
+        # helper and releases busy state, preventing overlapping authorization.
         self.changed.emit()

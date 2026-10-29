@@ -145,8 +145,15 @@ class VkmsBackendTest(unittest.TestCase):
         client.require_ready.assert_not_called()
 
     def test_bootstrap_error_recognized(self):
-        self.assertTrue(vkms_backend._reinstall_required(VkmsCommandError(
+        self.assertTrue(vkms_backend._recovery_required(VkmsCommandError(
             "Two-display Monitorize VKMS bootstrap is not initialized.", "helper_error")))
+
+    def test_unavailable_or_incompatible_service_opens_contextual_recovery_before_create(self):
+        for error in (vkms_backend.VkmsServiceUnavailableError('service unavailable'),vkms_backend.VkmsProtocolError('stale protocol')):
+            client=self.client();client.require_ready.side_effect=error
+            code,output=self.run_holder(client)
+            self.assertEqual(code,1);self.assertIn('vkms_recovery_required',output)
+            client.create_display.assert_not_called()
 
     def test_install_page(self):
         with patch("webbrowser.open", return_value=True):

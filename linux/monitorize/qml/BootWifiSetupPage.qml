@@ -72,6 +72,12 @@ Item {
                     text: backend.bootWifiStatus.message || "Checking NetworkManager…"
                     color: theme.textSecondary; wrapMode: Text.WordWrap; Layout.fillWidth: true
                 }
+                CustomButton {
+                    text: "Recover network service"
+                    visible: backend.bootWifiStatus.code === "unavailable"
+                    enabled: !backend.bootWifiBusy && !backend.isStreaming
+                    onClicked: backend.recoverBootWifiService()
+                }
                 Text { text: "Select the connected Wi-Fi"; color: theme.textSecondary }
                 CustomComboBox {
                     id: profilePicker

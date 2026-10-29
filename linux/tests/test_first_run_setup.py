@@ -377,7 +377,8 @@ class FirstRunSetupTest(unittest.TestCase):
             process.start.reset_mock()
             backend.removeStagnantVirtualDisplays()
             process.start.assert_not_called()
-            self.assertIn("Stop streaming", results[-1][1])
+            self.assertTrue(backend._operations.waiting)
+            backend.resolveRecoveryDecision(backend._operations.request.request_id,False)
             streaming.return_value.streaming = False
 
 
@@ -411,13 +412,12 @@ class FirstRunSetupTest(unittest.TestCase):
         clear_tokens.assert_called_once_with()
 
         backend.streaming.streaming = True
-        self.assertEqual(
-            backend.clearRestoreTokens(),
-            {
-                "success": False,
-                "message": "Stop streaming before clearing restore tokens",
-            },
-        )
+        result=backend.clearRestoreTokens()
+        self.assertTrue(result['pending'])
+        self.assertTrue(backend._operations.waiting)
+        clear_tokens.assert_called_once_with()
+        backend.resolveRecoveryDecision(result['request_id'],False)
+        self.assertFalse(backend._operations.busy)
 
     def test_qml_has_a_non_dismissible_first_run_gate_and_manual_setup_entry(self):
         main = (ROOT / "linux/monitorize/qml/main.qml").read_text()

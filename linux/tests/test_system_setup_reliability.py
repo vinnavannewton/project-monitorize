@@ -18,7 +18,10 @@ HELPER = ROOT / 'packaging/common/monitorize-system-setup'
 
 class SetupReliabilityTests(unittest.TestCase):
     def helper(self):
-        return runpy.run_path(str(HELPER))
+        namespace=runpy.run_path(str(HELPER))
+        namespace['main'].__globals__.update(ensure_input_assets=lambda:None,
+            recovery_module=lambda:SimpleNamespace(restore_asset=lambda name:None))
+        return namespace
 
     def test_firewalld_targets_and_verifies_active_zones_without_final_reload(self):
         function = self.helper()['enable_firewall']

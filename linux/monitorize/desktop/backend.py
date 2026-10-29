@@ -74,7 +74,7 @@ class MonitorizeBackend(QObject):
     localIpChanged = pyqtSignal(str)
     isStreamingChanged = pyqtSignal(bool)
     streamingStartFailed = pyqtSignal()
-    vkmsReinstallRequired = pyqtSignal()
+    vkmsRecoveryRequired = pyqtSignal()
     streamingCodecMismatch = pyqtSignal(str)
     streamingStatusChanged = pyqtSignal(str)
     sessionErrorChanged = pyqtSignal()
@@ -115,6 +115,8 @@ class MonitorizeBackend(QObject):
     remoteLoginSetupChanged = pyqtSignal()
     remoteLoginSetupFinished = pyqtSignal("QVariantMap")
     remoteLoginSetupBlocked = pyqtSignal(str)
+    recoveryDecisionRequested = pyqtSignal("QVariantMap")
+    recoveryOperationFinished = pyqtSignal("QVariantMap")
     _remoteLoginSetupWorkerFinished = pyqtSignal("QVariantMap")
 
     def __init__(self, de, parent=None):
@@ -246,7 +248,7 @@ class MonitorizeBackend(QObject):
         )
         self.streaming.streamingChanged.connect(self.isStreamingChanged)
         self.streaming.startFailed.connect(self.streamingStartFailed)
-        self.streaming.vkmsReinstallRequired.connect(self.vkmsReinstallRequired)
+        self.streaming.vkmsRecoveryRequired.connect(self.vkmsRecoveryRequired)
         self.streaming.codecMismatch.connect(self.streamingCodecMismatch)
         self.streaming.statusChanged.connect(self.streamingStatusChanged)
         self.streaming.secondStreamChanged.connect(self.secondStreamActiveChanged)
@@ -374,6 +376,10 @@ class MonitorizeBackend(QObject):
     def remoteLoginSetupBusy(self):
         return self._remote_setup_busy
 
+    @pyqtProperty(str, notify=remoteLoginSetupChanged)
+    def remoteLoginSetupProgress(self):
+        return getattr(self,'_recovery_stage','') if self._remote_setup_busy else ''
+
     @pyqtSlot(result="QVariantMap")
     def getRemoteLoginSetupStatus(self):
         from monitorize.platform.system_setup import remote_login_setup_status
@@ -393,50 +399,54 @@ class MonitorizeBackend(QObject):
         if not options['repair_kind']:
             self.remoteLoginSetupFinished.emit({'success': False, 'repair': True, 'message': options['repair_message']})
             return
-        if getattr(self, '_remote_repair', None) is None:
-            from monitorize.desktop.remote_login_repair import RemoteLoginRepairCoordinator
-            self._remote_repair = RemoteLoginRepairCoordinator(self)
-        self._remote_repair.begin()
+        self._recovery_operations().begin('source_repair')
+
+    def _recovery_operations(self):
+        if getattr(self,'_operations',None) is None:
+            from monitorize.desktop.recovery_operations import RecoveryOperations
+            self._operations=RecoveryOperations(self)
+            self._operations.decisionRequested.connect(self.recoveryDecisionRequested.emit)
+        return self._operations
+
+    @pyqtSlot(bool)
+    def recoverRemoteLogin(self,disable_boot):
+        if disable_boot:self.configureRemoteLogin(False)
+        else:self._recovery_operations().begin('maintenance_resume')
+
+    @pyqtSlot()
+    def requestSystemRestart(self):self._recovery_operations().begin('reboot')
+
+    @pyqtSlot()
+    def requestSessionLogout(self):self._recovery_operations().begin('logout')
+
+    @pyqtSlot()
+    def recoverVkmsHost(self):
+        self._recovery_operations().begin('host_recovery')
 
     @pyqtSlot(bool)
     def configureRemoteLogin(self, enabled):
-        if self.applyingConfiguration:
+        if self._remote_setup_busy or self._closing:return
+        if self.applyingConfiguration or self.systemSetupRunning:
             self.remoteLoginSetupFinished.emit({"success":False,"message":"Wait for Apply or Restart to finish before changing remote-login setup."})
-            return
-        if self._remote_setup_busy or self._closing:
             return
         if enabled and str(load_display_settings().get('sunshine_capture','auto')).strip().lower() not in ('auto','kms'):
             message='Select KMS or Monitorize Auto in Sunshine settings before enabling Start at boot.'
             self.remoteLoginSetupFinished.emit({'success':False,'message':message})
             self.remoteLoginSetupBlocked.emit(message)
             return
-        if enabled:
-            if getattr(self,'_live_setup',None) is None:
-                from monitorize.desktop.remote_login_setup import RemoteLoginSetupCoordinator
-                self._live_setup=RemoteLoginSetupCoordinator(self)
-                self._live_setup.finished.connect(self.remoteLoginSetupFinished.emit)
-            self._live_setup.begin(True)
-            return
-        if self.session.active or self.session.busy or (getattr(self, "_remote_login", None) is not None and self._remote_login.status.get("capture_ready")):
-            self.remoteLoginSetupFinished.emit({"success": False, "message": "Stop the current stream before configuring remote login."})
-            return
-        self._remote_setup_busy = True
-        self.remoteLoginSetupChanged.emit()
-        def work():
-            from monitorize.platform.system_setup import apply_remote_login_setup
-            from monitorize.desktop.remote_login_controller import configure
-            try:
-                result = apply_remote_login_setup(enabled)
-                if result.get("success"):
-                    try:
-                        configure(enabled)
-                    except Exception:
-                        result = {**result, "success": False, "partial": True,
-                                  "message": "Boot enrollment changed, but the desktop controller could not be configured. Fix the user systemd service and rerun setup before rebooting."}
-            except Exception:
-                result = {"success": False, "message": "Remote-login setup failed. Inspect enrollment status before retrying."}
-            self._remoteLoginSetupWorkerFinished.emit(result)
-        self._background_executor.submit(work)
+        if getattr(self,'_live_setup',None) is None:
+            from monitorize.desktop.remote_login_setup import RemoteLoginSetupCoordinator
+            self._live_setup=RemoteLoginSetupCoordinator(self)
+            self._live_setup.finished.connect(self.remoteLoginSetupFinished.emit)
+            self._live_setup.interruptionRequested.connect(self.recoveryDecisionRequested.emit)
+        self._live_setup.begin(enabled)
+
+    @pyqtSlot(str,bool)
+    def resolveRecoveryDecision(self,request_id,accepted):
+        coordinator=getattr(self,'_live_setup',None)
+        if coordinator is not None:coordinator.resolve(request_id,accepted)
+        operations=getattr(self,'_operations',None)
+        if operations is not None:operations.resolve(request_id,accepted)
 
     @pyqtSlot(bool)
     def configureLoginVirtualDisplay(self, enabled):
@@ -475,6 +485,7 @@ class MonitorizeBackend(QObject):
             return
         result=dict(result)
         live_pending=result.pop('_live_pending',False)
+        reset_runtime=result.pop('_reset_remote_runtime',False)
         if not live_pending:self._remote_setup_busy = False
         if result.get('primary_display_setting') or result.get('timeout_setting'):
             # This changes next boot only. Preserve the active desktop runtime.
@@ -485,7 +496,7 @@ class MonitorizeBackend(QObject):
         previous_enabled=self.remoteLoginEnabled
         # A timeout or partial user-unit failure can follow a successful root
         # enrollment change. Always reread the actual enrollment.
-        if live_pending and self._remote_login is not None:
+        if live_pending and not reset_runtime and self._remote_login is not None:
             self._remote_login.refresh_enrollment()
         else:
             if self._remote_login is not None:self._remote_login.close()
@@ -751,6 +762,7 @@ class MonitorizeBackend(QObject):
     def stopSession(self):
         self._session_start_generation += 1
         self._kms_authorization.cancel()
+        if getattr(self,'_operations',None) is not None:self._operations.cancel()
         if getattr(self,'_live_setup',None) is not None and self._live_setup.busy:
             self._live_setup.cancel()
         if getattr(self,'_desktop_fallback_pending',False):
@@ -960,6 +972,11 @@ class MonitorizeBackend(QObject):
         if not self._closing:
             self._wifi_client().refresh()
 
+    @pyqtSlot()
+    def recoverBootWifiService(self):
+        if self._closing or self.isStreaming or self.applyingConfiguration:return
+        self._wifi_client().recover_service()
+
     @pyqtSlot(str, str, str)
     def configureBootWifi(self, uuid, version, password):
         if not self._closing:
@@ -1055,7 +1072,8 @@ class MonitorizeBackend(QObject):
     @pyqtSlot(bool, bool)
     @pyqtSlot(bool, bool, bool)
     def startSystemSetup(self, enable_input: bool, enable_firewall: bool, enable_vkms=False):
-        if self._system_setup_process is not None:
+        if self._system_setup_process is not None or self.applyingConfiguration:
+            self.systemSetupFinished.emit({'success':False,'message':'Wait for the current setup operation to finish.'})
             return
         command, error = (system_setup_command(enable_input, enable_firewall, True) if enable_vkms
                           else system_setup_command(enable_input, enable_firewall))
@@ -1069,9 +1087,10 @@ class MonitorizeBackend(QObject):
         self.systemSetupRunningChanged.emit(True)
         process.finished.connect(self._finish_system_setup)
         process.errorOccurred.connect(self._system_setup_process_error)
+        self._system_setup_command=command
+        self._system_setup_agent_retried=False
         process.start(command[0], command[1:])
-        if self._system_setup_process is process:
-            self._system_setup_timeout.start(60000)
+        # Root work owns its transaction; authorization has no GUI deadline.
 
     @pyqtSlot()
     def refreshVkmsAuthorization(self):
@@ -1120,7 +1139,7 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot(bool)
     def setVkmsUnattended(self, enabled):
-        if self._system_setup_process is not None or self.session.active or self.session.busy:
+        if self._system_setup_process is not None or self.applyingConfiguration or self.session.active or self.session.busy:
             return
         from monitorize.platform.system_setup import vkms_authorization_command
         command, error = vkms_authorization_command(enabled)
@@ -1133,9 +1152,10 @@ class MonitorizeBackend(QObject):
         self.systemSetupRunningChanged.emit(True)
         process.finished.connect(self._finish_system_setup)
         process.errorOccurred.connect(self._system_setup_process_error)
+        self._system_setup_command=command
+        self._system_setup_agent_retried=False
         process.start(command[0], command[1:])
-        if self._system_setup_process is process:
-            self._system_setup_timeout.start(60000)
+        # Root work owns its transaction; authorization has no GUI deadline.
 
     def _complete_system_setup(self, result):
         process = self._system_setup_process
@@ -1160,12 +1180,24 @@ class MonitorizeBackend(QObject):
         elif self._system_setup_timed_out:
             result = {"success": False, "message": "System setup timed out."}
         else:
-            result = parse_system_setup_result(
-                exit_code,
-                bytes(process.readAllStandardOutput()).decode("utf-8", "replace"),
-                bytes(process.readAllStandardError()).decode("utf-8", "replace"),
-            )
+            stdout=bytes(process.readAllStandardOutput()).decode("utf-8", "replace")
+            stderr=bytes(process.readAllStandardError()).decode("utf-8", "replace")
+            from monitorize.platform.polkit_agent import agent_missing,start_agent
+            if (exit_code not in (0,126) and agent_missing(stderr+stdout)
+                    and not getattr(self,'_system_setup_agent_retried',False)):
+                self._system_setup_agent_retried=True
+                if start_agent():
+                    self._system_setup_timeout.stop()
+                    QTimer.singleShot(500,lambda:self._retry_system_setup_agent(process))
+                    return
+            result = parse_system_setup_result(exit_code,stdout,stderr)
         self._complete_system_setup(result)
+
+    def _retry_system_setup_agent(self,process):
+        if self._closing or self._system_setup_process is not process:return
+        command=self._system_setup_command
+        process.start(command[0],command[1:])
+        # Wait for the helper to report its authoritative outcome.
 
     def _system_setup_process_error(self, error):
         if error == QProcess.ProcessError.FailedToStart:
@@ -1859,9 +1891,10 @@ class MonitorizeBackend(QObject):
     def removeStagnantVirtualDisplays(self):
         if self.virtualDisplayCleanupRunning:
             return
-        if self.isStreaming or self.sessionBusy:
-            self.virtualDisplayCleanupFinished.emit(False, "Stop streaming before removing virtual displays")
-            return
+        if self.isStreaming and not getattr(self,'_applying_recovery',False):
+            self._recovery_operations().begin('cleanup_displays');return
+        if self.sessionBusy:
+            self.virtualDisplayCleanupFinished.emit(False,'Display cleanup is still in progress.');return
         from monitorize.streaming.recovery_guardian import recover_before_cleanup
         try:
             if not recover_before_cleanup():
@@ -1883,11 +1916,8 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot(result="QVariantMap")
     def clearRestoreTokens(self):
-        if self.isStreaming:
-            return {
-                "success": False,
-                "message": "Stop streaming before clearing restore tokens",
-            }
+        if self.isStreaming and not getattr(self,'_applying_recovery',False):
+            return self._recovery_operations().begin('clear_tokens')
         removed, errors = clear_sunshine_portal_restore_tokens()
         if errors:
             return {
@@ -1907,15 +1937,16 @@ class MonitorizeBackend(QObject):
     @pyqtSlot(result="QVariantMap")
     def resetSunshineSettings(self):
         if hasattr(self, "configuration_state"):
-            if self.applyingConfiguration:return {"success":False,"message":"Wait for Apply to finish."}
+            if self.applyingConfiguration and not getattr(self,"_applying_recovery",False):return {"success":False,"message":"Wait for Apply to finish."}
             keys=("sunshine_encoder","sunshine_gpu","sunshine_codec","sunshine_capture","streaming_customized","sunshine_native_pen_touch","enable_audio")
             for group in ("primary","second"):
                 self._update_draft(group,{key:DISPLAY_DEFAULTS[key] for key in keys})
             self._sunshine_settings_revision += 1
             self.sunshineSettingsRevisionChanged.emit(self._sunshine_settings_revision)
             return {"success":True,"message":"Defaults loaded. Open Configure and click Apply to restart."}
-        if self.isStreaming or self.sessionBusy:
-            return {"success": False, "message": "Stop the session before resetting Sunshine settings"}
+        if self.isStreaming and not getattr(self,'_applying_recovery',False):
+            return self._recovery_operations().begin('reset_sunshine')
+        if self.sessionBusy:return {'success':False,'message':'Display cleanup is still in progress.'}
         for instance in (1, 2):
             if is_sunshine_running(instance) and not is_sunshine_settings_instance(instance):
                 return {"success": False, "message": "Stop Sunshine before resetting its settings"}
@@ -2336,6 +2367,7 @@ class MonitorizeBackend(QObject):
             self.streaming.update_ip(current)
 
     def close(self):
+        if getattr(self,'_operations',None) is not None:self._operations.cancel()
         self._incoming_pairing.close()
         self._kms_authorization.cancel()
         if getattr(self,'_live_setup',None) is not None:self._live_setup.cancel()

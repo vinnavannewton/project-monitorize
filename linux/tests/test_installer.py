@@ -550,7 +550,7 @@ exit 0
         self.assertIn("Sunshine's generated npm cache is not writable", script)
         self.assertIn("sunshine-portal-token-scope.patch", script)
         self.assertIn("SUNSHINE_PORTAL_TOKEN_SCOPE", script)
-        self.assertIn("Then rerun this installer without sudo.", script)
+        self.assertIn('authorize-source-maintenance.py" cache', script)
         self.assertIn("multi-GPU VA-API selection will be unavailable", script)
         self.assertIn("require_command patch", script)
         self.assertIn("require_command cksum", script)

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Stage trusted service code/units for native packages; never activate services."""
 import argparse
+import hashlib
+import json
 from pathlib import Path
 import shutil
 
@@ -43,6 +45,18 @@ def stage(destination,*,repository=ROOT):
         current=target
         while current!=destination:
             current.chmod(0o755);current=current.parent
+    recovery=destination/'usr/share/monitorize/recovery'
+    recovery.mkdir(parents=True,exist_ok=True);recovery.chmod(0o755)
+    manifest={}
+    for source,name in (('packaging/fedora/monitorize.xml','firewalld.xml'),
+                        ('packaging/deb/common/monitorize.ufw.profile','ufw.profile'),
+                        ('packaging/fedora/70-monitorize-uinput.rules','uinput.rules')):
+        data=(repository/source).read_bytes();(recovery/name).write_bytes(data)
+        (recovery/name).chmod(0o644);manifest[name]=hashlib.sha256(data).hexdigest()
+    (recovery/'manifest.json').write_text(json.dumps(manifest));(recovery/'manifest.json').chmod(0o644)
+    target=destination/'usr/libexec/monitorize/system_recovery.py'
+    target.parent.mkdir(parents=True,exist_ok=True)
+    shutil.copyfile(repository/'packaging/common/system_recovery.py',target);target.chmod(0o644)
     (destination/'usr/libexec/monitorize/remote-login/repair.py').chmod(0o755)
     return destination
 

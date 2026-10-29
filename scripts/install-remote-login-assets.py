@@ -15,7 +15,9 @@ import subprocess
 BACKUPS=Path('var/lib/monitorize/remote-login-deployments')
 ROOT=Path(__file__).resolve().parents[1]
 ENGINE='usr/libexec/monitorize/sunshine'
-FILES={ENGINE,'usr/libexec/monitorize/monitorize-system-setup',
+FILES={ENGINE,'usr/libexec/monitorize/system_recovery.py',
+       'usr/share/monitorize/recovery/manifest.json','usr/share/monitorize/recovery/firewalld.xml',
+       'usr/share/monitorize/recovery/ufw.profile','usr/share/monitorize/recovery/uinput.rules','usr/libexec/monitorize/monitorize-system-setup',
        'usr/lib/firewalld/services/monitorize.xml','etc/ufw/applications.d/monitorize',
        'usr/libexec/monitorize-vkms/monitorize-vkms-helper',
        'usr/libexec/monitorize-vkms/monitorize-vkms-dbus-service',

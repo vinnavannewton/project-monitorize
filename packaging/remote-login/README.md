@@ -61,6 +61,22 @@ protocol v1. Version, manifest and missing-protocol failures remain distinct.
 
 The notes below include historical experiments and temporary paths.
 
+## Managed startup and maintenance recovery
+
+Boot enable/disable retain the exact requested direction throughout recovery.
+Idle app listeners pause automatically. A connected Monitorize session requires
+**Stop and continue** before interruption; cancellation retains saved settings.
+Disabling stops the owned boot/coordinator/engine units, disables future startup
+and releases the protected display while retaining pairing. Failed output cleanup
+keeps saved disablement and offers retry instead of enabling boot startup again.
+
+When interrupted maintenance is detected and installed helpers support recovery,
+Settings shows **Resume remote-login recovery**. This authorizes only service
+lifecycle recovery through Polkit. A pending disable is completed directly without
+restarting hosting first. It does not reinstall packages. Recovery actions are
+available only with matching setup recovery protocol v1 assets; source deployment
+and native package builds must include the current private Python/helpers/policy.
+
 ## Native app upgrades and removal
 
 Arch, Fedora, openSUSE Tumbleweed, Debian Trixie and both Ubuntu targets share

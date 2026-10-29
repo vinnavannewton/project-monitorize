@@ -22,6 +22,17 @@
     <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/monitorize/monitorize-system-setup</annotate>
     <annotate key="org.freedesktop.policykit.exec.argv1">--kms-binary</annotate>
   </action>
+  <action id="io.github.vinnavannewton.monitorize.remote-login-setup">
+    <description>Configure Monitorize remote login</description>
+    <message>Authentication is required to change Monitorize boot startup and recover its managed services.</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/monitorize/monitorize-system-setup</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">--remote-login</annotate>
+  </action>
   <action id="io.github.vinnavannewton.monitorize.system-setup">
     <description>Configure Monitorize system access</description>
     <message>Authentication is required to configure Monitorize input and firewall access.</message>

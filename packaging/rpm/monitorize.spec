@@ -317,6 +317,8 @@ fi
 %{_bindir}/monitorize-kde-virtual-output
 %caps(cap_sys_admin,cap_sys_nice+p) %{_libexecdir}/monitorize/sunshine
 %{_libexecdir}/monitorize/monitorize-system-setup
+%{_libexecdir}/monitorize/system_recovery.py
+%{_datadir}/monitorize/recovery/
 %{_libexecdir}/monitorize/remote-login/
 %{_prefix}/lib/monitorize-remote-login/
 %{_unitdir}/monitorize-remote-login.service

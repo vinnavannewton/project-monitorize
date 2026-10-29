@@ -6,6 +6,7 @@ import subprocess
 import tempfile
 
 from .system_setup import parse_system_setup_result
+from .polkit_agent import run_authorized
 
 HELPER = Path('/usr/libexec/monitorize/remote-login/repair.py')
 ENGINE = Path('/usr/libexec/monitorize/sunshine')
@@ -19,7 +20,7 @@ def owning_package_manager(path):
     for manager, command in commands:
         if not Path(command[0]).is_file():
             continue
-        result = subprocess.run([*command, str(path)], capture_output=True, text=True, timeout=5, check=False)
+        result = run_authorized([*command, str(path)], capture_output=True, text=True, timeout=5, check=False)
         if result.returncode not in (0, 1):
             raise ValueError('Could not verify installed file ownership. Repair through your package manager.')
         if result.returncode == 0:
@@ -83,7 +84,7 @@ def repair_remote_login(*, repository=None):
             spec.loader.exec_module(module)
             staged = module.prepare(Path(temporary) / 'stage', binary, Path(assets), announce=False)
             input_path = staged
-            result = subprocess.run([*command, '--kind', 'source', '--input', str(input_path)],
+            result = run_authorized([*command, '--kind', 'source', '--input', str(input_path)],
                                     capture_output=True, text=True, check=False)
             return parse_system_setup_result(result.returncode, result.stdout, result.stderr)
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:

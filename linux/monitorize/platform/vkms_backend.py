@@ -14,16 +14,17 @@ import webbrowser
 from monitorize.platform.monitorize_vkms_dbus import (
     MonitorizeVkmsClient,
     MonitorizeVkmsError,
-    VkmsCommandError,
+    VkmsCommandError, VkmsServiceUnavailableError, VkmsProtocolError, VkmsCliNotFoundError,
 )
 
 VKMS_SLOTS = {"primary": "mon1", "additional": "mon2"}
 MONITORIZE_VKMS_INSTALL_URL = "https://github.com/vinnavannewton/monitorize-vkms"
 
 
-def _reinstall_required(error: VkmsCommandError) -> bool:
-    """Recognize an installed CLI with a broken helper or kernel integration."""
-    if error.error_type.lower() != "helper_error":
+def _recovery_required(error: MonitorizeVkmsError) -> bool:
+    """Recognize unavailable service, stale protocols or broken kernel integration."""
+    if isinstance(error,(VkmsServiceUnavailableError,VkmsProtocolError,VkmsCliNotFoundError)):return True
+    if str(getattr(error,'error_type','')).lower() != "helper_error":
         return False
     detail = str(error.raw_response.get("message") or error).lower()
     return any(marker in detail for marker in (
@@ -39,8 +40,8 @@ def _reinstall_required(error: VkmsCommandError) -> bool:
     ))
 
 
-def _report_reinstall_required():
-    print('MONITORIZE_EVENT {"type":"vkms_reinstall_required"}', flush=True)
+def _report_recovery_required():
+    print('MONITORIZE_EVENT {"type":"vkms_recovery_required"}', flush=True)
 
 def open_monitorize_vkms_install_page() -> bool:
     """Open the monitorize-vkms installation page URL."""
@@ -90,6 +91,7 @@ def run_vkms_headless(
     try:
         vkms_client.require_ready()
     except MonitorizeVkmsError as exc:
+        if _recovery_required(exc):_report_recovery_required()
         print(f"[ERROR] {exc}", flush=True)
         return 1
 
@@ -216,8 +218,8 @@ def run_vkms_headless(
                     break
         return 0 if cleanup() else 1
     except VkmsCommandError as exc:
-        if _reinstall_required(exc):
-            _report_reinstall_required()
+        if _recovery_required(exc):
+            _report_recovery_required()
         print(f"[ERROR] VKMS virtual display failed: {exc}", flush=True)
         return 1
     except MonitorizeVkmsError as exc:

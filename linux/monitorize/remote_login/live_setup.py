@@ -54,6 +54,9 @@ class SetupReceipt:
             or not isinstance(value.get('files'),dict) or set(value['files'])-config_paths(self.uid)
             or not isinstance(value.get('system'),dict)):
             raise ValueError('Unsafe live-enrollment receipt.')
+        for flag in ('maintenance_required','maintenance_started'):
+            if type(value['system'].get(flag,False)) is not bool:
+                raise ValueError('Unsafe setup maintenance state.')
         names={'monitorize-vkms-boot-display.service','monitorize-remote-login.service',
                'monitorize-login-capture.service','monitorize-remote-login-probe.service',
                *(f'monitorize-remote-login-{p}@{self.uid}.service' for p in ('boot','desktop'))}
@@ -228,17 +231,19 @@ class InstalledBackend:
         if status.get('uid')!=uid or status.get('session')!=session or not status.get('enabled'):
             raise PermissionError('Running supervisor belongs to another ownership context.')
         if status.get('state') in ('error','disabled','suspended'):
-            raise RuntimeError('Existing remote-login service needs recovery before setup.')
+            return False  # The owned idle service can be quiesced transactionally.
         return True
 
     def snapshot(self,uid,session):
         from .enrollment import NEW_UNITS,OLD_UNITS,_no_engines,ENGINE
         from .settings import SETTINGS,read_settings
-        _no_engines()
         units={name:self.commands.enabled(name) for name in (*NEW_UNITS,*OLD_UNITS)}
         active={name:self.commands.run(['/usr/bin/systemctl','show',name,'--property=ActiveState','--value'])=='active'
                 for name in NEW_UNITS}
-        if active[NEW_UNITS[-1]]:raise RuntimeError('Stop the existing remote-login service before repairing setup.')
+        if active[NEW_UNITS[-1]]:
+            status=self.status()
+            if status.get('uid')!=uid or status.get('session')!=session:
+                raise PermissionError('Running remote-login service belongs to another context.')
         caps=self.commands.run(['/usr/sbin/getcap','--',str(ENGINE)]).removeprefix(str(ENGINE)).strip()
         masks=self.fallback_masks(uid,session)
         if masks:
@@ -247,7 +252,8 @@ class InstalledBackend:
         if value is not None and (value['uid']!=uid or value['boot_id']!=self.boot_id or value['session']!=session):
             raise PermissionError('Reserved display belongs to another lifecycle.')
         return dict(units=units,active=active,caps=caps,masks=masks,lease=value,
-                    enrolled=bool(SETTINGS.exists() and read_settings().enabled))
+                    enrolled=bool(SETTINGS.exists() and read_settings().enabled),
+                    maintenance_required=any(active.values()))
 
     def fallback_masks(self,uid,session):
         from monitorize.platform.remote_login_identity import fallback_grant_path
@@ -271,8 +277,25 @@ class InstalledBackend:
         self._fallback_enablement=grant['unit_enablement']
         return masked
 
+    def maintenance(self,journal):
+        from .package_lifecycle import PackageLifecycle,InstalledBackend
+        return PackageLifecycle(InstalledBackend())
+
     def configure(self,uid,journal):
-        from .enrollment import enable
+        from .enrollment import enable,_no_engines
+        if journal.value['system'].get('maintenance_required'):
+            lifecycle=self.maintenance(journal)
+            if lifecycle.load() is not None:
+                raise RuntimeError('Remote-login maintenance is pending. Resume recovery before enabling startup.')
+            journal.value['system']['maintenance_started']=True;journal.save()
+            # The caller already holds setup_lock; invoke the lifecycle directly,
+            # never a package-guard subprocess that would acquire the lock again.
+            lifecycle.prepare('upgrade',include_idle_services=True)
+            # Keep the receipt as an admission gate while enabling unit files.
+            # systemctl enable cannot operate on runtime-masked unit fragments.
+            maintenance=lifecycle.load()
+            if maintenance is not None:lifecycle.backend.unmask(maintenance['masks'])
+        _no_engines()
         masks=journal.value['system']['masks']
         if masks:self.commands.run(['/usr/bin/systemctl','unmask','--runtime',*masks])
         enable(uid,files=TransactionFiles(journal),commands=self.commands)
@@ -287,6 +310,8 @@ class InstalledBackend:
             files=TransactionFiles(journal);relative=str(grant).lstrip('/')
             files.write(relative,files._read(grant)[0],0o644)
             grant.unlink()
+        if journal.value['system'].get('maintenance_started'):
+            self.maintenance(journal).resume()
         for name in ('monitorize-vkms-boot-display.service','monitorize-remote-login.service'):
             self.commands.run(['/usr/bin/systemctl','start',name])
         status=self.status()
@@ -304,9 +329,18 @@ class InstalledBackend:
 
     def rollback(self,uid,journal):
         system=journal.value['system']
+        if system.get('maintenance_started'):
+            lifecycle=self.maintenance(journal)
+            maintenance=lifecycle.load()
+            if maintenance is not None:
+                if maintenance['uid']!=uid or maintenance['boot_id']!=self.boot_id:
+                    raise PermissionError('Maintenance ownership changed during rollback.')
+                # Restore enablement while keeping admission blocked. Resume only
+                # after the journal has restored the prior configuration.
+                lifecycle.backend.unmask(maintenance['masks'])
         if journal.value['stage'] in ('starting','waiting_for_controller','cleanup_pending'):
             for name in ('monitorize-remote-login.service','monitorize-vkms-boot-display.service'):
-                if not system.get('active',{}).get(name):self.commands.run(['/usr/bin/systemctl','stop',name])
+                if system.get('maintenance_started') or not system.get('active',{}).get(name):self.commands.run(['/usr/bin/systemctl','stop',name])
             self.runtime.verify_quiescent(uid)
         current=self.host.boot_output_status(self.helper.STATE_DIRECTORY)
         if system.get('lease') is None and current is not None:
@@ -318,7 +352,14 @@ class InstalledBackend:
         self.commands.run(['/usr/sbin/setcap',system['caps'] or '-r',str(ENGINE)])
         if system['masks']:self.commands.run(['/usr/bin/systemctl','mask','--runtime',*system['masks']])
 
-    def restored(self,uid,journal):self.commands.reload()
+    def restored(self,uid,journal):
+        self.commands.reload()
+        if journal.value['system'].get('maintenance_started'):
+            self.maintenance(journal).resume()
+            from .settings import read_settings
+            if read_settings().enabled:
+                for name,was_active in journal.value['system'].get('active',{}).items():
+                    if was_active:self.commands.run(['/usr/bin/systemctl','start',name])
 
 
 def enable_live(uid):

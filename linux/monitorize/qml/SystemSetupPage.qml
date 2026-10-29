@@ -140,20 +140,30 @@ Item {
 
         Text {
             visible: !setupAvailable
-            text: "System setup requires a native Monitorize package (RPM, DEB or Arch)."
+            text: "System setup needs Polkit and trusted Monitorize setup assets."
             color: theme.errorText
             font.pixelSize: 12
             wrapMode: Text.WordWrap
             Layout.fillWidth: true
         }
 
-        Text {
+        TextArea {
+            readOnly: true
+            selectByMouse: true
+            background: null
             text: statusMessage
             visible: statusMessage.length > 0
             color: statusSucceeded ? theme.successText : theme.errorText
             font.pixelSize: 12
-            wrapMode: Text.WordWrap
+            wrapMode: TextEdit.Wrap
             Layout.fillWidth: true
+        }
+
+        CustomButton {
+            text: "Log out…"
+            visible: page.logoutRequired
+            enabled: !page.applying && !backend.remoteLoginSetupBusy
+            onClicked: backend.requestSessionLogout()
         }
 
         RowLayout {

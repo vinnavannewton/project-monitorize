@@ -103,10 +103,12 @@ def host_readiness(root=Path('/'), *, owner_uid=0, require_live=False) -> dict:
     if require_live:
         try:
             live=_read(root/'usr/lib/monitorize-remote-login/monitorize/remote_login/live_setup.py',root,owner_uid)
+            enrollment=_read(root/'usr/lib/monitorize-remote-login/monitorize/remote_login/enrollment.py',root,owner_uid)
             entry=_read(root/'usr/libexec/monitorize/remote-login/entry.py',root,owner_uid)
             setup=_read(root/'usr/libexec/monitorize/monitorize-system-setup',root,owner_uid)
             if (type(protocols.get('live_enrollment')) is not int or protocols['live_enrollment']!=1
                 or _constant(boot,'LIVE_ENROLLMENT_PROTOCOL')!=1 or _constant(live,'LIVE_ENROLLMENT_PROTOCOL')!=1
+                or _constant(enrollment,'SETUP_RECOVERY_PROTOCOL')!=1
                 or b'setup-enable-live' not in entry or b'enable-live' not in setup):
                 raise ValueError('Live enrollment assets do not match.')
         except (OSError,ValueError,SyntaxError,TypeError):

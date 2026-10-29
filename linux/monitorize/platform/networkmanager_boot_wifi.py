@@ -19,7 +19,7 @@ ROOT='/org/freedesktop/NetworkManager'
 CONNECTION=SERVICE+'.Settings.Connection'
 MESSAGES={
     'unsupported':'Wi-Fi setup requires NetworkManager 1.44 or newer with profile version support.',
-    'unavailable':'NetworkManager is unavailable. Start it or configure networking manually.',
+    'unavailable':'NetworkManager is unavailable. Recover the configured network service, then refresh profiles.',
     'authorization':'Authorization was denied or cancelled. Ensure a Polkit authentication agent is running in your desktop.',
     'profile_changed':'The selected network profile changed or disappeared. Refresh and select it again.',
     'password':'Enter a valid Wi-Fi password for the selected security type.',
@@ -257,6 +257,10 @@ class NetworkManagerBootWifi(QObject):
     @pyqtSlot()
     def refresh(self):
         self._submit('refresh',self.operations.discover)
+
+    def recover_service(self):
+        from monitorize.platform.system_setup import recover_networkmanager
+        self._submit('configure',recover_networkmanager)
 
     def set_visible(self,visible):
         self.visible=bool(visible)
