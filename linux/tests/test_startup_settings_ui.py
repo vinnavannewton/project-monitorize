@@ -83,6 +83,36 @@ with tempfile.TemporaryDirectory() as d:
                 e=QQmlExpression(view.rootContext(),page,code);value=e.evaluate();assert not e.hasError(),e.error().toString();return value[0]
             assert prop('vkmsAuthorization.success')
             assert not prop('vkmsChecking')
+            # Settings diagnostics are selectable plain text with one-click copy.
+            page.setProperty('settingsError', 'Run command <literal> safely')
+            settle()
+            error=page.findChild(QObject,'startupErrorMessageBody');assert error
+            assert error.property('readOnly') and error.property('selectByMouse')
+            assert error.property('text')=='Run command <literal> safely'
+            e=QQmlExpression(qmlContext(page),page,'backend.copySettingsMessage(page.settingsError)');e.evaluate()
+            assert app.clipboard().text()=='Run command <literal> safely'
+            assert page.findChild(QObject,'startupErrorMessageCopy')
+            # Cancelling repair retains the authoritative checkbox state.
+            backend.remoteLoginSetupFinished.emit({'success':False,'repair':True,'cancelled':True,'message':'Cancelled'})
+            settle()
+            assert not page.findChild(QObject,'bootStartupCheck').property('checked')
+            page.setProperty('settingsError','')
+            # Source repair runs asynchronously through the coordinator; no live helper is invoked.
+            with patch('monitorize.platform.remote_login_repair.repair_options',return_value={'repair_kind':'source','repair_message':'Repair','repair_needed':True}), patch('monitorize.platform.remote_login_repair.repair_remote_login',return_value={'success':True,'message':'Repaired'}) as repair, patch('monitorize.platform.sunshine_service.is_sunshine_running',return_value=False):
+                backend.repairRemoteLogin()
+                for _ in range(20):
+                    settle()
+                    if not backend.remoteLoginSetupBusy:break
+                repair.assert_called_once_with('')
+                assert not backend.remoteLoginSetupBusy
+                assert prop('startupNotice')=='Repaired'
+                assert not page.findChild(QObject,'bootStartupCheck').property('checked')
+            with patch('monitorize.platform.remote_login_repair.repair_options',return_value={'repair_kind':'pacman','repair_message':'Select package'}), patch('PyQt6.QtWidgets.QFileDialog.getOpenFileName',return_value=('','')), patch('monitorize.platform.remote_login_repair.repair_remote_login') as repair:
+                backend.repairRemoteLogin();settle()
+                repair.assert_not_called()
+                assert not backend.remoteLoginSetupBusy
+                assert 'cancelled' in prop('settingsError')
+            page.setProperty('settingsError','')
             backend.vkmsAuthorizationReady.emit({'success':False,'message':'Unavailable fixture'});settle()
             assert not prop('vkmsAuthorization.success')
             assert not prop('vkmsAuthorization.unattended_enabled === false')

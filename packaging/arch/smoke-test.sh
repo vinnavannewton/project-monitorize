@@ -24,6 +24,8 @@ test -x /usr/bin/monitorize-kde-virtual-output
 test -x /usr/libexec/monitorize/sunshine
 test -x /usr/libexec/monitorize/monitorize-system-setup
 test -f /usr/libexec/monitorize/remote-login/entry.py
+test -x /usr/libexec/monitorize/remote-login/repair.py
+test -f /usr/libexec/monitorize/remote-login/deploy.py
 test -f /usr/lib/systemd/system/monitorize-remote-login.service
 test -f /usr/lib/systemd/system/monitorize-vkms-boot-display.service
 test -f /usr/share/dbus-1/system.d/io.github.vinnavannewton.MonitorizeRemoteLogin1.conf

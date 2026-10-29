@@ -62,10 +62,14 @@ class DeliveryTests(unittest.TestCase):
                 'usr/lib/monitorize-remote-login/monitorize/remote_login/package_lifecycle.py',
                 'usr/libexec/monitorize/remote-login/entry.py',
                 'usr/libexec/monitorize/remote-login/package-guard.py',
+                'usr/libexec/monitorize/remote-login/repair.py',
+                'usr/libexec/monitorize/remote-login/deploy.py',
                 'usr/lib/systemd/system/monitorize-vkms-boot-display.service',
                 'usr/lib/systemd/system/monitorize-remote-login.service',
                 'usr/share/dbus-1/system.d/io.github.vinnavannewton.MonitorizeRemoteLogin1.conf'):
                 self.assertTrue((root/relative).is_file(),relative)
+            self.assertEqual((root/'usr/libexec/monitorize/remote-login/repair.py').stat().st_mode & 0o777,0o755)
+            self.assertEqual((root/'usr/libexec/monitorize/remote-login/deploy.py').read_bytes(),(ROOT/'scripts/install-remote-login-assets.py').read_bytes())
             self.assertFalse((root/'etc').exists())
             self.assertFalse(list(root.rglob('*.wants')))
             self.assertFalse(list(root.rglob('__pycache__')))

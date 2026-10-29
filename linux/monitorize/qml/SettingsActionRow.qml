@@ -42,11 +42,16 @@ Rectangle {
                 font.pixelSize: 14; font.weight: Font.DemiBold
                 Layout.fillWidth: true; wrapMode: Text.WordWrap
             }
-            Text {
+            TextArea {
+                readOnly: true
+                selectByMouse: true
+                textFormat: TextEdit.PlainText
+                padding: 0
+                background: Item {}
                 text: row.description
                 color: theme.textSecondary
                 font.pixelSize: 12
-                Layout.fillWidth: true; wrapMode: Text.WordWrap
+                Layout.fillWidth: true; wrapMode: TextEdit.Wrap
             }
         }
         Button {

@@ -35,7 +35,7 @@ class SourceEngineTests(unittest.TestCase):
         from monitorize.remote_login.capability import source_engine_update_error
         error = source_engine_update_error(repository=self.root, installed=self.installed)
         self.assertIn('remote-login', error)
-        self.assertIn('stage-remote-login.py', error)
+        self.assertIn('Repair remote login', error)
         self.installed.write_bytes(self.source.read_bytes())
         self.assertEqual(source_engine_update_error(repository=self.root, installed=self.installed), '')
         self.source.write_bytes(b'\x7fELF next build')
@@ -62,7 +62,7 @@ class SourceEngineTests(unittest.TestCase):
     def test_missing_privileged_engine_has_actionable_source_repair(self):
         from monitorize.remote_login.capability import source_engine_update_error
         self.installed.unlink()
-        self.assertIn('stage-remote-login.py', source_engine_update_error(repository=self.root, installed=self.installed))
+        self.assertIn('Repair remote login', source_engine_update_error(repository=self.root, installed=self.installed))
 
     def test_enrolled_source_update_stages_exact_desktop_binary_and_requires_install(self):
         spec = importlib.util.spec_from_file_location('source_update', ROOT / 'scripts/check-source-remote-login.py')

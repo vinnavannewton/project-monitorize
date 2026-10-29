@@ -4,63 +4,63 @@
 
 Native Arch/RPM/DEB packages include the remote-login service assets and private
 setup helper. Install compatible `monitorize-vkms` host support separately, then
-enable **Settings → Start Monitorize after login → Also start at boot**. No source
-checkout or source deployment script is required for native packages. If app assets
-are missing or out of sync, reinstall/upgrade the Monitorize package with the package
-manager; the source installer deliberately refuses to overwrite package-owned files.
+enable **Settings → Start Monitorize after login → Also start at boot**.
 
-The per-user source installer (`linux/scripts/install.sh`) builds the desktop app
-and streaming engine. Login-screen startup additionally needs a root-installed
-service bundle. Fully stop streaming and **Quit Monitorize from the tray menu**;
-closing its window can leave Sunshine and the VKMS D-Bus service running. From the
-repository root, prepare a new bundle:
+If service assets are missing or incompatible, Settings offers graphical repair:
+
+- **Source installation:** choose **Repair remote login**. The app stages its
+  selected built engine and service files, asks for Polkit authorization, safely
+  pauses idle hosting, installs with backups and restores the previous service
+  state. A pending startup toggle is retried after successful source repair.
+- **Native package:** choose **Reinstall Monitorize package…**, select a matching
+  Monitorize `.pkg.tar.zst`, `.deb` or `.rpm` file, and authorize the native package
+  manager through Polkit. Reopen Monitorize afterward to load the installed app.
+  Source launches using package-owned service files also take this route.
+
+Settings retains enrollment and pairing. Active streams must be stopped before
+repair; repair never forces a client disconnect. Cancelling selection or Polkit
+retains the saved startup options. Startup diagnostics support mouse selection,
+Ctrl+C, right-click Copy/Select all and a whole-message copy icon. The separately
+installed VKMS host/kernel is not replaced by app repair.
+
+New native packages and source deployments include the installed repair helper
+and a dedicated Polkit policy. An older source installation can bootstrap repair
+through the ordinary Polkit Python authorization prompt; no terminal commands are
+needed. An older native installation first needs a package containing this UI and
+helper. Source repair never overwrites package-owned assets. Repair stages are
+snapshotted as private root data before validation/deployment, and staged code is
+not executed by the installed helper. Failed file deployment rolls back; a failed
+rollback keeps services paused and reports its protected backup for recovery.
+
+A source rebuild can leave the root-owned engine behind. The source installer
+continues to detect/stage this mismatch instead of claiming complete installation;
+open the rebuilt app and use Settings repair, or follow its manual fallback below.
+For NVIDIA encoding, both engines need a CUDA-enabled build. Changing the build
+from `--cuda=off` to `--cuda=on` requires service repair too.
+
+### Manual source deployment fallback
+
+Stop streaming and **Quit Monitorize from the tray menu**, then prepare a fresh
+bundle from the repository root:
 
 ```sh
-cd /path/to/Monitorize
 python3 scripts/stage-remote-login.py
 ```
 
-After a source rebuild, an enabled remote-login installation must use the same
-engine as the desktop. The source installer checks the actual binary contents;
-if they differ, it stages the new desktop engine and prints repair commands,
-then exits with status 1 instead of claiming a complete installation. Follow
-those commands and restart the services or reboot. Keep the existing enrollment
-and pairing. Changing `--cuda=off` to `--cuda=on` requires this system update too.
-The desktop also reports a mismatch before handing off to the stale engine.
+Run the printed administrator commands and reopen Monitorize. Staging alone does
+not install files. Add `--vkms-source /path/to/monitorize-vkms` only when explicitly
+updating source-managed host Python support too; the host/bootstrap must already
+be installed, and this does not rebuild or reload the kernel module. The manual
+installer verifies that staged service code matches the checkout. Prepare a new
+stage after source changes. Refresh startup status after prerequisite repairs;
+reopen the app after changing its code. Reboot is needed only when explicitly
+reported for a boot configuration or kernel update.
 
-Native packages use the same installed engine for desktop and boot hosting and
-update it through the package manager. NVIDIA encoding requires a CUDA-enabled
-package; a build explicitly made without CUDA cannot provide NVENC. Encoder
-startup errors now identify NVIDIA failure and its source/package repair options.
+Both `1.0` and `1.0.0` host versions are accepted. The minimum is 0.3.0; matching
+host code/manifest must advertise boot-display, on-demand greeter and idle-display
+protocol v1. Version, manifest and missing-protocol failures remain distinct.
 
-The engine/assets paths default to this checkout, and a new temporary stage is
-chosen automatically. The script prints absolute administrator install commands
-that work from any directory. Run those commands, reopen Monitorize, and enable
-the boot option in Settings. Staging success alone does not mean installation
-succeeded. An installer message saying Sunshine is running means nothing has
-been installed; quit the app and retry that installer command.
-
-To update source-managed host Python support in the same bundle, add
-`--vkms-source /path/to/monitorize-vkms`. The host/bootstrap and kernel module must
-already be installed. This option does not rebuild or reload the kernel module.
-
-Always prepare a **new stage after changing source code**. The source asset installer
-checks its service code against the checkout and rejects stale bundles before
-changing system files. The GUI also detects different compatibility checks in the
-app and privileged helper and gives the appropriate source/native repair action.
-Use **Refresh startup status** after repairing prerequisites. If source code itself
-changed, reopen the app to load it. A system-assets/version-check repair does not
-require reinstalling VKMS or rebooting just to retry setup; reboot only when setup
-reports it is required to apply the saved boot configuration or a kernel update.
-
-Both `1.0` and `1.0.0` are accepted host versions. The minimum version remains
-0.3.0; boot-display, on-demand greeter and idle-display protocol v1 must each be
-advertised by both the host implementation and its matching capabilities manifest.
-Additional protocol keys are allowed. Version/manifest disagreement, a missing
-protocol, and incomplete service assets are reported separately.
-
-The deployment notes below include historical experiments and temporary paths;
-use the workflow above for a fresh install or update.
+The notes below include historical experiments and temporary paths.
 
 ## Native app upgrades and removal
 

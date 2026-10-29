@@ -3,7 +3,6 @@ import mmap
 import hashlib
 from functools import lru_cache
 from pathlib import Path
-import shlex
 
 MARKERS=(b'MONITORIZE_CONTROL_PROTOCOL=1',b'MONITORIZE_STRICT_KMS_OUTPUT_MISSING')
 ENGINE=Path('/usr/libexec/monitorize/sunshine')
@@ -29,20 +28,15 @@ def source_engine_update_error(*,repository=None,installed=ENGINE):
     """Only a source checkout with its own installed engine needs synchronization."""
     repository=Path(repository) if repository is not None else Path(__file__).resolve().parents[3]
     if not (repository/'linux/scripts/install.sh').is_file():return ''
-    from monitorize.platform.sunshine_service import _sunshine_bundles,get_sunshine_candidates
+    from monitorize.platform.sunshine_service import get_sunshine_candidates
     candidates=get_sunshine_candidates()
     if not candidates:return ''
     source=Path(candidates[0][0])
     if not source.is_relative_to(repository):return ''
     if matching_engines(source,installed):return ''
-    assets=dict(_sunshine_bundles())[str(source)]
-    command=shlex.join(['python3',str(repository/'scripts/stage-remote-login.py'),
-        '--sunshine',str(source),'--assets',assets])
-    return ('The source desktop engine and installed remote-login engine differ. '
-            'Prepare updated service assets with: '+command+
-            '. Fully quit Monitorize, run the printed administrator install commands, then reopen it. '
-            'For package-owned service assets, upgrade the native Monitorize package instead. '
-            'Source rebuilds do not replace the privileged engine automatically.')
+    return ('The source desktop engine ('+str(source)+') and installed remote-login engine differ. '
+            'Open Settings and choose Repair remote login to install matching service files with administrator authorization. '
+            'For package-owned service files, select a matching native Monitorize package in the repair dialog and reopen the app.')
 
 
 def exact_kms_engine(path):

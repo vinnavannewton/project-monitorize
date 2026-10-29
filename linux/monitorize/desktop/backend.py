@@ -377,7 +377,36 @@ class MonitorizeBackend(QObject):
     @pyqtSlot(result="QVariantMap")
     def getRemoteLoginSetupStatus(self):
         from monitorize.platform.system_setup import remote_login_setup_status
-        return remote_login_setup_status()
+        from monitorize.platform.remote_login_repair import repair_options
+        return {**remote_login_setup_status(), **repair_options()}
+
+    @pyqtSlot(str)
+    def copySettingsMessage(self, message):
+        QGuiApplication.clipboard().setText(message)
+
+    @pyqtSlot()
+    def repairRemoteLogin(self):
+        if self._remote_setup_busy or self._closing:
+            return
+        from monitorize.platform.remote_login_repair import repair_options
+        options = repair_options()
+        if not options['repair_kind']:
+            self.remoteLoginSetupFinished.emit({'success': False, 'repair': True, 'message': options['repair_message']})
+            return
+        package = ''
+        if options['repair_kind'] != 'source':
+            from PyQt6.QtWidgets import QFileDialog
+            filters = {'pacman': 'Monitorize Arch package (*.pkg.tar.zst *.pkg.tar.xz)',
+                       'deb': 'Monitorize Debian package (*.deb)', 'rpm': 'Monitorize RPM package (*.rpm)'}
+            package, _ = QFileDialog.getOpenFileName(None, 'Select the matching Monitorize package', '', filters[options['repair_kind']])
+            if not package:
+                self.remoteLoginSetupFinished.emit({'success': False, 'repair': True, 'cancelled': True,
+                    'message': 'Package selection cancelled. Startup settings were retained.'})
+                return
+        if getattr(self, '_remote_repair', None) is None:
+            from monitorize.desktop.remote_login_repair import RemoteLoginRepairCoordinator
+            self._remote_repair = RemoteLoginRepairCoordinator(self)
+        self._remote_repair.begin(package)
 
     @pyqtSlot(bool)
     def configureRemoteLogin(self, enabled):

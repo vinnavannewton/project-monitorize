@@ -21,7 +21,7 @@ from monitorize.remote_login.capability import exact_kms_engine
 from monitorize.platform.remote_login_host import REQUIRED_PROTOCOLS, _constant, compatible_host_version
 
 
-def prepare(destination,binary,assets,*,vkms_source=None):
+def prepare(destination,binary,assets,*,vkms_source=None,announce=True):
     if os.geteuid()==0:raise ValueError('Stage as your normal user, without sudo.')
     destination=Path(destination).absolute();binary=Path(binary).resolve(strict=True);assets=Path(assets).resolve(strict=True)
     if not exact_kms_engine(binary):raise ValueError('Select the built Monitorize engine with exact KMS output support.')
@@ -85,19 +85,20 @@ def prepare(destination,binary,assets,*,vkms_source=None):
             shutil.copyfile(ROOT/source,target)
         for path in destination.rglob('*'):
             if path.is_dir():path.chmod(0o755)
-            elif path not in (engine,helper):path.chmod(0o755 if path.parent==destination/'usr/libexec/monitorize-vkms' else 0o644)
+            elif path not in (engine,helper):path.chmod(0o755 if path.parent==destination/'usr/libexec/monitorize-vkms' or path==destination/'usr/libexec/monitorize/remote-login/repair.py' else 0o644)
     except Exception:
         shutil.rmtree(destination);raise
-    print('Prepared service assets:',destination)
-    print('No system files, capabilities, services or display settings were changed.')
-    print('Host monitorize-vkms boot-display protocol v1 must be installed before enrollment.')
-    print('Before installation: stop streaming and fully quit Monitorize from its tray menu.')
-    print('Then run (these commands work from any directory):')
-    units=['monitorize-vkms.service']
-    if any((Path(directory)/'monitorize-remote-login.service').is_file() for directory in ('/etc/systemd/system','/usr/lib/systemd/system')):
-        units.insert(0,'monitorize-remote-login.service')
-    print(shlex.join(['sudo','systemctl','stop',*units]))
-    print(shlex.join(['sudo','/usr/bin/python3','-I',str(ROOT/'scripts/install-remote-login-assets.py'),'--stage',str(destination)]))
+    if announce:
+        print('Prepared service assets:',destination)
+        print('No system files, capabilities, services or display settings were changed.')
+        print('Host monitorize-vkms boot-display protocol v1 must be installed before enrollment.')
+        print('Before installation: stop streaming and fully quit Monitorize from its tray menu.')
+        print('Then run (these commands work from any directory):')
+        units=['monitorize-vkms.service']
+        if any((Path(directory)/'monitorize-remote-login.service').is_file() for directory in ('/etc/systemd/system','/usr/lib/systemd/system')):
+            units.insert(0,'monitorize-remote-login.service')
+        print(shlex.join(['sudo','systemctl','stop',*units]))
+        print(shlex.join(['sudo','/usr/bin/python3','-I',str(ROOT/'scripts/install-remote-login-assets.py'),'--stage',str(destination)]))
     return destination
 
 

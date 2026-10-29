@@ -16,6 +16,7 @@ Item {
     property bool timeoutFailed: false
     property int savedTimeout: 20
     property bool startupCleanupPending: false
+    property int pendingBootAction: -1
     property int loginAfterBootDisable: -1
     property string sunshineResetMessage: ""
     property bool sunshineResetSucceeded: false
@@ -66,6 +67,16 @@ Item {
             page.vkmsAuthorization = result
         }
         function onRemoteLoginSetupFinished(result) {
+            if (result.repair) {
+                page.settingsError = result.success ? "" : (result.message || "Remote-login repair failed.")
+                page.startupNotice = result.success ? result.message : ""
+                page.refreshStartup()
+                if (result.success && !result.restart_required && page.pendingBootAction >= 0) {
+                    let requested = page.pendingBootAction === 1
+                    Qt.callLater(function() { backend.configureRemoteLogin(requested) })
+                }
+                return
+            }
             if (result.timeout_setting) {
                 page.savingTimeout = false
                 page.timeoutFailed = !result.success
@@ -82,7 +93,10 @@ Item {
                 if (error.length > 0) page.settingsError = error
                 page.refreshStartup()
             }
-            page.loginAfterBootDisable = -1
+            if (result.success) {
+                page.pendingBootAction = -1
+                page.loginAfterBootDisable = -1
+            }
         }
         function onSystemSetupFinished(result) {
             page.vkmsAuthorizationMessage = result.success ? "" : (result.message || "Authorization failed.")
@@ -102,6 +116,7 @@ Item {
             // Keep the dependency visible until administrator disable succeeds.
             autostartCheck.checked = true
             loginAfterBootDisable = 0
+            page.pendingBootAction = 0
             backend.configureRemoteLogin(false)
             return
         }
@@ -183,6 +198,7 @@ Item {
                         enabled: !backend.remoteLoginSetupBusy && (page.bootStatus.enabled || (autostartCheck.checked && page.bootStatus.available && page.bootStatus.supported && page.bootStatus.live_available === true))
                         onClicked: {
                             page.loginAfterBootDisable = checked ? -1 : 1
+                            page.pendingBootAction = checked ? 1 : 0
                             backend.configureRemoteLogin(checked)
                         }
                     }
@@ -206,12 +222,26 @@ Item {
                     }
                 }
 
-                Text {
+                SelectableMessage {
                     objectName: "bootStartupStatusMessage"
                     visible: page.bootOptionsExpanded && (!page.bootStatus.available || (!page.bootStatus.enabled && (!autostartCheck.checked || !page.bootStatus.supported || page.bootStatus.live_available !== true)))
                     text: !page.bootStatus.available || (!page.bootStatus.supported && !page.bootStatus.enabled)
                           ? (page.bootStatus.message || "") : (!autostartCheck.checked ? "Enable Start Monitorize after login first." : (page.bootStatus.live_message || "Install matching live-enrollment service updates before enabling boot startup."))
                     color: theme.textSecondary; Layout.fillWidth: true; wrapMode: Text.WordWrap
+                }
+                SelectableMessage {
+                    objectName: "remoteLoginRepairExplanation"
+                    text: page.bootStatus.repair_message || ""
+                    visible: repairRemoteLoginButton.visible
+                    Layout.fillWidth: true
+                }
+                CustomButton {
+                    id: repairRemoteLoginButton
+                    objectName: "repairRemoteLoginButton"
+                    text: page.bootStatus.repair_kind === "source" ? "Repair remote login" : "Reinstall Monitorize package…"
+                    visible: page.bootOptionsExpanded && !!page.bootStatus.repair_kind && (!page.bootStatus.available || page.bootStatus.repair_needed || page.settingsError.length > 0)
+                    enabled: !backend.remoteLoginSetupBusy && !backend.sessionBusy
+                    onClicked: backend.repairRemoteLogin()
                 }
                 CustomButton {
                     objectName: "refreshBootStartupStatus"
@@ -220,11 +250,12 @@ Item {
                     enabled: !backend.remoteLoginSetupBusy
                     onClicked: page.refreshStartup()
                 }
-                Text {
+                SelectableMessage {
+                    objectName: "startupErrorMessage"
                     text: page.settingsError; visible: text.length > 0
                     color: theme.errorText; Layout.fillWidth: true; wrapMode: Text.WordWrap
                 }
-                Text {
+                SelectableMessage {
                     objectName: "startupNoticeText"
                     text: backend.remoteLoginSetupBusy && !page.savingTimeout ? "Applying startup settings…" : page.startupNotice
                     visible: text.length > 0
@@ -305,7 +336,8 @@ Item {
                     }
                     StartupHelp { helpText: "Remove the virtual display after the last client disconnects. Reconnecting cancels removal.\nApplies to manually started sessions and remote login. Saved changes apply to future disconnects." }
                 }
-                Text {
+                SelectableMessage {
+                    objectName: "timeoutResultMessage"
                     text: page.savingTimeout ? "Saving disconnect timer…" : page.timeoutNotice
                     visible: text.length > 0
                     color: page.timeoutFailed ? theme.errorText : theme.textSecondary
@@ -345,7 +377,8 @@ Item {
                     actionEnabled: !backend.applyingConfiguration
                     onClicked: sunshineResetDialog.open()
                 }
-                Text {
+                SelectableMessage {
+                    objectName: "sunshineResetResultMessage"
                     text: page.sunshineResetMessage
                     visible: text.length > 0
                     Layout.fillWidth: true; wrapMode: Text.WordWrap

@@ -33,7 +33,7 @@ class SystemSetupTest(unittest.TestCase):
 
     def test_source_and_native_missing_assets_have_matching_repair_instructions(self):
         host=dict(available=False,reason='missing_assets',protocols={},message='Missing')
-        self.assertIn(str(ROOT/'scripts/stage-remote-login.py'),self.remote_status(host)['message'])
+        self.assertIn('Repair remote login',self.remote_status(host)['message'])
         self.assertIn('native package',self.remote_status(host,source=False)['message'])
 
     def test_app_and_privileged_checker_mismatch_is_caught_before_authorization(self):
@@ -43,7 +43,7 @@ class SystemSetupTest(unittest.TestCase):
         self.assertFalse(result['available'])
         self.assertEqual(result['reason'],'service_update_required')
         self.assertIn('different compatibility checks',result['message'])
-        self.assertIn('stage-remote-login.py',result['message'])
+        self.assertIn('Repair remote login',result['message'])
 
     def test_new_firewall_profile_is_reloaded_before_adding_service(self):
         from unittest.mock import Mock

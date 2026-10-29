@@ -24,6 +24,8 @@ def stage(destination,*,repository=ROOT):
     base=repository/'packaging/remote-login'
     for source,relative in [(base/'entry.py','usr/libexec/monitorize/remote-login/entry.py'),
         (base/'package-guard.py','usr/libexec/monitorize/remote-login/package-guard.py'),
+        (base/'repair.py','usr/libexec/monitorize/remote-login/repair.py'),
+        (repository/'scripts/install-remote-login-assets.py','usr/libexec/monitorize/remote-login/deploy.py'),
         (base/'apps.json','usr/share/monitorize/remote-login/apps.json'),
         (base/'io.github.vinnavannewton.MonitorizeRemoteLogin1.conf','usr/share/dbus-1/system.d/io.github.vinnavannewton.MonitorizeRemoteLogin1.conf')]:
         target=destination/relative;target.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(source,target)
@@ -41,6 +43,7 @@ def stage(destination,*,repository=ROOT):
         current=target
         while current!=destination:
             current.chmod(0o755);current=current.parent
+    (destination/'usr/libexec/monitorize/remote-login/repair.py').chmod(0o755)
     return destination
 
 

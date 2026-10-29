@@ -27,6 +27,7 @@ def check_update(source,assets,*,settings=Path('/etc/monitorize/remote-login.jso
     if values.get('enabled') is not True or values.get('uid')!=os.getuid():return 0
     if matching_engines(source,installed):return 0
     print('Desktop updated; remote-login system assets still need updating.',flush=True)
+    print('Open Monitorize Settings and choose Repair remote login for graphical administrator authorization. Manual fallback follows.',flush=True)
     print('The privileged engine differs from this source build; desktop login may fail with your selected encoder.',flush=True)
     spec=importlib.util.spec_from_file_location('remote_login_installer',ROOT/'scripts/install-remote-login-assets.py')
     installer=importlib.util.module_from_spec(spec);spec.loader.exec_module(installer)

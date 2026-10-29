@@ -25,6 +25,8 @@ FILES={ENGINE,'usr/libexec/monitorize/monitorize-system-setup',
        'usr/lib/monitorize-vkms/VERSION','usr/share/monitorize-vkms/capabilities.json',
        'usr/libexec/monitorize/remote-login/entry.py',
        'usr/libexec/monitorize/remote-login/package-guard.py',
+       'usr/libexec/monitorize/remote-login/repair.py',
+       'usr/libexec/monitorize/remote-login/deploy.py',
        'usr/share/monitorize/remote-login/apps.json',
        'usr/share/dbus-1/system.d/io.github.vinnavannewton.MonitorizeRemoteLogin1.conf',
        'usr/share/polkit-1/actions/io.github.vinnavannewton.monitorize.system-setup.policy',
@@ -79,6 +81,11 @@ def validate_source_matches(stage,repository=ROOT):
         if not staged.is_file() or staged.is_symlink() or staged.read_bytes()!=source.read_bytes():
             raise ValueError('Staged service code is missing or differs from this checkout: '+str(relative)+
                              '. Prepare a fresh bundle with '+str(repository/'scripts/stage-remote-login.py')+' and install that new stage.')
+    for name,source in (('repair.py',repository/'packaging/remote-login/repair.py'),
+                        ('deploy.py',repository/'scripts/install-remote-login-assets.py')):
+        staged=stage/'usr/libexec/monitorize/remote-login'/name
+        if not staged.is_file() or staged.is_symlink() or staged.read_bytes()!=source.read_bytes():
+            raise ValueError('Staged repair helpers differ from this checkout. Prepare a fresh bundle.')
     setup=stage/'usr/libexec/monitorize/monitorize-system-setup'
     if not setup.is_file() or setup.is_symlink() or setup.read_bytes()!=(repository/'packaging/common/monitorize-system-setup').read_bytes():
         raise ValueError('Staged setup helper differs from this checkout. Prepare and install a fresh bundle.')
@@ -165,6 +172,10 @@ class Commands:
         subprocess.run(['/usr/sbin/setcap',value or '-r',str(path)],capture_output=True,check=True,timeout=5)
     def reload(self):
         subprocess.run(['/usr/bin/systemctl','daemon-reload'],capture_output=True,check=True,timeout=20)
+
+
+class DeploymentRollbackError(RuntimeError):
+    rollback_failed = True
 
 
 class Installer:
@@ -263,7 +274,7 @@ class Installer:
         self.write(backup/'manifest.json',json.dumps(manifest).encode(),0o600)
         try:
             for relative,data in sources:
-                executable=relative==ENGINE or relative=='usr/libexec/monitorize/monitorize-system-setup' or relative.startswith('usr/libexec/monitorize-vkms/')
+                executable=relative==ENGINE or relative in ('usr/libexec/monitorize/monitorize-system-setup','usr/libexec/monitorize/remote-login/repair.py') or relative.startswith('usr/libexec/monitorize-vkms/')
                 self.write(self.root/relative,data,0o755 if executable else 0o644)
             if any(relative==ENGINE for relative,_ in sources):
                 self.commands.set_capabilities(self.root/ENGINE,'cap_sys_admin+p')
@@ -273,7 +284,7 @@ class Installer:
         except Exception:
             try:self.rollback(backup,failed_install=True)
             except Exception:
-                raise RuntimeError('Asset installation failed and rollback needs attention. Backup: '+str(backup)) from None
+                raise DeploymentRollbackError('Asset installation failed and rollback needs attention. Backup: '+str(backup)) from None
             raise RuntimeError('Asset installation failed; files were rolled back. Backup: '+str(backup)) from None
         return backup
     def rollback(self,backup,*,failed_install=False):
