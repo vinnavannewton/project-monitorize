@@ -169,6 +169,10 @@ class RecoveryDeliveryTests(unittest.TestCase):
 class SourceAuthorizationLauncherTests(unittest.TestCase):
     def test_launcher_uses_fixed_source_action_and_agent_retry_wrapper(self):
         module=load(ROOT/'scripts/authorize-source-maintenance.py')
-        with patch('sys.argv',['launcher','cache']),patch.object(module.shutil,'which',return_value='/usr/bin/pkexec'),patch.object(module,'run_authorized',return_value=SimpleNamespace(returncode=126,stdout='',stderr='')) as authorize:
-            self.assertEqual(module.main(),126)
-            self.assertEqual(authorize.call_args.args[0],['/usr/bin/pkexec','/usr/bin/python3','-I',str(ROOT/'scripts/source-maintenance.py'),'cache'])
+        for action in ('cache','legacy-cleanup','uninstall-keep','uninstall-all'):
+            with self.subTest(action=action),patch('sys.argv',['launcher',action]),patch.object(module.shutil,'which',return_value='/usr/bin/pkexec'),patch.object(module,'run_authorized',return_value=SimpleNamespace(returncode=126,stdout='',stderr='')) as authorize:
+                self.assertEqual(module.main(),126)
+                # Isolate the privileged interpreter and prevent root-owned
+                # bytecode from being left in the user's source checkout.
+                self.assertEqual(authorize.call_args.args[0],['/usr/bin/pkexec','/usr/bin/python3','-I','-B',str(ROOT/'scripts/source-maintenance.py'),action])
+                authorize.assert_called_once()
