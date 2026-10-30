@@ -40,6 +40,7 @@ This table shows whether each desktop environment supports via compositor-native
 | Hyprland | ✅ | ✅ |
 | Niri | ❌ | ✅ |
 | Cinnamon X11 | ❌ | ✅ |
+| COSMIC | ❌ | ❌ |
 
 Native **Virtual displays only** uses guarded layout restoration on KDE/GNOME,
 Hyprland, Niri/VKMS, and Xorg/VKMS sessions. The shared X11 backend uses XRandR
