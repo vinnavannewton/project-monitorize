@@ -62,6 +62,10 @@ login-screen display policy.
 For login-screen startup, see [remote-login setup](packaging/remote-login/README.md#current-installation-workflow),
 including the extra system-assets step for source installs.
 
+For source installations, run `linux/scripts/uninstall.sh` to choose whether to
+keep settings/pairing or remove all Monitorize data. See the
+[source uninstallation guide](linux/scripts/UNINSTALL.md).
+
 ## Contributing
 
 Want to contribute? See the [Contributing guide](https://github.com/vinnavannewton/project-monitorize/wiki/Contributing).

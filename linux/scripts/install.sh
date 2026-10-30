@@ -12,7 +12,6 @@
 #   ./install.sh --complete --cuda=off  # on or off
 #   ./install.sh --complete --cuda=on --check-vkms  # check the host VKMS service
 #   ./install.sh --rebuild-sunshine --cuda=on  # clean and rebuild Sunshine
-#   ./install.sh remove   # uninstall
 # ──────────────────────────────────────────────────────────────────────
 
 set -euo pipefail
@@ -40,10 +39,6 @@ SUNSHINE_VENV_BIN="${VENV_DIR}/bin/sunshine"
 SUNSHINE_VENV_ASSETS="${VENV_DIR}/share/monitorize/sunshine/assets"
 SUNSHINE_STRICT_SELECTION_PATCH="${REPOSITORY_DIR}/packaging/sunshine-strict-selection.patch"
 SUNSHINE_PORTAL_TOKEN_PATCH="${REPOSITORY_DIR}/packaging/sunshine-portal-token-scope.patch"
-# Legacy VKMS helper paths (kept for removal/cleanup during uninstall)
-VKMS_HELPER_PATH="/usr/libexec/monitorize/monitorize-source-vkms-helper"
-VKMS_POLICY_PATH="/usr/share/polkit-1/actions/io.github.vinnavannewton.monitorize.source-vkms.policy"
-
 # XDG standard locations
 CONFIG_HOME="${XDG_CONFIG_HOME:-${HOME}/.config}"
 DATA_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}"
@@ -66,16 +61,6 @@ check_vkms_cli() {
         echo "        To use VKMS Experimental, install the standalone package:"
         echo "        https://github.com/vinnavannewton/monitorize-vkms"
     fi
-}
-
-remove_vkms_helper() {
-    if [[ ! -e "${VKMS_HELPER_PATH}" && ! -e "${VKMS_POLICY_PATH}" ]]; then return 0; fi
-    if ! command -v pkexec >/dev/null; then
-        echo "Legacy cleanup is incomplete: Polkit is required to authorize removal." >&2
-        return 1
-    fi
-    python3 "${REPOSITORY_DIR}/scripts/authorize-source-maintenance.py" legacy-cleanup
-
 }
 
 desktop_quote() {
@@ -577,7 +562,6 @@ print_usage() {
     cat <<'EOF'
 Usage: ./install.sh [--complete | --partial | --rebuild-sunshine] [--cuda=POLICY]
        ./install.sh [--complete | --partial] --check-vkms
-       ./install.sh remove
 
 With no arguments, an interactive menu selects the installation mode.
   --complete          Install virtual-display support and bundled Sunshine.
@@ -587,7 +571,6 @@ With no arguments, an interactive menu selects the installation mode.
                       This option implies complete mode. --cuda POLICY also works.
                       Required for noninteractive complete installs.
   --check-vkms        Check the host monitorize-vkms D-Bus service.
-  remove, uninstall   Remove the per-user source installation.
 
 MONITORIZE_CUDA=on|off provides the same policy noninteractively.
 EOF
@@ -621,10 +604,9 @@ set_cuda_policy() {
     request_install_mode "complete"
 }
 
-# ── Uninstall ────────────────────────────────────────────────────────
+# ── Installer arguments ────────────────────────────────────────────────────────
 FORCE_SUNSHINE_REBUILD=0
 INSTALL_MODE=""
-INSTALL_ACTION="install"
 CUDA_POLICY=""
 CUDA_POLICY_EXPLICIT=0
 CHECK_VKMS_CLI=0
@@ -657,9 +639,6 @@ while (( $# > 0 )); do
             set_cuda_policy "$1"
             shift
             ;;
-        remove|uninstall)
-            INSTALL_ACTION="remove"
-            ;;
         -h|--help)
             print_usage
             exit 0
@@ -672,40 +651,13 @@ while (( $# > 0 )); do
     esac
 done
 
-if [[ "${INSTALL_ACTION}" == "install" && -n "${MONITORIZE_CUDA:-}" ]]; then
+if [[ -n "${MONITORIZE_CUDA:-}" ]]; then
     set_cuda_policy "${MONITORIZE_CUDA}"
 fi
 
-if [[ "${INSTALL_ACTION}" == "install" && "${MONITORIZE_REBUILD_SUNSHINE:-}" == "1" ]]; then
+if [[ "${MONITORIZE_REBUILD_SUNSHINE:-}" == "1" ]]; then
     FORCE_SUNSHINE_REBUILD=1
     request_install_mode "complete"
-fi
-
-if [[ "${INSTALL_ACTION}" == "remove" ]]; then
-    if [[ -n "${INSTALL_MODE}" || "${FORCE_SUNSHINE_REBUILD}" == "1" ]]; then
-        echo "Error: remove cannot be combined with an installation option." >&2
-        exit 2
-    fi
-    echo "Removing ${APP_NAME} desktop entry…"
-    rm -f "${DESKTOP_DIR}/${DESKTOP_FILE}"
-    rm -f "${DESKTOP_DIR}/${HELPER_DESKTOP_FILE}"
-    rm -f "${ICON_DEST}"
-    remove_legacy_udp_entries
-    remove_vkms_helper
-    rm -rf "${PROJECT_DIR}/venv"
-    find "${PROJECT_DIR}" -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-    # Refresh desktop database if available
-    if command -v update-desktop-database &>/dev/null; then
-        update-desktop-database "${DESKTOP_DIR}" 2>/dev/null || true
-    fi
-    if command -v gtk-update-icon-cache &>/dev/null; then
-        gtk-update-icon-cache -f -t "${ICON_CACHE_DIR}" 2>/dev/null || true
-    fi
-    if command -v kbuildsycoca6 &>/dev/null; then
-        kbuildsycoca6 2>/dev/null || true
-    fi
-    echo "✓ ${APP_NAME} has been removed from the application menu."
-    exit 0
 fi
 
 # ── Pre-flight checks ────────────────────────────────────────────────
@@ -1141,5 +1093,5 @@ echo ""
 echo "  Keep this source folder at: ${REPOSITORY_DIR}"
 echo "  Moving or deleting it will break the installed launcher."
 echo ""
-echo "  To uninstall:  ./install.sh remove"
+echo "  To uninstall:  ./uninstall.sh"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

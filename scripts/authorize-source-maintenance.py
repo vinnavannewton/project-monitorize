@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Unprivileged launcher for the two fixed source-installer maintenance actions."""
+"""Unprivileged launcher for fixed source-installer maintenance actions."""
 import argparse
 from pathlib import Path
 import shutil
@@ -12,11 +12,11 @@ from monitorize.platform.polkit_agent import run_authorized
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action',choices=('cache','legacy-cleanup'))
+    parser.add_argument('action',choices=('cache','legacy-cleanup','uninstall-keep','uninstall-all'))
     action=parser.parse_args().action
     pkexec=shutil.which('pkexec')
     if not pkexec:print('Polkit (pkexec) is required for source maintenance.',file=sys.stderr);return 1
-    result=run_authorized([pkexec,'/usr/bin/python3','-I',str(ROOT/'scripts/source-maintenance.py'),action],
+    result=run_authorized([pkexec,'/usr/bin/python3','-I','-B',str(ROOT/'scripts/source-maintenance.py'),action],
                           capture_output=True,text=True,check=False)
     if result.stdout:print(result.stdout.strip())
     if result.stderr:print(result.stderr.strip(),file=sys.stderr)

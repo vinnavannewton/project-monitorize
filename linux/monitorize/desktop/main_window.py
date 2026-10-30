@@ -284,9 +284,10 @@ def _handle_instance_command(server, window):
             data = bytes(peer.property("commandBuffer") or b"") + bytes(peer.readAll())
             peer.setProperty("commandBuffer", data)
             if not data:return
-            if data in (b"show", b"noop") or (data.startswith(b"preset:") and data[7:].isdigit()):
+            if data in (b"show", b"noop", b"quit") or (data.startswith(b"preset:") and data[7:].isdigit()):
                 command = data.decode("utf-8")
                 if command == "show":window._restore_from_tray()
+                elif command == "quit":window._quit_app()
                 elif command.startswith("preset:"):window.backend.launchPreset(int(command[7:]))
                 peer.disconnectFromServer()
             elif len(data) > 128:

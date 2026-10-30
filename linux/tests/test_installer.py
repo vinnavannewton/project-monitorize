@@ -66,7 +66,7 @@ class SunshineOnlyPackagingTest(unittest.TestCase):
     @staticmethod
     def run_installer_prelude(body, *, env=None, stdin=None):
         script = (ROOT / "linux/scripts/install.sh").read_text()
-        prelude = script.split("# ── Uninstall", 1)[0]
+        prelude = script.split("# ── Installer arguments", 1)[0]
         return subprocess.run(
             ["bash", "-c", f"{prelude}\n{body}"],
             cwd=ROOT,

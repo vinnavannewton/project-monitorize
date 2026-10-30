@@ -141,7 +141,7 @@ def cleanup_legacy():
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action',choices=('bootstrap','cache','legacy-cleanup'))
+    parser.add_argument('action',choices=('bootstrap','cache','legacy-cleanup','uninstall-keep','uninstall-all'))
     parser.add_argument('helper_args',nargs=argparse.REMAINDER)
     args=parser.parse_args()
     try:
@@ -151,7 +151,15 @@ def main():
         if info.st_uid!=user.pw_uid or info.st_mode & 0o022 or not (ROOT/'.gitmodules').is_file():
             raise ValueError('Select the caller-owned Monitorize checkout.')
         if args.helper_args and args.action!='bootstrap':raise ValueError('Only bootstrap can continue system setup.')
-        result=bootstrap(user.pw_uid) if args.action=='bootstrap' else repair_cache(user.pw_uid,user.pw_gid) if args.action=='cache' else cleanup_legacy()
+        if args.action.startswith('uninstall-'):
+            # Validate the fixed source helper before loading it under the
+            # already authorized caller-owned checkout boundary.
+            source_read('scripts/uninstall-source.py',user.pw_uid)
+            spec=importlib.util.spec_from_file_location('source_uninstall',ROOT/'scripts/uninstall-source.py')
+            uninstaller=importlib.util.module_from_spec(spec);spec.loader.exec_module(uninstaller)
+            result=uninstaller.system_cleanup(user.pw_uid,args.action.removeprefix('uninstall-'))
+        else:
+            result=bootstrap(user.pw_uid) if args.action=='bootstrap' else repair_cache(user.pw_uid,user.pw_gid) if args.action=='cache' else cleanup_legacy()
         if args.helper_args:
             if args.action!='bootstrap':raise ValueError('Only bootstrap can continue system setup.')
             options=args.helper_args[1:] if args.helper_args[0]=='--' else args.helper_args
@@ -159,7 +167,7 @@ def main():
             completed=subprocess.run(command,capture_output=True,text=True,check=False)
             print(completed.stdout.strip());return completed.returncode
         print(json.dumps(result));return 0
-    except (OSError,RuntimeError,ValueError,KeyError) as error:
+    except (OSError,RuntimeError,ValueError,KeyError,ImportError,subprocess.SubprocessError) as error:
         print(json.dumps(dict(success=False,message=str(error))));return 1
 
 
