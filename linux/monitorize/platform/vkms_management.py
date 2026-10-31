@@ -138,6 +138,7 @@ def prepare_update(log=lambda text: None, *, reinstall=False):
         raise ValueError('Update requires the official Monitorize VKMS main checkout.')
     if git(checkout, 'status', '--porcelain', '--untracked-files=normal'):
         raise ValueError('The VKMS checkout has local changes. Save them before updating.')
+    previous_revision = git(checkout, 'rev-parse', 'HEAD') if not reinstall else None
     if not reinstall:
         log('Fetching Monitorize VKMS…')
         git(checkout, 'fetch', 'origin', 'main', timeout=120)
@@ -150,7 +151,8 @@ def prepare_update(log=lambda text: None, *, reinstall=False):
     if not (checkout / 'monitorize_vkms/managed_install.py').is_file():
         raise ValueError('This VKMS source version does not support graphical updates. Update it using its README first.')
     log('Source ready. Preparing installation…')
-    return dict(checkout=str(checkout), revision=revision)
+    return dict(checkout=str(checkout), revision=revision,
+                up_to_date=not reinstall and previous_revision == revision)
 
 
 def install_update(prepared, log=lambda text: None):

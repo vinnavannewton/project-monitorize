@@ -125,3 +125,42 @@ class VkmsControllerTests(unittest.TestCase):
         install.assert_called_once()
         self.assertEqual(install.call_args.args[0], c.prepared)
         self.assertEqual(result['message'], 'VKMS reinstalled. System restart required.')
+
+    def test_up_to_date_requires_success_and_working_verification_then_expires(self):
+        c = self.controller
+        c.operation = 'update'
+        c.prepared = dict(up_to_date=True)
+        c.finish(dict(success=True))
+        self.assertFalse(c.up_to_date)
+        self.backend.futures[-1][0].set_result(dict(state='working', installed=True, message='Verified — working'))
+        self.assertTrue(c.snapshot()['up_to_date'])
+        self.assertTrue(c.notice_timer.isActive())
+        self.assertEqual(c.notice_timer.interval(), 10000)
+        c.notice_timer.timeout.emit()
+        self.assertFalse(c.snapshot()['up_to_date'])
+        self.assertEqual(c.snapshot()['message'], 'Verified — working')
+
+    def test_no_up_to_date_for_failure_new_source_reinstall_or_reboot(self):
+        for operation, unchanged, success, reboot, state in (
+            ('update', True, False, False, 'working'),
+            ('update', False, True, False, 'working'),
+            ('reinstall', True, True, False, 'working'),
+            ('update', True, True, True, 'restart_required'),
+            ('update', True, True, False, 'needs_attention'),
+            ('update', True, True, False, 'could_not_verify')):
+            c = VkmsManagement(self.backend)
+            c.operation = operation
+            c.prepared = dict(up_to_date=unchanged)
+            c.finish(dict(success=success, reboot_required=reboot))
+            self.backend.futures[-1][0].set_result(dict(state=state, installed=True))
+            self.assertFalse(c.up_to_date)
+            self.assertFalse(c.notice_timer.isActive())
+
+    def test_new_action_clears_previous_notice(self):
+        c = self.controller
+        c.health = dict(state='working', installed=True)
+        c.up_to_date = True
+        c.notice_timer.start()
+        c.start('update')
+        self.assertFalse(c.up_to_date)
+        self.assertFalse(c.notice_timer.isActive())

@@ -25,6 +25,7 @@ SectionCard {
             wrapMode: Text.WordWrap
             text: card.status.checking ? "Verifying installation…"
                 : card.status.busy ? card.status.operation_message
+                : card.status.up_to_date ? "Up to date"
                 : (card.status.message || "Checking…")
             color: card.status.state === "working" ? theme.successText : theme.textPrimary
         }

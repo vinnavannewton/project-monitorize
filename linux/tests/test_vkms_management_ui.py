@@ -73,6 +73,13 @@ with tempfile.TemporaryDirectory() as directory:
             assert update.property('visible') and update.property('enabled')
             assert card.property('implicitHeight') < view.height()
             capture(state+'-'+mode)
+    backend.status={**backend.status,'state':'working','up_to_date':True}
+    backend.changed.emit();settle()
+    health=card.findChild(QObject,'vkmsHealthMessage')
+    assert health.property('text')=='Up to date'
+    backend.status={**backend.status,'up_to_date':False,'message':'Verified — working'}
+    backend.changed.emit();settle()
+    assert health.property('text')=='Verified — working'
     click(restart);click(update);assert backend.actions==['github','reinstall','update']
     backend.status={**backend.status,'busy':True,'operation_message':'Installing VKMS…'}
     backend.changed.emit();settle()

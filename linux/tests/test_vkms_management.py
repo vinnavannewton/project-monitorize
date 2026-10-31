@@ -47,12 +47,13 @@ class VkmsManagementTests(unittest.TestCase):
             root = Path(temp)
             (root / 'monitorize_vkms').mkdir()
             (root / 'monitorize_vkms/managed_install.py').write_text('fixture')
-            responses = [str(root), next(iter(m.OFFICIAL_REMOTES)), 'main', '', '', '0', '', 'a' * 40]
+            responses = [str(root), next(iter(m.OFFICIAL_REMOTES)), 'main', '', 'b' * 40, '', '0', '', 'a' * 40]
             with patch.object(m, 'source_checkout', return_value=root), patch.object(m, 'git', side_effect=responses) as git, \
                  patch.object(m.os, 'geteuid', return_value=1000), patch.object(m.subprocess, 'Popen') as process:
                 value = m.prepare_update()
                 process.assert_not_called()
             self.assertEqual(value['revision'], 'a' * 40)
+            self.assertFalse(value['up_to_date'])
             self.assertIn(('fetch', 'origin', 'main'), [c.args[1:] for c in git.call_args_list])
 
     def test_dirty_source_is_preserved_without_fetch(self):
@@ -109,3 +110,15 @@ class VkmsManagementTests(unittest.TestCase):
             commands = [call.args[1] for call in git.call_args_list]
             self.assertNotIn('fetch', commands)
             self.assertNotIn('merge', commands)
+
+    def test_update_marks_unchanged_remote_revision(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / 'monitorize_vkms').mkdir()
+            (root / 'monitorize_vkms/managed_install.py').write_text('fixture')
+            responses = [str(root), next(iter(m.OFFICIAL_REMOTES)), 'main', '', 'a' * 40,
+                         '', '0', '', 'a' * 40]
+            with patch.object(m, 'source_checkout', return_value=root), \
+                 patch.object(m, 'git', side_effect=responses), \
+                 patch.object(m.os, 'geteuid', return_value=1000):
+                self.assertTrue(m.prepare_update()['up_to_date'])

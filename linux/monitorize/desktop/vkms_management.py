@@ -1,5 +1,5 @@
 """Backend-owned VKMS Settings state survives QML page navigation."""
-from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 from monitorize.platform import vkms_management as platform
 
 
@@ -23,13 +23,25 @@ class VkmsManagement(QObject):
         self._coordinating = False
         self._early_result = None
         self.reboot_required = False
+        self.up_to_date = False
+        self._pending_up_to_date = False
+        self.notice_timer = QTimer(self)
+        self.notice_timer.setSingleShot(True)
+        self.notice_timer.setInterval(10000)
+        self.notice_timer.timeout.connect(self.clear_notice)
         self._done.connect(self.complete)
         self._log.connect(self.append_log)
         backend.recoveryOperationFinished.connect(self.operation_finished)
 
     def snapshot(self):
         return {**self.health, 'checking': self.checking, 'busy': self.busy,
-                'operation': self.operation, 'operation_message': self.message, 'logs': self.logs}
+                'operation': self.operation, 'operation_message': self.message, 'logs': self.logs,
+                'up_to_date': self.up_to_date}
+
+    def clear_notice(self):
+        self.notice_timer.stop()
+        self.up_to_date = False
+        self.changed.emit()
 
     def submit(self, kind, function):
         serial = self.serial
@@ -60,6 +72,8 @@ class VkmsManagement(QObject):
             return
         if self.health.get('installed') is not True:
             return
+        self.clear_notice()
+        self._pending_up_to_date = False
         self.serial += 1
         self.busy = True
         self.operation = operation
@@ -101,6 +115,13 @@ class VkmsManagement(QObject):
             else:
                 self.health.update(state='could_not_verify', message='Could not verify installation',
                                    details=value.get('message', 'Verification failed.'))
+            if self.health.get('state') != 'working':
+                self.clear_notice()
+                self._pending_up_to_date = False
+            elif self._pending_up_to_date:
+                self._pending_up_to_date = False
+                self.up_to_date = True
+                self.notice_timer.start()
             self.changed.emit()
         elif kind == 'prepare':
             if not value.get('revision'):
@@ -120,6 +141,8 @@ class VkmsManagement(QObject):
             self.finish(result)
 
     def finish(self, result):
+        self._pending_up_to_date = bool(self.operation == 'update' and result.get('success')
+            and (self.prepared or {}).get('up_to_date') and not result.get('reboot_required'))
         self.reboot_required = bool(result.get('reboot_required', self.reboot_required))
         self.busy = False
         self.prepared = None
