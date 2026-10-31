@@ -27,6 +27,8 @@ account at that UID, preparation reuses it and puts build-home files under
 Use `./packaging/arch/build.sh --no-cuda` to omit the CUDA toolkit and build
 Sunshine with CUDA disabled. This variant writes to `dist/arch/no-cuda/` and
 uses a separate prepared dependency image. VA-API and Vulkan remain enabled.
+NVENC can still use RAM conversion and upload without Sunshine's compiled CUDA
+kernels; the guest or host still needs compatible NVIDIA driver libraries.
 Its offline form is `./packaging/arch/build.sh --no-cuda --rebuild-offline`;
 run the normal non-CUDA build once to prepare that variant's image and caches.
 
