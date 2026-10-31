@@ -18,7 +18,7 @@ class Backend(QObject):
     def getSystemSetupStatus(self):return dict(available=True,input_ready=False,input_configured=True,logout_required=True,input_message='Log out and back in to enable input.')
     @pyqtSlot()
     def markSystemSetupDecided(self):self.decided+=1
-    @pyqtSlot(bool,bool,bool)
+    @pyqtSlot(bool,bool)
     def startSystemSetup(self,*args):self.starts.append(args)
 backend=Backend()
 engine=QQmlApplicationEngine();engine.rootContext().setContextProperty('backend',backend)
@@ -32,6 +32,7 @@ Item {
 ''' + '"""' + ''' ,QUrl.fromLocalFile(str(Path('linux/monitorize/qml/SetupTest.qml').resolve())))
 assert engine.rootObjects()
 root=engine.rootObjects()[0];page=root.findChild(QObject,'setup')
+assert not any(child.property('text')=='Enable unattended VKMS displays' for child in root.findChildren(QObject))
 completed=[];page.setupCompleted.connect(lambda:completed.append(True))
 page.setProperty('applying',True)
 backend.systemSetupFinished.emit(dict(success=False,message='Firewall failed',logout_required=True,actions={'input':{'success':True,'message':'Input configured'},'firewall':{'success':False,'message':'Firewall failed'}}))
@@ -41,7 +42,7 @@ assert 'Log out' in page.property('statusMessage')
 retry=root.findChild(QObject,'systemSetupAuthorizeButton')
 assert retry and retry.property('enabled')
 QMetaObject.invokeMethod(retry,'clicked');app.processEvents()
-assert backend.starts==[(False,True,False)],backend.starts
+assert backend.starts==[(False,True)],backend.starts
 backend.systemSetupFinished.emit(dict(success=True,message='Firewalld allows Monitorize in home.',logout_required=False))
 app.processEvents()
 assert not completed and backend.decided==0,'Completion closed before acknowledgement'

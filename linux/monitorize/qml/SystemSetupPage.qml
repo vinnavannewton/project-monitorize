@@ -34,7 +34,6 @@ Item {
             page.completedActions = completed
             if (actions["input"] && actions["input"]["success"] === true) inputCheck.checked = false
             if (actions["firewall"] && actions["firewall"]["success"] === true) firewallCheck.checked = false
-            if (actions["vkms"] && actions["vkms"]["success"] === true) unattendedVkmsCheck.checked = false
             let status = backend.getSystemSetupStatus()
             page.logoutRequired = status["logout_required"] === true
             page.statusMessage = result["message"] || "System setup failed."
@@ -109,18 +108,6 @@ Item {
                 }
 
                 CustomCheckBox {
-                    id: unattendedVkmsCheck
-                    text: "Enable unattended VKMS displays"
-                    Layout.fillWidth: true
-                }
-                Text {
-                    text: "Allows processes running as your user to manage your Monitorize VKMS displays without further password prompts. Requires monitorize-vkms on the host."
-                    color: theme.textMuted
-                    wrapMode: Text.WordWrap
-                    Layout.fillWidth: true
-                }
-
-                CustomCheckBox {
                     id: firewallCheck
                     checked: true
                     text: "Allow Moonlight through the firewall"
@@ -185,10 +172,10 @@ Item {
                 objectName: "systemSetupAuthorizeButton"
                 visible: !page.statusSucceeded
                 text: applying ? "Authorizing…" : "Authorize and finish setup"
-                enabled: setupAvailable && !applying && (inputCheck.checked || firewallCheck.checked || unattendedVkmsCheck.checked)
+                enabled: setupAvailable && !applying && (inputCheck.checked || firewallCheck.checked)
                 onClicked: {
                     applying = true
-                    backend.startSystemSetup(inputCheck.checked, firewallCheck.checked, unattendedVkmsCheck.checked)
+                    backend.startSystemSetup(inputCheck.checked, firewallCheck.checked)
                 }
             }
             CustomButton {

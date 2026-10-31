@@ -441,7 +441,7 @@ class FirstRunSetupTest(unittest.TestCase):
         self.assertIn("backend.markSystemSetupDecided()", main)
         self.assertIn("property bool firstRun: false", setup)
         self.assertIn("if (page.statusSucceeded && page.firstRun)", setup)
-        self.assertIn("backend.startSystemSetup(inputCheck.checked, firewallCheck.checked, unattendedVkmsCheck.checked)", setup)
+        self.assertIn("backend.startSystemSetup(inputCheck.checked, firewallCheck.checked)", setup)
         self.assertNotIn("Finish system setup", main)
         self.assertIn("visible: backend.canConfigureDisplay", streaming)
 
