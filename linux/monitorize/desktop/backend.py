@@ -1003,7 +1003,7 @@ class MonitorizeBackend(QObject):
     def refreshVkmsManagement(self):self._vkms_manager().refresh()
 
     @pyqtSlot()
-    def restartMonitorizeVkms(self):self._vkms_manager().start('restart')
+    def reinstallMonitorizeVkms(self):self._vkms_manager().start('reinstall')
 
     @pyqtSlot()
     def updateMonitorizeVkms(self):self._vkms_manager().start('update')

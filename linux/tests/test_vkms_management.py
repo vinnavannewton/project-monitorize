@@ -94,3 +94,18 @@ class VkmsManagementTests(unittest.TestCase):
         self.assertTrue(result['outcome_unknown'])
         self.assertEqual(spawn.call_count, 1)
         agent.assert_not_called()
+
+    def test_reinstall_uses_current_revision_without_network_or_merge(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / 'monitorize_vkms').mkdir()
+            (root / 'monitorize_vkms/managed_install.py').write_text('fixture')
+            responses = [str(root), next(iter(m.OFFICIAL_REMOTES)), 'main', '', 'b' * 40]
+            with patch.object(m, 'source_checkout', return_value=root), \
+                 patch.object(m, 'git', side_effect=responses) as git, \
+                 patch.object(m.os, 'geteuid', return_value=1000):
+                value = m.prepare_update(reinstall=True)
+            self.assertEqual(value['revision'], 'b' * 40)
+            commands = [call.args[1] for call in git.call_args_list]
+            self.assertNotIn('fetch', commands)
+            self.assertNotIn('merge', commands)

@@ -37,11 +37,11 @@ SectionCard {
             visible: card.status.installed === true
             Layout.fillWidth: true
             CustomButton {
-                objectName: "vkmsRestartButton"
-                text: "Restart"; primary: false
+                objectName: "vkmsReinstallButton"
+                text: "Reinstall"; primary: false
                 enabled: !card.status.checking && !card.status.busy && !backend.systemSetupRunning
                     && !backend.remoteLoginSetupBusy && !backend.applyingConfiguration
-                onClicked: backend.restartMonitorizeVkms()
+                onClicked: backend.reinstallMonitorizeVkms()
             }
             CustomButton {
                 objectName: "vkmsUpdateButton"

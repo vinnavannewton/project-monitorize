@@ -127,8 +127,8 @@ def git(checkout, *args, timeout=15):
     return result.stdout.strip()
 
 
-def prepare_update(log=lambda text: None):
-    """Fetch as the normal user before requesting session interruption or root access."""
+def prepare_update(log=lambda text: None, *, reinstall=False):
+    """Validate source, optionally fetch, before session interruption or root access."""
     if os.geteuid() == 0:
         raise ValueError('Run Monitorize as your normal desktop user.')
     checkout = source_checkout()
@@ -138,11 +138,12 @@ def prepare_update(log=lambda text: None):
         raise ValueError('Update requires the official Monitorize VKMS main checkout.')
     if git(checkout, 'status', '--porcelain', '--untracked-files=normal'):
         raise ValueError('The VKMS checkout has local changes. Save them before updating.')
-    log('Fetching Monitorize VKMS…')
-    git(checkout, 'fetch', 'origin', 'main', timeout=120)
-    if git(checkout, 'rev-list', '--count', 'FETCH_HEAD..HEAD') != '0':
-        raise ValueError('The VKMS checkout has local commits. Resolve them before updating.')
-    git(checkout, 'merge', '--ff-only', 'FETCH_HEAD', timeout=30)
+    if not reinstall:
+        log('Fetching Monitorize VKMS…')
+        git(checkout, 'fetch', 'origin', 'main', timeout=120)
+        if git(checkout, 'rev-list', '--count', 'FETCH_HEAD..HEAD') != '0':
+            raise ValueError('The VKMS checkout has local commits. Resolve them before updating.')
+        git(checkout, 'merge', '--ff-only', 'FETCH_HEAD', timeout=30)
     revision = git(checkout, 'rev-parse', 'HEAD')
     if not re.fullmatch('[0-9a-f]{40}', revision):
         raise ValueError('Invalid VKMS source revision.')

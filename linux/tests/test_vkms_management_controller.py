@@ -82,12 +82,15 @@ class VkmsControllerTests(unittest.TestCase):
         self.assertFalse(c.busy)
         self.assertTrue(c.checking)
 
-    def test_restart_never_fetches_source(self):
+    def test_reinstall_prepares_without_fetch_then_uses_install_coordinator(self):
         c = self.controller
         c.health = dict(state='working', installed=True)
-        c.start('restart')
-        self.backend.coordinator.begin.assert_called_once_with('vkms_restart')
-        self.assertFalse(self.backend.futures)
+        c.start('reinstall')
+        with patch('monitorize.desktop.vkms_management.platform.prepare_update', return_value=dict(checkout='/fixture', revision='a' * 40)) as prepare:
+            future, function = self.backend.futures[0]
+            future.set_result(function())
+        self.assertTrue(prepare.call_args.kwargs['reinstall'])
+        self.backend.coordinator.begin.assert_called_once_with('vkms_reinstall')
 
     def test_immediate_completion_cannot_leave_card_stuck_busy(self):
         c = self.controller
@@ -97,16 +100,28 @@ class VkmsControllerTests(unittest.TestCase):
                 success=False, message='Update installed helpers first.'))
             return dict(pending=True, request_id='request')
         self.backend.coordinator.begin.side_effect = immediate
-        c.start('restart')
+        c.start('reinstall')
+        self.backend.futures[0][0].set_result(dict(checkout='/fixture', revision='a' * 40))
         self.assertFalse(c.busy)
         self.assertTrue(c.checking)
 
     def test_navigation_does_not_own_or_cancel_install(self):
         c = self.controller
         c.health = dict(state='working', installed=True)
-        c.start('restart')
+        c.start('reinstall')
         self.assertTrue(c.snapshot()['busy'])
         c.refresh()
-        self.assertFalse(self.backend.futures)
+        self.assertEqual(len(self.backend.futures), 1)
         c.append_log('x' * 20000)
         self.assertLessEqual(len(c.snapshot()['logs']), 16384)
+
+    def test_reinstall_runs_installer_and_reports_reinstall_result(self):
+        c = self.controller
+        c.operation = 'reinstall'
+        c.prepared = dict(checkout='/fixture', revision='a' * 40)
+        with patch('monitorize.desktop.vkms_management.platform.install_update',
+                   return_value=dict(success=True, reboot_required=True, message='VKMS updated.')) as install:
+            result = c.install()
+        install.assert_called_once()
+        self.assertEqual(install.call_args.args[0], c.prepared)
+        self.assertEqual(result['message'], 'VKMS reinstalled. System restart required.')

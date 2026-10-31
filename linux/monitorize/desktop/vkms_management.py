@@ -55,7 +55,7 @@ class VkmsManagement(QObject):
 
     def start(self, operation):
         b = self.backend
-        if (operation not in ('restart', 'update') or self.busy or self.checking or b._closing
+        if (operation not in ('reinstall', 'update') or self.busy or self.checking or b._closing
                 or b.applyingConfiguration or b.systemSetupRunning or b.remoteLoginSetupBusy):
             return
         if self.health.get('installed') is not True:
@@ -63,13 +63,10 @@ class VkmsManagement(QObject):
         self.serial += 1
         self.busy = True
         self.operation = operation
-        self.message = 'Fetching Monitorize VKMS…' if operation == 'update' else 'Restarting VKMS…'
+        self.message = 'Fetching Monitorize VKMS…' if operation == 'update' else 'Preparing VKMS reinstall…'
         self.logs = ''
         self.changed.emit()
-        if operation == 'update':
-            self.submit('prepare', lambda: platform.prepare_update(self._log.emit))
-        else:
-            self.coordinate()
+        self.submit('prepare', lambda: platform.prepare_update(self._log.emit, reinstall=operation == 'reinstall'))
 
     def coordinate(self):
         self._coordinating = True
@@ -86,7 +83,11 @@ class VkmsManagement(QObject):
         self._early_result = None
 
     def install(self):
-        return platform.install_update(self.prepared, self._log.emit)
+        result = platform.install_update(self.prepared, self._log.emit)
+        if self.operation == 'reinstall' and result.get('success'):
+            result['message'] = ('VKMS reinstalled. System restart required.' if result.get('reboot_required')
+                                 else 'VKMS reinstalled. Checking installation…')
+        return result
 
     def complete(self, kind, serial, value):
         if serial != self.serial or self.backend._closing:
@@ -106,7 +107,7 @@ class VkmsManagement(QObject):
                 self.finish(value)
             else:
                 self.prepared = value
-                self.message = 'Preparing VKMS update…'
+                self.message = 'Preparing VKMS reinstall…' if self.operation == 'reinstall' else 'Preparing VKMS update…'
                 self.changed.emit()
                 self.coordinate()
 

@@ -3,7 +3,7 @@ import time
 from PyQt6.QtCore import QObject,QTimer,pyqtSignal
 from monitorize.platform.recovery_actions import RecoveryRequest
 
-OPERATIONS=('source_repair','maintenance_resume','host_recovery','vkms_restart','vkms_update','clear_tokens','cleanup_displays','reset_sunshine','reboot','logout')
+OPERATIONS=('source_repair','maintenance_resume','host_recovery','vkms_restart','vkms_update','vkms_reinstall','clear_tokens','cleanup_displays','reset_sunshine','reboot','logout')
 
 
 class RecoveryOperations(QObject):
@@ -19,7 +19,7 @@ class RecoveryOperations(QObject):
     def begin(self,operation,disable_boot=False):
         if operation not in OPERATIONS:raise ValueError('Unsupported recovery operation.')
         b=self.backend
-        if self.busy or b._closing or b.applyingConfiguration or (b.systemSetupRunning and operation not in ('vkms_restart','vkms_update')):return {'success':False,'message':'Wait for the current operation to finish.'}
+        if self.busy or b._closing or b.applyingConfiguration or (b.systemSetupRunning and operation not in ('vkms_restart','vkms_update','vkms_reinstall')):return {'success':False,'message':'Wait for the current operation to finish.'}
         if b.session.busy:return {'success':False,'message':'Display cleanup is still in progress.'}
         self.generation=b._session_start_generation
         self.request=RecoveryRequest(operation,self.generation,False if disable_boot else None)
@@ -83,7 +83,7 @@ class RecoveryOperations(QObject):
             except Exception as error:result=dict(success=False,message=str(error))
             finally:self.backend._applying_recovery=False
             self.complete(result);return
-        if operation=='vkms_update':
+        if operation in ('vkms_update','vkms_reinstall'):
             action=self.backend._vkms_manager().install;arguments=()
         elif operation=='vkms_restart':
             from monitorize.platform.system_setup import restart_vkms_host
@@ -139,7 +139,7 @@ class RecoveryOperations(QObject):
             if self.cancelled and b._remote_login:
                 b._remote_login.participant.want_running=False;b._remote_login.stop()
             if b._remote_login.enabled:b._remote_login.timer.start()
-            if operation in ('host_recovery','vkms_restart','vkms_update'):b.refreshVkmsHelperAvailability();b.refreshVkmsAuthorization()
+            if operation in ('host_recovery','vkms_restart','vkms_update','vkms_reinstall'):b.refreshVkmsHelperAvailability();b.refreshVkmsAuthorization()
             b.remoteLoginSetupChanged.emit();b.recoveryOperationFinished.emit(result)
 
     def cancel(self):

@@ -28,7 +28,7 @@ class Backend(QObject):
     @pyqtSlot()
     def openMonitorizeVkmsInstallPage(self):self.actions.append('github')
     @pyqtSlot()
-    def restartMonitorizeVkms(self):self.actions.append('restart')
+    def reinstallMonitorizeVkms(self):self.actions.append('reinstall')
     @pyqtSlot()
     def updateMonitorizeVkms(self):self.actions.append('update')
     @pyqtSlot(str)
@@ -55,7 +55,8 @@ with tempfile.TemporaryDirectory() as directory:
     install=card.findChild(QObject,'vkmsInstallButton')
     assert install.property('visible')
     click(install);assert backend.actions==['github']
-    restart=card.findChild(QObject,'vkmsRestartButton');update=card.findChild(QObject,'vkmsUpdateButton')
+    restart=card.findChild(QObject,'vkmsReinstallButton');update=card.findChild(QObject,'vkmsUpdateButton')
+    assert restart.property('text') == 'Reinstall'
     assert not restart.property('visible') and not update.property('visible')
     output=os.environ.get('MONITORIZE_VKMS_PREVIEWS')
     def capture(name):
@@ -72,7 +73,7 @@ with tempfile.TemporaryDirectory() as directory:
             assert update.property('visible') and update.property('enabled')
             assert card.property('implicitHeight') < view.height()
             capture(state+'-'+mode)
-    click(restart);click(update);assert backend.actions==['github','restart','update']
+    click(restart);click(update);assert backend.actions==['github','reinstall','update']
     backend.status={**backend.status,'busy':True,'operation_message':'Installing VKMS…'}
     backend.changed.emit();settle()
     assert not restart.property('enabled') and not update.property('enabled')
