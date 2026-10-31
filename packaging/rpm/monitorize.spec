@@ -82,6 +82,7 @@ BuildRequires:  vulkan-loader-devel
 BuildRequires:  wayland-devel
 BuildRequires:  wayland-protocols-devel
 
+Requires:       wlr-randr
 Requires:       avahi
 Requires:       firewalld-filesystem
 Requires:       iproute

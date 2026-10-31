@@ -264,6 +264,7 @@ PROJECT_DIR={str(ROOT / "linux")!r}
 INSTALL_MODE="partial"
 ''' + r'''
 command() {
+    if [[ "${1:-}" == "-v" && "${2:-}" == "wlr-randr" ]]; then return 0; fi
     if [[ "${1:-}" == "-v" && "${2:-}" =~ ^(git|cmake|node|npm|patch|cksum)$ ]]; then
         return 1
     fi
@@ -433,7 +434,7 @@ fi
 exit 0
 ''',
             )
-            for command in ("npm", "glslc"):
+            for command in ("npm", "glslc", "wlr-randr"):
                 (fake_bin / command).symlink_to("/bin/true")
 
             bash_env = fixture / "bash-env"
@@ -786,3 +787,24 @@ exit 0
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class WlrRandrDependencyTests(unittest.TestCase):
+    def test_native_runtime_dependencies_include_output_management_client(self):
+        arch=(ROOT/'packaging/arch/dependencies.sh').read_text().split('monitorize_build_deps=',1)[0]
+        self.assertIn('wlr-randr',arch)
+        for path in ('packaging/rpm/monitorize.spec','packaging/tumbleweed/monitorize.spec'):
+            self.assertRegex((ROOT/path).read_text(),r'(?m)^Requires:\s+wlr-randr\s*$')
+        for control in (ROOT/'packaging/deb').glob('*/debian/control'):
+            self.assertIn('wlr-randr',control.read_text().split('\nDepends:',1)[1].split('\nRecommends:',1)[0])
+        nix=(ROOT/'nix/package.nix').read_text()
+        self.assertIn('wlr-randr',nix.split('--prefix PATH',1)[1])
+
+    def test_source_installer_requires_client_before_environment_creation(self):
+        source=(ROOT/'linux/scripts/install.sh').read_text()
+        self.assertIn('require_command wlr-randr',source)
+        self.assertLess(source.index('require_command wlr-randr'),source.index('Installing/updating Python dependencies'))
+        check=re.search(r'^require_command\(\) \{.*?^\}',source,re.M|re.S).group()
+        result=subprocess.run(['/bin/bash','-c',check+'\ncommand() { return 1; }\nrequire_command wlr-randr'],capture_output=True,text=True)
+        self.assertNotEqual(result.returncode,0)
+        self.assertIn("'wlr-randr' is required",result.stderr)

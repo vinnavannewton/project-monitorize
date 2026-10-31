@@ -17,6 +17,7 @@
 , gnutar
 , gzip
 , libva-utils
+, wlr-randr
 , cudaSupport ? (stdenv.hostPlatform.system == "x86_64-linux")
 }:
 
@@ -197,6 +198,7 @@ python3Packages.buildPythonApplication rec {
       --prefix PATH : "${lib.makeBinPath [
         kdePackages.libkscreen
         libva-utils
+        wlr-randr
         monitorizeSunshine
       ]}" \
       --set MONITORIZE_SUNSHINE_BIN "${monitorizeSunshine}/bin/sunshine" \

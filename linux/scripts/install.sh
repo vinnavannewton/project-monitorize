@@ -688,6 +688,7 @@ if [[ ! -d "${PROJECT_DIR}/monitorize" ]]; then
 fi
 
 require_command python3
+require_command wlr-randr
 
 if [[ "${INSTALL_MODE}" == "complete" ]]; then
     require_command git

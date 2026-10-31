@@ -96,6 +96,7 @@ Depends: ${misc:Depends},
          libqt6svg6,
          udev,
          vainfo,
+         wlr-randr,
          xdg-desktop-portal
 Recommends: firewalld, x11-xserver-utils
 Suggests: monitorize-vkms (>= 0.3.0)

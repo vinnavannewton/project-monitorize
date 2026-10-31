@@ -89,6 +89,7 @@ BuildRequires:  shaderc
 BuildRequires:  wayland-devel
 BuildRequires:  wayland-protocols-devel
 
+Requires:       wlr-randr
 Requires:       avahi
 Requires:       firewalld
 Requires:       iproute2
