@@ -101,6 +101,25 @@ class UserServiceTests(unittest.TestCase):
             with self.subTest(scope=scope),self.assertRaises(PermissionError):
                 LogindSessions(self.bus(),cgroup_reader=lambda pid:prefix+scope).authenticate(':1.50',1000)
 
+    def test_manager_session_resolves_only_verified_graphical_app_to_display(self):
+        bus=self.bus()
+        original_call=bus.call
+        original_properties=bus.properties
+        bus.call=lambda path,interface,method,*args: '/manager' if method=='GetSessionByPID' else original_call(path,interface,method,*args)
+        bus.properties=lambda path,interface: dict(Class='manager',Type='unspecified') if path=='/manager' else original_properties(path,interface)
+        prefix='0::/user.slice/user-1000.slice/user@1000.service/'
+        for scope in ('app.slice/monitorize-remote-controller.service',
+                      'app.slice/app-graphical.slice/app-Hyprland-monitorize.scope'):
+            group=prefix+scope
+            self.assertEqual(LogindSessions(bus,cgroup_reader=lambda pid:group).authenticate(':1.50',1000)['session'],'s1')
+        for group in (prefix+'background.slice/other.service',
+                      prefix.replace('1000','1001')+'app.slice/app-monitorize.scope'):
+            with self.subTest(group=group),self.assertRaises(PermissionError):
+                LogindSessions(bus,cgroup_reader=lambda pid:group).authenticate(':1.50',1000)
+        bus.session['Active']=False
+        with self.assertRaises(PermissionError):
+            LogindSessions(bus,cgroup_reader=lambda pid:prefix+'app.slice/app-monitorize.scope').authenticate(':1.50',1000)
+
     def test_locked_keeps_ownership_but_inactive_other_account_does_not(self):
         group='0::/user.slice/user-1000.slice/user@1000.service/app.slice/monitorize-remote-controller.service'
         bus=self.bus();bus.session['LockedHint']=True

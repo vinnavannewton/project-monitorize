@@ -42,6 +42,9 @@ class LogindSessions:
             except Exception as error:
                 name=error.get_dbus_name() if hasattr(error,'get_dbus_name') else ''
                 if name!='org.freedesktop.login1.NoSessionForPID':raise
+                path=None
+            values=self.bus.properties(path,SESSION) if path else None
+            if values is None or values.get('Class')=='manager':
                 # systemd user services live under user@UID.service, outside the
                 # session scope. The fixed controller and graphical application
                 # scopes (including terminals) use the UID's verified Display.
@@ -64,7 +67,7 @@ class LogindSessions:
                 user=self.bus.properties(user_path,LOGIN+'.User')
                 if int(user['UID'])!=uid or not user['Display'][0]:raise ValueError()
                 path=user['Display'][1]
-            values=self.bus.properties(path,SESSION)
+                values=self.bus.properties(path,SESSION)
             if (int(values['User'][0])!=uid or values['Seat'][0]!='seat0' or
                 not values['Active'] or values['Remote'] or values['Type'] not in ('wayland','x11') or
                 values['Class'] not in USER_CLASSES or not values['Id']):raise ValueError()
