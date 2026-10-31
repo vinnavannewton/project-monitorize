@@ -197,3 +197,60 @@ class VkmsControllerTests(unittest.TestCase):
         self.backend.futures[-1][0].set_result(dict(state='working', installed=True))
         self.assertEqual(c.snapshot()['operation_message'], 'Install failed')
         self.assertFalse(c.up_to_date)
+
+    def pending_expired_recovery(self):
+        c = self.controller
+        c.health = dict(state='working', installed=True)
+        c.operation = 'update'
+        c.busy = True
+        c.prepared = dict(checkout='/fixture', revision='a' * 40)
+        requests=[]
+        c.recoveryRequested.connect(requests.append)
+        c.finish(dict(success=False, recovery_required='resume_expired', message='Expired maintenance'))
+        self.assertTrue(c.busy)
+        self.assertEqual(len(requests),1)
+        return c,requests[0]['request_id']
+
+    def test_expired_maintenance_waits_for_user_without_authorizing(self):
+        c,request=self.pending_expired_recovery()
+        self.assertEqual(self.backend.futures,[])
+        c.resolve_recovery('wrong-id',True)
+        self.assertEqual(self.backend.futures,[])
+        c.resolve_recovery(request,False)
+        self.assertFalse(c.busy)
+        self.assertIn('cancelled',c.message)
+        self.assertEqual(len(self.backend.futures),1) # passive verification only
+
+    def test_approved_expired_recovery_authorizes_and_reprepares_update_once(self):
+        c,request=self.pending_expired_recovery()
+        c.resolve_recovery(request,True)
+        c.resolve_recovery(request,True) # duplicate dialog response cannot replay
+        self.assertEqual(len(self.backend.futures),1)
+        with patch('monitorize.desktop.vkms_management.platform.install_update',return_value=dict(success=True)) as recover:
+            future,function=self.backend.futures[0]
+            future.set_result(function())
+        self.assertTrue(recover.call_args.kwargs['resume_expired'])
+        self.assertEqual(len(self.backend.futures),2) # fresh source preparation
+        self.assertTrue(c.busy)
+        self.assertTrue(c._recovery_attempted)
+        self.backend.futures[1][0].set_result(dict(checkout='/fixture',revision='b'*40))
+        self.backend.coordinator.begin.assert_called_once_with('vkms_update')
+        c.finish(dict(success=False,recovery_required='resume_expired',message='Recovery changed'))
+        self.assertFalse(c.busy) # no infinite recovery/prompt loop
+
+    def test_polkit_cancellation_does_not_retry_update(self):
+        c,request=self.pending_expired_recovery()
+        c.resolve_recovery(request,True)
+        self.backend.futures[0][0].set_result(dict(success=False,cancelled=True,message='Authorization cancelled'))
+        self.backend.coordinator.begin.assert_not_called()
+        self.assertFalse(c.busy)
+        self.assertEqual(c.message,'Authorization cancelled')
+
+    def test_recovery_success_with_new_conflicting_operation_does_not_stick(self):
+        c,request=self.pending_expired_recovery()
+        c.resolve_recovery(request,True)
+        self.backend.remoteLoginSetupBusy=True
+        self.backend.futures[0][0].set_result(dict(success=True))
+        self.assertFalse(c.busy)
+        self.assertIn('Maintenance recovered',c.message)
+        self.backend.coordinator.begin.assert_not_called()

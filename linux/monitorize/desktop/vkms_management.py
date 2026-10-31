@@ -5,6 +5,7 @@ from monitorize.platform import vkms_management as platform
 
 class VkmsManagement(QObject):
     changed = pyqtSignal()
+    recoveryRequested = pyqtSignal(object)
     _done = pyqtSignal(str, int, object)
     _log = pyqtSignal(str)
 
@@ -26,6 +27,8 @@ class VkmsManagement(QObject):
         self.up_to_date = False
         self._pending_up_to_date = False
         self._verifying_success = False
+        self._recovery_attempted = False
+        self._recovery_request = ''
         self.notice_timer = QTimer(self)
         self.notice_timer.setSingleShot(True)
         self.notice_timer.setInterval(10000)
@@ -66,23 +69,25 @@ class VkmsManagement(QObject):
         self.changed.emit()
         self.submit('verify', platform.verify)
 
-    def start(self, operation):
+    def start(self, operation, *, recovered=False):
         b = self.backend
         if (operation not in ('reinstall', 'update') or self.busy or self.checking or b._closing
                 or b.applyingConfiguration or b.systemSetupRunning or b.remoteLoginSetupBusy):
-            return
+            return False
         if self.health.get('installed') is not True:
-            return
+            return False
         self.clear_notice()
         self._pending_up_to_date = False
         self._verifying_success = False
+        self._recovery_attempted = recovered
         self.serial += 1
         self.busy = True
         self.operation = operation
         self.message = 'Fetching Monitorize VKMS…' if operation == 'update' else 'Preparing VKMS reinstall…'
-        self.logs = ''
+        if not recovered:self.logs = ''
         self.changed.emit()
         self.submit('prepare', lambda: platform.prepare_update(self._log.emit, reinstall=operation == 'reinstall'))
+        return True
 
     def coordinate(self):
         self._coordinating = True
@@ -138,6 +143,27 @@ class VkmsManagement(QObject):
                 self.message = 'Preparing VKMS reinstall…' if self.operation == 'reinstall' else 'Preparing VKMS update…'
                 self.changed.emit()
                 self.coordinate()
+        elif kind == 'recover':
+            if value.get('success'):
+                operation = self.operation
+                self.busy = False
+                self.prepared = None
+                if not self.start(operation, recovered=True):
+                    self.finish(dict(success=False, message='Maintenance recovered. Retry after the current operation finishes.'))
+            else:
+                self.finish(value)
+
+    def resolve_recovery(self, request_id, accepted):
+        if not self._recovery_request or request_id != self._recovery_request:
+            return
+        self._recovery_request = ''
+        if not accepted:
+            self.finish(dict(success=False, cancelled=True, message='VKMS operation cancelled. No recovery changes were made.'))
+            return
+        self._recovery_attempted = True
+        self.message = 'Authorizing maintenance recovery…'
+        self.changed.emit()
+        self.submit('recover', lambda: platform.install_update(self.prepared, self._log.emit, resume_expired=True))
 
     def operation_finished(self, result):
         if self._coordinating and result.get('operation') == 'vkms_' + self.operation:
@@ -148,6 +174,18 @@ class VkmsManagement(QObject):
             self.finish(result)
 
     def finish(self, result):
+        if (result.get('recovery_required') == 'resume_expired' and self.prepared
+                and not self._recovery_attempted):
+            self._recovery_request = str(self.serial)
+            self.request_id = None
+            self.message = 'Waiting for maintenance recovery confirmation…'
+            self.changed.emit()
+            self.recoveryRequested.emit(dict(request_id=self._recovery_request,
+                message='Remote-login maintenance from a previous boot is blocking this operation. '
+                        'Clear the expired maintenance with administrator authorization and retry automatically? '
+                        'Your settings and pairing will be retained.'))
+            return
+        self._recovery_request = ''
         self._verifying_success = bool(result.get('success'))
         self._pending_up_to_date = bool(self.operation == 'update' and result.get('success')
             and (self.prepared or {}).get('revision') and not result.get('reboot_required'))

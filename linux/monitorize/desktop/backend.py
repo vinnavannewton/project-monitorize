@@ -110,6 +110,7 @@ class MonitorizeBackend(QObject):
     sunshineSettingsRevisionChanged = pyqtSignal(int)
 
     vkmsManagementChanged = pyqtSignal()
+    vkmsMaintenanceRecoveryRequested = pyqtSignal('QVariantMap')
     vkmsAuthorizationReady = pyqtSignal("QVariantMap")
     _vkmsAuthorizationWorkerFinished = pyqtSignal("QVariantMap")
     remoteLoginChanged = pyqtSignal()
@@ -990,6 +991,7 @@ class MonitorizeBackend(QObject):
             from monitorize.desktop.vkms_management import VkmsManagement
             self._vkms_management = VkmsManagement(self)
             self._vkms_management.changed.connect(self.vkmsManagementChanged)
+            self._vkms_management.recoveryRequested.connect(self.vkmsMaintenanceRecoveryRequested.emit)
             self._vkms_management.changed.connect(self.sessionChanged)
             self._vkms_management.changed.connect(self.configurationChanged)
             self._vkms_management.changed.connect(lambda: self.systemSetupRunningChanged.emit(self.systemSetupRunning))
@@ -1007,6 +1009,10 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot()
     def updateMonitorizeVkms(self):self._vkms_manager().start('update')
+
+    @pyqtSlot(str, bool)
+    def resolveVkmsMaintenanceRecovery(self, request_id, accepted):
+        self._vkms_manager().resolve_recovery(request_id, accepted)
 
     @pyqtSlot()
     def refreshVkmsHelperAvailability(self):

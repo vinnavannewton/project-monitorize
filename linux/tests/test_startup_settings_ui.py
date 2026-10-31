@@ -46,6 +46,23 @@ with tempfile.TemporaryDirectory() as d:
             settle();evaluate('navigate("SettingsPage.qml")');settle();settle()
             assert view.status()==QQuickWidget.Status.Ready
             assert not any(child.property("label")=="Presets" for child in view.rootObject().findChildren(QObject))
+            # Expired maintenance is recoverable from a global GUI prompt.
+            manager=backend._vkms_manager()
+            with patch.object(manager,'resolve_recovery') as resolve:
+                backend.vkmsMaintenanceRecoveryRequested.emit(dict(request_id='expired-test',message='Expired maintenance'))
+                settle()
+                dialog=view.rootObject().findChild(QObject,'vkmsMaintenanceRecoveryDialog')
+                assert dialog.property('visible')
+                e=QQmlExpression(qmlContext(dialog),dialog,'accept()');e.evaluate();settle()
+                assert not e.hasError(),e.error().toString()
+                resolve.assert_called_once_with('expired-test',True)
+            with patch.object(manager,'resolve_recovery') as resolve:
+                backend.vkmsMaintenanceRecoveryRequested.emit(dict(request_id='cancel-test',message='Expired maintenance'))
+                settle()
+                e=QQmlExpression(qmlContext(dialog),dialog,'reject()');e.evaluate();settle()
+                assert not e.hasError(),e.error().toString()
+                resolve.assert_called_once_with('cancel-test',False)
+
             # Leaving a Settings subpage must discard its navigation history.
             nav=view.rootObject().findChild(QObject,'mainStack')
             expression=QQmlExpression(view.rootContext(),nav,'push("BootWifiSetupPage.qml")')

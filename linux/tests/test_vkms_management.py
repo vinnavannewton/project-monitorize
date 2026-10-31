@@ -122,3 +122,15 @@ class VkmsManagementTests(unittest.TestCase):
                  patch.object(m, 'git', side_effect=responses), \
                  patch.object(m.os, 'geteuid', return_value=1000):
                 self.assertTrue(m.prepare_update()['up_to_date'])
+
+    def test_expired_recovery_uses_fixed_polkit_action_and_bound_revision(self):
+        process=Mock(stdout=iter(['{"success":true}\n']))
+        process.wait.return_value=0
+        with patch.object(m.shutil,'which',return_value='/usr/bin/pkexec'), \
+             patch.object(m.subprocess,'Popen',return_value=process) as spawn:
+            result=m.install_update(dict(checkout='/fixture with spaces',revision='a'*40),resume_expired=True)
+        self.assertTrue(result['success'])
+        command=spawn.call_args.args[0]
+        self.assertEqual(command, ['/usr/bin/pkexec','/usr/bin/python3','-I','-B',
+            '/fixture with spaces/monitorize_vkms/managed_install.py','resume-expired','--revision','a'*40])
+        self.assertNotIn('shell',spawn.call_args.kwargs)

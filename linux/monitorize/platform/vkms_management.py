@@ -155,14 +155,14 @@ def prepare_update(log=lambda text: None, *, reinstall=False):
                 up_to_date=not reinstall and previous_revision == revision)
 
 
-def install_update(prepared, log=lambda text: None):
+def install_update(prepared, log=lambda text: None, *, resume_expired=False):
     """No timeout on authorized installation; the process owns rollback/completion."""
     pkexec = shutil.which('pkexec')
     if not pkexec:
         return dict(success=False, message='Polkit is required for graphical updates.')
     command = [pkexec, '/usr/bin/python3', '-I', '-B',
                str(Path(prepared['checkout']) / 'monitorize_vkms/managed_install.py'),
-               'install', '--revision', prepared['revision']]
+               'resume-expired' if resume_expired else 'install', '--revision', prepared['revision']]
     from monitorize.platform.polkit_agent import agent_missing, start_agent
     for attempt in range(2):
         lines = ''

@@ -424,6 +424,35 @@ Rectangle {
             recoveryDecision.open()
         }
     }
+    Connections {
+        target: backend
+        function onVkmsMaintenanceRecoveryRequested(request) {
+            vkmsMaintenanceRecovery.requestId = request.request_id
+            vkmsMaintenanceExplanation.text = request.message
+            vkmsMaintenanceRecovery.open()
+        }
+    }
+    Dialog {
+        id: vkmsMaintenanceRecovery
+        objectName: "vkmsMaintenanceRecoveryDialog"
+        property string requestId: ""
+        anchors.centerIn: parent
+        width: Math.min(440, root.width - 40)
+        title: "Recover VKMS update"
+        modal: true
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        onOpened: standardButton(Dialog.Ok).text = "Recover and retry"
+        onAccepted: backend.resolveVkmsMaintenanceRecovery(requestId, true)
+        onRejected: backend.resolveVkmsMaintenanceRecovery(requestId, false)
+        contentItem: TextArea {
+            id: vkmsMaintenanceExplanation
+            readOnly: true
+            selectByMouse: true
+            background: null
+            wrapMode: TextEdit.Wrap
+            color: theme.textPrimary
+        }
+    }
     Dialog {
         id: recoveryDecision
         objectName: "recoveryDecisionDialog"
