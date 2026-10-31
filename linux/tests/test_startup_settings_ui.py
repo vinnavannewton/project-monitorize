@@ -45,6 +45,7 @@ with tempfile.TemporaryDirectory() as d:
                 value=e.evaluate();assert not e.hasError(),e.error().toString();return value
             settle();evaluate('navigate("SettingsPage.qml")');settle();settle()
             assert view.status()==QQuickWidget.Status.Ready
+            assert not any(child.property("label")=="Presets" for child in view.rootObject().findChildren(QObject))
             # Leaving a Settings subpage must discard its navigation history.
             nav=view.rootObject().findChild(QObject,'mainStack')
             expression=QQmlExpression(view.rootContext(),nav,'push("BootWifiSetupPage.qml")')

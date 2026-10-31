@@ -15,6 +15,7 @@ from PyQt6.QtQml import QQmlExpression, qmlContext
 app=QApplication([])
 class Backend(QObject):
     changed=pyqtSignal()
+    recoveryOperationFinished=pyqtSignal(object)
     def __init__(self):
         super().__init__();self.status={};self.actions=[]
     @pyqtProperty('QVariantMap',notify=changed)
@@ -86,6 +87,50 @@ with tempfile.TemporaryDirectory() as directory:
     assert not restart.property('enabled') and not update.property('enabled')
     view.resize(360,560);settle();capture('narrow-updating')
     assert card.property('width') <= 328
+    # Streaming log replacement and bounded-tail rotation must follow the end.
+    backend.status={**backend.status,'logs':'\n'.join('line '+str(i) for i in range(100))}
+    backend.changed.emit();settle()
+    card.setProperty('detailsExpanded',True);settle();settle()
+    viewport=card.findChild(QObject,'vkmsLogViewport')
+    log=card.findChild(QObject,'vkmsLogText')
+    def at_bottom():
+        maximum=max(0,viewport.property('contentHeight')-viewport.property('height'))
+        assert maximum>0
+        assert abs(viewport.property('contentY')-maximum)<2,(viewport.property('contentY'),maximum)
+    at_bottom()
+    for step in range(3):
+        viewport.setProperty('contentY',0)
+        backend.status={**backend.status,'logs':'\n'.join('line '+str(i) for i in range(step+1,step+101))}
+        backend.changed.emit();settle();settle();at_bottom()
+        assert log.property('text').endswith('line '+str(step+100))
+    card.setProperty('detailsExpanded',False);settle()
+    backend.status={**backend.status,'logs':backend.status['logs']+'\nLATEST'}
+    backend.changed.emit();settle()
+    card.setProperty('detailsExpanded',True);settle();settle();at_bottom()
+    assert log.property('text').endswith('LATEST')
+    # Run the actual controller completion and real ten-second timer in QML.
+    from concurrent.futures import Future
+    from types import SimpleNamespace
+    from monitorize.desktop.vkms_management import VkmsManagement
+    backend._closing=False
+    future=Future()
+    backend._background_executor=SimpleNamespace(submit=lambda function:future)
+    manager=VkmsManagement(backend)
+    def publish():
+        backend.status=manager.snapshot();backend.changed.emit()
+    manager.changed.connect(publish)
+    manager.health=dict(installed=True,state='working',message='Verified — working')
+    manager.operation='update'
+    manager.prepared=dict(revision='a'*40,up_to_date=False)
+    manager.finish(dict(success=True,message='VKMS updated. Checking installation…'))
+    future.set_result(dict(installed=True,state='working',message='Verified — working'))
+    settle()
+    assert health.property('text')=='Up to date'
+    assert not card.findChild(QObject,'vkmsOperationMessage').property('visible')
+    loop=QEventLoop();QTimer.singleShot(10300,loop.quit);loop.exec();settle()
+    assert health.property('text')=='Verified — working'
+    assert not manager.notice_timer.isActive()
+    assert not card.findChild(QObject,'vkmsOperationMessage').property('visible')
     view.setSource(QUrl());view.close()
 '''
 

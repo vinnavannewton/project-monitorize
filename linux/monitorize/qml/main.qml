@@ -33,14 +33,12 @@ Rectangle {
     function navigationButtonY(page) {
         if (page === "DisplaySetupPage.qml") return navigationColumn.y + configureButton.y
         if (page === "StreamingPage.qml") return navigationColumn.y + sessionButton.y
-        if (page === "PresetsPage.qml") return navigationColumn.y + presetsButton.y
         return navigationColumn.y + settingsButton.y
     }
 
     function navigationButtonHeight(page) {
         if (page === "DisplaySetupPage.qml") return configureButton.height
         if (page === "StreamingPage.qml") return sessionButton.height
-        if (page === "PresetsPage.qml") return presetsButton.height
         return settingsButton.height
     }
 
@@ -344,12 +342,6 @@ Rectangle {
                 onClicked: root.navigate("StreamingPage.qml")
             }
             Item { Layout.fillHeight: true }
-            NavigationButton {
-                id: presetsButton
-                label: "Presets"; symbol: "logs"; Layout.fillWidth: true
-                selected: root.selectedPage === "PresetsPage.qml"
-                onClicked: root.navigate("PresetsPage.qml")
-            }
             NavigationButton {
                 id: settingsButton
                 label: "Settings"; symbol: "settings"; Layout.fillWidth: true

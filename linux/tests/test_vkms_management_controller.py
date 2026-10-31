@@ -129,7 +129,7 @@ class VkmsControllerTests(unittest.TestCase):
     def test_up_to_date_requires_success_and_working_verification_then_expires(self):
         c = self.controller
         c.operation = 'update'
-        c.prepared = dict(up_to_date=True)
+        c.prepared = dict(up_to_date=True, revision='a' * 40)
         c.finish(dict(success=True))
         self.assertFalse(c.up_to_date)
         self.backend.futures[-1][0].set_result(dict(state='working', installed=True, message='Verified — working'))
@@ -140,17 +140,16 @@ class VkmsControllerTests(unittest.TestCase):
         self.assertFalse(c.snapshot()['up_to_date'])
         self.assertEqual(c.snapshot()['message'], 'Verified — working')
 
-    def test_no_up_to_date_for_failure_new_source_reinstall_or_reboot(self):
+    def test_no_up_to_date_for_failure_reinstall_or_reboot(self):
         for operation, unchanged, success, reboot, state in (
             ('update', True, False, False, 'working'),
-            ('update', False, True, False, 'working'),
             ('reinstall', True, True, False, 'working'),
             ('update', True, True, True, 'restart_required'),
             ('update', True, True, False, 'needs_attention'),
             ('update', True, True, False, 'could_not_verify')):
             c = VkmsManagement(self.backend)
             c.operation = operation
-            c.prepared = dict(up_to_date=unchanged)
+            c.prepared = dict(up_to_date=unchanged, revision='a' * 40)
             c.finish(dict(success=success, reboot_required=reboot))
             self.backend.futures[-1][0].set_result(dict(state=state, installed=True))
             self.assertFalse(c.up_to_date)
@@ -164,3 +163,37 @@ class VkmsControllerTests(unittest.TestCase):
         c.start('update')
         self.assertFalse(c.up_to_date)
         self.assertFalse(c.notice_timer.isActive())
+
+    def test_new_revision_update_clears_install_progress_and_shows_verified_notice(self):
+        c = self.controller
+        c.operation = 'update'
+        c.prepared = dict(up_to_date=False, revision='b' * 40)
+        c.finish(dict(success=True, message='VKMS updated. Checking installation…'))
+        self.assertTrue(c.checking)
+        self.backend.futures[-1][0].set_result(dict(state='working', installed=True, message='Verified — working'))
+        self.assertFalse(c.checking)
+        self.assertFalse(c.busy)
+        self.assertEqual(c.snapshot()['operation_message'], '')
+        self.assertTrue(c.up_to_date)
+        c.notice_timer.timeout.emit()
+        self.assertFalse(c.up_to_date)
+        self.assertEqual(c.snapshot()['message'], 'Verified — working')
+        self.assertEqual(c.snapshot()['operation_message'], '')
+
+    def test_successful_reinstall_clears_progress_even_when_verification_fails(self):
+        c = self.controller
+        c.operation = 'reinstall'
+        c.finish(dict(success=True, message='VKMS reinstalled. Checking installation…'))
+        self.backend.futures[-1][0].set_result(dict(success=False, message='Verifier timed out'))
+        self.assertEqual(c.snapshot()['operation_message'], '')
+        self.assertEqual(c.snapshot()['state'], 'could_not_verify')
+        self.assertFalse(c.checking)
+        self.assertFalse(c.up_to_date)
+
+    def test_failed_install_preserves_failure_after_health_refresh(self):
+        c = self.controller
+        c.operation = 'update'
+        c.finish(dict(success=False, message='Install failed'))
+        self.backend.futures[-1][0].set_result(dict(state='working', installed=True))
+        self.assertEqual(c.snapshot()['operation_message'], 'Install failed')
+        self.assertFalse(c.up_to_date)

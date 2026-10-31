@@ -8,7 +8,6 @@ from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 
-from monitorize.config.settings import load_presets
 from monitorize.platform.utils import ASSETS_DIR, LINUX_DIR
 
 TRAY_SERVER = 'monitorize-tray-agent'
@@ -69,41 +68,17 @@ class TrayAgent:
         ))
         self.tray.setToolTip("Monitorize")
         self.menu = QMenu()
-        self.menu.addAction("Show").triggered.connect(self.show_app)
-        self.presets_menu = self.menu.addMenu("Presets")
-        self.presets_menu.aboutToShow.connect(self.refresh_presets)
-        self.refresh_presets()
+        self.menu.addAction("Open").triggered.connect(self.show_app)
         self.menu.addSeparator()
         self.menu.addAction("Quit").triggered.connect(QApplication.quit)
         self.tray.setContextMenu(self.menu)
         self.tray.activated.connect(self._activated)
-
-    def refresh_presets(self):
-        self.presets_menu.clear()
-        presets = load_presets()
-        if not presets:
-            action = self.presets_menu.addAction("No saved presets")
-            action.setEnabled(False)
-            return
-        for index, preset in enumerate(presets):
-            action = self.presets_menu.addAction(preset["name"])
-            action.triggered.connect(
-                lambda _checked=False, preset_index=index:
-                    self.launch_preset(preset_index)
-            )
 
     def show(self):
         self.tray.show()
 
     def show_app(self):
         self._launch_and_quit(['--restore-from-tray'])
-
-    def launch_preset(self, index):
-        self._launch_and_quit([
-            "--start-in-tray",
-            "--launch-preset",
-            str(index),
-        ])
 
     def _launch_and_quit(self, args):
         if _start_full_app(args):

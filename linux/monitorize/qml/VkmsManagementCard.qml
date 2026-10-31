@@ -53,6 +53,7 @@ SectionCard {
             }
         }
         SelectableMessage {
+            objectName: "vkmsOperationMessage"
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
             text: card.status.busy ? "" : (card.status.operation_message || "")
@@ -60,24 +61,45 @@ SectionCard {
             color: theme.textSecondary
         }
         CustomButton {
+            objectName: "vkmsDetailsButton"
             text: card.detailsExpanded ? "Hide details" : "Show details"
             primary: false
             visible: (card.status.details || "").length > 0 || (card.status.logs || "").length > 0
             onClicked: card.detailsExpanded = !card.detailsExpanded
         }
         ScrollView {
+            id: detailsScroll
             Layout.fillWidth: true
             Layout.preferredHeight: 180
             visible: card.detailsExpanded
             clip: true
             contentWidth: availableWidth
-            TextArea {
-                text: (card.status.details || "") + ((card.status.logs || "").length > 0 ? "\n" + card.status.logs : "")
-                readOnly: true; selectByMouse: true
-                textFormat: TextEdit.PlainText
-                wrapMode: TextEdit.Wrap
-                color: theme.textSecondary
-                background: Rectangle { color: theme.logBoxBackground; radius: theme.controlRadius }
+            onVisibleChanged: if (visible) Qt.callLater(logFlick.scrollToLatest)
+            Flickable {
+                id: logFlick
+                objectName: "vkmsLogViewport"
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+                contentWidth: width
+                contentHeight: logText.height
+                function scrollToLatest() {
+                    if (!detailsScroll.visible) return
+                    logText.cursorPosition = logText.length
+                    contentY = Math.max(originY, originY + contentHeight - height)
+                }
+                onContentHeightChanged: Qt.callLater(scrollToLatest)
+                onHeightChanged: Qt.callLater(scrollToLatest)
+                TextArea.flickable: TextArea {
+                    id: logText
+                    objectName: "vkmsLogText"
+                    text: (card.status.details || "") + ((card.status.logs || "").length > 0 ? "\n" + card.status.logs : "")
+                    onTextChanged: Qt.callLater(logFlick.scrollToLatest)
+                    readOnly: true; selectByMouse: true
+                    textFormat: TextEdit.PlainText
+                    wrapMode: TextEdit.Wrap
+                    color: theme.textSecondary
+                    background: Rectangle { color: theme.logBoxBackground; radius: theme.controlRadius }
+                }
             }
         }
     }

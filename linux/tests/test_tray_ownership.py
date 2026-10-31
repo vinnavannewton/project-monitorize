@@ -111,3 +111,32 @@ class TrayOwnershipTest(unittest.TestCase):
         with patch.object(module,'QLockFile',return_value=lock), patch.object(module,'_forward_to_instance',return_value=False), patch.object(module.QLocalServer,'removeServer') as remove, patch.object(module.app_log,'write'):
             self.assertEqual(module._claim_instance(QCoreApplication.instance(),b'show'),(None,None))
             remove.assert_not_called()
+
+    def test_explicit_quit_close_event_bypasses_minimize_and_handoff(self):
+        from monitorize.desktop.main_window import MonitorizeWindow
+        window=SimpleNamespace(_quitting=True,backend=Mock(),_quit_to_tray_agent=Mock())
+        event=Mock()
+        MonitorizeWindow.closeEvent(window,event)
+        event.accept.assert_called_once()
+        event.ignore.assert_not_called()
+        window.backend.should_minimize_to_tray.assert_not_called()
+        window._quit_to_tray_agent.assert_not_called()
+
+    def test_cancelled_quit_does_not_mark_shutdown(self):
+        from monitorize.desktop.main_window import MonitorizeWindow, QMessageBox
+        window=SimpleNamespace(backend=SimpleNamespace(_vkms_management=None,configurationDirty=True,close=Mock()),
+                               _finish_quit_when_displays_stop=Mock())
+        with patch('monitorize.desktop.main_window.QMessageBox.question',return_value=QMessageBox.StandardButton.Cancel):
+            self.assertFalse(MonitorizeWindow._quit_app(window))
+        self.assertFalse(getattr(window,'_quitting',False))
+        window.backend.close.assert_not_called()
+
+    def test_regular_window_close_still_minimizes_to_existing_tray_when_active(self):
+        from monitorize.desktop.main_window import MonitorizeWindow
+        window=SimpleNamespace(backend=SimpleNamespace(should_minimize_to_tray=lambda:True,isStreaming=True),
+            hide=Mock(),tray=Mock(),_quit_to_tray_agent=Mock())
+        event=Mock()
+        with patch('monitorize.desktop.main_window.QSystemTrayIcon.isSystemTrayAvailable',return_value=True):
+            MonitorizeWindow.closeEvent(window,event)
+        event.ignore.assert_called_once();window.hide.assert_called_once();window.tray.show.assert_called_once()
+        window._quit_to_tray_agent.assert_not_called()

@@ -34,6 +34,7 @@ INSTANCE_SERVER = "monitorize"
 class MonitorizeWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        self._quitting = False
         self.setWindowTitle("Monitorize")
         self.setMinimumSize(760, 520)
         self.resize(860, 820)
@@ -80,29 +81,12 @@ class MonitorizeWindow(QMainWindow):
         ))
         self.tray.setToolTip("Monitorize")
         menu = QMenu()
-        menu.addAction("Show").triggered.connect(self._restore_from_tray)
-        self.presets_menu = menu.addMenu("Presets")
-        self._update_tray_presets()
-        self.backend.presetsChanged.connect(self._update_tray_presets)
+        menu.addAction("Open").triggered.connect(self._restore_from_tray)
         menu.addSeparator()
         menu.addAction("Quit").triggered.connect(self._quit_app)
         self.tray.setContextMenu(menu)
         self.tray.activated.connect(self._tray_activated)
         self.tray.show()
-
-    def _update_tray_presets(self):
-        self.presets_menu.clear()
-        presets = self.backend.presets
-        if not presets:
-            action = self.presets_menu.addAction("No saved presets")
-            action.setEnabled(False)
-            return
-        for index, preset in enumerate(presets):
-            action = self.presets_menu.addAction(preset["name"])
-            action.triggered.connect(
-                lambda _checked=False, preset_index=index:
-                    self.backend.launchPreset(preset_index)
-            )
 
     def _tray_activated(self, reason):
         if reason in (
@@ -112,6 +96,7 @@ class MonitorizeWindow(QMainWindow):
             self._restore_from_tray()
 
     def _restore_from_tray(self):
+        if getattr(self, "_quitting", False):return
         self.tray.show()
         self.showNormal()
         self.raise_()
@@ -135,6 +120,7 @@ class MonitorizeWindow(QMainWindow):
         self._update_ui_visibility()
 
     def _quit_app(self):
+        if getattr(self, "_quitting", False):return True
         manager = getattr(self.backend, '_vkms_management', None)
         if manager is not None and manager.busy:
             QMessageBox.information(self, "VKMS maintenance", "Wait for the VKMS operation to finish before quitting.")
@@ -144,6 +130,7 @@ class MonitorizeWindow(QMainWindow):
                 QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
                 QMessageBox.StandardButton.Cancel)
             if choice != QMessageBox.StandardButton.Discard:return False
+        self._quitting = True
         app_log.write("APP", "Application shutting down.")
         self.backend.close()
         self._finish_quit_when_displays_stop()
@@ -190,6 +177,11 @@ class MonitorizeWindow(QMainWindow):
             QMessageBox.warning(self, "Error", "Failed to run nwg-displays.")
 
     def closeEvent(self, event):
+        # QApplication.quit() closes top-level windows too. Explicit shutdown
+        # must not turn that close into a new lightweight tray process.
+        if getattr(self, "_quitting", False):
+            event.accept()
+            return
         minimize = self.backend.should_minimize_to_tray()
         if minimize and QSystemTrayIcon.isSystemTrayAvailable():
             idle = not self.backend.isStreaming and not getattr(self.backend, "remoteLoginEnabled", False)

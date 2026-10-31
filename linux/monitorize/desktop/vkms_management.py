@@ -25,6 +25,7 @@ class VkmsManagement(QObject):
         self.reboot_required = False
         self.up_to_date = False
         self._pending_up_to_date = False
+        self._verifying_success = False
         self.notice_timer = QTimer(self)
         self.notice_timer.setSingleShot(True)
         self.notice_timer.setInterval(10000)
@@ -74,6 +75,7 @@ class VkmsManagement(QObject):
             return
         self.clear_notice()
         self._pending_up_to_date = False
+        self._verifying_success = False
         self.serial += 1
         self.busy = True
         self.operation = operation
@@ -108,6 +110,11 @@ class VkmsManagement(QObject):
             return
         if kind == 'verify':
             self.checking = False
+            if self._verifying_success:
+                # Installer progress is finished. The verifier now owns the
+                # displayed health, including errors and restart requirements.
+                self.message = ''
+                self._verifying_success = False
             if value.get('state'):
                 self.health = value
                 if self.reboot_required and value.get('state') != 'working':
@@ -141,8 +148,9 @@ class VkmsManagement(QObject):
             self.finish(result)
 
     def finish(self, result):
+        self._verifying_success = bool(result.get('success'))
         self._pending_up_to_date = bool(self.operation == 'update' and result.get('success')
-            and (self.prepared or {}).get('up_to_date') and not result.get('reboot_required'))
+            and (self.prepared or {}).get('revision') and not result.get('reboot_required'))
         self.reboot_required = bool(result.get('reboot_required', self.reboot_required))
         self.busy = False
         self.prepared = None
