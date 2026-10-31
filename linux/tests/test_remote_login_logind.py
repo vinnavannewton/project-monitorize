@@ -81,6 +81,26 @@ class UserServiceTests(unittest.TestCase):
             with self.assertRaises(PermissionError):
                 LogindSessions(self.bus(),cgroup_reader=lambda pid:group).authenticate(':1.50',1000)
 
+    def test_uwsm_graphical_application_uses_verified_active_display(self):
+        prefix='0::/user.slice/user-1000.slice/user@1000.service/app.slice/app-graphical.slice/'
+        group=prefix+r'app-Hyprland-gtk\x2dlaunch-9f755744.scope'
+        self.assertEqual(LogindSessions(self.bus(),cgroup_reader=lambda pid:group).authenticate(':1.50',1000)['session'],'s1')
+        for change in ({'User':(1001,'/user')},{'Active':False},{'Remote':True},
+                       {'Seat':('seat1','/seat')},{'Class':'manager'},{'Type':'tty'}):
+            bus=self.bus();bus.session.update(change)
+            with self.subTest(change=change),self.assertRaises(PermissionError):
+                LogindSessions(bus,cgroup_reader=lambda pid:group).authenticate(':1.50',1000)
+
+    def test_uwsm_does_not_allow_arbitrary_slices_or_units(self):
+        prefix='0::/user.slice/user-1000.slice/user@1000.service/'
+        for scope in ('app.slice/app-graphical.slice/other.service',
+                      'app.slice/app-graphical.slice',
+                      'app.slice/app-other.slice/app-monitorize.scope',
+                      'app.slice/app-graphical.slice/other.slice/app-monitorize.scope',
+                      'session.slice/app-graphical.slice/app-monitorize.scope'):
+            with self.subTest(scope=scope),self.assertRaises(PermissionError):
+                LogindSessions(self.bus(),cgroup_reader=lambda pid:prefix+scope).authenticate(':1.50',1000)
+
     def test_locked_keeps_ownership_but_inactive_other_account_does_not(self):
         group='0::/user.slice/user-1000.slice/user@1000.service/app.slice/monitorize-remote-controller.service'
         bus=self.bus();bus.session['LockedHint']=True

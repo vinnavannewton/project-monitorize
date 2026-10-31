@@ -51,6 +51,10 @@ class LogindSessions:
                 for line in groups:
                     if not line.startswith('0::'+prefix):continue
                     relative=line[len('0::'+prefix):].split('/')
+                    # UWSM launches graphical apps in this specific child slice.
+                    # Keep the application-unit and active-display checks below.
+                    if relative[:2]==['app.slice','app-graphical.slice']:
+                        relative=[relative[0],*relative[2:]]
                     if (_console_scope(relative) or (len(relative)>=2 and relative[0]=='app.slice' and
                         (relative[1:] == ['monitorize-remote-controller.service'] or
                          re.fullmatch(r'app-[^/]+\.(?:scope|service)',relative[1])))):
