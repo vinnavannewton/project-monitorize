@@ -100,7 +100,7 @@ class LiveSetupTests(unittest.TestCase):
         backend.helper=Mock();backend.runtime=Mock()
         journal=SimpleNamespace(value=dict(stage='preparing',system=dict(active={},units={'monitorize-remote-login.service':True},
             caps='',masks=list(masked),lease=None)))
-        with patch('monitorize.remote_login.enrollment.enable',side_effect=lambda *args,**kwargs:enable('monitorize-remote-login.service')), \
+        with patch('monitorize.remote_login.enrollment._no_engines'), patch('monitorize.remote_login.enrollment.enable',side_effect=lambda *args,**kwargs:enable('monitorize-remote-login.service')), \
              patch.object(live,'TransactionFiles'):
             backend.configure(1000,journal)
         self.assertEqual(events,['unmask','enable'])

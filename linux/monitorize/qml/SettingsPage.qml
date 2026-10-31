@@ -46,6 +46,7 @@ Item {
         autostartCheck.checked = bootStatus.enabled === true || backend.isAutostartEnabled()
         settingsLoading = false
     }
+    StackView.onActivated: backend.refreshVkmsManagement()
     Component.onCompleted: loadAppSettings()
     function loadAppSettings() {
         settingsLoading = true
@@ -433,6 +434,7 @@ Item {
                     onClicked: page.StackView.view.push("SystemSetupPage.qml")
                 }
             }
+            VkmsManagementCard { Layout.fillWidth: true }
         }
     }
 

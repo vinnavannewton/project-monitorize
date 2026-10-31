@@ -85,8 +85,11 @@ def remove_virtual_displays(desktop):
         # The CLI also routes reserved remote-login outputs through their owner.
         # Ordinary remove_all deliberately cannot remove those protected outputs.
         try:
-            completed = subprocess.run([command, 'remove', '--json'], capture_output=True,
+            completed = subprocess.run([command, 'remove', '--managed', '--json'], capture_output=True,
                                        text=True, timeout=120, check=False)
+            if completed.returncode == 2 and '--managed' in completed.stderr:
+                completed = subprocess.run([command, 'remove', '--json'], capture_output=True,
+                                           text=True, timeout=120, check=False)
             result = json.loads(completed.stdout)
             if not isinstance(result, dict):raise ValueError('Invalid VKMS cleanup response')
             removed += int(bool(result.get('removed')))

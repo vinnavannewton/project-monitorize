@@ -124,6 +124,7 @@ class MonitorizeVkmsClient:
     ):
         self.explicit_executable = Path(executable) if executable else None
         self.timeout = timeout
+        self.display_name = f"Monitorize CLI {os.getpid()}"
 
     def find_executable(self) -> Path | None:
         if self.explicit_executable:
@@ -251,7 +252,7 @@ class MonitorizeVkmsClient:
         mode_str = format_mode(width, height, fps)
         log.info("[VKMS] Requesting display: %s", mode_str)
 
-        data = self._run_cli(["create", mode_str, "--json"], timeout=timeout)
+        data = self._run_cli(["create", self.display_name, mode_str, "--json"], timeout=timeout)
 
         connector = str(data.get("drm_connector") or "")
         if not connector:
@@ -294,7 +295,7 @@ class MonitorizeVkmsClient:
         else:
             log.info("[VKMS] Removing virtual display through monitorize-vkms")
         try:
-            return self._run_cli(["remove", "--json"], timeout=timeout)
+            return self._run_cli(["remove", self.display_name, "--json"], timeout=timeout)
         except VkmsCommandError as exc:
             log.warning("[VKMS] CLI remove returned error: %s", exc)
             return {"success": False, "message": str(exc)}

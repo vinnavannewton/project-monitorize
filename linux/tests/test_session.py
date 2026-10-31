@@ -36,6 +36,9 @@ class SessionTest(unittest.TestCase):
         cls.app = QCoreApplication.instance() or QCoreApplication([])
 
     def setUp(self):
+        recovery = patch("monitorize.streaming.recovery_guardian.recover_before_cleanup", return_value=True)
+        recovery.start()
+        self.addCleanup(recovery.stop)
         general = patch('monitorize.desktop.session.load_general_settings', return_value={'display_behavior': 'extend'})
         general.start()
         self.addCleanup(general.stop)

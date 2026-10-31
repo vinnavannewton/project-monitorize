@@ -134,3 +134,17 @@ class LoginCaptureProbeTest(unittest.TestCase):
         if image.is_file():
             app_id=abs(ctypes.c_int32(zlib.crc32(('Desktop'+hashlib.sha256(image.read_bytes()).hexdigest()).encode())).value)
             self.assertEqual(app_id,881448767)
+
+    def test_named_mon1_label_cannot_be_selected_as_reserved_boot_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            device=root/('faux/monitorize-named-1000-'+'a'*32)
+            device.mkdir(parents=True)
+            connector=root/'card8-Virtual-5';connector.mkdir()
+            (connector/'device').symlink_to(device)
+            (connector/'status').write_text('connected')
+            (connector/'enabled').write_text('enabled')
+            edid=bytearray(128);edid[:8]=b'\x00\xff\xff\xff\xff\xff\xff\x00'
+            edid[77:81]=b'mon1';edid[-1]=(-sum(edid))%256
+            (connector/'edid').write_bytes(edid)
+            self.assertIsNone(find_boot_output(root))

@@ -345,8 +345,9 @@ class FirstRunSetupTest(unittest.TestCase):
     @patch("monitorize.desktop.backend.StreamingController")
     @patch("monitorize.desktop.backend.get_system_setup_status", return_value={"available": False})
     @patch("monitorize.desktop.backend.QProcess")
+    @patch("monitorize.streaming.recovery_guardian.recover_before_cleanup", return_value=True)
     def test_stagnant_display_cleanup_returns_toast_result(
-        self, process_class, _status, streaming, _ip, _presets, _settings
+        self, _recovery, process_class, _status, streaming, _ip, _presets, _settings
     ):
         streaming.return_value.streaming = False
         for desktop in ("hyprland", "sway", "kde", "gnome"):

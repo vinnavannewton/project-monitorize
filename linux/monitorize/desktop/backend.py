@@ -109,6 +109,7 @@ class MonitorizeBackend(QObject):
     _sunshineChoicesWorkerFinished = pyqtSignal(int, bool, str)
     sunshineSettingsRevisionChanged = pyqtSignal(int)
 
+    vkmsManagementChanged = pyqtSignal()
     vkmsAuthorizationReady = pyqtSignal("QVariantMap")
     _vkmsAuthorizationWorkerFinished = pyqtSignal("QVariantMap")
     remoteLoginChanged = pyqtSignal()
@@ -146,6 +147,7 @@ class MonitorizeBackend(QObject):
         self._kms_authorization = KmsAuthorization(self)
         self._kms_authorization.changed.connect(self.sessionChanged)
         self._kms_authorization.changed.connect(self.configurationChanged)
+        self._vkms_management = None
         self._vkms_authorization_busy = False
         self._vkmsAuthorizationWorkerFinished.connect(self._finish_vkms_authorization)
         self._remote_login = None
@@ -587,6 +589,7 @@ class MonitorizeBackend(QObject):
 
     @pyqtProperty(bool, notify=sessionChanged)
     def sessionBusy(self):
+        if getattr(self, '_vkms_management', None) is not None and self._vkms_management.busy:return True
         if self._kms_authorization.busy:return True
         if getattr(self,'_desktop_fallback_pending',False):return True
         if getattr(self, "remoteLoginEnabled", False):
@@ -982,6 +985,29 @@ class MonitorizeBackend(QObject):
         if not self._closing:
             self._wifi_client().configure(uuid, version, password)
 
+    def _vkms_manager(self):
+        if self._vkms_management is None:
+            from monitorize.desktop.vkms_management import VkmsManagement
+            self._vkms_management = VkmsManagement(self)
+            self._vkms_management.changed.connect(self.vkmsManagementChanged)
+            self._vkms_management.changed.connect(self.sessionChanged)
+            self._vkms_management.changed.connect(self.configurationChanged)
+            self._vkms_management.changed.connect(lambda: self.systemSetupRunningChanged.emit(self.systemSetupRunning))
+        return self._vkms_management
+
+    @pyqtProperty('QVariantMap', notify=vkmsManagementChanged)
+    def vkmsManagementStatus(self):
+        return self._vkms_manager().snapshot()
+
+    @pyqtSlot()
+    def refreshVkmsManagement(self):self._vkms_manager().refresh()
+
+    @pyqtSlot()
+    def restartMonitorizeVkms(self):self._vkms_manager().start('restart')
+
+    @pyqtSlot()
+    def updateMonitorizeVkms(self):self._vkms_manager().start('update')
+
     @pyqtSlot()
     def refreshVkmsHelperAvailability(self):
         if self._vkms_check_running or self._closing:
@@ -1067,12 +1093,12 @@ class MonitorizeBackend(QObject):
 
     @pyqtProperty(bool, notify=systemSetupRunningChanged)
     def systemSetupRunning(self):
-        return self._system_setup_process is not None
+        return self._system_setup_process is not None or bool(getattr(self, '_vkms_management', None) and self._vkms_management.busy)
 
     @pyqtSlot(bool, bool)
     @pyqtSlot(bool, bool, bool)
     def startSystemSetup(self, enable_input: bool, enable_firewall: bool, enable_vkms=False):
-        if self._system_setup_process is not None or self.applyingConfiguration:
+        if self.systemSetupRunning or self.applyingConfiguration:
             self.systemSetupFinished.emit({'success':False,'message':'Wait for the current setup operation to finish.'})
             return
         command, error = (system_setup_command(enable_input, enable_firewall, True) if enable_vkms
@@ -1139,7 +1165,7 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot(bool)
     def setVkmsUnattended(self, enabled):
-        if self._system_setup_process is not None or self.applyingConfiguration or self.session.active or self.session.busy:
+        if self.systemSetupRunning or self.applyingConfiguration or self.session.active or self.session.busy:
             return
         from monitorize.platform.system_setup import vkms_authorization_command
         command, error = vkms_authorization_command(enabled)
@@ -2367,6 +2393,7 @@ class MonitorizeBackend(QObject):
             self.streaming.update_ip(current)
 
     def close(self):
+        if getattr(self, '_vkms_management', None) is not None and self._vkms_management.busy:return
         if getattr(self,'_operations',None) is not None:self._operations.cancel()
         self._incoming_pairing.close()
         self._kms_authorization.cancel()

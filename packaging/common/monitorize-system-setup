@@ -17,6 +17,7 @@ from pathlib import Path
 KMS_SETUP_PROTOCOL = 1
 REMOTE_LOGIN_RECOVERY_PROTOCOL = 1
 SYSTEM_RECOVERY_PROTOCOL = 1
+VKMS_MANAGEMENT_PROTOCOL = 1
 
 
 def grant_kms_capability(binary, device, inode):
@@ -238,6 +239,7 @@ def main():
     parser = argparse.ArgumentParser(description="Configure Monitorize input and firewall access.")
     parser.add_argument("--recover-networkmanager",action="store_true")
     parser.add_argument("--recover-host",action="store_true")
+    parser.add_argument("--restart-host",action="store_true")
     parser.add_argument("--input", action="store_true", help="grant the authorizing user uinput access")
     parser.add_argument("--firewall", action="store_true", help="allow Monitorize through an active firewall")
     parser.add_argument('--unattended-vkms', action='store_true')
@@ -247,16 +249,16 @@ def main():
     parser.add_argument('--kms-device', type=int)
     parser.add_argument('--kms-inode', type=int)
     args = parser.parse_args()
-    if not args.recover_host and not args.recover_networkmanager and not args.input and not args.firewall and not args.unattended_vkms and not args.remote_login and not args.kms_binary:
+    if not args.restart_host and not args.recover_host and not args.recover_networkmanager and not args.input and not args.firewall and not args.unattended_vkms and not args.remote_login and not args.kms_binary:
         parser.error("select --input, --firewall and/or --unattended-vkms")
     if os.geteuid() != 0:
         raise RuntimeError("This helper requires root privileges.")
 
-    if args.recover_host:
-        if args.recover_networkmanager or args.input or args.firewall or args.remote_login or args.kms_binary or args.unattended_vkms or args.kms_device is not None or args.kms_inode is not None or args.display_idle_timeout is not None:
+    if args.recover_host or args.restart_host:
+        if (args.recover_host and args.restart_host) or args.recover_networkmanager or args.input or args.firewall or args.remote_login or args.kms_binary or args.unattended_vkms or args.kms_device is not None or args.kms_inode is not None or args.display_idle_timeout is not None:
             parser.error('Host recovery is a separate action.')
         invoking_user()
-        result=recovery_module().recover_host()
+        result=recovery_module().recover_host(restart_only=True) if args.restart_host else recovery_module().recover_host()
         print(json.dumps(result));raise SystemExit(0 if result.get('success') else 1)
 
     if args.recover_networkmanager:

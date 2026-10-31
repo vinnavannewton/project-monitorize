@@ -117,7 +117,7 @@ class MonitorizeVkmsCliTest(unittest.TestCase):
             self.assertEqual(result["status"], "active")
 
             mock_run.assert_called_once_with(
-                ["/usr/bin/monitorize-vkms", "create", "2340x1080@60", "--json"],
+                ["/usr/bin/monitorize-vkms", "create", client.display_name, "2340x1080@60", "--json"],
                 capture_output=True,
                 text=True,
                 timeout=DEFAULT_TIMEOUT,
@@ -223,7 +223,7 @@ class MonitorizeVkmsCliTest(unittest.TestCase):
             self.assertTrue(res.get("success"))
 
             mock_run.assert_called_once_with(
-                ["/usr/bin/monitorize-vkms", "remove", "--json"],
+                ["/usr/bin/monitorize-vkms", "remove", client.display_name, "--json"],
                 capture_output=True,
                 text=True,
                 timeout=DEFAULT_REMOVE_TIMEOUT,
@@ -358,7 +358,7 @@ class MonitorizeVkmsCliTest(unittest.TestCase):
             client = MonitorizeVkmsClient()
             client.create_display(2340, 1080, 60)
             mock_run.assert_called_once_with(
-                ["/usr/bin/monitorize-vkms", "create", "2340x1080@60", "--json"],
+                ["/usr/bin/monitorize-vkms", "create", client.display_name, "2340x1080@60", "--json"],
                 capture_output=True,
                 text=True,
                 timeout=DEFAULT_TIMEOUT,
@@ -387,7 +387,7 @@ class MonitorizeVkmsCliTest(unittest.TestCase):
             client = MonitorizeVkmsClient()
             client.create_display(1920, 1080, 60)
             mock_run.assert_called_once_with(
-                ["/usr/bin/monitorize-vkms", "create", "1920x1080@60", "--json"],
+                ["/usr/bin/monitorize-vkms", "create", client.display_name, "1920x1080@60", "--json"],
                 capture_output=True,
                 text=True,
                 timeout=DEFAULT_TIMEOUT,

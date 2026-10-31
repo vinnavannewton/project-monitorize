@@ -135,6 +135,10 @@ class MonitorizeWindow(QMainWindow):
         self._update_ui_visibility()
 
     def _quit_app(self):
+        manager = getattr(self.backend, '_vkms_management', None)
+        if manager is not None and manager.busy:
+            QMessageBox.information(self, "VKMS maintenance", "Wait for the VKMS operation to finish before quitting.")
+            return False
         if self.backend.configurationDirty:
             choice = QMessageBox.question(self, "Unapplied changes", "Quit and discard unapplied configuration changes?",
                 QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
@@ -153,6 +157,8 @@ class MonitorizeWindow(QMainWindow):
         QApplication.quit()
 
     def _quit_to_tray_agent(self):
+        manager = getattr(self.backend, '_vkms_management', None)
+        if manager is not None and manager.busy:return False
         result = QProcess.startDetached(
             sys.executable,
             ["-m", "monitorize", "--tray-agent", "--restore-from-tray"],

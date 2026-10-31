@@ -72,7 +72,9 @@ def build_config(directory, hostname, encoder, adapter):
 def find_boot_output(root=Path('/sys/class/drm'),*,require_enabled=True):
     found=[]
     for path in root.glob('card*-Virtual-*'):
-        if '/faux/monitorize' not in str((path/'device').resolve()):
+        parts = (path / 'device').resolve().parts
+        if not any(parts[index:index + 2] == ('faux', 'monitorize')
+                   for index in range(len(parts) - 1)):
             continue
         try:
             if (path/'status').read_text().strip() != 'connected':

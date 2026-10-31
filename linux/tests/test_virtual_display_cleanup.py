@@ -80,7 +80,7 @@ class VirtualDisplayCleanupTest(unittest.TestCase):
                  '{"success":true,"removed":true}')) as run:
             result,client=self.run_cleanup('kde',native=1)
         self.assertTrue(result['success'])
-        self.assertEqual(run.call_args.args[0],['/usr/bin/monitorize-vkms','remove','--json'])
+        self.assertEqual(run.call_args.args[0],['/usr/bin/monitorize-vkms','remove','--managed','--json'])
         client.remove_all.assert_not_called()
 
     def test_cli_permission_failure_is_reported(self):
@@ -91,3 +91,14 @@ class VirtualDisplayCleanupTest(unittest.TestCase):
             result,_=self.run_cleanup('kde',native=1)
         self.assertFalse(result['success'])
         self.assertIn('Authorization cancelled',result['message'])
+
+    def test_old_cli_retries_without_managed_flag_only_on_parser_rejection(self):
+        import subprocess
+        old=subprocess.CompletedProcess([],2,'','unrecognized arguments: --managed')
+        ok=subprocess.CompletedProcess([],0,'{"success":true,"removed":true}','')
+        with patch.object(cleanup.shutil,'which',return_value='/usr/bin/monitorize-vkms'), \
+             patch.object(cleanup.subprocess,'run',side_effect=[old,ok]) as run:
+            result,_=self.run_cleanup('kde')
+        self.assertTrue(result['success'])
+        self.assertEqual(run.call_count,2)
+        self.assertEqual(run.call_args.args[0],['/usr/bin/monitorize-vkms','remove','--json'])

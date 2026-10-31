@@ -371,3 +371,18 @@ def recover_vkms_host():
         result=run_authorized(command,capture_output=True,text=True,check=False)
         return parse_system_setup_result(result.returncode,result.stdout,result.stderr)
     except OSError:return {'success':False,'message':'Host recovery could not start.'}
+
+
+def restart_vkms_host():
+    try:current='VKMS_MANAGEMENT_PROTOCOL = 1' in HELPER.read_text()
+    except OSError:current=False
+    if not current:
+        command=source_bootstrap_command(['--restart-host'])
+        if not command:return {'success':False,'message':'Update Monitorize system helpers before using VKMS Restart.'}
+        error=None
+    else:command,error=setup_helper_command(['--restart-host'])
+    if error:return error
+    try:
+        result=run_authorized(command,capture_output=True,text=True,check=False)
+        return parse_system_setup_result(result.returncode,result.stdout,result.stderr)
+    except OSError:return {'success':False,'message':'VKMS service restart could not start.'}

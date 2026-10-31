@@ -11,7 +11,7 @@ class RecoveryRequest:
     request_id: str = field(default_factory=lambda: uuid4().hex)
 
     def __post_init__(self):
-        if self.operation not in ('boot_startup','source_repair','maintenance_resume','host_recovery','clear_tokens','cleanup_displays','reset_sunshine','reboot','logout'):
+        if self.operation not in ('boot_startup','source_repair','maintenance_resume','host_recovery','vkms_restart','vkms_update','clear_tokens','cleanup_displays','reset_sunshine','reboot','logout'):
             raise ValueError('Unsupported recovery operation.')
         if type(self.generation) is not int or self.generation < 0:
             raise ValueError('Invalid recovery generation.')

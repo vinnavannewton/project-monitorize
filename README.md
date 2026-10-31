@@ -62,6 +62,11 @@ login-screen display policy.
 For login-screen startup, see [remote-login setup](packaging/remote-login/README.md#current-installation-workflow),
 including the extra system-assets step for source installs.
 
+Settings → **Monitorize VKMS** checks the installed VKMS component automatically.
+**Restart** restarts its host service; **Update** pulls its recorded source checkout
+and reruns installation with administrator authorization. If VKMS is missing,
+**Install** opens its GitHub instructions. Pairing and startup preferences are retained.
+
 For source installations, run `linux/scripts/uninstall.sh` to choose whether to
 keep settings/pairing or remove all Monitorize data. See the
 [source uninstallation guide](linux/scripts/UNINSTALL.md).

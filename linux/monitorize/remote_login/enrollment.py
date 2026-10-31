@@ -234,7 +234,7 @@ def recover_maintenance(uid):
 
 
 
-def recover_host(uid):
+def recover_host(uid, *, restart_only=False):
     from .package_lifecycle import InstalledBackend,PackageLifecycle
     lifecycle=PackageLifecycle(InstalledBackend())
     settings=read_settings()
@@ -251,7 +251,7 @@ def recover_host(uid):
     else:lifecycle.prepare('upgrade',include_idle_services=True)
     helper=Path('/usr/libexec/monitorize-vkms/monitorize-vkms-recovery')
     try:
-        completed=subprocess.run(['/usr/bin/python3','-I',str(helper),'recover'],capture_output=True,text=True,check=False)
+        completed=subprocess.run(['/usr/bin/python3','-I',str(helper),'restart' if restart_only else 'recover'],capture_output=True,text=True,check=False)
         result=json.loads(completed.stdout)
         if not isinstance(result,dict) or type(result.get('success')) is not bool:raise ValueError('Invalid host recovery response.')
         if completed.returncode:result['success']=False
@@ -405,7 +405,7 @@ def main(action, seconds=None):
     from .live_setup import enable_live,setup_lock
     try:
         with setup_lock():
-            result={'enable':enable,'enable-live':enable_live,'disable':disable,'recover':recover_maintenance,'recover-host':recover_host,'recover-disable':disable,'remove':remove_reserved,'fallback':desktop_fallback,
+            result={'enable':enable,'enable-live':enable_live,'disable':disable,'recover':recover_maintenance,'recover-host':recover_host,'restart-host':lambda uid:recover_host(uid,restart_only=True),'recover-disable':disable,'remove':remove_reserved,'fallback':desktop_fallback,
                 'login-virtual-on':lambda uid:configure_login_virtual_display(uid,True),
                 'login-virtual-off':lambda uid:configure_login_virtual_display(uid,False),
                 'primary-on':lambda uid:configure_login_primary_display(uid,True),

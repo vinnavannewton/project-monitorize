@@ -92,23 +92,26 @@ def start_networkmanager(run):
     return dict(success=True,message='NetworkManager is available. Refresh and select the saved Wi-Fi profile.')
 
 
-def recover_host():
+def recover_host(*, restart_only=False):
     """Use the enrolled maintenance boundary before touching a shared host service."""
     host=Path('/usr/libexec/monitorize-vkms/monitorize-vkms-recovery')
     try:
         if b'PROTOCOL=1' not in read_safe(host):raise ValueError('Unsupported host recovery protocol.')
     except FileNotFoundError:
         return dict(success=False,code='prerequisite_missing',message='The installed VKMS host does not provide recovery protocol 1. Matching host userspace is required.')
+    if restart_only and b'RESTART_PROTOCOL=1' not in read_safe(host):
+        return dict(success=False,message='Update Monitorize VKMS before using Restart.')
     enrolled=Path('/etc/monitorize/remote-login.json')
     if enrolled.exists():
         entry=Path('/usr/libexec/monitorize/remote-login/entry.py')
-        if b'setup-recover-host' not in read_safe(entry):
+        action='setup-restart-host' if restart_only else 'setup-recover-host'
+        if action.encode() not in read_safe(entry):
             return dict(success=False,code='prerequisite_missing',message='The installed remote-login service needs matching host recovery support.')
-        command=['/usr/bin/python3','-I',str(entry),'setup-recover-host']
+        command=['/usr/bin/python3','-I',str(entry),action]
     else:
         entry=Path('/usr/libexec/monitorize-vkms/monitorize-vkms-recovery')
         read_safe(entry)
-        command=['/usr/bin/python3','-I',str(entry),'recover']
+        command=['/usr/bin/python3','-I',str(entry),'restart' if restart_only else 'recover']
     result=subprocess.run(command,capture_output=True,text=True,check=False)
     try:value=json.loads(result.stdout)
     except ValueError:return dict(success=False,outcome_unknown=True,message='Host recovery did not report its final state. Refresh before retrying.')

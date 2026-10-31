@@ -306,16 +306,18 @@ Item {
                         onActivated: backend.saveDisplayBehavior(page.displayBehaviorModes[currentIndex])
                     }
                     Text {
-                        visible: page.vkmsSelected && !backend.vkmsHelperAvailable
+                        visible: page.vkmsSelected && !backend.vkmsHelperAvailable && !backend.vkmsInstallRequired
                         Layout.columnSpan: 2; Layout.fillWidth: true
                         wrapMode: Text.WordWrap
                         color: theme.errorText
                         text: backend.vkmsAvailabilityMessage
                     }
-                    CustomButton {
+                    VkmsInstallNotice {
                         visible: page.vkmsSelected && !backend.vkmsHelperAvailable && backend.vkmsInstallRequired
-                        text: "Install monitorize-vkms"
-                        onClicked: backend.openMonitorizeVkmsInstallPage()
+                        Layout.columnSpan: 2; Layout.fillWidth: true
+                        message: backend.vkmsAvailabilityMessage
+                        installText: "Install monitorize-vkms"
+                        onInstallRequested: backend.openMonitorizeVkmsInstallPage()
                     }
                     CustomButton {
                         visible: page.vkmsSelected && !backend.vkmsHelperAvailable
