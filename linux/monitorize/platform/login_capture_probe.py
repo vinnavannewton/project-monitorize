@@ -59,7 +59,7 @@ def build_config(directory, hostname, encoder, adapter):
         if '\n' in value or '\r' in value:
             raise ValueError('Multiline configuration values are forbidden.')
     values = dict(capture='kms', encoder=encoder, adapter_name=adapter,
-        sunshine_name=hostname, port='47989',
+        sunshine_name=hostname, port='50089',
         file_state=str(directory/'identity/sunshine_state.json'),
         credentials_file=str(directory/'identity/sunshine_state.json'),
         cert=str(directory/'identity/cacert.pem'), pkey=str(directory/'identity/cakey.pem'),

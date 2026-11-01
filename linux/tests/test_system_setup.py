@@ -91,6 +91,7 @@ class SystemSetupTest(unittest.TestCase):
         def execute(command):
             commands.append(command)
             if '--get-services' in command:return profiles.pop(0)
+            if '--get-ports' in command:return '50084/tcp 50089/tcp 50090/tcp 50110/tcp 51084/tcp 51089/tcp 51090/tcp 51110/tcp 50098-50110/udp 51098-51110/udp'
             if '--get-active-zones' in command:return 'home\n  interfaces: wlan0'
             if '--query-service=monitorize' in command:return 'yes'
             return ''

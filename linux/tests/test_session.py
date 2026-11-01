@@ -319,7 +319,7 @@ class SessionTest(unittest.TestCase):
         self.assertEqual(len(cards), 1)
         self.assertEqual(cards[0]["title"], "eDP-1")
         self.assertTrue(cards[0]["live"])
-        self.assertEqual(cards[0]["address"], "192.0.2.1:47989")
+        self.assertEqual(cards[0]["address"], "192.0.2.1:50089")
         self.c._start_display_process.assert_not_called()
 
     def test_mirror_card_exists_when_no_monitor_is_selected(self):

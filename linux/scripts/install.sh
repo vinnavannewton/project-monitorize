@@ -898,7 +898,7 @@ if [[ -z "${HOST_NAME}" ]]; then
     HOST_NAME="Monitorize"
 fi
 
-# Instance 1 (Primary Display - Port 47989)
+# Instance 1 (Primary Display - Port 50089)
 SUNSHINE_PROFILE_DIR_1="${CONFIG_HOME}/monitorize/sunshine-1"
 mkdir -p "${SUNSHINE_PROFILE_DIR_1}"
 SUNSHINE_CONF_1="${SUNSHINE_PROFILE_DIR_1}/sunshine.conf"
@@ -906,7 +906,7 @@ if [[ ! -f "${SUNSHINE_CONF_1}" ]]; then
     cat > "${SUNSHINE_CONF_1}" <<EOF
 # Sunshine configuration isolated for Monitorize Display 1
 sunshine_name = ${HOST_NAME} Monitor 1
-port = 47989
+port = 50089
 system_tray = disabled
 origin_web_ui_allowed = lan
 encoder = 
@@ -931,7 +931,7 @@ if [[ ! -f "${SUNSHINE_APPS_1}" ]]; then
 EOF
 fi
 
-# Instance 2 (Secondary / Additional Display - Port 49089)
+# Instance 2 (Secondary / Additional Display - Port 51089)
 SUNSHINE_PROFILE_DIR_2="${CONFIG_HOME}/monitorize/sunshine-2"
 mkdir -p "${SUNSHINE_PROFILE_DIR_2}"
 SUNSHINE_CONF_2="${SUNSHINE_PROFILE_DIR_2}/sunshine.conf"
@@ -939,7 +939,7 @@ if [[ ! -f "${SUNSHINE_CONF_2}" ]]; then
     cat > "${SUNSHINE_CONF_2}" <<EOF
 # Sunshine configuration isolated for Monitorize Display 2
 sunshine_name = ${HOST_NAME} Monitor 2
-port = 49089
+port = 51089
 system_tray = disabled
 origin_web_ui_allowed = lan
 encoder = 

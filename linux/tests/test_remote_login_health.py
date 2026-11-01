@@ -22,6 +22,15 @@ class HealthTests(unittest.TestCase):
             log.unlink()
             self.assertIn('status 9',startup_failure(log,9))
 
+    def test_port_collision_reports_endpoint_without_private_log_text(self):
+        from monitorize.remote_login.health import startup_failure
+        with tempfile.TemporaryDirectory() as d:
+            log = Path(d)/'desktop-console.log'
+            log.write_text("private text\nFatal: Couldn't bind RTSP server to port [50110], Address already in use\n")
+            error = startup_failure(log, 0)
+            self.assertIn('port 50110', error)
+            self.assertNotIn('private text', error)
+
     def test_no_stale_startup_or_wrong_output_readiness(self):
         with tempfile.TemporaryDirectory() as d:
             log=Path(d)/'engine.log'

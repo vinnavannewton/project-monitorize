@@ -801,6 +801,11 @@ class MonitorizeBackend(QObject):
     def localIp(self):
         return self._local_ip
 
+    @pyqtProperty(int, constant=True)
+    def sunshinePort(self):
+        from monitorize.platform.sunshine_ports import SUNSHINE_BASE_PORT
+        return SUNSHINE_BASE_PORT
+
     @pyqtProperty(bool, notify=isStreamingChanged)
     def isStreaming(self):
         return self.session.active or bool(getattr(self, "_remote_login", None) and self._remote_login.active)
@@ -2042,7 +2047,7 @@ class MonitorizeBackend(QObject):
     @pyqtSlot(int)
     def openSunshineWebUi(self, instance: int = 1):
         if getattr(self, "remoteLoginEnabled", False) and instance == 1:
-            QDesktopServices.openUrl(QUrl("https://localhost:47990"))
+            QDesktopServices.openUrl(QUrl(get_sunshine_web_url(1)))
             return
         if instance not in (1, 2) or self.sessionBusy or self._settings_instance is not None:
             return

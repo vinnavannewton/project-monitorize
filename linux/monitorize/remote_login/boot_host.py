@@ -5,6 +5,7 @@ paths. This controller accepts no client commands, desktop sockets or settings.
 """
 import re
 from .engine import RetrySchedule
+from monitorize.platform.sunshine_ports import SUNSHINE_BASE_PORT
 
 
 class BootHost:
@@ -40,7 +41,7 @@ class BootHost:
             self.state='retry_wait';return True
         argv=[str(self.executable),str(self.config),'capture=kms','output_name='+output,
               'stream_audio=disabled','controller=disabled','upnp=disabled',
-              'origin_web_ui_allowed=pc']
+              'origin_web_ui_allowed=pc',f'port={SUNSHINE_BASE_PORT}']
         argv.extend(key+'='+value for key,value in self.paths.config_overrides().items())
         environment=dict(PATH='/usr/sbin:/usr/bin:/sbin:/bin',LANG='C.UTF-8',
             HOME=str(self.paths.lock.parent),XDG_CONFIG_HOME=str(self.paths.lock.parent),

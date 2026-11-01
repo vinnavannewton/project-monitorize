@@ -14,6 +14,7 @@ class BootHostTests(unittest.TestCase):
         self.host.step('greeter','Virtual-4',0)
         argv,environment=self.engine.start.call_args.args
         self.assertIn('output_name=Virtual-4',argv)
+        self.assertIn('port=50089',argv)
         self.assertIn('file_state=/private/identity/sunshine_state.json',argv)
         self.assertIn('credentials_file=/private/identity/sunshine_state.json',argv)
         for name in ('DISPLAY','WAYLAND_DISPLAY','DBUS_SESSION_BUS_ADDRESS','LD_LIBRARY_PATH'):

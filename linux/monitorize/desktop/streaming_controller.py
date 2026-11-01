@@ -33,6 +33,7 @@ from monitorize.platform.gpu_discovery import normalize_pci_id, resolve_encoding
 from monitorize.platform.process_utils import stop_processes
 from monitorize.platform.sunshine_service import (
     check_sunshine_health,
+    get_sunshine_port,
     get_sunshine_startup_status,
     is_sunshine_settings_instance,
     get_sunshine_log_size,
@@ -567,7 +568,7 @@ class StreamingController(QObject):
             else:
                 self.third_ready = True
                 self._set_status(
-                    f"Second display {output_name} ({width}x{height}@{fps:g}Hz) is ready on Sunshine port 49089"
+                    f"Second display {output_name} ({width}x{height}@{fps:g}Hz) is ready on Sunshine port {get_sunshine_port(2)}"
                 )
                 self.secondStreamChanged.emit(True)
         self._await_sunshine_ready(instance, ready)

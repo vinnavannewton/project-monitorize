@@ -10,6 +10,7 @@ import time
 from monitorize.platform.login_capture_probe import find_boot_output,read_phase
 from monitorize.platform.remote_login_identity import identity_paths
 from .boot_host import BootHost
+from monitorize.platform.sunshine_ports import SUNSHINE_BASE_PORT
 from .daemon import require_installed
 from .descriptors import read_descriptor
 from .engine import EngineOwner,RetrySchedule
@@ -159,7 +160,7 @@ def desktop_command(settings,descriptor):
     config=(settings.directory/'runtime/desktop-sunshine.conf' if 'stream_options' in values
             else Path(settings.profile)/'sunshine.conf')
     argv=[str(ENGINE),str(config),'capture='+values['capture'],'output_name='+values['output_name'],
-          'upnp=disabled','origin_web_ui_allowed=pc','file_apps='+str(APPS),
+          'upnp=disabled','origin_web_ui_allowed=pc',f'port={SUNSHINE_BASE_PORT}','file_apps='+str(APPS),
           'log_path='+str(settings.directory/'logs/desktop.log')]
     options=dict(encoder=settings.encoder,adapter_name=settings.adapter)
     options.update(values.get('stream_options',{}))

@@ -202,6 +202,20 @@ def enable_firewall():
                     run([firewall_cmd,'--reload'])
                     if 'monitorize' not in run([firewall_cmd,'--permanent','--get-services']).split():
                         raise RuntimeError('The Monitorize firewall profile could not be registered.')
+            # An installed profile may already be cached with the old ports.
+            expected = {'50084/tcp', '50089/tcp', '50090/tcp', '50110/tcp',
+                        '51084/tcp', '51089/tcp', '51090/tcp', '51110/tcp',
+                        '50098-50110/udp', '51098-51110/udp'}
+            for scope in (['--permanent'], []):
+                ports = set(run([firewall_cmd, *scope, '--service=monitorize', '--get-ports']).split())
+                if not expected.issubset(ports):
+                    recovery_module().restore_asset('firewalld.xml')
+                    run([firewall_cmd, '--reload'])
+                    for verify_scope in (['--permanent'], []):
+                        ports = set(run([firewall_cmd, *verify_scope, '--service=monitorize', '--get-ports']).split())
+                        if not expected.issubset(ports):
+                            raise RuntimeError('Could not verify the updated Monitorize firewall ports.')
+                    break
             active = run([firewall_cmd, '--get-active-zones'])
             zones = list(dict.fromkeys(line.split()[0] for line in active.splitlines()
                                       if line.strip() and not line[0].isspace()))
@@ -226,6 +240,7 @@ def enable_firewall():
         if 'Status: active' in lines:
             recovery_module().restore_asset('ufw.profile')
             run([ufw, 'allow', 'Monitorize'])
+            run([ufw, 'app', 'update', 'Monitorize'])
             rules = run([ufw, 'status'])
             if not any(line.split() and line.split()[0] == 'Monitorize' and 'ALLOW' in line.split() for line in rules.splitlines()):
                 raise RuntimeError('Could not verify the Monitorize UFW rule.')

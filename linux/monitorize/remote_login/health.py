@@ -1,4 +1,6 @@
 """Bounded engine readiness evidence scoped to the current boot and unit PID."""
+from monitorize.platform.sunshine_ports import sunshine_port_conflict
+
 import json
 import os
 from pathlib import Path
@@ -13,6 +15,8 @@ def startup_failure(log,status):
             source.seek(0,os.SEEK_END)
             source.seek(max(0,source.tell()-32768))
             text=source.read(32768)
+        conflict = sunshine_port_conflict(text.decode('utf-8', 'replace'))
+        if conflict:return conflict
         if b'MONITORIZE_STRICT_SELECTION_FAILED: requested encoder [nvenc] is unavailable' in text:
             return ('NVIDIA NVENC is unavailable in the installed remote-login engine. '
                     'Source installs: rebuild with --cuda=on and redeploy remote-login service assets. '

@@ -44,7 +44,7 @@ class PairingApiTests(unittest.TestCase):
         with patch.object(api.http.client, 'HTTPSConnection', return_value=connection) as create:
             result = api.PairingHost(2, b'expected').request('POST', {'pairing_id': ID2, 'pin': '0123'})
         self.assertTrue(result['pairing_complete'])
-        self.assertEqual(create.call_args.args, ('127.0.0.1', 49090))
+        self.assertEqual(create.call_args.args, ('127.0.0.1', 51090))
         self.assertEqual(connection.request.call_args.args, ('POST', '/api/pin'))
         self.assertEqual(json.loads(connection.request.call_args.kwargs['body']), {'pairing_id': ID2, 'pin': '0123'})
 

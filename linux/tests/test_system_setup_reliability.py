@@ -31,6 +31,7 @@ class SetupReliabilityTests(unittest.TestCase):
             args = command[1:]
             if args == ['--state']: output = 'running'
             elif args == ['--permanent', '--get-services']: output = 'ssh monitorize'
+            elif '--get-ports' in args: output = '50084/tcp 50089/tcp 50090/tcp 50110/tcp 51084/tcp 51089/tcp 51090/tcp 51110/tcp 50098-50110/udp 51098-51110/udp 5353/udp'
             elif args == ['--get-active-zones']: output = 'home\n  interfaces: wlan0\nwork\n  interfaces: enp1s0\n'
             elif '--query-service=monitorize' in args: output = 'yes'
             else: output = 'success'
@@ -44,6 +45,30 @@ class SetupReliabilityTests(unittest.TestCase):
             self.assertTrue(any('--zone='+zone in c and '--query-service=monitorize' in c and '--permanent' not in c for c in commands))
             self.assertIn(zone, message)
         self.assertFalse(any('--reload' in c for c in commands))
+
+    def test_firewalld_refreshes_cached_legacy_ports_before_enabling_service(self):
+        function = self.helper()['enable_firewall']
+        calls = []
+        restored = []
+        def execute(command, **kwargs):
+            calls.append(command)
+            if '--get-ports' in command:
+                output = ('50084/tcp 50089/tcp 50090/tcp 50110/tcp 51084/tcp 51089/tcp '
+                          '51090/tcp 51110/tcp 50098-50110/udp 51098-51110/udp'
+                          if any('--reload' in c for c in calls) else '47989/tcp')
+            elif '--get-services' in command: output = 'monitorize'
+            elif '--get-active-zones' in command: output = 'home\n  interfaces: wlan0'
+            elif '--query-service=monitorize' in command: output = 'yes'
+            else: output = 'running'
+            return subprocess.CompletedProcess(command, 0, output, '')
+        with patch.dict(function.__globals__, command_path=lambda *a:'/usr/bin/firewall-cmd',
+                        recovery_module=lambda:SimpleNamespace(restore_asset=restored.append)), \
+             patch.object(subprocess, 'run', side_effect=execute):
+            self.assertIn('home', function())
+        self.assertEqual(restored, ['firewalld.xml'])
+        self.assertEqual(sum('--reload' in c for c in calls), 1)
+        self.assertLess(next(i for i,c in enumerate(calls) if '--reload' in c),
+                        next(i for i,c in enumerate(calls) if '--add-service=monitorize' in c))
 
     def test_firewalld_readback_failure_is_not_success(self):
         function = self.helper()['enable_firewall']
@@ -78,6 +103,7 @@ class SetupReliabilityTests(unittest.TestCase):
         with patch.dict(function.__globals__,command_path=lambda *a:'/usr/sbin/ufw' if 'ufw' in a[0] else None),patch.object(subprocess,'run',side_effect=execute):
             self.assertIn('allows Monitorize',function())
         self.assertIn(['/usr/sbin/ufw','allow','Monitorize'],calls)
+        self.assertIn(['/usr/sbin/ufw','app','update','Monitorize'],calls)
         self.assertGreaterEqual(sum(c[-1]=='status' for c in calls),2)
 
     def test_ufw_unknown_status_is_not_inactive(self):

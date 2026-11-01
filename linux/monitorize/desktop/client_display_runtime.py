@@ -4,6 +4,8 @@ Only a paired-client identity supplied by our managed engine may own a slot.
 The socket is deliberately not an externally reachable control API.
 """
 from dataclasses import dataclass, field
+from monitorize.platform.sunshine_ports import sunshine_port_conflict
+
 import copy
 import hmac
 import json
@@ -276,6 +278,10 @@ class ClientDisplayRuntime(QObject):
         if 'MONITORIZE_CODEC_PROBE_FAILED' in log:
             slot.permanent_failure = True
             return 'failed', f"Selected encoder/codec ({slot.config.get('encoder', 'Auto')} / {slot.config.get('codec', 'Auto')}) failed its codec test. Inspect Sunshine logs; no codec fallback was used."
+        conflict = sunshine_port_conflict(log)
+        if conflict:
+            slot.permanent_failure = True
+            return 'failed', conflict
         if 'Fatal:' in log:
             return 'failed', 'Sunshine reported a fatal startup error; inspect its log.'
         if 'MONITORIZE_CONTROL_PROTOCOL=1' in log and 'Configuration UI available at' in log:

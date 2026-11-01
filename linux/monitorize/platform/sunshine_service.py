@@ -41,9 +41,10 @@ def _set_pdeathsig() -> None:
             pass
 
 
-SUNSHINE_BASE_PORT = 47989
-SUNSHINE_HTTPS_PORT = 47990
-SUNSHINE_HTTP_PORT = 47989
+from monitorize.platform.sunshine_ports import SUNSHINE_BASE_PORT, get_sunshine_port, sunshine_port_conflict
+
+SUNSHINE_HTTPS_PORT = SUNSHINE_BASE_PORT + 1
+SUNSHINE_HTTP_PORT = SUNSHINE_BASE_PORT
 SUNSHINE_WEB_URL = f"https://localhost:{SUNSHINE_HTTPS_PORT}"
 PORTAL_RESTORE_TOKEN_FILES = (
     "portal_token",
@@ -101,12 +102,6 @@ def get_sunshine_x11_capture_status(instance: int, output_name: str, offset: int
     if any(matched in line for line in lines):
         return "matched"
     return "pending"
-
-
-def get_sunshine_port(instance: int = 1) -> int:
-    """Return the base TCP port for a given Sunshine instance."""
-    inst = int(instance) if isinstance(instance, (int, str)) and str(instance).isdigit() else 1
-    return 47989 if inst == 1 else 49089
 
 
 def get_sunshine_https_port(instance: int = 1) -> int:
@@ -258,7 +253,7 @@ def get_sunshine_last_error(instance: int = 1, max_lines: int = 5) -> str:
             for line in reversed(lines[-60:]):
                 stripped = line.strip()
                 if "Fatal:" in stripped or "Error:" in stripped or "SIGABRT" in stripped:
-                    errors.append(stripped)
+                    errors.append(sunshine_port_conflict(stripped) or stripped)
                     if len(errors) >= max_lines:
                         break
     except OSError:
@@ -294,7 +289,7 @@ def get_sunshine_startup_status(instance: int = 1) -> tuple[str, str]:
     capture_error = ""
     for line in log.splitlines():
         if "Video failed to find working encoder" in line or "Fatal:" in line:
-            return "failed", line.strip()
+            return "failed", sunshine_port_conflict(line) or line.strip()
         if "[pipewire]" in line:
             if "PipeWire stream error" in line or "Pipewire Error" in line:
                 capture_error = line.strip()
@@ -1514,7 +1509,7 @@ DEFAULT_SUNSHINE_CONFIG = {
     "upnp": "disabled",
     "address_family": "both",
     "bind_address": "",
-    "port": "47989",
+    "port": str(SUNSHINE_BASE_PORT),
     "origin_web_ui_allowed": "lan",
     "csrf_allowed_origins": "",
     "external_ip": "",

@@ -6,6 +6,7 @@ import copy
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 
 from monitorize.config import app_log
+from monitorize.platform.sunshine_ports import get_sunshine_port
 from monitorize.config.settings import load_display_settings, load_second_display_settings, load_general_settings
 
 
@@ -373,7 +374,7 @@ class Session(QObject):
                     state += f" — {target['width']} × {target['height']} @ {target['fps']:g} Hz"
                 result.append(dict(number=instance, title=f"Monitorize — Display {instance}",
                     mirror=False, state=state, live=card.get("status") == "streaming",
-                    address=f"{c.local_ip}:{47989 if instance == 1 else 49089}"))
+                    address=f"{c.local_ip}:{get_sunshine_port(instance)}"))
             return result
         if self.mode == "Mirror":
             configured_output = str(
@@ -395,7 +396,7 @@ class Session(QObject):
                 "mirror": True,
                 "state": "Ready for Moonlight" if live else "Not started",
                 "live": live,
-                "address": f"{c.local_ip}:47989",
+                "address": f"{c.local_ip}:{get_sunshine_port(1)}",
             }]
 
         result = []
@@ -409,5 +410,5 @@ class Session(QObject):
                            "title": f"Virtual display {i + 1}",
                            "mirror": False, "state": state,
                            "live": bool(live and ready),
-                           "address": f"{c.local_ip}:{47989 if i == 0 else 49089}"})
+                           "address": f"{c.local_ip}:{get_sunshine_port(i + 1)}"})
         return result

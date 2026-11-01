@@ -76,7 +76,7 @@ def validate_source_matches(stage,repository=ROOT):
     stage=Path(stage);repository=Path(repository)
     modules=[*(repository/'linux/monitorize/remote_login').glob('*.py'),
              *(repository/'linux/monitorize/platform'/name for name in
-               ('remote_login_host.py','remote_login_identity.py','login_capture_probe.py'))]
+               ('remote_login_host.py','remote_login_identity.py','login_capture_probe.py','sunshine_ports.py'))]
     for source in modules:
         relative=Path('usr/lib/monitorize-remote-login')/source.relative_to(repository/'linux')
         staged=stage/relative
@@ -107,6 +107,7 @@ def validate_bundle(stage,*,host_root=Path('/')):
     stage=Path(stage)
     required=(FILES-HOST_FILES)|{'usr/lib/monitorize-remote-login/monitorize/remote_login/daemon.py',
                    'usr/lib/monitorize-remote-login/monitorize/platform/remote_login_host.py',
+                   'usr/lib/monitorize-remote-login/monitorize/platform/sunshine_ports.py',
                    'usr/lib/monitorize-remote-login/monitorize/remote_login/enrollment.py',
                    'usr/lib/monitorize-remote-login/monitorize/remote_login/live_setup.py',
                    'usr/lib/monitorize-remote-login/monitorize/remote_login/greeter_display.py',

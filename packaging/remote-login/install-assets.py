@@ -7,7 +7,7 @@ from pathlib import Path
 import shutil
 
 ROOT=Path(__file__).resolve().parents[2]
-MODULES=('remote_login','platform/remote_login_identity.py','platform/login_capture_probe.py','platform/remote_login_host.py')
+MODULES=('remote_login','platform/remote_login_identity.py','platform/login_capture_probe.py','platform/remote_login_host.py','platform/sunshine_ports.py')
 
 
 def stage(destination,*,repository=ROOT):

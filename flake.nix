@@ -101,11 +101,11 @@
             };
 
             networking.firewall = lib.mkIf cfg.openFirewall {
-              allowedTCPPorts = [ 47984 47989 47990 48010 49084 49089 49090 49110 ];
+              allowedTCPPorts = [ 50084 50089 50090 50110 51084 51089 51090 51110 ];
               allowedUDPPorts = [ 5353 ];
               allowedUDPPortRanges = [
-                { from = 47998; to = 48010; }
-                { from = 49098; to = 49110; }
+                { from = 50098; to = 50110; }
+                { from = 51098; to = 51110; }
               ];
             };
           };

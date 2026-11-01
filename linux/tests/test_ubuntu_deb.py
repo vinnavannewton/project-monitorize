@@ -71,7 +71,7 @@ def test_ubuntu_deb_runtime_is_private_and_sets_sunshine_overrides() -> None:
     assert "debian/monitorize/usr/libexec/monitorize/monitorize-system-setup" not in rules.split("override_dh_auto_test:", 1)[1]
     assert "debian/monitorize/etc/ufw/applications.d/monitorize" in rules
     assert "[Monitorize]" in ufw_profile
-    assert "5353,47998:48010,49098:49110/udp" in ufw_profile
+    assert "5353,50098:50110,51098:51110/udp" in ufw_profile
 
 
 def test_deb_targets_match_current_sources() -> None:

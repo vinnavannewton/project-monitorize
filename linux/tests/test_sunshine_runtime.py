@@ -14,6 +14,21 @@ class SunshineRuntimeTest(unittest.TestCase):
         identity=patch.object(service,'_enrolled_manual_identity',return_value=None)
         identity.start();self.addCleanup(identity.stop)
 
+    def test_legacy_profiles_migrate_ports_without_changing_pairing_or_encoder(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {"XDG_CONFIG_HOME": tmp}):
+            for instance, old_port, port in ((1, 47989, 50089), (2, 49089, 51089)):
+                directory = Path(service.get_sunshine_config_dir(instance))
+                directory.mkdir(parents=True)
+                config = directory / 'sunshine.conf'
+                config.write_text(f'port = {old_port}\nencoder = nvenc\n')
+                identity = directory / 'sunshine_state.json'
+                identity.write_text('saved-pairing')
+                service.ensure_sunshine_tray_disabled(instance)
+                self.assertIn(f'port = {port}\n', config.read_text())
+                self.assertIn('encoder = nvenc\n', config.read_text())
+                self.assertEqual(identity.read_text(), 'saved-pairing')
+                self.assertEqual(service.get_sunshine_https_port(instance), port + 1)
+
     def test_replacement_refuses_to_launch_when_old_engine_stop_fails(self):
         service._SUNSHINE_SETTINGS_INSTANCES.add(1)
         with patch.object(service,'_enrolled_manual_identity',return_value=None), \
@@ -133,7 +148,7 @@ class SunshineRuntimeTest(unittest.TestCase):
             log = Path(tmp) / "sunshine.log"
             prefix = "Info: Sunshine version: test\n"
             error = "Info: [pipewire] PipeWire stream error 'no target node available'\n"
-            ready = "Info: Found H.264 encoder: libx264 [software]\nInfo: Configuration UI available at [https://localhost:47990]\n"
+            ready = "Info: Found H.264 encoder: libx264 [software]\nInfo: Configuration UI available at [https://localhost:50090]\n"
             log.write_text(prefix + error)
             self.assertEqual(service.get_sunshine_startup_status(), ("pending", ""))
             log.write_text(prefix + error + ready + "Error: Failed to create client: Daemon not running\n")
@@ -250,7 +265,7 @@ class SunshineRuntimeTest(unittest.TestCase):
             connection = https.return_value
             connection.getresponse.return_value.status = 401
             self.assertTrue(service.sunshine_web_ready(2))
-            self.assertEqual(https.call_args.args, ("127.0.0.1", 49090))
+            self.assertEqual(https.call_args.args, ("127.0.0.1", 51090))
             connection.close.assert_called_once()
             connection.request.side_effect = ConnectionRefusedError
             self.assertFalse(service.sunshine_web_ready(2))

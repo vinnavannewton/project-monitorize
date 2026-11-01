@@ -93,7 +93,7 @@ Item {
                     color: theme.textPrimary; wrapMode: Text.WordWrap; Layout.fillWidth: true
                 }
                 TextEdit {
-                    text: backend.localIp + ":47989"
+                    text: backend.localIp + ":" + backend.sunshinePort
                     readOnly: true; selectByMouse: true
                     color: theme.textSecondary; Layout.fillWidth: true
                 }
@@ -125,7 +125,7 @@ Item {
                         }
                         TextEdit {
                             visible: backend.sessionMode === "Mirror" && backend.sessionRunning
-                            text: backend.localIp + ":47989"; color: theme.textSecondary; font.pixelSize: 13
+                            text: backend.localIp + ":" + backend.sunshinePort; color: theme.textSecondary; font.pixelSize: 13
                             Layout.fillWidth: true; wrapMode: TextEdit.WrapAnywhere
                             readOnly: true; selectByMouse: true
                             activeFocusOnPress: true

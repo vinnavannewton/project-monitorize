@@ -11,6 +11,7 @@ class RunnerTests(unittest.TestCase):
             encoder='software',adapter='',home='/home/account',uid=1000)
         argv,env=desktop_command(settings,{'capture':'kms','output_name':'Virtual-4'})
         self.assertIn('encoder=software',argv)
+        self.assertIn('port=50089',argv)
         self.assertNotIn('adapter_name=',argv)
         self.assertIn('file_state=/private/identity/sunshine_state.json',argv)
         self.assertNotIn('stream_audio=disabled',argv)
