@@ -36,6 +36,8 @@ BuildRequires:  gcc-c++
 %endif
 BuildRequires:  git
 BuildRequires:  glib2-devel
+# rpmlint runs its spec helpers with en_US.UTF-8, even in minimal containers.
+BuildRequires:  glibc-langpack-en
 BuildRequires:  glslc
 BuildRequires:  json-devel
 BuildRequires:  libcap-devel
@@ -209,6 +211,13 @@ grep -q 'src/platform/linux/cuda.cu' sunshine-build/compile_commands.json
 %pyproject_install
 %pyproject_save_files monitorize
 python3 packaging/remote-login/install-assets.py --destdir %{buildroot}
+# These standalone Python entry points retain their interpreter shebangs.
+chmod 0755 \
+    %{buildroot}%{python3_sitelib}/monitorize/platform/login_capture_probe.py \
+    %{buildroot}%{_prefix}/lib/monitorize-remote-login/monitorize/platform/login_capture_probe.py \
+    %{buildroot}%{_libexecdir}/monitorize/remote-login/entry.py \
+    %{buildroot}%{_libexecdir}/monitorize/remote-login/package-guard.py \
+    %{buildroot}%{_libexecdir}/monitorize/remote-login/deploy.py
 
 install -Dpm 0755 monitorize-kde-virtual-output \
     %{buildroot}%{_bindir}/monitorize-kde-virtual-output
@@ -251,6 +260,8 @@ install -Dpm 0644 external/sunshine/LICENSE \
 
 
 %check
+# Imports must not overwrite bytecode normalized by the buildroot policy scripts.
+export PYTHONDONTWRITEBYTECODE=1
 desktop-file-validate %{buildroot}%{_datadir}/applications/monitorize.desktop
 desktop-file-validate %{buildroot}%{_datadir}/applications/monitorize-kde-virtual-output.desktop
 bash -n %{buildroot}%{_bindir}/monitorize
