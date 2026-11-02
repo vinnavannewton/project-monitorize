@@ -18,6 +18,28 @@ class VirtualDisplayCleanupTest(unittest.TestCase):
         self.assertFalse(cleanup._is_display_owner(['/usr/bin/python3', '-c', 'print("monitorize.streaming.headless_virtual_display")']))
         self.assertFalse(cleanup._is_display_owner(['/usr/bin/gnome-shell']))
 
+    def test_app_uninstall_never_contacts_standalone_vkms(self):
+        # A missing configfs or a broken/slow companion cannot block uninstall.
+        with patch.object(cleanup, '_close_display_owners', return_value=(0, [])), \
+             patch.object(cleanup, 'DisplayController') as controller, \
+             patch.object(cleanup.shutil, 'which') as lookup, \
+             patch.object(cleanup.subprocess, 'run') as command, \
+             patch.object(cleanup, 'MonitorizeVkmsClient') as client:
+            controller.return_value.remove_stagnant_virtual_displays.return_value = 1
+            result = cleanup.remove_virtual_displays('kde', include_vkms=False)
+        self.assertTrue(result['success'])
+        controller.return_value.remove_stagnant_virtual_displays.assert_called_once_with()
+        lookup.assert_not_called()
+        command.assert_not_called()
+        client.assert_not_called()
+
+    def test_app_uninstall_still_reports_its_own_layout_failure(self):
+        with patch.object(cleanup, '_close_display_owners', return_value=(0, [])), \
+             patch.object(cleanup, 'DisplayController', side_effect=RuntimeError('layout failed')):
+            result = cleanup.remove_virtual_displays('kde', include_vkms=False)
+        self.assertFalse(result['success'])
+        self.assertIn('layout failed', result['message'])
+
     def run_cleanup(self, desktop, connected=True, removal=None, owner_result=None, native=0):
         client = Mock()
         client.is_available.return_value = True

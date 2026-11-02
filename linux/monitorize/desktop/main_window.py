@@ -59,6 +59,7 @@ class MonitorizeWindow(QMainWindow):
         self.backend = MonitorizeBackend(self.de, self)
         self.backend.native_compositor_resolver = self._ask_desktop_environment
         self.backend.configureDisplayRequested.connect(self._configure_display)
+        self.backend.setupCompletionQuitRequested.connect(self._quit_app)
         self._setup_tray()
         self.content_stack = QStackedWidget(self)
         self.quick_widget = QQuickWidget(self)
@@ -121,6 +122,9 @@ class MonitorizeWindow(QMainWindow):
 
     def _quit_app(self):
         if getattr(self, "_quitting", False):return True
+        if getattr(self.backend, "systemSetupRunning", False) is True:
+            QMessageBox.information(self, "System setup", "Finish or dismiss the authorization dialog and wait for system setup before quitting.")
+            return False
         manager = getattr(self.backend, '_vkms_management', None)
         if manager is not None and manager.busy:
             QMessageBox.information(self, "VKMS maintenance", "Wait for the VKMS operation to finish before quitting.")

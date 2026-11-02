@@ -25,6 +25,16 @@ while (( $# )); do
     esac
 done
 if (( ! enable_cuda )); then output_root="${output_root}/no-cuda"; fi
+source_commit="$(git -C "${PROJECT_ROOT}" rev-parse HEAD)"
+source_revision="${source_commit}"
+development_source=false
+test_source_cache_root=""
+if [[ -n "${MONITORIZE_TEST_SOURCE_TREE:-}" ]]; then
+    source_revision="$(python3 "${PROJECT_ROOT}/scripts/native-test-source.py" --repository "${PROJECT_ROOT}" validate "${MONITORIZE_TEST_SOURCE_TREE}")"
+    development_source=true
+    test_source_cache_root="${output_root}"
+    output_root="${output_root}/test-tree-${source_revision:0:12}"
+fi
 readonly OUTPUT_ROOT="${output_root}"
 normal_command="./packaging/arch/build.sh"
 if (( ! enable_cuda )); then normal_command+=' --no-cuda'; fi
@@ -49,8 +59,10 @@ for required_file in PKGBUILD dependencies.sh sources.conf container-prepare.sh 
     git ls-files --error-unmatch "packaging/arch/${required_file}" >/dev/null 2>&1 \
         || die "Commit packaging/arch/${required_file} before building; the source snapshot uses HEAD."
 done
+if [[ "${development_source}" == false ]]; then
 [[ -z "$(git status --porcelain --untracked-files=no)" ]] \
     || die 'Commit or stash tracked changes before building; the source snapshot uses HEAD.'
+fi
 
 mapfile -t submodule_status < <(git submodule status --recursive)
 (( ${#submodule_status[@]} > 0 )) || die 'Initialize recursive submodules before building.'
@@ -85,6 +97,13 @@ dependency_hash="$( { printf '%s\n' "${IMAGE}" "cuda=${enable_cuda}"; sha256sum 
 deps_image="localhost/monitorize-arch-builddeps:${dependency_hash}"
 ffmpeg_cache_name="Linux-x86_64-ffmpeg-${SUNSHINE_FFMPEG_TAG}-${SUNSHINE_FFMPEG_SHA256:0:12}.tar.gz"
 boost_cache_name="boost-${BOOST_VERSION}-${BOOST_SHA256:0:12}-cmake.tar.xz"
+if [[ -n "${test_source_cache_root}" && -d "${test_source_cache_root}/cache" ]]; then
+    mkdir -p "${OUTPUT_ROOT}"
+    if [[ ! -e "${OUTPUT_ROOT}/cache" && ! -L "${OUTPUT_ROOT}/cache" ]]; then
+        ln -s "${test_source_cache_root}/cache" "${OUTPUT_ROOT}/cache"
+    fi
+fi
+
 if (( offline )); then
     podman image exists "${deps_image}" \
         || die "Missing prepared image ${deps_image}; run ${normal_command} first."
@@ -123,21 +142,20 @@ recipe_root="${work_root}/makepkg"
 artifact_root="${tmp_root}/artifacts"
 mkdir -p "${stage_root}" "${recipe_root}" "${artifact_root}"
 : > "${build_log}"
-git archive --format=tar HEAD | tar -xf - -C "${stage_root}"
+git archive --format=tar "${source_revision}" | tar -xf - -C "${stage_root}"
 for path in "${submodule_paths[@]}"; do
     mkdir -p "${stage_root}/${path}"
     git -C "${path}" archive --format=tar HEAD | tar -xf - -C "${stage_root}/${path}"
 done
 
-source_commit="$(git rev-parse HEAD)"
-source_date_epoch="$(git show -s --format=%ct HEAD)"
+source_date_epoch="$(git show -s --format=%ct "${source_commit}")"
 tar --sort=name --mtime="@${source_date_epoch}" --owner=0 --group=0 \
     --numeric-owner -C "${tmp_root}/stage" -cf - "monitorize-${version}" \
     | gzip -n > "${recipe_root}/monitorize-${version}.tar.gz"
 source_sha="$(sha256sum "${recipe_root}/monitorize-${version}.tar.gz" | awk '{print $1}')"
 
 for helper in PKGBUILD dependencies.sh monitorize.install monitorize-wrapper monitorize-remote-login-guard.hook monitorize-remote-login-remove.hook; do
-    cp "${SCRIPT_DIR}/${helper}" "${recipe_root}/${helper}"
+    cp "${stage_root}/packaging/arch/${helper}" "${recipe_root}/${helper}"
 done
 sed -i \
     -e "s/__MONITORIZE_SOURCE_SHA256__/${source_sha}/" \
@@ -157,7 +175,7 @@ if (( ! offline )); then
         --env "MONITORIZE_BUILD_UID=${build_uid}" \
         --env "MONITORIZE_BUILD_GID=${build_gid}" \
         --env "MONITORIZE_ENABLE_CUDA=${enable_cuda}" \
-        --volume "${SCRIPT_DIR}:/packaging:ro" \
+        --volume "${stage_root}/packaging/arch:/packaging:ro" \
         --volume "${OUTPUT_ROOT}/cache/pacman:/var/cache/pacman/pkg:U" \
         "${IMAGE}" /bin/bash /packaging/container-prepare.sh \
         2>&1 | tee -a "${build_log}"
@@ -179,6 +197,8 @@ podman run "${run_options[@]}" \
     --env "MONITORIZE_ENABLE_CUDA=${enable_cuda}" \
     --env HOME=/work/home \
     --env "MONITORIZE_SOURCE_COMMIT=${source_commit}" \
+    --env "MONITORIZE_SOURCE_TREE=$(git rev-parse "${source_revision}^{tree}")" \
+    --env "MONITORIZE_DEVELOPMENT_SOURCE=${development_source}" \
     --env "MONITORIZE_SOURCE_SHA256=${source_sha}" \
     --env "MONITORIZE_SUNSHINE_COMMIT=${SUNSHINE_COMMIT}" \
     --env "MONITORIZE_DEPS_IMAGE_ID=${deps_image_id}" \
@@ -190,7 +210,7 @@ podman run "${run_options[@]}" \
     --env "MONITORIZE_BOOST_CACHE_NAME=${boost_cache_name}" \
     --env "SOURCE_DATE_EPOCH=${source_date_epoch}" \
     --env npm_config_cache=/npm-cache \
-    --volume "${SCRIPT_DIR}:/packaging:ro" \
+    --volume "${stage_root}/packaging/arch:/packaging:ro" \
     --volume "${work_root}:/work" \
     --volume "${artifact_root}:/artifacts" \
     --volume "${OUTPUT_ROOT}/cache/sources:/source-cache" \
@@ -205,7 +225,7 @@ if (( ! offline )); then
     podman run --rm --pull=never --arch amd64 --cap-add SETFCAP \
         --security-opt label=disable \
         --volume "${main_package}:/tmp/monitorize.pkg.tar.zst:ro" \
-        --volume "${SCRIPT_DIR}:/packaging:ro" \
+        --volume "${stage_root}/packaging/arch:/packaging:ro" \
         "${IMAGE}" /bin/bash /packaging/smoke-test.sh \
         2>&1 | tee -a "${build_log}"
 else

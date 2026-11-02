@@ -29,6 +29,8 @@ jobs:
 
       - name: Verify tag, main branch, and package versions
         id: release
+        env:
+          MONITORIZE_FIRST_RUN_ACCEPTANCE: ${{ vars.MONITORIZE_FIRST_RUN_ACCEPTANCE }}
         shell: bash
         run: |
           set -euo pipefail
@@ -45,6 +47,8 @@ jobs:
             echo "Tag ${GITHUB_REF_NAME} does not point to a commit on origin/main." >&2
             exit 1
           fi
+
+          python3 scripts/check-first-run-acceptance.py --commit "${tag_commit}"
 
           python3 - "${tag_version}" <<'PYTHON'
           from pathlib import Path

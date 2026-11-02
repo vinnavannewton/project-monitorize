@@ -4,6 +4,7 @@
 import argparse
 import ctypes
 import errno
+import fcntl
 import grp
 import json
 import mmap
@@ -12,12 +13,17 @@ import pwd
 import stat
 import subprocess
 import sys
+import time
+import uuid
+import types
 from pathlib import Path
 
 KMS_SETUP_PROTOCOL = 1
 REMOTE_LOGIN_RECOVERY_PROTOCOL = 1
 SYSTEM_RECOVERY_PROTOCOL = 1
 VKMS_MANAGEMENT_PROTOCOL = 1
+FIRST_RUN_SETUP_PROTOCOL = 2
+FIREWALL_SCOPE_PROTOCOL = 1
 
 
 def grant_kms_capability(binary, device, inode):
@@ -125,16 +131,55 @@ def invoking_user():
         raise RuntimeError("The authorizing user no longer exists.") from exc
 
 
-def recovery_module():
-    import importlib.util
-    path=Path(__file__).resolve().parent/'system_recovery.py'
-    spec=importlib.util.spec_from_file_location('monitorize_system_recovery',path)
-    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+def load_setup_module(name, source_relative):
+    """Execute captured trusted bytes; never import a replaced sibling as root."""
+    here = Path(__file__).absolute()
+    path = here.with_name(name + '.py')
+    if here.parent == Path('/usr/libexec/monitorize'):
+        for parent in path.parents:
+            info = parent.lstat()
+            if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022:
+                raise ValueError('Unsafe installed system setup directory.')
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+        with os.fdopen(fd, 'rb') as stream:
+            info = os.fstat(stream.fileno())
+            if (not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_nlink != 1
+                    or info.st_mode & 0o022 or info.st_size > 1024 * 1024):
+                raise ValueError('Unsafe installed system setup module: ' + name)
+            data = stream.read(1024 * 1024 + 1)
+        if len(data) > 1024 * 1024:
+            raise ValueError('System setup module exceeds its size limit.')
+    else:
+        # A source invocation is already explicit administrator authorization
+        # for this checkout; installed helpers never take this fallback.
+        if not path.is_file():
+            path = here.resolve().parents[2] / source_relative
+        data = path.read_bytes()
+    module = types.ModuleType('monitorize_setup_' + name)
+    module.__file__ = str(path)
+    sys.modules[module.__name__] = module
+    exec(compile(data, str(path), 'exec'), module.__dict__)
     return module
+
+
+def recovery_module():
+    return load_setup_module('system_recovery', 'packaging/common/system_recovery.py')
 
 
 def ensure_input_assets():
     recovery_module().restore_asset('uinput.rules')
+    recovery_module().restore_asset('uinput-access.rules')
+    # Migrate only the exact historical Monitorize-owned instruction, never
+    # another application's rule or an administrator's customized variant.
+    legacy = Path('/etc/udev/rules.d/99-monitorize-uinput.rules')
+    expected = b'KERNEL=="uinput", GROUP="input", MODE="0660", TAG+="uaccess"'
+    if legacy.exists() and not legacy.is_symlink():
+        recovery = recovery_module()
+        if recovery.read_safe(legacy).strip() == expected and recovery.owner(legacy) is None:
+            backup = legacy.with_suffix('.rules.monitorize-backup')
+            if not backup.exists():
+                legacy.rename(backup)
+
     try:grp.getgrnam('monitorize-input')
     except KeyError:
         groupadd=command_path('/usr/sbin/groupadd','/usr/bin/groupadd')
@@ -142,7 +187,24 @@ def ensure_input_assets():
         run([groupadd,'--system','monitorize-input'])
 
 
-def prepare_input_device():
+def input_rule_diagnostics():
+    matches = []
+    for directory in ('/usr/lib/udev/rules.d', '/run/udev/rules.d', '/etc/udev/rules.d'):
+        for path in sorted(Path(directory).glob('*.rules')):
+            try:
+                if path.is_symlink() or any('uinput' in line and not line.lstrip().startswith('#')
+                                            for line in path.read_text().splitlines()):
+                    matches.append(str(path))
+            except OSError:
+                continue
+    return ', '.join(matches) or 'none readable; check the udev journal'
+
+
+def input_access_module():
+    return load_setup_module('input_access', 'linux/monitorize/platform/input_access.py')
+
+
+def prepare_input_device(target_uid=None):
     """Refresh the packaged rule and verify the device; never broaden its mode."""
     ensure_input_assets()
     # The packaged static node may exist even when no uinput driver is loaded.
@@ -154,15 +216,20 @@ def prepare_input_device():
     if not udevadm:
         raise RuntimeError('udevadm is not installed. Repair the Monitorize package dependencies.')
     run([udevadm, 'control', '--reload-rules'])
-    run([udevadm, 'trigger', '--action=add', '--subsystem-match=misc', '--sysname-match=uinput'])
-    run([udevadm, 'settle', '--timeout=5'])
+    run([udevadm, 'trigger', '--settle', '--action=add', '--subsystem-match=misc', '--sysname-match=uinput'])
+    access = input_access_module()
+    try:
+        access.grant_device_access(target_uid)
+    except (OSError, ValueError, RuntimeError) as exc:
+        raise RuntimeError('Could not grant dedicated Monitorize input access: ' + str(exc)
+                           + '. Relevant udev rules: ' + input_rule_diagnostics()) from exc
     try:
         node = Path('/dev/uinput').stat()
         group = grp.getgrnam('monitorize-input')
     except (OSError, KeyError) as exc:
         raise RuntimeError('The uinput device or monitorize-input group is missing. Repair the Monitorize package installation.') from exc
-    if not stat.S_ISCHR(node.st_mode) or node.st_gid != group.gr_gid or node.st_mode & 0o060 != 0o060:
-        raise RuntimeError('The uinput device does not grant monitorize-input read/write access. Check for conflicting udev rules and repair the Monitorize package installation.')
+    if not access.device_group_ready(node, group.gr_gid):
+        raise RuntimeError(f'The uinput device does not grant monitorize-input read/write access: actual gid={node.st_gid}, mode={stat.S_IMODE(node.st_mode):04o}; expected gid={group.gr_gid}, group read/write. Conflicting udev rules: ' + input_rule_diagnostics())
     try:
         descriptor = os.open('/dev/uinput', os.O_WRONLY | os.O_NONBLOCK | os.O_CLOEXEC)
         os.close(descriptor)
@@ -177,65 +244,65 @@ def enable_input(username):
         user = pwd.getpwnam(username)
     except KeyError as exc:
         raise RuntimeError("The monitorize-input group is not installed.") from exc
-    prepare_input_device()
+    prepare_input_device(user.pw_uid)
     if user.pw_gid == group.gr_gid or username in group.gr_mem:
         return True, "Input permission is configured. Log out and back in if this session cannot use input yet."
     usermod = command_path("/usr/sbin/usermod", "/usr/bin/usermod")
     if not usermod:
         raise RuntimeError("usermod is not available.")
     run([usermod, "-aG", "monitorize-input", username])
+    updated = grp.getgrnam('monitorize-input')
+    if username not in updated.gr_mem and user.pw_gid != updated.gr_gid:
+        raise RuntimeError('Account enrollment could not be verified. Refresh account status before retrying.')
     return True, "Input permission configured. Log out and back in to use it."
 
 
-def enable_firewall():
+def firewall_scope_module():
+    return load_setup_module('firewall_scope', 'linux/monitorize/platform/firewall_scope.py')
+
+
+def firewall_policy_module():
+    return load_setup_module('firewall_policy', 'linux/monitorize/platform/firewall_policy.py')
+
+
+def enable_firewall(zones=None, fingerprint=None, evidence=None):
+    # Explicit ports avoid stale/shadowed service XML and never require a global
+    # reload, which would destroy unrelated runtime-only configuration.
+    messages = []
+    def diagnose(operation):
+        # Saving the native manager configuration and proving end-to-end
+        # reachability are different outcomes. VPN anti-spoofing rules must not
+        # turn a successful configuration into an endless authorization loop.
+        try:
+            operation()
+        except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
+            messages.append('Connection verification needs a Moonlight test. Additional firewall policy: ' + str(exc))
+            if evidence is not None:
+                evidence['policy_diagnostic'] = str(exc)
+        if evidence is not None:
+            evidence['connectivity_verified'] = False
     firewall_cmd = command_path('/usr/bin/firewall-cmd', '/usr/sbin/firewall-cmd')
+    scope_module = firewall_scope_module()
+    scope = scope_module.snapshot(firewall_cmd, command_result)
+    firewalld_active = scope['running']
+    selected = scope_module.choose_zones(scope, zones, fingerprint)
+    if evidence is not None:
+        evidence.update(scope_module.evidence(scope, selected))
     if firewall_cmd:
-        state = command_result([firewall_cmd, '--state'])
-        if state.returncode not in (0, 252):
-            raise RuntimeError('Could not check firewalld status: ' + (state.stderr.strip() or state.stdout.strip() or 'unknown error'))
-        if state.returncode == 0:
-            if 'monitorize' not in run([firewall_cmd, '--permanent', '--get-services']).split():
-                # A source install can add the XML after firewalld was started.
-                run([firewall_cmd, '--reload'])
-                if 'monitorize' not in run([firewall_cmd, '--permanent', '--get-services']).split():
-                    recovery_module().restore_asset('firewalld.xml')
-                    run([firewall_cmd,'--reload'])
-                    if 'monitorize' not in run([firewall_cmd,'--permanent','--get-services']).split():
-                        raise RuntimeError('The Monitorize firewall profile could not be registered.')
-            # An installed profile may already be cached with the old ports.
-            expected = {'50084/tcp', '50089/tcp', '50090/tcp', '50110/tcp',
-                        '51084/tcp', '51089/tcp', '51090/tcp', '51110/tcp',
-                        '50098-50110/udp', '51098-51110/udp'}
-            for scope in (['--permanent'], []):
-                ports = set(run([firewall_cmd, *scope, '--service=monitorize', '--get-ports']).split())
-                if not expected.issubset(ports):
-                    recovery_module().restore_asset('firewalld.xml')
-                    run([firewall_cmd, '--reload'])
-                    for verify_scope in (['--permanent'], []):
-                        ports = set(run([firewall_cmd, *verify_scope, '--service=monitorize', '--get-ports']).split())
-                        if not expected.issubset(ports):
-                            raise RuntimeError('Could not verify the updated Monitorize firewall ports.')
-                    break
-            active = run([firewall_cmd, '--get-active-zones'])
-            zones = list(dict.fromkeys(line.split()[0] for line in active.splitlines()
-                                      if line.strip() and not line[0].isspace()))
-            if not zones:
-                zones = run([firewall_cmd, '--get-default-zone']).split()
-            if not zones:
-                raise RuntimeError('Could not determine a firewalld zone for Monitorize.')
-            for zone in zones:
+        if scope['running']:
+            for zone in selected:
                 for scope in (['--permanent'], []):
                     command = [firewall_cmd, *scope, '--zone=' + zone]
-                    run([*command, '--add-service=monitorize'])
-                    if run([*command, '--query-service=monitorize']).strip() != 'yes':
-                        raise RuntimeError('Could not verify the Monitorize firewall rule in zone ' + zone + '.')
-            return 'Firewalld now allows Monitorize in zones: ' + ', '.join(zones) + '.'
-
+                    for port in scope_module.PORTS:
+                        run([*command, '--add-port=' + port])
+                        if run([*command, '--query-port=' + port]).strip() != 'yes':
+                            raise RuntimeError('Could not verify Monitorize port ' + port + ' in zone ' + zone + '. Some selected ports may already be configured; retry is safe.')
+            messages.append('Firewalld ports verified in selected networks: ' + ', '.join(selected) + '.')
     ufw = command_path('/usr/sbin/ufw', '/usr/bin/ufw')
     if ufw:
         state = command_result([ufw, 'status'])
         if state.returncode:
-            raise RuntimeError('Could not check UFW status: ' + (state.stderr.strip() or state.stdout.strip() or 'unknown error'))
+            raise RuntimeError('Could not check UFW status: ' + (state.stderr.strip() or state.stdout.strip()))
         lines = state.stdout.splitlines()
         if 'Status: active' in lines:
             recovery_module().restore_asset('ufw.profile')
@@ -244,10 +311,40 @@ def enable_firewall():
             rules = run([ufw, 'status'])
             if not any(line.split() and line.split()[0] == 'Monitorize' and 'ALLOW' in line.split() for line in rules.splitlines()):
                 raise RuntimeError('Could not verify the Monitorize UFW rule.')
-            return 'UFW now allows Monitorize.'
-        if 'Status: inactive' not in lines:
-            raise RuntimeError('Could not recognize UFW status; no rules were changed.')
-    return 'No active supported firewall was detected; no firewall changes were needed.'
+            messages.append('UFW Monitorize allow rule configured.')
+            diagnose(lambda: firewall_policy_module().verify_ufw(command_path, run, scope_module.PORTS,
+                trusted_nft_tables=(('inet', 'firewalld'),) if firewalld_active else ()))
+        elif 'Status: inactive' not in lines:
+            raise RuntimeError('Could not recognize UFW status; existing rules were preserved.')
+    if firewalld_active:
+        diagnose(lambda: firewall_policy_module().verify_firewalld(firewall_cmd, selected, command_path, run,
+            scope_module.PORTS))
+    if not messages:
+        for name in ('iptables-save', 'ip6tables-save', 'iptables-legacy-save', 'ip6tables-legacy-save'):
+            if name.startswith('ip6') and not firewall_policy_module().ipv6_enabled():
+                continue
+            reader = command_path('/usr/sbin/' + name, '/usr/bin/' + name)
+            if reader:
+                result = command_result([reader])
+                if result.returncode or firewall_policy_module().parse_save(result.stdout):
+                    raise RuntimeError('Firewall access is unverified: unmanaged iptables rules exist or could not be inspected. Existing policy was preserved.')
+        nft = command_path('/usr/sbin/nft', '/usr/bin/nft')
+        if nft:
+            result = command_result([nft, 'list', 'ruleset'])
+            if result.returncode or result.stdout.strip():
+                raise RuntimeError('Firewall access is unverified: an unmanaged ruleset exists or could not be inspected. Configure Monitorize ports in your firewall manager.')
+        return 'No active supported firewall detected. No rules changed; external or custom firewall access remains unverified.'
+    return ' '.join(messages)
+
+
+def write_setup_receipt(username, result):
+    uid = pwd.getpwnam(username).pw_uid
+    recovery_module().write_owned(Path('/var/lib/monitorize/setup') / (str(uid) + '.json'),
+                                  json.dumps(result).encode(), mode=0o644)
+
+
+def first_run_state():
+    return load_setup_module('setup_state', 'linux/monitorize/platform/setup_state.py')
 
 
 def main():
@@ -257,6 +354,9 @@ def main():
     parser.add_argument("--restart-host",action="store_true")
     parser.add_argument("--input", action="store_true", help="grant the authorizing user uinput access")
     parser.add_argument("--firewall", action="store_true", help="allow Monitorize through an active firewall")
+    parser.add_argument('--request-id', help='first-run request identity supplied by the desktop')
+    parser.add_argument('--firewall-zone', action='append', help='explicit firewalld network scope')
+    parser.add_argument('--firewall-context', help='network snapshot fingerprint shown before authorization')
     parser.add_argument('--unattended-vkms', action='store_true')
     parser.add_argument('--remote-login', choices=('enable','enable-live','disable','recover','recover-disable','remove','fallback','primary-on','primary-off','login-virtual-on','login-virtual-off','timeout'))
     parser.add_argument('--display-idle-timeout', type=int, choices=range(1,601), metavar='SECONDS')
@@ -264,6 +364,14 @@ def main():
     parser.add_argument('--kms-device', type=int)
     parser.add_argument('--kms-inode', type=int)
     args = parser.parse_args()
+    if (args.firewall_zone or args.firewall_context) and not args.firewall:
+        parser.error('Firewall network scope requires --firewall.')
+    if args.request_id is not None and (len(args.request_id) != 32 or
+            any(char not in '0123456789abcdef' for char in args.request_id)):
+        parser.error('Invalid setup request identity.')
+    if args.request_id and (args.remote_login or args.kms_binary or args.recover_host
+                           or args.restart_host or args.recover_networkmanager):
+        parser.error('Request identity is only supported for first-run actions.')
     if not args.restart_host and not args.recover_host and not args.recover_networkmanager and not args.input and not args.firewall and not args.unattended_vkms and not args.remote_login and not args.kms_binary:
         parser.error("select --input, --firewall and/or --unattended-vkms")
     if os.geteuid() != 0:
@@ -316,37 +424,72 @@ def main():
     if args.unattended_vkms and not host_authorization.is_file():
         raise RuntimeError('Install or upgrade monitorize-vkms before enabling unattended displays.')
     username = invoking_user()
-    messages = []
-    logout_required = False
-    actions = {}
-    action = None
+    # A root-owned, non-followed lock serializes all users of the shared assets.
+    lock = os.open('/run/monitorize-system-setup.lock', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
     try:
-        if args.unattended_vkms:
-            action = 'vkms'
-            response = json.loads(run([sys.executable, '-I', str(host_authorization), 'enable']))
-            if not response.get('success'):
-                raise RuntimeError(response.get('message') or 'Could not authorize VKMS displays.')
-            messages.append(response['message'])
-            actions[action] = {'success': True, 'message': response['message']}
-        if args.input:
-            action = 'input'
-            input_changed, input_message = enable_input(username)
-            messages.append(input_message)
-            logout_required = input_changed
-            actions[action] = {'success': True, 'message': input_message}
-        if args.firewall:
-            action = 'firewall'
-            message = enable_firewall()
-            messages.append(message)
-            actions[action] = {'success': True, 'message': message}
-    except Exception as exc:
-        if action:
-            actions[action] = {'success': False, 'message': str(exc)}
-        detail = ' '.join(messages + [str(exc)])
-        print(json.dumps({'success': False, 'message': detail, 'logout_required': logout_required, 'actions': actions}))
-        print(detail, file=sys.stderr)
-        raise SystemExit(1)
-    print(json.dumps({"success": True, "message": " ".join(messages), "logout_required": logout_required, "actions": actions}))
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        os.close(lock)
+        raise RuntimeError('Another system setup is running. Wait for it to finish, then refresh status.')
+    logout_required = False
+    selected = []
+    if args.unattended_vkms:
+        def authorize_vkms():
+            result = json.loads(run([sys.executable, '-I', str(host_authorization), 'enable']))
+            if not result.get('success'):
+                raise RuntimeError(result.get('message') or 'Could not authorize VKMS displays.')
+            return result['message']
+        selected.append(('vkms', authorize_vkms))
+    if args.input:
+        def configure_input():
+            nonlocal logout_required
+            logout_required, message = enable_input(username)
+            return message
+        selected.append(('input', configure_input))
+    if args.firewall:
+        firewall_evidence = {}
+        def configure_firewall():
+            return enable_firewall(args.firewall_zone, args.firewall_context, firewall_evidence)
+        selected.append(('firewall', configure_firewall))
+    try:
+        state = first_run_state()
+        uid = pwd.getpwnam(username).pw_uid
+        try:
+            previous = state.read_receipt(uid)
+        except ValueError:
+            # Old schema outcomes cannot prove current readiness. Recheck the
+            # requested actions; the root-owned writer still validates paths.
+            previous = None
+        receipt = state.new_receipt(uid, [name for name, _ in selected],
+                                    args.request_id or uuid.uuid4().hex, previous)
+        write_setup_receipt(username, receipt)
+        for name, operation in selected:
+            receipt['actions'][name] = {'state': 'started', 'success': False,
+                                        'message': 'Checking and applying setup.'}
+            receipt['updated'] = time.time()
+            write_setup_receipt(username, receipt)
+            try:
+                outcome = {'state': 'succeeded', 'success': True, 'message': operation()}
+            except Exception as exc:
+                outcome = {'state': 'failed', 'success': False, 'message': str(exc)}
+            if name == 'firewall':
+                outcome['evidence'] = firewall_evidence
+            receipt['actions'][name] = outcome
+            receipt['history'][name] = outcome
+            receipt['updated'] = time.time()
+            write_setup_receipt(username, receipt)
+        actions = receipt['actions']
+        success = all(value['success'] for value in actions.values())
+        result = dict(success=success, actions=actions, logout_required=logout_required,
+                      message=' '.join(value['message'] for value in actions.values()))
+        result.update(request_id=receipt['request_id'], protocol=state.PROTOCOL)
+        receipt.update(phase='finished', updated=time.time())
+        write_setup_receipt(username, receipt)
+        print(json.dumps(result))
+        if not success:
+            raise SystemExit(1)
+    finally:
+        os.close(lock)
 
 
 

@@ -2,9 +2,9 @@
 # Shared by the local PKGBUILD and the prepared Podman image.
 
 monitorize_runtime_deps=(
-    avahi boost-libs curl glib2 glibc iproute2 kmod libcap libdrm
+    acl avahi boost-libs curl glib2 glibc iproute2 kmod libcap libdrm
     libevdev libgcc libglvnd libpipewire libpulse libstdc++ libva libva-utils libvdpau libx11 libxcb libxcursor
-    libxfixes libxi libxinerama libxrandr libxtst mesa miniupnpc numactl
+    libxfixes libxi libxinerama libxrandr libxtst mesa miniupnpc nftables numactl
     openssl opus pipewire polkit python python-cairo python-dbus
     python-gobject python-jinja python-pyqt6 qt6-declarative qt6-svg shadow systemd
     vulkan-icd-loader wayland wlr-randr xdg-desktop-portal

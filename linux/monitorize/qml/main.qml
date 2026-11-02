@@ -264,6 +264,37 @@ Rectangle {
     }
 
     // --- Main StackView for page navigation ---
+    Rectangle {
+        id: setupAttention
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.leftMargin: 134
+        anchors.rightMargin: 28
+        anchors.topMargin: 20
+        visible: backend.systemSetupAttention.length > 0 && !firstRunSetupPopup.visible &&
+                 (!stack.currentItem || stack.currentItem.objectName !== "systemSetupPage")
+        height: visible ? setupAttentionContent.implicitHeight + 20 : 0
+        radius: theme.cardRadius
+        color: theme.surface
+        border.color: theme.border
+        RowLayout {
+            id: setupAttentionContent
+            anchors.fill: parent
+            anchors.margins: 10
+            Text {
+                text: backend.systemSetupAttention
+                color: theme.textPrimary
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+            CustomButton {
+                text: "Review network access"
+                enabled: !stack.busy && !backend.systemSetupRunning
+                onClicked: stack.push("SystemSetupPage.qml")
+            }
+        }
+    }
     StackView {
         id: stack
         objectName: "mainStack"
@@ -271,7 +302,7 @@ Rectangle {
         anchors.fill: parent
         anchors.leftMargin: 134
         anchors.rightMargin: 28
-        anchors.topMargin: 28
+        anchors.topMargin: setupAttention.visible ? setupAttention.y + setupAttention.height + 12 : 28
         anchors.bottomMargin: 20
         initialItem: "DisplaySetupPage.qml"
         onBusyChanged: {
@@ -608,8 +639,8 @@ Rectangle {
         closePolicy: Popup.NoAutoClose
         anchors.centerIn: parent
         width: Math.min(560, root.width - 40)
-        height: Math.min(500, root.height - 40)
-        padding: 0
+        height: Math.min(620, root.height - 40)
+        padding: 24
         background: Rectangle {
             color: theme.background
             border.color: theme.border
@@ -629,8 +660,31 @@ Rectangle {
         Connections {
             target: firstRunSetupLoader.item
             ignoreUnknownSignals: true
+            function onConfigurationSaved() { setupActivationDialog.open() }
             function onSetupCompleted() { firstRunSetupPopup.close() }
             function onCancellationRequested() { firstRunCancelPopup.open() }
+        }
+    }
+
+    Dialog {
+        id: setupActivationDialog
+        objectName: "setupActivationDialog"
+        anchors.centerIn: parent
+        modal: true
+        closePolicy: Popup.NoAutoClose
+        title: "Setup complete"
+        width: Math.min(480, root.width - 40)
+        padding: 24
+        contentItem: Label {
+            text: "Log out and back in, or restart your computer, to activate the changes."
+            wrapMode: Text.WordWrap
+        }
+        footer: DialogButtonBox {
+            Button {
+                objectName: "setupCompleteOkButton"
+                text: "OK"
+                onClicked: backend.finishSystemSetup()
+            }
         }
     }
 

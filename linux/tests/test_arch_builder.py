@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import os
+import hashlib
 import re
+import runpy
 import shutil
 import subprocess
 import tempfile
@@ -40,7 +42,7 @@ class ArchRecipeStagingTest(unittest.TestCase):
                 subprocess.run(
                     ["bash", "-eu", "-c", staging], check=True,
                     env={**os.environ, "SCRIPT_DIR": str(ARCH_DIR),
-                         "recipe_root": directory, "MONITORIZE_ENABLE_CUDA": cuda},
+                         "recipe_root": directory, "stage_root": str(PROJECT_ROOT), "MONITORIZE_ENABLE_CUDA": cuda},
                 )
                 for name in inputs:
                     self.assertEqual((Path(directory) / name).read_bytes(),
@@ -107,9 +109,18 @@ class ArchBuilderPreflightTest(unittest.TestCase):
         fake_podman.write_text(
             "#!/bin/sh\n"
             "printf '%s\\n' \"$*\" >> \"$MONITORIZE_TEST_PODMAN_LOG\"\n"
+            'if [ -n "${MONITORIZE_TEST_STAGED_RECORD:-}" ]; then\n'
+            '  for value in "$@"; do\n'
+            '    case "$value" in *:/packaging:ro)\n'
+            '      directory="${value%:/packaging:ro}"\n'
+            '      cp "$directory/../../linux/monitorize/platform/new_feature.py" "$MONITORIZE_TEST_STAGED_RECORD";;\n'
+            '    esac\n'
+            '  done\n'
+            'fi\n'
             "case \"$1 $2\" in\n"
             "  'info --format') echo true;;\n"
             "  'image exists') exit \"${MONITORIZE_TEST_IMAGE_EXISTS:-1}\";;\n"
+            "  'image inspect') echo sha256:fixture;;\n"
             "  run*) echo 'simulated container failure' >&2; exit 99;;\n"
             "  *) exit 99;;\n"
             "esac\n"
@@ -135,6 +146,71 @@ class ArchBuilderPreflightTest(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Missing prepared image", result.stderr)
         self.assertNotIn("run ", self.podman_log.read_text())
+
+    def prepare_development_tree(self):
+        script = self.checkout/'scripts/native-test-source.py'
+        script.parent.mkdir()
+        shutil.copy2(PROJECT_ROOT/'scripts/native-test-source.py', script)
+        feature = self.checkout/'linux/monitorize/platform/new_feature.py'
+        feature.parent.mkdir(parents=True)
+        feature.write_text('uncommitted setup fix\n')
+        module = runpy.run_path(str(script))
+        result = module['capture'](self.checkout, ['scripts/native-test-source.py',
+                                                  'linux/monitorize/platform/new_feature.py'])
+        return result['tree'], feature
+
+    def test_development_tree_reaches_archive_and_preserves_release_artifacts(self):
+        original_index = (self.checkout/'.git/index').read_bytes()
+        original_head = self.git(self.checkout, 'rev-parse', 'HEAD')
+        tree, feature = self.prepare_development_tree()
+        output = self.checkout/'dist/arch'
+        (output/'cache').mkdir(parents=True)
+        (output/'release-artifact').write_text('preserved')
+        record = self.root/'staged-source'
+        result = subprocess.run([str(self.checkout/'packaging/arch/build.sh')], cwd=self.checkout,
+            env={**self.environment, 'MONITORIZE_TEST_SOURCE_TREE':tree,
+                 'MONITORIZE_TEST_STAGED_RECORD':str(record)}, text=True, capture_output=True)
+        self.assertNotEqual(result.returncode, 0, 'Simulated container failure was not propagated')
+        self.assertEqual(record.read_bytes(), feature.read_bytes(), result.stderr)
+        development = output/('test-tree-'+tree[:12])
+        self.assertTrue((development/'cache').is_symlink())
+        self.assertIn('simulated container failure', (development/'failed-build.log').read_text())
+        self.assertEqual((output/'release-artifact').read_text(), 'preserved')
+        self.assertEqual((self.checkout/'.git/index').read_bytes(), original_index)
+        self.assertEqual(self.git(self.checkout, 'rev-parse', 'HEAD'), original_head)
+
+    def test_source_changes_after_capture_fail_before_a_container_starts(self):
+        tree, feature = self.prepare_development_tree()
+        feature.write_text('changed after review\n')
+        result = subprocess.run([str(self.checkout/'packaging/arch/build.sh')], cwd=self.checkout,
+            env={**self.environment, 'MONITORIZE_TEST_SOURCE_TREE':tree}, text=True, capture_output=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('changed since capture', result.stderr)
+        self.assertFalse(self.podman_log.exists())
+
+    def test_development_offline_build_reuses_verified_release_source_cache(self):
+        config = self.checkout/'packaging/arch/sources.conf'
+        text = config.read_text()
+        hashes = {}
+        for name in ('SUNSHINE_FFMPEG_SHA256', 'BOOST_SHA256'):
+            content = ('fixture archive ' + name).encode()
+            digest = hashlib.sha256(content).hexdigest()
+            text = re.sub(r'(?m)^' + name + '=.*$', name + '=' + digest, text)
+            hashes[name] = (content, digest)
+        config.write_text(text)
+        settings = dict(line.split('=',1) for line in text.splitlines() if '=' in line and not line.startswith('#'))
+        cache = self.checkout/'dist/arch/cache/sources'
+        cache.mkdir(parents=True)
+        content, digest = hashes['SUNSHINE_FFMPEG_SHA256']
+        (cache/f'Linux-x86_64-ffmpeg-{settings["SUNSHINE_FFMPEG_TAG"]}-{digest[:12]}.tar.gz').write_bytes(content)
+        content, digest = hashes['BOOST_SHA256']
+        (cache/f'boost-{settings["BOOST_VERSION"]}-{digest[:12]}-cmake.tar.xz').write_bytes(content)
+        tree, _ = self.prepare_development_tree()
+        self.environment['MONITORIZE_TEST_SOURCE_TREE'] = tree
+        result = self.run_builder(image_exists=True)
+        self.assertIn('simulated container failure', result.stdout + result.stderr)
+        self.assertIn('run ', self.podman_log.read_text())
+        self.assertNotIn('Missing or invalid cached', result.stderr)
 
     def test_missing_package_hook_fails_before_container_start(self) -> None:
         self.git(self.checkout, "rm", "packaging/arch/monitorize-remote-login-guard.hook")

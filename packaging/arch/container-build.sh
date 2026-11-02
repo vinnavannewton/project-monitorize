@@ -90,6 +90,8 @@ namcap "/artifacts/$(basename "${package_file}")"
 
 {
     printf 'source_commit=%s\n' "${MONITORIZE_SOURCE_COMMIT}"
+    printf 'source_tree=%s\n' "${MONITORIZE_SOURCE_TREE:-unknown}"
+    printf 'development_source=%s\n' "${MONITORIZE_DEVELOPMENT_SOURCE:-false}"
     printf 'sunshine_commit=%s\n' "${MONITORIZE_SUNSHINE_COMMIT}"
     printf 'build_deps_image=%s\n' "${MONITORIZE_DEPS_IMAGE_ID}"
     printf 'source_sha256=%s\n' "${MONITORIZE_SOURCE_SHA256}"

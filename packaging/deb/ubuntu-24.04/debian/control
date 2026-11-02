@@ -75,6 +75,8 @@ Architecture: amd64
 Depends: ${misc:Depends},
          ${python3:Depends},
          ${shlibs:Depends},
+         acl,
+         nftables,
          adduser,
          avahi-daemon,
          kmod,

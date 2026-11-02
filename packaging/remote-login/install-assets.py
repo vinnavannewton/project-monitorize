@@ -50,13 +50,32 @@ def stage(destination,*,repository=ROOT):
     manifest={}
     for source,name in (('packaging/fedora/monitorize.xml','firewalld.xml'),
                         ('packaging/deb/common/monitorize.ufw.profile','ufw.profile'),
-                        ('packaging/fedora/70-monitorize-uinput.rules','uinput.rules')):
+                        ('packaging/fedora/70-monitorize-uinput.rules','uinput.rules'),
+                        ('packaging/fedora/99-monitorize-input-access.rules','uinput-access.rules')):
         data=(repository/source).read_bytes();(recovery/name).write_bytes(data)
         (recovery/name).chmod(0o644);manifest[name]=hashlib.sha256(data).hexdigest()
     (recovery/'manifest.json').write_text(json.dumps(manifest));(recovery/'manifest.json').chmod(0o644)
     target=destination/'usr/libexec/monitorize/system_recovery.py'
     target.parent.mkdir(parents=True,exist_ok=True)
     shutil.copyfile(repository/'packaging/common/system_recovery.py',target);target.chmod(0o644)
+    target = destination/'usr/libexec/monitorize/setup_state.py'
+    shutil.copyfile(repository/'linux/monitorize/platform/setup_state.py', target)
+    target.chmod(0o644)
+    target = destination/'usr/libexec/monitorize/input_access.py'
+    shutil.copyfile(repository/'linux/monitorize/platform/input_access.py', target)
+    target.chmod(0o644)
+    target = destination/'usr/libexec/monitorize/firewall_scope.py'
+    shutil.copyfile(repository/'linux/monitorize/platform/firewall_scope.py', target)
+    target.chmod(0o644)
+    target = destination/'usr/libexec/monitorize/firewall_policy.py'
+    shutil.copyfile(repository/'linux/monitorize/platform/firewall_policy.py', target)
+    target.chmod(0o644)
+    target = destination/'usr/lib/udev/rules.d/99-monitorize-input-access.rules'
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.parent.chmod(0o755)
+    target.parent.parent.chmod(0o755)
+    shutil.copyfile(repository/'packaging/fedora/99-monitorize-input-access.rules', target)
+    target.chmod(0o644)
     (destination/'usr/libexec/monitorize/remote-login/repair.py').chmod(0o755)
     return destination
 

@@ -28,6 +28,38 @@ def write(path, value='fixture'):
 
 
 class SourceUninstallerTests(unittest.TestCase):
+    def test_both_modes_exclude_global_vkms_cleanup_before_removing_files(self):
+        for mode in ('keep', 'all'):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                python = write(root / 'linux/venv/bin/python3')
+                target = write(root / 'installed-launcher')
+                cleanup = Mock(return_value={'success': True, 'message': 'No virtual displays found'})
+                def command(argv, **kwargs):
+                    if '-c' in argv and 'remove_virtual_displays' in argv[-1]:
+                        # Execute the actual generated child code with mocked
+                        # display cleanup, never any host system mutation.
+                        with patch('monitorize.platform.virtual_display_cleanup.remove_virtual_displays', cleanup), \
+                             patch('monitorize.platform.utils.detect_desktop_environment', return_value='kde'):
+                            with self.assertRaises(SystemExit) as stopped:
+                                exec(argv[-1], {})
+                            self.assertEqual(stopped.exception.code, 0)
+                with patch.object(u.os, 'geteuid', return_value=1000), \
+                     patch.object(u.sys, 'argv', ['uninstall-source.py', mode]), \
+                     patch.object(u, 'ROOT', root), \
+                     patch.object(u, 'user_targets', return_value=[target]), \
+                     patch.object(u, 'xdg_roots', return_value={kind: [root/kind] for kind in ('CONFIG', 'STATE', 'DATA', 'CACHE')}), \
+                     patch.object(u, 'stop_desktop'), \
+                     patch.object(u, 'source_system_present', return_value=False), \
+                     patch.object(u, 'processes', return_value=[]), \
+                     patch.object(u, 'refresh_desktop'), \
+                     patch.object(u, 'run', side_effect=command), \
+                     contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(u.main(), 0)
+                cleanup.assert_called_once_with('kde', include_vkms=False)
+                self.assertFalse(target.exists())
+                self.assertTrue(python.exists())  # Fixture target list excludes it.
+
     def test_keep_and_purge_preserve_unrelated_files_and_checkout(self):
         for mode in ('keep', 'all'):
             with self.subTest(mode=mode), tempfile.TemporaryDirectory() as tmp:

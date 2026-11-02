@@ -29,7 +29,7 @@ class VkmsAuthorizationSetupTest(unittest.TestCase):
 
     def test_combined_setup_authorizes_all_actions_in_one_invocation(self):
         with patch.object(system_setup, 'get_system_setup_status', return_value={'available': True}), patch.object(system_setup.shutil, 'which', return_value='/usr/bin/pkexec'):
-            command, error = system_setup.system_setup_command(True, True, True)
+            command, error = system_setup.system_setup_command(True, True, True, request_id='a' * 32)
         self.assertIsNone(error)
         self.assertEqual(command.count('/usr/bin/pkexec'), 1)
-        self.assertEqual(command[-3:], ['--input', '--firewall', '--unattended-vkms'])
+        self.assertEqual(command[-5:], ['--input', '--firewall', '--unattended-vkms', '--request-id', 'a' * 32])

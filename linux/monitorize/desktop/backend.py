@@ -9,7 +9,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from PyQt6.QtCore import QObject, QProcess, QTimer, QUrl, pyqtProperty, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import QCoreApplication, QObject, QProcess, QTimer, QUrl, pyqtProperty, pyqtSignal, pyqtSlot
 from PyQt6.QtGui import QDesktopServices, QGuiApplication
 
 from monitorize.config import app_log, autostart
@@ -86,6 +86,7 @@ class MonitorizeBackend(QObject):
     presetLaunchStatusChanged = pyqtSignal(str)
     systemSetupAvailableChanged = pyqtSignal(bool)
     systemSetupPendingChanged = pyqtSignal(bool)
+    setupCompletionQuitRequested = pyqtSignal()
     streamingBackendChanged = pyqtSignal(str)
     vkmsHelperAvailabilityChanged = pyqtSignal()
     _vkmsWorkerFinished = pyqtSignal(bool, str, bool)
@@ -93,6 +94,9 @@ class MonitorizeBackend(QObject):
     virtualDisplayCleanupFinished = pyqtSignal(bool, str)
     uiVisibleChanged = pyqtSignal(bool)
     systemSetupFinished = pyqtSignal("QVariantMap")
+    firewallScopeReady = pyqtSignal('QVariantMap')
+    systemSetupAttentionChanged = pyqtSignal()
+    _firewallScopeWorkerFinished = pyqtSignal(int, object)
     bootWifiChanged = pyqtSignal()
     bootWifiFinished = pyqtSignal("QVariantMap")
     systemSetupRunningChanged = pyqtSignal(bool)
@@ -138,10 +142,18 @@ class MonitorizeBackend(QObject):
         self._settings_timer.timeout.connect(self._poll_sunshine_settings)
         self._virtual_display_cleanup_process = None
         self._system_setup_process = None
+        self._system_setup_request_id = None
         self._system_setup_timed_out = False
         self._system_setup_cancelled = False
         self._background_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="monitorize-ui")
         self._closing = False
+        self._firewall_scope_status = {'available': False, 'checking': True, 'scope_current': None}
+        self._firewall_scope_busy = False
+        self._firewall_scope_checked_at = 0.0
+        self._firewall_scope_generation = 0
+        self._system_setup_attention = ''
+        self._firewall_scope_monitor = False
+        self._firewallScopeWorkerFinished.connect(self._finish_firewall_scope)
         from monitorize.desktop.incoming_pairing import IncomingPairing
         self._incoming_pairing = IncomingPairing(self)
         from monitorize.desktop.kms_authorization import KmsAuthorization
@@ -911,7 +923,7 @@ class MonitorizeBackend(QObject):
 
     @pyqtProperty(bool, notify=systemSetupPendingChanged)
     def systemSetupPending(self):
-        return self._system_setup_available and not self._system_setup_decided
+        return not self._system_setup_decided and not __file__.startswith("/nix/store/") and not os.path.isfile("/.flatpak-info")
 
     @pyqtProperty(bool, notify=detectedDeChanged)
     def canConfigureDisplay(self):
@@ -1088,7 +1100,60 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot(result="QVariantMap")
     def getSystemSetupStatus(self):
-        return get_system_setup_status()
+        return {**get_system_setup_status(),
+                'firewall_scope_current': self._firewall_scope_status.get('scope_current'),
+                'firewall_scope_checking': self._firewall_scope_busy,
+                'firewall_scope_message': self._firewall_scope_status.get('message', '')}
+
+    @pyqtProperty(str, notify=systemSetupAttentionChanged)
+    def systemSetupAttention(self):
+        return self._system_setup_attention
+
+    @pyqtSlot()
+    def refreshFirewallScope(self):
+        self._refresh_firewall_scope(force=True)
+
+    def _refresh_firewall_scope(self, *, force=False):
+        if self._closing or self._firewall_scope_busy:
+            return
+        if not force and time.monotonic() - self._firewall_scope_checked_at < 15:
+            return
+        self._firewall_scope_busy = True
+        self._firewall_scope_checked_at = time.monotonic()
+        generation = self._firewall_scope_generation
+        def work():
+            from monitorize.platform.firewall_scope import discover
+            result = discover()
+            try:
+                self._firewallScopeWorkerFinished.emit(generation, result)
+            except RuntimeError:
+                pass  # The UI may have been destroyed while a read was finishing.
+        self._background_executor.submit(work)
+
+    @pyqtSlot(int, object)
+    def _finish_firewall_scope(self, generation, result):
+        self._firewall_scope_busy = False
+        if self._closing:
+            return
+        if generation != self._firewall_scope_generation:
+            self._refresh_firewall_scope(force=True)
+            return
+        self._firewall_scope_status = result
+        self._firewall_scope_monitor = True
+        message = result.get('message', '') if result.get('needs_attention') else ''
+        if message != self._system_setup_attention:
+            self._system_setup_attention = message
+            self.systemSetupAttentionChanged.emit()
+        self.firewallScopeReady.emit(result)
+
+    @pyqtSlot(bool, bool, 'QVariantList')
+    def startScopedSystemSetup(self, enable_input, enable_firewall, zones):
+        scope = self._firewall_scope_status
+        if enable_firewall and (self._firewall_scope_busy or not scope.get('available')):
+            self.systemSetupFinished.emit({'success': False, 'message': 'Wait for the current firewall network check, then retry.'})
+            return
+        self.startSystemSetup(enable_input, enable_firewall, _firewall_zones=zones,
+                              _firewall_context=scope.get('fingerprint') if enable_firewall else None)
 
     @pyqtSlot(bool, bool, result="QVariantMap")
     def applySystemSetup(self, enable_input: bool, enable_firewall: bool):
@@ -1108,23 +1173,37 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot(bool, bool)
     @pyqtSlot(bool, bool, bool)
-    def startSystemSetup(self, enable_input: bool, enable_firewall: bool, enable_vkms=False):
+    def startSystemSetup(self, enable_input: bool, enable_firewall: bool, enable_vkms=False, *,
+                         _firewall_zones=None, _firewall_context=None):
         if self.systemSetupRunning or self.applyingConfiguration:
             self.systemSetupFinished.emit({'success':False,'message':'Wait for the current setup operation to finish.'})
             return
-        command, error = (system_setup_command(enable_input, enable_firewall, True) if enable_vkms
-                          else system_setup_command(enable_input, enable_firewall))
+        if _firewall_zones is not None:
+            command, error = system_setup_command(enable_input, enable_firewall,
+                firewall_zones=_firewall_zones if enable_firewall else None,
+                firewall_context=_firewall_context)
+        else:
+            command, error = (system_setup_command(enable_input, enable_firewall, True) if enable_vkms
+                              else system_setup_command(enable_input, enable_firewall))
         if error:
             self.systemSetupFinished.emit(error)
             return
+        self._firewall_scope_generation += 1
         process = QProcess(self)
         self._system_setup_timed_out = False
         self._system_setup_cancelled = False
         self._system_setup_process = process
         self.systemSetupRunningChanged.emit(True)
-        process.finished.connect(self._finish_system_setup)
-        process.errorOccurred.connect(self._system_setup_process_error)
+        process.finished.connect(lambda code, status, p=process: self._finish_system_setup(code, status) if self._system_setup_process is p else None)
+        process.errorOccurred.connect(lambda error, p=process: self._system_setup_process_error(error) if self._system_setup_process is p else None)
         self._system_setup_command=command
+        self._system_setup_request_id = command[command.index('--request-id') + 1] if '--request-id' in command else None
+        if self._system_setup_request_id:
+            from monitorize.platform.system_setup import track_setup_request
+            if not track_setup_request(self._system_setup_request_id):
+                self._complete_system_setup({'success': False, 'message': 'Could not save setup request. Check configuration directory permissions.'})
+                return
+            process.started.connect(lambda p=process: self._track_system_setup_process(p))
         self._system_setup_agent_retried=False
         process.start(command[0], command[1:])
         # Root work owns its transaction; authorization has no GUI deadline.
@@ -1187,8 +1266,8 @@ class MonitorizeBackend(QObject):
         self._system_setup_timed_out = self._system_setup_cancelled = False
         self._system_setup_process = process
         self.systemSetupRunningChanged.emit(True)
-        process.finished.connect(self._finish_system_setup)
-        process.errorOccurred.connect(self._system_setup_process_error)
+        process.finished.connect(lambda code, status, p=process: self._finish_system_setup(code, status) if self._system_setup_process is p else None)
+        process.errorOccurred.connect(lambda error, p=process: self._system_setup_process_error(error) if self._system_setup_process is p else None)
         self._system_setup_command=command
         self._system_setup_agent_retried=False
         process.start(command[0], command[1:])
@@ -1201,11 +1280,21 @@ class MonitorizeBackend(QObject):
         self._system_setup_process = None
         self._system_setup_timeout.stop()
         process.deleteLater()
+        if self._system_setup_request_id and not result.get('outcome_unknown'):
+            from monitorize.platform.system_setup import clear_setup_request
+            clear_setup_request(self._system_setup_request_id)
+        self._system_setup_request_id = None
         self.systemSetupRunningChanged.emit(False)
         updated = bool(get_system_setup_status()["available"])
         if updated != self._system_setup_available:
             self._system_setup_available = updated
             self.systemSetupAvailableChanged.emit(updated)
+        from monitorize.platform.system_setup import save_setup_progress
+        if result.get('actions') and not save_setup_progress(result['actions']):
+            result = {**result, 'success': False, 'message': result.get('message', '') + ' Could not save setup progress. Check configuration directory permissions.'}
+        if 'firewall' in result.get('actions', {}):
+            self._firewall_scope_generation += 1
+            self._refresh_firewall_scope(force=True)
         self.systemSetupFinished.emit(result)
 
     def _finish_system_setup(self, exit_code, _exit_status):
@@ -1213,22 +1302,42 @@ class MonitorizeBackend(QObject):
         if process is None:
             return
         if self._system_setup_cancelled:
-            result = {"success": False, "message": "System setup cancelled."}
+            result = {"success": False, "outcome_unknown": True, "message": "System setup was interrupted. Refresh status before retrying."}
         elif self._system_setup_timed_out:
-            result = {"success": False, "message": "System setup timed out."}
+            result = {"success": False, "outcome_unknown": True, "message": "System setup is still being checked. Refresh its saved outcome before retrying."}
         else:
             stdout=bytes(process.readAllStandardOutput()).decode("utf-8", "replace")
             stderr=bytes(process.readAllStandardError()).decode("utf-8", "replace")
-            from monitorize.platform.polkit_agent import agent_missing,start_agent
-            if (exit_code not in (0,126) and agent_missing(stderr+stdout)
-                    and not getattr(self,'_system_setup_agent_retried',False)):
-                self._system_setup_agent_retried=True
+            from monitorize.platform.polkit_agent import can_retry_agent,start_agent
+            if (can_retry_agent(exit_code, stdout, stderr)
+                    and getattr(self,'_system_setup_agent_retried',0) < 3):
+                self._system_setup_agent_retried += 1
                 if start_agent():
                     self._system_setup_timeout.stop()
-                    QTimer.singleShot(500,lambda:self._retry_system_setup_agent(process))
+                    QTimer.singleShot(500 * self._system_setup_agent_retried,lambda:self._retry_system_setup_agent(process))
                     return
-            result = parse_system_setup_result(exit_code,stdout,stderr)
+            result = parse_system_setup_result(exit_code,stdout,stderr,self._system_setup_request_id)
         self._complete_system_setup(result)
+
+    def _track_system_setup_process(self, process):
+        if self._system_setup_process is process and self._system_setup_request_id:
+            from monitorize.platform.system_setup import track_setup_request
+            track_setup_request(self._system_setup_request_id, int(process.processId()))
+
+    def _leave_system_setup_running(self):
+        """Release UI ownership without signalling an authorized root transaction."""
+        process = self._system_setup_process
+        if process is None:
+            return
+        self._system_setup_timeout.stop()
+        self._system_setup_process = None
+        process.setParent(QCoreApplication.instance())
+        process.finished.connect(process.deleteLater)
+        self.systemSetupRunningChanged.emit(False)
+        self.systemSetupFinished.emit({'success': False, 'outcome_unknown': True,
+            'request_id': self._system_setup_request_id,
+            'message': 'Setup may still be running. Its saved result will be checked when you reopen setup.'})
+        self._system_setup_request_id = None
 
     def _retry_system_setup_agent(self,process):
         if self._closing or self._system_setup_process is not process:return
@@ -1244,7 +1353,12 @@ class MonitorizeBackend(QObject):
         process = self._system_setup_process
         if process is not None:
             self._system_setup_timed_out = True
-            process.kill()
+            self._leave_system_setup_running()
+
+    @pyqtSlot()
+    def finishSystemSetup(self):
+        self.markSystemSetupDecided()
+        self.setupCompletionQuitRequested.emit()
 
     @pyqtSlot()
     def markSystemSetupDecided(self):
@@ -2397,6 +2511,14 @@ class MonitorizeBackend(QObject):
         return load_general_settings().get("minimize_to_tray", False)
 
     def _check_network_ip(self):
+        if not self._firewall_scope_monitor and self._system_setup_decided:
+            from monitorize.platform.firewall_scope import saved_scope
+            try:
+                self._firewall_scope_monitor = saved_scope() is not None
+            except (OSError, ValueError):
+                self._firewall_scope_monitor = True
+        if self._firewall_scope_monitor and not self.systemSetupRunning:
+            self._refresh_firewall_scope()
         current = get_local_ip()
         if current != self._local_ip:
             self._local_ip = current
@@ -2420,11 +2542,7 @@ class MonitorizeBackend(QObject):
             self._boot_wifi_client.close()
         self._background_executor.shutdown(wait=False, cancel_futures=True)
         if self._system_setup_process is not None:
-            process = self._system_setup_process
-            self._system_setup_cancelled = True
-            process.kill()
-            process.waitForFinished(1000)
-            self._complete_system_setup({"success": False, "message": "System setup cancelled."})
+            self._leave_system_setup_running()
         self._cancel_settings_open()
         self.network_timer.stop()
         self.session.stop()

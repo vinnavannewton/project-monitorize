@@ -64,8 +64,13 @@ def _close_display_owners():
     return len(owners - remaining), errors
 
 
-def remove_virtual_displays(desktop):
-    """Clean up every Monitorize method and report partial failures."""
+def remove_virtual_displays(desktop, *, include_vkms=True):
+    """Clean outputs, optionally leaving the independently managed VKMS host alone.
+
+    Source uninstall restores its own layout and remote-login reservation first;
+    it must not depend on standalone VKMS readiness or remove its other outputs.
+    The Settings cleanup action retains the full VKMS cleanup by default.
+    """
     removed, errors = _close_display_owners()
     try:
         removed += DisplayController(desktop).remove_stagnant_virtual_displays()
@@ -80,7 +85,7 @@ def remove_virtual_displays(desktop):
             'settings, then remove the stale recovery record after verifying it.'
         )
 
-    command = shutil.which('monitorize-vkms')
+    command = shutil.which('monitorize-vkms') if include_vkms else None
     if command:
         # The CLI also routes reserved remote-login outputs through their owner.
         # Ordinary remove_all deliberately cannot remove those protected outputs.
@@ -99,7 +104,7 @@ def remove_virtual_displays(desktop):
                 errors.append('VKMS cleanup failed: ' + ' '.join([str(result.get('message') or 'Removal failed'), *details]))
         except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
             errors.append(f'VKMS cleanup failed: {exc}')
-    else:
+    elif include_vkms:
         client = MonitorizeVkmsClient()
         if client.is_available():
             try:

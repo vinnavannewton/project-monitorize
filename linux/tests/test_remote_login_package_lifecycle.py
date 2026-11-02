@@ -322,6 +322,7 @@ class LifecycleTests(unittest.TestCase):
         from unittest.mock import Mock
         backend = InstalledBackend()
         host, runtime, helper = Mock(), Mock(), SimpleNamespace(STATE_DIRECTORY=self.root)
+        host.LIVE_GREETER_RESERVATION_PROTOCOL = 1
         host.boot_output_status.return_value = None
         runtime.desktop_context.return_value = 'current-session'
         with patch('monitorize.remote_login.settings.read_settings', return_value=SimpleNamespace(uid=1000, enabled=True)), \
@@ -332,7 +333,8 @@ class LifecycleTests(unittest.TestCase):
             self.assertEqual(host.reserve_desktop_installed.call_args.args, (1000, 'current-session'))
             runtime.local_sessions.return_value = [dict(seat='seat0', **{'class': 'greeter'})]
             self.assertTrue(backend.restore(1000, restart=True))
-            host.main.assert_called_once_with()
+            host.reserve_greeter_installed.assert_called_once_with(1000)
+            host.main.assert_not_called()
 
     def test_all_native_recipes_prepare_and_resume_and_remove_explicitly(self):
         for distro in ('rpm', 'tumbleweed'):

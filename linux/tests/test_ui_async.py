@@ -52,6 +52,39 @@ class UiAsyncTest(unittest.TestCase):
         QTimer.singleShot(1500, loop.quit)
         loop.exec()
 
+    def test_firewall_discovery_discards_reads_started_before_authorization(self):
+        backend = self.make_backend()
+        queued = []
+        result = dict(available=True, running=True, zones=[], fingerprint='a' * 64,
+                      scope_current=False, needs_attention=True, message='New network needs review')
+        published = []
+        backend.firewallScopeReady.connect(published.append)
+        with patch.object(backend._background_executor, 'submit', side_effect=lambda work:queued.append(work)), \
+             patch('monitorize.platform.firewall_scope.discover', return_value=result):
+            backend.refreshFirewallScope()
+            backend.refreshFirewallScope()
+            self.assertEqual(len(queued), 1, 'Duplicate read workers were started')
+            backend._firewall_scope_generation += 1
+            queued.pop(0)()
+            self.assertFalse(published, 'Pre-authorization result was published')
+            self.assertEqual(len(queued), 1, 'Stale read did not schedule fresh verification')
+            queued.pop(0)()
+        self.assertEqual(published, [result])
+        self.assertEqual(backend.systemSetupAttention, result['message'])
+        self.assertFalse(backend._firewall_scope_busy)
+
+    def test_scoped_setup_uses_reviewed_snapshot_and_blocks_unavailable_checks(self):
+        backend = self.make_backend()
+        failures = []
+        backend.systemSetupFinished.connect(failures.append)
+        with patch.object(backend, 'startSystemSetup') as start:
+            backend.startScopedSystemSetup(True, True, ['home'])
+            start.assert_not_called()
+            self.assertFalse(failures[-1]['success'])
+            backend._firewall_scope_status = dict(available=True, fingerprint='b' * 64)
+            backend.startScopedSystemSetup(False, True, ['home'])
+            start.assert_called_once_with(False, True, _firewall_zones=['home'], _firewall_context='b' * 64)
+
     def test_preset_waits_for_vkms_cleanup_and_stop_cancels_restart(self):
         backend = self.make_backend()
         backend.streaming._vkms_retiring = {"holder": {"slot":"mon2"}}
@@ -293,6 +326,42 @@ class UiAsyncTest(unittest.TestCase):
             self.wait_for(backend.systemSetupFinished)
         self.assertEqual(responses[0]["message"], "Configured")
         self.assertFalse(backend.systemSetupRunning)
+
+    def test_leaving_setup_does_not_signal_or_claim_cancellation_of_root_work(self):
+        backend = self.make_backend()
+        process = Mock()
+        backend._system_setup_process = process
+        backend._system_setup_request_id = 'a' * 32
+        responses = []
+        backend.systemSetupFinished.connect(responses.append)
+        backend._leave_system_setup_running()
+        process.kill.assert_not_called()
+        process.terminate.assert_not_called()
+        process.waitForFinished.assert_not_called()
+        process.setParent.assert_called_once_with(self.app)
+        self.assertIsNone(backend._system_setup_process)
+        self.assertTrue(responses[0]['outcome_unknown'])
+        self.assertFalse(responses[0].get('cancelled', False))
+
+    def test_root_partial_result_cannot_trigger_agent_replay(self):
+        backend = self.make_backend()
+        responses = []
+        backend.systemSetupFinished.connect(responses.append)
+        request_id = 'a' * 32
+        payload = json.dumps({'protocol': 2, 'request_id': request_id, 'success': False,
+                              'message': 'Input configured; firewall unavailable.',
+                              'actions': {'input': {'success': True, 'message': 'Input configured'},
+                                          'firewall': {'success': False, 'message': 'No authentication agent found'}}})
+        program = f"import sys; print({payload!r}); print('No authentication agent found', file=sys.stderr); sys.exit(127)"
+        command = [sys.executable, '-c', program, '--request-id', request_id]
+        with patch('monitorize.desktop.backend.system_setup_command', return_value=(command, None)), \
+             patch('monitorize.platform.polkit_agent.start_agent') as start:
+            backend.startSystemSetup(True, True)
+            self.wait_for(backend.systemSetupFinished)
+        start.assert_not_called()
+        self.assertEqual(len(responses), 1)
+        self.assertTrue(responses[0]['actions']['input']['success'])
+        self.assertFalse(responses[0]['success'])
 
     def test_pairing_returns_before_worker_finishes(self):
         backend = self.make_backend()

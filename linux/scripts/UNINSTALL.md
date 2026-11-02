@@ -46,7 +46,11 @@ records needed to retry. Fix the reported cause and rerun; repeated runs are saf
 
 The source checkout and personal changes, independently installed Sunshine and
 its profiles, the separate `monitorize-vkms` installation, GPU drivers, CUDA,
-Python, Qt and other shared prerequisites are preserved. Input group membership
+Python, Qt and other shared prerequisites are preserved. Standalone VKMS
+displays are left alone; uninstall does not run the global
+VKMS display-removal command or require VKMS configfs to be registered when no
+Monitorize-owned recovery remains. Use `monitorize-vkms uninstall` separately
+to remove the companion itself. Input group membership
 is preserved when the standalone VKMS host is installed. Otherwise remove-all
 also removes this user's `monitorize-input` membership and deletes the group if
 unused. System journal/package-manager history is managed by the OS and is not

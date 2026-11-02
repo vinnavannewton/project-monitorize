@@ -44,6 +44,16 @@ source "${SCRIPT_DIR}/${target}/target.conf"
 readonly PACKAGE_DIR="${SCRIPT_DIR}/${target}"
 output_root="${PROJECT_ROOT}/dist/deb/${target}"
 if (( ! enable_cuda )); then output_root="${output_root}/no-cuda"; fi
+source_commit="$(git -C "${PROJECT_ROOT}" rev-parse HEAD)"
+source_revision="${source_commit}"
+development_source=false
+test_source_cache_root=""
+if [[ -n "${MONITORIZE_TEST_SOURCE_TREE:-}" ]]; then
+    source_revision="$(python3 "${PROJECT_ROOT}/scripts/native-test-source.py" --repository "${PROJECT_ROOT}" validate "${MONITORIZE_TEST_SOURCE_TREE}")"
+    development_source=true
+    test_source_cache_root="${output_root}"
+    output_root="${output_root}/test-tree-${source_revision:0:12}"
+fi
 readonly OUTPUT_ROOT="${output_root}"
 readonly SUNSHINE_MK="${PACKAGE_DIR}/sunshine.mk"
 normal_command="./packaging/deb/${target}/build.sh"
@@ -69,7 +79,9 @@ for line in "${submodule_status[@]}"; do
     [[ -z "$(git -C "${path}" status --porcelain)" ]] || die "Submodule has local changes: ${path}"
     submodule_paths+=("${path}")
 done
+if [[ "${development_source}" == false ]]; then
 [[ -z "$(git status --porcelain)" ]] || die "Commit or stash local changes before building; the source archive uses HEAD."
+fi
 
 version="$(sed -n 's/^version = "\([^"]*\)"/\1/p' pyproject.toml | head -n 1)"
 debian_version="$(sed -n 's/^monitorize (\([^)]*\)).*/\1/p' "${PACKAGE_DIR}/debian/changelog" | head -n 1)"
@@ -90,6 +102,13 @@ dependency_hash="$( { printf 'cuda=%s\n' "${enable_cuda}"; sha256sum "${PACKAGE_
 deps_image="localhost/monitorize-deb-builddeps:${target}-${dependency_hash}"
 if (( offline )); then
     podman image exists "${deps_image}" || die "Missing prepared image ${deps_image}; run ${normal_command} first."
+fi
+
+if [[ -n "${test_source_cache_root}" && -d "${test_source_cache_root}/cache" ]]; then
+    mkdir -p "${OUTPUT_ROOT}"
+    if [[ ! -e "${OUTPUT_ROOT}/cache" && ! -L "${OUTPUT_ROOT}/cache" ]]; then
+        ln -s "${test_source_cache_root}/cache" "${OUTPUT_ROOT}/cache"
+    fi
 fi
 
 mkdir -p "${OUTPUT_ROOT}/cache/sources" "${OUTPUT_ROOT}/cache/npm" "${OUTPUT_ROOT}/amd64"
@@ -114,13 +133,13 @@ stage_root="${tmp_root}/stage/${source_name}"
 work_root="${tmp_root}/work"
 artifact_root="${tmp_root}/artifacts"
 mkdir -p "${stage_root}" "${work_root}" "${artifact_root}/amd64"
-git archive --format=tar HEAD | tar -xf - -C "${stage_root}"
+git archive --format=tar "${source_revision}" | tar -xf - -C "${stage_root}"
 for path in "${submodule_paths[@]}"; do
     mkdir -p "${stage_root}/${path}"
     git -C "${path}" archive --format=tar HEAD | tar -xf - -C "${stage_root}/${path}"
 done
-cp -a "${PACKAGE_DIR}/debian" "${stage_root}/debian"
-source_date_epoch="$(git show -s --format=%ct HEAD)"
+cp -a "${stage_root}/packaging/deb/${target}/debian" "${stage_root}/debian"
+source_date_epoch="$(git show -s --format=%ct "${source_commit}")"
 tar --sort=name --mtime="@${source_date_epoch}" --owner=0 --group=0 --numeric-owner \
     -C "${tmp_root}/stage" -cf - "${source_name}" | gzip -n > "${work_root}/${source_name}.tar.gz"
 
@@ -300,6 +319,6 @@ fi
 asset_name="$(python3 "${PROJECT_ROOT}/scripts/package-assets.py" name "${target}" "${version}")"
 cp "${main_deb}" "${OUTPUT_ROOT}/amd64/${asset_name}"
 cp "${build_log}" "${OUTPUT_ROOT}/build.log"
-printf 'source_commit=%s\ncuda_enabled=%s\n' "$(git rev-parse HEAD)" "${enable_cuda}" \
+printf 'source_commit=%s\nsource_tree=%s\ndevelopment_source=%s\ncuda_enabled=%s\n' "${source_commit}" "$(git rev-parse "${source_revision}^{tree}")" "${development_source}" "${enable_cuda}" \
     > "${OUTPUT_ROOT}/build-manifest.txt"
 echo "Completed ${DISTRO_LABEL} AMD64 DEB: ${OUTPUT_ROOT}/amd64/${asset_name}"

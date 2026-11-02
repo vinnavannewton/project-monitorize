@@ -11,7 +11,8 @@ PROTOCOL = 1
 ASSETS=Path('/usr/share/monitorize/recovery')
 TARGETS={'firewalld.xml':Path('/usr/lib/firewalld/services/monitorize.xml'),
          'ufw.profile':Path('/etc/ufw/applications.d/monitorize'),
-         'uinput.rules':Path('/usr/lib/udev/rules.d/70-monitorize-uinput.rules')}
+         'uinput.rules':Path('/usr/lib/udev/rules.d/70-monitorize-uinput.rules'),
+         'uinput-access.rules':Path('/usr/lib/udev/rules.d/99-monitorize-input-access.rules')}
 
 
 def owner(path):
@@ -56,6 +57,11 @@ def write_owned(path,data,mode=0o644):
         with os.fdopen(fd,'wb') as stream:
             os.fchmod(stream.fileno(),mode);stream.write(data);stream.flush();os.fsync(stream.fileno())
         os.replace(temporary,path)
+        directory_fd = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
     finally:temporary.unlink(missing_ok=True)
 
 

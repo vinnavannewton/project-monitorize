@@ -429,7 +429,6 @@ Item {
                     onClicked: root.clearRestoreTokens()
                 }
                 CustomButton {
-                    visible: backend.systemSetupAvailable
                     text: "Run system setup again"; primary: false; Layout.fillWidth: true
                     onClicked: page.StackView.view.push("SystemSetupPage.qml")
                 }

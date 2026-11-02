@@ -301,10 +301,18 @@ class InstalledBackend:
         if self.active(SUPERVISOR):
             return True
         host, runtime, helper = self.host()
+        sessions = runtime.local_sessions()
+        live_greeter = any(row.get('seat') == 'seat0' and row.get('class') == 'greeter' for row in sessions)
+        desktop_owner = any(row.get('seat') == 'seat0' and row.get('class') not in ('greeter', 'manager') for row in sessions)
+        if live_greeter and not desktop_owner:
+            if (getattr(host, 'LIVE_GREETER_RESERVATION_PROTOCOL', 0) != 1
+                    or not callable(getattr(host, 'reserve_greeter_installed', None))):
+                raise RuntimeError('Update the Monitorize VKMS companion for live-greeter package recovery, then resume the package transaction.')
+            host.reserve_greeter_installed(uid)
+            return True
         if host.boot_output_status(helper.STATE_DIRECTORY) is not None:
             host.main()  # Validate an existing reservation without replacing it.
             return True
-        sessions = runtime.local_sessions()
         if any(row.get('seat') == 'seat0' and row.get('class') not in ('greeter', 'manager') for row in sessions):
             import secrets
             host.reserve_desktop_installed(uid, runtime.desktop_context(uid), generation=secrets.token_hex(16))

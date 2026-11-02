@@ -22,6 +22,16 @@ while (( $# )); do
     shift
 done
 if (( ! enable_cuda )); then output_root="${output_root}/no-cuda"; fi
+source_commit="$(git -C "${PROJECT_ROOT}" rev-parse HEAD)"
+source_revision="${source_commit}"
+development_source=false
+test_source_cache_root=""
+if [[ -n "${MONITORIZE_TEST_SOURCE_TREE:-}" ]]; then
+    source_revision="$(python3 "${PROJECT_ROOT}/scripts/native-test-source.py" --repository "${PROJECT_ROOT}" validate "${MONITORIZE_TEST_SOURCE_TREE}")"
+    development_source=true
+    test_source_cache_root="${output_root}"
+    output_root="${output_root}/test-tree-${source_revision:0:12}"
+fi
 readonly OUTPUT_ROOT="${output_root}"
 normal_command="./packaging/rpm/build.sh"
 if (( ! enable_cuda )); then normal_command+=' --no-cuda'; fi
@@ -61,7 +71,9 @@ for line in "${submodule_status[@]}"; do
     submodule_paths+=("${path}")
 done
 
+if [[ "${development_source}" == false ]]; then
 [[ -z "$(git status --porcelain --untracked-files=no)" ]] || die "Tracked changes must be committed or stashed before building."
+fi
 
 version="$(sed -n 's/^version = "\([^"]*\)"/\1/p' pyproject.toml | head -n 1)"
 spec_version="$(awk '$1 == "Version:" { print $2; exit }' "${SPEC_FILE}")"
@@ -94,6 +106,13 @@ default_jobs="${cpu_count}"
 build_jobs="${MONITORIZE_BUILD_JOBS:-${default_jobs}}"
 [[ "${build_jobs}" =~ ^[1-9][0-9]*$ ]] || die "MONITORIZE_BUILD_JOBS must be a positive integer."
 
+if [[ -n "${test_source_cache_root}" && -d "${test_source_cache_root}/cache" ]]; then
+    mkdir -p "${OUTPUT_ROOT}"
+    if [[ ! -e "${OUTPUT_ROOT}/cache" && ! -L "${OUTPUT_ROOT}/cache" ]]; then
+        ln -s "${test_source_cache_root}/cache" "${OUTPUT_ROOT}/cache"
+    fi
+fi
+
 mkdir -p "${OUTPUT_ROOT}"
 tmp_root="$(mktemp -d "${OUTPUT_ROOT}/.build.XXXXXX")"
 cleanup() {
@@ -114,19 +133,19 @@ stage_root="${tmp_root}/stage/${source_name}"
 topdir="${tmp_root}/rpmbuild"
 mkdir -p "${stage_root}" "${topdir}"/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
 
-git archive --format=tar HEAD | tar -xf - -C "${stage_root}"
+git archive --format=tar "${source_revision}" | tar -xf - -C "${stage_root}"
 for path in "${submodule_paths[@]}"; do
     mkdir -p "${stage_root}/${path}"
     git -C "${path}" archive --format=tar HEAD | tar -xf - -C "${stage_root}/${path}"
 done
 
-source_date_epoch="$(git show -s --format=%ct HEAD)"
+source_date_epoch="$(git show -s --format=%ct "${source_commit}")"
 source_archive="${topdir}/SOURCES/${source_name}.tar.gz"
 tar --sort=name --mtime="@${source_date_epoch}" --owner=0 --group=0 --numeric-owner \
     -C "${tmp_root}/stage" -cf - "${source_name}" | gzip -n > "${source_archive}"
 
-cp "${SPEC_FILE}" "${topdir}/SPECS/monitorize.spec"
-cp "${SYSUSERS_FILE}" "${topdir}/SOURCES/monitorize.sysusers"
+cp "${stage_root}/packaging/rpm/monitorize.spec" "${topdir}/SPECS/monitorize.spec"
+cp "${stage_root}/packaging/fedora/monitorize.sysusers" "${topdir}/SOURCES/monitorize.sysusers"
 
 artifact_stage="${tmp_root}/artifacts"
 mkdir -p "${artifact_stage}/x86_64" "${artifact_stage}/source" \
@@ -273,7 +292,7 @@ for package in "${artifact_stage}/x86_64/"*.rpm; do
 done
 cp "${artifact_stage}/source/"*.rpm "${OUTPUT_ROOT}/source/"
 cp "${build_log}" "${OUTPUT_ROOT}/"
-printf 'source_commit=%s\ncuda_enabled=%s\n' "$(git rev-parse HEAD)" "${enable_cuda}" \
+printf 'source_commit=%s\nsource_tree=%s\ndevelopment_source=%s\ncuda_enabled=%s\n' "${source_commit}" "$(git rev-parse "${source_revision}^{tree}")" "${development_source}" "${enable_cuda}" \
     > "${OUTPUT_ROOT}/build-manifest.txt"
 echo "Fedora ${FEDORA_VERSION} RPM build and smoke test completed."
 echo "Primary RPM: ${OUTPUT_ROOT}/x86_64/${asset_name}"

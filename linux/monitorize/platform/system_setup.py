@@ -10,10 +10,12 @@ import shlex
 import shutil
 import stat
 import subprocess
+import uuid
 from pathlib import Path
 
 from monitorize.platform.polkit_errors import authentication_error_message
 from monitorize.platform.polkit_agent import run_authorized
+from monitorize.platform import input_access
 
 HELPER = Path("/usr/libexec/monitorize/monitorize-system-setup")
 VKMS_AUTHORIZATION_HELPER = Path('/usr/libexec/monitorize-vkms/monitorize-vkms-authorization')
@@ -26,17 +28,25 @@ def source_bootstrap_command(arguments):
     from monitorize.platform.remote_login_repair import owning_package_manager
     if owning_package_manager(HELPER):return None
     pkexec=shutil.which('pkexec')
-    return [pkexec,'/usr/bin/python3','-I',str(script),'bootstrap','--',*arguments] if pkexec else None
+    return [pkexec,'--disable-internal-agent','/usr/bin/python3','-I',str(script),'bootstrap','--',*arguments] if pkexec else None
 
 
 def setup_helper_command(arguments):
     try:
         info=HELPER.stat()
         valid=info.st_uid==0 and not info.st_mode & 0o022 and not HELPER.is_symlink() and os.access(HELPER,os.X_OK) and "SYSTEM_RECOVERY_PROTOCOL = 1" in HELPER.read_text()
+        if valid and any(option in arguments for option in ('--input', '--firewall', '--unattended-vkms')):
+            valid = 'FIRST_RUN_SETUP_PROTOCOL = 2' in HELPER.read_text()
+            if '--firewall' in arguments:
+                valid = valid and 'FIREWALL_SCOPE_PROTOCOL = 1' in HELPER.read_text()
+            for module in ('setup_state.py', 'input_access.py', 'firewall_scope.py', 'firewall_policy.py', 'system_recovery.py'):
+                module_info = HELPER.with_name(module).lstat()
+                valid = valid and (stat.S_ISREG(module_info.st_mode) and module_info.st_uid == 0
+                                   and module_info.st_nlink == 1 and not module_info.st_mode & 0o022)
     except OSError:valid=False
     if valid:
         pkexec=shutil.which('pkexec')
-        if pkexec:return [pkexec,str(HELPER),*arguments],None
+        if pkexec:return [pkexec,'--disable-internal-agent',str(HELPER),*arguments],None
         return None,{'success':False,'message':'Polkit (pkexec) is not installed.'}
     command=source_bootstrap_command(arguments)
     if command:return command,None
@@ -80,6 +90,8 @@ def vkms_authorization_command(enabled):
 
 def _input_status() -> dict[str, object]:
     configured = False
+    device_healthy = False
+    group = None
     current_member = False
     try:
         group = grp.getgrnam('monitorize-input')
@@ -89,13 +101,15 @@ def _input_status() -> dict[str, object]:
     except (KeyError, OSError):
         pass
     try:
-        ready = stat.S_ISCHR(os.stat('/dev/uinput').st_mode) and os.access('/dev/uinput', os.R_OK | os.W_OK)
+        node = os.stat('/dev/uinput')
+        device_healthy = bool(group and input_access.device_group_ready(node, group.gr_gid))
+        ready = stat.S_ISCHR(node.st_mode) and os.access('/dev/uinput', os.R_OK | os.W_OK)
         if ready:
             descriptor = os.open('/dev/uinput', os.O_WRONLY | os.O_NONBLOCK | os.O_CLOEXEC)
             os.close(descriptor)
     except OSError:
         ready = False
-    logout_required = configured and not current_member and not ready
+    logout_required = configured and not current_member and not ready and device_healthy
     if ready:
         message = 'Touch and input are ready in this session.'
     elif logout_required:
@@ -114,10 +128,83 @@ def _input_ready() -> bool:
 
 def get_system_setup_status() -> dict[str, object]:
     """Separate saved enrollment, current session membership and device access."""
-    return {
-        'available': (HELPER.is_file() and os.access(HELPER, os.X_OK)) or source_bootstrap_command([]) is not None,
-        **_input_status(),
-    }
+    try:
+        command, error = setup_helper_command(['--input'])
+    except (OSError, ValueError, subprocess.SubprocessError) as exc:
+        command, error = None, {'message': str(exc)}
+    from PyQt6.QtCore import QSettings
+    from monitorize.config.settings import CONFIG_FILE
+    settings = QSettings(CONFIG_FILE, QSettings.Format.IniFormat)
+    from monitorize.platform.setup_state import read_receipt, observe_receipt, process_alive
+    completed = settings.value('system_setup/completed_actions', {}, type=dict)
+    receipt_error = ''
+    try:
+        receipt = read_receipt(os.getuid())
+        observation = observe_receipt(receipt)
+        completed = dict(observation['completed_actions'])
+        for name in observation.get('unknown_actions', []):
+            completed.pop(name, None)
+    except (OSError, ValueError, TypeError, AttributeError) as exc:
+        observation = {'busy': False, 'interrupted': True, 'unknown_actions': []}
+        completed = {}
+        receipt_error = 'Previous setup could not be verified: ' + str(exc)
+    pending = settings.value('system_setup/pending_request', {}, type=dict)
+    if pending and pending.get('request_id') != observation.get('request_id'):
+        try:
+            live = process_alive(pending['process'], owners=(0, os.getuid())) if pending.get('process') else False
+        except (KeyError, TypeError, ValueError, OSError):
+            live = None
+        observation.update(busy=live is not False, interrupted=live is False,
+                           pending_request_id=pending.get('request_id'), outcome_unknown=True)
+    elif pending and not observation['busy'] and not observation['interrupted']:
+        clear_setup_request(pending['request_id'])
+    return {**observation, 'available': command is not None,
+            'message': (error.get('message', '') if error else '') or receipt_error,
+            'completed_actions': completed, **_input_status()}
+
+
+def track_setup_request(request_id, pid=None):
+    from PyQt6.QtCore import QSettings
+    from monitorize.config.settings import CONFIG_FILE
+    from monitorize.platform.setup_state import process_start
+    pending = {'request_id': request_id}
+    if pid:
+        try:
+            pending['process'] = {'pid': int(pid), 'start': process_start(pid),
+                                  'boot': Path('/proc/sys/kernel/random/boot_id').read_text().strip()}
+        except (OSError, ValueError):
+            pass
+    settings = QSettings(CONFIG_FILE, QSettings.Format.IniFormat)
+    settings.setValue('system_setup/pending_request', pending)
+    settings.sync()
+    return settings.status() == QSettings.Status.NoError
+
+
+def clear_setup_request(request_id):
+    from PyQt6.QtCore import QSettings
+    from monitorize.config.settings import CONFIG_FILE
+    settings = QSettings(CONFIG_FILE, QSettings.Format.IniFormat)
+    pending = settings.value('system_setup/pending_request', {}, type=dict)
+    if pending.get('request_id') == request_id:
+        settings.remove('system_setup/pending_request')
+        settings.sync()
+
+
+def save_setup_progress(actions):
+    from PyQt6.QtCore import QSettings
+    from monitorize.config.settings import CONFIG_FILE
+    settings = QSettings(CONFIG_FILE, QSettings.Format.IniFormat)
+    completed = settings.value('system_setup/completed_actions', {}, type=dict)
+    for name in ('input', 'firewall'):
+        if name in actions:
+            if actions[name].get('success') is True:
+                completed[name] = actions[name].get('message', 'Completed')
+            else:
+                completed.pop(name, None)
+    settings.setValue('system_setup/completed_actions', completed)
+    settings.sync()
+    return settings.status() == QSettings.Status.NoError
+
 
 
 def apply_system_setup(enable_input: bool, enable_firewall: bool) -> dict[str, object]:
@@ -132,10 +219,12 @@ def apply_system_setup(enable_input: bool, enable_firewall: bool) -> dict[str, o
         return {"success": False, "message": "System setup timed out."}
     except OSError as exc:
         return {"success": False, "message": f"Could not start system setup: {exc}"}
-    return parse_system_setup_result(result.returncode, result.stdout, result.stderr)
+    expected = command[command.index('--request-id') + 1] if '--request-id' in command else None
+    return parse_system_setup_result(result.returncode, result.stdout, result.stderr, expected)
 
 
-def system_setup_command(enable_input: bool, enable_firewall: bool, enable_vkms=False):
+def system_setup_command(enable_input: bool, enable_firewall: bool, enable_vkms=False, *, request_id=None,
+                         firewall_zones=None, firewall_context=None):
     """Build the fixed privileged command without starting it."""
     if not enable_input and not enable_firewall and not enable_vkms:
         return None, {"success": False, "message": "Select at least one system setup action."}
@@ -143,11 +232,36 @@ def system_setup_command(enable_input: bool, enable_firewall: bool, enable_vkms=
     if enable_input:options.append('--input')
     if enable_firewall:options.append('--firewall')
     if enable_vkms:options.append('--unattended-vkms')
+    if firewall_zones is not None:
+        from monitorize.platform.firewall_scope import ZONE
+        if (not enable_firewall or not isinstance(firewall_zones, (list, tuple))
+                or any(not isinstance(zone, str) or not ZONE.fullmatch(zone) for zone in firewall_zones)):
+            return None, {'success': False, 'message': 'Invalid firewall network selection.'}
+        for zone in sorted(set(firewall_zones)):
+            options.extend(['--firewall-zone', zone])
+    if firewall_context:
+        if (not enable_firewall or not isinstance(firewall_context, str) or len(firewall_context) != 64
+                or any(char not in '0123456789abcdef' for char in firewall_context)):
+            return None, {'success': False, 'message': 'Invalid firewall network context.'}
+        options.extend(['--firewall-context', firewall_context])
+    options.extend(['--request-id', request_id or uuid.uuid4().hex])
     return setup_helper_command(options)
 
 
-def parse_system_setup_result(returncode, stdout, stderr):
+def parse_system_setup_result(returncode, stdout, stderr, expected_request_id=None):
     """Apply the same response rules to synchronous and Qt process callers."""
+    if expected_request_id:
+        try:
+            payload = json.loads(stdout)
+        except (TypeError, ValueError):
+            payload = None
+        if isinstance(payload, dict) and (payload.get('request_id') is not None or payload.get('protocol') == 2):
+            if payload.get('request_id') != expected_request_id or payload.get('protocol') != 2:
+                return {'success': False, 'outcome_unknown': True,
+                        'message': 'The setup result belongs to another request. Refresh setup status before retrying.'}
+        elif returncode == 0:
+            return {'success': False, 'outcome_unknown': True,
+                    'message': 'The setup helper did not identify the completed request. Refresh setup status.'}
     if returncode != 0:
         response = {}
         try:

@@ -39,6 +39,7 @@ SYSTEM_FILES = (
     'usr/lib/firewalld/services/monitorize.xml',
     'etc/ufw/applications.d/monitorize',
     'usr/lib/udev/rules.d/70-monitorize-uinput.rules',
+    'usr/lib/udev/rules.d/99-monitorize-input-access.rules',
     'usr/lib/modules-load.d/monitorize.conf',
     'usr/lib/sysusers.d/monitorize.conf',
 )
@@ -447,6 +448,7 @@ def main():
     try:
         if os.geteuid() == 0:
             raise PermissionError('Run linux/scripts/uninstall.sh as the desktop user, without sudo.')
+        print('Checking Monitorize source installation…', flush=True)
         paths = user_targets(args.mode)
         for path in paths:
             check_tree(path)
@@ -477,13 +479,15 @@ def main():
             print('Requesting administrator authorization for source system cleanup…', flush=True)
             run([sys.executable, str(ROOT / 'scripts/authorize-source-maintenance.py'), 'uninstall-' + args.mode], timeout=300)
         if python.exists():
+            print('Cleaning Monitorize compositor outputs; standalone VKMS retained…', flush=True)
             code = ('from monitorize.platform.virtual_display_cleanup import remove_virtual_displays; '
                     'from monitorize.platform.utils import detect_desktop_environment; '
-                    'import sys; result=remove_virtual_displays(detect_desktop_environment()); '
+                    'import sys; result=remove_virtual_displays(detect_desktop_environment(), include_vkms=False); '
                     'print(result["message"]); sys.exit(0 if result["success"] else 1)')
             run([str(python), '-B', '-c', code], environment=environment, timeout=150)
         if processes():
             raise RuntimeError('Monitorize restarted during cleanup; stop it and rerun the uninstaller.')
+        print('Removing Monitorize source environment and build caches…', flush=True)
         for path in paths:
             erase(path)
         if controller:

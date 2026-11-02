@@ -152,12 +152,18 @@ class RecoveryDeliveryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             stage=Path(temp);module.stage(stage)
             self.assertEqual((stage/'usr/libexec/monitorize/system_recovery.py').read_bytes(),(ROOT/'packaging/common/system_recovery.py').read_bytes())
+            for name in ('setup_state', 'input_access', 'firewall_scope', 'firewall_policy'):
+                self.assertEqual((stage/f'usr/libexec/monitorize/{name}.py').read_bytes(),
+                                 (ROOT/f'linux/monitorize/platform/{name}.py').read_bytes())
             recovery=stage/'usr/share/monitorize/recovery';manifest=json.loads((recovery/'manifest.json').read_text())
-            self.assertEqual(set(manifest),{'uinput.rules','firewalld.xml','ufw.profile'})
+            self.assertEqual(set(manifest),{'uinput.rules','uinput-access.rules','firewalld.xml','ufw.profile'})
             for name,digest in manifest.items():self.assertEqual(hashlib.sha256((recovery/name).read_bytes()).hexdigest(),digest)
         for name in ('rpm','tumbleweed'):
             files=(ROOT/'packaging'/name/'monitorize.spec').read_text().split('%files',1)[1]
             self.assertIn('%{_libexecdir}/monitorize/system_recovery.py',files)
+            self.assertIn('%{_libexecdir}/monitorize/input_access.py',files)
+            self.assertIn('%{_libexecdir}/monitorize/firewall_policy.py',files)
+            self.assertIn('%{_udevrulesdir}/99-monitorize-input-access.rules',files)
             self.assertIn('%{_datadir}/monitorize/recovery/',files)
 
     def test_native_owned_helper_cannot_be_source_bootstrapped(self):

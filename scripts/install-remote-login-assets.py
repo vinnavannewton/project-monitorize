@@ -15,7 +15,9 @@ import subprocess
 BACKUPS=Path('var/lib/monitorize/remote-login-deployments')
 ROOT=Path(__file__).resolve().parents[1]
 ENGINE='usr/libexec/monitorize/sunshine'
-FILES={ENGINE,'usr/libexec/monitorize/system_recovery.py',
+FILES={ENGINE,'usr/libexec/monitorize/system_recovery.py','usr/libexec/monitorize/setup_state.py','usr/libexec/monitorize/input_access.py','usr/libexec/monitorize/firewall_scope.py','usr/libexec/monitorize/firewall_policy.py',
+       'usr/lib/udev/rules.d/99-monitorize-input-access.rules',
+       'usr/share/monitorize/recovery/uinput-access.rules',
        'usr/share/monitorize/recovery/manifest.json','usr/share/monitorize/recovery/firewalld.xml',
        'usr/share/monitorize/recovery/ufw.profile','usr/share/monitorize/recovery/uinput.rules','usr/libexec/monitorize/monitorize-system-setup',
        'usr/lib/firewalld/services/monitorize.xml','etc/ufw/applications.d/monitorize',

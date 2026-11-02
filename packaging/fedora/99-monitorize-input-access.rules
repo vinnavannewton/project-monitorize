@@ -1,0 +1,3 @@
+# Apply the dedicated group ACL after the final udev owner/mode assignments.
+# Other applications can retain their own uinput group and rules.
+ACTION=="add|change", KERNEL=="uinput", SUBSYSTEM=="misc", RUN+="/usr/bin/python3 -I /usr/libexec/monitorize/input_access.py"

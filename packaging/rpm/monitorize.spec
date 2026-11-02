@@ -84,6 +84,10 @@ BuildRequires:  vulkan-loader-devel
 BuildRequires:  wayland-devel
 BuildRequires:  wayland-protocols-devel
 
+Requires:       /usr/sbin/usermod
+Requires:       /usr/sbin/groupadd
+Requires:       /usr/bin/getfacl
+Requires:       nftables
 Requires:       wlr-randr
 Requires:       avahi
 Requires:       firewalld-filesystem
@@ -330,6 +334,10 @@ fi
 %caps(cap_sys_admin,cap_sys_nice+p) %{_libexecdir}/monitorize/sunshine
 %{_libexecdir}/monitorize/monitorize-system-setup
 %{_libexecdir}/monitorize/system_recovery.py
+%{_libexecdir}/monitorize/setup_state.py
+%{_libexecdir}/monitorize/input_access.py
+%{_libexecdir}/monitorize/firewall_scope.py
+%{_libexecdir}/monitorize/firewall_policy.py
 %{_datadir}/monitorize/recovery/
 %{_libexecdir}/monitorize/remote-login/
 %{_prefix}/lib/monitorize-remote-login/
@@ -348,6 +356,7 @@ fi
 %{_prefix}/lib/firewalld/services/monitorize.xml
 %{_datadir}/polkit-1/actions/io.github.vinnavannewton.monitorize.system-setup.policy
 %{_udevrulesdir}/70-monitorize-uinput.rules
+%{_udevrulesdir}/99-monitorize-input-access.rules
 %{_sysusersdir}/monitorize.conf
 %{_modulesloaddir}/monitorize.conf
 

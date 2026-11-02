@@ -204,7 +204,10 @@ class FirstRunSetupTest(unittest.TestCase):
         backend.streaming.third_streaming = False
         self.addCleanup(backend.network_timer.stop)
         self.assertTrue(backend.systemSetupPending)
-        backend.markSystemSetupDecided()
+        quitting = []
+        backend.setupCompletionQuitRequested.connect(lambda: quitting.append(backend.systemSetupPending))
+        backend.finishSystemSetup()
+        self.assertEqual(quitting, [False])
         self.assertFalse(backend.systemSetupPending)
         save.assert_called_once_with(system_setup_decided=True)
 
@@ -213,7 +216,7 @@ class FirstRunSetupTest(unittest.TestCase):
     @patch("monitorize.desktop.backend.get_local_ip", return_value="192.0.2.1")
     @patch("monitorize.desktop.backend.StreamingController")
     @patch("monitorize.desktop.backend.get_system_setup_status", return_value={"available": False})
-    def test_source_or_nix_install_has_no_pending_setup(
+    def test_missing_helper_does_not_silently_hide_pending_setup(
         self, _status, _streaming, _ip, _presets, _settings
     ):
         backend = MonitorizeBackend("kde")
@@ -221,7 +224,7 @@ class FirstRunSetupTest(unittest.TestCase):
         backend.streaming.streaming = False
         backend.streaming.third_streaming = False
         self.addCleanup(backend.network_timer.stop)
-        self.assertFalse(backend.systemSetupPending)
+        self.assertTrue(backend.systemSetupPending)
 
     @patch("monitorize.desktop.backend.load_general_settings", return_value={"system_setup_decided": True})
     @patch("monitorize.desktop.backend.load_presets", return_value=[])
@@ -430,7 +433,7 @@ class FirstRunSetupTest(unittest.TestCase):
         self.assertIn("closePolicy: Popup.NoAutoClose", main)
         self.assertIn("I know what I’m doing", main)
         self.assertIn("Run system setup again", settings_page)
-        self.assertIn("visible: backend.systemSetupAvailable", settings_page)
+        self.assertNotIn("visible: backend.systemSetupAvailable", settings_page)
         self.assertNotIn("visible: backend.canConfigureDisplay", settings_page)
         self.assertIn("Remove virtual display", settings_page)
         self.assertIn("backend.removeStagnantVirtualDisplays()", main)

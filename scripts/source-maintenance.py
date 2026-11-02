@@ -50,11 +50,16 @@ def bootstrap(uid):
     recovery=provider()
     files={Path('/usr/libexec/monitorize/monitorize-system-setup'):(source_read('packaging/common/monitorize-system-setup',uid),0o755),
            Path('/usr/libexec/monitorize/system_recovery.py'):(source_read('packaging/common/system_recovery.py',uid),0o644),
+           Path('/usr/libexec/monitorize/setup_state.py'):(source_read('linux/monitorize/platform/setup_state.py',uid),0o644),
+           Path('/usr/libexec/monitorize/input_access.py'):(source_read('linux/monitorize/platform/input_access.py',uid),0o644),
+           Path('/usr/libexec/monitorize/firewall_policy.py'):(source_read('linux/monitorize/platform/firewall_policy.py',uid),0o644),
+           Path('/usr/libexec/monitorize/firewall_scope.py'):(source_read('linux/monitorize/platform/firewall_scope.py',uid),0o644),
            Path('/usr/share/polkit-1/actions/io.github.vinnavannewton.monitorize.system-setup.policy'):(source_read('packaging/common/io.github.vinnavannewton.monitorize.system-setup.policy',uid),0o644)}
     manifest={}
     for relative,name in (('packaging/fedora/monitorize.xml','firewalld.xml'),
                           ('packaging/deb/common/monitorize.ufw.profile','ufw.profile'),
-                          ('packaging/fedora/70-monitorize-uinput.rules','uinput.rules')):
+                          ('packaging/fedora/70-monitorize-uinput.rules','uinput.rules'),
+                          ('packaging/fedora/99-monitorize-input-access.rules','uinput-access.rules')):
         data=source_read(relative,uid);manifest[name]=hashlib.sha256(data).hexdigest()
         files[recovery.ASSETS/name]=(data,0o644)
     files[recovery.ASSETS/'manifest.json']=(json.dumps(manifest).encode(),0o644)
