@@ -33,23 +33,15 @@ For streaming, connect with [Moonlight](https://moonlight-stream.org/) on Androi
 ## Supported desktops
 
 This table shows whether each desktop environment supports via compositor-native virtual displays, [monitorize-vkms](https://github.com/vinnavannewton/monitorize-vkms), or both.
-| Desktop Environment | Compositor | monitorize-vkms |
-| --- | :---: | :---: |
-| KDE Plasma 6.7+ | ✅ | ✅ |
-| GNOME 50+| ✅ | ✅ |
-| Hyprland | ✅ | ✅ |
-| Niri | ❌ | ✅ |
-| Cinnamon X11 | ❌ | ✅ |
-| COSMIC | ❌ | ❌ |
 
-Native **Virtual displays only** uses guarded layout restoration on KDE/GNOME,
-Hyprland, Niri/VKMS, and Xorg/VKMS sessions. The shared X11 backend uses XRandR
-and Sunshine X11 capture; Cinnamon, XFCE, MATE, LXQt and other Xorg desktops use
-the same capability checks. The new Hyprland/X11/Niri paths have automated source
-coverage; live acceptance on each desktop/GPU remains pending. X11 requires
-`xrandr`; Hyprland VKMS requires an updated host helper and a reported running
-Aquamarine version of at least 0.15.1. These desktop options do not change the
-login-screen display policy.
+| Desktop Environment | Compositor | monitorize-vkms |
+| ------------------- |:----------:|:---------------:|
+| KDE Plasma 6.7+     | ✅          | ✅               |
+| GNOME 50+           | ✅          | ✅               |
+| Hyprland            | ✅          | ✅               |
+| Niri                | ❌          | ✅               |
+| Cinnamon X11        | ❌          | ✅               |
+| COSMIC              | ❌          | ❌               |
 
 ## Installation
 
@@ -58,18 +50,6 @@ login-screen display policy.
 - [Ubuntu](https://github.com/vinnavannewton/project-monitorize/wiki/Ubuntu-installation)
 - [openSUSE Tumbleweed](https://github.com/vinnavannewton/project-monitorize/wiki/openSUSE-Tumbleweed-installation)
 - [NixOS / Nix](https://github.com/vinnavannewton/project-monitorize/wiki/Nix-installation)
-
-For login-screen startup, see [remote-login setup](packaging/remote-login/README.md#current-installation-workflow),
-including the extra system-assets step for source installs.
-
-Settings → **Monitorize VKMS** checks the installed VKMS component automatically.
-**Reinstall** reruns installation from its recorded source checkout without pulling;
-**Update** pulls the latest source and reinstalls with administrator authorization. If VKMS is missing,
-**Install** opens its GitHub instructions. Pairing and startup preferences are retained.
-
-For source installations, run `linux/scripts/uninstall.sh` to choose whether to
-keep settings/pairing or remove all Monitorize data. See the
-[source uninstallation guide](linux/scripts/UNINSTALL.md).
 
 ## Contributing
 
@@ -90,10 +70,3 @@ Tip: If the stream is black or crashes, try changing the stream from auto to oth
    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=vinnavannewton/ProjectMonitorize&type=date&legend=top-left&sealed_token=UrJIpYgjHe4fJj10B7GKSJo0AdhR5bGEFiNv9cpP4iJQEhNXknPXAq5aX7g6bk2y7UAMoa3xfVqKyRWSANVZobe2uVlMjvYXbCaeOmO5w6tdzEvCjnFejmzXxjtW2mIf4Yny6uOhs2jXSxC01ZMh5Q_Dd6dRD2NniWjkaltRE1SzVWfwyOP0rZwE5oCI" />
  </picture>
 </a>
-
-
-`wlr-randr` is a system runtime dependency for Monitorize VKMS output management.
-Native packages install it through their dependency lists; the source installer
-checks for it before building. Install the `wlr-randr` package with your distro's
-package manager before running the source installer (for example,
-`sudo pacman -S --needed wlr-randr` on an updated Arch/Omarchy system).
