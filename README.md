@@ -34,14 +34,14 @@ For streaming, connect with [Moonlight](https://moonlight-stream.org/) on Androi
 
 This table shows whether each desktop environment supports via compositor-native virtual displays, [monitorize-vkms](https://github.com/vinnavannewton/monitorize-vkms), or both.
 
-| Desktop Environment | Compositor | monitorize-vkms |
-| ------------------- |:----------:|:---------------:|
-| KDE Plasma 6.7+     | ✅          | ✅               |
-| GNOME 50+           | ✅          | ✅               |
-| Hyprland            | ✅          | ✅               |
-| Niri                | ❌          | ✅               |
-| Cinnamon X11        | ❌          | ✅               |
-| COSMIC              | ❌          | ❌               |
+| Desktop Environment                    | Compositor | monitorize-vkms |
+| -------------------------------------- |:----------:|:---------------:|
+| KDE Plasma 6.7+                        | ✅          | ✅               |
+| GNOME 50+                              | ✅          | ✅               |
+| Hyprland (Aquamarine 0.15.1+ for VKMS) | ✅          | ✅               |
+| Niri                                   | ❌          | ✅               |
+| Cinnamon X11                           | ❌          | ✅               |
+| COSMIC                                 | ❌          | ❌               |
 
 ## Installation
 
