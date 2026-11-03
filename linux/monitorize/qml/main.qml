@@ -7,6 +7,9 @@ Rectangle {
     PairingRequestDialog { coordinator: backend.incomingPairing }
     width: 860
     height: 580
+    readonly property bool compact: width < 760 || height < 420
+    readonly property int contentMargin: compact ? 12 : 28
+    readonly property int contentLeft: sidebar.width + contentMargin
     property bool settingsLoading: true
     property bool settingsMinimizeToTray: false
     property bool settingsAutostartEnabled: false
@@ -159,56 +162,71 @@ Rectangle {
         closePolicy: Popup.CloseOnEscape
         anchors.centerIn: parent
         width: Math.min(560, root.width - 40)
-        padding: 20
+        height: Math.min(implicitHeight, root.height - 24)
+        padding: root.compact ? 12 : 20
         background: Rectangle { color: theme.surface; border.color: theme.border; radius: theme.cardRadius }
         header: Label {
             text: configureUnsavedDialog.title
             color: theme.headingText
             font.pixelSize: 18
             font.weight: Font.DemiBold
-            padding: 20
+            padding: root.compact ? 12 : 20
             bottomPadding: 8
             wrapMode: Text.WordWrap
         }
-        contentItem: ColumnLayout {
-            Text {
-                text: "Saving keeps your current stream running. The changes will take effect when you next start or restart streaming."
-                color: theme.textPrimary
-                wrapMode: Text.WordWrap
-                Layout.fillWidth: true
-            }
-            Text {
-                text: root.configurationNavigationError || backend.configurationValidationMessage
-                visible: text.length > 0
-                color: theme.errorText
-                wrapMode: Text.WordWrap
-                Layout.fillWidth: true
+        contentItem: ScrollView {
+            implicitHeight: navigationMessage.implicitHeight
+            contentWidth: availableWidth
+            clip: true
+            ColumnLayout {
+                id: navigationMessage
+                width: parent.width
+                Text {
+                    text: "Saving keeps your current stream running. The changes will take effect when you next start or restart streaming."
+                    color: theme.textPrimary
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+                Text {
+                    text: root.configurationNavigationError || backend.configurationValidationMessage
+                    visible: text.length > 0
+                    color: theme.errorText
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
             }
         }
-        footer: DialogButtonBox {
-            padding: 20
-            topPadding: 8
-            background: Item {}
-            CustomButton {
-                objectName: "saveConfigurationChangesButton"
-                text: "Save changes"
-                enabled: backend.configurationValid && !backend.applyingConfiguration
-                DialogButtonBox.buttonRole: DialogButtonBox.ActionRole
-                onClicked: root.resolveConfigurationNavigation(true)
-            }
-            CustomButton {
-                objectName: "discardConfigurationChangesButton"
-                text: "Discard changes"; primary: false
-                enabled: !backend.applyingConfiguration
-                DialogButtonBox.buttonRole: DialogButtonBox.ActionRole
-                onClicked: root.resolveConfigurationNavigation(false)
-            }
-            CustomButton {
-                id: keepConfigurationEditingButton
-                objectName: "keepConfigurationEditingButton"
-                text: "Keep editing"; primary: false
-                DialogButtonBox.buttonRole: DialogButtonBox.ActionRole
-                onClicked: configureUnsavedDialog.reject()
+        footer: Item {
+            implicitHeight: navigationActions.implicitHeight + 28
+            GridLayout {
+                id: navigationActions
+                x: 20
+                y: 8
+                width: parent.width - 40
+                columns: root.compact ? 2 : 3
+                columnSpacing: 10
+                rowSpacing: 10
+                CustomButton {
+                    objectName: "saveConfigurationChangesButton"
+                    text: "Save changes"
+                    enabled: backend.configurationValid && !backend.applyingConfiguration
+                    Layout.fillWidth: true
+                    onClicked: root.resolveConfigurationNavigation(true)
+                }
+                CustomButton {
+                    objectName: "discardConfigurationChangesButton"
+                    text: "Discard changes"; primary: false
+                    enabled: !backend.applyingConfiguration
+                    Layout.fillWidth: true
+                    onClicked: root.resolveConfigurationNavigation(false)
+                }
+                CustomButton {
+                    id: keepConfigurationEditingButton
+                    objectName: "keepConfigurationEditingButton"
+                    text: "Keep editing"; primary: false
+                    Layout.fillWidth: true
+                    onClicked: configureUnsavedDialog.reject()
+                }
             }
         }
         onOpened: keepConfigurationEditingButton.forceActiveFocus()
@@ -269,17 +287,18 @@ Rectangle {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        anchors.leftMargin: 134
-        anchors.rightMargin: 28
-        anchors.topMargin: 20
+        anchors.leftMargin: root.contentLeft
+        anchors.rightMargin: root.contentMargin
+        anchors.topMargin: root.showGlobalBack ? 56 : 20
         visible: backend.systemSetupAttention.length > 0 && !firstRunSetupPopup.visible &&
                  (!stack.currentItem || stack.currentItem.objectName !== "systemSetupPage")
         height: visible ? setupAttentionContent.implicitHeight + 20 : 0
         radius: theme.cardRadius
         color: theme.surface
         border.color: theme.border
-        RowLayout {
+        GridLayout {
             id: setupAttentionContent
+            columns: root.compact ? 1 : 2
             anchors.fill: parent
             anchors.margins: 10
             Text {
@@ -300,10 +319,10 @@ Rectangle {
         objectName: "mainStack"
         clip: true
         anchors.fill: parent
-        anchors.leftMargin: 134
-        anchors.rightMargin: 28
-        anchors.topMargin: setupAttention.visible ? setupAttention.y + setupAttention.height + 12 : 28
-        anchors.bottomMargin: 20
+        anchors.leftMargin: root.contentLeft
+        anchors.rightMargin: root.contentMargin
+        anchors.topMargin: setupAttention.visible ? setupAttention.y + setupAttention.height + 12 : root.showGlobalBack ? 56 : root.contentMargin
+        anchors.bottomMargin: root.compact ? 12 : 20
         initialItem: "DisplaySetupPage.qml"
         onBusyChanged: {
             if (!busy && root.pendingNavigation) {
@@ -335,7 +354,7 @@ Rectangle {
 
     Rectangle {
         id: sidebar
-        width: 106
+        width: root.compact ? 56 : 106
         anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
         color: theme.logBoxBackground; border.color: theme.border
 
@@ -362,12 +381,14 @@ Rectangle {
             z: 1
             NavigationButton {
                 id: configureButton
+                compact: root.compact
                 label: "Configure"; symbol: "display"; Layout.fillWidth: true
                 selected: root.selectedPage === "DisplaySetupPage.qml"
                 onClicked: root.navigate("DisplaySetupPage.qml")
             }
             NavigationButton {
                 id: sessionButton
+                compact: root.compact
                 label: "Session"; symbol: "session"; Layout.fillWidth: true
                 selected: root.selectedPage === "StreamingPage.qml"
                 onClicked: root.navigate("StreamingPage.qml")
@@ -375,6 +396,7 @@ Rectangle {
             Item { Layout.fillHeight: true }
             NavigationButton {
                 id: settingsButton
+                compact: root.compact
                 label: "Settings"; symbol: "settings"; Layout.fillWidth: true
                 selected: root.selectedPage === "SettingsPage.qml"
                 onClicked: root.navigate("SettingsPage.qml")
@@ -548,9 +570,11 @@ Rectangle {
                 wrapMode: TextEdit.Wrap
                 Layout.fillWidth: true
             }
-            RowLayout {
+            GridLayout {
+                columns: root.compact ? 1 : 3
                 Layout.alignment: Qt.AlignRight
-                spacing: 10
+                columnSpacing: 10
+                rowSpacing: 10
                 CustomButton {
                     text: "Restart system…"
                     visible: vkmsRecoveryPopup.rebootRequired
@@ -675,14 +699,33 @@ Rectangle {
         title: "Setup complete"
         width: Math.min(480, root.width - 40)
         padding: 24
-        contentItem: Label {
-            text: "Log out and back in, or restart your computer, to activate the changes."
-            wrapMode: Text.WordWrap
+        header: null
+        footer: null
+        background: Rectangle {
+            color: theme.surface
+            border.color: theme.border
+            radius: theme.cardRadius
         }
-        footer: DialogButtonBox {
-            Button {
+        contentItem: ColumnLayout {
+            spacing: 18
+            Text {
+                text: setupActivationDialog.title
+                color: theme.headingText
+                font.pixelSize: 18
+                font.weight: Font.DemiBold
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+            Text {
+                text: "Log out and back in, or restart your computer, to activate the changes."
+                color: theme.textPrimary
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+            CustomButton {
                 objectName: "setupCompleteOkButton"
                 text: "OK"
+                Layout.alignment: Qt.AlignRight
                 onClicked: backend.finishSystemSetup()
             }
         }
@@ -694,7 +737,7 @@ Rectangle {
         focus: true
         closePolicy: Popup.NoAutoClose
         anchors.centerIn: parent
-        width: 380
+        width: Math.min(380, root.width - 32)
         height: firstRunCancelContent.implicitHeight + 44
         padding: 22
         background: Rectangle {
@@ -726,9 +769,11 @@ Rectangle {
                 Layout.fillWidth: true
             }
 
-            RowLayout {
+            GridLayout {
+                columns: root.compact ? 1 : 3
                 Layout.alignment: Qt.AlignRight
-                spacing: 10
+                columnSpacing: 10
+                rowSpacing: 10
 
                 CustomButton {
                     text: "Finish setup"
@@ -754,7 +799,7 @@ Rectangle {
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.topMargin: 14
-        anchors.leftMargin: 134
+        anchors.leftMargin: root.contentLeft
         z: 2
         visible: root.showGlobalBack
         text: "‹ Back"

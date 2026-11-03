@@ -145,7 +145,7 @@ ColumnLayout {
         onLoaded: item.loadChoices()
         sourceComponent: Component {
             GridLayout {
-                columns: 2; columnSpacing: 24; rowSpacing: 12
+                columns: card.width < 400 ? 1 : 2; columnSpacing: 24; rowSpacing: 12
                 function loadChoices() {
                     encoder.selectValue(card.encoderChoice, true)
                     codec.selectValue(card.codecChoice, true)
@@ -160,7 +160,7 @@ ColumnLayout {
                     })
                     gpuCombo.currentIndex = labels.length ? Math.max(0, selected) : -1
                 }
-                Text { text: "Encoder"; color: theme.textSecondary; Layout.preferredWidth: 145 }
+                Text { text: "Encoder"; color: theme.textSecondary; Layout.preferredWidth: card.width < 400 ? -1 : 145 }
                 CustomComboBox {
                     id: encoder; Layout.fillWidth: true
                     model: ["Auto", "NVIDIA", "VA-API", "Vulkan", "Software"]

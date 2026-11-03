@@ -47,7 +47,8 @@ Item {
                     Layout.fillWidth: true
                     enabled: !backend.remoteLoginSetupBusy && page.setupStatus.available && page.setupStatus.supported && page.setupStatus.live_available
                 }
-                RowLayout {
+                GridLayout {
+                    columns: page.width < 400 ? 1 : 2
                     CustomButton {
                         objectName: "remoteLoginEnable"
                         text: backend.remoteLoginSetupBusy ? "Working…" : page.setupStatus.enabled ? "Re-run setup" : "Enable"
@@ -66,7 +67,8 @@ Item {
                 text: page.resultMessage; visible: text.length > 0
                 color: theme.textSecondary; wrapMode: Text.WordWrap; Layout.fillWidth: true
             }
-            RowLayout {
+            GridLayout {
+                columns: page.width < 500 ? 1 : 3
                 CustomButton { text: "Back"; primary: false; onClicked: page.StackView.view.pop() }
                 CustomButton { text: "Refresh"; primary: false; enabled: !backend.remoteLoginSetupBusy; onClicked: page.refresh() }
                 CustomButton { text: "Wi-Fi before login"; primary: false; onClicked: page.StackView.view.push("BootWifiSetupPage.qml") }

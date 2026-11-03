@@ -11,15 +11,20 @@ Rectangle {
     property bool actionEnabled: true
     signal clicked()
 
-    implicitHeight: Math.max(92, copy.implicitHeight + 32)
+    readonly property bool compact: width < 500
+    implicitHeight: Math.max(92, rowContent.implicitHeight + 32)
     color: theme.background
     border.color: theme.border
     radius: theme.cardRadius
 
-    RowLayout {
-        anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; margins: 16 }
-        spacing: 16
+    GridLayout {
+        id: rowContent
+        anchors { left: parent.left; right: parent.right; top: parent.top; margins: 16 }
+        columns: row.compact ? 1 : 3
+        columnSpacing: 16
+        rowSpacing: 12
         Rectangle {
+            visible: !row.compact
             Layout.preferredWidth: 48; Layout.preferredHeight: 48
             Layout.alignment: Qt.AlignVCenter
             radius: theme.controlRadius
@@ -59,6 +64,7 @@ Rectangle {
             text: row.actionText
             enabled: row.actionEnabled
             Layout.preferredWidth: 140
+            Layout.fillWidth: row.compact
             Layout.preferredHeight: 40
             Layout.alignment: Qt.AlignVCenter
             onClicked: row.clicked()

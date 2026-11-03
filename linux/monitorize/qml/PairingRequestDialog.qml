@@ -85,9 +85,11 @@ Popup {
             color: popup.coordinator.phase === "done" ? theme.successText : theme.errorText
             Layout.fillWidth: true; wrapMode: Text.WordWrap
         }
-        RowLayout {
+        GridLayout {
+            columns: popup.width < 420 ? 1 : 3
             Layout.alignment: Qt.AlignRight
-            spacing: 10
+            columnSpacing: 10
+            rowSpacing: 10
             CustomButton {
                 objectName: "rejectIncomingPairing"
                 text: "Reject"

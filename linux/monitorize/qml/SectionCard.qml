@@ -28,7 +28,7 @@ Rectangle {
                 contentItem: RowLayout {
                     spacing: 12
                     LineIcon { symbol: card.symbol; Layout.preferredWidth: 22; Layout.preferredHeight: 22 }
-                    Text { text: card.title; color: theme.headingText; font.pixelSize: 13; font.weight: Font.DemiBold; Layout.fillWidth: true }
+                    Text { text: card.title; color: theme.headingText; font.pixelSize: 13; font.weight: Font.DemiBold; Layout.fillWidth: true; elide: Text.ElideRight }
                     Text { text: card.expanded ? "⌃" : "⌄"; color: theme.textPrimary; font.pixelSize: 20 }
                 }
             }

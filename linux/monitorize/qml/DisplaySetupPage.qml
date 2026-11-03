@@ -66,6 +66,7 @@ Item {
         mirrorOutputs = refreshed
         let labels = ["Select a monitor…"]
         let selected = 0
+        let selectedAutomatically = false
         for (let i = 0; i < mirrorOutputs.length; ++i) {
             labels.push(mirrorOutputs[i].label)
             if (mirrorOutputs[i].id === mirrorOutputId) selected = i + 1
@@ -73,12 +74,14 @@ Item {
         if (!mirrorOutputId && mirrorOutputs.length === 1) {
             mirrorOutputId = mirrorOutputs[0].id
             selected = 1
+            selectedAutomatically = true
         }
         if (mirrorOutputId && selected === 0) {
             labels[0] = "Unavailable: " + mirrorOutputId
         }
         mirrorMonitor.model = labels
         mirrorMonitor.currentIndex = selected
+        if (selectedAutomatically) page.saveSettings()
     }
 
     Connections {
@@ -258,10 +261,10 @@ Item {
                 enabled: !backend.applyingConfiguration
                 GridLayout {
                     Layout.fillWidth: true
-                    columns: 2; columnSpacing: 24; rowSpacing: 12
-                    Text { text: "Mode"; color: theme.textSecondary; Layout.preferredWidth: 145 }
+                    columns: page.width < 540 ? 1 : 2; columnSpacing: 24; rowSpacing: 12
+                    Text { text: "Mode"; color: theme.textSecondary; Layout.preferredWidth: page.width < 540 ? -1 : 145 }
                     ChoiceChips {
-                        id: displayType; model: ["Extend", "Mirror"]; chipWidth: 124
+                        id: displayType; model: ["Extend", "Mirror"]; chipWidth: page.width < 360 ? 100 : 124
                         disabledValues: createOnly.checked || !backend.sunshineAvailable ? ["Mirror"] : []
                         onActivated: page.saveSettings()
                         onCurrentTextChanged: {
@@ -307,14 +310,14 @@ Item {
                     }
                     Text {
                         visible: page.vkmsSelected && !backend.vkmsHelperAvailable && !backend.vkmsInstallRequired
-                        Layout.columnSpan: 2; Layout.fillWidth: true
+                        Layout.columnSpan: page.width < 540 ? 1 : 2; Layout.fillWidth: true
                         wrapMode: Text.WordWrap
                         color: theme.errorText
                         text: backend.vkmsAvailabilityMessage
                     }
                     VkmsInstallNotice {
                         visible: page.vkmsSelected && !backend.vkmsHelperAvailable && backend.vkmsInstallRequired
-                        Layout.columnSpan: 2; Layout.fillWidth: true
+                        Layout.columnSpan: page.width < 540 ? 1 : 2; Layout.fillWidth: true
                         message: backend.vkmsAvailabilityMessage
                         installText: "Install monitorize-vkms"
                         onInstallRequested: backend.openMonitorizeVkmsInstallPage()
@@ -411,7 +414,7 @@ Item {
                     Layout.fillWidth: true
                     CustomCheckBox {
                         id: createOnly; text: "Create virtual display only"
-                        enabled: backend.sunshineAvailable; Layout.fillWidth: false
+                        enabled: backend.sunshineAvailable; Layout.fillWidth: true
                         onCheckedChanged: {
                             if (page.loading) return
                             if (checked && displayType.currentText === "Mirror") displayType.selectValue("Extend")

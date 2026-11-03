@@ -305,6 +305,51 @@ class UiAsyncTest(unittest.TestCase):
         self.assertFalse(results[-1]['success'])
         client.return_value.get_authorization_state.assert_called_once()
 
+    def test_startup_status_does_not_wait_for_package_database_and_reads_current_enrollment(self):
+        backend = self.make_backend()
+        entered = threading.Event()
+        release = threading.Event()
+        self.addCleanup(release.set)
+        responses = []
+        backend.remoteLoginRepairOptionsReady.connect(responses.append)
+        worker_threads = []
+
+        def inspect_repair():
+            worker_threads.append(threading.get_ident())
+            entered.set()
+            release.wait(3)
+            return dict(repair_kind='source', repair_needed=True, repair_message='Repair available')
+
+        with patch('monitorize.platform.system_setup.remote_login_setup_status', return_value={'enabled': True}) as status, \
+             patch('monitorize.platform.remote_login_repair.repair_options', side_effect=inspect_repair) as inspect:
+            self.assertTrue(backend.getRemoteLoginSetupStatus()['enabled'])
+            self.assertTrue(entered.wait(1), 'Repair probe did not run in background')
+            self.assertNotEqual(worker_threads, [threading.get_ident()])
+            self.assertTrue(backend._remote_repair_options_busy)
+            status.return_value = {'enabled': False}
+            self.assertFalse(backend.getRemoteLoginSetupStatus()['enabled'])
+            self.assertEqual(inspect.call_count, 1, 'Concurrent status reads duplicated package probes')
+            heartbeat = []
+            QTimer.singleShot(0, lambda: heartbeat.append(True))
+            self.app.processEvents()
+            self.assertTrue(heartbeat, 'Repair discovery blocked the GUI event loop')
+            self.assertFalse(responses)
+            release.set()
+            self.wait_for(backend.remoteLoginRepairOptionsReady)
+        self.assertEqual(responses, [dict(repair_kind='source', repair_needed=True, repair_message='Repair available')])
+        self.assertFalse(backend._remote_repair_options_busy)
+
+    def test_startup_repair_discovery_failure_releases_busy_state(self):
+        backend = self.make_backend()
+        responses = []
+        backend.remoteLoginRepairOptionsReady.connect(responses.append)
+        with patch('monitorize.platform.remote_login_repair.repair_options', side_effect=OSError('Package database unavailable')):
+            backend._refresh_remote_repair_options()
+            self.wait_for(backend.remoteLoginRepairOptionsReady)
+        self.assertFalse(backend._remote_repair_options_busy)
+        self.assertEqual(responses[-1]['repair_kind'], '')
+        self.assertIn('Package database unavailable', responses[-1]['repair_message'])
+
     def test_window_visibility_before_backend_initialization(self):
         window = Mock(spec=["isVisible", "isMinimized"])
         window.isVisible.return_value = False

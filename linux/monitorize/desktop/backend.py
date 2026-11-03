@@ -120,6 +120,8 @@ class MonitorizeBackend(QObject):
     remoteLoginChanged = pyqtSignal()
     remoteLoginSetupChanged = pyqtSignal()
     remoteLoginSetupFinished = pyqtSignal("QVariantMap")
+    remoteLoginRepairOptionsReady = pyqtSignal("QVariantMap")
+    _remoteLoginRepairOptionsWorkerFinished = pyqtSignal("QVariantMap")
     remoteLoginSetupBlocked = pyqtSignal(str)
     recoveryDecisionRequested = pyqtSignal("QVariantMap")
     recoveryOperationFinished = pyqtSignal("QVariantMap")
@@ -165,6 +167,9 @@ class MonitorizeBackend(QObject):
         self._vkmsAuthorizationWorkerFinished.connect(self._finish_vkms_authorization)
         self._remote_login = None
         self._remote_setup_busy = False
+        self._remote_repair_options_busy = False
+        self._remote_repair_options = {'repair_kind': '', 'repair_needed': False, 'repair_message': ''}
+        self._remoteLoginRepairOptionsWorkerFinished.connect(self._finish_remote_repair_options)
         self._remoteLoginSetupWorkerFinished.connect(self._finish_remote_login_setup)
         self._boot_wifi_client = None
         self._boot_wifi_profiles = []
@@ -398,8 +403,37 @@ class MonitorizeBackend(QObject):
     @pyqtSlot(result="QVariantMap")
     def getRemoteLoginSetupStatus(self):
         from monitorize.platform.system_setup import remote_login_setup_status
-        from monitorize.platform.remote_login_repair import repair_options
-        return {**remote_login_setup_status(), **repair_options()}
+        # Enrollment must be current when setup completion handlers read enabled.
+        # Package database queries and source-engine hashing belong off the GUI thread.
+        status = remote_login_setup_status()
+        self._refresh_remote_repair_options()
+        return {**status, **self._remote_repair_options}
+
+    def _refresh_remote_repair_options(self):
+        if self._closing or self._remote_repair_options_busy:
+            return
+        self._remote_repair_options_busy = True
+
+        def work():
+            from monitorize.platform.remote_login_repair import repair_options
+            try:
+                result = repair_options()
+            except Exception as error:
+                result = {'repair_kind': '', 'repair_needed': False, 'repair_message': str(error)}
+            try:
+                self._remoteLoginRepairOptionsWorkerFinished.emit(result)
+            except RuntimeError:
+                pass
+
+        self._background_executor.submit(work)
+
+    @pyqtSlot('QVariantMap')
+    def _finish_remote_repair_options(self, result):
+        self._remote_repair_options_busy = False
+        if self._closing:
+            return
+        self._remote_repair_options = dict(result)
+        self.remoteLoginRepairOptionsReady.emit(self._remote_repair_options)
 
     @pyqtSlot(str)
     def copySettingsMessage(self, message):

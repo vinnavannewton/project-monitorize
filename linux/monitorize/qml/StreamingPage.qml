@@ -4,6 +4,7 @@ import QtQuick.Layouts
 
 Item {
     id: page
+    objectName: "streamingPage"
     property int pairInstance: 1
     property int pairRequest: 0
     property bool logsExpanded: false
@@ -186,10 +187,12 @@ Item {
                     }
                 }
             }
-            RowLayout {
+            GridLayout {
                 objectName: "sessionActionButtons"
+                columns: page.width < 400 ? 1 : page.width < 640 ? 2 : 4
                 Layout.fillWidth: true
-                spacing: 10
+                columnSpacing: 10
+                rowSpacing: 10
                 CustomButton { objectName: "pairMoonlightButton"; Layout.fillWidth: true; text: "Pair Moonlight PIN"; iconSymbol: "link"; implicitHeight: 46; primary: false; visible: backend.appliedStreamingBackend !== "none"; enabled: backend.sessionRunning && !backend.sessionBusy; onClicked: page.openPair(1) }
                 CustomButton {
                     Layout.fillWidth: true
@@ -325,7 +328,8 @@ Item {
         id: pinPopup
         modal: true
         anchors.centerIn: parent
-        width: 380
+        parent: Overlay.overlay
+        width: Math.min(380, parent.width - 32)
         padding: 22
         background: Rectangle { color: theme.surface; border.color: theme.border; radius: theme.cardRadius }
         onClosed: {
@@ -344,10 +348,11 @@ Item {
             Text { text: "Enter the four-digit PIN shown by Moonlight."; color: theme.textSecondary; wrapMode: Text.WordWrap; Layout.fillWidth: true }
             CustomTextField {
                 id: pinField
+                objectName: "pairMoonlightPinField"
                 Layout.fillWidth: true
                 maximumLength: 4
                 validator: RegularExpressionValidator { regularExpression: /[0-9]{0,4}/ }
-                onAccepted: pairButton.clicked()
+                onAccepted: if (pairButton.enabled) pairButton.clicked()
             }
             Text { id: pinMessage; color: theme.textSecondary; wrapMode: Text.WordWrap; Layout.fillWidth: true }
             RowLayout {
@@ -355,6 +360,7 @@ Item {
                 CustomButton { text: "Cancel"; onClicked: pinPopup.close() }
                 CustomButton {
                     id: pairButton
+                    objectName: "pairMoonlightSubmitButton"
                     text: backend.pairingRunning ? "Verifying…" : "Pair"
                     primary: true
                     enabled: !backend.pairingRunning && pinField.text.length === 4
@@ -368,7 +374,8 @@ Item {
         id: presetPopup
         modal: true
         anchors.centerIn: parent
-        width: 380
+        parent: Overlay.overlay
+        width: Math.min(380, parent.width - 32)
         padding: 22
         background: Rectangle { color: theme.surface; border.color: theme.border; radius: theme.cardRadius }
         ColumnLayout {

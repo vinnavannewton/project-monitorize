@@ -22,6 +22,7 @@ Rectangle {
     property var nativeResolutionOptions: []
     property var vkmsResolutionOptions: []
     property bool syncing: false
+    readonly property bool compact: width < 400
 
     signal configurationChanged(var configuration)
     signal removeRequested()
@@ -129,7 +130,8 @@ Rectangle {
                 text: "Use client display settings"
                 checked: !!(card.displayConfig && card.displayConfig.use_client_display_settings)
                 enabled: card.clientSettingsAvailable && card.sunshineEnabled
-                Layout.fillWidth: false
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
                 onClicked: card.commit({use_client_display_settings: checked})
             }
             ToolButton {
@@ -159,18 +161,22 @@ Rectangle {
 
         GridLayout {
             Layout.fillWidth: true
-            columns: 2
+            columns: card.compact ? 1 : 2
             columnSpacing: 16
             rowSpacing: 8
 
-            Text { text: "Resolution"; color: theme.textSecondary; Layout.fillWidth: true }
+            Text { text: "Resolution"; color: theme.textSecondary; Layout.fillWidth: true; Layout.row: 0; Layout.column: 0 }
             Text {
                 text: "Refresh Rate"
+                Layout.row: card.compact ? 2 : 0
+                Layout.column: card.compact ? 0 : 1
                 color: theme.textSecondary
                 Layout.fillWidth: true
             }
             CustomComboBox {
                 id: resolution
+                Layout.row: 1
+                Layout.column: 0
                 Layout.fillWidth: true
                 model: card.resolutionOptions
                 enabled: !card.clientRequested
@@ -185,6 +191,8 @@ Rectangle {
             }
             CustomComboBox {
                 id: refresh
+                Layout.row: card.compact ? 3 : 1
+                Layout.column: card.compact ? 0 : 1
                 Layout.fillWidth: true
                 model: ["30 Hz", "60 Hz", "75 Hz", "90 Hz", "120 Hz", "144 Hz", "Custom..."]
                 enabled: count > 0 && !card.clientRequested
@@ -194,6 +202,8 @@ Rectangle {
                 onActivated: card.commitCurrentMode()
             }
             RowLayout {
+                Layout.row: card.compact ? 4 : 2
+                Layout.column: 0
                 visible: card.customInputsVisible
                 Layout.fillWidth: true
                 CustomTextField {
@@ -212,6 +222,8 @@ Rectangle {
             }
             CustomTextField {
                 id: customRefresh
+                Layout.row: card.compact ? 5 : 2
+                Layout.column: card.compact ? 0 : 1
                 visible: refresh.currentText === "Custom..." && !card.clientRequested
                 Layout.fillWidth: true
                 placeholderText: "24–240"; maximumLength: 3

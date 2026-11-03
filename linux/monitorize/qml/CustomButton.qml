@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Layouts
 
 Button {
     id: btn
@@ -9,7 +10,7 @@ Button {
     property string iconSymbol: ""
     property color iconTint: primary ? theme.buttonText : theme.accent
     implicitWidth: Math.max(120, contentItem.implicitWidth + 32)
-    implicitHeight: 42
+    implicitHeight: Math.max(42, buttonLabel.implicitHeight + 16)
 
     background: Rectangle {
         implicitWidth: 120
@@ -22,28 +23,26 @@ Button {
         radius: theme.controlRadius
         Behavior on color { ColorAnimation { duration: 150 } }
     }
-    contentItem: Item {
-        implicitWidth: buttonContents.implicitWidth
-        implicitHeight: buttonContents.implicitHeight
-        Row {
-            id: buttonContents
-            spacing: btn.iconSymbol.length > 0 ? 10 : 0
-            anchors.centerIn: parent
-            LineIcon {
-                visible: btn.iconSymbol.length > 0
-                symbol: btn.iconSymbol
-                tint: !btn.enabled ? theme.textMuted : btn.iconTint
-                width: visible ? 18 : 0
-                height: 20
-            }
-            Text {
-                text: btn.text
-                color: !btn.enabled ? theme.textMuted : (btn.primary ? theme.buttonText : theme.cardTextPrimary)
-                font.pixelSize: 13
-                font.weight: Font.DemiBold
-                height: 20
-                verticalAlignment: Text.AlignVCenter
-            }
+    contentItem: RowLayout {
+        spacing: btn.iconSymbol.length > 0 ? 10 : 0
+        LineIcon {
+            visible: btn.iconSymbol.length > 0
+            symbol: btn.iconSymbol
+            tint: !btn.enabled ? theme.textMuted : btn.iconTint
+            Layout.preferredWidth: 18
+            Layout.preferredHeight: 20
+        }
+        Text {
+            id: buttonLabel
+            text: btn.text
+            color: !btn.enabled ? theme.textMuted : (btn.primary ? theme.buttonText : theme.cardTextPrimary)
+            font.pixelSize: 13
+            font.weight: Font.DemiBold
+            Layout.fillWidth: true
+            Layout.minimumWidth: 0
+            wrapMode: Text.Wrap
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
         }
     }
 }

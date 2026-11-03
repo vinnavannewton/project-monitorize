@@ -13,6 +13,7 @@ ComboBox {
             color: index === cb.disabledIndex ? theme.textMuted : ((highlighted || index === cb.accentedIndex) ? theme.headingText : theme.cardTextPrimary)
             font.pixelSize: 13
             font.weight: Font.DemiBold
+            elide: Text.ElideRight
             verticalAlignment: Text.AlignVCenter
         }
         background: Rectangle {
@@ -33,6 +34,7 @@ ComboBox {
         text: cb.displayText
         font.pixelSize: 13
         font.weight: Font.DemiBold
+        elide: Text.ElideRight
         color: cb.enabled ? theme.cardTextPrimary : theme.textMuted
         verticalAlignment: Text.AlignVCenter
     }

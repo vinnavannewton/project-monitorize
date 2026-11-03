@@ -80,7 +80,7 @@ assert summaries==[1],summaries
         source = Path('linux/monitorize/qml/main.qml').read_text()
         start = source.index('    Dialog {\n        id: setupActivationDialog')
         end = source.index('    Popup {\n        id: firstRunCancelPopup', start)
-        qml = 'import QtQuick\nimport QtQuick.Controls\nimport QtQuick.Window\nWindow { id:root; visible:true; width:760; height:520;\n' + source[start:end] + '\nComponent.onCompleted: setupActivationDialog.open()\n}'
+        qml = 'import QtQuick\nimport QtQuick.Controls\nimport QtQuick.Layouts\nimport QtQuick.Window\nWindow { id:root; visible:true; width:760; height:520; Theme { id:theme }\n' + source[start:end] + '\nComponent.onCompleted: setupActivationDialog.open()\n}'
         program = PROGRAM.split('engine=')[0]
         program = 'from PyQt6.QtQuick import QQuickWindow\n' + program
         program = program.replace('backend=Backend()', 'backend=Backend();backend.finishes=0')

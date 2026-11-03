@@ -4,7 +4,7 @@ import subprocess
 import sys
 import unittest
 
-from test_system_setup_completion_ui import PROGRAM
+from linux.tests.test_system_setup_completion_ui import PROGRAM
 
 
 class InterruptedMessageTests(unittest.TestCase):

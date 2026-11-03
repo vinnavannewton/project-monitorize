@@ -22,6 +22,7 @@ Item {
     property var firewallScope: ({checking: true, zones: []})
     property var selectedZones: []
     property bool scopeLoaded: false
+    property bool scopeInitialized: false
     property bool waitingForScope: false
     signal setupCompleted()
     signal cancellationRequested()
@@ -62,9 +63,10 @@ Item {
     function receiveScope(scope) {
         let available = (scope["zones"] || []).map(function(zone) { return zone.name })
         let choices = selectedZones.filter(function(name) { return available.indexOf(name) !== -1 })
-        if (!scopeLoaded && available.length === 1) choices = available.slice()
+        if (!scopeInitialized && available.length === 1) choices = available.slice()
         selectedZones = choices
         scopeLoaded = true
+        if (scope["available"] === true) scopeInitialized = true
         firewallScope = scope
         if (waitingForScope) {
             waitingForScope = false
@@ -158,37 +160,43 @@ Item {
         onTriggered: page.completeSetup()
     }
 
+    ColumnLayout {
+        anchors.fill: parent
+        spacing: 16
+
     ScrollView {
         id: setupScroll
-        anchors.fill: parent
+        Layout.fillWidth: true
+        Layout.fillHeight: true
         clip: true
         contentWidth: availableWidth
+        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+        rightPadding: ScrollBar.vertical.visible ? 12 : 0
     ColumnLayout {
-        width: Math.min(setupScroll.availableWidth - 32, 500)
-        x: (setupScroll.availableWidth - width) / 2
+        width: setupScroll.availableWidth
         spacing: 16
 
         Text {
             text: "Finish system setup"
             color: theme.textPrimary
-            font.pixelSize: 26
-            font.weight: Font.ExtraBold
-            Layout.alignment: Qt.AlignHCenter
+            font.pixelSize: 22
+            font.weight: Font.DemiBold
+            wrapMode: Text.WordWrap
+            Layout.fillWidth: true
         }
 
         Text {
-            text: "Select the system changes to authorize. Administrator authorization may be requested. Wi-Fi setup uses NetworkManager authorization separately."
+            text: "Choose the changes to authorize. You may be asked for your administrator password."
             color: theme.textSecondary
             font.pixelSize: 13
             wrapMode: Text.WordWrap
-            horizontalAlignment: Text.AlignHCenter
             Layout.fillWidth: true
         }
 
         Rectangle {
             Layout.fillWidth: true
             implicitHeight: options.implicitHeight + 32
-            enabled: !page.applying && !page.helperBusy && !page.statusSucceeded
+            enabled: !page.applying && !page.helperBusy && !page.waitingForScope && !page.statusSucceeded
             color: theme.surface
             border.color: theme.border
             radius: theme.cardRadius
@@ -287,7 +295,8 @@ Item {
             readOnly: true
             selectByMouse: true
             background: null
-            text: statusMessage
+            text: page.statusMessage
+            textFormat: TextEdit.PlainText
             visible: statusMessage.length > 0 && !(page.firstRun && page.statusSucceeded)
             color: page.statusFailed ? theme.errorText : statusSucceeded ? theme.successText : theme.textSecondary
             font.pixelSize: 12
@@ -305,15 +314,32 @@ Item {
             }
         }
 
+        CustomButton {
+            text: "Configure Wi-Fi before login…"
+            visible: !page.firstRun
+            primary: false
+            enabled: !page.applying && !page.helperBusy
+            onClicked: page.StackView.view.push("BootWifiSetupPage.qml")
+        }
+    }
+    }
+
+        ProgressBar {
+            visible: page.applying || page.helperBusy || page.waitingForScope
+            indeterminate: visible
+            Layout.fillWidth: true
+        }
+
         RowLayout {
-            Layout.alignment: Qt.AlignRight
+            objectName: "systemSetupActions"
+            Layout.fillWidth: true
             spacing: 10
 
             CustomButton {
                 visible: !page.statusSucceeded
                 text: page.firstRun ? "Cancel" : "Back"
                 primary: false
-                enabled: !page.applying
+                enabled: !page.applying && !page.helperBusy
                 onClicked: {
                     if (page.firstRun) page.cancellationRequested()
                     else page.StackView.view.pop()
@@ -322,8 +348,9 @@ Item {
 
             CustomButton {
                 objectName: "systemSetupAuthorizeButton"
+                Layout.fillWidth: true
                 visible: !page.statusSucceeded
-                text: applying ? "Applying setup…" : "Authorize and finish setup"
+                text: page.applying || page.helperBusy ? "Applying setup…" : page.waitingForScope ? "Verifying setup…" : "Authorize and finish setup"
                 enabled: setupAvailable && !helperBusy && !applying && !page.waitingForScope &&
                          (inputCheck.checked || firewallCheck.checked) &&
                          (!firewallCheck.checked || typeof backend.refreshFirewallScope !== "function" ||
@@ -347,13 +374,5 @@ Item {
                 }
             }
         }
-        CustomButton {
-            text: "Configure Wi-Fi before login…"
-            visible: !page.firstRun
-            primary: false
-            enabled: !page.applying
-            onClicked: page.StackView.view.push("BootWifiSetupPage.qml")
-        }
-    }
     }
 }

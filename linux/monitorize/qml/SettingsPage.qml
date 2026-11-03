@@ -5,6 +5,7 @@ import QtQuick.Layouts
 Item {
     id: page
     objectName: "startupSettingsPage"
+    readonly property bool compact: width < 640
     property bool bootOptionsExpanded: false
     property bool settingsLoading: true
     property bool settingsMinimizeToTray: false
@@ -63,6 +64,9 @@ Item {
 
     Connections {
         target: backend
+        function onRemoteLoginRepairOptionsReady(result) {
+            page.bootStatus = Object.assign({}, page.bootStatus, result)
+        }
         function onVkmsAuthorizationReady(result) {
             page.vkmsChecking = false
             page.vkmsAuthorization = result
@@ -192,7 +196,7 @@ Item {
                         expandableLabel: true
                         onLabelClicked: page.bootOptionsExpanded = !page.bootOptionsExpanded
                         enabled: !backend.remoteLoginSetupBusy
-                        Layout.fillWidth: false; onClicked: page.saveAutostartSettings()
+                        Layout.fillWidth: true; Layout.minimumWidth: 0; onClicked: page.saveAutostartSettings()
                     }
                     StartupHelp { helpText: "Starts Monitorize after you sign in and reach your desktop." }
                     Item { Layout.fillWidth: true }
@@ -213,7 +217,8 @@ Item {
                     CustomCheckBox {
                         keepCheckedBlue: true
                         id: bootCheck; objectName: "bootStartupCheck"; text: "Also start at boot (login screen)"
-                        Layout.fillWidth: false
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 0
                         enabled: !backend.remoteLoginSetupBusy && (page.bootStatus.enabled || (autostartCheck.checked && page.bootStatus.available && page.bootStatus.supported && page.bootStatus.live_available === true))
                         onClicked: {
                             page.loginAfterBootDisable = checked ? -1 : 1
@@ -295,13 +300,16 @@ Item {
                 }
 
                 Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: theme.border; Layout.topMargin: 8; Layout.bottomMargin: 8 }
-                RowLayout {
+                GridLayout {
                     objectName: "displayIdleTimeoutRow"
+                    columns: page.compact ? 3 : 5
                     Layout.fillWidth: true
-                    Text { text: "Remove virtual display after disconnect"; color: theme.textPrimary; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                    Text { text: "Remove virtual display after disconnect"; color: theme.textPrimary; Layout.fillWidth: true; wrapMode: Text.WordWrap; Layout.row: 0; Layout.column: 0; Layout.columnSpan: page.compact ? 3 : 1 }
                     SpinBox {
                         id: displayTimeout
                         objectName: "displayIdleTimeoutSeconds"
+                        Layout.row: page.compact ? 1 : 0
+                        Layout.column: page.compact ? 0 : 1
                         from: 1; to: 600; value: 20; editable: true
                         enabled: !backend.remoteLoginSetupBusy
                         implicitWidth: 124
@@ -351,16 +359,20 @@ Item {
                             }
                         }
                     }
-                    Text { text: "seconds"; color: theme.textSecondary }
+                    Text { text: "seconds"; color: theme.textSecondary; Layout.row: page.compact ? 1 : 0; Layout.column: page.compact ? 1 : 2 }
                     CustomButton {
                         id: saveDisplayTimeout
                         objectName: "saveDisplayIdleTimeout"
+                        Layout.row: page.compact ? 2 : 0
+                        Layout.column: page.compact ? 0 : 3
+                        Layout.columnSpan: page.compact ? 3 : 1
+                        Layout.fillWidth: page.compact
                         implicitWidth: 80
                         text: page.savingTimeout ? "Saving…" : "Save"
                         enabled: !backend.remoteLoginSetupBusy && displayTimeout.value !== page.savedTimeout
                         onClicked: { page.savingTimeout = true; backend.configureDisplayIdleTimeout(displayTimeout.value) }
                     }
-                    StartupHelp { helpText: "Remove the virtual display after the last client disconnects. Reconnecting cancels removal.\nApplies to manually started sessions and remote login. Saved changes apply to future disconnects." }
+                    StartupHelp { Layout.row: page.compact ? 1 : 0; Layout.column: page.compact ? 2 : 4; helpText: "Remove the virtual display after the last client disconnects. Reconnecting cancels removal.\nApplies to manually started sessions and remote login. Saved changes apply to future disconnects." }
                 }
                 SelectableMessage {
                     objectName: "timeoutResultMessage"
@@ -439,15 +451,36 @@ Item {
 
     Dialog {
         id: sunshineResetDialog
+        parent: Overlay.overlay
         anchors.centerIn: parent
         title: "Reset Sunshine settings?"
         modal: true
-        standardButtons: Dialog.Ok | Dialog.Cancel
-        width: Math.min(420, page.width - 40)
-        contentItem: Text {
-            text: "Load Monitorize's default streaming choices for both displays? Use Apply in Configure to restart with these changes. Pairing and saved display layouts will be kept."
-            color: theme.textPrimary
-            wrapMode: Text.WordWrap
+        width: Math.min(420, parent.width - 32)
+        padding: 20
+        header: null
+        footer: null
+        background: Rectangle { color: theme.surface; border.color: theme.border; radius: theme.cardRadius }
+        contentItem: ColumnLayout {
+            spacing: 14
+            Text {
+                text: sunshineResetDialog.title
+                color: theme.headingText
+                font.pixelSize: 18
+                font.weight: Font.DemiBold
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+            Text {
+                text: "Load Monitorize's default streaming choices for both displays? Use Apply in Configure to restart with these changes. Pairing and saved display layouts will be kept."
+                color: theme.textPrimary
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+            RowLayout {
+                Layout.alignment: Qt.AlignRight
+                CustomButton { text: "Cancel"; primary: false; onClicked: sunshineResetDialog.reject() }
+                CustomButton { text: "Reset"; onClicked: sunshineResetDialog.accept() }
+            }
         }
         onAccepted: {
             let result = backend.resetSunshineSettings()
@@ -455,4 +488,5 @@ Item {
             page.sunshineResetMessage = result["message"] || "Could not reset Sunshine settings"
         }
     }
+
 }
