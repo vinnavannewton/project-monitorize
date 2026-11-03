@@ -18,7 +18,9 @@ class Target(NamedTuple):
 
 TARGETS = {
     "arch": Target("Arch Linux x86_64", "archlinux", "x86_64", "pkg.tar.zst", "dist/arch/x86_64"),
-    "fedora-44": Target("Fedora 44 x86_64", "fedora-44", "x86_64", "rpm", "dist/rpm/fedora-44/x86_64"),
+    "fedora-45": Target("Fedora 45 x86_64", "fedora-45", "x86_64", "rpm", "dist/rpm/fedora-45/x86_64"),
+    # Retained for explicit local builds; Fedora 45 replaces it in Build All/CD.
+    "fedora-44": Target("Fedora 44 x86_64", "fedora-44", "x86_64", "rpm", "dist/rpm/fedora-44/x86_64", cd_enabled=False),
     "tumbleweed": Target("openSUSE Tumbleweed x86_64", "opensuse-tumbleweed", "x86_64", "rpm", "dist/rpm/tumbleweed/x86_64"),
     # Temporarily disabled in CD only. Local builds and version sync remain available.
     # Change cd_enabled to True to restore this release target.

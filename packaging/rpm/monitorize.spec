@@ -22,6 +22,10 @@ ExclusiveArch:  x86_64
 BuildRequires:  bash
 %if %{with cuda}
 BuildRequires:  aria2
+# CUDA's installer needs the legacy libxml2 ABI on Fedora 45 and newer.
+%if 0%{?fedora} >= 45
+BuildRequires:  libxml2_2.13
+%endif
 %endif
 BuildRequires:  boost-devel >= 1.89.0
 BuildRequires:  cmake >= 3.26

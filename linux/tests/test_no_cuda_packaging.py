@@ -10,6 +10,18 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class NoCudaPackagingTest(unittest.TestCase):
+    @unittest.skipUnless(shutil.which("rpmspec"), "rpmspec is unavailable")
+    def test_cuda_installer_compatibility_library_is_fedora_45_build_only(self):
+        spec = ROOT / "packaging/rpm/monitorize.spec"
+        for version, no_cuda, required in ((45, False, True), (45, True, False), (44, False, False)):
+            with self.subTest(version=version, no_cuda=no_cuda):
+                command = ["rpmspec", "--define", f"fedora {version}"]
+                if no_cuda:
+                    command += ["--without", "cuda"]
+                requirements = subprocess.check_output(
+                    [*command, "-q", "--buildrequires", str(spec)], text=True).splitlines()
+                self.assertEqual("libxml2_2.13" in requirements, required)
+
     @unittest.skipUnless(shutil.which("make"), "make is unavailable")
     def test_deb_rules_omit_cuda_compiler_in_no_cuda_mode(self):
         command = [

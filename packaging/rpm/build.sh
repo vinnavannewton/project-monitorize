@@ -2,25 +2,38 @@
 
 set -euo pipefail
 
-readonly FEDORA_VERSION=44
-readonly IMAGE="fedora:${FEDORA_VERSION}"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 readonly SPEC_FILE="${SCRIPT_DIR}/monitorize.spec"
 readonly SYSUSERS_FILE="${PROJECT_ROOT}/packaging/fedora/monitorize.sysusers"
-output_root="${PROJECT_ROOT}/dist/rpm/fedora-${FEDORA_VERSION}"
 
 rebuild=false
 enable_cuda=1
+target=fedora-45
+usage() {
+    echo "Usage: $0 [--target fedora-44|fedora-45] [--no-cuda] [--rebuild-offline]"
+}
 while (( $# )); do
     case "$1" in
+        --target)
+            (( $# >= 2 )) || { usage >&2; exit 2; }
+            target="$2"
+            shift
+            ;;
         --rebuild-offline) rebuild=true ;;
         --no-cuda) enable_cuda=0 ;;
-        --help) echo "Usage: $0 [--no-cuda] [--rebuild-offline]"; exit 0 ;;
-        *) echo "Usage: $0 [--no-cuda] [--rebuild-offline]" >&2; exit 2 ;;
+        --help|-h) usage; exit 0 ;;
+        *) usage >&2; exit 2 ;;
     esac
     shift
 done
+case "${target}" in
+    fedora-44|fedora-45) ;;
+    *) echo "Unsupported Fedora target: ${target}" >&2; usage >&2; exit 2 ;;
+esac
+readonly FEDORA_VERSION="${target#fedora-}"
+readonly IMAGE="registry.fedoraproject.org/fedora:${FEDORA_VERSION}"
+output_root="${PROJECT_ROOT}/dist/rpm/${target}"
 if (( ! enable_cuda )); then output_root="${output_root}/no-cuda"; fi
 source_commit="$(git -C "${PROJECT_ROOT}" rev-parse HEAD)"
 source_revision="${source_commit}"
@@ -33,7 +46,7 @@ if [[ -n "${MONITORIZE_TEST_SOURCE_TREE:-}" ]]; then
     output_root="${output_root}/test-tree-${source_revision:0:12}"
 fi
 readonly OUTPUT_ROOT="${output_root}"
-normal_command="./packaging/rpm/build.sh"
+normal_command="./packaging/rpm/${target}/build.sh"
 if (( ! enable_cuda )); then normal_command+=' --no-cuda'; fi
 
 die() {

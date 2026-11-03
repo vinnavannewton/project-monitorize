@@ -22,7 +22,8 @@ queue="$(python3 - <<'PY'
 import runpy
 specs = runpy.run_path('scripts/package-assets.py')['TARGETS']
 paths = {
-    'fedora-44': 'packaging/rpm/build.sh',
+    'fedora-45': 'packaging/rpm/fedora-45/build.sh',
+    'fedora-44': 'packaging/rpm/fedora-44/build.sh',
     'tumbleweed': 'packaging/tumbleweed/build.sh',
     'arch': 'packaging/arch/build.sh',
     'ubuntu-24.04': 'packaging/deb/ubuntu-24.04/build.sh',

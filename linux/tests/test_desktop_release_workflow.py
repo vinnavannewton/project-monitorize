@@ -77,7 +77,7 @@ elif command == 'edit':
         matrix = json.loads(subprocess.check_output(
             [sys.executable, str(ROOT / "scripts/package-assets.py"), "matrix"], text=True))
         self.assertEqual({leg["target"] for leg in matrix["include"]},
-                         {"arch", "fedora-44", "tumbleweed", "ubuntu-24.04", "ubuntu-26.04"})
+                         {"arch", "fedora-45", "tumbleweed", "ubuntu-24.04", "ubuntu-26.04"})
         self.assertIn("fromJSON(needs.validate.outputs.matrix)", self.workflow)
         self.assertIn("debian-trixie) ./packaging/deb/debian-trixie/build.sh", self.workflow)
         self.assertNotIn("--no-cuda", self.workflow)

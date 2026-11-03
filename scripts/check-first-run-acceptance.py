@@ -2,7 +2,7 @@
 """Reject native publication without installed-package acceptance for its commit.
 
 MONITORIZE_FIRST_RUN_ACCEPTANCE is a repository variable containing JSON:
-{"commit":"<full tag commit>","targets":{"fedora-44":{"evidence":"<report URL>",
+{"commit":"<full tag commit>","targets":{"fedora-45":{"evidence":"<report URL>",
 "cases":{"authorization":true,...}}}}
 Every enabled target and every required case must have a recorded pass.
 """

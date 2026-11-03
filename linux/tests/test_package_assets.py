@@ -16,10 +16,11 @@ class PackageAssetTest(unittest.TestCase):
     def cli(self, *arguments):
         return subprocess.check_output([sys.executable, str(SCRIPT), *arguments], text=True).strip()
 
-    def test_all_six_names_and_enabled_manifest(self):
+    def test_all_names_and_enabled_manifest(self):
         names = {
             "arch": "monitorize-0.33.2-archlinux-x86_64.pkg.tar.zst",
             "fedora-44": "monitorize-0.33.2-fedora-44-x86_64.rpm",
+            "fedora-45": "monitorize-0.33.2-fedora-45-x86_64.rpm",
             "tumbleweed": "monitorize-0.33.2-opensuse-tumbleweed-x86_64.rpm",
             "debian-trixie": "monitorize-0.33.2-debian-13-amd64.deb",
             "ubuntu-24.04": "monitorize-0.33.2-ubuntu-24.04-amd64.deb",
@@ -30,12 +31,14 @@ class PackageAssetTest(unittest.TestCase):
                 self.assertEqual(self.cli("name", target, "0.33.2"), expected)
                 self.assertEqual(Path(self.cli("path", target, "0.33.2")).name, expected)
         manifest = json.loads(self.cli("manifest", "0.33.2"))
-        self.assertEqual(set(manifest), set(names.values()) - {names["debian-trixie"]})
+        self.assertEqual(set(manifest), set(names.values()) - {names["debian-trixie"], names["fedora-44"]})
 
     def test_reenabling_debian_expands_matrix_and_manifest_together(self):
         with tempfile.TemporaryDirectory() as directory:
             script = Path(directory) / "package-assets.py"
-            script.write_text(SCRIPT.read_text().replace("cd_enabled=False", "cd_enabled=True"))
+            script.write_text(SCRIPT.read_text().replace(
+                '"dist/deb/debian-trixie/amd64", cd_enabled=False',
+                '"dist/deb/debian-trixie/amd64", cd_enabled=True'))
             matrix = json.loads(subprocess.check_output([sys.executable, str(script), "matrix"], text=True))
             manifest = json.loads(subprocess.check_output([sys.executable, str(script), "manifest", "0.33.2"], text=True))
             self.assertEqual(len(matrix["include"]), 6)
@@ -44,7 +47,7 @@ class PackageAssetTest(unittest.TestCase):
             self.assertIn("monitorize-0.33.2-debian-13-amd64.deb", manifest)
 
     def test_local_publish_preserves_package_contents_and_other_rpm_outputs(self):
-        for builder, target in (("arch", "arch"), ("rpm", "fedora-44"),
+        for builder, target in (("arch", "arch"), ("rpm", "fedora-44"), ("rpm", "fedora-45"),
                                 ("tumbleweed", "tumbleweed"), ("deb", "debian-trixie"),
                                 ("deb", "ubuntu-24.04"), ("deb", "ubuntu-26.04")):
             with self.subTest(target=target), tempfile.TemporaryDirectory() as directory:
@@ -76,7 +79,7 @@ class PackageAssetTest(unittest.TestCase):
                 environment = {**os.environ, "PROJECT_ROOT": str(ROOT), "OUTPUT_ROOT": str(output),
                                "artifact_root": str(source), "artifact_stage": str(source),
                                "main_package": str(raw), "main_rpm": str(raw), "main_deb": str(raw),
-                               "version": "0.33.2", "target": target, "FEDORA_VERSION": "44",
+                               "version": "0.33.2", "target": target, "FEDORA_VERSION": target.removeprefix("fedora-"),
                                "build_log": str(log)}
                 subprocess.run(["bash", "-e", "-c", body], env=environment, check=True, capture_output=True)
                 expected = output / ("amd64" if builder == "deb" else "x86_64") / self.cli("name", target, "0.33.2")
