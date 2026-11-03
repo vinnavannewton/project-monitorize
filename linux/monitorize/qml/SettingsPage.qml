@@ -393,9 +393,9 @@ Item {
                     onClicked: page.StackView.view.push("BootWifiSetupPage.qml")
                 }
                 SettingsActionRow {
-                    title: "Passwordless display creation (VKMS)"
+                    title: "Passwordless login (VKMS)"
                     description: page.vkmsChecking ? "Checking authorization…" : page.vkmsAuthorizationMessage.length > 0 ? page.vkmsAuthorizationMessage : page.vkmsAuthorization.success
-                        ? (page.vkmsAuthorization.repair_required ? page.vkmsAuthorization.message : page.vkmsAuthorization.unattended_enabled ? "Enabled for your user. Display creation does not request a password." : "Authorize your user once for virtual display creation without recurring password prompts.")
+                        ? (page.vkmsAuthorization.repair_required ? page.vkmsAuthorization.message : page.vkmsAuthorization.unattended_enabled ? "Passwordless login is enabled for your user. Display creation does not request a password." : "Passwordless login is disabled. Enable it to create virtual displays without recurring password prompts.")
                         : (page.vkmsAuthorization.message || "Install or upgrade monitorize-vkms first.")
                     symbol: "key-slash"
                     actionText: page.vkmsChecking ? "Checking…" : !page.vkmsAuthorization.success ? "Recover host" : page.vkmsAuthorization.repair_required ? "Reauthorize" : page.vkmsAuthorization.unattended_enabled ? "Disable" : "Enable"

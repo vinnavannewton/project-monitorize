@@ -40,7 +40,7 @@ its display only after an authenticated prepare request. `use_client_display_set
 selects the mode source: true uses the request, false uses the saved app mode.
 Both use the same readiness, disconnect grace, cleanup/recreation and retry path.
 Display-only (`streaming_backend=none`) still creates immediately without Sunshine;
-Mirror uses its existing screen. Listeners require passwordless VKMS enrollment for unattended VKMS creation.
+Mirror uses its existing screen. Listeners require passwordless login (VKMS) to be enabled for display creation.
 Codec negotiation now also requires `MONITORIZE_CODEC_NEGOTIATION=1`; rebuild
 the paired Sunshine fork after updating source.
 
