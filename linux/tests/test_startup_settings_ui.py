@@ -46,6 +46,25 @@ with tempfile.TemporaryDirectory() as d:
             settle();evaluate('navigate("SettingsPage.qml")');settle();settle()
             assert view.status()==QQuickWidget.Status.Ready
             assert not any(child.property("label")=="Presets" for child in view.rootObject().findChildren(QObject))
+            view.show();settle()
+            page=view.rootObject().findChild(QObject,'startupSettingsPage')
+            status.return_value=dict(available=True,supported=True,live_available=True,enabled=True)
+            Q=QQmlExpression(qmlContext(page),page,'refreshStartup()');Q.evaluate();assert not Q.hasError()
+            page.setProperty('bootOptionsExpanded',True)
+            from PyQt6.QtCore import QMetaObject
+            rerun=view.rootObject().findChild(QObject,'rerunRemoteLoginSetup')
+            page.setProperty('bootStatus',dict(available=True,supported=True,live_available=True,enabled=True))
+            settle()
+            assert rerun.property('enabled')
+            with patch('monitorize.desktop.remote_login_setup.RemoteLoginSetupCoordinator.begin') as configure, patch('monitorize.desktop.backend.load_display_settings',return_value={'sunshine_capture':'auto'}):
+                QMetaObject.invokeMethod(rerun,'clicked');settle()
+                configure.assert_called_once_with(True)
+            page.setProperty('bootStatus',dict(available=False,supported=True,live_available=False,enabled=False))
+            settle();assert not rerun.property('enabled')
+            page.setProperty('bootOptionsExpanded',False)
+            status.return_value=dict(available=True,live_available=True,enabled=False,supported=True)
+            login_state[0]=False
+            Q=QQmlExpression(qmlContext(page),page,'refreshStartup()');Q.evaluate()
             # Expired maintenance is recoverable from a global GUI prompt.
             manager=backend._vkms_manager()
             with patch.object(manager,'resolve_recovery') as resolve:

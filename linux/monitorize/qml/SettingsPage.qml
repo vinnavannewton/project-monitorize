@@ -275,6 +275,17 @@ Item {
                     onClicked: backend.recoverRemoteLogin(page.pendingBootAction === 0)
                 }
                 CustomButton {
+                    objectName: "rerunRemoteLoginSetup"
+                    text: "Re-run remote-login setup"
+                    visible: page.bootOptionsExpanded && page.bootStatus.repair_kind !== "source"
+                    enabled: !backend.remoteLoginSetupBusy && !backend.sessionBusy && autostartCheck.checked
+                        && page.bootStatus.available && page.bootStatus.supported && page.bootStatus.live_available === true
+                    onClicked: {
+                        page.pendingBootAction = 1
+                        backend.configureRemoteLogin(true)
+                    }
+                }
+                CustomButton {
                     objectName: "refreshBootStartupStatus"
                     text: "Refresh startup status"
                     visible: page.bootOptionsExpanded

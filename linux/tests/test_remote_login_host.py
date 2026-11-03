@@ -61,6 +61,31 @@ class HostReadinessTests(unittest.TestCase):
         self.file('usr/lib/monitorize-remote-login/monitorize/remote_login/live_setup.py',b'LIVE_ENROLLMENT_PROTOCOL = 0\n')
         self.assertFalse(self.live()['available'])
 
+    def test_rpm_hardlinked_code_is_readable_but_writable_inode_is_rejected(self):
+        self.assets();self.host()
+        self.file('usr/libexec/monitorize/sunshine',b'\x7fELF\0MONITORIZE_CONTROL_PROTOCOL=1\0MONITORIZE_STRICT_KMS_OUTPUT_MISSING\0')
+        relative='usr/lib/monitorize-remote-login/monitorize/remote_login/display_managers.py'
+        path=self.root/relative
+        alias=self.root/'usr/lib/python3/site-packages/monitorize/remote_login/display_managers.py'
+        alias.parent.mkdir(parents=True);os.link(path,alias)
+        self.assertEqual(path.stat().st_nlink,2)
+        self.assertTrue(self.result()['available'])
+        alias.chmod(0o666)
+        result=self.result()
+        self.assertEqual(result['reason'],'invalid_assets')
+        self.assertIn(relative,result['message'])
+        self.assertIn('permissions',result['message'])
+
+    def test_initial_asset_failure_names_path_and_preserves_missing_vs_invalid(self):
+        self.assets()
+        path=self.root/'usr/libexec/monitorize/remote-login/entry.py'
+        path.unlink()
+        self.assertIn(str(path.relative_to(self.root)),self.result()['message'])
+        self.assertEqual(self.result()['reason'],'missing_assets')
+        path.symlink_to(self.file('elsewhere'))
+        self.assertEqual(self.result()['reason'],'invalid_assets')
+        self.assertIn('entry.py',self.result()['message'])
+
     def test_explains_missing_assets_host_and_incomplete_installation(self):
         self.assertEqual(self.result()['reason'],'missing_assets')
         self.assets();self.assertEqual(self.result()['reason'],'host_missing')

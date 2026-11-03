@@ -297,15 +297,15 @@ def remote_login_setup_status():
     source_stage=Path(__file__).resolve().parents[3]/'scripts/stage-remote-login.py'
     source_install=source_stage.is_file()
     repair=('Use Repair remote login in Settings to install matching service files with administrator authorization.'
-            if source_install else 'The remote-login service files are managed by the Monitorize native package.')
+            if source_install else 'Verify or restore the Monitorize native package through your package manager, then refresh startup status. Reinstalling VKMS does not restore Monitorize package files.')
     live=host_readiness(require_live=True)
     result={'available':host['available'],'live_available':bool(live['available'] and capability['supported']),
             'live_message':live['message'],'enabled':False,'create_login_virtual_display':False,'login_display_policy_available':login_display_policy_available(),'display_idle_timeout_seconds':20,'reason':host['reason'],'protocols':host['protocols'],
             'supported':capability['supported'],'manager':capability['manager'],
             'compositor':capability['compositor'],'validated':capability['validated'],
             'message':capability['message'] if host['available'] else host['message']}
-    if host['reason']=='missing_assets':
-        result['message']='Monitorize remote-login system assets are missing. '+repair
+    if host['reason'] in ('missing_assets', 'invalid_assets'):
+        result['message']=host['message'] + '. ' + repair
     if host['available']:
         from monitorize.platform import remote_login_host
         installed_checker=Path('/usr/lib/monitorize-remote-login/monitorize/platform/remote_login_host.py')

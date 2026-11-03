@@ -22,12 +22,15 @@ def _read(path, root, owner_uid, maximum=262144):
             break
         info=item.lstat()
         if not stat.S_ISDIR(info.st_mode) or info.st_uid!=owner_uid or info.st_mode & 0o022:
-            raise ValueError('Unsafe installed directory.')
+            raise ValueError('Unsafe installed directory ownership or permissions: ' + str(item))
     fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC)
     with os.fdopen(fd,'rb') as source:
         info=os.fstat(source.fileno())
-        if not stat.S_ISREG(info.st_mode) or info.st_uid!=owner_uid or info.st_mode & 0o022 or info.st_nlink!=1 or info.st_size>maximum:
-            raise ValueError('Unsafe installed file.')
+        # RPM may deduplicate identical installed code with hard links. Trust is
+        # established by the opened inode and its protected path, not link count.
+        # Mutable enrollment records/locks retain their separate single-link checks.
+        if not stat.S_ISREG(info.st_mode) or info.st_uid!=owner_uid or info.st_mode & 0o022 or info.st_size>maximum:
+            raise ValueError('Unsafe installed file type, ownership, permissions or size: ' + str(path))
         data=source.read(maximum+1)
     if len(data)>maximum:raise ValueError('Installed file exceeds its size bound.')
     return data
@@ -51,10 +54,13 @@ def host_readiness(root=Path('/'), *, owner_uid=0, require_live=False) -> dict:
     assets=('usr/libexec/monitorize/remote-login/entry.py','usr/libexec/monitorize/monitorize-system-setup',
             'usr/lib/systemd/system/monitorize-vkms-boot-display.service',
             'usr/lib/monitorize-remote-login/monitorize/remote_login/display_managers.py')
-    try:
-        for name in assets:_read(root/name,root,owner_uid)
-    except (OSError,ValueError):
-        return result('missing_assets','Install the Monitorize remote-login service assets from a native package or the source deployment installer.')
+    for name in assets:
+        try:
+            _read(root/name,root,owner_uid)
+        except FileNotFoundError:
+            return result('missing_assets', 'Remote-login file is missing: /' + name)
+        except (OSError, ValueError) as error:
+            return result('invalid_assets', 'Remote-login file could not be validated: /' + name + '. ' + str(error))
     package=root/'usr/lib/monitorize-vkms/monitorize_vkms'
     if not (package/'helper.py').exists():
         return result('host_missing','Install monitorize-vkms 0.3.0 or newer on the host, then refresh setup.')
