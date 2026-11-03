@@ -278,7 +278,10 @@ Rectangle {
     }
 
     Component.onCompleted: {
-        if (backend.systemSetupPending) firstRunSetupPopup.open()
+        // QQuickWidget attaches the root to its window after completion.
+        Qt.callLater(function() {
+            if (backend.systemSetupPending) firstRunSetupPopup.open()
+        })
     }
 
     // --- Main StackView for page navigation ---

@@ -8,7 +8,7 @@ import unittest
 
 spec=importlib.util.spec_from_file_location('host_ui_fixture',Path(__file__).with_name('test_host_configuration_ui.py'))
 fixture=importlib.util.module_from_spec(spec);spec.loader.exec_module(fixture)
-PREFIX=fixture.PROGRAM.split('            apply=view.rootObject().findChild')[0].replace('slots={},error=', 'slots={},cards=[],error=')
+PREFIX=fixture.PROGRAM.split('            apply=view.rootObject().findChild')[0]
 SCENARIOS=r'''
             from PyQt6.QtCore import QMetaObject
             before=len(launches)

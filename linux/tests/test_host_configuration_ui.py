@@ -33,8 +33,8 @@ with tempfile.TemporaryDirectory() as d:
         c.streaming=False;c.third_streaming=False;c.primary_ready=False;c.third_ready=False
         c._vkms_retiring={};c.de='sway';c.status=''
         backend=MonitorizeBackend('sway')
-        runtime=SimpleNamespace(active=False,busy=False,retiring={},cleanup_blocked={},slots={},error='',guardian=None)
-        def stop():runtime.active=False;runtime.slots.clear()
+        runtime=SimpleNamespace(active=False,busy=False,retiring={},cleanup_blocked={},slots={},cards=[],error='',guardian=None)
+        def stop():runtime.active=False;runtime.slots.clear();runtime.cards.clear()
         runtime.stop=Mock(side_effect=stop)
         c.stop.side_effect=lambda:setattr(c,'streaming',False)
         backend.session.client_runtime=runtime
@@ -45,6 +45,8 @@ with tempfile.TemporaryDirectory() as d:
             configs=[(1,backend.session.configuration())]
             if backend.session.count==2:configs.append((2,backend.session.second_configuration()))
             runtime.slots={i:SimpleNamespace(status='waiting',config=config,error='') for i,config in configs}
+            runtime.cards=[dict(instance=i,status=slot.status,target={},error=slot.error)
+                           for i,slot in runtime.slots.items()]
         with patch.object(backend.session,'start',side_effect=launch), patch.object(backend,'ensureNativeCompositor',return_value=True):
             view=QQuickWidget();view.rootContext().setContextProperty('backend',backend)
             view.setSource(QUrl.fromLocalFile(str(Path('linux/monitorize/qml/main.qml').resolve())))
