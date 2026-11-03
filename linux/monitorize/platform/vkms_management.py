@@ -95,6 +95,8 @@ def verify():
         details = [str(value.get('detail', ''))]
         details.extend(f"{check.get('name', '')}: {check.get('detail', '')}" for check in value.get('checks', [])
                        if check.get('status') != 'PASS')
+        details.extend(f"Kernel {record.get('kernel', '')}: {record.get('state', '')} — {record.get('detail', '')}"
+                       for record in value.get('kernel_builds', []) if isinstance(record, dict))
         value['details'] = '\n'.join(item for item in details if item)
         return value
     except (OSError, ValueError, subprocess.SubprocessError) as error:
