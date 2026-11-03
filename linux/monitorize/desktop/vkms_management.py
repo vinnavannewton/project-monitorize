@@ -17,6 +17,8 @@ class VkmsManagement(QObject):
         self.checking = False
         self.operation = ''
         self.message = ''
+        self.completion_message = ''
+        self.completed_operation = ''
         self.logs = ''
         self.prepared = None
         self.serial = 0
@@ -40,7 +42,8 @@ class VkmsManagement(QObject):
     def snapshot(self):
         return {**self.health, 'checking': self.checking, 'busy': self.busy,
                 'operation': self.operation, 'operation_message': self.message, 'logs': self.logs,
-                'up_to_date': self.up_to_date}
+                'up_to_date': self.up_to_date, 'completion_message': self.completion_message,
+                'reboot_required': self.reboot_required}
 
     def clear_notice(self):
         self.notice_timer.stop()
@@ -77,6 +80,8 @@ class VkmsManagement(QObject):
         if self.health.get('installed') is not True:
             return False
         self.clear_notice()
+        self.completion_message = ''
+        self.completed_operation = ''
         self._pending_up_to_date = False
         self._verifying_success = False
         self._recovery_attempted = recovered
@@ -122,7 +127,8 @@ class VkmsManagement(QObject):
                 self._verifying_success = False
             if value.get('state'):
                 self.health = value
-                if self.reboot_required and value.get('state') != 'working':
+                self.reboot_required = self.reboot_required or bool(value.get('reboot_required')) or value.get('state') == 'restart_required'
+                if self.reboot_required:
                     self.health.update(state='restart_required', message='System restart required', reboot_required=True)
             else:
                 self.health.update(state='could_not_verify', message='Could not verify installation',
@@ -134,6 +140,13 @@ class VkmsManagement(QObject):
                 self._pending_up_to_date = False
                 self.up_to_date = True
                 self.notice_timer.start()
+            if self.completed_operation:
+                label = 'reinstall' if self.completed_operation == 'reinstall' else 'update'
+                self.completion_message = 'Monitorize VKMS ' + label + ' completed.'
+                if self.reboot_required:
+                    self.completion_message += ' Please reboot your system to activate the changes.'
+                elif self.health.get('state') != 'working':
+                    self.completion_message += ' ' + self.health.get('message', 'Could not verify installation.')
             self.changed.emit()
         elif kind == 'prepare':
             if not value.get('revision'):
@@ -186,10 +199,17 @@ class VkmsManagement(QObject):
                         'Your settings and pairing will be retained.'))
             return
         self._recovery_request = ''
+        self.completed_operation = self.operation if result.get('success') else ''
+        self.completion_message = ''
+        if self.completed_operation:
+            label = 'reinstall' if self.completed_operation == 'reinstall' else 'update'
+            self.completion_message = 'Monitorize VKMS ' + label + ' completed. Verifying installation…'
         self._verifying_success = bool(result.get('success'))
         self._pending_up_to_date = bool(self.operation == 'update' and result.get('success')
             and (self.prepared or {}).get('revision') and not result.get('reboot_required'))
-        self.reboot_required = bool(result.get('reboot_required', self.reboot_required))
+        self.reboot_required = self.reboot_required or bool(result.get('reboot_required'))
+        if self.completed_operation and self.reboot_required:
+            self.completion_message = 'Monitorize VKMS ' + label + ' completed. Please reboot your system to activate the changes.'
         self.busy = False
         self.prepared = None
         self.request_id = None

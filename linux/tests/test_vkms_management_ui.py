@@ -125,12 +125,26 @@ with tempfile.TemporaryDirectory() as directory:
     manager.finish(dict(success=True,message='VKMS updated. Checking installation…'))
     future.set_result(dict(installed=True,state='working',message='Verified — working'))
     settle()
-    assert health.property('text')=='Up to date'
+    assert health.property('text')=='Monitorize VKMS update completed.'
     assert not card.findChild(QObject,'vkmsOperationMessage').property('visible')
     loop=QEventLoop();QTimer.singleShot(10300,loop.quit);loop.exec();settle()
-    assert health.property('text')=='Verified — working'
+    assert health.property('text')=='Monitorize VKMS update completed.'
     assert not manager.notice_timer.isActive()
     assert not card.findChild(QObject,'vkmsOperationMessage').property('visible')
+    card.setProperty('detailsExpanded',False)
+    for operation in ('update','reinstall'):
+        future=Future()
+        manager.operation=operation
+        manager.prepared=dict(revision='b'*40)
+        manager.finish(dict(success=True,reboot_required=True,message='Checking VKMS…'))
+        settle()
+        assert 'completed' in health.property('text')
+        assert 'Please reboot your system' in health.property('text')
+        future.set_result(dict(installed=True,state='working',message='Verified — working'))
+        settle()
+        assert 'completed' in health.property('text')
+        assert 'Please reboot your system' in health.property('text')
+        assert not card.property('detailsExpanded')
     view.setSource(QUrl());view.close()
 '''
 

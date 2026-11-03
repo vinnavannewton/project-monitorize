@@ -23,11 +23,13 @@ SectionCard {
             objectName: "vkmsHealthMessage"
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
-            text: card.status.checking ? "Verifying installation…"
+            text: !card.status.busy && card.status.completion_message ? card.status.completion_message
+                : card.status.checking ? "Verifying installation…"
                 : card.status.busy ? card.status.operation_message
                 : card.status.up_to_date ? "Up to date"
                 : (card.status.message || "Checking…")
-            color: card.status.state === "working" ? theme.successText : theme.textPrimary
+            color: card.status.busy || card.status.checking ? theme.textPrimary
+                : card.status.state === "working" || card.status.state === "restart_required" ? theme.successText : theme.textPrimary
         }
         Text {
             visible: (card.status.version || "").length > 0

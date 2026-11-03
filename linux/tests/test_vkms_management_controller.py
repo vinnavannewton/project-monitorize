@@ -180,6 +180,32 @@ class VkmsControllerTests(unittest.TestCase):
         self.assertEqual(c.snapshot()['message'], 'Verified — working')
         self.assertEqual(c.snapshot()['operation_message'], '')
 
+    def test_completion_and_reboot_survive_working_verifier_and_refresh(self):
+        for operation in ('update', 'reinstall'):
+            c = VkmsManagement(self.backend)
+            c.operation = operation
+            c.prepared = dict(revision='a' * 40)
+            c.finish(dict(success=True, reboot_required=True, message='Checking VKMS…'))
+            self.assertIn('completed', c.snapshot()['completion_message'])
+            self.assertIn('Please reboot', c.snapshot()['completion_message'])
+            self.backend.futures[-1][0].set_result(dict(state='working', installed=True, message='Verified — working'))
+            self.assertEqual(c.snapshot()['state'], 'restart_required')
+            self.assertIn('Please reboot', c.snapshot()['completion_message'])
+            self.assertFalse(c.up_to_date)
+            c.refresh()
+            self.backend.futures[-1][0].set_result(dict(state='working', installed=True))
+            self.assertIn('Please reboot', c.snapshot()['completion_message'])
+            self.assertTrue(c.start(operation))
+            self.assertEqual(c.snapshot()['completion_message'], '')
+
+    def test_completion_without_reboot_does_not_invent_reboot_requirement(self):
+        c = self.controller
+        c.operation = 'reinstall'
+        c.finish(dict(success=True, message='Checking VKMS…'))
+        self.backend.futures[-1][0].set_result(dict(state='working', installed=True))
+        self.assertEqual(c.snapshot()['completion_message'], 'Monitorize VKMS reinstall completed.')
+        self.assertFalse(c.snapshot()['reboot_required'])
+
     def test_successful_reinstall_clears_progress_even_when_verification_fails(self):
         c = self.controller
         c.operation = 'reinstall'
