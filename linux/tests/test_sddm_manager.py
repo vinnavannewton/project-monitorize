@@ -42,3 +42,53 @@ class ManagerTests(unittest.TestCase):
         self.assertFalse(self.capabilities()['supported'])
         path=self.root/'etc/sddm.conf';path.unlink();path.symlink_to('/etc/passwd')
         self.assertFalse(self.capabilities()['supported'])
+
+    def test_x11_requires_xrandr(self):
+        self.write('usr/bin/xrandr', '')
+        (self.root/'usr/bin/xrandr').chmod(0o755)
+        capability = self.capabilities()
+        self.assertTrue(capability['supported'])
+        self.assertEqual(capability['compositor'], 'xorg')
+        self.assertFalse(capability['validated'])
+
+
+class X11OutputTests(unittest.TestCase):
+    def test_selects_greeter_primary_and_current_refresh(self):
+        from monitorize.remote_login.sddm_x11 import select_output
+
+        target = select_output('Virtual-1 connected primary 1280x800+0+0 (normal)\n'
+                               '   1280x800     59.91*+  60.00\n'
+                               'Virtual-2 connected 1920x1080+1280+0 (normal)\n'
+                               '   1920x1080    60.00*\n')
+        self.assertEqual(target, dict(output_name='Virtual-1', capture='kms',
+                                      width=1280, height=800, fps=59.91))
+
+    def test_rejects_ambiguous_or_inactive_outputs(self):
+        from monitorize.remote_login.sddm_x11 import select_output
+
+        active = 'Virtual-1 connected 1280x800+0+0\n   1280x800  60.00*\n'
+        with self.assertRaises(ValueError):
+            select_output(active + active.replace('Virtual-1', 'Virtual-2'))
+        with self.assertRaises(ValueError):
+            select_output('Virtual-1 connected (normal)\n   1280x800  60.00\n')
+
+    def test_refuses_capture_if_greeter_changes_during_probe(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock, patch
+
+        from monitorize.remote_login import sddm_x11
+
+        environment = {'DISPLAY': ':0', 'XAUTHORITY': '/tmp/greeter-auth'}
+        account = SimpleNamespace(pw_uid=973, pw_gid=973)
+        report = 'Virtual-1 connected 1280x800+0+0\n   1280x800  60.00*\n'
+        with patch.object(sddm_x11, 'greeter_environment',
+                          side_effect=[((10, 11), environment), ((12, 13), environment)]), \
+             patch.object(sddm_x11.pwd, 'getpwuid', return_value=account), \
+             patch.object(sddm_x11.subprocess, 'run',
+                          return_value=SimpleNamespace(returncode=0, stdout=report)) as probe, \
+             patch.object(sddm_x11, 'verify_drm', return_value=Path('/sys/class/drm/card1-Virtual-1')), \
+             patch('monitorize.remote_login.daemon.require_installed'):
+            with self.assertRaisesRegex(PermissionError, 'changed'):
+                sddm_x11.operation({'greeter_uid': 973}, 'prepare', Mock())
+        self.assertEqual(probe.call_args.kwargs['user'], 973)
+        self.assertEqual(probe.call_args.kwargs['env'], environment)

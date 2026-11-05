@@ -241,9 +241,19 @@ Item {
                         keepCheckedBlue: true
                         Layout.fillWidth: true
                         enabled: page.bootStatus.enabled === true && page.bootStatus.login_display_policy_available === true && !backend.remoteLoginSetupBusy
+                            && (!page.bootStatus.existing_login_display_only || checked)
                         opacity: enabled ? 1.0 : 0.45
                         onClicked: backend.configureLoginVirtualDisplay(checked)
                     }
+                }
+
+                SelectableMessage {
+                    visible: page.bootOptionsExpanded && page.bootStatus.enabled === true
+                             && page.bootStatus.existing_login_display_only === true
+                    text: "SDDM on X11 streams an existing display at the sign-in screen."
+                    color: theme.textSecondary
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
                 }
 
                 SelectableMessage {
@@ -404,9 +414,9 @@ Item {
                     onClicked: page.StackView.view.push("BootWifiSetupPage.qml")
                 }
                 SettingsActionRow {
-                    title: "Passwordless login (VKMS)"
+                    title: "Passwordless Display Creation"
                     description: page.vkmsChecking ? "Checking authorization…" : page.vkmsAuthorizationMessage.length > 0 ? page.vkmsAuthorizationMessage : page.vkmsAuthorization.success
-                        ? (page.vkmsAuthorization.repair_required ? page.vkmsAuthorization.message : page.vkmsAuthorization.unattended_enabled ? "Passwordless login is enabled for your user. Display creation does not request a password." : "Passwordless login is disabled. Enable it to create virtual displays without recurring password prompts.")
+                        ? (page.vkmsAuthorization.repair_required ? page.vkmsAuthorization.message : page.vkmsAuthorization.unattended_enabled ? "Passwordless Display Creation is enabled for your user. Display creation does not request a password." : "Passwordless Display Creation is disabled. Enable it to create virtual displays without recurring password prompts.")
                         : (page.vkmsAuthorization.message || "Install or upgrade monitorize-vkms first.")
                     symbol: "key-slash"
                     actionText: page.vkmsChecking ? "Checking…" : !page.vkmsAuthorization.success ? "Recover host" : page.vkmsAuthorization.repair_required ? "Reauthorize" : page.vkmsAuthorization.unattended_enabled ? "Disable" : "Enable"

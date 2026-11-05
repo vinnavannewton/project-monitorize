@@ -6,6 +6,7 @@ import shlex
 import stat
 
 SDDM_WAYLAND_PROTOCOL = 1
+SDDM_X11_PROTOCOL = 1
 GDM_WAYLAND_PROTOCOL = 1
 MANAGERS=('plasmalogin.service','sddm.service','gdm.service')
 COMPOSITORS={'kwin_wayland':'kde','Hyprland':'hyprland','start-hyprland':'hyprland','weston':'weston'}
@@ -55,8 +56,14 @@ def manager_capabilities(root=Path('/'), *, owner_uid=0):
     try:config=sddm_configuration(root,owner_uid=owner_uid)
     except (OSError,ValueError,configparser.Error) as error:return dict(result,message=str(error))
     result.update(config)
+    if config['display_server'] == 'x11':
+        installed = root / 'usr/bin/xrandr'
+        if not installed.is_file() or not os.access(installed, os.X_OK):
+            return dict(result, compositor='xorg', message='Install xrandr (xorg-xrandr on Arch) for SDDM X11 remote login.')
+        return dict(result, compositor='xorg', supported=True,
+                    message='SDDM X11 supports remote login on an existing display. Virtual login displays are unavailable.')
     if config['display_server']!='wayland':
-        return dict(result,message='SDDM must already use Wayland. X11 support is deferred; Monitorize will not change your login configuration.')
+        return dict(result,message='SDDM remote login requires standard X11 or a supported Wayland compositor.')
     if config['compositor']=='unknown':
         return dict(result,message='SDDM Wayland compositor is unknown or uses a wrapper. A verified compositor adapter is required.')
     return dict(result,supported=True,message='SDDM Wayland '+config['compositor']+' adapter is experimental; physical/headless live validation is required.')

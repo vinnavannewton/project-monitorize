@@ -202,6 +202,9 @@ class InstalledBackend:
             settings=read_settings()
             if settings.uid!=uid or settings.manager!=self.manager['manager']:
                 raise PermissionError('Enrollment account or display manager changed.')
+            if (self.manager.get('display_server') == 'x11'
+                    and getattr(settings, 'create_login_virtual_display', False)):
+                raise ValueError('Turn off Create virtual display at login before enabling SDDM X11 remote login.')
         root=helper._configfs_root([])
         helper._require_bootstrap(root,[],'mon1')
 

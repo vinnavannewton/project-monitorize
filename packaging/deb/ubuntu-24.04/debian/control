@@ -99,8 +99,9 @@ Depends: ${misc:Depends},
          udev,
          vainfo,
          wlr-randr,
+         x11-xserver-utils,
          xdg-desktop-portal
-Recommends: firewalld, x11-xserver-utils
+Recommends: firewalld
 Suggests: monitorize-vkms (>= 0.3.0)
 Description: Sunshine-backed virtual displays for Moonlight clients
  Monitorize creates compositor-native virtual displays on KDE Plasma, GNOME,

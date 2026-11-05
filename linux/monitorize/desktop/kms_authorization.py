@@ -111,7 +111,7 @@ class KmsAuthorization(QObject):
             if request["vkms"]:
                 try:
                     if not self._vkms_enabled():
-                        raise RuntimeError("Passwordless VKMS authorization could not be verified. Retry Start or Apply.")
+                        raise RuntimeError("Passwordless Display Creation could not be verified. Retry Start or Apply.")
                 except Exception as exc:
                     self._complete(False, str(exc), 1)
                     return

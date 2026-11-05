@@ -422,7 +422,7 @@ def main():
 
     host_authorization = Path('/usr/libexec/monitorize-vkms/monitorize-vkms-authorization')
     if args.unattended_vkms and not host_authorization.is_file():
-        raise RuntimeError('Install or upgrade monitorize-vkms before enabling passwordless login.')
+        raise RuntimeError('Install or upgrade monitorize-vkms before enabling Passwordless Display Creation.')
     username = invoking_user()
     # A root-owned, non-followed lock serializes all users of the shared assets.
     lock = os.open('/run/monitorize-system-setup.lock', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)

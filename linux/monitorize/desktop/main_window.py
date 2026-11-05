@@ -385,7 +385,8 @@ def main():
     if preset_index is not None:
         QTimer.singleShot(0, lambda: window.backend.launchPreset(preset_index))
     if _should_start_configured_listeners(sys.argv, restored_from_tray):
-        QTimer.singleShot(0, window.backend.startConfiguredListeners)
+        QTimer.singleShot(0, lambda: window.backend.startConfiguredListeners(
+            interactive=window.isVisible() and not start_in_tray))
     sys.exit(app.exec())
 
 

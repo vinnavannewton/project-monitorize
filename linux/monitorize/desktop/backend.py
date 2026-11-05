@@ -729,7 +729,7 @@ class MonitorizeBackend(QObject):
         self._start_session_checked()
 
     def _authorize_kms(self, bundle, action):
-        """Only explicit Start/Apply requests enter the graphical repair flow."""
+        """Authorize a foreground launch or configuration change."""
         expected = copy.deepcopy(bundle)
         generation = self._session_start_generation
 
@@ -764,7 +764,7 @@ class MonitorizeBackend(QObject):
             self.streaming._set_status("Waiting for administrator authorization…")
         return ready
 
-    def startConfiguredListeners(self):
+    def startConfiguredListeners(self, *, interactive=False):
         """Start hosting once per genuine launch; tray restoration is handled by the window."""
         if getattr(self, "remoteLoginEnabled", False):
             return
@@ -775,6 +775,11 @@ class MonitorizeBackend(QObject):
                 or not (getattr(self.session, "mode", "Extend") == "Mirror" or self.session.has_client_cards())):
             return
         self._pending_listeners_only = getattr(self.session, "mode", "Extend") != "Mirror"
+        if interactive and self._pending_listeners_only:
+            applied = self.configuration_state.applied
+            if applied["primary"].get("virtual_display_creator") == "vkms":
+                if not self._authorize_kms(applied, "start"):
+                    return
         self._start_session_checked()
 
     def _start_session_checked(self, checked=False):

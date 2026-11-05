@@ -51,7 +51,7 @@ class MonitorizeVkmsClient:
             if name == 'org.freedesktop.DBus.Error.UnknownMethod' and method == 'GetAuthorizationState':
                 raise VkmsProtocolError(
                     'Update monitorize-vkms on the host and restart monitorize-vkms.service. '
-                    'The installed service does not support passwordless authorization.') from exc
+                    'The installed service does not support Passwordless Display Creation.') from exc
             kind = "polkit_denied" if "polkit" in message.lower() or "denied" in message.lower() else "helper_error"
             raise VkmsCommandError(_translate_error_message(kind, message), kind,
                                    raw_response={"message": message}) from exc
@@ -96,14 +96,14 @@ class MonitorizeVkmsClient:
         except (VkmsServiceUnavailableError, VkmsProtocolError, VkmsCliNotFoundError):
             raise
         except MonitorizeVkmsError as exc:
-            raise VkmsCommandError('Install or upgrade monitorize-vkms and restart its host service for passwordless login authorization: ' + str(exc)) from exc
+            raise VkmsCommandError('Install or upgrade monitorize-vkms and restart its host service for Passwordless Display Creation: ' + str(exc)) from exc
         if type(result.get('authorization_version')) is not int or result.get('authorization_version') != 1 or type(result.get('unattended_enabled')) is not bool:
-            raise VkmsProtocolError('Update monitorize-vkms on the host and restart monitorize-vkms.service for passwordless authorization v1.')
+            raise VkmsProtocolError('Update monitorize-vkms on the host and restart monitorize-vkms.service for Passwordless Display Creation.')
         return result
 
     def require_unattended(self):
         if not self.get_authorization_state()['unattended_enabled']:
-            raise VkmsCommandError('Enable passwordless login in Settings before starting this listener.')
+            raise VkmsCommandError('Enable Passwordless Display Creation in Settings before starting this listener.')
 
     def is_available(self):
         try:

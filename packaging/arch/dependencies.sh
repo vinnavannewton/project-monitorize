@@ -7,7 +7,7 @@ monitorize_runtime_deps=(
     libxfixes libxi libxinerama libxrandr libxtst mesa miniupnpc nftables numactl
     openssl opus pipewire polkit python python-cairo python-dbus
     python-gobject python-jinja python-pyqt6 qt6-declarative qt6-svg shadow systemd
-    vulkan-icd-loader wayland wlr-randr xdg-desktop-portal
+    vulkan-icd-loader wayland wlr-randr xdg-desktop-portal xorg-xrandr
 )
 
 monitorize_build_deps=(

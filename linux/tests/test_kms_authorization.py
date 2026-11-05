@@ -317,9 +317,27 @@ class KmsStartIntegrationTests(unittest.TestCase):
         restart.assert_not_called()
         reject.assert_not_called()
 
+    def test_visible_vkms_launch_waits_for_authorization_once(self):
+        backend = self.backend
+        backend._streaming_backend = 'sunshine'
+        backend.configuration_state.applied['primary'].update(
+            display_type='Extend', virtual_display_creator='vkms')
+        with patch.object(backend.session, 'has_client_cards', return_value=True), \
+             patch.object(backend._kms_authorization, 'ensure', return_value=False) as ensure, \
+             patch.object(backend, '_start_session_checked') as launch:
+            backend.startConfiguredListeners(interactive=True)
+            backend.startConfiguredListeners(interactive=True)
+            ensure.assert_called_once()
+            launch.assert_not_called()
+            ensure.call_args.args[-1](True, '', 1)
+            launch.assert_called_once_with()
+            self.assertTrue(backend._pending_listeners_only)
+
     def test_background_listener_never_enters_authorization(self):
         backend = self.backend
         backend._streaming_backend = 'sunshine'
+        backend.configuration_state.applied['primary'].update(
+            display_type='Extend', virtual_display_creator='vkms')
         with patch.object(backend.session, 'has_client_cards', return_value=True), \
              patch.object(backend, '_start_session_checked'), \
              patch.object(backend._kms_authorization, 'ensure') as ensure:

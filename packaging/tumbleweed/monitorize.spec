@@ -94,6 +94,7 @@ Requires:       /usr/sbin/groupadd
 Requires:       /usr/bin/getfacl
 Requires:       nftables
 Requires:       wlr-randr
+Requires:       xrandr
 Requires:       avahi
 Requires:       firewalld
 Requires:       iproute2
@@ -110,7 +111,6 @@ Requires:       udev
 Requires:       which
 Requires:       xdg-desktop-portal
 Suggests:       monitorize-vkms >= 0.3.0
-Suggests:       xrandr
 Requires(pre):  sysuser-tools
 Requires(post): kmod
 Requires(post): udev

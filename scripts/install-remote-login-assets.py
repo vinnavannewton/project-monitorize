@@ -119,6 +119,7 @@ def validate_bundle(stage,*,host_root=Path('/')):
                    'usr/lib/monitorize-remote-login/monitorize/remote_login/gdm_context.py',
                    'usr/lib/monitorize-remote-login/monitorize/remote_login/kwin_context.py',
                    'usr/lib/monitorize-remote-login/monitorize/remote_login/login_primary.py',
+                   'usr/lib/monitorize-remote-login/monitorize/remote_login/sddm_x11.py',
                    'usr/share/monitorize/sunshine/assets/web/index.html'}
     for relative in required:
         path=stage/relative

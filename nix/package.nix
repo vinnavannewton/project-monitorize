@@ -18,6 +18,7 @@
 , gzip
 , libva-utils
 , wlr-randr
+, xrandr
 , cudaSupport ? (stdenv.hostPlatform.system == "x86_64-linux")
 }:
 
@@ -199,6 +200,7 @@ python3Packages.buildPythonApplication rec {
         kdePackages.libkscreen
         libva-utils
         wlr-randr
+        xrandr
         monitorizeSunshine
       ]}" \
       --set MONITORIZE_SUNSHINE_BIN "${monitorizeSunshine}/bin/sunshine" \

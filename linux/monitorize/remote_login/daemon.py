@@ -149,6 +149,14 @@ def build_service(settings,bus):
                 result=greeter_operation_installed(operation,context_check=check,activate=activate)
                 check()
                 return dict(output_name=result.get('connector') or '',capture='kms',width=1920,height=1080,fps=60)
+            if context.get('session_type') == 'x11':
+                from .display_managers import require_manager
+                if settings.manager != 'sddm.service' or require_manager(settings.manager)['display_server'] != 'x11':
+                    raise PermissionError('This X11 greeter is not supported for boot login.')
+                if operation == 'prepare' and settings.create_login_virtual_display:
+                    raise ValueError('Turn off Create virtual display at login for SDDM X11.')
+                from .sddm_x11 import operation as x11_operation
+                return x11_operation(context, operation, check)
             from .wayland_greeter import capture_operation
             return capture_operation(settings,context,operation,helper,check,virtual)
         finally:connection.close()

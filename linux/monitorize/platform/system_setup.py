@@ -316,9 +316,19 @@ def remote_login_setup_status():
                           message='The app and installed remote-login setup helper have different compatibility checks. '+repair)
     if result['available'] and capability['manager'] in ('sddm.service','gdm.service'):
         installed=Path('/usr/lib/monitorize-remote-login/monitorize/remote_login/display_managers.py')
-        try:current=('GDM_WAYLAND_PROTOCOL = 1' if capability['manager']=='gdm.service' else 'SDDM_WAYLAND_PROTOCOL = 1') in installed.read_text()
-        except OSError:current=False
-        if not current:result.update(available=False,reason='service_update_required',message='Install the '+('GDM' if capability['manager']=='gdm.service' else 'SDDM')+' Wayland remote-login service update before setup. '+repair)
+        x11 = capability.get('display_server') == 'x11' and capability['manager'] == 'sddm.service'
+        protocol = ('SDDM_X11_PROTOCOL' if x11 else
+                    'GDM_WAYLAND_PROTOCOL' if capability['manager'] == 'gdm.service' else 'SDDM_WAYLAND_PROTOCOL')
+        try:
+            current = (protocol + ' = 1') in installed.read_text()
+            if x11:
+                current = current and installed.with_name('sddm_x11.py').is_file()
+        except OSError:
+            current = False
+        if not current:
+            result.update(available=False, reason='service_update_required',
+                          message='Install the matching remote-login service update before setup. '+repair)
+    result['existing_login_display_only'] = capability['manager'] == 'sddm.service' and capability.get('display_server') == 'x11'
     if SETTINGS.exists():
         try:
             settings=read_settings()

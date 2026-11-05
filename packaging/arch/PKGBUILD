@@ -17,7 +17,6 @@ _python_next_minor="$(python -c 'import sys; print(f"{sys.version_info.major}.{s
 depends=("${monitorize_runtime_deps[@]}" "python>=${_python_minor}" "python<${_python_next_minor}")
 makedepends=("${monitorize_build_deps[@]}")
 optdepends=(
-    'xorg-xrandr: native X11 virtual-only layout and recovery'
     'firewalld: optional firewall integration'
     'ufw: optional firewall integration'
     'monitorize-vkms>=0.3.0: VKMS virtual displays and compatible remote-login host support'

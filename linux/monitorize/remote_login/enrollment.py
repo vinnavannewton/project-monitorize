@@ -160,6 +160,9 @@ def enable(uid, *, files=None, commands=None):
             key,value=line.split('=',1);source[key.strip()]=value.strip()
     existing=read_settings() if SETTINGS.exists() else None
     if existing is not None and existing.uid!=uid:raise RuntimeError('Remote login is enrolled for another account.')
+    if (manager.get('display_server') == 'x11'
+            and getattr(existing, 'create_login_virtual_display', False)):
+        raise ValueError('Turn off Create virtual display at login before enabling SDDM X11 remote login.')
     # Root-owned parents only. The selected account owns private identity/runtime.
     files=files or RootFiles()
     parent=Path('/var/lib/monitorize/remote-login')
@@ -357,6 +360,10 @@ def configure_login_virtual_display(uid, enabled):
     if uid!=settings.uid or not settings.enabled:
         raise PermissionError('Enable Start at boot for this account before changing login-screen capture.')
     if type(enabled) is not bool:raise ValueError('Login-screen display preference must be a boolean.')
+    if enabled:
+        from .display_managers import manager_capabilities
+        if manager_capabilities()['display_server'] == 'x11':
+            raise ValueError('SDDM X11 remote login requires an existing display.')
     files=RootFiles()
     relative=str(SETTINGS).lstrip('/')
     previous=files._read(files._path(relative))
