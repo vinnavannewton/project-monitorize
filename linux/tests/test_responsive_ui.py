@@ -56,7 +56,6 @@ CHECKS=r"""
 class ResponsiveUiTests(unittest.TestCase):
     def test_tiling_sizes_preserve_content_and_state(self):
         prefix=PROGRAM.split('            backend.startConfiguredListeners()')[0]
-        prefix=prefix.replace('runtime=SimpleNamespace(active=False,','runtime=SimpleNamespace(cards=[],active=False,')
         prefix=prefix.replace('view=QQuickWidget();view.rootContext()', 'view=QQuickWidget();view.setResizeMode(QQuickWidget.ResizeMode.SizeRootObjectToView);view.rootContext()')
         prefix=prefix.replace('QQmlExpression(view.rootContext(),view.rootObject(),code)','QQmlExpression(qmlContext(view.rootObject()),view.rootObject(),code)')
         prefix=prefix.replace('app=QApplication([])', 'app=QApplication([])\nfrom PyQt6.QtCore import qInstallMessageHandler\nwarnings=[]\nqInstallMessageHandler(lambda kind, context, message:warnings.append(message))')

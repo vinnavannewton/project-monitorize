@@ -57,7 +57,7 @@ Want to contribute? See the [Contributing guide](https://github.com/vinnavannewt
 
 ## Usage
 
-For DE's with no compositor-native virtual display support, use via VKMS by installing [monitorize-vkms](https://github.com/vinnavannewton/monitorize-vkms).
+For DEs with no compositor-native virtual display support, use via VKMS by installing [monitorize-vkms](https://github.com/vinnavannewton/monitorize-vkms).
 
 Tip: If the stream is black or crashes, try changing the stream from auto to other options in monitorize based on what your hardware supports.
 

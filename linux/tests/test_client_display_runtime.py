@@ -345,12 +345,13 @@ class ClientDisplayLifecycleTest(ClientDisplayRuntimeTest):
             self.assertEqual(ClientDisplayRuntime._startup_status(self.runtime, slot)[0], 'ready')
 
     def test_port_collision_reports_endpoint_and_stops_automatic_retry(self):
+        from monitorize.desktop.client_display_runtime import ClientDisplayRuntime
         slot = self.runtime.slots[1]
         slot.log_offset, slot.log_identity = 0, ()
         with open(os.path.join(self.temp.name, 'sunshine.log'), 'w') as stream:
             stream.write("Fatal: Couldn't bind RTSP server to port [50110], Address already in use\n")
         with patch('monitorize.desktop.client_display_runtime.get_sunshine_config_dir', return_value=self.temp.name):
-            state, error = self.runtime._startup_status(slot)
+            state, error = ClientDisplayRuntime._startup_status(self.runtime, slot)
         self.assertEqual(state, 'failed')
         self.assertIn('port 50110', error)
         self.assertIn('already in use', error)
