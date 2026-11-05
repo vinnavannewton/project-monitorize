@@ -276,20 +276,29 @@ Item {
                         color: theme.textSecondary
                         visible: displayType.currentText === "Extend" && backend.vkmsCreatorAvailable
                     }
-                    CustomComboBox {
-                        id: displayCreator
+                    RowLayout {
                         Layout.fillWidth: true
+                        spacing: 8
                         visible: displayType.currentText === "Extend" && backend.vkmsCreatorAvailable
-                        model: backend.vkmsCreatorAvailable
-                            ? ["Compositor", "VKMS (Experimental)"]
-                            : ["Compositor"]
-                        onActivated: {
-                            if (page.vkmsSelected) {
-                                page.saveSettings()
-                            } else {
-                                backend.ensureNativeCompositor()
-                                page.saveSettings()
+                        CustomComboBox {
+                            id: displayCreator
+                            Layout.fillWidth: true
+                            model: backend.vkmsCreatorAvailable
+                                ? ["Compositor", "VKMS (Experimental)"]
+                                : ["Compositor"]
+                            onActivated: {
+                                if (page.vkmsSelected) {
+                                    page.saveSettings()
+                                } else {
+                                    backend.ensureNativeCompositor()
+                                    page.saveSettings()
+                                }
                             }
+                        }
+                        StartupHelp {
+                            objectName: "displayCreatorHelp"
+                            hoverOnly: true
+                            helpText: qsTr("Compositor: Uses your desktop environment to create virtual displays. Supports KDE, GNOME and Hyprland. Streaming starts after sign-in; the login screen is not supported.\n\nVKMS: Works with most desktop environments. Supports login-screen streaming for remote login, with virtual displays for headless use. Requires monitorize-vkms; see the README for desktop compatibility.")
                         }
                     }
                     Text {
@@ -297,16 +306,25 @@ Item {
                         color: theme.textSecondary
                         visible: displayType.currentText === "Extend" && !createOnly.checked
                     }
-                    CustomComboBox {
-                        id: displayBehavior
-                        objectName: "displayBehaviorSelector"
+                    RowLayout {
                         Layout.fillWidth: true
+                        spacing: 8
                         visible: displayType.currentText === "Extend" && !createOnly.checked
-                        model: page.displayBehaviorModes.map(function(mode) {
-                            return mode === "virtual_only" ? "Virtual displays only"
-                                : mode === "primary" ? "Virtual display as primary" : "Extend"
-                        })
-                        onActivated: backend.saveDisplayBehavior(page.displayBehaviorModes[currentIndex])
+                        CustomComboBox {
+                            id: displayBehavior
+                            objectName: "displayBehaviorSelector"
+                            Layout.fillWidth: true
+                            model: page.displayBehaviorModes.map(function(mode) {
+                                return mode === "virtual_only" ? "Virtual displays only"
+                                    : mode === "primary" ? "Virtual display as primary" : "Extend"
+                            })
+                            onActivated: backend.saveDisplayBehavior(page.displayBehaviorModes[currentIndex])
+                        }
+                        StartupHelp {
+                            objectName: "displayBehaviorHelp"
+                            hoverOnly: true
+                            helpText: qsTr("Extend: Adds a virtual display alongside your existing displays.\n\nVirtual display as primary: Adds a virtual display and makes it the primary display.\n\nVirtual displays only: Disables existing displays and uses only the virtual displays created by Monitorize.")
+                        }
                     }
                     Text {
                         visible: page.vkmsSelected && !backend.vkmsHelperAvailable && !backend.vkmsInstallRequired
@@ -423,6 +441,8 @@ Item {
                         }
                     }
                     StartupHelp {
+                        objectName: "createOnlyHelp"
+                        hoverOnly: true
                         helpText: "Creates the virtual display without starting Monitorize’s streaming backend. Use your preferred streamer instead."
                     }
                     Item { Layout.fillWidth: true }
