@@ -8,6 +8,36 @@ from monitorize.platform import system_setup
 
 
 class FirewallScopeTests(unittest.TestCase):
+    def test_inactive_daemon_can_finish_its_ten_second_connection_retry(self):
+        def run(command, **kwargs):
+            if kwargs['timeout'] <= 10.42:
+                raise subprocess.TimeoutExpired(command, kwargs['timeout'])
+            return subprocess.CompletedProcess(command, 252, '',
+                'Waiting on dbus connection...\nnot running\n')
+        with patch.object(scope.subprocess, 'run', side_effect=run) as process:
+            current = scope.snapshot('/usr/bin/firewall-cmd')
+        self.assertFalse(current['running'])
+        self.assertEqual(current['zones'], [])
+        self.assertEqual(process.call_count, 1)
+
+    def test_longer_state_deadline_does_not_hide_probe_failures(self):
+        command = ['/usr/bin/firewall-cmd', '--state']
+        with patch.object(scope.subprocess, 'run',
+                          side_effect=subprocess.TimeoutExpired(command, 15)):
+            with self.assertRaises(subprocess.TimeoutExpired):
+                scope.snapshot(command[0])
+        with patch.object(scope.subprocess, 'run', return_value=
+                          subprocess.CompletedProcess(command, 1, '', 'Access denied')):
+            with self.assertRaisesRegex(RuntimeError, 'Access denied'):
+                scope.snapshot(command[0])
+
+    def test_other_firewall_queries_keep_the_short_deadline(self):
+        command = ['/usr/bin/firewall-cmd', '--get-active-zones']
+        with patch.object(scope.subprocess, 'run', return_value=
+                          subprocess.CompletedProcess(command, 0, '', '')) as process:
+            scope.execute(command)
+        self.assertEqual(process.call_args.kwargs['timeout'], 5)
+
     def test_client_sends_explicit_scope_as_separate_arguments(self):
         with patch.object(system_setup, 'setup_helper_command', side_effect=lambda args:(args,None)):
             command, error = system_setup.system_setup_command(False, True, request_id='a' * 32,

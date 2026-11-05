@@ -13,8 +13,11 @@ PORTS = ('50084/tcp', '50089/tcp', '50090/tcp', '50110/tcp',
 
 
 def execute(command):
+    # firewalld 2.4 retries a missing D-Bus connection for ten seconds, even
+    # for --state. Allow that bounded wait to report NOT_RUNNING (252).
+    timeout = 15 if command[1:] == ['--state'] else 5
     return subprocess.run(command, stdin=subprocess.DEVNULL, text=True, capture_output=True,
-                          timeout=5, check=False, env={**os.environ, 'LC_ALL': 'C'})
+                          timeout=timeout, check=False, env={**os.environ, 'LC_ALL': 'C'})
 
 
 def output(command, run):
