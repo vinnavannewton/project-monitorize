@@ -192,6 +192,7 @@ if (( offline )); then
     run_options+=(--network=none --env MONITORIZE_OFFLINE=1 --env npm_config_offline=true)
 fi
 podman run "${run_options[@]}" \
+    --env "MONITORIZE_RELEASE_COMPRESSION=${MONITORIZE_RELEASE_COMPRESSION:-0}" \
     --env "MONITORIZE_BUILD_UID=${build_uid}" \
     --env "MONITORIZE_BUILD_JOBS=${build_jobs}" \
     --env "MONITORIZE_ENABLE_CUDA=${enable_cuda}" \

@@ -114,3 +114,12 @@ override_dh_auto_test:
 	MONITORIZE_SUNSHINE_BIN="$$PWD/sunshine-build/sunshine" \
 	MONITORIZE_SUNSHINE_ASSETS_DIR="$$PWD/sunshine-build/assets" \
 	PYTHONPATH=linux python3 -c 'from PyQt6.QtQuickWidgets import QQuickWidget; from monitorize.desktop import main_window; from monitorize.platform.sunshine_service import get_sunshine_assets_dir, get_sunshine_candidates; command = get_sunshine_candidates()[0]; assert command[0].endswith("/sunshine-build/sunshine"); assert get_sunshine_assets_dir(command[0]).endswith("/sunshine-build/assets"); assert QQuickWidget is not None; assert main_window is not None'
+
+ifeq ($(MONITORIZE_RELEASE_COMPRESSION),1)
+override_dh_builddeb:
+ifeq ($(MONITORIZE_DEB_TARGET),debian-trixie)
+	dh_builddeb -- -Zxz -z9 -Sextreme --threads-max=1
+else
+	dh_builddeb -- -Zzstd -z22 --threads-max=1
+endif
+endif

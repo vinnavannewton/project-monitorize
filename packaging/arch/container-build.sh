@@ -80,7 +80,14 @@ export CC="${host_cc}" CXX="${host_cxx}"
 
 cd /work/makepkg
 makepkg --printsrcinfo > /artifacts/.SRCINFO
-makepkg --force --clean
+compression_args=()
+if [[ "${MONITORIZE_RELEASE_COMPRESSION:-0}" == 1 ]]; then
+    compression_config="$(mktemp /tmp/monitorize-makepkg.XXXXXX.conf)"
+    cp /etc/makepkg.conf "${compression_config}"
+    printf '\nCOMPRESSZST=(zstd -c -T1 --ultra -22 -)\n' >> "${compression_config}"
+    compression_args=(--config "${compression_config}")
+fi
+makepkg "${compression_args[@]}" --force --clean
 mapfile -t package_names < <(makepkg --packagelist)
 [[ "${#package_names[@]}" == 1 ]] || die 'Expected one Arch package; disable unexpected debug packages.'
 package_file="${package_names[0]}"

@@ -121,6 +121,7 @@ jobs:
       - name: Build and smoke-test CUDA package
         env:
           MONITORIZE_BUILD_JOBS: "2"
+          MONITORIZE_RELEASE_COMPRESSION: "1"
         run: |
           set -euo pipefail
           case "${{ matrix.target }}" in

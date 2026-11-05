@@ -188,6 +188,7 @@ if [[ "${rebuild}" == true ]]; then
     run_options+=(--network=none --env MONITORIZE_OFFLINE=1 --env npm_config_offline=true)
 fi
 podman run "${run_options[@]}" \
+    --env "MONITORIZE_RELEASE_COMPRESSION=${MONITORIZE_RELEASE_COMPRESSION:-0}" \
     --env "MONITORIZE_RPM_JOBS=${build_jobs}" \
     --env "MONITORIZE_ENABLE_CUDA=${enable_cuda}" \
     --env "MONITORIZE_CUDA_ARCHIVE=/cuda-cache/${cuda_archive_name}" \
@@ -218,7 +219,12 @@ podman run "${run_options[@]}" \
         mkdir -p "${HOME}"
         variant_args=()
         if [[ "${MONITORIZE_ENABLE_CUDA}" == 0 ]]; then variant_args=(--without cuda); fi
+        compression_args=()
+        if [[ "${MONITORIZE_RELEASE_COMPRESSION:-0}" == 1 ]]; then
+            compression_args=(--define "_binary_payload w22T1.zstdio")
+        fi
         rpmbuild -ba \
+            "${compression_args[@]}" \
             "${variant_args[@]}" \
             --define "_topdir /work" \
             --define "_smp_build_ncpus ${MONITORIZE_RPM_JOBS}" \
