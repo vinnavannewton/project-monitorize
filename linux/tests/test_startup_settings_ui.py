@@ -222,6 +222,10 @@ with tempfile.TemporaryDirectory() as d:
             backend.remoteLoginSetupFinished.emit({'success':True,'activated':True,'reboot_required':True,'message':'Old generic reboot hint'})
             settle()
             assert prop('startupNotice') == 'Remote login enabled. Available now and after future boots.'
+            pairing_notice = 'Start at boot is enabled. Pair Moonlight from your desktop to connect at the sign-in screen.'
+            backend.remoteLoginSetupFinished.emit({'success':True,'activated':True,'pairing_required':True,'message':pairing_notice})
+            settle()
+            assert prop('startupNotice') == pairing_notice
             backend._remote_setup_busy=True;backend.remoteLoginSetupChanged.emit();settle()
             notice=page.findChild(QObject,'startupNoticeText');assert notice
             assert notice.property('text') == 'Applying startup settings…'

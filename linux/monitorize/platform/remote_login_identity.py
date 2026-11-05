@@ -9,12 +9,15 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 import ctypes
 import fcntl
+import hashlib
 import json
 import os
 from pathlib import Path
 import shutil
 import stat
 import tempfile
+import subprocess
+import uuid
 
 FILES=('sunshine_state.json','cacert.pem','cakey.pem')
 
@@ -88,30 +91,92 @@ def _rename_exclusive(source,destination):
         raise OSError(code,os.strerror(code))
 
 
-def migrate_identity(source,destination, *, uid):
-    """Copy complete identity once; keep the source untouched as rollback backup.
+class IdentitySetupError(ValueError):
+    """A safe, actionable identity error for setup UI."""
 
-    Caller supplies a trusted, root-managed destination parent in production and
-    verifies legacy engines are stopped. Destination must not already exist.
-    """
+
+def _source_files(source, uid):
+    credentials = source / 'credentials'
+    if os.path.lexists(credentials):
+        _directory(credentials, uid, private=False)
+    else:
+        credentials = source
+    raw = {}
+    for name in FILES:
+        path = (source if name == FILES[0] else credentials) / name
+        if os.path.lexists(path):
+            try:
+                raw[name] = _read_private(path, uid)
+            except ValueError as error:
+                raise IdentitySetupError('A Sunshine identity file is unsafe or unreadable. Repair the primary desktop profile and retry.') from error
+    return raw
+
+
+def source_fingerprint(source, uid):
+    raw = _source_files(source, uid)
+    return {name: hashlib.sha256(data).hexdigest() for name, data in raw.items()}
+
+
+def _openssl(*args, data=None):
+    from monitorize.remote_login.daemon import require_installed
+    try:
+        executable = str(Path('/usr/bin/openssl').resolve(strict=True))
+        require_installed(executable)
+        return subprocess.run([executable, *args], input=data, capture_output=True,
+                              timeout=15, check=True).stdout
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
+        raise IdentitySetupError('Could not prepare the Sunshine TLS identity. Check the system OpenSSL installation and the primary profile.') from error
+
+
+def _prepare_identity(raw, stage):
+    state_name, cert_name, key_name = FILES
+    try:
+        state = json.loads(raw.get(state_name, b'{}'))
+        if not isinstance(state, dict):
+            raise ValueError()
+        root = state.get('root')
+        if 'root' in state:
+            if (not isinstance(root, dict) or not isinstance(root.get('uniqueid'), str)
+                    or not root['uniqueid'].strip()
+                    or any(root[k] != '' and not isinstance(root[k], list)
+                           for k in ('devices', 'named_devices') if k in root)):
+                raise ValueError()
+        elif state and not all(isinstance(state.get(k), str) and state[k]
+                               for k in ('username', 'salt', 'password')):
+            raise ValueError()
+    except (ValueError, TypeError) as error:
+        raise IdentitySetupError('Sunshine pairing state is invalid. Restore the primary profile from backup and retry.') from error
+
+    has_cert, has_key = cert_name in raw, key_name in raw
+    if has_cert != has_key or (root is not None and not has_cert):
+        raise IdentitySetupError('Sunshine TLS credentials are incomplete. Restore the certificate and key for the primary profile and retry.')
+    if root is None:
+        if has_cert:
+            public = _openssl('x509', '-pubkey', '-noout', data=raw[cert_name])
+            if public != _openssl('pkey', '-pubout', data=raw[key_name]):
+                raise IdentitySetupError('Sunshine certificate and private key do not match. Restore the matching pair and retry.')
+        else:
+            _openssl('req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '7300',
+                     '-subj', '/CN=Sunshine Gamestream Host', '-keyout', str(stage / key_name),
+                     '-out', str(stage / cert_name))
+            for name in (cert_name, key_name):
+                path = stage / name
+                raw[name] = path.read_bytes()
+                path.unlink()
+        state['root'] = {'uniqueid': str(uuid.uuid4()), 'named_devices': []}
+        raw[state_name] = json.dumps(state).encode()
+    return raw
+
+
+def migrate_identity(source,destination, *, uid):
+    """Atomically import a paired identity or create one for a fresh profile."""
     source=Path(source);destination=Path(destination)
     _directory(source,uid,private=False)
     with acquire_identity_lock(identity_paths(source,flat=True),uid=uid,private_directory=False):
-        credentials=source/'credentials'
-        if credentials.exists() or credentials.is_symlink():
-            _directory(credentials,uid,private=False)
-        else:
-            credentials=source
-        raw={name:_read_private((source if name==FILES[0] else credentials)/name,uid) for name in FILES}
-        try:
-            root=json.loads(raw[FILES[0]])['root']
-            if not isinstance(root,dict) or not isinstance(root.get('uniqueid'),str) or not root['uniqueid'].strip():
-                raise ValueError()
-            if not any(isinstance(root.get(k),list) for k in ('named_devices','devices')):raise ValueError()
-        except (ValueError,KeyError,TypeError):
-            raise ValueError('A complete paired Sunshine identity is required.') from None
+        raw = _source_files(source, uid)
         stage=Path(tempfile.mkdtemp(prefix='.'+destination.name+'.',dir=destination.parent))
         try:
+            raw = _prepare_identity(raw, stage)
             identity=stage/'identity';identity.mkdir(mode=0o700)
             for name,data in raw.items():
                 fd=os.open(identity/name,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
@@ -172,3 +237,16 @@ def desktop_fallback_allowed(settings, *, owner_uid=0):
         boot,session=_fallback_context()
         return bool(session and grant['uid']==settings.uid and grant['session']==session and grant['boot_id']==boot)
     except (OSError,ValueError,TypeError):return False
+
+
+def has_paired_clients():
+    from monitorize.remote_login.settings import read_settings
+
+    try:
+        settings = read_settings()
+        if settings.uid != os.getuid():
+            return None
+        root = json.loads(_read_private(identity_paths(settings.directory).state, settings.uid))['root']
+        return bool(root.get('devices') or root.get('named_devices'))
+    except (OSError, ValueError, KeyError, AttributeError):
+        return None

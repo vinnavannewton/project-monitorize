@@ -68,3 +68,34 @@ class IdentityTests(unittest.TestCase):
         (self.source/'engine.lock').symlink_to(self.source/'cakey.pem')
         with self.assertRaises(OSError):
             with acquire_identity_lock(identity_paths(self.source,flat=True),uid=os.getuid()):pass
+
+    def test_fresh_identity_can_be_created_without_a_paired_client(self):
+        import shutil
+        from unittest.mock import patch
+
+        if not shutil.which('openssl'):
+            self.skipTest('OpenSSL is required to exercise TLS identity generation')
+        for path in self.source.iterdir():
+            path.unlink()
+        with patch('monitorize.remote_login.daemon.require_installed'):
+            migrate_identity(self.source, self.destination, uid=os.getuid())
+        paths = identity_paths(self.destination)
+        state = json.loads(paths.state.read_text())
+        self.assertEqual(state['root']['named_devices'], [])
+        self.assertTrue(state['root']['uniqueid'])
+        self.assertIn(b'BEGIN CERTIFICATE', paths.cert.read_bytes())
+        self.assertEqual(paths.key.stat().st_mode & 0o777, 0o600)
+
+    def test_credentials_only_state_preserves_web_login_and_existing_tls(self):
+        from unittest.mock import patch
+
+        credentials = {'username': 'local', 'salt': 'salt', 'password': 'hash'}
+        (self.source / 'sunshine_state.json').write_text(json.dumps(credentials))
+        with patch('monitorize.platform.remote_login_identity._openssl', return_value=b'matching public key'):
+            migrate_identity(self.source, self.destination, uid=os.getuid())
+        paths = identity_paths(self.destination)
+        state = json.loads(paths.state.read_text())
+        self.assertEqual({key: state[key] for key in credentials}, credentials)
+        self.assertEqual(state['root']['named_devices'], [])
+        self.assertEqual(paths.cert.read_bytes(), b'cert')
+        self.assertEqual(paths.key.read_bytes(), b'key')

@@ -99,6 +99,7 @@ Requires:       firewalld-filesystem
 Requires:       iproute
 Requires:       libva-utils
 Requires:       polkit
+Requires:       openssl
 Requires:       python3-cairo
 Requires:       python3-dbus
 Requires:       python3-gobject

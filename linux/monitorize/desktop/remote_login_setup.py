@@ -125,6 +125,10 @@ class RemoteLoginSetupCoordinator(QObject):
         snapshot=None;controller=False
         try:
             if self.request.enabled:
+                from pathlib import Path
+                from monitorize.platform.sunshine_service import ensure_sunshine_tray_disabled, get_sunshine_config_path
+                if not Path(get_sunshine_config_path(1)).exists():
+                    ensure_sunshine_tray_disabled(1)
                 snapshot=controller_snapshot()
                 (restore_managed if self._restore_controller else configure)(True);controller=True
             result=self._root_applied or apply_remote_login_setup(self.request.enabled)
@@ -214,8 +218,12 @@ class RemoteLoginSetupCoordinator(QObject):
             and status.get('desktop_owned') is True and status.get('listening') is True
             and runtime.participant.generation and runtime.participant.epoch
             and status.get('epoch')==runtime.participant.epoch):
-            self._finish({**result,'success':True,'activated':True,
-                'message':'Remote login enabled. Available now and after future boots.'});return
+            message = 'Remote login enabled. Available now and after future boots.'
+            from monitorize.platform.remote_login_identity import has_paired_clients
+            pairing_required = has_paired_clients() is False
+            if pairing_required:
+                message = 'Start at boot is enabled. Pair Moonlight from your desktop to connect at the sign-in screen.'
+            self._finish({**result,'success':True,'activated':True,'pairing_required':pairing_required,'message':message});return
         if time.monotonic()>=self._deadline:
             self._finish({**result,'success':False,'partial':True,'message':'Remote login is saved, but its listener did not become ready. Retry setup.'})
 

@@ -102,6 +102,7 @@ Requires:       libcap-progs
 Requires:       libva-utils
 Requires:       pkexec
 Requires:       polkit
+Requires:       openssl
 Requires:       python3-Jinja2
 Requires:       python3-PyQt6
 Requires:       python3-cairo

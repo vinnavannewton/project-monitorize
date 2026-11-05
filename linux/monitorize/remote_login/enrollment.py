@@ -6,7 +6,7 @@ import pwd
 import subprocess
 import sys
 from monitorize.platform.login_capture_probe import build_config
-from monitorize.platform.remote_login_identity import migrate_identity,identity_paths,acquire_identity_lock,_read_private
+from monitorize.platform.remote_login_identity import migrate_identity,identity_paths,acquire_identity_lock,_read_private,source_fingerprint,IdentitySetupError
 from .daemon import require_installed
 from .root_files import RootFiles
 from .runner import ENGINE,ASSETS,APPS,BOOT_CONFIG
@@ -110,13 +110,38 @@ def provision_identity(source,destination,uid,*,files):
     expected=dict(uid=uid,source=str(source),destination=str(destination))
     previous=files._read(files._path(receipt))
     if destination.exists():
-        if previous is None or json.loads(previous[0])!=expected:
+        record = json.loads(previous[0]) if previous else {}
+        if any(record.get(key) != value for key, value in expected.items()):
             raise RuntimeError('An unrecognized retained identity exists; inspect it before enrolling again.')
+        if record.get('source_fingerprint') != source_fingerprint(source, uid):
+            raise IdentitySetupError('The desktop Sunshine identity changed after interrupted setup. Recover the retained identity before retrying.')
         return
+    expected['source_fingerprint'] = source_fingerprint(source, uid)
     files.write(receipt,json.dumps(expected),0o600)
     migrate_identity(source,destination,uid=uid)
+    expected['published_fingerprint'] = source_fingerprint(identity_paths(destination).directory, uid)
+    files.write(receipt, json.dumps(expected), 0o600)
 
 
+def discard_unmodified_identity(uid, *, files=None):
+    """Remove only a newly provisioned identity that never acquired new state."""
+    import shutil
+
+    files = files or RootFiles()
+    receipt = files._path('etc/monitorize/remote-login-pending.json')
+    previous = files._read(receipt)
+    destination = files._path(f'var/lib/monitorize/remote-login/{uid}')
+    if not previous or not destination.exists():
+        return
+    record = json.loads(previous[0])
+    if record.get('uid') != uid or record.get('destination') != str(destination):
+        return
+    paths = identity_paths(destination)
+    with acquire_identity_lock(paths, uid=uid):
+        if record.get('published_fingerprint') != source_fingerprint(paths.directory, uid):
+            return
+        shutil.rmtree(destination)
+    receipt.unlink()
 
 
 def restore_linger(uid,*,commands):

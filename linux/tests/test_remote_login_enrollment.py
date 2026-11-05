@@ -80,7 +80,7 @@ class RetryIdentityTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             root=Path(d);source=root/'source';source.mkdir();destination=root/'identity'
             record=RootFiles(root,os.getuid())
-            def migrate(source,destination,uid):destination.mkdir()
+            def migrate(source,destination,uid):(destination / "identity").mkdir(parents=True)
             with patch('monitorize.remote_login.enrollment.migrate_identity',side_effect=migrate) as copy:
                 provision_identity(source,destination,1000,files=record)
                 provision_identity(source,destination,1000,files=RootFiles(root,os.getuid()))
@@ -93,3 +93,29 @@ class RetryIdentityTests(unittest.TestCase):
             root=Path(d);destination=root/'identity';destination.mkdir()
             with self.assertRaisesRegex(RuntimeError,'retained identity'):
                 provision_identity(root/'source',destination,1000,files=RootFiles(root,os.getuid()))
+
+    def test_rollback_only_discards_an_unmodified_new_identity(self):
+        from monitorize.platform.remote_login_identity import identity_paths
+        from monitorize.remote_login.enrollment import discard_unmodified_identity, provision_identity
+        import json
+
+        for changed in (False, True):
+            with self.subTest(changed=changed), tempfile.TemporaryDirectory() as d:
+                root = Path(d)
+                uid = os.getuid()
+                files = RootFiles(root, uid)
+                source = root / 'source'
+                source.mkdir()
+                (source / 'sunshine_state.json').write_text(json.dumps(
+                    {'root': {'uniqueid': 'existing-host', 'named_devices': []}}))
+                (source / 'cacert.pem').write_bytes(b'cert')
+                (source / 'cakey.pem').write_bytes(b'key')
+                destination = root / 'var/lib/monitorize/remote-login' / str(uid)
+                destination.parent.mkdir(parents=True)
+                provision_identity(source, destination, uid, files=files)
+                if changed:
+                    identity_paths(destination).state.write_text(json.dumps(
+                        {'root': {'uniqueid': 'existing-host', 'named_devices': [{'uuid': 'new-client'}]}}))
+                discard_unmodified_identity(uid, files=files)
+                self.assertEqual(destination.exists(), changed)
+                self.assertTrue((source / 'sunshine_state.json').exists())

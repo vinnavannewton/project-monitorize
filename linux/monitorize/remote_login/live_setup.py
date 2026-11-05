@@ -3,6 +3,7 @@ from contextlib import contextmanager
 import base64
 import fcntl
 import json
+import logging
 import os
 from pathlib import Path
 import re
@@ -11,6 +12,7 @@ import stat
 import sys
 
 from .root_files import RootFiles
+from monitorize.platform.remote_login_identity import IdentitySetupError
 
 LIVE_ENROLLMENT_PROTOCOL = 1
 
@@ -159,6 +161,8 @@ class LiveEnrollment:
             backend.verify(uid,session);self.stage('waiting_for_controller')
             return self.result()
         except Exception as error:
+            logging.error('Remote-login setup failed during %s (%s).', self.value['stage'], type(error).__name__)
+            detail = str(error) if isinstance(error, IdentitySetupError) else 'Live remote-login setup failed ('+type(error).__name__+').'
             try:
                 backend.verify(uid,session)
                 backend.rollback(uid,self)
@@ -166,7 +170,7 @@ class LiveEnrollment:
                 if hasattr(backend,'restored'):backend.restored(uid,self)
                 self.stage('rolled_back')
                 return dict(success=False,configured=self.value['system'].get('enrolled',False),activated=False,partial=False,cleanup_pending=False,
-                    reboot_required=False,message='Live remote-login setup failed ('+type(error).__name__+'); prior settings restored. Retry setup.')
+                    reboot_required=False,message=detail+' Prior settings restored. Retry setup.')
             except Exception:
                 self.stage('cleanup_pending')
                 return dict(success=False,configured=True,activated=False,partial=True,cleanup_pending=True,
@@ -256,6 +260,7 @@ class InstalledBackend:
             raise PermissionError('Reserved display belongs to another lifecycle.')
         return dict(units=units,active=active,caps=caps,masks=masks,lease=value,
                     enrolled=bool(SETTINGS.exists() and read_settings().enabled),
+                    identity_existed=(Path('/var/lib/monitorize/remote-login') / str(uid)).exists(),
                     maintenance_required=any(active.values()))
 
     def fallback_masks(self,uid,session):
@@ -357,6 +362,9 @@ class InstalledBackend:
 
     def restored(self,uid,journal):
         self.commands.reload()
+        if journal.value['system'].get('identity_existed') is False:
+            from .enrollment import discard_unmodified_identity
+            discard_unmodified_identity(uid)
         if journal.value['system'].get('maintenance_started'):
             self.maintenance(journal).resume()
             from .settings import read_settings

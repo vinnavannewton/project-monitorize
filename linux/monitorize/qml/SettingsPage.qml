@@ -30,7 +30,7 @@ Item {
         if (result.primary_display_setting)
             return "Login-screen display choice saved for the next boot. Desktop streaming is unchanged."
         if (result.activated)
-            return "Remote login enabled. Available now and after future boots."
+            return result.pairing_required ? result.message : "Remote login enabled. Available now and after future boots."
         return result.message || "Startup settings saved."
     }
     function refreshAuthorization() {
