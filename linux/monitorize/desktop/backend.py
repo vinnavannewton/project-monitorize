@@ -1289,7 +1289,7 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot(bool)
     def setVkmsUnattended(self, enabled):
-        if self.systemSetupRunning or self.applyingConfiguration or self.session.active or self.session.busy:
+        if self.systemSetupRunning or self.applyingConfiguration or (self.session.active and not enabled) or self.session.busy:
             return
         from monitorize.platform.system_setup import vkms_authorization_command
         command, error = vkms_authorization_command(enabled)
@@ -1840,8 +1840,6 @@ class MonitorizeBackend(QObject):
             if self.remoteLoginEnabled:self._validate_remote_candidate(candidate)
             if candidate["streaming_backend"] == "sunshine" and not self.remoteLoginEnabled:
                 if not self.sunshineAvailable:raise ValueError("Install Monitorize Sunshine before enabling streaming.")
-                if candidate["primary"].get("virtual_display_creator") == "vkms":
-                    MonitorizeVkmsClient().require_unattended()
             for instance, raw in ((1,candidate["primary"]),(2,candidate["second"])):
                 if instance == 2 and not raw.get("enabled"):continue
                 if raw.get("streaming_customized") and raw.get("sunshine_gpu") and not resolve_encoding_gpu(raw.get("sunshine_encoder","Auto"),raw["sunshine_gpu"]):

@@ -1,11 +1,12 @@
-"""One user-requested KMS authorization, without prompting background listeners."""
+"""User-requested capture and VKMS authorization; background listeners never prompt."""
 from pathlib import Path
 
 from PyQt6.QtCore import QObject, QProcess, QTimer, pyqtSignal
 
 from monitorize.platform.polkit_agent import agent_missing, start_agent
 from monitorize.platform.sunshine_service import get_sunshine_kms_setup_status
-from monitorize.platform.system_setup import kms_setup_command, parse_system_setup_result
+from monitorize.platform.system_setup import kms_setup_command, vkms_authorization_command, parse_system_setup_result
+from monitorize.platform.monitorize_vkms_dbus import MonitorizeVkmsClient
 
 
 def capture_requirements(bundle, desktop, remote=False):
@@ -48,7 +49,22 @@ class KmsAuthorization(QObject):
         if self.busy:
             return False
         requirements = capture_requirements(bundle, desktop, remote)
+        primary = bundle.get("primary", {})
+        vkms = (not remote and bundle.get("streaming_backend") == "sunshine"
+                and primary.get("display_type") == "Extend"
+                and primary.get("virtual_display_creator") == "vkms")
         targets = {}
+        if vkms:
+            try:
+                enabled = self._vkms_enabled()
+                if not enabled:
+                    command, error = vkms_authorization_command(True)
+                    if error:
+                        raise RuntimeError(error["message"])
+                    targets["vkms"] = (1, command)
+            except Exception as exc:
+                completed(False, str(exc), 1)
+                return False
         identities = {}
         for instance, binary in requirements:
             status = get_sunshine_kms_setup_status(instance, binary)
@@ -74,16 +90,31 @@ class KmsAuthorization(QObject):
         if not targets:
             return True
         self.request = {"targets": list(targets.items()), "requirements": requirements,
-                        "completed": completed, "identities": identities}
+                        "completed": completed, "identities": identities, "vkms": vkms}
         self.changed.emit()
         self._next()
         return False
+
+    @staticmethod
+    def _vkms_enabled():
+        client = MonitorizeVkmsClient()
+        try:
+            return client.get_authorization_state()["unattended_enabled"]
+        finally:
+            client.close()
 
     def _next(self):
         request = self.request
         if not request:
             return
         if not request["targets"]:
+            if request["vkms"]:
+                try:
+                    if not self._vkms_enabled():
+                        raise RuntimeError("Passwordless VKMS authorization could not be verified. Retry Start or Apply.")
+                except Exception as exc:
+                    self._complete(False, str(exc), 1)
+                    return
             for instance, binary in request["requirements"]:
                 status = get_sunshine_kms_setup_status(instance, binary)
                 if status["code"] != "ready":
@@ -103,7 +134,8 @@ class KmsAuthorization(QObject):
         path, (instance, command) = request["targets"].pop(0)
         request["active_target"] = (path, (instance, command))
         request["instance"] = instance
-        request["identities"][path] = (int(command[-3]), int(command[-1]))
+        if path != "vkms":
+            request["identities"][path] = (int(command[-3]), int(command[-1]))
         process = QProcess(self)
         self.process = process
         process.finished.connect(lambda code, _status: self._finished(process, code))

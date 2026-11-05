@@ -410,7 +410,7 @@ Item {
                         : (page.vkmsAuthorization.message || "Install or upgrade monitorize-vkms first.")
                     symbol: "key-slash"
                     actionText: page.vkmsChecking ? "Checking…" : !page.vkmsAuthorization.success ? "Recover host" : page.vkmsAuthorization.repair_required ? "Reauthorize" : page.vkmsAuthorization.unattended_enabled ? "Disable" : "Enable"
-                    actionEnabled: !page.vkmsChecking && !backend.isStreaming && !backend.sessionBusy && !backend.systemSetupRunning
+                    actionEnabled: !page.vkmsChecking && (!backend.isStreaming || (page.vkmsAuthorization.success && !page.vkmsAuthorization.unattended_enabled)) && !backend.sessionBusy && !backend.systemSetupRunning && !backend.applyingConfiguration
                     Layout.fillWidth: true
                     onClicked: {
                         page.vkmsAuthorizationMessage = ""
@@ -439,7 +439,7 @@ Item {
                     symbol: "display-minus"
                     actionText: backend.virtualDisplayCleanupRunning ? "Removing…" : "Remove display"
                     Layout.fillWidth: true
-                    actionEnabled: !backend.isStreaming && !backend.virtualDisplayCleanupRunning
+                    actionEnabled: !backend.sessionBusy && !backend.applyingConfiguration && !backend.systemSetupRunning && !backend.virtualDisplayCleanupRunning
                     onClicked: root.removeStagnantVirtualDisplays()
                 }
                 SettingsActionRow {
@@ -447,7 +447,7 @@ Item {
                     title: "Clear restore tokens"
                     description: "Delete saved screen-sharing restore tokens."
                     symbol: "document-x"; actionText: "Clear tokens"
-                    actionEnabled: !backend.isStreaming
+                    actionEnabled: !backend.sessionBusy && !backend.applyingConfiguration && !backend.systemSetupRunning
                     Layout.fillWidth: true
                     onClicked: root.clearRestoreTokens()
                 }

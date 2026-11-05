@@ -139,6 +139,70 @@ class KmsAuthorizationTests(unittest.TestCase):
     def settle(self):
         loop = QEventLoop(); QTimer.singleShot(180, loop.quit); loop.exec()
 
+    def vkms_bundle(self):
+        raw = bundle()
+        raw['primary'].update(virtual_display_creator='vkms', sunshine_capture='wlr')
+        return raw
+
+    def vkms_command(self, success=True):
+        return [sys.executable, '-c', 'print(' + repr(json.dumps(
+            {'success': success, 'message': 'Authorization cancelled.'})) + ')'], None
+
+    def test_vkms_enrollment_verifies_and_continues_once(self):
+        with patch.object(self.auth, '_vkms_enabled', side_effect=[False, True]), \
+             patch.object(kms, 'vkms_authorization_command', return_value=self.vkms_command()) as command:
+            self.assertFalse(self.auth.ensure(self.vkms_bundle(), 'gnome', False,
+                                              lambda *args: self.results.append(args)))
+            self.settle()
+        command.assert_called_once_with(True)
+        self.assertEqual(self.results, [(True, '', 1)])
+
+    def test_vkms_cancel_failure_and_stop_never_resume(self):
+        for success, stop in ((False, False), (True, True), (True, False)):
+            self.results.clear()
+            with patch.object(self.auth, '_vkms_enabled', return_value=False), \
+                 patch.object(kms, 'vkms_authorization_command', return_value=self.vkms_command(success)) as command:
+                self.auth.ensure(self.vkms_bundle(), 'gnome', False,
+                                 lambda *args: self.results.append(args))
+                if stop:
+                    self.auth.cancel()
+                self.settle()
+            command.assert_called_once_with(True)
+            if stop:
+                self.assertEqual(self.results, [])
+            else:
+                self.assertEqual(len(self.results), 1)
+                self.assertFalse(self.results[0][0])
+            self.assertFalse(self.auth.busy)
+
+    def test_vkms_and_kms_repairs_share_one_verified_continuation(self):
+        raw = self.vkms_bundle()
+        raw['primary']['sunshine_capture'] = 'kms'
+        with patch.object(self.auth, '_vkms_enabled', side_effect=[False, True]), \
+             patch.object(kms, 'vkms_authorization_command', return_value=self.vkms_command()), \
+             patch.object(kms, 'get_sunshine_kms_setup_status', side_effect=self.status), \
+             patch.object(kms, 'kms_setup_command', side_effect=self.command):
+            self.auth.ensure(raw, 'gnome', False, lambda *args: self.results.append(args))
+            self.settle()
+        self.assertEqual(self.results, [(True, '', 1)])
+
+    def test_unknown_vkms_status_fails_without_prompting(self):
+        with patch.object(self.auth, '_vkms_enabled', side_effect=RuntimeError('Service unavailable')), \
+             patch.object(kms, 'vkms_authorization_command') as command:
+            self.assertFalse(self.auth.ensure(self.vkms_bundle(), 'gnome', False,
+                                              lambda *args: self.results.append(args)))
+        command.assert_not_called()
+        self.assertEqual(self.results, [(False, 'Service unavailable', 1)])
+
+    def test_enrolled_vkms_and_display_only_do_not_prompt(self):
+        with patch.object(self.auth, '_vkms_enabled', return_value=True), \
+             patch.object(kms, 'vkms_authorization_command') as command:
+            self.assertTrue(self.auth.ensure(self.vkms_bundle(), 'gnome', False, Mock()))
+            raw = self.vkms_bundle()
+            raw['streaming_backend'] = 'none'
+            self.assertTrue(self.auth.ensure(raw, 'gnome', False, Mock()))
+        command.assert_not_called()
+
     def test_success_verifies_permission_and_resumes_once_without_blocking_qt(self):
         tick = []
         with patch.object(kms, 'get_sunshine_kms_setup_status', side_effect=self.status), \
@@ -236,6 +300,22 @@ class KmsStartIntegrationTests(unittest.TestCase):
             ensure.call_args.args[-1](True, '', 1)
             launch.assert_not_called()
             self.assertIn('Configuration changed', backend.displayError(1))
+
+    def test_vkms_apply_enters_authorization_before_restart(self):
+        backend = self.backend
+        backend.configuration_state.draft['primary'].update(
+            display_type='Extend', virtual_display_creator='vkms', sunshine_capture='auto')
+        backend.configuration_state.draft['streaming_backend'] = 'sunshine'
+        with patch.object(type(backend), 'sunshineAvailable', property(lambda self: True)), \
+             patch.object(backend, '_authorize_kms', return_value=False) as authorize, \
+             patch.object(backend._restart, 'begin') as restart, \
+             patch('monitorize.desktop.configuration_state.save_bundle'), \
+             patch('monitorize.platform.monitorize_vkms_dbus.MonitorizeVkmsClient.require_unattended') as reject:
+            backend.applyConfiguration()
+        authorize.assert_called_once()
+        self.assertEqual(authorize.call_args.args[1], 'apply')
+        restart.assert_not_called()
+        reject.assert_not_called()
 
     def test_background_listener_never_enters_authorization(self):
         backend = self.backend

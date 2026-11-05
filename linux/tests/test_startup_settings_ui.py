@@ -381,6 +381,24 @@ with tempfile.TemporaryDirectory() as d:
             client.return_value.get_authorization_state.return_value={'success':True,'unattended_enabled':False}
             backend.refreshVkmsAuthorization();settle()
             assert prop('vkmsAuthorization.success') and not prop('vkmsAuthorization.unattended_enabled')
+            # An idle listener must not hide the missing authorization or recovery actions.
+            backend.streaming.streaming = True
+            backend.streaming.primary_ready = True
+            backend.sessionChanged.emit()
+            backend.configurationChanged.emit()
+            backend.isStreamingChanged.emit(True)
+            settle()
+            rows = {obj.property('title'): obj for obj in page.findChildren(QObject)
+                    if obj.property('title') in ('Passwordless login (VKMS)', 'Remove virtual display', 'Clear restore tokens')}
+            assert len(rows) == 3
+            assert all(row.property('actionEnabled') for row in rows.values()), ([(title,row.property('actionEnabled')) for title,row in rows.items()], backend.sessionBusy, backend.applyingConfiguration, backend.systemSetupRunning, page.property('vkmsChecking'))
+            client.return_value.get_authorization_state.return_value={'success':True,'unattended_enabled':True}
+            page.setProperty('vkmsAuthorization', {'success':True,'unattended_enabled':True})
+            settle()
+            assert not rows['Passwordless login (VKMS)'].property('actionEnabled')
+            backend.streaming.streaming = False
+            backend.isStreamingChanged.emit(False)
+            settle()
             print('Settings startup and authorization states passed')
         finally:
             view.setSource(QUrl());view.close();backend.close();app.processEvents()
