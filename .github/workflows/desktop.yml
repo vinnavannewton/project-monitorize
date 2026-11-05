@@ -51,7 +51,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: recursive
+          # Tests inspect pinned Sunshine sources, but do not build its dependencies.
+          submodules: true
       - name: Isolate application settings
         run: |
           mkdir -p "${RUNNER_TEMP}/monitorize-ci-config"
