@@ -27,6 +27,14 @@ class RestartTransactionTest(unittest.TestCase):
         self.begin();self.tx.cancel();self.stopped=True;self.tx.tick();self.launch.assert_not_called()
     def test_cleanup_timeout_never_starts_successor(self):
         self.begin();self.now=31;self.tx.tick();self.launch.assert_not_called();self.assertFalse(self.tx.busy)
+    def test_failed_cleanup_ends_restart_immediately_with_recovery_reason(self):
+        self.begin()
+        self.tx.stopped = Mock(side_effect=RuntimeError('Display recovery failed'))
+        self.tx.tick()
+        self.finished.assert_called_once_with(False, 'Display recovery failed')
+        self.launch.assert_not_called()
+        self.assertFalse(self.tx.busy)
+
     def test_failure_restores_previous_once(self):
         self.begin();self.launch_candidate();self.failure='bad encoder';self.tx.tick()
         self.failure='';self.tx.tick();self.assertEqual(self.launch.call_args.args[0],self.old)

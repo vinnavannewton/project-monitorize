@@ -1878,8 +1878,9 @@ class MonitorizeBackend(QObject):
         if self.remoteLoginEnabled:
             return not self._remote_login.busy and self._remote_login.status.get("state") == "stopped"
         runtime = self.session.client_runtime
+        if runtime and runtime.cleanup_blocked and not runtime.retiring:
+            raise RuntimeError(next(iter(runtime.cleanup_blocked.values())))
         return (not self.session.active and not self.session.busy
-                and not (runtime and runtime.cleanup_blocked)
                 and not any(is_sunshine_running(i) for i in (1,2)))
 
     def _launch_configuration(self, bundle):

@@ -87,4 +87,8 @@ class RestartTransaction(QObject):
             else:
                 if self.publish:self.commit(copy.deepcopy(self.candidate))
                 self._finish(True,'Changes applied. Session is ready.' if self.publish else 'Session restarted.')
-        except Exception as exc:self._fail(str(exc))
+        except Exception as exc:
+            if self.phase == 'stopping':
+                self._finish(False, ' '.join(part for part in (self.error, str(exc)) if part))
+            else:
+                self._fail(str(exc))

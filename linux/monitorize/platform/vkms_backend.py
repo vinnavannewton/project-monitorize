@@ -142,7 +142,7 @@ def run_vkms_headless(
         print("[VKMS] Using host monitorize-vkms service", flush=True)
         print(f"[VKMS] Requesting display: {width}x{height}@{fps}", flush=True)
 
-        if desktop.lower() in ('hyprland', 'x11'):
+        if desktop.lower() in ('kde', 'hyprland', 'x11'):
             vkms_client.require_managed_backend(desktop.lower())
         if desktop.lower() == 'hyprland':
             from monitorize.platform.hyprland_layout import HyprlandLayout

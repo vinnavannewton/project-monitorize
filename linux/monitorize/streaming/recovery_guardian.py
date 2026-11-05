@@ -165,6 +165,7 @@ class Guardian:
     async def handle(self, reader, writer):
         slot = None
         hold = False
+        holder_error = None
         try:
             raw = writer.get_extra_info('socket')
             _pid, uid, _gid = struct.unpack('3i', raw.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
@@ -243,22 +244,30 @@ class Guardian:
             if slot in self.reserved and not hold:
                 self.pending_release.add(slot)
             print(f'Guardian: {exc}', flush=True)
-            try:
-                writer.write(_frame({'ok': False, 'error': str(exc)}))
-                await writer.drain()
-            except (BrokenPipeError, ConnectionResetError):
-                pass
+            if hold:
+                holder_error = str(exc)
+            else:
+                try:
+                    writer.write(_frame({'ok': False, 'error': str(exc)}))
+                    await writer.drain()
+                except (BrokenPipeError, ConnectionResetError):
+                    pass
         finally:
             if hold:
                 try:
                     await self.release(slot)
                 except Exception as exc:
                     print(f'Guardian retaining display {slot}: {exc}', flush=True)
-                    try:
-                        writer.write(_frame({'ok': False, 'error': str(exc)}))
-                        await writer.drain()
-                    except (BrokenPipeError, ConnectionResetError):
-                        pass
+                    receipt = _frame({'ok': False, 'error': str(exc)})
+                else:
+                    receipt = b'MONITORIZE_EVENT ' + _frame({'type': 'guardian_result', 'cleanup_complete': True})
+                    if holder_error:
+                        receipt += _frame({'ok': False, 'error': holder_error})
+                try:
+                    writer.write(receipt)
+                    await writer.drain()
+                except (BrokenPipeError, ConnectionResetError):
+                    pass
             writer.close()
 
     async def spawn_holder(self, args, environment):

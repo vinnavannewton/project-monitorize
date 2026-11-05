@@ -148,6 +148,23 @@ class GuardianProtocolTest(unittest.IsolatedAsyncioTestCase):
         self.assertFalse((await self.command(operation='configure', mode='primary'))['ok'])
         self.assertEqual(self.layout.mode, 'virtual_only')
 
+    async def test_failed_holder_reports_verified_release_before_startup_error(self):
+        reader, writer = await asyncio.open_unix_connection(self.path)
+        self.relays.append(writer)
+        writer.write(_frame(dict(token='secret', operation='hold', slot=1,
+                                 args=['1920', '1080', '60', 'primary', 'kde', 'vkms'])))
+        await writer.drain()
+        self.assertEqual(await asyncio.wait_for(reader.readline(), 2), b'holder-ready\n')
+        self.guardian.holders[1].kill()
+        line = await asyncio.wait_for(reader.readline(), 2)
+        self.assertTrue(line.startswith(b'MONITORIZE_EVENT '))
+        receipt = json.loads(line.split(b' ', 1)[1])
+        self.assertEqual(receipt, {'type': 'guardian_result', 'cleanup_complete': True})
+        failure = json.loads(await asyncio.wait_for(reader.readline(), 2))
+        self.assertFalse(failure['ok'])
+        self.assertFalse(self.guardian.reserved)
+        self.assertFalse(self.layout.journal.exists())
+
     async def test_failed_holder_keeps_journal_until_leftover_output_is_absent(self):
         reader, _writer = await self.hold()
         await self.command(operation='stream', slot=1, active=True)

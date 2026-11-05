@@ -60,7 +60,13 @@ class KdeLayout:
 
     @staticmethod
     def active(output):
-        return bool(output.get('connected') and output.get('enabled'))
+        if output.get('connected') is not True:
+            return False
+        if 'enabled' in output:
+            return output['enabled'] is True
+        # KScreen omits enabled when the output does not advertise Disable.
+        priority = output.get('priority')
+        return type(priority) is int and priority > 0
 
     def restore(self, snapshot, owned):
         current = {o['name']: o for o in self.outputs()}
@@ -103,7 +109,14 @@ class KdeLayout:
         outputs = {o['name']: o for o in self.outputs()}
         names = list(targets.values())
         if not names or any(name not in outputs or not self.active(outputs[name]) for name in names):
-            raise RuntimeError('A streaming virtual display is unavailable.')
+            states = {
+                name: {key: output.get(key) for key in ('connected', 'enabled', 'priority')}
+                for name, output in outputs.items()
+            }
+            raise RuntimeError(
+                f'A streaming virtual display is unavailable. '
+                f'Expected KScreen outputs: {names!r}; observed: {states!r}.'
+            )
         commands = [f'output.{name}.priority.{index + 1}' for index, name in enumerate(names)]
         for index, saved in enumerate(snapshot):
             name = saved['name']

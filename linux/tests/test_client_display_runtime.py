@@ -374,6 +374,42 @@ class ClientDisplayLifecycleTest(ClientDisplayRuntimeTest):
                 with patch('monitorize.desktop.client_display_runtime.get_sunshine_config_dir', return_value=self.temp.name):
                     self.assertEqual(ClientDisplayRuntime._startup_status(self.runtime, slot)[0], 'ready')
 
+    def test_native_kde_accepts_verified_cvt_mode_for_virtual_only(self):
+        from PyQt6.QtCore import QTimer
+        slot = self.runtime.slots[1]
+        slot.config['display_behavior'] = 'virtual_only'
+        slot.requested = (2340, 1080, 120)
+        slot.deadline = QTimer()
+        self.runtime._ready(slot, dict(name='Virtual-Monitorize-1', node_id=82,
+                                      width=2336, height=1080, fps=119.439))
+        self.assertEqual(slot.target['width'], 2336)
+        self.assertAlmostEqual(slot.target['fps'], 119.439)
+
+    def test_prepare_error_is_returned_without_stopping_https_listener(self):
+        slot = self.runtime.slots[1]
+        slot.status = 'preparing'
+        peer = object()
+        slot.pending = [peer]
+        with patch.object(self.runtime, '_reply') as reply, patch(
+            'monitorize.desktop.client_display_runtime.stop_sunshine'
+        ) as stopped:
+            self.runtime._holder_failed(slot, None, 'Desktop socket unavailable')
+        reply.assert_called_once_with(peer, False, error='Desktop socket unavailable')
+        stopped.assert_not_called()
+        self.assertEqual(slot.error, 'Desktop socket unavailable')
+        self.assertIsNone(slot.retry)
+
+    def test_kde_vkms_listener_rejects_old_helper_before_launch(self):
+        from monitorize.platform.monitorize_vkms_dbus import VkmsProtocolError
+        with patch('monitorize.platform.monitorize_vkms_dbus.MonitorizeVkmsClient') as factory, patch(
+            'monitorize.desktop.client_display_runtime.start_sunshine'
+        ) as launch:
+            factory.return_value.require_managed_backend.side_effect = VkmsProtocolError('Update KDE helper')
+            self.assertFalse(self.runtime.start_slot(2, {'de': 'kde', 'virtual_display_creator': 'vkms'}))
+        factory.return_value.require_managed_backend.assert_called_once_with('kde')
+        launch.assert_not_called()
+        self.assertEqual(self.runtime.error, 'Update KDE helper')
+
     def test_unexpected_holder_loss_recycles_only_owning_listener(self):
         slot = self.runtime.slots[1]
         slot.owner, slot.request_id = 'alice', 'one'

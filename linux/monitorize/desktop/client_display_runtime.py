@@ -151,7 +151,7 @@ class ClientDisplayRuntime(QObject):
             host = MonitorizeVkmsClient()
             try:
                 host.require_unattended()
-                if config.get('de') in ('hyprland', 'x11'):
+                if config.get('de') in ('kde', 'hyprland', 'x11'):
                     host.require_managed_backend(config['de'])
                 if config.get('de') == 'hyprland':
                     from monitorize.platform.hyprland_layout import HyprlandLayout
@@ -623,7 +623,9 @@ class ClientDisplayRuntime(QObject):
             if line.startswith('MONITORIZE_EVENT '):
                 try:
                     outcome = json.loads(line.split(' ', 1)[1])
-                    if outcome.get('type') == 'headless_result' and outcome.get('cleanup_complete') is True:
+                    terminal_event = ('headless_result' if slot.config.get('display_behavior', 'extend') == 'extend'
+                                      else 'guardian_result')
+                    if outcome.get('type') == terminal_event and outcome.get('cleanup_complete') is True:
                         self._clean_holders.add(process)
                 except (ValueError, TypeError):
                     pass
@@ -664,7 +666,11 @@ class ClientDisplayRuntime(QObject):
         width, height, fps = slot.requested
         actual_width, actual_height = int(event.get('width') or width), int(event.get('height') or height)
         actual_fps = float(event.get('fps') or fps)
-        if actual_width != width or actual_height != height or not math.isfinite(actual_fps) or not math.isclose(actual_fps, fps, rel_tol=0.001, abs_tol=0.01):
+        native_kde = slot.config['de'] == 'kde' and slot.config.get('virtual_display_creator', 'native') == 'native' and not event.get('vkms')
+        width_matches = actual_width == width or (native_kde and actual_width == width - width % 8)
+        fps_matches = (abs(actual_fps - fps) <= max(0.1, fps * 0.01) if native_kde
+                       else math.isclose(actual_fps, fps, rel_tol=0.001, abs_tol=0.01))
+        if not width_matches or actual_height != height or not math.isfinite(actual_fps) or not fps_matches:
             raise ValueError('Display backend did not apply the requested mode.')
         slot.target = dict(output_name=output, capture=capture, pipewire_node=node,
             width=int(event.get('width') or width), height=int(event.get('height') or height),
@@ -712,15 +718,19 @@ class ClientDisplayRuntime(QObject):
                 self._read_holder(slot, process)
             message = slot.preparation_error or message
             pending, slot.pending = slot.pending, []
+            preparation_failed = not slot.manual and slot.status == 'preparing' and not slot.target
             for peer in pending:
                 self._reply(peer, False, error=message)
-            stop_sunshine(slot.instance)
-            slot.intentional_recycle = not slot.manual
+            # Sunshine is still serving the HTTPS launch request during preparation.
+            # Keep the listener available to deliver the error and handle a retry.
+            if not preparation_failed:
+                stop_sunshine(slot.instance)
+            slot.intentional_recycle = not slot.manual and not preparation_failed
             self._cleanup(slot)
             slot.error = message
             if slot.manual:
                 slot.status = 'error'
-            else:
+            elif not preparation_failed:
                 self._schedule_retry(slot, 0)
             self.changed.emit()
 
@@ -741,8 +751,11 @@ class ClientDisplayRuntime(QObject):
             # Keep the holder alive until graceful backend cleanup has run. No
             # destructive forced VKMS cleanup or compositor policy bypass here.
             QTimer.singleShot(5000, lambda p=process: self._holder_cleanup_timeout(p))
-        elif process and process.exitCode() != 0 and process not in self._clean_holders:
-            self._block_cleanup(slot.instance)
+        elif process:
+            if process.exitCode() != 0 and process not in self._clean_holders:
+                self._block_cleanup(slot.instance)
+            self._clean_holders.discard(process)
+            self._outcome_buffers.pop(process, None)
             process.deleteLater()
         pending, slot.pending = slot.pending, []
         for peer in pending:

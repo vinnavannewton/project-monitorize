@@ -62,6 +62,24 @@ class LayoutTransactionTest(unittest.TestCase):
         self.assertEqual(self.backend.state[0]['priority'], 1)
         self.assertFalse(self.path.exists())
 
+    def test_kwin_screencast_output_without_enabled_field_remains_active(self):
+        del self.backend.state[1]['enabled']
+        self.layout.stream(1, True)
+        self.assertFalse(self.backend.state[0]['enabled'])
+        self.assertEqual(self.backend.state[1]['priority'], 1)
+        self.layout.release(1)
+        self.assertTrue(self.backend.state[0]['enabled'])
+
+    def test_missing_enabled_does_not_override_disconnection_or_zero_priority(self):
+        for state in (
+            {'connected': False, 'priority': 2},
+            {'connected': True, 'priority': 0},
+            {'connected': True, 'priority': 2, 'enabled': False},
+            {'connected': True},
+        ):
+            with self.subTest(state=state):
+                self.assertFalse(KdeLayout.active(state))
+
     def test_primary_keeps_physical_enabled_and_restores_priority(self):
         self.layout.mode = 'primary'
         self.layout.stream(1, True)
