@@ -15,6 +15,13 @@ class ConfigurationStateTest(unittest.TestCase):
         for p in self.patches:p.start();self.addCleanup(p.stop)
         self.model=ConfigurationState(settings.load_display_settings(),settings.load_second_display_settings(),settings.load_general_settings())
 
+    def test_kms_rejects_each_compositor_virtual_creator(self):
+        from monitorize.desktop.configuration_state import capture_compatibility_error
+        for desktop in ('kde', 'gnome', 'hyprland', 'sway'):
+            self.assertIn('Auto', capture_compatibility_error(desktop, 'Extend', 'native', 'kms'))
+            self.assertEqual(capture_compatibility_error(desktop, 'Extend', 'vkms', 'kms'), '')
+            self.assertEqual(capture_compatibility_error(desktop, 'Mirror', 'native', 'kms'), '')
+
     def test_draft_has_no_persistent_or_applied_effect(self):
         old=copy.deepcopy(self.model.applied)
         self.model.update('primary',{'resolution':'2560x1440'})

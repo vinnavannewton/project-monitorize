@@ -430,7 +430,8 @@ def run_gnome_headless(slot, width, height, fps, display_type="Extend"):
         offset_x, offset_y = 0, 0
         try:
             state = display_config.GetCurrentState()
-            gnome_virtual_monitor.map_sunshine_gnome_peripherals(state, connector)
+            if os.path.isfile("/.flatpak-info"):
+                gnome_virtual_monitor.map_sunshine_gnome_peripherals(state, connector)
             logical_monitors = state[2]
             for lm in logical_monitors:
                 lm_connectors = [str(c[0]) for c in lm[5] if c]

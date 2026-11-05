@@ -727,6 +727,8 @@ def start_sunshine(
     env = dict(os.environ)
     env.update({str(key): str(value) for key, value in (extra_environment or {}).items()})
     env["SUNSHINE_CONFIG_DIR"] = config_dir
+    env["MONITORIZE_DESKTOP_CONFIG_HOME"] = config_home
+    env["MONITORIZE_INPUT_INSTANCE"] = str(instance)
     env["XDG_CONFIG_HOME"] = profile_parent
 
     node = _SUNSHINE_PIPEWIRE_NODES.get(instance)

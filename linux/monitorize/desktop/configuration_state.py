@@ -5,8 +5,8 @@ from monitorize.config.settings import CAPTURE_MODES, _normalize_display_setting
 
 
 def capture_compatibility_error(desktop, display_type, creator, capture):
-    if desktop == 'gnome' and display_type == 'Extend' and creator == 'native' and capture == 'kms':
-        return 'KMS capture requires a VKMS display. Select Auto capture for a native GNOME virtual display.'
+    if desktop in ('kde', 'gnome', 'hyprland', 'sway') and display_type == 'Extend' and creator == 'native' and capture == 'kms':
+        return 'KMS capture requires a VKMS display. Select Auto capture for a compositor-created virtual display.'
     return ''
 
 

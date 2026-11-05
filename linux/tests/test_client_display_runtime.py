@@ -57,7 +57,7 @@ class ClientDisplayRuntimeTest(unittest.TestCase):
     def test_kms_listener_reports_command_before_launch(self):
         from monitorize.desktop.client_display_runtime import ClientSlot
         message = 'KMS capture requires cap_sys_admin. Run: sudo setcap cap_sys_admin+p /test/sunshine'
-        slot = ClientSlot(2, {'de': 'kde', 'capture': 'kms'})
+        slot = ClientSlot(2, {'de': 'kde', 'capture': 'kms', 'virtual_display_creator': 'vkms'})
         with patch('monitorize.platform.sunshine_service.get_sunshine_kms_setup_error', return_value=message), patch('monitorize.desktop.client_display_runtime.start_sunshine', return_value=(True, '')) as start:
             self.assertFalse(self.runtime._launch(slot))
         start.assert_not_called()
@@ -76,7 +76,7 @@ class ClientDisplayRuntimeTest(unittest.TestCase):
     def test_kms_manual_card_reports_command_before_creating_display(self):
         message = 'Run: sudo setcap cap_sys_admin+p /test/sunshine'
         with patch('monitorize.platform.sunshine_service.get_sunshine_kms_setup_error', return_value=message), patch.object(self.runtime, '_prepare') as prepare:
-            self.assertFalse(self.runtime.start_manual_slot(2, {'de': 'kde', 'capture': 'kms', 'resolution': '1920x1080', 'fps': '60'}))
+            self.assertFalse(self.runtime.start_manual_slot(2, {'de': 'kde', 'capture': 'kms', 'virtual_display_creator': 'vkms', 'resolution': '1920x1080', 'fps': '60'}))
         prepare.assert_not_called()
         self.assertEqual(self.runtime.error, message)
 
@@ -448,9 +448,27 @@ class ClientDisplayLifecycleTest(ClientDisplayRuntimeTest):
         self.runtime._check_engines()
         self.assertIsNone(slot.retry)
 
+    def test_verified_cleanup_allows_retirement_after_startup_error(self):
+        from unittest.mock import Mock
+        process = Mock()
+        process.readAllStandardOutput.return_value = b''
+        self.runtime.retiring[1] = process
+        self.runtime._clean_holders.add(process)
+        self.runtime._retired(1, process, 1)
+        self.assertNotIn(1, self.runtime.cleanup_blocked)
+
+    def test_stale_retirement_cannot_block_current_generation(self):
+        from unittest.mock import Mock
+        current, stale = Mock(), Mock()
+        self.runtime.retiring[1] = current
+        self.runtime._retired(1, stale, 1)
+        self.assertIs(self.runtime.retiring[1], current)
+        self.assertNotIn(1, self.runtime.cleanup_blocked)
+
     def test_failed_holder_cleanup_blocks_new_generation_without_blocking_quit(self):
         from unittest.mock import Mock
         process = Mock()
+        process.readAllStandardOutput.return_value = b''
         self.runtime.retiring[1] = process
         slot = self.runtime.slots[1]
         slot.status = 'stopping'

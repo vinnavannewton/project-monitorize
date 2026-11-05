@@ -102,6 +102,7 @@ def run_vkms_headless(
     created_connector = [None]
     generation = [None]
     stop_requested = [False]
+    no_allocation = [False]
 
     def cleanup(*_args):
         if stopping[0]:
@@ -218,6 +219,7 @@ def run_vkms_headless(
                     break
         return 0 if cleanup() else 1
     except VkmsCommandError as exc:
+        no_allocation[0] = exc.raw_response.get("cleanup_state") == "not_needed"
         if _recovery_required(exc):
             _report_recovery_required()
         print(f"[ERROR] VKMS virtual display failed: {exc}", flush=True)
@@ -229,4 +231,6 @@ def run_vkms_headless(
         print(f"[ERROR] VKMS virtual display failed: {exc}", flush=True)
         return 1
     finally:
-        cleanup()
+        cleaned = cleanup()
+        verified = (created[0] and cleaned) or no_allocation[0]
+        print('MONITORIZE_EVENT ' + json.dumps({'type': 'headless_result', 'cleanup_complete': verified}), flush=True)

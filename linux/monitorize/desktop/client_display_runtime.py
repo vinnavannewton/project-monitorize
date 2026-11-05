@@ -67,6 +67,7 @@ class ClientSlot:
     healthy_since: float = 0
     permanent_failure: bool = False
     ended_requests: list = field(default_factory=list)
+    preparation_error: str = ''
 
 
 class ClientDisplayRuntime(QObject):
@@ -78,6 +79,8 @@ class ClientDisplayRuntime(QObject):
         self.slots = {}
         self.retiring = {}
         self.cleanup_blocked = {}
+        self._clean_holders = set()
+        self._outcome_buffers = {}
         self.guardian = None
         self.error = ''
         self._enrollment_pause = None
@@ -570,6 +573,7 @@ class ClientDisplayRuntime(QObject):
         process = QProcess(self)
         slot.process = process
         slot.buffer = ''
+        slot.preparation_error = ''
         environment = QProcessEnvironment.systemEnvironment()
         environment.insert('PYTHONUNBUFFERED', '1')
         if slot.config.get('virtual_display_creator') == 'vkms':
@@ -612,8 +616,22 @@ class ClientDisplayRuntime(QObject):
     def _read_holder(self, slot, process):
         raw = bytes(process.readAllStandardOutput()).decode('utf-8', 'replace')
         self.logAppended.emit('DISPLAY', raw)
+        pending = self._outcome_buffers.get(process, '') + raw
+        lines = pending.split('\n')
+        self._outcome_buffers[process] = lines.pop()[-MAX_MESSAGE:]
+        for line in lines:
+            if line.startswith('MONITORIZE_EVENT '):
+                try:
+                    outcome = json.loads(line.split(' ', 1)[1])
+                    if outcome.get('type') == 'headless_result' and outcome.get('cleanup_complete') is True:
+                        self._clean_holders.add(process)
+                except (ValueError, TypeError):
+                    pass
         if self.slots.get(slot.instance) is not slot or slot.process is not process:
             return
+        for diagnostic in raw.splitlines():
+            if '[ERROR] ' in diagnostic:
+                slot.preparation_error = diagnostic.split('[ERROR] ', 1)[1]
         slot.buffer += raw
         if len(slot.buffer) > MAX_MESSAGE:
             self._holder_failed(slot, process, 'Display holder output exceeds limit.')
@@ -690,6 +708,9 @@ class ClientDisplayRuntime(QObject):
 
     def _holder_failed(self, slot, process, message):
         if self.slots.get(slot.instance) is slot and slot.process is process:
+            if process:
+                self._read_holder(slot, process)
+            message = slot.preparation_error or message
             pending, slot.pending = slot.pending, []
             for peer in pending:
                 self._reply(peer, False, error=message)
@@ -720,7 +741,7 @@ class ClientDisplayRuntime(QObject):
             # Keep the holder alive until graceful backend cleanup has run. No
             # destructive forced VKMS cleanup or compositor policy bypass here.
             QTimer.singleShot(5000, lambda p=process: self._holder_cleanup_timeout(p))
-        elif process and process.exitCode() != 0:
+        elif process and process.exitCode() != 0 and process not in self._clean_holders:
             self._block_cleanup(slot.instance)
             process.deleteLater()
         pending, slot.pending = slot.pending, []
@@ -742,10 +763,17 @@ class ClientDisplayRuntime(QObject):
             slot.error, slot.status = message, 'error'
 
     def _retired(self, instance, process, exit_code=0):
-        if self.retiring.get(instance) is process:
-            self.retiring.pop(instance)
-        if exit_code != 0:
+        if self.retiring.get(instance) is not process:
+            process.deleteLater()
+            return
+        slot = self.slots.get(instance)
+        if slot:
+            self._read_holder(slot, process)
+        self.retiring.pop(instance)
+        self._outcome_buffers.pop(process, None)
+        if exit_code != 0 and process not in self._clean_holders:
             self._block_cleanup(instance)
+        self._clean_holders.discard(process)
         slot = self.slots.get(instance)
         if slot and slot.status == 'stopping':
             slot.status = 'recovering' if slot.intentional_recycle else 'waiting'
