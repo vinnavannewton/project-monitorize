@@ -105,7 +105,8 @@ jobs:
       - name: Checkout pinned sources
         uses: actions/checkout@v4
         with:
-          submodules: recursive
+          # Source validation needs Sunshine itself, not its build dependencies.
+          submodules: true
 
       - name: Validate native packaging sources
         run: |
