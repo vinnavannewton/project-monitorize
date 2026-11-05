@@ -440,7 +440,7 @@ class FirstRunSetupTest(unittest.TestCase):
         self.assertIn('root.stagnantCleanupSucceeded ? "#15803d" : "#b91c1c"', main)
         self.assertIn("Clear restore tokens", settings_page)
         self.assertIn("backend.clearRestoreTokens()", main)
-        self.assertIn('actionEnabled: !backend.isStreaming', settings_page)
+        self.assertIn('!backend.sessionBusy && !backend.applyingConfiguration && !backend.systemSetupRunning', settings_page)
         self.assertIn("backend.markSystemSetupDecided()", main)
         self.assertIn("property bool firstRun: false", setup)
         self.assertIn("if (page.statusSucceeded && page.firstRun)", setup)

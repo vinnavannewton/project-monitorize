@@ -28,7 +28,10 @@ with tempfile.TemporaryDirectory() as d:
          patch('monitorize.desktop.backend.get_system_setup_status',return_value={'available':False}), \
          patch('monitorize.desktop.backend.StreamingController') as factory, \
          patch('monitorize.desktop.backend.is_sunshine_running',return_value=False), \
-         patch('monitorize.desktop.backend.MonitorizeVkmsClient') as vkms:
+         patch('monitorize.desktop.backend.MonitorizeVkmsClient') as vkms, \
+         patch('monitorize.desktop.kms_authorization.MonitorizeVkmsClient') as authorization_client:
+        authorization_client.return_value = vkms.return_value
+        vkms.return_value.get_authorization_state.return_value = {"unattended_enabled": True}
         c=factory.return_value
         c.streaming=False;c.third_streaming=False;c.primary_ready=False;c.third_ready=False
         c._vkms_retiring={};c.de='sway';c.status=''
@@ -115,7 +118,7 @@ with tempfile.TemporaryDirectory() as d:
             assert not runtime.active,'Tray reactivation revoked explicit Stop'
             # Apply persists the creator even when authorization rejects restart.
             backend.configuration_state.update('primary',{'virtual_display_creator':'vkms'})
-            with patch.object(vkms.return_value,'require_unattended',side_effect=RuntimeError('Authorization unavailable')):
+            with patch.object(vkms.return_value,'get_authorization_state',side_effect=RuntimeError('Authorization unavailable')):
                 backend.applyConfiguration()
             assert settings.load_display_settings()['virtual_display_creator']=='vkms'
             assert backend.configuration_state.saved['primary']['virtual_display_creator']=='vkms'

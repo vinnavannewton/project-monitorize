@@ -15,7 +15,8 @@ SCENARIOS = r'''
             from PyQt6.QtCore import QMetaObject
             command='sudo setcap cap_sys_admin+p /test/monitorize/sunshine'
             error='KMS capture requires cap_sys_admin. Run: '+command
-            backend.configuration_state.update('primary',{'sunshine_capture':'kms'})
+            # Use a DRM-backed Mirror target; compositor-created outputs cannot use KMS.
+            backend.configuration_state.update('primary',{'sunshine_capture':'kms', 'display_type':'Mirror', 'mirror_output':'eDP-1'})
             with patch('monitorize.desktop.kms_authorization.get_sunshine_kms_setup_status',return_value={'code':'check_failed','binary':'/test/monitorize/sunshine','message':error}):
                 backend.applyConfiguration()
             assert error in backend.sessionError
