@@ -88,13 +88,19 @@ https://github.com/vinnavannewton/monitorize-vkms
    host, enable Create virtual display at login only on a supported setup.
    Explain any display-manager limitation before changing boot settings.
 
-5. Give me the steps for my installation and access method. For SSH, use the
-   README's Terminal and SSH section. Confirm with me before running privileged
-   changes or rebooting. Help me pair in Moonlight and check video and input
-   on each requested display. For boot hosting, test the login screen and
-   reconnect to the desktop after signing in. Ask me to confirm any test
-   that requires access to the Moonlight device.
+5. Summarize the setup you chose for my goal. If you can run commands on my
+   host, carry out the steps I authorize. For SSH, follow the README's
+   Terminal and SSH section. Confirm with me before making privileged changes
+   or rebooting. If you need me to approve a prompt, change firmware settings,
+   or run a command, give me the exact step and wait for my result. Verify it
+   and resume from there. If you have no host access, give me the commands to
+   run and use my results to guide the next step.
    https://github.com/vinnavannewton/project-monitorize#terminal-and-ssh
+
+6. Help me pair in Moonlight and check video and input on each requested
+   display. For boot hosting, test the login screen and reconnect to the
+   desktop after signing in. Ask me to confirm tests that require my
+   Moonlight device. Finish by telling me how to connect and what you verified.
 ```
 
 </details>
