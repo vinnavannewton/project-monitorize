@@ -90,14 +90,20 @@ https://github.com/vinnavannewton/monitorize-vkms
    before changing boot settings.
 
    For remote login or a headless display setup, recommend SSH as a recovery
-   option. With my approval, help me enable the SSH server on the streaming
-   host at boot and verify that I can connect from another device over my
-   trusted LAN or VPN before relying on Moonlight. Explain that SSH gives me
-   terminal access if a distro update, Monitorize crash, or configuration
-   problem leaves the graphical session or stream unavailable. Show me how
-   to use monitorize status, locate monitorize.json with monitorize config
-   path, edit the settings, and apply them with monitorize reload. Show me
-   how to use monitorize stop and monitorize start if hosting needs a restart.
+   option. With my approval, restrict inbound SSH to my intended trusted LAN
+   or VPN interfaces or source networks before enabling the SSH server on
+   the streaming host at boot. Verify that I can connect from another device
+   on the intended network and that SSH is unreachable from untrusted
+   networks before relying on it for recovery.
+
+   Explain that SSH gives me terminal access if a distro update, Monitorize
+   crash, or configuration problem leaves the graphical session or stream
+   unavailable. Show me how to check monitorize status and locate and edit
+   monitorize.json with monitorize config path. Use monitorize reload to apply
+   settings when the controller is available. For desktop-managed hosting,
+   monitorize start requires an active local graphical session for my user.
+   If I need streaming before desktop login, guide me through enabling and
+   testing login-screen boot hosting on a supported setup using step 4.
 
 5. Summarize the setup you chose for my goal. If you have terminal access to
    my host, use the Monitorize CLI and JSON to configure it for me. Follow the
