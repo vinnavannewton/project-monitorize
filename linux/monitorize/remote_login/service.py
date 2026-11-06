@@ -14,11 +14,16 @@ class HandoffService:
         self.journal=journal
         self.boot_error='';self._diagnostic_state=None;self._observation_error=None
         if journal is not None:self.model.stopped_session=journal.load()
+        if journal is not None and hasattr(journal, 'load_boot_pause'):
+            self.model.boot_paused = journal.load_boot_pause() is True
+        self.boot_cleanup_pending = self.model.boot_paused
         self.owner=None;self.owner_session=None;self.ready=False;self.boot_ready=False;self.boot_listening=False;self.boot_phase='';self.listening=False;self.desktop_phase='';self.startup_error='';self._lock=RLock()
 
     def status(self):
         with self._lock:
             state=self.model.state
+            if state == 'greeter_stopped' and self.boot_cleanup_pending:
+                state = 'greeter_stopping'
             if state=='desktop_owned':state=('stopping_desktop' if self.model.stopped_session==self.model.session else
                 'desktop_available' if self.ready else self.desktop_phase if self.listening and self.desktop_phase else 'desktop_starting')
             if self.model.state=='desktop_owned' and self.startup_error and self.model.stopped_session!=self.model.session:
@@ -34,6 +39,7 @@ class HandoffService:
             return dict(display_idle_timeout_seconds=getattr(self,'grace_timeout',None) or (self.display_timeout() if hasattr(self,'display_timeout') else 20),desktop_mode_version=1,desktop_options_version=1,startup_error=error,state=state,epoch=self.epoch,enabled=self.model.enabled,capture_ready=self.ready or self.boot_ready,
                         uid=self.model.uid,desktop_owned=bool(self.owner and self.owner_session==self.model.session),
                         session=self.model.session or '',listening=self.listening,
+                        boot_paused=self.model.boot_paused,boot_listening=self.boot_listening,
                         output_name=self.output_name() if hasattr(self,'output_name') else '')
 
     def tick(self):
@@ -64,9 +70,10 @@ class HandoffService:
                 if desktop and self.owner is None:
                     self.units.stop('desktop')
                 previous_stop=self.model.stopped_session
+                identity_free = self.units.identity_free()
                 result=self.model.reconcile(sessions=snapshot['sessions'],
                     greeter_ready=snapshot['greeter_ready'],boot_running=boot,
-                    desktop_running=desktop,identity_free=self.units.identity_free())
+                    desktop_running=desktop,identity_free=identity_free)
                 if self.journal is not None and previous_stop is not None and self.model.stopped_session is None:
                     self.journal.save(None)
                 if self.owner_session!=self.model.session:
@@ -76,6 +83,16 @@ class HandoffService:
                 if result['action']=='start_boot':self.units.start('boot')
                 elif result['action']=='stop_boot':self.units.stop('boot')
                 elif result['action']=='stop_desktop':self.units.stop('desktop');self.ready=False
+                if (result['state'] == 'greeter_stopped' and self.boot_cleanup_pending
+                        and snapshot['greeter_ready'] and identity_free):
+                    stage = 'boot_display_cleanup'
+                    cleanup = getattr(self, 'boot_pause_cleanup', None)
+                    if cleanup is not None:
+                        cleanup()
+                    self.boot_cleanup_pending = False
+                elif result['state'] == 'greeter_stopped' and not snapshot['greeter_ready']:
+                    # Keep the reservation for the next verified greeter.
+                    self.boot_cleanup_pending = False
                 observer=getattr(self,'desktop_listening_observer',None)
                 if (observer is not None and self.model.state=='desktop_owned' and self.owner
                         and self.owner_session==self.model.session and self.listening and not self.startup_error
@@ -166,6 +183,22 @@ class HandoffService:
             self.tick()
             if self.journal is not None:self.journal.save(None)
             self.model.user_start(caller['session']);return self.tick()
+
+    def set_boot_paused(self, uid, paused):
+        from .policy import session_target
+        with self._lock:
+            if type(uid) is not int or uid != self.model.uid or not self.model.enabled:
+                raise PermissionError('Only the enrolled account can control its boot listener.')
+            if type(paused) is not bool:
+                raise ValueError('Invalid boot pause request.')
+            snapshot = self.sessions.snapshot()
+            if session_target(snapshot['sessions'], uid)[0] != 'greeter':
+                raise PermissionError('A desktop session now owns the seat.')
+            if self.journal is not None:
+                self.journal.save_boot_pause(paused)
+            self.model.boot_paused = paused
+            self.boot_cleanup_pending = paused
+            return self.tick()
 
     def sender_lost(self,sender):
         with self._lock:

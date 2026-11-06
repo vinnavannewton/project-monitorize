@@ -2,8 +2,6 @@
 
 import sys
 
-from monitorize.config.settings import load_general_settings
-
 
 def _remote_controller_required():
     import os
@@ -18,17 +16,22 @@ def _remote_controller_required():
 
 
 def _use_light_tray(argv):
-    if _remote_controller_required():
+    if '--host-controller' in argv or _remote_controller_required():
         return False
     tray_requested = '--tray-agent' in argv or '--start-in-tray' in argv
     if not tray_requested or '--launch-preset' in argv:
         return False
     if '--restore-from-tray' in argv:
         return True
+    from monitorize.config.settings import load_general_settings
     return load_general_settings().get('streaming_backend', 'sunshine') == 'none'
 
 
 def main():
+    argv = sys.argv[1:]
+    if argv and (argv[0] in ('-h', '--help') or not argv[0].startswith('-')):
+        from monitorize.host_cli import main as cli_main
+        return cli_main(argv)
     light_tray = _use_light_tray(sys.argv)
     if light_tray:
         from monitorize.desktop.tray_agent import main as app_main
@@ -40,4 +43,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

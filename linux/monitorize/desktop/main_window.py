@@ -32,7 +32,7 @@ from monitorize.platform.utils import ASSETS_DIR, LINUX_DIR, QML_DIR, detect_des
 INSTANCE_SERVER = "monitorize"
 
 class MonitorizeWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, *, defer_ui=False):
         super().__init__()
         self._quitting = False
         self.setWindowTitle("Monitorize")
@@ -50,7 +50,7 @@ class MonitorizeWindow(QMainWindow):
         except Exception as exc:
             recovery_clear = False
             app_log.write('DISPLAY', f'Display recovery is pending: {exc}')
-        if recovery_clear:
+        if recovery_clear and not defer_ui:
             kill_patterns(
                 "monitorize\\.streaming\\.headless_virtual_display",
                 "monitorize-kde-virtual-output",
@@ -61,6 +61,13 @@ class MonitorizeWindow(QMainWindow):
         self.backend.configureDisplayRequested.connect(self._configure_display)
         self.backend.setupCompletionQuitRequested.connect(self._quit_app)
         self._setup_tray()
+        self.quick_widget = None
+        if not defer_ui:
+            self._load_ui()
+
+    def _load_ui(self):
+        if self.quick_widget is not None:
+            return
         self.content_stack = QStackedWidget(self)
         self.quick_widget = QQuickWidget(self)
         self.quick_widget.setResizeMode(
@@ -98,6 +105,7 @@ class MonitorizeWindow(QMainWindow):
 
     def _restore_from_tray(self):
         if getattr(self, "_quitting", False):return
+        self._load_ui()
         self.tray.show()
         self.showNormal()
         self.raise_()
@@ -356,7 +364,9 @@ def _instance_command(start_in_tray, preset_index):
 
 
 def _should_start_configured_listeners(argv, restored_from_tray=False):
-    return not restored_from_tray and '--restore-from-tray' not in argv
+    return (not restored_from_tray
+            and '--restore-from-tray' not in argv
+            and '--host-controller' not in argv)
 
 
 def main():
@@ -370,12 +380,28 @@ def main():
     app.setDesktopFileName("monitorize")
     server, instance_lock = _claim_instance(app, _instance_command(start_in_tray, preset_index))
     if server is None:return
+    from monitorize.desktop.host_control import claim_desktop, serve
+    try:
+        desktop_lock = claim_desktop()
+    except OSError as error:
+        app_log.write("APP", f"Cannot claim desktop hosting. {error}")
+        return
+    if desktop_lock is None:
+        app_log.write("APP", "A different Monitorize installation owns desktop hosting.")
+        return
     _set_palette(app)
     from monitorize.desktop.tray_agent import dismiss_tray_agent
     restored_from_tray = dismiss_tray_agent()
-    window = MonitorizeWindow()
+    window = MonitorizeWindow(defer_ui='--host-controller' in sys.argv)
+    try:
+        serve(window)
+    except (OSError, RuntimeError, ValueError) as error:
+        app_log.write("APP", f"Could not start the terminal control endpoint. {error}")
     # QML bindings must be destroyed while their context backend still exists.
-    app.aboutToQuit.connect(lambda: window.quick_widget.setSource(QUrl()))
+    def clear_qml():
+        if window.quick_widget is not None:
+            window.quick_widget.setSource(QUrl())
+    app.aboutToQuit.connect(clear_qml)
     server.newConnection.connect(
         lambda: _handle_instance_command(server, window)
     )

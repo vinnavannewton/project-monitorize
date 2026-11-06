@@ -77,6 +77,32 @@ class ServiceTests(unittest.TestCase):
         self.assertTrue(self.units.boot);self.assertFalse(self.units.desktop)
         self.assertEqual(self.units.events[:2],[('start','boot'),('stop','boot')])
 
+    def test_boot_pause_is_account_scoped_and_leaves_enrollment_enabled(self):
+        cleanups = []
+        self.service.boot_pause_cleanup = lambda: cleanups.append('idle')
+        self.service.tick()
+        self.units.stop_delayed = True
+        with self.assertRaises(PermissionError):
+            self.service.set_boot_paused(1001, True)
+        self.assertEqual(self.service.set_boot_paused(1000, True)['state'], 'greeter_stopping')
+        self.assertEqual(cleanups, [])
+        self.units.boot = False
+        self.units.free = True
+        self.assertEqual(self.service.tick()['state'], 'greeter_stopped')
+        self.service.tick()
+        self.assertEqual(cleanups, ['idle'])
+        self.assertTrue(self.service.status()['enabled'])
+        self.assertEqual(self.units.events.count(('start', 'boot')), 1)
+        self.service.set_boot_paused(1000, False)
+        self.assertEqual(self.units.events.count(('start', 'boot')), 2)
+
+    def test_boot_pause_cannot_stop_a_desktop_owner(self):
+        token = self.login()['generation']
+        self.service.start_desktop(':1.10', token, {})
+        with self.assertRaises(PermissionError):
+            self.service.set_boot_paused(1000, True)
+        self.assertTrue(self.units.desktop)
+
     def test_stop_request_is_not_exit(self):
         self.service.tick();self.units.stop_delayed=True;self.sessions.user=True
         result=self.service.acquire(':1.10');self.assertFalse(result['granted'])

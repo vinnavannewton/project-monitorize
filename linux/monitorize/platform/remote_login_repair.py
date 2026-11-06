@@ -1,4 +1,4 @@
-"""Graphical service repair for source deployments; preserve native package ownership."""
+"""Authorized service repair for source deployments; preserve native package ownership."""
 import importlib.util
 from pathlib import Path
 import shutil
@@ -57,7 +57,7 @@ def repair_options(*, repository=None):
             'repair_needed': needed, 'repair_message': message}
 
 
-def repair_remote_login(*, repository=None):
+def repair_remote_login(*, repository=None, terminal=False):
     repository = Path(repository) if repository is not None else Path(__file__).resolve().parents[3]
     options = repair_options(repository=repository)
     kind = options['repair_kind']
@@ -65,6 +65,8 @@ def repair_remote_login(*, repository=None):
         return {'success': False, 'message': options['repair_message']}
     pkexec = shutil.which('pkexec')
     helper = HELPER if HELPER.is_file() else repository / 'packaging/remote-login/repair.py'
+    if terminal and helper != HELPER:
+        return {'success': False, 'message': 'Install the trusted source repair helper before repairing services from the terminal.'}
     # New installs use the dedicated installed policy. An older source install
     # bootstraps via the ordinary Polkit Python prompt, just as its explicit
     # manual installer did; no terminal/sudo commands or printed output parsing.
@@ -83,8 +85,11 @@ def repair_remote_login(*, repository=None):
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
             staged = module.prepare(Path(temporary) / 'stage', binary, Path(assets), announce=False)
-            input_path = staged
-            result = run_authorized([*command, '--kind', 'source', '--input', str(input_path)],
+            arguments = ['--kind', 'source', '--input', str(staged)]
+            if terminal:
+                from .host_setup import _run_installed
+                return _run_installed(helper, arguments)
+            result = run_authorized([*command, *arguments],
                                     capture_output=True, text=True, check=False)
             return parse_system_setup_result(result.returncode, result.stdout, result.stderr)
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:

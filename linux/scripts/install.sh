@@ -802,6 +802,17 @@ echo "Installing/updating Python dependencies inside the virtual environment…"
 "${VENV_DIR}/bin/pip" install -r "${PROJECT_DIR}/requirements.txt"
 echo "✓ Virtual environment dependencies installed"
 
+cat > "${VENV_DIR}/bin/monitorize" <<'EOF'
+#!/usr/bin/env bash
+set -e
+launcher="$(readlink -f -- "$0")"
+bin_dir="${launcher%/*}"
+cd -- "${bin_dir}/../.."
+exec "${bin_dir}/python3" -m monitorize "$@"
+EOF
+chmod 755 "${VENV_DIR}/bin/monitorize"
+echo "✓ Terminal launcher installed at ${VENV_DIR}/bin/monitorize"
+
 # Build the small Wayland client that owns native KWin virtual outputs.
 if ! "${HELPER_BUILD}" "${HELPER_PATH}"; then
     echo "Error: Could not build the KDE virtual-output helper." >&2

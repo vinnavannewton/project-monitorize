@@ -16,20 +16,20 @@ class TrayOwnershipTest(unittest.TestCase):
 
     def test_login_initializes_hidden_listener_but_idle_handoff_does_not(self):
         from monitorize.__main__ import _use_light_tray
-        with patch('monitorize.__main__.load_general_settings', return_value={'client_listen_on_open': True}):
+        with patch('monitorize.config.settings.load_general_settings', return_value={'client_listen_on_open': True}):
             self.assertFalse(_use_light_tray(['monitorize', '--tray-agent']))
             self.assertFalse(_use_light_tray(['monitorize', '--start-in-tray']))
             self.assertTrue(_use_light_tray(['monitorize', '--tray-agent', '--restore-from-tray']))
             self.assertFalse(_use_light_tray(['monitorize', '--restore-from-tray']))
-        with patch('monitorize.__main__.load_general_settings', return_value={'client_listen_on_open': False}):
+        with patch('monitorize.config.settings.load_general_settings', return_value={'client_listen_on_open': False}):
             self.assertFalse(_use_light_tray(['monitorize', '--tray-agent']))
-        with patch('monitorize.__main__.load_general_settings',return_value={'streaming_backend':'none'}):
+        with patch('monitorize.config.settings.load_general_settings',return_value={'streaming_backend':'none'}):
             self.assertTrue(_use_light_tray(['monitorize','--tray-agent']))
 
     def test_login_dispatches_full_controller_hidden_when_listening_enabled(self):
         from monitorize import __main__ as entry
         argv = ['monitorize', '--tray-agent']
-        with patch.object(entry.sys, 'argv', argv), patch.object(entry, 'load_general_settings', return_value={'client_listen_on_open': True}), patch('monitorize.desktop.main_window.main') as full, patch('monitorize.desktop.tray_agent.main') as light:
+        with patch.object(entry.sys, 'argv', argv), patch('monitorize.config.settings.load_general_settings', return_value={'client_listen_on_open': True}), patch('monitorize.desktop.main_window.main') as full, patch('monitorize.desktop.tray_agent.main') as light:
             entry.main()
         full.assert_called_once()
         light.assert_not_called()
@@ -80,8 +80,9 @@ class TrayOwnershipTest(unittest.TestCase):
 
     def test_window_restore_keeps_tray_and_does_not_start_session(self):
         from monitorize.desktop.main_window import MonitorizeWindow
-        window=SimpleNamespace(tray=Mock(),showNormal=Mock(),raise_=Mock(),activateWindow=Mock(),backend=Mock())
+        window=SimpleNamespace(_load_ui=Mock(),tray=Mock(),showNormal=Mock(),raise_=Mock(),activateWindow=Mock(),backend=Mock())
         MonitorizeWindow._restore_from_tray(window)
+        window._load_ui.assert_called_once()
         window.tray.show.assert_called_once();window.tray.hide.assert_not_called()
         window.backend.startConfiguredListeners.assert_not_called()
 

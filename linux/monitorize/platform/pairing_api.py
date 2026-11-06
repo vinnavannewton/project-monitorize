@@ -84,8 +84,11 @@ def valid_id(value):
     return isinstance(value, str) and re.fullmatch(r'[0-9a-fA-F]{32}', value) is not None
 
 
-def resolve_hosts(instances, remote=False):
-    """Resolve only owned hosts' public TLS certificates, never password/private keys."""
+def resolve_hosts(instances, remote=False, *, external=False):
+    """Resolve public TLS certificates for owned listeners.
+
+    External callers must obtain the instances from the authenticated controller.
+    """
     hosts = []
     for instance in instances:
         try:
@@ -97,7 +100,7 @@ def resolve_hosts(instances, remote=False):
                     continue
                 cert = identity_paths(settings.directory).cert
             else:
-                if not sunshine.is_sunshine_running(instance):
+                if not external and not sunshine.is_sunshine_running(instance):
                     continue
                 config = sunshine.get_saved_sunshine_config(instance)
                 identity = sunshine._enrolled_manual_identity(instance)

@@ -44,7 +44,7 @@ class KmsAuthorization(QObject):
     def busy(self):
         return self.request is not None or self.process is not None
 
-    def ensure(self, bundle, desktop, remote, completed):
+    def ensure(self, bundle, desktop, remote, completed, *, interactive=True):
         """Return immediately when ready; otherwise report or repair through completed."""
         if self.busy:
             return False
@@ -89,6 +89,15 @@ class KmsAuthorization(QObject):
                 targets[path] = (instance, command)
         if not targets:
             return True
+        if not interactive:
+            flags = []
+            if "vkms" in targets:
+                flags.append("--vkms")
+            if any(target != "vkms" for target in targets):
+                flags.append("--kms")
+            setup = "monitorize setup " + " ".join(flags)
+            completed(False, f"Capture authorization is required. Run {setup} from this terminal and retry.", 1)
+            return False
         self.request = {"targets": list(targets.items()), "requirements": requirements,
                         "completed": completed, "identities": identities, "vkms": vkms}
         self.changed.emit()

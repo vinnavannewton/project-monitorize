@@ -1,4 +1,4 @@
-"""Root-only, per-boot manual-Stop intent; contains no credentials."""
+"""Root-only, per-boot manual stop intent."""
 import json
 import os
 from pathlib import Path
@@ -12,8 +12,8 @@ class StopJournal:
         self.uid=uid;self.boot_id=boot_id;self.files=files or RootFiles()
         self.relative='run/monitorize-remote-login/stop-state.json'
 
-    def load(self):
-        path=self.files._path(self.relative)
+    def _load(self, relative):
+        path=self.files._path(relative)
         try:
             fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
             with os.fdopen(fd) as source:
@@ -23,7 +23,11 @@ class StopJournal:
                 values=json.load(source)
         except FileNotFoundError:return None
         if values.get('uid')!=self.uid or values.get('boot_id')!=self.boot_id:return None
-        session=values.get('session')
+        return values
+
+    def load(self):
+        values = self._load(self.relative)
+        session = values.get('session') if values else None
         if session is not None and (not isinstance(session,str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,64}',session)):
             raise ValueError('Invalid stop journal session.')
         return session
@@ -31,3 +35,12 @@ class StopJournal:
     def save(self,session):
         if session is not None and not re.fullmatch(r'[A-Za-z0-9_-]{1,64}',session):raise ValueError('Invalid session.')
         self.files.write(self.relative,json.dumps({'uid':self.uid,'boot_id':self.boot_id,'session':session}),0o600)
+
+    def load_boot_pause(self):
+        values = self._load('run/monitorize-remote-login/boot-pause.json')
+        return bool(values and values.get('paused') is True)
+
+    def save_boot_pause(self, paused):
+        self.files.write('run/monitorize-remote-login/boot-pause.json', json.dumps({
+            'uid': self.uid, 'boot_id': self.boot_id, 'paused': paused,
+        }), 0o600)

@@ -10,7 +10,9 @@ import time
 
 
 DISPLAY_ENVIRONMENT = ('WAYLAND_DISPLAY', 'DISPLAY', 'XAUTHORITY', 'XDG_RUNTIME_DIR',
-                       'XDG_SESSION_TYPE', 'XDG_CURRENT_DESKTOP', 'DBUS_SESSION_BUS_ADDRESS')
+                       'XDG_SESSION_TYPE', 'XDG_CURRENT_DESKTOP', 'DBUS_SESSION_BUS_ADDRESS',
+                       'XDG_SESSION_DESKTOP', 'DESKTOP_SESSION', 'SWAYSOCK',
+                       'HYPRLAND_INSTANCE_SIGNATURE', 'NIRI_SOCKET')
 
 
 def manager_environment():
@@ -56,12 +58,47 @@ def wait_for_graphical_session(environment=None, *, timeout=60,
         sleep(min(1, deadline-clock()))
 
 
+def require_local_graphical_session(*, host=()):
+    """Verify the selected logind display before honoring user-manager display sockets."""
+    def query(*arguments):
+        result = subprocess.run([*host, '/usr/bin/loginctl', *arguments],
+                                capture_output=True, text=True, timeout=3, check=True)
+        return result.stdout.strip()
+
+    try:
+        uid = str(os.getuid())
+        session = query('show-user', uid, '--property=Display', '--value')
+        if not re.fullmatch(r'[a-zA-Z0-9_-]+', session):
+            raise ValueError()
+        properties = ('Active', 'Remote', 'Type', 'Class', 'Seat', 'User')
+        output = query('show-session', session, *(f'--property={name}' for name in properties))
+        values = dict(line.split('=', 1) for line in output.splitlines() if '=' in line)
+        if (values.get('User') == uid and values.get('Active') == 'yes'
+                and values.get('Remote') == 'no' and values.get('Seat')
+                and values.get('Type') in ('wayland', 'x11')
+                and values.get('Class') in ('user', 'user-early', 'user-incomplete')):
+            return
+    except (OSError, subprocess.SubprocessError, ValueError):
+        pass
+    raise RuntimeError('No active local graphical session belongs to this user. Use boot remote login before desktop login.')
+
+
 def main():
-    try:environment=wait_for_graphical_session()
+    host_controller = '--host-controller' in sys.argv
+    try:
+        environment = None
+        if host_controller:
+            require_local_graphical_session()
+            environment = {key: value for key, value in os.environ.items()
+                           if key not in DISPLAY_ENVIRONMENT or key == 'XDG_RUNTIME_DIR'}
+        environment = wait_for_graphical_session(environment, timeout=8 if host_controller else 60)
     except RuntimeError as error:
         print(str(error), file=sys.stderr, flush=True)
         return 1
-    os.execvpe(sys.executable, [sys.executable, '-m', 'monitorize', '--start-in-tray'], environment)
+    flags = ['--start-in-tray']
+    if host_controller:
+        flags.append('--host-controller')
+    os.execvpe(sys.executable, [sys.executable, '-m', 'monitorize', *flags], environment)
 
 
 if __name__ == '__main__':

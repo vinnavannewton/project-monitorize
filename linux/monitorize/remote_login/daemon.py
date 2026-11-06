@@ -83,6 +83,21 @@ def build_service(settings,bus):
     from .live_setup import complete_for_session
     service.desktop_listening_observer=lambda session:complete_for_session(settings.uid,session)
     service.output_name=reserved_output
+
+    def boot_pause_cleanup():
+        lease = boot_output_status(helper.STATE_DIRECTORY)
+        if not lease or lease['phase'] != 'greeter' or lease['state'] == 'reserved':
+            return
+        from .greeter_display import greeter_context
+        context = greeter_context(transport)
+
+        def verify_context():
+            if greeter_context(transport) != context:
+                raise PermissionError('The greeter changed during boot display cleanup.')
+
+        greeter_operation_installed('idle', context_check=verify_context, activate=None)
+
+    service.boot_pause_cleanup = boot_pause_cleanup
     def display_timeout():
         try:return read_settings().display_idle_timeout_seconds
         except ValueError:return settings.display_idle_timeout_seconds

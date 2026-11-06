@@ -5,8 +5,8 @@
     <description>Repair Monitorize remote login</description>
     <message>Authentication is required to install Monitorize service files and repair remote login. Existing settings and pairing will be retained.</message>
     <defaults>
-      <allow_any>no</allow_any>
-      <allow_inactive>no</allow_inactive>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
       <allow_active>auth_admin</allow_active>
     </defaults>
     <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/monitorize/remote-login/repair.py</annotate>
@@ -32,6 +32,17 @@
     </defaults>
     <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/monitorize/monitorize-system-setup</annotate>
     <annotate key="org.freedesktop.policykit.exec.argv1">--remote-login</annotate>
+  </action>
+  <action id="io.github.vinnavannewton.monitorize.terminal-setup">
+    <description>Configure Monitorize from a terminal</description>
+    <message>Administrator authentication is required to change Monitorize host settings.</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/monitorize/remote-login/entry.py</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">--terminal</annotate>
   </action>
   <action id="io.github.vinnavannewton.monitorize.system-setup">
     <description>Configure Monitorize system access</description>

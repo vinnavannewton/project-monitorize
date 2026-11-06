@@ -24,6 +24,7 @@ SYSTEM_RECOVERY_PROTOCOL = 1
 VKMS_MANAGEMENT_PROTOCOL = 1
 FIRST_RUN_SETUP_PROTOCOL = 2
 FIREWALL_SCOPE_PROTOCOL = 1
+TERMINAL_SETUP_PROTOCOL = 1
 
 
 def grant_kms_capability(binary, device, inode):
@@ -349,6 +350,7 @@ def first_run_state():
 
 def main():
     parser = argparse.ArgumentParser(description="Configure Monitorize input and firewall access.")
+    parser.add_argument("--terminal", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--recover-networkmanager",action="store_true")
     parser.add_argument("--recover-host",action="store_true")
     parser.add_argument("--restart-host",action="store_true")
@@ -364,6 +366,9 @@ def main():
     parser.add_argument('--kms-device', type=int)
     parser.add_argument('--kms-inode', type=int)
     args = parser.parse_args()
+    if args.terminal and not (args.remote_login or args.kms_binary
+                              or args.recover_networkmanager or args.recover_host or args.restart_host):
+        parser.error('Select a supported administrator action for terminal authorization.')
     if (args.firewall_zone or args.firewall_context) and not args.firewall:
         parser.error('Firewall network scope requires --firewall.')
     if args.request_id is not None and (len(args.request_id) != 32 or

@@ -1826,6 +1826,132 @@ class MonitorizeBackend(QObject):
     def configurationMessage(self):
         return self._restart.message if hasattr(self, "_restart") else ""
 
+    def _require_host_capture(self, bundle):
+        primary = bundle["primary"]
+        if self.remoteLoginEnabled:
+            if self._remote_unavailable():
+                raise RuntimeError(self.remoteLoginMessage)
+            self._validate_remote_candidate(bundle)
+        elif (primary["display_type"] == "Extend"
+              and primary["virtual_display_creator"] == "native"
+              and not self.detectedDe):
+            raise RuntimeError("No supported desktop compositor was detected for native display creation.")
+        if bundle["streaming_backend"] == "sunshine" and not self.remoteLoginEnabled and not self.sunshineAvailable:
+            raise RuntimeError("Install the Monitorize Sunshine engine before starting streaming.")
+        messages = []
+        ready = self._kms_authorization.ensure(
+            bundle, self._detected_de, self.remoteLoginEnabled,
+            lambda _ok, message, _instance: messages.append(message),
+            interactive=False,
+        )
+        if not ready:
+            raise RuntimeError(next(iter(messages), "Monitorize is checking capture authorization."))
+
+    def _stage_host_configuration(self, bundle):
+        draft = self.configuration_state.draft if self.configurationDirty else None
+        self.configuration_state.accept(bundle)
+        if draft is not None:
+            self.configuration_state.draft = draft
+        self._streaming_backend = bundle["streaming_backend"]
+        self.streaming.streaming_backend = self._streaming_backend
+        self.session.preset_configuration = None
+        self.session.runtime_configuration = copy.deepcopy(bundle)
+        self.session.count = (0 if bundle["primary"]["display_type"] == "Mirror"
+                              else 2 if bundle["second"].get("enabled") else 1)
+        self.configurationChanged.emit()
+        self.streamingBackendChanged.emit(self._streaming_backend)
+        self.clientDisplaySettingsChanged.emit()
+
+    def startHostSession(self):
+        """Start from terminal without triggering a graphical authorization prompt."""
+        bundle = self.configuration_state.saved
+        self._require_host_capture(bundle)
+        self._stage_host_configuration(bundle)
+        self._display_only_idle = False
+        self._clear_display_errors()
+        if self.remoteLoginEnabled:
+            self._launch_configuration(bundle)
+        else:
+            self._start_session_checked()
+
+    def markHostSessionVerified(self):
+        self._verified_configuration = copy.deepcopy(self.session.runtime_configuration)
+
+    def startHostPreset(self, name):
+        """Run a saved preset for this session without changing saved defaults."""
+        from monitorize.desktop.configuration_state import ConfigurationState
+
+        if self.isStreaming or self.remoteLoginEnabled:
+            raise RuntimeError("Stop desktop hosting and disable boot remote login before starting a preset.")
+        presets = load_presets()
+        index = next((index for index, preset in enumerate(presets)
+                      if preset["name"].casefold() == name.strip().casefold()), None)
+        if index is None:
+            raise ValueError("No saved Monitorize preset has that name.")
+        preset = presets[index]
+        saved = self.configuration_state.saved
+        state = ConfigurationState(
+            dict(saved["primary"], **preset["primary"]),
+            dict(saved["second"], **preset["second"]),
+            {"streaming_backend": "sunshine", "display_behavior": preset["display_behavior"]},
+        )
+        bundle = state.candidate(desktop=self._detected_de)
+        self._require_host_capture(bundle)
+        self._presets = presets
+        self._streaming_backend = "sunshine"
+        self.streaming.streaming_backend = "sunshine"
+        self._display_only_idle = False
+        self._clear_display_errors()
+        self._launch_preset_checked(index)
+        if self.presetLaunchStatus:
+            raise RuntimeError(self.presetLaunchStatus)
+
+    def _host_restart_is_disruptive(self):
+        if self.remoteLoginEnabled:
+            state = self._remote_login.status
+            return bool(state.get("capture_ready") or state.get("state") != "desktop_listening")
+        runtime = self.session.client_runtime
+        if runtime and runtime.active:
+            return any(slot.status not in ("waiting", "ready") or slot.owner or slot.request_id
+                       for slot in runtime.slots.values())
+        # Legacy Mirror has no authoritative client lifecycle signal.
+        return self.streaming.streaming or self.streaming.third_streaming
+
+    def reloadHostConfiguration(self, *, restart=False, streaming_revision=None):
+        """Apply edited settings through the same desktop runtime owner as the GUI."""
+        from monitorize.config.host_config import reload_config
+
+        if self.configurationDirty:
+            raise RuntimeError("Save or discard the GUI's unapplied configuration before reloading JSON.")
+        result = reload_config(desktop=self._detected_de, remote_login=self.remoteLoginEnabled)
+        bundle = result["bundle"]
+        general = load_general_settings()
+        self._web_settings_enabled = general["sunshine_web_settings_enabled"]
+        self._presets = load_presets()
+        self.themeModeChanged.emit()
+        self.accentChanged.emit()
+        self.presetsChanged.emit()
+        self.sunshineSettingsChanged.emit()
+        result["restarting"] = False
+        if not self.isStreaming:
+            self._stage_host_configuration(bundle)
+            result["message"] = "Configuration saved for the next start."
+        elif (bundle == self.configuration_state.applied and not result["streaming_changed"]
+              and result.get("streaming_revision") == streaming_revision):
+            result["message"] = "Configuration is up to date."
+        else:
+            self.configuration_state.save_later(bundle)
+            self.configurationChanged.emit()
+            if not restart and self._host_restart_is_disruptive():
+                result["message"] = "Configuration saved. Run monitorize reload --restart to apply pending changes."
+                result["restart_pending"] = True
+            else:
+                self._require_host_capture(bundle)
+                self._restart_display_only = self.session.active and self._streaming_backend == "none"
+                self._restart.begin(bundle, self._verified_configuration)
+                result["restarting"] = True
+        return result
+
     @pyqtSlot()
     def applyConfiguration(self):
         if self.applyingConfiguration or self._closing:return
@@ -1922,7 +2048,7 @@ class MonitorizeBackend(QObject):
 
     def _configuration_failure(self):
         if self.remoteLoginEnabled:
-            if self._remote_login.status.get("state") in ("error", "unavailable"):
+            if self._remote_login.status.get("state") in ("error", "unavailable", "authentication_error"):
                 return self._remote_login.message
             return ""
         runtime = self.session.client_runtime

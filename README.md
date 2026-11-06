@@ -61,6 +61,43 @@ For DEs with no compositor-native virtual display support, use via VKMS by insta
 
 Tip: If the stream is black or crashes, try changing the stream from auto to other options in monitorize based on what your hardware supports.
 
+### Terminal and SSH
+
+Native packages use `monitorize`. Source installs provide the same launcher
+at `linux/venv/bin/monitorize`. An existing source checkout can also run
+`venv/bin/python -m monitorize` from its `linux` directory. For Flatpak, use
+`flatpak run com.vinnavan.Monitorize` with the same arguments.
+
+```sh
+monitorize setup --status
+monitorize setup --input --firewall
+"${EDITOR:-nano}" "$(monitorize config path)"
+monitorize reload
+monitorize start
+monitorize status
+```
+
+For firewalld, use `setup --status` to review the network scope and
+`setup --firewall --zone ZONE` to select a zone explicitly. Run administrator
+actions from an SSH connection with a terminal, such as one opened with
+`ssh -t`. Flatpak administrator actions require the matching Monitorize CLI
+and setup helpers on the host. Source users can stage the matching host
+helpers with `python3 scripts/stage-remote-login.py` from the checkout root
+and follow the printed installation steps. An input grant can require a fresh
+desktop login. `monitorize setup --status` reports that separately from
+the saved grant.
+
+Request a PIN in Moonlight, then run `monitorize pair` and enter it at the
+prompt. `monitorize stop` stops hosting. `reload` validates edits and reports
+changes that need a restart. Use `reload --restart` when you want to apply
+those changes during a connected stream. Per-display encoder, codec, and
+GPU selections use `streaming_customized`. Set it to `true` to select
+values explicitly. Boot policy uses the authorized `boot` commands.
+
+Desktop hosting uses the logged-in graphical session. To host before login on
+a supported system, use `monitorize boot status` and `monitorize boot enable`
+with the installed remote-login components.
+
 ## Star History
 
 <a href="https://www.star-history.com/?repos=vinnavannewton%2FProjectMonitorize&type=date&legend=top-left">

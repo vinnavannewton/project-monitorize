@@ -1,8 +1,17 @@
 #!/usr/bin/python3 -I
 """Fixed installed entry point. Never execute a user-writable checkout as root."""
+import os
 import sys
+
+TERMINAL_SETUP_PROTOCOL = 1
 sys.path.insert(0,'/usr/lib/monitorize-remote-login')
-if sys.argv[1:]==['service']:
+if sys.argv[1:2] == ['--terminal']:
+    def main():
+        if os.geteuid() != 0 or not os.environ.get('PKEXEC_UID', '').isdigit():
+            raise SystemExit('Use Monitorize terminal authorization.')
+        helper = '/usr/libexec/monitorize/monitorize-system-setup'
+        os.execv(helper, [helper, *sys.argv[1:]])
+elif sys.argv[1:]==['service']:
     from monitorize.remote_login.daemon import main
 elif sys.argv[1:]==['boot']:
     from monitorize.remote_login.runner import boot_main as main

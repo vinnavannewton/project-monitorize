@@ -280,7 +280,11 @@ class Installer:
         self.write(backup/'manifest.json',json.dumps(manifest).encode(),0o600)
         try:
             for relative,data in sources:
-                executable=relative==ENGINE or relative in ('usr/libexec/monitorize/monitorize-system-setup','usr/libexec/monitorize/remote-login/repair.py') or relative.startswith('usr/libexec/monitorize-vkms/')
+                executable = (relative == ENGINE or relative in (
+                    'usr/libexec/monitorize/monitorize-system-setup',
+                    'usr/libexec/monitorize/remote-login/entry.py',
+                    'usr/libexec/monitorize/remote-login/repair.py',
+                ) or relative.startswith('usr/libexec/monitorize-vkms/'))
                 self.write(self.root/relative,data,0o755 if executable else 0o644)
             if any(relative==ENGINE for relative,_ in sources):
                 self.commands.set_capabilities(self.root/ENGINE,'cap_sys_admin+p')

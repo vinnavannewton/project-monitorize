@@ -76,7 +76,8 @@ def stage(destination,*,repository=ROOT):
     target.parent.parent.chmod(0o755)
     shutil.copyfile(repository/'packaging/fedora/99-monitorize-input-access.rules', target)
     target.chmod(0o644)
-    (destination/'usr/libexec/monitorize/remote-login/repair.py').chmod(0o755)
+    for name in ('entry.py', 'repair.py'):
+        (destination/'usr/libexec/monitorize/remote-login'/name).chmod(0o755)
     return destination
 
 

@@ -48,7 +48,7 @@ class SystemTransport:
 
 class ExportedService(dbus.service.Object):
     def __init__(self,bus,core):
-        self.core=core;self.name=dbus.service.BusName(NAME,bus=bus,do_not_queue=True)
+        self.core=core;self.bus=bus;self.name=dbus.service.BusName(NAME,bus=bus,do_not_queue=True)
         super().__init__(bus,PATH)
         self._last=None
         self._workers=ThreadPoolExecutor(max_workers=4,thread_name_prefix='remote-display')
@@ -66,6 +66,15 @@ class ExportedService(dbus.service.Object):
 
     @dbus.service.method(INTERFACE,in_signature='',out_signature='s')
     def GetStatus(self):return self._invoke(self.core.status)
+
+    @dbus.service.method(INTERFACE, in_signature='b', out_signature='s', sender_keyword='sender')
+    def SetBootPaused(self, paused, sender=None):
+        # Only the enrolled account can pause its own service-owned listener.
+        # Desktop ownership still requires the full local graphical-session gate.
+        if not sender or not str(sender).startswith(':'):
+            raise Rejected('A verified system-bus caller is required.')
+        uid = int(self.bus.get_unix_user(sender))
+        return self._invoke(self.core.set_boot_paused, uid, bool(paused))
 
     @dbus.service.method(INTERFACE,in_signature='',out_signature='s',sender_keyword='sender')
     def AcquireDesktop(self,sender=None):return self._invoke(self.core.acquire,str(sender))

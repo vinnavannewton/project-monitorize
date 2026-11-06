@@ -15,6 +15,7 @@ class Supervisor:
         self.uid=uid;self.enabled=enabled;self.session=None
         self.generation=None;self.stopped_session=None;self.available=False
         self.state='waiting_for_greeter'
+        self.boot_paused=False
 
     def reconcile(self,*,sessions,greeter_ready,boot_running,desktop_running,identity_free):
         target,session=session_target(sessions,self.uid)
@@ -42,6 +43,9 @@ class Supervisor:
                 self.available=identity_free and self.stopped_session!=session
         elif desktop_running:
             self.state='handoff_to_greeter';self.generation=None;action='stop_desktop'
+        elif self.boot_paused:
+            self.state='greeter_stopping' if boot_running else 'greeter_stopped'
+            if boot_running:action='stop_boot'
         elif not greeter_ready:
             self.state='waiting_for_greeter'
             if boot_running:action='stop_boot'

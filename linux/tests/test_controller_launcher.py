@@ -7,7 +7,9 @@ from unittest.mock import patch
 from types import SimpleNamespace
 import stat
 
-from monitorize.desktop.controller_launcher import wait_for_graphical_session, _socket_ready
+from monitorize.desktop.controller_launcher import (
+    require_local_graphical_session, wait_for_graphical_session, _socket_ready,
+)
 
 
 class LauncherTests(unittest.TestCase):
@@ -47,3 +49,20 @@ class LauncherTests(unittest.TestCase):
             with patch.object(Path,'stat',return_value=SimpleNamespace(st_mode=stat.S_IFSOCK,st_uid=0)):
                 self.assertTrue(_socket_ready(path,allow_root=True))
                 self.assertFalse(_socket_ready(path))
+
+    def test_cli_requires_the_same_users_active_local_graphical_session(self):
+        properties = (
+            f"User={os.getuid()}\nSeat=seat0\nRemote=no\n"
+            "Type=wayland\nClass=user\nActive=yes"
+        )
+        for reply in (properties, properties.replace('Remote=no', 'Remote=yes')):
+            with self.subTest(reply=reply), patch('subprocess.run') as run:
+                run.side_effect = [
+                    SimpleNamespace(stdout='3\n'),
+                    SimpleNamespace(stdout=reply),
+                ]
+                if 'Remote=yes' in reply:
+                    with self.assertRaisesRegex(RuntimeError, 'No active local graphical session'):
+                        require_local_graphical_session()
+                else:
+                    require_local_graphical_session()

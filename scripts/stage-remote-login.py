@@ -85,7 +85,11 @@ def prepare(destination,binary,assets,*,vkms_source=None,announce=True):
             shutil.copyfile(ROOT/source,target)
         for path in destination.rglob('*'):
             if path.is_dir():path.chmod(0o755)
-            elif path not in (engine,helper):path.chmod(0o755 if path.parent==destination/'usr/libexec/monitorize-vkms' or path==destination/'usr/libexec/monitorize/remote-login/repair.py' else 0o644)
+            elif path not in (engine,helper):
+                executable = (path.parent == destination/'usr/libexec/monitorize-vkms'
+                              or (path.parent == destination/'usr/libexec/monitorize/remote-login'
+                                  and path.name in ('entry.py', 'repair.py')))
+                path.chmod(0o755 if executable else 0o644)
     except Exception:
         shutil.rmtree(destination);raise
     if announce:
