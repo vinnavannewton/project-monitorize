@@ -80,21 +80,29 @@ https://github.com/vinnavannewton/monitorize-vkms
 
    For login-screen access, install Monitorize VKMS and the matching
    remote-login components. Check display-manager support for the requested
-   setup and select Monitorize Auto or KMS capture. In Settings > General,
-   enable Start Monitorize after login and Also start at boot (login screen).
+   setup and select Monitorize Auto or KMS capture. Enable boot hosting with
+   monitorize boot enable. In the GUI, this is Also start at boot (login
+   screen) under Start Monitorize after login in Settings > General.
    Leave Create virtual display at login off when a usable physical display
-   is attached. That also applies when I use Extend or Virtual displays only
-   after signing in. For a headless
-   host, enable Create virtual display at login only on a supported setup.
-   Explain any display-manager limitation before changing boot settings.
+   is attached, including when I use Extend or Virtual displays only after
+   signing in. On a supported headless host, enable it with
+   monitorize boot login-virtual-on. Explain any display-manager limitation
+   before changing boot settings.
 
-5. Summarize the setup you chose for my goal. If you can run commands on my
-   host, carry out the steps I authorize. For SSH, follow the README's
-   Terminal and SSH section. Confirm with me before making privileged changes
-   or rebooting. If you need me to approve a prompt, change firmware settings,
-   or run a command, give me the exact step and wait for my result. Verify it
-   and resume from there. If you have no host access, give me the commands to
-   run and use my results to guide the next step.
+5. Summarize the setup you chose for my goal. If you have terminal access to
+   my host, use the Monitorize CLI and JSON to configure it for me. Follow the
+   Terminal and SSH section for the right launcher. Run monitorize config path
+   to generate or locate monitorize.json from my current settings. Edit the
+   requested settings in that file, apply them with monitorize reload, and
+   check the result. Use the setup and boot commands for system permissions
+   and boot policy. Use monitorize start and monitorize status to check that
+   the requested session is ready.
+
+   Confirm with me before making privileged changes or rebooting. If a step
+   needs me to approve a prompt, change firmware settings, or run a command,
+   give me the exact step and wait for my result. Verify it and resume.
+   If you have no host access, give me the CLI commands and guide me using
+   the results I share.
    https://github.com/vinnavannewton/project-monitorize#terminal-and-ssh
 
 6. Help me pair in Moonlight and check video and input on each requested
