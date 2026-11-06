@@ -89,6 +89,16 @@ https://github.com/vinnavannewton/monitorize-vkms
    monitorize boot login-virtual-on. Explain any display-manager limitation
    before changing boot settings.
 
+   For remote login or a headless display setup, recommend SSH as a recovery
+   option. With my approval, help me enable the SSH server on the streaming
+   host at boot and verify that I can connect from another device over my
+   trusted LAN or VPN before relying on Moonlight. Explain that SSH gives me
+   terminal access if a distro update, Monitorize crash, or configuration
+   problem leaves the graphical session or stream unavailable. Show me how
+   to use monitorize status, locate monitorize.json with monitorize config
+   path, edit the settings, and apply them with monitorize reload. Show me
+   how to use monitorize stop and monitorize start if hosting needs a restart.
+
 5. Summarize the setup you chose for my goal. If you have terminal access to
    my host, use the Monitorize CLI and JSON to configure it for me. Follow the
    Terminal and SSH section for the right launcher. Run monitorize config path
