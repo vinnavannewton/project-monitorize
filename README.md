@@ -18,9 +18,9 @@ Monitorize creates and manages virtual displays on Linux using compositor-native
 
 For streaming, connect with [Moonlight](https://moonlight-stream.org/) on Android, Linux, Windows, macOS, iOS, or another supported device.
 
-## Install with an AI agent
+## Installation prompt for AI agents
 
-Copy this prompt into your AI assistant for installation steps tailored to your Linux host and display setup.
+Copy this prompt into an AI assistant of your choice for help installing and configuring Monitorize on your Linux host.
 
 <details>
 <summary>Show installation prompt</summary>
