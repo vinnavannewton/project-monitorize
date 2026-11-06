@@ -18,6 +18,87 @@ Monitorize creates and manages virtual displays on Linux using compositor-native
 
 For streaming, connect with [Moonlight](https://moonlight-stream.org/) on Android, Linux, Windows, macOS, iOS, or another supported device.
 
+## Install with an AI agent
+
+Copy this prompt into your AI assistant for installation steps tailored to your Linux host and display setup.
+
+<details>
+<summary>Show installation prompt</summary>
+
+```text
+Help me install and configure Project Monitorize on my Linux host.
+
+Before taking any action on my host, read both READMEs and every page in
+each repository's GitHub wiki, where available. If a repository has no wiki,
+use its README and in-repo documentation for setup.
+
+Project Monitorize
+https://github.com/vinnavannewton/project-monitorize
+https://github.com/vinnavannewton/project-monitorize/wiki
+
+Monitorize VKMS
+https://github.com/vinnavannewton/monitorize-vkms
+
+1. Use what I have already told you. If my goal is unclear, ask whether I want
+   a tablet or laptop as a second display, both as two additional displays
+   alongside my existing monitor, or remote desktop access from the login
+   screen. For remote desktop, find out whether the host has a usable physical
+   display at sign-in or is headless. Identify the host's distro and release,
+   running kernel, desktop environment, and Wayland or X11 session. For boot
+   access, check the display manager separately. Inspect the host if you can
+   and ask only for the missing details.
+
+2. Check the current desktop support table and open the installation guide
+   linked for my distro.
+   https://github.com/vinnavannewton/project-monitorize#supported-desktops
+   https://github.com/vinnavannewton/project-monitorize#installation
+
+   Prefer compositor-native displays for a supported desktop extension setup.
+   Use Monitorize VKMS where native creation is unavailable and VKMS is
+   supported, or when I need login-screen hosting. Compositor-native capture
+   can request screen-sharing permission. If I want to avoid recurring
+   prompts, check whether my setup supports VKMS with direct capture. Help me
+   enable Passwordless Display Creation if I want VKMS displays without
+   recurring password prompts. Complete any first-run input, firewall, and
+   capture authorization needed for the chosen setup.
+
+3. If VKMS is needed, check Secure Boot and follow the current VKMS install
+   instructions for my distro, including matching kernel development files.
+   Verify the installed module with monitorize-vkms verify.
+   https://github.com/vinnavannewton/monitorize-vkms#prerequisites
+
+   Recommend disabling Secure Boot in BIOS/UEFI as the simpler VKMS setup
+   path. Explain that this removes Secure Boot protection. If I choose it,
+   guide me through my machine's firmware settings and verify after reboot.
+   If I prefer to keep Secure Boot enabled, read and follow the current
+   project wiki guide for signing-key enrollment.
+   https://github.com/vinnavannewton/project-monitorize/wiki/Enroll-a-Secure-Boot-Key
+
+4. For an extra screen, configure one Extend display. For a tablet and
+   laptop together, configure two Extend displays and pair each Moonlight
+   client with its own Monitorize listener.
+
+   For login-screen access, install Monitorize VKMS and the matching
+   remote-login components. Check display-manager support for the requested
+   setup and select Monitorize Auto or KMS capture. In Settings > General,
+   enable Start Monitorize after login and Also start at boot (login screen).
+   Leave Create virtual display at login off when a usable physical display
+   is attached. That also applies when I use Extend or Virtual displays only
+   after signing in. For a headless
+   host, enable Create virtual display at login only on a supported setup.
+   Explain any display-manager limitation before changing boot settings.
+
+5. Give me the steps for my installation and access method. For SSH, use the
+   README's Terminal and SSH section. Confirm with me before running privileged
+   changes or rebooting. Help me pair in Moonlight and check video and input
+   on each requested display. For boot hosting, test the login screen and
+   reconnect to the desktop after signing in. Ask me to confirm any test
+   that requires access to the Moonlight device.
+   https://github.com/vinnavannewton/project-monitorize#terminal-and-ssh
+```
+
+</details>
+
 ## Features
 
 - Create and manage up to two virtual displays.
