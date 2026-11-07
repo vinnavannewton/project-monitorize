@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Finish a source update only when enrolled remote-login assets match its engine."""
 import argparse
-import importlib.util
 import json
 import os
 from pathlib import Path
@@ -12,9 +11,8 @@ sys.path.insert(0,str(ROOT/'linux'))
 from monitorize.remote_login.capability import ENGINE,matching_engines
 
 
-def check_update(source,assets,*,settings=Path('/etc/monitorize/remote-login.json'),
-                 installed=ENGINE,destination=None):
-    """Stage only; retain active services, enrollment, pairing and package ownership."""
+def check_update(source, assets, *, settings=Path('/etc/monitorize/remote-login.json'), installed=ENGINE):
+    """Update enrolled service assets through the installed repair helper."""
     try:
         values=json.loads(Path(settings).read_text())
     except FileNotFoundError:return 0
@@ -26,24 +24,17 @@ def check_update(source,assets,*,settings=Path('/etc/monitorize/remote-login.jso
         return 1
     if values.get('enabled') is not True or values.get('uid')!=os.getuid():return 0
     if matching_engines(source,installed):return 0
-    print('Desktop updated; remote-login system assets still need updating.',flush=True)
-    print('Open Monitorize Settings and choose Repair remote login for graphical administrator authorization. Manual fallback follows.',flush=True)
-    print('The privileged engine differs from this source build; desktop login may fail with your selected encoder.',flush=True)
-    spec=importlib.util.spec_from_file_location('remote_login_installer',ROOT/'scripts/install-remote-login-assets.py')
-    installer=importlib.util.module_from_spec(spec);spec.loader.exec_module(installer)
-    if installer.package_owner(installed):
-        print('The remote-login engine belongs to a native package. Upgrade the matching Monitorize package '
-              '(CUDA-enabled for NVIDIA) through the package manager. Source installation cannot replace package-owned assets.',flush=True)
+    from monitorize.platform.remote_login_repair import repair_remote_login
+    print('Updating remote-login service files. Approve the administrator prompt if asked.', flush=True)
+    result = repair_remote_login(repository=ROOT, terminal=True, bundle=(source, assets))
+    if not result.get('success'):
+        print(result['message'], file=sys.stderr)
         return 1
-    spec=importlib.util.spec_from_file_location('stage_remote_login',ROOT/'scripts/stage-remote-login.py')
-    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
-    if destination is None:
-        import secrets,tempfile
-        destination=Path(tempfile.gettempdir())/('monitorize-remote-login-'+secrets.token_hex(8))
-    module.prepare(destination,source,assets)
-    print('Complete the printed administrator install commands, then restart the services or reboot. '
-          'Keep the existing enrollment and pairing; do not enable setup again.',flush=True)
-    return 1
+    if not matching_engines(source, installed):
+        print('Remote-login repair completed, but the installed engine still differs from the build.', file=sys.stderr)
+        return 1
+    print(result['message'], flush=True)
+    return 0
 
 
 if __name__=='__main__':

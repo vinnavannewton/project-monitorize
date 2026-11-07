@@ -886,6 +886,11 @@ else
     printf '%s\n' "${SUNSHINE_BUILD_FINGERPRINT}" > "${SUNSHINE_BUILD_STAMP}"
 fi
 
+if ! env -u LD_LIBRARY_PATH -u LD_PRELOAD "${SUNSHINE_BUILD_BIN}" --version >/dev/null; then
+    echo "Error: Sunshine cannot run on this system. Rebuild it with --rebuild-sunshine --cuda=${CUDA_POLICY}." >&2
+    exit 1
+fi
+
 install -m 0755 "${SUNSHINE_BUILD_BIN}" "${SUNSHINE_VENV_BIN}"
 rm -rf "${SUNSHINE_VENV_ASSETS}"
 mkdir -p "${SUNSHINE_VENV_ASSETS}"
@@ -1069,7 +1074,7 @@ if [[ ! -e /dev/uinput || ! -r /dev/uinput || ! -w /dev/uinput ]]; then
 fi
 
 # An enrolled source install has a second, root-owned engine. A desktop rebuild
-# cannot update it; stage the exact new engine before claiming complete success.
+# updates it through authorized repair before reporting complete success.
 if [[ "${INSTALL_MODE}" == "complete" ]]; then
     echo "Open System setup in Monitorize for authorized input, firewall and KMS setup."
     "${VENV_DIR}/bin/python3" "${REPOSITORY_DIR}/scripts/check-source-remote-login.py" \
@@ -1102,12 +1107,7 @@ if [[ "${INSTALL_MODE}" == "complete" ]]; then
     echo "  support are installed and ready."
     echo "  Sunshine CUDA: ${SUNSHINE_CUDA_ENABLED} (policy: ${CUDA_POLICY})."
     echo ""
-    echo "  Login-screen startup requires separate system service assets."
-    echo "  Open Settings and choose Repair remote login for graphical setup."
-    echo "  Manual fallback: fully quit Monitorize and run:"
-    printf '    python3 %q\n' "${REPOSITORY_DIR}/scripts/stage-remote-login.py"
-    echo "  Follow its printed administrator install commands, then enable"
-    echo "  Also start at boot in Settings. Staging alone does not install it."
+    echo "  Manage login-screen startup in Monitorize Settings."
 else
     echo "  ${APP_NAME} has been installed!  (Partial Install)"
     echo "  It should now appear in your application menu."

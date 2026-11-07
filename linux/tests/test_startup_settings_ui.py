@@ -364,7 +364,8 @@ with tempfile.TemporaryDirectory() as d:
             assert prop('settingsError')=='Cancelled'
             for accepted_capture in ('kms','auto'):
                 with patch('monitorize.desktop.backend.load_display_settings',return_value={'sunshine_capture':accepted_capture}) as preflight, patch('monitorize.desktop.remote_login_setup.apply_remote_login_setup',return_value={'success':False,'message':'Cancelled'}) as configure, patch('monitorize.desktop.remote_login_setup.configure'), patch('monitorize.desktop.remote_login_setup.controller_snapshot',return_value={}), patch('monitorize.desktop.remote_login_setup.restore_controller_snapshot'):
-                    e=QQmlExpression(qmlContext(page),page,'bootCheck.click()');e.evaluate()
+                    boot.setProperty('checked', True)
+                    e=QQmlExpression(qmlContext(page),page,'bootCheck.clicked()');e.evaluate()
                     assert not e.hasError(),e.error().toString()
                     assert boot.property('checked') and not boot.property('enabled')
                     assert backend.remoteLoginSetupBusy

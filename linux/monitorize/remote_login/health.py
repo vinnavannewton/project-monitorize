@@ -4,8 +4,22 @@ from monitorize.platform.sunshine_ports import sunshine_port_conflict
 import json
 import os
 from pathlib import Path
+import re
 import stat
 import time
+
+
+def missing_library_error(text):
+    match = re.search(
+        rb': error while loading shared libraries: ([A-Za-z0-9_.+-]{1,128}): '
+        rb'cannot open shared object file: No such file or directory(?:\r?$)',
+        text, re.MULTILINE)
+    if match:
+        library = match[1].decode('ascii')
+        return (f'Sunshine cannot start because {library} is missing. '
+                'For a source install, rebuild Sunshine for this system and then run Repair remote login. '
+                'For a native install, update Monitorize and its dependencies through the package manager.')
+    return ''
 
 
 def startup_failure(log,status):
@@ -15,6 +29,7 @@ def startup_failure(log,status):
             source.seek(0,os.SEEK_END)
             source.seek(max(0,source.tell()-32768))
             text=source.read(32768)
+        if error := missing_library_error(text):return error
         conflict = sunshine_port_conflict(text.decode('utf-8', 'replace'))
         if conflict:return conflict
         if b'MONITORIZE_STRICT_SELECTION_FAILED: requested encoder [nvenc] is unavailable' in text:

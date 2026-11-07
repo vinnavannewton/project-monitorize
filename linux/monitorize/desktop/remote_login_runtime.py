@@ -8,7 +8,7 @@ from PyQt6.QtCore import QObject,QTimer,pyqtSignal
 from monitorize.platform.login_capture_probe import find_boot_output
 from monitorize.remote_login.settings import SETTINGS,read_settings
 from monitorize.remote_login.dbus_service import NAME,PATH,INTERFACE
-from monitorize.remote_login.capability import source_engine_update_error
+from monitorize.remote_login.capability import engine_launch_error,source_engine_update_error
 
 MESSAGES={
     'greeter_idle':'Login host is listening; the virtual display is disconnected until a client connects.',
@@ -97,6 +97,15 @@ class Participant:
         self.bus=dbus.SystemBus(private=True,mainloop=NULL_MAIN_LOOP)
         self.interface=dbus.Interface(self.bus.get_object(NAME,PATH,introspect=False),INTERFACE)
 
+    def _control_error(self,method,error):
+        name = error.get_dbus_name() if hasattr(error,'get_dbus_name') else ''
+        if name in ('org.freedesktop.DBus.Error.ServiceUnknown','org.freedesktop.DBus.Error.NameHasNoOwner'):
+            return ('The remote-login supervisor is unavailable. '
+                    'Check monitorize-remote-login.service in Diagnostics & logs.')
+        if name in ('org.freedesktop.DBus.Error.NoReply','org.freedesktop.DBus.Error.Timeout'):
+            return f'The remote-login supervisor did not reply to {method}. Check its service journal.'
+        return f'Remote-login request {method} failed. See Diagnostics & logs.'
+
     def _call(self,method,*args):
         try:
             self._connect()
@@ -136,6 +145,7 @@ class Participant:
 
     def _poll(self):
         status={}
+        method='GetStatus'
         try:
             status=self._call('GetStatus')
             epoch=status.get('epoch')
@@ -157,7 +167,8 @@ class Participant:
                 if status.get('state') not in ('waiting_for_desktop','handoff_to_desktop','desktop_starting','desktop_available'):
                     return status
                 if not self.generation:
-                    grant=self._call('AcquireDesktop')
+                    method='AcquireDesktop'
+                    grant=self._call(method)
                     if not grant.get('granted'):return dict(status,state=grant.get('state',status['state']))
                     self.generation=grant['generation']
                 if status.get('state') in ('waiting_for_desktop','handoff_to_desktop'):
@@ -177,7 +188,8 @@ class Participant:
                         if self.stream_options:descriptor['stream_options']=dict(self.stream_options)
                     elif self.factory is None:
                         legacy_stream_options(self.stream_options or saved_stream_options(),write=True,keep_enrolled_encoder=True)
-                    status=self._call('PrepareDesktop',self.generation,json.dumps(descriptor))
+                    method='PrepareDesktop'
+                    status=self._call(method,self.generation,json.dumps(descriptor))
             return status
         except Exception as error:
             # Revoked ownership is not a missing service. Keep the same sender,
@@ -195,7 +207,7 @@ class Participant:
                             control_error='Remote-login operation failed. Inspect the remote-login service journal.')
             # A timeout must not immediately replay a potentially completed write.
             return dict(state='unavailable',capture_ready=False,listening=False,
-                        control_error='Remote-login control did not complete. See Diagnostics & logs for the failed operation.')
+                        control_error=self._control_error(method,error))
 
     def _restore_layout(self):
         try:
@@ -218,6 +230,8 @@ class Participant:
         if error:return dict(self._poll(),layout_error=error)
         if display_behavior is not None:self.layout_mode=display_behavior
         if options is not None:self.stream_options=dict(options)
+        if self.factory is None and (error := engine_launch_error()):
+            return dict(state='error',capture_ready=False,listening=False,startup_error=error)
         try:
             self._call('Start');self.want_running=True
         except Exception as error:
@@ -226,7 +240,8 @@ class Participant:
                 self.generation=''
                 return dict(state='authentication_error',capture_ready=False,listening=False,
                             control_error=MESSAGES['authentication_error'])
-            return dict(state='unavailable',capture_ready=False)
+            return dict(state='unavailable',capture_ready=False,listening=False,
+                        control_error=self._control_error('Start',error))
         return self.poll()
 
     def close(self):

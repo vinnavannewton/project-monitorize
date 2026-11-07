@@ -29,8 +29,15 @@ class TrayOwnershipTest(unittest.TestCase):
     def test_login_dispatches_full_controller_hidden_when_listening_enabled(self):
         from monitorize import __main__ as entry
         argv = ['monitorize', '--tray-agent']
-        with patch.object(entry.sys, 'argv', argv), patch('monitorize.config.settings.load_general_settings', return_value={'client_listen_on_open': True}), patch('monitorize.desktop.main_window.main') as full, patch('monitorize.desktop.tray_agent.main') as light:
+        with (patch.object(entry.sys, 'argv', argv),
+              patch('monitorize.config.host_config.config_path') as config_path,
+              patch('monitorize.config.host_config.initialize') as initialize,
+              patch('monitorize.config.settings.load_general_settings', return_value={'client_listen_on_open': True}),
+              patch('monitorize.desktop.main_window.main') as full,
+              patch('monitorize.desktop.tray_agent.main') as light):
+            config_path.return_value.exists.return_value = False
             entry.main()
+        initialize.assert_called_once_with()
         full.assert_called_once()
         light.assert_not_called()
         self.assertIn('--start-in-tray', argv)

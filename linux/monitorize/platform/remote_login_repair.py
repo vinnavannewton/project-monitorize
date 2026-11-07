@@ -57,7 +57,7 @@ def repair_options(*, repository=None):
             'repair_needed': needed, 'repair_message': message}
 
 
-def repair_remote_login(*, repository=None, terminal=False):
+def repair_remote_login(*, repository=None, terminal=False, bundle=None):
     repository = Path(repository) if repository is not None else Path(__file__).resolve().parents[3]
     options = repair_options(repository=repository)
     kind = options['repair_kind']
@@ -73,14 +73,20 @@ def repair_remote_login(*, repository=None, terminal=False):
     command = [pkexec, str(helper)] if helper == HELPER else [pkexec, '/usr/bin/python3', '-I', str(helper)]
     try:
         with tempfile.TemporaryDirectory(prefix='monitorize-service-stage-') as temporary:
-            from monitorize.platform.sunshine_service import _sunshine_bundles, get_sunshine_candidates
-            candidates = get_sunshine_candidates()
-            if not candidates:
-                raise ValueError('Build the Monitorize Sunshine engine before repairing source service files.')
-            binary = Path(candidates[0][0])
-            assets = dict(_sunshine_bundles()).get(str(binary))
+            if bundle is None:
+                from .sunshine_service import _sunshine_bundles, get_sunshine_candidates
+                candidates = get_sunshine_candidates()
+                if not candidates:
+                    raise ValueError('Build the Monitorize Sunshine engine before repairing source service files.')
+                binary = Path(candidates[0][0])
+                assets = dict(_sunshine_bundles()).get(str(binary))
+            else:
+                binary, assets = bundle
             if not binary.is_relative_to(repository) or not assets:
                 raise ValueError('Select the engine from this Monitorize source installation before repairing services.')
+            from monitorize.remote_login.capability import engine_launch_error
+            if error := engine_launch_error(binary):
+                raise ValueError(error)
             spec = importlib.util.spec_from_file_location('monitorize_stage', repository / 'scripts/stage-remote-login.py')
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)

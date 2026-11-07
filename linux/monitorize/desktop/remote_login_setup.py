@@ -6,6 +6,7 @@ from monitorize.platform.system_setup import apply_remote_login_setup, remote_lo
 from monitorize.platform.sunshine_service import is_sunshine_running
 from monitorize.platform.recovery_actions import RecoveryRequest
 from monitorize.config import app_log
+from .remote_login_runtime import MESSAGES
 from .remote_login_controller import configure, controller_snapshot, restore_controller_snapshot, ControllerConflict, restore_managed
 
 
@@ -212,8 +213,11 @@ class RemoteLoginSetupCoordinator(QObject):
         runtime=self.backend._remote_login;status=runtime.status;result=self._root_result
         if self._cancelled:
             self._finish({**result,'success':False,'partial':True,'message':'Setup stopped; startup settings are saved.'});return
-        if self._listener_observed and (status.get('startup_error') or status.get('control_error') or status.get('state') in ('error','authentication_error')):
-            self._finish({**result,'success':False,'partial':True,'message':'Remote login is saved, but could not start. Retry setup.'});return
+        if self._listener_observed and (status.get('startup_error') or status.get('control_error')
+                                       or status.get('state') in ('error','authentication_error','unavailable')):
+            detail = status.get('startup_error') or status.get('control_error') or MESSAGES[status['state']]
+            self._finish({**result,'success':False,'partial':True,
+                          'message':'Remote-login settings are saved. '+detail});return
         if (self._listener_observed and status.get('uid')==os.getuid() and status.get('session')==result['session']
             and status.get('desktop_owned') is True and status.get('listening') is True
             and runtime.participant.generation and runtime.participant.epoch

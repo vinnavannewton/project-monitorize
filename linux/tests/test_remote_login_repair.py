@@ -241,6 +241,7 @@ class RepairTests(unittest.TestCase):
              patch.object(client.shutil, 'which', return_value='/usr/bin/pkexec'), \
              patch('monitorize.platform.sunshine_service.get_sunshine_candidates', return_value=[[str(binary)]]), \
              patch('monitorize.platform.sunshine_service._sunshine_bundles', return_value=[(str(binary), str(assets))]), \
+             patch('monitorize.remote_login.capability.engine_launch_error', return_value=''), \
              patch.object(client.subprocess, 'run', side_effect=launch):
             result = client.repair_remote_login(repository=repository)
         self.assertTrue(result['success'])

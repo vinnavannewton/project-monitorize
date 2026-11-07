@@ -1,6 +1,7 @@
 """Validate the installed fork's exact-output contract without executing it."""
 import mmap
 import hashlib
+import subprocess
 from functools import lru_cache
 from pathlib import Path
 
@@ -46,3 +47,19 @@ def exact_kms_engine(path):
             with mmap.mmap(source.fileno(),0,access=mmap.ACCESS_READ) as binary:
                 return all(binary.find(marker)>=0 for marker in MARKERS)
     except (OSError,ValueError):return False
+
+
+def engine_launch_error(path=ENGINE):
+    """Check the engine as the caller, with the system loader environment."""
+    from .health import missing_library_error
+    try:
+        result = subprocess.run(
+            [str(path), '--version'], env={'PATH': '/usr/bin:/bin', 'LC_ALL': 'C'},
+            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=5)
+    except (OSError, subprocess.TimeoutExpired):
+        return 'Sunshine could not run its version check. Verify the Monitorize engine installation.'
+    if result.returncode:
+        return missing_library_error(result.stderr[-32768:]) or (
+            f'Sunshine failed its version check (exit status {result.returncode}). '
+            'Verify the Monitorize engine installation.')
+    return ''

@@ -44,7 +44,8 @@ class ParticipantTests(unittest.TestCase):
         original=interface.GetStatus
         interface.GetStatus=lambda **kwargs:json.dumps({**json.loads(original()),'desktop_options_version':1})
         participant.interface=interface;participant.factory=None;participant.stream_options={}
-        with patch('monitorize.config.settings.load_display_settings',return_value=dict(use_client_display_settings=True,resolution='2340x1600',fps='90')), \
+        with patch('monitorize.desktop.remote_login_runtime.source_engine_update_error',return_value=''), \
+             patch('monitorize.config.settings.load_display_settings',return_value=dict(use_client_display_settings=True,resolution='2340x1600',fps='90')), \
              patch('monitorize.desktop.remote_login_runtime.legacy_stream_options') as legacy:
             participant.poll()
         legacy.assert_not_called()

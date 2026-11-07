@@ -31,6 +31,17 @@ class HealthTests(unittest.TestCase):
             self.assertIn('port 50110', error)
             self.assertNotIn('private text', error)
 
+    def test_loader_failure_identifies_missing_library_without_exposing_log(self):
+        from monitorize.remote_login.health import startup_failure
+        with tempfile.TemporaryDirectory() as d:
+            log = Path(d) / 'desktop-console.log'
+            log.write_text('/private/sunshine: error while loading shared libraries: libicudata.so.77: '
+                           'cannot open shared object file: No such file or directory\n')
+            error = startup_failure(log, 127)
+            self.assertIn('libicudata.so.77', error)
+            self.assertIn('Repair remote login', error)
+            self.assertNotIn('/private', error)
+
     def test_no_stale_startup_or_wrong_output_readiness(self):
         with tempfile.TemporaryDirectory() as d:
             log=Path(d)/'engine.log'

@@ -1,6 +1,5 @@
 """Source rebuilds must not silently leave the privileged engine behind."""
 import importlib.util
-from contextlib import redirect_stdout
 import io
 import json
 import os
@@ -8,7 +7,6 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
-import subprocess
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -64,61 +62,57 @@ class SourceEngineTests(unittest.TestCase):
         self.installed.unlink()
         self.assertIn('Repair remote login', source_engine_update_error(repository=self.root, installed=self.installed))
 
-    def test_enrolled_source_update_stages_exact_desktop_binary_and_requires_install(self):
+    def test_enrolled_source_update_deploys_exact_build_and_checks_result(self):
         spec = importlib.util.spec_from_file_location('source_update', ROOT / 'scripts/check-source-remote-login.py')
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         settings = self.root / 'remote-login.json'
         settings.write_text(json.dumps({'enabled': True, 'uid': os.getuid()}))
-        self.source.write_bytes(b'\x7fELF MONITORIZE_CONTROL_PROTOCOL=1 MONITORIZE_STRICT_KMS_OUTPUT_MISSING new')
         assets = self.root / 'assets'
-        (assets / 'web').mkdir(parents=True)
-        (assets / 'web/index.html').write_text('web')
-        stage = self.root / 'stage'
-        self.assertEqual(module.check_update(self.source, assets, settings=settings,
-            installed=self.installed, destination=stage), 1)
-        self.assertEqual((stage / 'usr/libexec/monitorize/sunshine').read_bytes(), self.source.read_bytes())
-        self.assertEqual(self.installed.read_bytes(), b'\x7fELF old engine')
-        self.assertEqual(json.loads(settings.read_text())['enabled'], True)
+        with patch('monitorize.platform.remote_login_repair.repair_remote_login',
+                   return_value={'success': True, 'message': 'Repaired'}) as repair:
+            self.assertEqual(module.check_update(self.source, assets, settings=settings, installed=self.installed), 1)
+            repair.assert_called_once_with(repository=ROOT, terminal=True, bundle=(self.source, assets))
+            def deploy(**kwargs):
+                binary, _ = kwargs['bundle']
+                self.installed.write_bytes(binary.read_bytes())
+                return {'success': True, 'message': 'Repaired'}
+
+            repair.reset_mock(side_effect=True)
+            repair.side_effect = deploy
+            self.assertEqual(module.check_update(self.source, assets, settings=settings, installed=self.installed), 0)
+            self.assertEqual(module.check_update(self.source, assets, settings=settings, installed=self.installed), 0)
+            repair.assert_called_once()
+        self.assertTrue(json.loads(settings.read_text())['enabled'])
 
     def test_disabled_or_matching_enrollment_needs_no_stage(self):
         spec = importlib.util.spec_from_file_location('source_update', ROOT / 'scripts/check-source-remote-login.py')
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         settings = self.root / 'remote-login.json'
-        stage = self.root / 'stage'
         for values in ({'enabled': False}, {'enabled': True, 'uid': -1}):
             settings.write_text(json.dumps(values))
             self.assertEqual(module.check_update(self.source, self.root / 'assets', settings=settings,
-                installed=self.installed, destination=stage), 0)
-            self.assertFalse(stage.exists())
+                installed=self.installed), 0)
         settings.write_text(json.dumps({'enabled': True, 'uid': os.getuid()}))
         self.installed.write_bytes(self.source.read_bytes())
         self.assertEqual(module.check_update(self.source, self.root / 'assets', settings=settings,
-            installed=self.installed, destination=stage), 0)
-        self.assertFalse(stage.exists())
+            installed=self.installed), 0)
 
-    def test_native_owned_engine_requires_package_upgrade_without_staging(self):
+    def test_authorization_failure_is_reported_without_claiming_success(self):
         spec = importlib.util.spec_from_file_location('source_update', ROOT / 'scripts/check-source-remote-login.py')
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         settings = self.root / 'remote-login.json'
         settings.write_text(json.dumps({'enabled': True, 'uid': os.getuid()}))
-        self.source.write_bytes(b'\x7fELF MONITORIZE_CONTROL_PROTOCOL=1 MONITORIZE_STRICT_KMS_OUTPUT_MISSING')
-        assets = self.root / 'assets'
-        (assets / 'web').mkdir(parents=True)
-        (assets / 'web/index.html').write_text('web')
-        stage = self.root / 'stage'
-        output = io.StringIO()
-        # Only the external package database is simulated; real staging must not run.
-        with patch('shutil.which', return_value='/usr/bin/pacman'), \
-             patch('subprocess.run', return_value=subprocess.CompletedProcess([], 0, 'monitorize\n', '')), \
-             redirect_stdout(output):
-            result = module.check_update(self.source, assets, settings=settings,
-                installed=self.installed, destination=stage)
+        with patch('monitorize.platform.remote_login_repair.repair_remote_login',
+                   return_value={'success': False, 'message': 'Administrator authorization failed.'}), \
+             patch('sys.stderr', new_callable=io.StringIO) as errors:
+            result = module.check_update(self.source, self.root / 'assets', settings=settings,
+                                         installed=self.installed)
         self.assertEqual(result, 1)
-        self.assertFalse(stage.exists())
-        self.assertIn('package manager', output.getvalue())
+        self.assertIn('Administrator authorization failed', errors.getvalue())
+        self.assertEqual(self.installed.read_bytes(), b'\x7fELF old engine')
 
     def test_corrupt_enrollment_is_not_silently_reported_as_complete(self):
         spec = importlib.util.spec_from_file_location('source_update', ROOT / 'scripts/check-source-remote-login.py')
@@ -127,5 +121,4 @@ class SourceEngineTests(unittest.TestCase):
         settings = self.root / 'remote-login.json'
         settings.write_text('{')
         self.assertEqual(module.check_update(self.source, self.root / 'assets', settings=settings,
-            installed=self.installed, destination=self.root / 'stage'), 1)
-        self.assertFalse((self.root / 'stage').exists())
+            installed=self.installed), 1)

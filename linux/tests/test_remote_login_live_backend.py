@@ -59,6 +59,7 @@ class CoordinatorTests(unittest.TestCase):
         self.backend._remote_login.changed.emit();self.assertEqual(self.results,[])
         self.backend._remote_login.status.update(session='3',startup_error='startup failed')
         self.backend._remote_login.changed.emit();self.assertFalse(self.results[-1]['success'])
+        self.assertIn('startup failed', self.results[-1]['message'])
     def test_active_client_blocks_before_root_or_user_changes(self):
         self.backend.session.active=True;self.begin()
         self.assertEqual(self.results,[])
