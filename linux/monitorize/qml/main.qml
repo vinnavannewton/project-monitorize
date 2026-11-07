@@ -516,15 +516,15 @@ Rectangle {
         objectName: "vkmsUpdateRebootDialog"
         anchors.centerIn: parent
         width: Math.min(440, root.width - 40)
+        implicitHeight: 164
         title: "Monitorize VKMS updated"
         modal: true
         closePolicy: Popup.NoAutoClose
         standardButtons: Dialog.Ok
-        contentHeight: vkmsRebootMessage.contentHeight
         contentItem: Text {
-            id: vkmsRebootMessage
             text: "Please reboot your system to apply the VKMS update."
             wrapMode: Text.WordWrap
+            verticalAlignment: Text.AlignVCenter
             color: theme.textPrimary
         }
     }
