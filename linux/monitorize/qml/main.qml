@@ -520,11 +520,11 @@ Rectangle {
         modal: true
         closePolicy: Popup.NoAutoClose
         standardButtons: Dialog.Ok
-        contentItem: TextArea {
+        contentHeight: vkmsRebootMessage.contentHeight
+        contentItem: Text {
+            id: vkmsRebootMessage
             text: "Please reboot your system to apply the VKMS update."
-            readOnly: true
-            background: null
-            wrapMode: TextEdit.Wrap
+            wrapMode: Text.WordWrap
             color: theme.textPrimary
         }
     }
