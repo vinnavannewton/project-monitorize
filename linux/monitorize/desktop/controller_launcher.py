@@ -16,7 +16,7 @@ DISPLAY_ENVIRONMENT = ('WAYLAND_DISPLAY', 'DISPLAY', 'XAUTHORITY', 'XDG_RUNTIME_
 
 
 def manager_environment():
-    result = subprocess.run(['/usr/bin/systemctl', '--user', 'show-environment'],
+    result = subprocess.run(['systemctl', '--user', 'show-environment'],
                             capture_output=True, text=True, timeout=3, check=True)
     return {key: value for line in result.stdout.splitlines() if '=' in line
             for key, value in [line.split('=', 1)] if key in DISPLAY_ENVIRONMENT}
@@ -61,7 +61,7 @@ def wait_for_graphical_session(environment=None, *, timeout=60,
 def require_local_graphical_session(*, host=()):
     """Verify the selected logind display before honoring user-manager display sockets."""
     def query(*arguments):
-        result = subprocess.run([*host, '/usr/bin/loginctl', *arguments],
+        result = subprocess.run([*host, 'loginctl', *arguments],
                                 capture_output=True, text=True, timeout=3, check=True)
         return result.stdout.strip()
 

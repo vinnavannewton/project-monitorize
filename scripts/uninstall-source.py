@@ -110,6 +110,9 @@ def user_targets(mode, *, home=None, environment=None, repository=ROOT):
     roots = xdg_roots(home, os.environ if environment is None else environment)
     paths = [repository / 'linux/venv', repository / 'linux/build', repository / 'external/sunshine/build',
              repository / 'external/sunshine/node_modules']
+    cli_link = home / '.local/bin/monitorize'
+    if cli_link.is_symlink() and cli_link.readlink() == repository / 'linux/venv/bin/monitorize':
+        paths.append(cli_link)
     for config in roots['CONFIG']:
         paths.extend(config / relative for relative in (
             'autostart/monitorize.desktop', 'autostart/monitorize-udp.desktop',

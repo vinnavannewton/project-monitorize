@@ -32,6 +32,12 @@ def main():
     if argv and (argv[0] in ('-h', '--help') or not argv[0].startswith('-')):
         from monitorize.host_cli import main as cli_main
         return cli_main(argv)
+    from monitorize.config import host_config
+    try:
+        if not host_config.config_path().exists():
+            host_config.initialize()
+    except (OSError, ValueError) as error:
+        print(f"Monitorize: Could not initialize monitorize.json: {error}", file=sys.stderr)
     light_tray = _use_light_tray(sys.argv)
     if light_tray:
         from monitorize.desktop.tray_agent import main as app_main

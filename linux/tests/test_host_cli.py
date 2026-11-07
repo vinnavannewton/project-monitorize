@@ -18,6 +18,24 @@ class HostCliTests(unittest.TestCase):
         with patch.object(host_cli, '_active_boot_status', return_value={'controller': 'boot'}):
             self.assertEqual(self.run_cli('status', '--json'), (0, {'controller': 'boot'}))
 
+    def test_boot_query_failure_does_not_report_desktop_stopped(self):
+        with (patch.object(host_cli, '_boot_context', return_value=True),
+              patch.object(host_cli, '_boot_runtime', side_effect=RuntimeError('Boot service unavailable')),
+              patch('monitorize.desktop.controller_launcher.require_local_graphical_session',
+                    side_effect=RuntimeError('No desktop')),
+              patch('monitorize.desktop.host_control.request') as desktop):
+            self.assertEqual(self.run_cli('status', '--json'),
+                             (1, {'success': False, 'message': 'Boot service unavailable'}))
+            desktop.assert_not_called()
+
+    def test_status_reports_boot_failure_alongside_verified_desktop_state(self):
+        with (patch.object(host_cli, '_boot_context', return_value=True),
+              patch.object(host_cli, '_boot_runtime', side_effect=RuntimeError('Boot service unavailable')),
+              patch('monitorize.desktop.controller_launcher.require_local_graphical_session'),
+              patch('monitorize.desktop.host_control.request', return_value={'state': 'ready'})):
+            self.assertEqual(self.run_cli('status', '--json'),
+                             (0, {'state': 'ready', 'boot_error': 'Boot service unavailable'}))
+
     def test_reload_requests_an_explicit_runtime_restart(self):
         with patch('monitorize.desktop.host_control.request', return_value={'state': 'ready'}) as call:
             self.assertEqual(self.run_cli('reload', '--restart', '--json'), (0, {'state': 'ready'}))

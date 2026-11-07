@@ -122,6 +122,8 @@ def _boot_runtime(action):
     from monitorize.platform.sunshine_ports import get_sunshine_port
     from monitorize.platform.utils import get_local_ip
 
+    if Path('/.flatpak-info').is_file():
+        raise RuntimeError('Run login-screen hosting commands with Monitorize installed on the host.')
     if not _boot_context():
         raise RuntimeError('Enable remote login for this account with monitorize boot enable.')
     if action == 'status':
@@ -156,10 +158,7 @@ def _boot_runtime(action):
 def _active_boot_status():
     if not _boot_context():
         return None
-    try:
-        status = _boot_runtime('status')
-    except RuntimeError:
-        return None
+    status = _boot_runtime('status')
     if not status.get('session'):
         return status
     return None
@@ -169,7 +168,19 @@ def _control(action, *, restart=False):
     from monitorize.desktop.host_control import request
 
     if action in ('start', 'stop', 'status'):
-        boot = _active_boot_status()
+        try:
+            boot = _active_boot_status()
+        except RuntimeError as boot_error:
+            from monitorize.desktop.controller_launcher import require_local_graphical_session
+
+            try:
+                require_local_graphical_session()
+            except RuntimeError:
+                raise boot_error from None
+            result = request(action, restart=restart)
+            if action == 'status':
+                result['boot_error'] = str(boot_error)
+            return result
         if boot is not None:
             return boot if action == 'status' else _boot_runtime(action)
     return request(action, restart=restart)
@@ -339,7 +350,7 @@ def _print_result(result, as_json):
     for key in ('state', 'build', 'profile', 'config', 'saved_revision', 'running_revision', 'restart_pending', 'active_preset', 'startup_error'):
         if result.get(key) is not None and result[key] != '':
             print(f"{key.replace('_', ' ').capitalize()}  {result[key]}")
-    for key in ('input_message', 'live_message'):
+    for key in ('input_message', 'live_message', 'boot_error'):
         if result.get(key) and result[key] != result.get('message'):
             print(result[key])
     for name, action in result.get('actions', {}).items():

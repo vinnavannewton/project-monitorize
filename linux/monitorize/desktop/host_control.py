@@ -132,16 +132,17 @@ def _launch():
         branch, arch, commit = (instance.get(key) for key in ('branch', 'arch', 'app-commit'))
         if not all((branch, arch, commit)):
             raise RuntimeError('The current Monitorize Flatpak branch or revision could not be identified.')
-        launch = ['/usr/bin/flatpak', 'run', f'--branch={branch}', f'--arch={arch}', f'--commit={commit}',
+        launch = ['flatpak', 'run', f'--branch={branch}', f'--arch={arch}', f'--commit={commit}',
                   _APP_ID, '--host-controller', '--start-in-tray']
     else:
         launch = [sys.executable, '-m', 'monitorize.desktop.controller_launcher', '--host-controller']
         options.append(f'--working-directory={LINUX_DIR}')
         for name in ('MONITORIZE_SUNSHINE_BIN', 'MONITORIZE_SUNSHINE_ASSETS_DIR',
-                     'SUNSHINE_CONFIG_DIR', 'XDG_CONFIG_HOME'):
+                     'SUNSHINE_CONFIG_DIR', 'XDG_CONFIG_HOME', 'PATH', 'PYTHONPATH',
+                     'QT_PLUGIN_PATH', 'QML2_IMPORT_PATH', 'QML_IMPORT_PATH'):
             if name in os.environ:
                 options.append(f'--setenv={name}={os.environ[name]}')
-    command = [*host, '/usr/bin/systemd-run', '--user', '--collect', '--slice=app.slice',
+    command = [*host, 'systemd-run', '--user', '--collect', '--slice=app.slice',
                f'--unit={unit}', *options, '--', *launch]
     try:
         result = subprocess.run(command, capture_output=True, text=True, timeout=10)

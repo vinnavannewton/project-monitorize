@@ -19,6 +19,7 @@
 , libva-utils
 , wlr-randr
 , xrandr
+, systemd
 , cudaSupport ? (stdenv.hostPlatform.system == "x86_64-linux")
 }:
 
@@ -202,6 +203,7 @@ python3Packages.buildPythonApplication rec {
         wlr-randr
         xrandr
         monitorizeSunshine
+        systemd
       ]}" \
       --set MONITORIZE_SUNSHINE_BIN "${monitorizeSunshine}/bin/sunshine" \
       --set MONITORIZE_SUNSHINE_ASSETS_DIR "${monitorizeSunshine}/assets"

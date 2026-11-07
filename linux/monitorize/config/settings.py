@@ -3,6 +3,8 @@
 import json
 import os
 import re
+import shutil
+import tempfile
 
 from PyQt6.QtCore import QSettings
 
@@ -15,7 +17,10 @@ from monitorize.config.validation import (
 )
 
 
-CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".config", "monitorize")
+_NATIVE_CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".config", "monitorize")
+_FLATPAK_CONFIG_HOME = os.environ.get("XDG_CONFIG_HOME") if os.path.isfile("/.flatpak-info") else None
+CONFIG_DIR = (os.path.join(_FLATPAK_CONFIG_HOME, "monitorize")
+              if _FLATPAK_CONFIG_HOME else _NATIVE_CONFIG_DIR)
 CONFIG_FILE = os.path.join(CONFIG_DIR, "settings.ini")
 MAX_PRESETS = 4
 PRESET_VERSION = 2
@@ -27,12 +32,30 @@ def _normalize_gpu_id(value) -> str:
     return value if _GPU_PCI_ID.fullmatch(value) else ""
 
 
+def _import_flatpak_settings():
+    if not _FLATPAK_CONFIG_HOME or os.path.lexists(CONFIG_FILE):
+        return
+    legacy = os.path.join(_NATIVE_CONFIG_DIR, "settings.ini")
+    if not os.path.isfile(legacy):
+        return
+    # Publish a complete private copy without replacing another process's file.
+    with tempfile.NamedTemporaryFile(dir=CONFIG_DIR) as pending:
+        with open(legacy, "rb") as source:
+            shutil.copyfileobj(source, pending)
+        pending.flush()
+        try:
+            os.link(pending.name, CONFIG_FILE)
+        except FileExistsError:
+            pass
+
+
 def _get_settings() -> QSettings:
     os.makedirs(CONFIG_DIR, exist_ok=True)
     try:
         os.chmod(CONFIG_DIR, 0o700)
     except OSError:
         pass
+    _import_flatpak_settings()
     settings = QSettings(CONFIG_FILE, QSettings.Format.IniFormat)
     if any(key.startswith("General/") for key in settings.allKeys()):
         # INI group casing may return as General in a fresh process, even after

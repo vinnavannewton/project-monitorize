@@ -1076,6 +1076,22 @@ if [[ "${INSTALL_MODE}" == "complete" ]]; then
         --sunshine "${SUNSHINE_VENV_BIN}" --assets "${SUNSHINE_VENV_ASSETS}"
 fi
 
+cli_link="${HOME}/.local/bin/monitorize"
+if [[ "$(readlink -- "$cli_link" 2>/dev/null || true)" != "${VENV_DIR}/bin/monitorize" ]]; then
+    cli_on_path="$(command -v monitorize || true)"
+    if [[ -z "$cli_on_path" || "$cli_on_path" == "${VENV_DIR}/bin/monitorize" ]] &&
+        mkdir -p -- "${cli_link%/*}" &&
+        ln -sT -- "${VENV_DIR}/bin/monitorize" "$cli_link"; then
+        echo "✓ Terminal command linked at $cli_link"
+    else
+        echo "Use ${VENV_DIR}/bin/monitorize to select this source installation."
+    fi
+fi
+if [[ "$(readlink -- "$cli_link" 2>/dev/null || true)" == "${VENV_DIR}/bin/monitorize" &&
+      ":${PATH}:" != *":${cli_link%/*}:"* ]]; then
+    echo "Add ${cli_link%/*} to your shell PATH to run monitorize by name."
+fi
+
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 if [[ "${INSTALL_MODE}" == "complete" ]]; then
