@@ -455,11 +455,14 @@ Rectangle {
             if (result.request_id === recoveryDecision.requestId) recoveryDecision.close()
         }
         function onRecoveryOperationFinished(result) {
+            if (result.request_id === recoveryDecision.requestId) recoveryDecision.close()
             if (result.operation === "clear_tokens") {
                 root.restoreTokenClearSucceeded = result.success
                 root.restoreTokenClearMessage = result.message
                 restoreTokenClearToast.open()
                 restoreTokenClearToastTimer.restart()
+            } else if (result.operation === "vkms_update" && result.success === true) {
+                vkmsUpdateRebootDialog.open()
             } else {
                 root.stagnantCleanupSucceeded = result.success
                 root.stagnantCleanupMessage = result.message
@@ -470,7 +473,6 @@ Rectangle {
                 vkmsRecoveryPopup.message = result.message
                 vkmsRecoveryPopup.rebootRequired = result.reboot_required === true
             }
-            if (result.request_id === recoveryDecision.requestId) recoveryDecision.close()
         }
         function onRecoveryDecisionRequested(request) {
             recoveryDecision.requestId = request.request_id
@@ -506,6 +508,21 @@ Rectangle {
             selectByMouse: true
             background: null
             wrapMode: TextEdit.Wrap
+            color: theme.textPrimary
+        }
+    }
+    Dialog {
+        id: vkmsUpdateRebootDialog
+        objectName: "vkmsUpdateRebootDialog"
+        anchors.centerIn: parent
+        width: Math.min(440, root.width - 40)
+        title: "Monitorize VKMS updated"
+        modal: true
+        closePolicy: Popup.NoAutoClose
+        standardButtons: Dialog.Ok
+        contentItem: Label {
+            text: "Please reboot your system to apply the VKMS update."
+            wrapMode: Text.WordWrap
             color: theme.textPrimary
         }
     }

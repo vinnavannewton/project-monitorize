@@ -473,6 +473,31 @@ class MonitorizeBackend(QObject):
         self._recovery_operations().begin('host_recovery')
 
     @pyqtSlot(bool)
+    def queueBootStartupChange(self, enabled):
+        if self._remote_setup_busy or self._closing:
+            return
+        generation = self._session_start_generation
+        self._remote_setup_busy = True
+        self.remoteLoginSetupChanged.emit()
+
+        def apply():
+            self._remote_setup_busy = False
+            if self._closing:
+                return
+            if generation != self._session_start_generation:
+                self.remoteLoginSetupFinished.emit({
+                    'success': False, 'cancelled': True,
+                    'message': 'The session changed. Request the startup change again.',
+                })
+            else:
+                self.configureRemoteLogin(enabled)
+            if not self._remote_setup_busy:
+                self.remoteLoginSetupChanged.emit()
+
+        # Give Qt a frame to paint the toggle before synchronous setup preflight.
+        QTimer.singleShot(50, apply)
+
+    @pyqtSlot(bool)
     def configureRemoteLogin(self, enabled):
         if self._remote_setup_busy or self._closing:return
         if self.applyingConfiguration or self.systemSetupRunning:

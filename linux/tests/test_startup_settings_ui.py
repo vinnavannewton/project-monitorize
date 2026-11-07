@@ -82,6 +82,23 @@ with tempfile.TemporaryDirectory() as d:
                 assert not e.hasError(),e.error().toString()
                 resolve.assert_called_once_with('cancel-test',False)
 
+            # Only a successful Update opens the acknowledgment-only reminder.
+            reboot_dialog=view.rootObject().findChild(QObject,'vkmsUpdateRebootDialog')
+            for operation, success in [('vkms_update',False),('vkms_reinstall',True),('vkms_update',True)]:
+                backend.recoveryOperationFinished.emit(dict(operation=operation,success=success,message='Finished'))
+                settle()
+                assert reboot_dialog.property('visible') == (operation=='vkms_update' and success)
+            with patch.object(backend,'requestSystemRestart') as restart:
+                e=QQmlExpression(qmlContext(reboot_dialog),reboot_dialog,
+                    'standardButton(Dialog.Ok).text === "OK" && standardButtons === Dialog.Ok')
+                value,_=e.evaluate()
+                assert not e.hasError() and value,e.error().toString()
+                e=QQmlExpression(qmlContext(reboot_dialog),reboot_dialog,'standardButton(Dialog.Ok).clicked()')
+                e.evaluate();settle()
+                assert not e.hasError(),e.error().toString()
+                assert not reboot_dialog.property('visible')
+                restart.assert_not_called()
+
             # Leaving a Settings subpage must discard its navigation history.
             nav=view.rootObject().findChild(QObject,'mainStack')
             expression=QQmlExpression(view.rootContext(),nav,'push("BootWifiSetupPage.qml")')
@@ -346,14 +363,17 @@ with tempfile.TemporaryDirectory() as d:
             assert not boot.property('checked') and login.property('enabled')
             assert prop('settingsError')=='Cancelled'
             for accepted_capture in ('kms','auto'):
-                with patch('monitorize.desktop.backend.load_display_settings',return_value={'sunshine_capture':accepted_capture}), patch('monitorize.desktop.remote_login_setup.apply_remote_login_setup',return_value={'success':False,'message':'Cancelled'}) as configure, patch('monitorize.desktop.remote_login_setup.configure'), patch('monitorize.desktop.remote_login_setup.controller_snapshot',return_value={}), patch('monitorize.desktop.remote_login_setup.restore_controller_snapshot'):
-                    boot.setProperty('checked',True)
-                    e=QQmlExpression(qmlContext(page),page,'bootCheck.clicked()');e.evaluate()
+                with patch('monitorize.desktop.backend.load_display_settings',return_value={'sunshine_capture':accepted_capture}) as preflight, patch('monitorize.desktop.remote_login_setup.apply_remote_login_setup',return_value={'success':False,'message':'Cancelled'}) as configure, patch('monitorize.desktop.remote_login_setup.configure'), patch('monitorize.desktop.remote_login_setup.controller_snapshot',return_value={}), patch('monitorize.desktop.remote_login_setup.restore_controller_snapshot'):
+                    e=QQmlExpression(qmlContext(page),page,'bootCheck.click()');e.evaluate()
                     assert not e.hasError(),e.error().toString()
+                    assert boot.property('checked') and not boot.property('enabled')
+                    assert backend.remoteLoginSetupBusy
+                    preflight.assert_not_called()
                     for _ in range(10):
                         settle()
                         if not backend.remoteLoginSetupBusy:break
                     configure.assert_called_once_with(True)
+                    assert not boot.property('checked') and boot.property('enabled')
             for capture in ('kwin','portal','wlr','x11','nvfbc','pipewire_node'):
                 with patch('monitorize.desktop.backend.load_display_settings',return_value={'sunshine_capture':capture}), patch('monitorize.platform.system_setup.apply_remote_login_setup') as configure:
                     boot.setProperty('checked',True)

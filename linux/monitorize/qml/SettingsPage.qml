@@ -223,7 +223,7 @@ Item {
                         onClicked: {
                             page.loginAfterBootDisable = checked ? -1 : 1
                             page.pendingBootAction = checked ? 1 : 0
-                            backend.configureRemoteLogin(checked)
+                            backend.queueBootStartupChange(checked)
                         }
                     }
                     StartupHelp { helpText: "Enables remote login now and after future boots, without restarting your PC.\nAfter signing in, reconnect to the same Moonlight PC. Desktop startup is included." }
