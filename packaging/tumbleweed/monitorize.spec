@@ -21,6 +21,7 @@ Source2:        monitorize.sysusers
 # CUDA 12.9's installer still needs libxml2.so.2; Tumbleweed ships libxml2.so.16.
 Source3:        https://download.opensuse.org/distribution/leap/15.6/repo/oss/x86_64/libxml2-2-2.10.3-150500.5.14.1.x86_64.rpm
 %endif
+Source4:        monitorize-rpmlintrc
 ExclusiveArch:  x86_64
 
 BuildRequires:  boost-devel >= 1.89.0
@@ -98,8 +99,9 @@ Requires:       xrandr
 Requires:       avahi
 Requires:       firewalld
 Requires:       iproute2
-Requires:       libcap-progs
-Requires:       libva-utils
+Requires:       /usr/sbin/getcap
+Requires:       /usr/sbin/setcap
+Requires:       /usr/bin/vainfo
 Requires:       pkexec
 Requires:       polkit
 Requires:       openssl

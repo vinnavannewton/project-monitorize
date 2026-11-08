@@ -1,0 +1,14 @@
+# Generated debug RPMs contain detached DWARF and source files.
+addFilter(r'^monitorize-debuginfo\.x86_64: [EW]: (missing-PT_GNU_STACK-section|statically-linked-binary|hidden-file-or-dir|position-independent-executable-suggested|unstripped-binary-or-object) /usr/lib/debug/')
+addFilter(r'^monitorize-debugsource\.x86_64: E: no-binary$')
+
+# These Python files are imported or passed to an interpreter explicitly.
+addFilter(r'^monitorize\.x86_64: E: non-executable-script /usr/lib/(monitorize-remote-login|python3\.[0-9]+/site-packages)/monitorize/platform/login_capture_probe\.py ')
+addFilter(r'^monitorize\.x86_64: E: non-executable-script /usr/libexec/monitorize/remote-login/(deploy|package-guard)\.py ')
+
+# The root service has a private Python tree. Keep it separate from app imports.
+addFilter(r'^monitorize\.x86_64: W: files-duplicate /usr/lib/python3\.[0-9]+/site-packages/monitorize/\S+ /usr/lib/monitorize-remote-login/monitorize/')
+
+# Enrollment and the package guard own these units' lifecycle. RPM service
+# macros would apply preset policy or stop units outside that guarded flow.
+addFilter(r'^monitorize\.x86_64: E: systemd-service-without-service_(add_pre|add_post|del_preun) monitorize-(remote-login|vkms-boot-display)\.service$')

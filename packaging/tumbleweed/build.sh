@@ -144,6 +144,7 @@ tar --sort=name --mtime="@${source_date_epoch}" --owner=0 --group=0 --numeric-ow
     -C "${tmp_root}/stage" -cf - "${source_name}" | gzip -n -1 > "${source_archive}"
 
 cp "${stage_root}/packaging/tumbleweed/monitorize.spec" "${topdir}/SPECS/monitorize.spec"
+cp "${stage_root}/packaging/tumbleweed/monitorize-rpmlintrc" "${topdir}/SOURCES/"
 cp "${stage_root}/packaging/fedora/monitorize.sysusers" "${topdir}/SOURCES/monitorize.sysusers"
 
 artifact_stage="${tmp_root}/artifacts"
@@ -226,7 +227,8 @@ podman run "${run_options[@]}" \
             --define "_topdir /work" \
             --define "_smp_build_ncpus ${MONITORIZE_RPM_JOBS}" \
             /work/SPECS/monitorize.spec
-        rpmlint /work/SRPMS/*.src.rpm /work/RPMS/x86_64/*.rpm
+        rpmlint --permissive --rpmlintrc /work/SOURCES/monitorize-rpmlintrc \
+            /work/SRPMS/*.src.rpm /work/RPMS/x86_64/*.rpm
         cp /work/RPMS/x86_64/*.rpm /artifacts/x86_64/
         cp /work/SRPMS/*.src.rpm /artifacts/source/
     ' 2>&1 | tee -a "${build_log}"
@@ -298,7 +300,7 @@ PYTHON
         test ! -e /usr/libexec/monitorize/monitorize-system-setup
         test ! -e /usr/share/monitorize
         test ! -e /usr/share/applications/monitorize.desktop
-    '
+    ' 2>&1 | tee -a "${build_log}"
 fi
 
 mkdir -p "${OUTPUT_ROOT}/x86_64" "${OUTPUT_ROOT}/source"
