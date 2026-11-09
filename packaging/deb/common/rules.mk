@@ -99,6 +99,17 @@ override_dh_auto_install:
 	install -Dpm 0644 external/sunshine/LICENSE \
 		debian/monitorize/usr/share/doc/monitorize/Sunshine-LICENSE
 
+override_dh_python3:
+	dh_python3
+	# dh_python3 matches private directory prefixes, so it mistakes the
+	# remote-login tree for /usr/lib/monitorize.
+	for hook in debian/monitorize.postinst.debhelper \
+		debian/monitorize/usr/share/python3/runtime.d/monitorize.rtupdate; do \
+		if [ -f "$$hook" ]; then \
+			sed -i -E '/^[[:space:]]+(py3clean|py3compile|pypy3compile) /s@ /usr/lib/monitorize([[:space:]]|$$)@ /usr/lib/monitorize-remote-login\1@' "$$hook"; \
+		fi; \
+	done
+
 override_dh_auto_test:
 	dh_auto_test
 	desktop-file-validate packaging/fedora/monitorize.desktop
