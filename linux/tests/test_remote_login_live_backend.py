@@ -182,9 +182,11 @@ class PlatformSetupTests(unittest.TestCase):
         completed=SimpleNamespace(returncode=0,stdout='{"success":true,"reboot_required":false}',stderr='')
         with patch.object(system_setup,'remote_login_setup_status',return_value=dict(available=True,live_available=True)), \
              patch.object(system_setup.shutil,'which',return_value='/usr/bin/pkexec'), \
+             patch.object(system_setup,'_prepare_remote_login_profile') as prepare, \
              patch.object(system_setup.subprocess,'run',return_value=completed) as run:
             self.assertTrue(system_setup.apply_remote_login_setup(True)['success'])
             self.assertEqual(run.call_args.args[0][-1],'enable-live')
+            prepare.assert_called_once()
         with patch.object(system_setup,'remote_login_setup_status',return_value=dict(available=True,live_available=False,live_message='Update assets')), \
              patch.object(system_setup.subprocess,'run') as run:
             self.assertFalse(system_setup.apply_remote_login_setup(True)['success']);run.assert_not_called()

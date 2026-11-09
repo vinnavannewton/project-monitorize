@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import ExitStack
 import grp
 import json
 import os
@@ -361,6 +362,41 @@ def remote_login_setup_status():
     return result
 
 
+def _prepare_remote_login_profile(profile, uid):
+    """Remove group/other write access from the owner's enrollment inputs."""
+    from monitorize.platform.remote_login_identity import FILES
+
+    with ExitStack() as descriptors:
+        def inspect(path, parent=None, *, directory=False):
+            flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC
+            if directory:
+                flags |= os.O_DIRECTORY
+            try:
+                fd = os.open(path, flags, dir_fd=parent)
+            except FileNotFoundError:
+                return None
+            descriptors.callback(os.close, fd)
+            info = os.fstat(fd)
+            if info.st_uid != uid or (not directory and (
+                    not stat.S_ISREG(info.st_mode) or info.st_nlink != 1)):
+                raise ValueError(f'Unsafe Sunshine profile entry: {Path(path).name}.')
+            if info.st_mode & 0o022:
+                changes.append((fd, stat.S_IMODE(info.st_mode) & ~0o022))
+            return fd
+
+        changes = []
+        directory = inspect(profile, directory=True)
+        if directory is None:
+            return
+        credentials = inspect('credentials', directory, directory=True)
+        inspect('sunshine.conf', directory)
+        inspect(FILES[0], directory)
+        for name in FILES[1:]:
+            inspect(name, credentials if credentials is not None else directory)
+        for fd, mode in changes:
+            os.fchmod(fd, mode)
+
+
 def apply_remote_login_setup(enabled):
     status=remote_login_setup_status()
     # Compatibility is an enablement requirement. The installed root disable
@@ -371,6 +407,14 @@ def apply_remote_login_setup(enabled):
         return {'success':False,'configured':bool(status.get('enabled')),'message':status.get('live_message','Install live-enrollment service updates first.')}
     pkexec=shutil.which('pkexec')
     if not pkexec:return {'success':False,'message':'Install Polkit and run an authentication agent in your desktop.'}
+    if enabled:
+        uid = os.getuid()
+        profile = Path(pwd.getpwuid(uid).pw_dir) / '.config/monitorize/sunshine-1'
+        try:
+            _prepare_remote_login_profile(profile, uid)
+        except (OSError, ValueError):
+            return {'success': False, 'message': 'Could not secure the primary Sunshine profile. '
+                    'Check its ownership and permissions before retrying startup setup.'}
     try:
         result=run_authorized([pkexec,str(HELPER),'--remote-login','enable-live' if enabled else 'disable'],
             text=True,capture_output=True,check=False)

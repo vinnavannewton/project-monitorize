@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 import runpy
 import unittest
@@ -14,6 +15,49 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class SystemSetupTest(unittest.TestCase):
+    def test_profile_repair_tightens_only_enrollment_inputs(self):
+        from monitorize.platform.remote_login_identity import _read_private, source_fingerprint
+
+        with tempfile.TemporaryDirectory() as directory:
+            profile = Path(directory) / 'sunshine-1'
+            credentials = profile / 'credentials'
+            credentials.mkdir(parents=True)
+            for path in (profile, credentials):
+                path.chmod(0o775)
+            inputs = [profile / 'sunshine.conf', profile / 'sunshine_state.json',
+                      credentials / 'cacert.pem', credentials / 'cakey.pem']
+            unrelated = profile / 'apps.json'
+            for path in (*inputs, unrelated):
+                path.write_text('fixture')
+                path.chmod(0o664)
+            inputs[-1].chmod(0o600)
+
+            system_setup._prepare_remote_login_profile(profile, os.getuid())
+            self.assertEqual([path.stat().st_mode & 0o777 for path in inputs],
+                             [0o644, 0o644, 0o644, 0o600])
+            self.assertEqual([path.stat().st_mode & 0o777 for path in (profile, credentials)],
+                             [0o755, 0o755])
+            self.assertEqual(unrelated.stat().st_mode & 0o777, 0o664)
+            self.assertEqual(_read_private(inputs[0], os.getuid()), b'fixture')
+            self.assertEqual(len(source_fingerprint(profile, os.getuid())), 3)
+
+    def test_profile_repair_refuses_linked_identity_files(self):
+        for link_type in ('symlink', 'hardlink'):
+            with self.subTest(link_type=link_type), tempfile.TemporaryDirectory() as directory:
+                profile = Path(directory) / 'sunshine-1'
+                profile.mkdir()
+                original = Path(directory) / 'other.json'
+                original.write_text('fixture')
+                original.chmod(0o664)
+                state = profile / 'sunshine_state.json'
+                if link_type == 'symlink':
+                    state.symlink_to(original)
+                else:
+                    os.link(original, state)
+                with self.assertRaises((OSError, ValueError)):
+                    system_setup._prepare_remote_login_profile(profile, os.getuid())
+                self.assertEqual(original.stat().st_mode & 0o777, 0o664)
+
     def remote_status(self,host,*,matching=True,source=True,manager_current=True):
         capability=dict(supported=True,manager='gdm.service',compositor='gnome',validated=False,message='Supported')
         with tempfile.TemporaryDirectory() as directory, \
