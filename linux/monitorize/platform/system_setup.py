@@ -323,6 +323,14 @@ def remote_login_setup_status():
             current = (protocol + ' = 1') in installed.read_text()
             if x11:
                 current = current and installed.with_name('sddm_x11.py').is_file()
+            if current and capability.get('service_unit') == 'display-manager-legacy.service':
+                from monitorize.remote_login import display_managers, sddm_x11
+                modules = (display_managers, sddm_x11) if x11 else (display_managers,)
+                current = all(
+                    installed.with_name(Path(module.__file__).name).read_bytes()
+                    == Path(module.__file__).read_bytes()
+                    for module in modules
+                )
         except OSError:
             current = False
         if not current:

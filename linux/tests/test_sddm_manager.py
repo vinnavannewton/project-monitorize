@@ -37,6 +37,41 @@ class ManagerTests(unittest.TestCase):
         link=self.root/'etc/systemd/system/display-manager.service';link.unlink();link.symlink_to('/usr/lib/systemd/system/plasmalogin.service')
         self.assertTrue(self.capabilities()['supported'])
 
+    def use_legacy_sddm(self):
+        alias = self.root / 'etc/systemd/system/display-manager.service'
+        alias.unlink()
+        alias.symlink_to('/usr/lib/systemd/system/display-manager-legacy.service')
+        self.write('usr/lib/systemd/system/display-manager-legacy.service', '')
+        self.write('usr/lib/X11/displaymanagers/sddm', '')
+        self.write('usr/bin/sddm', '')
+        (self.root / 'usr/bin/sddm').chmod(0o755)
+        self.write('usr/bin/xrandr', '')
+        (self.root / 'usr/bin/xrandr').chmod(0o755)
+        selector = self.root / 'etc/alternatives/default-displaymanager'
+        selector.parent.mkdir()
+        selector.symlink_to('/usr/lib/X11/displaymanagers/sddm')
+        (self.root / 'usr/lib/X11/displaymanagers/default-displaymanager').symlink_to(
+            '/etc/alternatives/default-displaymanager')
+        return selector
+
+    def test_legacy_sddm_uses_adapter_and_retains_service_unit(self):
+        self.use_legacy_sddm()
+        capability = self.capabilities()
+        self.assertTrue(capability['supported'])
+        self.assertEqual(capability['manager'], 'sddm.service')
+        self.assertEqual(capability['service_unit'], 'display-manager-legacy.service')
+        self.assertEqual(capability['display_server'], 'x11')
+
+    def test_legacy_wrapper_rejects_other_selection_and_writable_launcher(self):
+        selector = self.use_legacy_sddm()
+        launcher = self.root / 'usr/lib/X11/displaymanagers/sddm'
+        launcher.chmod(0o666)
+        self.assertFalse(self.capabilities()['supported'])
+        launcher.chmod(0o644)
+        selector.unlink()
+        selector.symlink_to('/tmp/sddm')
+        self.assertFalse(self.capabilities()['supported'])
+
     def test_unknown_or_symlinked_config_is_not_trusted(self):
         self.write('etc/sddm.conf','[General]\nDisplayServer=wayland\n[Wayland]\nCompositorCommand=/custom/wrapper\n')
         self.assertFalse(self.capabilities()['supported'])

@@ -37,7 +37,12 @@ def select_output(report):
 
 def greeter_environment(context):
     from .daemon import require_installed
+    from .display_managers import require_manager
 
+    manager = require_manager('sddm.service')
+    if manager['display_server'] != 'x11':
+        raise PermissionError('A verified local SDDM X11 greeter is required.')
+    service_unit = manager['service_unit']
     uid = context['greeter_uid']
     session = context['session']
     account = pwd.getpwuid(uid)
@@ -80,8 +85,11 @@ def greeter_environment(context):
             socket.SOL_SOCKET, socket.SO_PEERCRED, struct.calcsize('3i')))
     server = Path('/proc') / str(server_pid)
     executable = (server / 'exe').resolve(strict=True)
-    if (server_uid != 0 or executable.name != 'Xorg'
-            or not any('sddm.service' in line.split(':', 2)[-1].split('/')
+    is_xorg = executable.name == 'Xorg' or (
+        service_unit == 'display-manager-legacy.service' and executable == Path('/usr/bin/Xorg.bin')
+    )
+    if (server_uid != 0 or not is_xorg
+            or not any(service_unit in line.split(':', 2)[-1].split('/')
                        for line in (server / 'cgroup').read_text().splitlines())):
         raise PermissionError('The greeter X11 socket does not belong to SDDM Xorg.')
     require_installed(executable)
