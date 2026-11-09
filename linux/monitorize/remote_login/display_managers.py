@@ -37,22 +37,61 @@ def sddm_configuration(root=Path('/'), *, owner_uid=0):
     return dict(display_server=server,compositor=compositor)
 
 
+def _legacy_sddm_selected(root, owner_uid):
+    """Recognize the openSUSE alternatives chain without running its scripts."""
+    def trusted(path, kind):
+        info = path.lstat()
+        if info.st_uid != owner_uid or not kind(info.st_mode):
+            return False
+        if not stat.S_ISLNK(info.st_mode) and info.st_mode & 0o022:
+            return False
+        for parent in path.parents:
+            info = parent.lstat()
+            if info.st_uid != owner_uid or not stat.S_ISDIR(info.st_mode) or info.st_mode & 0o022:
+                return False
+            if parent == root:
+                return True
+        return False
+
+    links = (
+        ('etc/systemd/system/display-manager.service', 'usr/lib/systemd/system/display-manager-legacy.service'),
+        ('usr/lib/X11/displaymanagers/default-displaymanager', 'etc/alternatives/default-displaymanager'),
+        ('etc/alternatives/default-displaymanager', 'usr/lib/X11/displaymanagers/sddm'),
+    )
+    try:
+        for source, destination in links:
+            path = root / source
+            if not trusted(path, stat.S_ISLNK):
+                return False
+            target = path.readlink()
+            target = root / target.relative_to('/') if target.is_absolute() else path.parent / target
+            if Path(os.path.normpath(target)) != root / destination:
+                return False
+        return all(trusted(root / path, stat.S_ISREG) for path in (
+            links[0][1], links[-1][1], 'usr/bin/sddm',
+        )) and os.access(root / 'usr/bin/sddm', os.X_OK)
+    except (OSError, ValueError):
+        return False
+
+
 def manager_capabilities(root=Path('/'), *, owner_uid=0):
     root=Path(root)
     try:unit=(root/'etc/systemd/system/display-manager.service').resolve().name
     except (OSError,RuntimeError):
         return dict(manager='',display_server='',compositor='',supported=False,validated=False,
                     message='Display-manager unit could not be resolved safely.')
-    if unit=='gdm3.service':unit='gdm.service'
-    result=dict(manager=unit,display_server='',compositor='',supported=False,validated=False,
+    manager = {'gdm3.service': 'gdm.service'}.get(unit, unit)
+    if unit == 'display-manager-legacy.service' and _legacy_sddm_selected(root.absolute(), owner_uid):
+        manager = 'sddm.service'
+    result=dict(manager=manager,service_unit=unit,display_server='',compositor='',supported=False,validated=False,
                 message='This display manager has no remote-login adapter.')
-    if unit=='plasmalogin.service':
+    if manager=='plasmalogin.service':
         return dict(result,display_server='wayland',compositor='kde',supported=True,
                     message='Plasma Login Manager adapter; live validation is host-specific.')
-    if unit=='gdm.service':
+    if manager=='gdm.service':
         return dict(result,display_server='runtime-verification-required',compositor='gnome',supported=True,
                     message='GDM adapter is experimental. A verified local Wayland greeter is required; headless bootstrap is not validated.')
-    if unit!='sddm.service':return result
+    if manager!='sddm.service':return result
     try:config=sddm_configuration(root,owner_uid=owner_uid)
     except (OSError,ValueError,configparser.Error) as error:return dict(result,message=str(error))
     result.update(config)
