@@ -133,11 +133,13 @@ https://github.com/vinnavannewton/monitorize-vkms
 
 - Create and manage up to two virtual displays.
 
-- Support compositor-native virtual displays and monitorize-vkms.
+- Start at boot or after login for remote desktop use.
 
-- Stream virtual displays or mirror an existing monitor through Sunshine.
+- Support compositor-native virtual displays and virtual display via kernel through VKMS provideed by monitorize-vkms.
 
-- Configure streaming encoders, codecs, audio, touch, and stylus options via the integrated sunshine.
+- Stream virtual displays or mirror an existing monitor.
+
+- Configure streaming encoders, codecs, audio, touch, and stylus options via the integrated sunshine streamer.
 
 - Keeps Monitorize's Sunshine instances separate from your existing Sunshine setup.
 
@@ -154,13 +156,26 @@ This table shows whether each desktop environment supports via compositor-native
 | Cinnamon X11                           | ❌          | ✅               |
 | COSMIC                                 | ❌          | ❌               |
 
+## Login-screen streaming
+
+Requires [Monitorize VKMS](https://github.com/vinnavannewton/monitorize-vkms).
+
+| Login manager                  | Support                     |
+| ------------------------------ | --------------------------- |
+| Plasma Login Manager (Wayland) | Existing or virtual display |
+| SDDM (X11)                     | Existing display            |
+| SDDM (Wayland, KWin)           | Existing display            |
+| GDM (Wayland)                  | Existing display            |
+| LightDM (X11, Slick Greeter)   | Existing display            |
+| Other login managers           | Unsupported                 |
+
 ## Installation
 
 - [Fedora](https://github.com/vinnavannewton/project-monitorize/wiki/Fedora-installation)
 - [Arch Linux](https://github.com/vinnavannewton/project-monitorize/wiki/Arch-installation)
 - [Ubuntu](https://github.com/vinnavannewton/project-monitorize/wiki/Ubuntu-installation)
 - [openSUSE Tumbleweed](https://github.com/vinnavannewton/project-monitorize/wiki/openSUSE-Tumbleweed-installation)
-- [NixOS / Nix](https://github.com/vinnavannewton/project-monitorize/wiki/Nix-installation)
+- [NixOS / Nix(Unmaintained)](https://github.com/vinnavannewton/project-monitorize/wiki/Nix-installation)
 
 ## Contributing
 
