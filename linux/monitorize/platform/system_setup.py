@@ -339,6 +339,16 @@ def remote_login_setup_status():
         if not current:
             result.update(available=False, reason='service_update_required',
                           message='Install the matching remote-login service update before setup. '+repair)
+    if result['available'] and capability['manager'] == 'lightdm.service':
+        from monitorize.platform.remote_login_host import _constant, _read
+        runtime = Path('/usr/lib/monitorize-vkms/monitorize_vkms/boot_runtime.py')
+        try:
+            current = _constant(_read(runtime, Path('/'), 0), 'CINNAMON_REMOTE_LOGIN_PROTOCOL') == 1
+        except (OSError, ValueError, SyntaxError):
+            current = False
+        if not current:
+            result.update(available=False, live_available=False, reason='host_incompatible',
+                          message='Install the matching monitorize-vkms update for LightDM remote login.')
     result['existing_login_display_only'] = capability['manager'] in ('sddm.service', 'lightdm.service') and capability.get('display_server') == 'x11'
     if SETTINGS.exists():
         try:

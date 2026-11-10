@@ -35,10 +35,15 @@ class DescriptorStore:
         # Resolve and validate trusted session metadata before compositor operations.
         if self.session_environment is not None:
             actual,environment=self.session_environment(caller['uid'])
-            if actual!=caller['session'] or environment.get('XDG_SESSION_TYPE')!='wayland':
-                raise PermissionError('The selected desktop Wayland session changed.')
+            if actual!=caller['session']:
+                raise PermissionError('The selected desktop session changed.')
             from .session_context import desktop_context
-            values.update(desktop_context(environment))
+            context = desktop_context(environment)
+            if context['desktop'] == 'X-Cinnamon' and values['capture'] != 'kms':
+                raise ValueError('Cinnamon remote login requires KMS capture.')
+            if context.get('session_type') == 'x11':
+                values.pop('wayland_display', None)
+            values.update(context)
         # Adopter rechecks active session, generation and DRM identity under its lock.
         adopted=self.adopter(caller['uid'],caller['session'])
         # Physical greeter capture never activates the reserved VKMS connector.

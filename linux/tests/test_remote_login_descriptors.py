@@ -24,6 +24,30 @@ class DescriptorTests(unittest.TestCase):
         self.store.session_environment=lambda uid:('other',{'XDG_SESSION_TYPE':'wayland','XDG_CURRENT_DESKTOP':'Hyprland'})
         with self.assertRaises(PermissionError):self.store.write(self.caller,self.token,{'capture':'kms','output_name':'Virtual-4'})
 
+    def test_cinnamon_handoff_passes_the_verified_session_to_the_runner(self):
+        from monitorize.remote_login.runner import desktop_command
+
+        self.settings.directory = self.root
+        self.settings.profile = str(self.root)
+        self.settings.home = str(self.root)
+        self.settings.encoder = 'software'
+        self.settings.adapter = ''
+        for session_type in ('x11', 'wayland'):
+            with self.subTest(session_type=session_type):
+                environment = {'XDG_SESSION_TYPE': session_type,
+                               'XDG_CURRENT_DESKTOP': 'X-Cinnamon', 'DISPLAY': ':7'}
+                self.store.session_environment = lambda uid: ('s1', environment)
+                result = self.store.write(self.caller, self.token,
+                                          {'capture': 'kms', 'output_name': 'Virtual-4', 'display': ':99'})
+                _, runner_environment = desktop_command(self.settings, result)
+                self.assertEqual(runner_environment['XDG_SESSION_TYPE'], session_type)
+                self.assertEqual(runner_environment['XDG_CURRENT_DESKTOP'], 'X-Cinnamon')
+                if session_type == 'x11':
+                    self.assertEqual(runner_environment['DISPLAY'], ':7')
+                with self.assertRaisesRegex(ValueError, 'requires KMS'):
+                    self.store.write(self.caller, self.token, {'capture': 'kwin',
+                                     'output_name': 'Virtual-4', 'pipewire_node': 42})
+
     def test_private_descriptor_is_atomic_and_bound_to_session(self):
         self.store.write(self.caller,self.token,{'capture':'kms','output_name':'Virtual-4'})
         path=self.root/str(os.getuid())/'desktop.json'

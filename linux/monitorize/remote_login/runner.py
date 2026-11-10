@@ -156,7 +156,14 @@ def write_desktop_config(settings, descriptor):
 def desktop_command(settings,descriptor):
     values=validate_descriptor({key:value for key,value in descriptor.items() if key in
         ('capture','output_name','pipewire_node','wayland_display','display','stream_options')},settings,descriptor['output_name'])
-    if descriptor.get('desktop','KDE') not in ('KDE','Hyprland','GNOME'):raise ValueError('Unsupported desktop context.')
+    desktop = descriptor.get('desktop', 'KDE')
+    session_type = descriptor.get('session_type', 'wayland')
+    if desktop not in ('KDE', 'Hyprland', 'GNOME', 'X-Cinnamon') or session_type not in ('x11', 'wayland'):
+        raise ValueError('Unsupported desktop context.')
+    if ((desktop == 'X-Cinnamon' and values['capture'] != 'kms')
+            or (session_type == 'x11' and (desktop != 'X-Cinnamon' or 'display' not in values
+                                           or 'wayland_display' in values))):
+        raise ValueError('Unsupported Cinnamon capture context.')
     config=(settings.directory/'runtime/desktop-sunshine.conf' if 'stream_options' in values
             else Path(settings.profile)/'sunshine.conf')
     argv=[str(ENGINE),str(config),'capture='+values['capture'],'output_name='+values['output_name'],
@@ -168,7 +175,7 @@ def desktop_command(settings,descriptor):
     argv.extend(key+'='+value for key,value in identity_paths(settings.directory).config_overrides().items())
     environment=dict(PATH='/usr/sbin:/usr/bin:/sbin:/bin',LANG='C.UTF-8',HOME=settings.home,
         XDG_RUNTIME_DIR=f'/run/user/{settings.uid}',DBUS_SESSION_BUS_ADDRESS=f'unix:path=/run/user/{settings.uid}/bus',
-        XDG_CURRENT_DESKTOP=descriptor.get('desktop','KDE'),XDG_SESSION_TYPE='wayland',XDG_SEAT='seat0',
+        XDG_CURRENT_DESKTOP=desktop,XDG_SESSION_TYPE=session_type,XDG_SEAT='seat0',
         SUNSHINE_ASSETS_DIR=str(ASSETS),MONITORIZE_REQUIRE_EXACT_OUTPUT='1',
         MONITORIZE_CAPTURE_OUTPUT=values['output_name'])
     if 'pipewire_node' in values:environment['SUNSHINE_PIPEWIRE_NODE']=str(values['pipewire_node'])
