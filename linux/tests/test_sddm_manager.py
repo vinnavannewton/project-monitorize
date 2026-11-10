@@ -86,8 +86,58 @@ class ManagerTests(unittest.TestCase):
         self.assertEqual(capability['compositor'], 'xorg')
         self.assertFalse(capability['validated'])
 
+    def test_lightdm_requires_slick_greeter_and_xrandr(self):
+        alias = self.root / 'etc/systemd/system/display-manager.service'
+        alias.unlink()
+        alias.symlink_to('/usr/lib/systemd/system/lightdm.service')
+        for executable in ('usr/bin/xrandr', 'usr/sbin/slick-greeter'):
+            self.assertFalse(self.capabilities()['supported'])
+            self.write(executable, '')
+            (self.root / executable).chmod(0o755)
+        capability = self.capabilities()
+        self.assertTrue(capability['supported'])
+        self.assertFalse(capability['validated'])
+        self.assertEqual(capability['display_server'], 'x11')
+
 
 class X11OutputTests(unittest.TestCase):
+    def test_lightdm_checks_greeter_scope_and_xorg_service(self):
+        import struct
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from monitorize.remote_login import sddm_x11
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for pid, executable, scope in (
+                    ('11', 'slick-greeter', 'session-c1.scope'),
+                    ('12', 'Xorg', 'lightdm.service')):
+                process = root / pid
+                process.mkdir()
+                binary = root / executable
+                binary.touch()
+                (process / 'exe').symlink_to(binary)
+                (process / 'cgroup').write_text(f'0::/system.slice/{scope}\n')
+            (root / '11/environ').write_bytes(b'DISPLAY=:0\0XAUTHORITY=/run/lightdm/lightdm/xauthority\0')
+            uid = os.getuid()
+            if uid == 0:
+                os.chown(root / '11', 113, -1)
+                uid = 113
+            context = dict(manager='lightdm.service', session='c1', session_type='x11', greeter_uid=uid)
+            capability = dict(manager='lightdm.service', display_server='x11', service_unit='lightdm.service')
+            with patch.object(sddm_x11, 'Path', side_effect=lambda path: root if path == '/proc' else Path(path)), \
+                 patch.object(sddm_x11.pwd, 'getpwuid', return_value=SimpleNamespace(pw_name='lightdm', pw_dir='/var/lib/lightdm')), \
+                 patch('monitorize.remote_login.display_managers.require_manager', return_value=capability), \
+                 patch('monitorize.remote_login.daemon.require_installed'), \
+                 patch.object(sddm_x11.socket, 'socket') as socket:
+                socket.return_value.__enter__.return_value.getsockopt.return_value = struct.pack('3i', 12, 0, 0)
+                identity, environment = sddm_x11.greeter_environment(context)
+                self.assertEqual(identity, ('11', 12))
+                self.assertEqual(environment['DISPLAY'], ':0')
+                (root / '12/cgroup').write_text('0::/system.slice/sddm.service\n')
+                with self.assertRaisesRegex(PermissionError, 'Xorg'):
+                    sddm_x11.greeter_environment(context)
+
     def test_selects_greeter_primary_and_current_refresh(self):
         from monitorize.remote_login.sddm_x11 import select_output
 

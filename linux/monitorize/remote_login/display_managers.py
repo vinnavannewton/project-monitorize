@@ -7,8 +7,9 @@ import stat
 
 SDDM_WAYLAND_PROTOCOL = 1
 SDDM_X11_PROTOCOL = 1
+LIGHTDM_X11_PROTOCOL = 1
 GDM_WAYLAND_PROTOCOL = 1
-MANAGERS=('plasmalogin.service','sddm.service','gdm.service')
+MANAGERS=('plasmalogin.service','sddm.service','gdm.service','lightdm.service')
 COMPOSITORS={'kwin_wayland':'kde','Hyprland':'hyprland','start-hyprland':'hyprland','weston':'weston'}
 
 
@@ -91,6 +92,12 @@ def manager_capabilities(root=Path('/'), *, owner_uid=0):
     if manager=='gdm.service':
         return dict(result,display_server='runtime-verification-required',compositor='gnome',supported=True,
                     message='GDM adapter is experimental. A verified local Wayland greeter is required; headless bootstrap is not validated.')
+    if manager == 'lightdm.service':
+        for executable in ('usr/sbin/slick-greeter', 'usr/bin/xrandr'):
+            if not (root / executable).is_file() or not os.access(root / executable, os.X_OK):
+                return dict(result, message='LightDM remote login requires Slick Greeter and xrandr.')
+        return dict(result, display_server='x11', compositor='xorg', supported=True,
+                    message='LightDM X11 remote login requires an existing active Slick Greeter display.')
     if manager!='sddm.service':return result
     try:config=sddm_configuration(root,owner_uid=owner_uid)
     except (OSError,ValueError,configparser.Error) as error:return dict(result,message=str(error))

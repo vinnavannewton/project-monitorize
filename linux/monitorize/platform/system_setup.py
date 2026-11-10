@@ -315,16 +315,18 @@ def remote_login_setup_status():
         if not matching:
             result.update(available=False,reason='service_update_required',
                           message='The app and installed remote-login setup helper have different compatibility checks. '+repair)
-    if result['available'] and capability['manager'] in ('sddm.service','gdm.service'):
+    if result['available'] and capability['manager'] in ('sddm.service','gdm.service','lightdm.service'):
         installed=Path('/usr/lib/monitorize-remote-login/monitorize/remote_login/display_managers.py')
-        x11 = capability.get('display_server') == 'x11' and capability['manager'] == 'sddm.service'
-        protocol = ('SDDM_X11_PROTOCOL' if x11 else
+        x11 = capability.get('display_server') == 'x11'
+        protocol = ('LIGHTDM_X11_PROTOCOL' if capability['manager'] == 'lightdm.service' else
+                    'SDDM_X11_PROTOCOL' if x11 else
                     'GDM_WAYLAND_PROTOCOL' if capability['manager'] == 'gdm.service' else 'SDDM_WAYLAND_PROTOCOL')
         try:
             current = (protocol + ' = 1') in installed.read_text()
             if x11:
                 current = current and installed.with_name('sddm_x11.py').is_file()
-            if current and capability.get('service_unit') == 'display-manager-legacy.service':
+            if current and (capability['manager'] == 'lightdm.service'
+                            or capability.get('service_unit') == 'display-manager-legacy.service'):
                 from monitorize.remote_login import display_managers, sddm_x11
                 modules = (display_managers, sddm_x11) if x11 else (display_managers,)
                 current = all(
@@ -337,7 +339,7 @@ def remote_login_setup_status():
         if not current:
             result.update(available=False, reason='service_update_required',
                           message='Install the matching remote-login service update before setup. '+repair)
-    result['existing_login_display_only'] = capability['manager'] == 'sddm.service' and capability.get('display_server') == 'x11'
+    result['existing_login_display_only'] = capability['manager'] in ('sddm.service', 'lightdm.service') and capability.get('display_server') == 'x11'
     if SETTINGS.exists():
         try:
             settings=read_settings()

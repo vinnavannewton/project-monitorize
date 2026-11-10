@@ -119,6 +119,8 @@ def build_service(settings,bus):
         isolate_uid=(getattr(settings,'manager','plasmalogin.service') in ('gdm.service','plasmalogin.service')
                      or not getattr(settings,'create_login_virtual_display',False))
         context=greeter_context(transport,isolate_uid=isolate_uid)
+        if settings.manager == 'lightdm.service' and context.get('session_type') != 'x11':
+            raise PermissionError('LightDM remote login requires an active X11 greeter.')
         generation=service.epoch if initial else getattr(service,'boot_generation','')
         if not initial and context!=getattr(service,'boot_owner_context',None):
             raise PermissionError('The boot runner belongs to an earlier greeter.')
@@ -166,12 +168,12 @@ def build_service(settings,bus):
                 return dict(output_name=result.get('connector') or '',capture='kms',width=1920,height=1080,fps=60)
             if context.get('session_type') == 'x11':
                 from .display_managers import require_manager
-                if settings.manager != 'sddm.service' or require_manager(settings.manager)['display_server'] != 'x11':
+                if settings.manager not in ('sddm.service', 'lightdm.service') or require_manager(settings.manager)['display_server'] != 'x11':
                     raise PermissionError('This X11 greeter is not supported for boot login.')
                 if operation == 'prepare' and settings.create_login_virtual_display:
-                    raise ValueError('Turn off Create virtual display at login for SDDM X11.')
+                    raise ValueError('Turn off Create virtual display at login for an X11 greeter.')
                 from .sddm_x11 import operation as x11_operation
-                return x11_operation(context, operation, check)
+                return x11_operation(dict(context, manager=settings.manager), operation, check)
             from .wayland_greeter import capture_operation
             return capture_operation(settings,context,operation,helper,check,virtual)
         finally:connection.close()

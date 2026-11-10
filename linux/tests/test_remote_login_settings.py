@@ -42,7 +42,7 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(self.load().manager,'gdm.service')
 
     def test_uid_reuse_and_unsupported_manager_rejected(self):
-        for field,value in (('username','other'),('home','/home/other'),('uid',True),('gid',123),('manager','lightdm.service')):
+        for field,value in (('username','other'),('home','/home/other'),('uid',True),('gid',123),('manager','xdm.service')):
             original=self.values[field];self.values[field]=value
             with self.assertRaises(ValueError):self.load()
             self.values[field]=original

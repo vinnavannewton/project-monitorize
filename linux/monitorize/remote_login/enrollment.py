@@ -187,7 +187,7 @@ def enable(uid, *, files=None, commands=None):
     if existing is not None and existing.uid!=uid:raise RuntimeError('Remote login is enrolled for another account.')
     if (manager.get('display_server') == 'x11'
             and getattr(existing, 'create_login_virtual_display', False)):
-        raise ValueError('Turn off Create virtual display at login before enabling SDDM X11 remote login.')
+        raise ValueError('Turn off Create virtual display at login before enabling X11 greeter remote login.')
     # Root-owned parents only. The selected account owns private identity/runtime.
     files=files or RootFiles()
     parent=Path('/var/lib/monitorize/remote-login')
@@ -388,7 +388,7 @@ def configure_login_virtual_display(uid, enabled):
     if enabled:
         from .display_managers import manager_capabilities
         if manager_capabilities()['display_server'] == 'x11':
-            raise ValueError('SDDM X11 remote login requires an existing display.')
+            raise ValueError('X11 greeter remote login requires an existing display.')
     files=RootFiles()
     relative=str(SETTINGS).lstrip('/')
     previous=files._read(files._path(relative))
