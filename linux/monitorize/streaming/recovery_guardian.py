@@ -21,7 +21,7 @@ import sys
 import tempfile
 import time
 
-from monitorize.platform.session_layout import KdeLayout, LayoutTransaction, layout_supported, current_layout_backend, guarded_holder_supported
+from monitorize.platform.session_layout import KdeLayout, LayoutTransaction, borrowed_output_name, layout_supported, current_layout_backend, guarded_holder_supported
 
 MAX_FRAME = 65536
 
@@ -191,9 +191,10 @@ class Guardian:
                     if self.stopping or slot in self.reserved:
                         raise RuntimeError('Display layout is already owned or recovering.')
                     outputs=await asyncio.to_thread(self.layout.backend.outputs)
+                    name=await asyncio.to_thread(borrowed_output_name,self.layout.backend,name,outputs)
                     if not any(o['name']==name and self.layout.backend.active(o) for o in outputs):
                         raise RuntimeError('Remote display is not active.')
-                    await self._layout('reserve',slot,(name,))
+                    await self._layout('reserve',slot,(name,),outputs)
                     await self._layout('ready',slot,name)
                     self.reserved.add(slot);self.borrowed.add(slot)
             elif operation == 'detach':

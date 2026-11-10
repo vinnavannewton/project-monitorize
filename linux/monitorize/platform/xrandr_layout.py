@@ -62,7 +62,7 @@ def parse_outputs(text):
     return outputs
 
 
-def resolve_output(requested, outputs, drm_root=Path('/sys/class/drm')):
+def resolve_output(requested, outputs, drm_root=Path('/sys/class/drm'), *, require_connector_id=False):
     """DRM connector IDs take precedence over names recycled by Xorg providers."""
     paths = list(drm_root.glob('card*-'+requested))
     ids = set()
@@ -73,10 +73,12 @@ def resolve_output(requested, outputs, drm_root=Path('/sys/class/drm')):
             continue
     if len(paths) > 1 or len(ids) > 1:
         raise ValueError('DRM output identity is ambiguous.')
+    if require_connector_id and not ids:
+        raise ValueError('The reserved DRM connector ID is unavailable.')
     active = [o for o in outputs if o['connected'] and o['enabled']]
     if ids:
         matches = [o for o in active if o['connector_id'] in ids]
-        if not matches and not requested.startswith('Virtual-'):
+        if not matches and not require_connector_id and not requested.startswith('Virtual-'):
             # Explicit physical Mirror selections remain usable on Xorg drivers
             # without this property. Never guess a VKMS name or ignore a conflict.
             matches = [o for o in active if o['name'] == requested and o['connector_id'] is None]

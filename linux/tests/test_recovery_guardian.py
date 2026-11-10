@@ -11,6 +11,8 @@ from unittest.mock import patch
 
 from monitorize.streaming.recovery_guardian import Guardian, GuardianClient, _frame
 from monitorize.platform.session_layout import LayoutTransaction
+from monitorize.platform.xrandr_layout import resolve_output
+from linux.tests.test_additional_layout_backends import XServer, xoutput
 from linux.tests.test_session_layout import SimulatedKde, output
 
 
@@ -78,6 +80,35 @@ class GuardianProtocolTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(self.backend.state[0]['enabled'])
         self.assertTrue(self.backend.state[1]['enabled'])
         self.assertFalse(self.guardian.reserved)
+
+    async def test_x11_borrowed_alias_is_excluded_from_snapshot_and_retained_on_detach(self):
+        self.backend = self.layout.backend = XServer()
+        virtual = dict(xoutput('Virtual-1-1'), connector_id=48)
+        self.backend.state.append(virtual)
+        root = Path(self.temp.name)
+        connector = root / 'card2-Virtual-1'
+        connector.mkdir()
+        with patch('monitorize.platform.xrandr_layout.resolve_output',
+                   side_effect=lambda name, outputs, **kwargs: resolve_output(name, outputs, root, **kwargs)):
+            missing = await self.command(operation='attach', slot=1, name='Virtual-1')
+            self.assertFalse(missing['ok'])
+            self.assertIn('connector ID', missing['error'])
+            self.assertFalse(self.layout.journal.exists())
+            (connector / 'connector_id').write_text('48')
+            attached = await self.command(operation='attach', slot=1, name='Virtual-1')
+        self.assertTrue(attached['ok'], attached)
+        self.assertEqual(self.layout.targets, {1: 'Virtual-1-1'})
+        self.assertNotIn('Virtual-1-1', [saved['name'] for saved in self.layout.snapshot])
+        streamed = await self.command(operation='stream', slot=1, active=True)
+        self.assertTrue(streamed['ok'], streamed)
+        self.assertFalse(self.backend.state[0]['enabled'])
+        self.assertTrue(virtual['primary'])
+        detached = await self.command(operation='detach', slot=1)
+        self.assertTrue(detached['ok'], detached)
+        self.assertTrue(self.backend.state[0]['enabled'])
+        self.assertTrue(self.backend.state[0]['primary'])
+        self.assertTrue(virtual['enabled'])
+        self.assertFalse(self.layout.journal.exists())
 
     async def hold(self, slot=1):
         reader, writer = await asyncio.open_unix_connection(self.path)

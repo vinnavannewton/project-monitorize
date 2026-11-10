@@ -5,6 +5,8 @@ from unittest.mock import Mock, patch
 from monitorize.desktop.remote_layout import RemoteLayout
 from monitorize.desktop.remote_login_runtime import Participant
 from monitorize.platform.session_layout import LayoutTransaction
+from monitorize.platform.xrandr_layout import resolve_output
+from linux.tests.test_additional_layout_backends import XServer, xoutput
 from linux.tests.test_session_layout import SimulatedKde, output
 
 
@@ -21,6 +23,27 @@ class Bridge:
 
 
 class RemoteLayoutTest(TestCase):
+    def test_x11_alias_passes_preflight_and_sends_the_reserved_drm_name(self):
+        backend = XServer()
+        virtual = dict(xoutput('Virtual-1-1'), connector_id=48)
+        backend.state.append(virtual)
+        guardian = Mock()
+        layout = RemoteLayout(backend=backend, guardian=guardian)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            connector = root / 'card2-Virtual-1'
+            connector.mkdir()
+            (connector / 'connector_id').write_text('48')
+            with patch('monitorize.platform.xrandr_layout.resolve_output',
+                       side_effect=lambda name, outputs, **kwargs: resolve_output(name, outputs, root, **kwargs)):
+                layout.update('virtual_only', True, 'Virtual-1')
+                guardian.command.assert_any_call('attach', slot=1, name='Virtual-1')
+                layout.restore()
+                guardian.reset_mock()
+                backend.state = [virtual]
+                layout.update('virtual_only', True, 'Virtual-1')
+        guardian.start.assert_not_called()
+
     def test_remote_virtual_only_restore_and_reconnect(self):
         with tempfile.TemporaryDirectory() as directory:
             backend=SimulatedKde();backend.state.append(output('Virtual-1',2))

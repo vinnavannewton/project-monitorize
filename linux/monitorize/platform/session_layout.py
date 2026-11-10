@@ -168,9 +168,10 @@ class LayoutTransaction:
             self.backend.restore(data['snapshot'], data['owned'])
             self.journal.unlink()
 
-    def reserve(self, slot, exclude=()):
+    def reserve(self, slot, exclude=(), outputs=None):
         if not self.snapshot:
-            outputs = self.backend.outputs()
+            if outputs is None:
+                outputs = self.backend.outputs()
             if any('priority' not in o for o in outputs if o.get('connected')):
                 raise RuntimeError('This KDE version does not report display priorities for safe restoration.')
             self.snapshot = [dict(name=o['name'], enabled=bool(o.get('enabled')),
@@ -238,6 +239,14 @@ class LayoutTransaction:
     def restore(self):
         if self.snapshot:
             self.backend.restore(self.snapshot, self.targets.values())
+
+
+def borrowed_output_name(backend, target, outputs):
+    from .xrandr_layout import XrandrLayout, resolve_output
+
+    if isinstance(backend, XrandrLayout):
+        return resolve_output(target, outputs, require_connector_id=True)
+    return target
 
 
 def current_layout_backend():

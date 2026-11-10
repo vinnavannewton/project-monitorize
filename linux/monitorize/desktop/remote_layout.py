@@ -1,7 +1,7 @@
 """Desktop-only layout bridge for the coordinator's borrowed VKMS output."""
 import os
 import tempfile
-from monitorize.platform.session_layout import KdeLayout, current_layout_backend
+from monitorize.platform.session_layout import borrowed_output_name, current_layout_backend
 from monitorize.streaming.recovery_guardian import GuardianClient
 
 
@@ -34,9 +34,10 @@ class RemoteLayout:
             self.target=None
         self.restore()
         outputs=self.backend.outputs()
-        if not any(o['name']==target and self.backend.active(o) for o in outputs):
+        name=borrowed_output_name(self.backend,target,outputs)
+        if not any(o['name']==name and self.backend.active(o) for o in outputs):
             raise RuntimeError('Remote desktop output is not active.')
-        if not any(o['name']!=target and self.backend.active(o) for o in outputs):
+        if not any(o['name']!=name and self.backend.active(o) for o in outputs):
             # Headless: there is no physical layout to disable or restore.
             return
         if self.guardian is None:
