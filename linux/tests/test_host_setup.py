@@ -66,6 +66,18 @@ class HostSetupTest(unittest.TestCase):
         self.assertFalse(result['success'])
         run.assert_not_called()
 
+    def test_boot_controller_repairs_profile_before_enabling_controller(self):
+        from monitorize.desktop import remote_login_controller
+        from monitorize.platform import sunshine_service
+
+        with patch.object(sunshine_service, 'get_sunshine_config_path', return_value=__file__), \
+             patch.object(system_setup, 'prepare_current_remote_login_profile',
+                          side_effect=ValueError('Unsafe profile')), \
+             patch.object(remote_login_controller, 'configure') as configure:
+            with self.assertRaisesRegex(ValueError, 'Unsafe profile'):
+                host_setup._prepare_boot_controller()
+        configure.assert_not_called()
+
     def test_boot_requires_a_matching_acknowledgement(self):
         with patch.object(host_setup, '_run_installed', return_value={'success': True, 'action': 'enable'}) as run:
             result = host_setup._boot_request('disable')

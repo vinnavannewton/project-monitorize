@@ -7,7 +7,6 @@ Remove the opt-in unit and reboot to restore normal disconnected bootstrap.
 import json
 import os
 from pathlib import Path
-import subprocess
 import sys
 
 CONNECTOR = Path('/sys/kernel/config/monitorize-vkms/monitorize/connectors/connector0')
@@ -55,13 +54,11 @@ def main():
         if info.st_uid != 0 or not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077:
             raise RuntimeError('VKMS lifecycle lock must be root-owned and mode 0600.')
         fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        result = subprocess.run(['/usr/bin/loginctl', 'list-sessions', '--json=short'],
-                                capture_output=True, text=True, check=True, timeout=5)
-        sessions = json.loads(result.stdout)
         # Only import the root-installed host package, never this checkout.
         sys.path.insert(0, '/usr/lib/monitorize-vkms')
+        from monitorize_vkms.boot_runtime import local_sessions
         from monitorize_vkms.edid import generate_edid
-        print(json.dumps(enable_output(CONNECTOR, STATE, sessions, generate_edid)))
+        print(json.dumps(enable_output(CONNECTOR, STATE, local_sessions(), generate_edid)))
     finally:
         os.close(descriptor)
 

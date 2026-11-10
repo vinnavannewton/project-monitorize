@@ -85,21 +85,37 @@ def query(compositor='gnome'):
 
 
 def verify_drm(target,*,root=Path('/sys/class/drm')):
-    target=validate_target(target)
-    candidates=[]
+    connector_id = target.get('connector_id') if isinstance(target, dict) else None
+    target = validate_target(target)
+    if connector_id is not None and (type(connector_id) is not int or connector_id <= 0):
+        raise ValueError('Invalid DRM connector ID.')
+    enabled = []
+    candidates = []
     for path in root.glob('card*-*'):
-        match=re.fullmatch(r'card[0-9]+-([A-Za-z][A-Za-z0-9_-]{0,63})',path.name)
-        if not match:continue
-        canonical=match[1]
-        # Mutter and libdrm use different names for HDMI type A. Keep type B
-        # distinct, and always return the libdrm name to Sunshine's KMS mapper.
-        mutter='HDMI-'+canonical.removeprefix('HDMI-A-') if canonical.startswith('HDMI-A-') else canonical
-        if mutter==target['output_name']:candidates.append(path)
-    enabled=[path for path in candidates if (path/'status').read_text().strip()=='connected'
-             and (path/'enabled').read_text().strip()=='enabled']
-    if len(enabled)!=1:
+        match = re.fullmatch(r'card[0-9]+-([A-Za-z][A-Za-z0-9_-]{0,63})', path.name)
+        if not match:
+            continue
+        try:
+            if ((path/'status').read_text().strip() != 'connected'
+                    or (path/'enabled').read_text().strip() != 'enabled'):
+                continue
+            enabled.append(path)
+            canonical = match[1]
+            alias = canonical.replace('HDMI-A-', 'HDMI-', 1) if canonical.startswith('HDMI-A-') else canonical
+            if connector_id is None:
+                matches = target['output_name'] in (canonical, alias)
+            else:
+                matches = (path/'connector_id').read_text().strip() == str(connector_id)
+            if matches:
+                candidates.append(path)
+        except FileNotFoundError:
+            continue
+    if len(candidates) != 1:
         raise PermissionError('Login primary display does not resolve to one enabled DRM connector.')
-    return enabled[0]
+    name = candidates[0].name.split('-', 1)[1]
+    if sum(path.name.split('-', 1)[1] == name for path in enabled) != 1:
+        raise PermissionError('Login primary DRM connector name is ambiguous across GPUs.')
+    return candidates[0]
 
 
 def operation(settings,context,operation,helper,check):

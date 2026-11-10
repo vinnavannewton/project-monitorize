@@ -5,7 +5,6 @@ Static checks cannot establish video or input at a headless greeter.
 """
 from __future__ import annotations
 
-import json
 import os
 from pathlib import Path
 import platform
@@ -104,12 +103,10 @@ def collect_readiness(sunshine: str | None = None) -> dict:
     version = ''
     if manager == 'plasmalogin.service' and shutil.which('rpm'):
         _, version = _command(['rpm', '-qf', '/usr/bin/plasmalogin'])
-    code, raw = _command(['loginctl', 'list-sessions', '--json=short'])
+    from monitorize.platform.login_capture_probe import read_sessions
     try:
-        sessions = json.loads(raw) if code == 0 else []
-        if not isinstance(sessions, list):
-            sessions = []
-    except ValueError:
+        sessions = read_sessions()
+    except (OSError, ValueError, subprocess.SubprocessError):
         sessions = []
     greeter = any(s.get('class') == 'greeter' and s.get('seat') == 'seat0'
                   for s in sessions if isinstance(s, dict))

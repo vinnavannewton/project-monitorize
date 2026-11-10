@@ -138,6 +138,24 @@ class X11OutputTests(unittest.TestCase):
                 with self.assertRaisesRegex(PermissionError, 'Xorg'):
                     sddm_x11.greeter_environment(context)
 
+    def test_xrandr_connector_id_resolves_driver_alias_and_rejects_duplicate_names(self):
+        from monitorize.remote_login.sddm_x11 import select_output, verify_drm
+
+        target = select_output('HDMI-1-1 connected primary 1920x1080+0+0\n'
+                               '   CONNECTOR_ID: 110\n   1920x1080  60.00*\n')
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for card, connector_id in (('card1', '110'), ('card2', '111')):
+                connector = root / f'{card}-HDMI-A-1'
+                connector.mkdir()
+                (connector / 'status').write_text('connected')
+                (connector / 'enabled').write_text('enabled' if card == 'card1' else 'disabled')
+                (connector / 'connector_id').write_text(connector_id)
+            self.assertEqual(verify_drm(target, root=root).name, 'card1-HDMI-A-1')
+            (root / 'card2-HDMI-A-1/enabled').write_text('enabled')
+            with self.assertRaisesRegex(PermissionError, 'ambiguous'):
+                verify_drm(target, root=root)
+
     def test_selects_greeter_primary_and_current_refresh(self):
         from monitorize.remote_login.sddm_x11 import select_output
 

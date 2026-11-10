@@ -236,6 +236,7 @@ def _prepare_boot_controller():
 
     if not Path(get_sunshine_config_path(1)).is_file():
         ensure_sunshine_tray_disabled(1)
+    system_setup.prepare_current_remote_login_profile()
     snapshot = controller_snapshot()
     try:
         configure(True)

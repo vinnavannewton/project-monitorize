@@ -3,7 +3,6 @@ import json
 import os
 from pathlib import Path
 import stat
-import subprocess
 import sys
 from monitorize.platform.login_capture_probe import find_boot_output
 from monitorize.platform.remote_login_identity import identity_paths,acquire_identity_lock
@@ -30,9 +29,10 @@ def build_service(settings,bus):
     require_installed(__file__)
     # Fixed root-installed host package only; no checkout/environment import path.
     sys.path.insert(0,'/usr/lib/monitorize-vkms')
-    from monitorize_vkms import helper
+    from monitorize_vkms import boot_runtime, helper
     from monitorize_vkms.boot_display import boot_output_status,return_to_greeter,reconnect_reserved,desktop_operation_installed,greeter_operation_installed
     require_installed(helper.__file__)
+    require_installed(boot_runtime.__file__)
     transport=SystemTransport(bus)
     paths=identity_paths(settings.directory)
     def free():
@@ -59,12 +59,8 @@ def build_service(settings,bus):
     def prepare_boot():
         if units.running('desktop') or units.running('boot') or not free():
             raise RuntimeError('Previous engine has not exited.')
-        result=subprocess.run(['/usr/bin/loginctl','list-sessions','--json=short'],
-                              capture_output=True,text=True,check=True,timeout=3)
-        sessions=json.loads(result.stdout)
-        if any(not isinstance(row,dict) or (row.get('seat')=='seat0' and
-               row.get('class') not in ('greeter','manager')) for row in sessions):
-            raise RuntimeError('A user session still owns the seat.')
+        sessions=boot_runtime.local_sessions()
+        boot_runtime.no_seat_owner(sessions, allow_greeter=True)
         lock=helper._acquire_lifecycle_lock()
         try:
             lease=boot_output_status(helper.STATE_DIRECTORY)

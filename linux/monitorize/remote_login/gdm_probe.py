@@ -1,8 +1,8 @@
 """Read-only GDM feasibility evidence. Never connects an output or starts a service."""
-import json
 from pathlib import Path
 import subprocess
 from .display_managers import manager_capabilities
+from monitorize.platform.login_capture_probe import list_session_ids
 
 
 def command(argv):
@@ -17,11 +17,7 @@ def collect(*,run=command,drm=Path('/sys/class/drm'),capability=None):
         report['errors'].append('The configured manager is not GDM. No configuration was changed.')
         return report
     try:
-        rows=json.loads(run(['loginctl','list-sessions','--json=short']))
-        if not isinstance(rows,list) or len(rows)>64:raise ValueError('Invalid session inventory.')
-        for row in rows:
-            session=row.get('session')
-            if not isinstance(session,str) or not session.isalnum():raise ValueError('Invalid session identity.')
+        for session in list_session_ids(run):
             text=run(['loginctl','show-session',session,'--no-pager',
                 '--property=Type','--property=Class','--property=Active',
                 '--property=Remote','--property=Seat','--property=User'])

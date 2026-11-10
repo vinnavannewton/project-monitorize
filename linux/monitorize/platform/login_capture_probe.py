@@ -33,10 +33,44 @@ def session_phase(sessions):
     return 'waiting'
 
 
+def _loginctl(argv):
+    return subprocess.run(argv, capture_output=True, text=True, check=True, timeout=3).stdout
+
+
+def list_session_ids(run=_loginctl):
+    report = run(['/usr/bin/loginctl', 'list-sessions', '--no-legend', '--no-pager'])
+    if len(report) > 65536:
+        raise ValueError('Logind session inventory is too large.')
+    ids = [line.split()[0] for line in report.splitlines() if line.strip()]
+    if len(ids) > 32 or len(set(ids)) != len(ids) or any(
+            not re.fullmatch(r'[A-Za-z0-9_-]{1,64}', session) for session in ids):
+        raise ValueError('Invalid logind session inventory.')
+    return ids
+
+
+def read_sessions():
+    ids = list_session_ids()
+    if not ids:
+        return []
+    report = _loginctl(['/usr/bin/loginctl', 'show-session', '--no-pager', '--all',
+                        '-p', 'Id', '-p', 'User', '-p', 'Seat', '-p', 'Class', '--', *ids])
+    if len(report) > 65536:
+        raise ValueError('Logind session properties are too large.')
+    sessions = []
+    for record in report.strip().split('\n\n'):
+        fields = dict(line.split('=', 1) for line in record.splitlines() if '=' in line)
+        if (set(fields) != {'Id', 'User', 'Seat', 'Class'} or not fields['Class']
+                or not re.fullmatch(r'[0-9]+', fields['User'])):
+            raise ValueError('Incomplete logind session properties.')
+        sessions.append(dict(session=fields['Id'], uid=int(fields['User']),
+                             seat=fields['Seat'], **{'class': fields['Class']}))
+    if sorted(row['session'] for row in sessions) != sorted(ids):
+        raise ValueError('Logind session inventory changed.')
+    return sessions
+
+
 def read_phase():
-    result = subprocess.run(['/usr/bin/loginctl', 'list-sessions', '--json=short'],
-                            capture_output=True, text=True, check=True, timeout=3)
-    return session_phase(json.loads(result.stdout))
+    return session_phase(read_sessions())
 
 
 def validate_identity(raw):

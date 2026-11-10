@@ -7,7 +7,7 @@ import stat
 
 SDDM_WAYLAND_PROTOCOL = 1
 SDDM_X11_PROTOCOL = 1
-LIGHTDM_X11_PROTOCOL = 1
+LIGHTDM_X11_PROTOCOL = 2
 GDM_WAYLAND_PROTOCOL = 1
 MANAGERS=('plasmalogin.service','sddm.service','gdm.service','lightdm.service')
 COMPOSITORS={'kwin_wayland':'kde','Hyprland':'hyprland','start-hyprland':'hyprland','weston':'weston'}

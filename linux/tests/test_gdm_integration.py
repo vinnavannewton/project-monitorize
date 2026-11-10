@@ -80,7 +80,7 @@ class ProbeTests(unittest.TestCase):
     def probe(self,sessions):
         from monitorize.remote_login.gdm_probe import collect
         def run(argv):
-            if argv[1]=='list-sessions':return __import__('json').dumps([{'session':name} for name in sessions])
+            if argv[1]=='list-sessions':return '\n'.join(f'{name} 1000 user seat0' for name in sessions)
             return sessions[argv[2]]
         with tempfile.TemporaryDirectory() as directory:
             return collect(run=run,drm=Path(directory),capability={'manager':'gdm.service'})

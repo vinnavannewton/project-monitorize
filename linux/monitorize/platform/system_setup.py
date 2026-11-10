@@ -322,7 +322,8 @@ def remote_login_setup_status():
                     'SDDM_X11_PROTOCOL' if x11 else
                     'GDM_WAYLAND_PROTOCOL' if capability['manager'] == 'gdm.service' else 'SDDM_WAYLAND_PROTOCOL')
         try:
-            current = (protocol + ' = 1') in installed.read_text()
+            version = 2 if capability['manager'] == 'lightdm.service' else 1
+            current = f'{protocol} = {version}' in installed.read_text()
             if x11:
                 current = current and installed.with_name('sddm_x11.py').is_file()
             if current and (capability['manager'] == 'lightdm.service'
@@ -343,7 +344,7 @@ def remote_login_setup_status():
         from monitorize.platform.remote_login_host import _constant, _read
         runtime = Path('/usr/lib/monitorize-vkms/monitorize_vkms/boot_runtime.py')
         try:
-            current = _constant(_read(runtime, Path('/'), 0), 'CINNAMON_REMOTE_LOGIN_PROTOCOL') == 1
+            current = _constant(_read(runtime, Path('/'), 0), 'CINNAMON_REMOTE_LOGIN_PROTOCOL') == 2
         except (OSError, ValueError, SyntaxError):
             current = False
         if not current:
@@ -409,6 +410,16 @@ def _prepare_remote_login_profile(profile, uid):
             os.fchmod(fd, mode)
 
 
+def prepare_current_remote_login_profile():
+    uid = os.getuid()
+    profile = Path(pwd.getpwuid(uid).pw_dir) / '.config/monitorize/sunshine-1'
+    try:
+        _prepare_remote_login_profile(profile, uid)
+    except (OSError, ValueError) as error:
+        raise ValueError('Could not secure the primary Sunshine profile. '
+                         'Check its ownership and permissions before retrying startup setup.') from error
+
+
 def apply_remote_login_setup(enabled):
     status=remote_login_setup_status()
     # Compatibility is an enablement requirement. The installed root disable
@@ -420,13 +431,10 @@ def apply_remote_login_setup(enabled):
     pkexec=shutil.which('pkexec')
     if not pkexec:return {'success':False,'message':'Install Polkit and run an authentication agent in your desktop.'}
     if enabled:
-        uid = os.getuid()
-        profile = Path(pwd.getpwuid(uid).pw_dir) / '.config/monitorize/sunshine-1'
         try:
-            _prepare_remote_login_profile(profile, uid)
-        except (OSError, ValueError):
-            return {'success': False, 'message': 'Could not secure the primary Sunshine profile. '
-                    'Check its ownership and permissions before retrying startup setup.'}
+            prepare_current_remote_login_profile()
+        except ValueError as error:
+            return {'success': False, 'message': str(error)}
     try:
         result=run_authorized([pkexec,str(HELPER),'--remote-login','enable-live' if enabled else 'disable'],
             text=True,capture_output=True,check=False)

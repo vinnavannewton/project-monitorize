@@ -98,7 +98,11 @@ class IdentitySetupError(ValueError):
 def _source_files(source, uid):
     credentials = source / 'credentials'
     if os.path.lexists(credentials):
-        _directory(credentials, uid, private=False)
+        try:
+            _directory(credentials, uid, private=False)
+        except (OSError, ValueError) as error:
+            raise IdentitySetupError('The Sunshine credentials directory is unsafe or unreadable. '
+                                     'Check its ownership and permissions before retrying startup setup.') from error
     else:
         credentials = source
     raw = {}

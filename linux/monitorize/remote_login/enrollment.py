@@ -180,7 +180,12 @@ def enable(uid, *, files=None, commands=None):
     profile=Path(account.pw_dir)/'.config/monitorize/sunshine-1'
     # Read all profile prerequisites before publishing a retained identity.
     source={}
-    for line in _read_private(profile/'sunshine.conf',uid).decode().splitlines():
+    try:
+        config = _read_private(profile/'sunshine.conf', uid).decode()
+    except ValueError as error:
+        raise IdentitySetupError('The primary Sunshine configuration is missing, unreadable, or unsafe. '
+                                 'Check its ownership and permissions before retrying startup setup.') from error
+    for line in config.splitlines():
         if '=' in line and not line.lstrip().startswith('#'):
             key,value=line.split('=',1);source[key.strip()]=value.strip()
     existing=read_settings() if SETTINGS.exists() else None

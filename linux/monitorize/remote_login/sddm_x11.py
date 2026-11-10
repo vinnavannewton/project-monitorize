@@ -21,18 +21,24 @@ def select_output(report):
             current = None
             if match:
                 name, primary, width, height = match.groups()
-                current = (bool(primary), name, int(width), int(height), [])
+                current = (bool(primary), name, int(width), int(height), [], [])
                 outputs.append(current)
         elif current:
             rates = re.findall(r'(\d+(?:\.\d+)?)\*[+ ]?(?:\s|$)', line)
-            current[-1].extend(rates)
+            current[4].extend(rates)
+            connector = re.fullmatch(r'\s+CONNECTOR_ID:\s+([1-9][0-9]*)\s*', line)
+            if connector:
+                current[5].append(int(connector[1]))
     primary = [output for output in outputs if output[0]]
     candidates = primary or outputs
-    if len(candidates) != 1 or len(candidates[0][-1]) != 1:
+    if len(candidates) != 1 or len(candidates[0][4]) != 1 or len(candidates[0][5]) > 1:
         raise ValueError('X11 greeter has no uniquely identifiable active primary display.')
-    _, name, width, height, rates = candidates[0]
-    return validate_target(dict(output_name=name, capture='kms', width=width,
-                                height=height, fps=float(rates[0])))
+    _, name, width, height, rates, connector_ids = candidates[0]
+    target = validate_target(dict(output_name=name, capture='kms', width=width,
+                                  height=height, fps=float(rates[0])))
+    if connector_ids:
+        target['connector_id'] = connector_ids[0]
+    return target
 
 
 def greeter_environment(context):
@@ -96,7 +102,7 @@ def greeter_environment(context):
     if (server_uid != 0 or not is_xorg
             or not any(service_unit in line.split(':', 2)[-1].split('/')
                        for line in (server / 'cgroup').read_text().splitlines())):
-        raise PermissionError('The greeter X11 socket does not belong to the display manager’s Xorg server.')
+        raise PermissionError('The greeter X11 socket does not belong to the display manager\'s Xorg server.')
     require_installed(executable)
     # Xauthority is opened only by the child as the unprivileged greeter account.
     return (pid, server_pid), dict(DISPLAY=display, XAUTHORITY=authority,
@@ -117,7 +123,7 @@ def operation(context, action, check):
     account = pwd.getpwuid(context['greeter_uid'])
 
     def read_target():
-        result = subprocess.run([executable, '--query'], env=environment,
+        result = subprocess.run([executable, '--query', '--prop'], env=environment,
                                 user=account.pw_uid, group=account.pw_gid, extra_groups=[],
                                 capture_output=True, text=True, timeout=3, check=False)
         if result.returncode:

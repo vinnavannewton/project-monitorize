@@ -3,12 +3,32 @@ import importlib.util
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 SPEC = importlib.util.spec_from_file_location('boot_probe',
     Path(__file__).resolve().parents[2] / 'scripts/remote-login-probe/enable-boot-output.py')
 probe = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(probe)
+
+
+class SessionProbeTest(unittest.TestCase):
+    def test_systemd_255_greeter_phase_uses_session_properties(self):
+        from monitorize.platform import login_capture_probe
+        replies = [
+            Mock(stdout='c1 113 lightdm seat0 tty7 active no -\n'),
+            Mock(stdout='Id=c1\nUser=113\nSeat=seat0\nClass=greeter\n'),
+        ]
+        with patch.object(login_capture_probe.subprocess, 'run', side_effect=replies) as run:
+            self.assertEqual(login_capture_probe.read_phase(), 'greeter')
+        self.assertIn('--no-legend', run.call_args_list[0].args[0])
+        self.assertEqual(run.call_args_list[1].args[0][-2:], ['--', 'c1'])
+
+    def test_missing_session_properties_fail_closed(self):
+        from monitorize.platform import login_capture_probe
+        replies = [Mock(stdout='c1 113 lightdm seat0\n'), Mock(stdout='')]
+        with patch.object(login_capture_probe.subprocess, 'run', side_effect=replies):
+            with self.assertRaisesRegex(ValueError, 'Incomplete'):
+                login_capture_probe.read_phase()
 
 
 class BootProbeTest(unittest.TestCase):
