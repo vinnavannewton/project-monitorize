@@ -143,18 +143,16 @@ https://github.com/vinnavannewton/monitorize-vkms
 
 ## Supported desktops
 
-This table shows which desktops support compositor-native virtual displays, [monitorize-vkms](https://github.com/vinnavannewton/monitorize-vkms), and login-screen streaming.
+This table shows whether each desktop environment supports via compositor-native virtual displays, [monitorize-vkms](https://github.com/vinnavannewton/monitorize-vkms), or both.
 
-| Desktop Environment | Compositor | monitorize-vkms | Login-screen streaming |
-| --- | :---: | :---: | --- |
-| KDE Plasma 6.7+ | ✅ | ✅ | Plasma Login Manager or SDDM |
-| GNOME 50+ | ✅ | ✅ | GDM on Wayland (experimental) |
-| Hyprland (Aquamarine 0.15.1+ for VKMS) | ✅ | ✅ | SDDM |
-| Niri | ❌ | ✅ | ❌ |
-| Cinnamon X11 | ❌ | ✅ | LightDM with Slick Greeter |
-| COSMIC | ❌ | ❌ | ❌ |
-
-Login-screen streaming requires monitorize-vkms and matching remote-login components. Support depends on the login manager and its sign-in session. SDDM Wayland is experimental. SDDM X11 and LightDM with Slick Greeter stream an existing display.
+| Desktop Environment                    | Compositor | monitorize-vkms |
+| -------------------------------------- |:----------:|:---------------:|
+| KDE Plasma 6.7+                        | ✅          | ✅               |
+| GNOME 50+                              | ✅          | ✅               |
+| Hyprland (Aquamarine 0.15.1+ for VKMS) | ✅          | ✅               |
+| Niri                                   | ❌          | ✅               |
+| Cinnamon X11                           | ❌          | ✅               |
+| COSMIC                                 | ❌          | ❌               |
 
 ## Installation
 
