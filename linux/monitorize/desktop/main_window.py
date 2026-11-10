@@ -258,7 +258,9 @@ def _set_palette(app):
     def refresh(*_):
         apply_palette(app, load_general_settings().get("theme_mode", "system"))
     refresh()
-    app.styleHints().colorSchemeChanged.connect(refresh)
+    scheme_changed = getattr(app.styleHints(), "colorSchemeChanged", None)
+    if scheme_changed is not None:
+        scheme_changed.connect(refresh)
 
 
 def _start_in_tray_requested(argv):
