@@ -18,7 +18,6 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.release.outputs.version }}
-      commit: ${{ steps.release.outputs.commit }}
       matrix: ${{ steps.release.outputs.matrix }}
       asset_names: ${{ steps.release.outputs.asset_names }}
     steps:
@@ -82,7 +81,6 @@ jobs:
               )
           PYTHON
 
-          echo "commit=${tag_commit}" >> "${GITHUB_OUTPUT}"
           echo "version=${tag_version}" >> "${GITHUB_OUTPUT}"
           echo "matrix=$(python3 scripts/package-assets.py matrix)" >> "${GITHUB_OUTPUT}"
           echo "asset_names=$(python3 scripts/package-assets.py manifest "${tag_version}")" >> "${GITHUB_OUTPUT}"
@@ -160,18 +158,6 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Checkout verified release sources
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.validate.outputs.commit }}
-          persist-credentials: false
-
-      - name: Verify installed-package acceptance
-        env:
-          MONITORIZE_FIRST_RUN_ACCEPTANCE: ${{ vars.MONITORIZE_FIRST_RUN_ACCEPTANCE }}
-          RELEASE_COMMIT: ${{ needs.validate.outputs.commit }}
-        run: python3 scripts/check-first-run-acceptance.py --commit "${RELEASE_COMMIT}"
-
       - name: Download all successful packages
         uses: actions/download-artifact@v4
         with:

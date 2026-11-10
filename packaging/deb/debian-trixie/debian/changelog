@@ -1,3 +1,9 @@
+monitorize (0.40) trixie; urgency=medium
+
+  * Release Monitorize 0.40.
+
+ -- Monitorize contributors <noreply@example.com>  Tue, 10 Nov 2026 20:59:32 +0530
+
 monitorize (0.34) trixie; urgency=medium
 
   * Release Monitorize 0.34.

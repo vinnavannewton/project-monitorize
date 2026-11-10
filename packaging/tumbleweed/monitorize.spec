@@ -9,7 +9,7 @@
 %global _firewalld_dir %{_prefix}/lib/firewalld
 
 Name:           monitorize
-Version:        0.34
+Version:        0.40
 Release:        0
 Summary:        Sunshine-backed virtual displays for Moonlight clients
 License:        GPL-3.0-only
@@ -352,6 +352,9 @@ fi
 %{_modulesloaddir}/monitorize.conf
 
 %changelog
+* Tue Nov 10 2026 Monitorize contributors <noreply@example.com> - 0.40-0
+- Release Monitorize 0.40.
+
 * Tue Oct 27 2026 Monitorize contributors <noreply@example.com> - 0.34-0
 - Release Monitorize 0.34.
 
