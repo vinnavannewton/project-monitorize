@@ -48,6 +48,20 @@ class DescriptorTests(unittest.TestCase):
                     self.store.write(self.caller, self.token, {'capture': 'kwin',
                                      'output_name': 'Virtual-4', 'pipewire_node': 42})
 
+    def test_mirror_requires_verified_lightdm_cinnamon_x11_context(self):
+        values = {'capture': 'kms', 'output_name': 'Virtual-4', 'mirror_output': 'eDP-1'}
+        self.settings.manager = 'lightdm.service'
+        environment = {'XDG_SESSION_TYPE': 'wayland', 'XDG_CURRENT_DESKTOP': 'X-Cinnamon', 'DISPLAY': ':0'}
+        self.store.session_environment = lambda uid: ('s1', environment)
+        with self.assertRaisesRegex(ValueError, 'requires a Cinnamon X11 session'):
+            self.store.write(self.caller, self.token, values)
+        environment['XDG_SESSION_TYPE'] = 'x11'
+        with self.assertRaisesRegex(ValueError, 'distinct from the reserved display'):
+            self.store.write(self.caller, self.token, dict(values, mirror_output='Virtual-4'))
+        self.adopt.assert_not_called()
+        result = self.store.write(self.caller, self.token, values)
+        self.assertEqual(result['mirror_output'], 'eDP-1')
+
     def test_private_descriptor_is_atomic_and_bound_to_session(self):
         self.store.write(self.caller,self.token,{'capture':'kms','output_name':'Virtual-4'})
         path=self.root/str(os.getuid())/'desktop.json'

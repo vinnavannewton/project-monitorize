@@ -92,12 +92,18 @@ def validate_display_mode(mode):
 
 
 def validate_descriptor(values,settings,expected_output):
-    allowed={'capture','output_name','pipewire_node','wayland_display','display','stream_options','client_display_mode','display_mode'}
+    allowed={'capture','output_name','pipewire_node','wayland_display','display','stream_options','client_display_mode','display_mode','mirror_output'}
     if not isinstance(values,dict) or set(values)-allowed:raise ValueError('Unsupported desktop descriptor fields.')
     capture=values.get('capture');output=values.get('output_name')
     if capture not in ('kms','kwin') or output!=expected_output or not isinstance(output,str) or not re.fullmatch(r'Virtual-[0-9]+',output):
         raise ValueError('Desktop capture must target the reserved virtual output.')
     result={'capture':capture,'output_name':output}
+    if 'mirror_output' in values:
+        mirror = values['mirror_output']
+        if (capture != 'kms' or not isinstance(mirror, str) or mirror == output
+                or not re.fullmatch(r'[A-Za-z][A-Za-z0-9_-]{0,63}', mirror)):
+            raise ValueError('Mirror requires a valid X11 output distinct from the reserved display.')
+        result['mirror_output'] = mirror
     if capture=='kwin':
         node=values.get('pipewire_node')
         if type(node) is not int or not 0<node<=2**32-1:raise ValueError('KWin capture requires a valid PipeWire node.')

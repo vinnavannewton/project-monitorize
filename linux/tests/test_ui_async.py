@@ -255,6 +255,23 @@ class UiAsyncTest(unittest.TestCase):
             backend.applyConfiguration();stop.assert_not_called()
         self.assertIn('reserved VKMS display',result[-1][1])
 
+    def test_cinnamon_x11_can_apply_mirror_with_remote_login_enabled(self):
+        import copy
+
+        backend = self.make_backend()
+        backend._remote_login.enabled = True
+        backend._remote_login.status = {'desktop_options_version': 1, 'desktop_mirror_version': 1}
+        candidate = copy.deepcopy(backend.configuration_state.applied)
+        candidate['streaming_backend'] = 'sunshine'
+        candidate['primary'].update(sunshine_capture='auto', display_type='Mirror', mirror_output='eDP-1')
+        environment = {'XDG_SESSION_TYPE': 'x11', 'XDG_CURRENT_DESKTOP': 'X-Cinnamon'}
+        with patch.dict('os.environ', environment), \
+             patch.object(backend, '_remote_stream_options', return_value={}), \
+             patch.object(backend._remote_login, 'start') as start:
+            backend._validate_remote_candidate(candidate)
+            backend._launch_configuration(candidate)
+        start.assert_called_once_with({}, display_behavior=candidate['display_behavior'], mirror_output='eDP-1')
+
     def test_pending_auto_start_keeps_listener_only_and_stop_cancels_callback(self):
         backend = self.make_backend()
         backend._pending_session_start = True

@@ -166,6 +166,32 @@ class X11OutputTests(unittest.TestCase):
         self.assertEqual(target, dict(output_name='Virtual-1', capture='kms',
                                       width=1280, height=800, fps=59.91))
 
+    def test_desktop_mirror_resolves_the_selected_output_without_changing_its_mode(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock, patch
+        from monitorize.remote_login import sddm_x11
+
+        report = ('eDP-1 connected primary 1920x1080+0+0\n   1920x1080  60.00*\n'
+                  'HDMI-1-1 connected 1280x720+1920+0\n'
+                  '   CONNECTOR_ID: 110\n   1280x720  59.94*\n')
+        environment = {'XDG_SESSION_TYPE': 'x11', 'XDG_CURRENT_DESKTOP': 'X-Cinnamon', 'DISPLAY': ':0'}
+        descriptor = {'output_name': 'Virtual-1', 'mirror_output': 'HDMI-1-1', 'display': ':0'}
+        check = Mock()
+        with patch('monitorize.remote_login.daemon.require_installed'), \
+             patch.object(sddm_x11.pwd, 'getpwuid', return_value=SimpleNamespace(pw_dir='/home/test', pw_gid=1000)), \
+             patch.object(sddm_x11.subprocess, 'run', return_value=SimpleNamespace(stdout=report)) as run, \
+             patch.object(sddm_x11, 'verify_drm', return_value=Path('/sys/class/drm/card1-HDMI-A-1')) as verify:
+            target = sddm_x11.desktop_mirror_target(1000, 's1', descriptor, lambda uid: ('s1', environment), check)
+            verify.assert_called_once_with(dict(output_name='HDMI-1-1', capture='kms', width=1280,
+                                                height=720, fps=59.94, connector_id=110))
+            self.assertEqual(target, dict(output_name='HDMI-A-1', capture='kms', width=1280, height=720, fps=59.94))
+            self.assertEqual(run.call_args.args[0], ['/usr/bin/xrandr', '--query', '--prop'])
+            self.assertEqual(run.call_args.kwargs['user'], 1000)
+            self.assertEqual(check.call_count, 2)
+            with self.assertRaisesRegex(ValueError, 'selected Mirror output'):
+                sddm_x11.desktop_mirror_target(1000, 's1', dict(descriptor, mirror_output='DP-9'),
+                                                lambda uid: ('s1', environment), check)
+
     def test_rejects_ambiguous_or_inactive_outputs(self):
         from monitorize.remote_login.sddm_x11 import select_output
 

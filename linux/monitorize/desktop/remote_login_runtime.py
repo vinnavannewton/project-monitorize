@@ -35,6 +35,13 @@ MESSAGES={
 }
 
 
+def desktop_mirror_supported(status):
+    desktop = os.environ.get('XDG_CURRENT_DESKTOP', '').lower().split(':')
+    return (status.get('desktop_mirror_version', 0) >= 1
+            and os.environ.get('XDG_SESSION_TYPE') == 'x11'
+            and bool({'cinnamon', 'x-cinnamon'}.intersection(desktop)))
+
+
 def saved_stream_options():
     """Only persisted/applied settings reach a fresh desktop service participant."""
     from monitorize.config.settings import load_display_settings
@@ -83,6 +90,7 @@ class Participant:
         self.generation='';self.want_running=True;self.epoch=None;self.stream_options=None
         self._control_failures={};self._diagnostic_state=None
         self.layout=None;self.layout_mode='extend'
+        self.mirror_output=None;self._mirroring=False
         if factory is None:
             from monitorize.config.settings import load_general_settings
             from monitorize.desktop.remote_layout import RemoteLayout
@@ -131,7 +139,7 @@ class Participant:
                 streaming=(status.get('state')=='streaming' or
                            (status.get('state')=='desktop_available' and bool(status.get('capture_ready'))))
                 target=(status.get('output_name') or self.output_finder()) if streaming else None
-                self.layout.update(self.layout_mode,streaming,target)
+                self.layout.update('extend' if self._mirroring else self.layout_mode,streaming,target)
             except Exception as exc:
                 status=dict(status,layout_error='Desktop layout failed: '+str(exc))
         state=str(status.get('state','unknown'))
@@ -175,6 +183,7 @@ class Participant:
                     output=status.get('output_name') or self.output_finder()
                     if output is None:return dict(state='waiting_for_desktop',capture_ready=False)
                     descriptor={'capture':'kms','output_name':output}
+                    mirror = self.mirror_output
                     if self.factory is None:
                         from monitorize.config.settings import load_display_settings
                         from monitorize.desktop.session import Session
@@ -182,6 +191,10 @@ class Participant:
                         width,height=map(int,config['res'].split('x'))
                         descriptor.update(client_display_mode=bool(saved.get('use_client_display_settings',False)),
                                           display_mode=[width,height,float(config['fps'])])
+                        if mirror is None and config['display_type'] == 'Mirror':
+                            mirror = config['mirror_output']
+                    if mirror and desktop_mirror_supported(status):
+                        descriptor['mirror_output'] = mirror
                     if self.stream_options is None and status.get('desktop_options_version',0)>=1:
                         self.stream_options=saved_stream_options()
                     if status.get('desktop_options_version',0)>=1:
@@ -190,6 +203,7 @@ class Participant:
                         legacy_stream_options(self.stream_options or saved_stream_options(),write=True,keep_enrolled_encoder=True)
                     method='PrepareDesktop'
                     status=self._call(method,self.generation,json.dumps(descriptor))
+                    self._mirroring = 'mirror_output' in descriptor
             return status
         except Exception as error:
             # Revoked ownership is not a missing service. Keep the same sender,
@@ -225,11 +239,12 @@ class Participant:
         except Exception:status=self.poll()
         return dict(status,layout_error=error) if error else status
 
-    def start(self, options=None, display_behavior=None):
+    def start(self, options=None, display_behavior=None, *, mirror_output=None):
         error=self._restore_layout()
         if error:return dict(self._poll(),layout_error=error)
         if display_behavior is not None:self.layout_mode=display_behavior
         if options is not None:self.stream_options=dict(options)
+        self.mirror_output=mirror_output
         if self.factory is None and (error := engine_launch_error()):
             return dict(state='error',capture_ready=False,listening=False,startup_error=error)
         try:
@@ -304,9 +319,13 @@ class RemoteLoginRuntime(QObject):
         if self.closed:return
         self.busy=False;self.status=result;self.changed.emit()
     def poll(self):self._submit(self.participant.poll)
-    def start(self, options=None, display_behavior=None):
-        if options is None and display_behavior is None:self._submit(self.participant.start)
-        else:self._submit(lambda:self.participant.start(options,display_behavior=display_behavior))
+    def start(self, options=None, display_behavior=None, *, mirror_output=None):
+        if options is None and display_behavior is None and mirror_output is None:
+            self._submit(self.participant.start)
+        elif mirror_output is None:
+            self._submit(lambda:self.participant.start(options,display_behavior=display_behavior))
+        else:
+            self._submit(lambda:self.participant.start(options,display_behavior=display_behavior,mirror_output=mirror_output))
     def stop(self):
         # Queue behind an already dispatched PrepareDesktop; a user Stop must
         # never be dropped just because the ownership worker is currently busy.

@@ -36,7 +36,7 @@ class HandoffService:
             if diagnostic!=self._diagnostic_state:
                 print('Remote-login state=%s coordinator=%s desktop_listening=%s desktop_capture=%s boot_listening=%s boot_capture=%s operation_error=%s'%diagnostic,flush=True)
                 self._diagnostic_state=diagnostic
-            return dict(display_idle_timeout_seconds=getattr(self,'grace_timeout',None) or (self.display_timeout() if hasattr(self,'display_timeout') else 20),desktop_mode_version=1,desktop_options_version=1,startup_error=error,state=state,epoch=self.epoch,enabled=self.model.enabled,capture_ready=self.ready or self.boot_ready,
+            return dict(display_idle_timeout_seconds=getattr(self,'grace_timeout',None) or (self.display_timeout() if hasattr(self,'display_timeout') else 20),desktop_mode_version=1,desktop_options_version=1,desktop_mirror_version=getattr(self,'desktop_mirror_version',0),startup_error=error,state=state,epoch=self.epoch,enabled=self.model.enabled,capture_ready=self.ready or self.boot_ready,
                         uid=self.model.uid,desktop_owned=bool(self.owner and self.owner_session==self.model.session),
                         session=self.model.session or '',listening=self.listening,
                         boot_paused=self.model.boot_paused,boot_listening=self.boot_listening,

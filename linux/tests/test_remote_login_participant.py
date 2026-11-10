@@ -37,6 +37,40 @@ class ParticipantTests(unittest.TestCase):
         self.assertEqual(len([c for c in interface.calls if isinstance(c,tuple)]),1)
         finder.assert_not_called()
 
+    def test_mirror_selection_reaches_the_desktop_engine_in_either_order(self):
+        from unittest.mock import Mock
+
+        for start_first in (False, True):
+            with self.subTest(start_first=start_first):
+                interface = Interface()
+                original = interface.GetStatus
+                interface.GetStatus = lambda **kwargs: json.dumps({
+                    **json.loads(original()), 'desktop_mirror_version': 1,
+                    'desktop_options_version': 1, 'output_name': 'Virtual-1',
+                })
+                participant = Participant(factory=lambda: interface)
+                participant.interface = interface
+                participant.factory = None
+                participant.stream_options = {}
+                participant.layout = Mock()
+                participant.layout_mode = 'virtual_only'
+                environment = {'XDG_SESSION_TYPE': 'x11', 'XDG_CURRENT_DESKTOP': 'X-Cinnamon'}
+                saved = {'display_type': 'Mirror' if start_first else 'Extend', 'mirror_output': 'eDP-1'}
+                with patch.dict('os.environ', environment), \
+                     patch('monitorize.desktop.remote_login_runtime.source_engine_update_error', return_value=''), \
+                     patch('monitorize.desktop.remote_login_runtime.engine_launch_error', return_value=''), \
+                     patch('monitorize.config.settings.load_display_settings', return_value=saved):
+                    if start_first:
+                        participant.poll()
+                    else:
+                        participant.start(mirror_output='eDP-1')
+                    interface.state = 'desktop_available'
+                    participant.poll()
+                descriptor = next(call[1] for call in interface.calls if isinstance(call, tuple))
+                self.assertEqual(descriptor['mirror_output'], 'eDP-1')
+                self.assertEqual(descriptor['output_name'], 'Virtual-1')
+                participant.layout.update.assert_called_with('extend', True, 'Virtual-1')
+
     def test_desktop_descriptor_carries_saved_client_mode_policy(self):
         interface=Interface();participant=Participant(factory=lambda:interface,output_finder=lambda:'Virtual-4')
         # This descriptor test targets the current service API. Advertising the

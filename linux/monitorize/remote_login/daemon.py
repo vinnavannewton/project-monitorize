@@ -79,6 +79,7 @@ def build_service(settings,bus):
     from .live_setup import complete_for_session
     service.desktop_listening_observer=lambda session:complete_for_session(settings.uid,session)
     service.output_name=reserved_output
+    service.desktop_mirror_version=int(getattr(settings, 'manager', None) == 'lightdm.service')
 
     def boot_pause_cleanup():
         lease = boot_output_status(helper.STATE_DIRECTORY)
@@ -188,6 +189,12 @@ def build_service(settings,bus):
             gate=EngineGate(settings.uid,transport,
                 lambda:read_descriptor(settings.runtime/'desktop.json',settings.uid),owner_check,free,session_check=selected)
             descriptor=gate.check(sender,generation,idle=operation=='idle')
+            if descriptor.get('mirror_output') and operation=='prepare':
+                if mode is not None:
+                    raise ValueError('Mirror uses the selected display’s current mode.')
+                from .sddm_x11 import desktop_mirror_target
+                return desktop_mirror_target(settings.uid, descriptor['session'], descriptor,
+                                             helper._active_session, lambda:gate.check(sender,generation))
             options={}
             if mode is not None:
                 from .settings import validate_display_mode

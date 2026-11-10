@@ -2051,7 +2051,12 @@ class MonitorizeBackend(QObject):
             if self._remote_login.status.get("desktop_options_version", 0) < 1:
                 from monitorize.desktop.remote_login_runtime import legacy_stream_options
                 legacy_stream_options(options,write=True,keep_enrolled_encoder=True)
-            self._remote_login.start(options,display_behavior=bundle['display_behavior'])
+            from monitorize.desktop.remote_login_runtime import desktop_mirror_supported
+            intent = {}
+            if desktop_mirror_supported(self._remote_login.status):
+                primary = bundle['primary']
+                intent['mirror_output'] = primary.get('mirror_output', '') if primary.get('display_type') == 'Mirror' else ''
+            self._remote_login.start(options,display_behavior=bundle['display_behavior'],**intent)
         elif bundle["streaming_backend"] == "none":
             # Saving an idle display-only draft never creates a display on its own.
             self._display_only_idle = not getattr(self, "_restart_display_only", False)
@@ -2103,6 +2108,11 @@ class MonitorizeBackend(QObject):
                  'streaming_customized','sunshine_native_pen_touch','enable_audio'}
         if self._remote_login.status.get('desktop_mode_version',0)>=1:
             allowed.update({'use_client_display_settings','resolution','fps','custom_w','custom_h','custom_fps'})
+        from monitorize.desktop.remote_login_runtime import desktop_mirror_supported
+        if desktop_mirror_supported(self._remote_login.status):
+            allowed.update({'display_type','mirror_output'})
+            if candidate['primary'].get('display_type') == 'Mirror' and candidate['second'].get('enabled'):
+                raise ValueError('Remote-login Mirror supports one stream. Disable the second display first.')
         old=self.configuration_state.applied
         if (any(candidate['primary'].get(k)!=old['primary'].get(k) for k in set(candidate['primary'])-allowed)
                 or candidate['second']!=old['second']):

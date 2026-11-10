@@ -10,7 +10,7 @@ import subprocess
 from .login_primary import validate_target, verify_drm
 
 
-def select_output(report):
+def select_output(report, *, name=None):
     if len(report) > 65536:
         raise ValueError('X11 greeter output report is too large.')
     outputs = []
@@ -20,8 +20,8 @@ def select_output(report):
             match = re.match(r'^([\w-]+) connected (primary )?(\d+)x(\d+)[+-]\d+[+-]\d+(?: |$)', line)
             current = None
             if match:
-                name, primary, width, height = match.groups()
-                current = (bool(primary), name, int(width), int(height), [], [])
+                output_name, primary, width, height = match.groups()
+                current = (bool(primary), output_name, int(width), int(height), [], [])
                 outputs.append(current)
         elif current:
             rates = re.findall(r'(\d+(?:\.\d+)?)\*[+ ]?(?:\s|$)', line)
@@ -30,8 +30,10 @@ def select_output(report):
             if connector:
                 current[5].append(int(connector[1]))
     primary = [output for output in outputs if output[0]]
-    candidates = primary or outputs
+    candidates = [output for output in outputs if output[1] == name] if name else primary or outputs
     if len(candidates) != 1 or len(candidates[0][4]) != 1 or len(candidates[0][5]) > 1:
+        if name:
+            raise ValueError('The selected Mirror output has no unique active X11 mode.')
         raise ValueError('X11 greeter has no uniquely identifiable active primary display.')
     _, name, width, height, rates, connector_ids = candidates[0]
     target = validate_target(dict(output_name=name, capture='kms', width=width,
@@ -107,6 +109,41 @@ def greeter_environment(context):
     # Xauthority is opened only by the child as the unprivileged greeter account.
     return (pid, server_pid), dict(DISPLAY=display, XAUTHORITY=authority,
                                   HOME=account.pw_dir, PATH='/usr/bin:/bin', LC_ALL='C')
+
+
+def desktop_mirror_target(uid, session, descriptor, session_environment, check):
+    """Resolve the requested output in the active Cinnamon X11 session."""
+    from .daemon import require_installed
+    from .session_context import desktop_context
+
+    def environment():
+        active, values = session_environment(uid)
+        context = desktop_context(values)
+        if (active != session or context.get('session_type') != 'x11'
+                or context['display'] != descriptor['display']):
+            raise PermissionError('The Cinnamon X11 session changed.')
+        return values
+
+    check()
+    values = environment()
+    account = pwd.getpwuid(uid)
+    env = dict(DISPLAY=descriptor['display'], HOME=account.pw_dir, PATH='/usr/bin:/bin', LC_ALL='C')
+    if values.get('XAUTHORITY'):
+        env['XAUTHORITY'] = values['XAUTHORITY']
+    executable = '/usr/bin/xrandr'
+    require_installed(executable)
+    result = subprocess.run([executable, '--query', '--prop'], env=env,
+                            user=uid, group=account.pw_gid, extra_groups=[],
+                            capture_output=True, text=True, timeout=3, check=True)
+    target = select_output(result.stdout, name=descriptor['mirror_output'])
+    connector = verify_drm(target)
+    name = connector.name.split('-', 1)[1]
+    if name == descriptor['output_name']:
+        raise PermissionError('Mirror cannot capture the reserved remote-login display.')
+    if environment().get('XAUTHORITY') != values.get('XAUTHORITY'):
+        raise PermissionError('The Cinnamon X11 session authority changed.')
+    check()
+    return validate_target(dict(target, output_name=name))
 
 
 def operation(context, action, check):

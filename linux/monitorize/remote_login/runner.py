@@ -210,9 +210,10 @@ def desktop_main():
         # The coordinator independently checks identity release before unplugging.
         owner.stop()
         engine_call('idle')
+    mirror = bool(descriptor.get('mirror_output'))
     display=IdleDisplay(lambda:engine_call('prepare'),remove,timeout_seconds=settings.display_idle_timeout_seconds,
                         timeout_provider=lambda:read_settings().display_idle_timeout_seconds,
-                        prepare_mode=lambda mode:engine_call('prepare',mode))
+                        prepare_mode=None if mirror else lambda mode:engine_call('prepare',mode))
     # A carried boot output can be idle even before the first desktop stream.
     display.schedule_cleanup()
     listener=ListenerEvidence()
@@ -220,7 +221,7 @@ def desktop_main():
     token=secrets.token_hex(32)
     control_path=settings.directory/'runtime/control.sock'
     def request(message):
-        if message.get('operation')=='prepare' and not descriptor.get('client_display_mode',False):
+        if not mirror and message.get('operation')=='prepare' and not descriptor.get('client_display_mode',False):
             mode=descriptor.get('display_mode',[1920,1080,60])
             message=dict(message,width=mode[0],height=mode[1],fps=mode[2])
         return display.request(message)

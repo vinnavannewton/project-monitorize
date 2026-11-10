@@ -70,6 +70,9 @@ class AdoptionWiringTests(unittest.TestCase):
         host=ModuleType('monitorize_vkms');helper=ModuleType('monitorize_vkms.helper')
         helper.__file__='/usr/lib/monitorize-vkms/monitorize_vkms/helper.py'
         helper._active_session=Mock();host.helper=helper
+        runtime=ModuleType('monitorize_vkms.boot_runtime')
+        runtime.__file__='/usr/lib/monitorize-vkms/monitorize_vkms/boot_runtime.py'
+        host.boot_runtime=runtime
         boot=ModuleType('monitorize_vkms.boot_display')
         for name in ('boot_output_status','return_to_greeter','reconnect_reserved','greeter_operation_installed'):
             setattr(boot,name,Mock())

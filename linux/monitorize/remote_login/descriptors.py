@@ -44,6 +44,10 @@ class DescriptorStore:
             if context.get('session_type') == 'x11':
                 values.pop('wayland_display', None)
             values.update(context)
+        if 'mirror_output' in values and (
+                getattr(self.settings, 'manager', None) != 'lightdm.service'
+                or values.get('session_type') != 'x11' or values.get('desktop') != 'X-Cinnamon'):
+            raise ValueError('Remote-login Mirror requires a Cinnamon X11 session under LightDM.')
         # Adopter rechecks active session, generation and DRM identity under its lock.
         adopted=self.adopter(caller['uid'],caller['session'])
         # Physical greeter capture never activates the reserved VKMS connector.
