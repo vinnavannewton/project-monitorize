@@ -65,7 +65,8 @@ class IntegratedLiveTests(unittest.TestCase):
         self.assertEqual((self.connector/'status').read_text(),'2')
         settings=SimpleNamespace(uid=1000,gid=os.getgid(),encoder='software',adapter='')
         store=DescriptorStore(settings,lambda:'Virtual-0',lambda uid,session:self.host.desktop_operation_installed(uid,session,'adopt'),
-            root=self.root/'descriptors',owner_uid=os.getuid(),session_environment=lambda uid:('3',dict(XDG_SESSION_TYPE='wayland',XDG_CURRENT_DESKTOP='KDE')))
+            root=self.root/'descriptors',owner_uid=os.getuid(),session_environment=lambda uid:('3',dict(XDG_SESSION_TYPE='wayland',XDG_CURRENT_DESKTOP='KDE',WAYLAND_DISPLAY='wayland-1')))
+        store._wayland_socket = lambda uid, session, name: name
         class Sessions:
             def snapshot(self):return dict(greeter_ready=False,sessions=[dict(id='3',uid=1000,seat='seat0',active=True,remote=False,type='wayland')])
             def authenticate(self,sender,uid):return dict(uid=uid,pid=123,session='3')

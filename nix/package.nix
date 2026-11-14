@@ -86,7 +86,7 @@ let
     env = previousAttrs.env // {
       BUILD_VERSION = finalAttrs.version;
       BRANCH = "monitorize";
-      COMMIT = "95c2220d23581b347234567aa4081b081b36d726";
+      COMMIT = "3401e1d4efce853cb4fe2efee5a1b0f002a1b73f";
     };
   });
 in

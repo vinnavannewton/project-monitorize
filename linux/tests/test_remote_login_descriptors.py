@@ -14,15 +14,31 @@ class DescriptorTests(unittest.TestCase):
         self.settings=SimpleNamespace(uid=os.getuid(),gid=os.getgid())
         self.adopt=Mock(return_value={'connector':'Virtual-4'})
         self.store=DescriptorStore(self.settings,lambda:'Virtual-4',self.adopt,root=self.root,owner_uid=os.getuid())
+        self.store._wayland_socket = Mock(side_effect=lambda uid, session, name: name)
         self.caller={'uid':os.getuid(),'session':'s1'};self.token='a'*32
 
     def test_desktop_context_is_resolved_by_root_not_client(self):
-        self.store.session_environment=lambda uid:('s1',{'XDG_SESSION_TYPE':'wayland','XDG_CURRENT_DESKTOP':'Hyprland'})
+        self.store.session_environment=lambda uid:('s1',{'XDG_SESSION_TYPE':'wayland','XDG_CURRENT_DESKTOP':'Hyprland','WAYLAND_DISPLAY':'wayland-7'})
         result=self.store.write(self.caller,self.token,{'capture':'kms','output_name':'Virtual-4'})
         self.assertEqual(result['desktop'],'Hyprland')
+        self.assertEqual(result['wayland_display'],'wayland-7')
+        self.store._wayland_socket.assert_called_once_with(os.getuid(), 's1', 'wayland-7')
+        override = self.store.write(self.caller,self.token,
+                                    {'capture':'kms','output_name':'Virtual-4','wayland_display':'wayland-99'})
+        self.assertEqual(override['wayland_display'], 'wayland-7')
         with self.assertRaises(ValueError):self.store.write(self.caller,self.token,{'capture':'kms','output_name':'Virtual-4','desktop':'KDE'})
-        self.store.session_environment=lambda uid:('other',{'XDG_SESSION_TYPE':'wayland','XDG_CURRENT_DESKTOP':'Hyprland'})
+        self.store.session_environment=lambda uid:('other',{'XDG_SESSION_TYPE':'wayland','XDG_CURRENT_DESKTOP':'Hyprland','WAYLAND_DISPLAY':'wayland-7'})
         with self.assertRaises(PermissionError):self.store.write(self.caller,self.token,{'capture':'kms','output_name':'Virtual-4'})
+
+    def test_unverified_wayland_socket_prevents_adoption(self):
+        self.store.session_environment = lambda uid: ('s1', {
+            'XDG_SESSION_TYPE': 'wayland', 'XDG_CURRENT_DESKTOP': 'KDE'})
+        self.store._wayland_socket.side_effect = PermissionError('Wrong session')
+        with self.assertRaises(PermissionError):
+            self.store.write(self.caller, self.token, {
+                'capture': 'kms', 'output_name': 'Virtual-4', 'wayland_display': 'wayland-99'})
+        self.store._wayland_socket.assert_called_once_with(os.getuid(), 's1', '')
+        self.adopt.assert_not_called()
 
     def test_cinnamon_handoff_passes_the_verified_session_to_the_runner(self):
         from monitorize.remote_login.runner import desktop_command
@@ -35,7 +51,7 @@ class DescriptorTests(unittest.TestCase):
         for session_type in ('x11', 'wayland'):
             with self.subTest(session_type=session_type):
                 environment = {'XDG_SESSION_TYPE': session_type,
-                               'XDG_CURRENT_DESKTOP': 'X-Cinnamon', 'DISPLAY': ':7'}
+                               'XDG_CURRENT_DESKTOP': 'X-Cinnamon', 'DISPLAY': ':7', 'WAYLAND_DISPLAY': 'wayland-7'}
                 self.store.session_environment = lambda uid: ('s1', environment)
                 result = self.store.write(self.caller, self.token,
                                           {'capture': 'kms', 'output_name': 'Virtual-4', 'display': ':99'})
@@ -44,6 +60,10 @@ class DescriptorTests(unittest.TestCase):
                 self.assertEqual(runner_environment['XDG_CURRENT_DESKTOP'], 'X-Cinnamon')
                 if session_type == 'x11':
                     self.assertEqual(runner_environment['DISPLAY'], ':7')
+                    self.assertNotIn('WAYLAND_DISPLAY', runner_environment)
+                else:
+                    self.assertEqual(runner_environment['WAYLAND_DISPLAY'], 'wayland-7')
+                    self.assertNotIn('DISPLAY', runner_environment)
                 with self.assertRaisesRegex(ValueError, 'requires KMS'):
                     self.store.write(self.caller, self.token, {'capture': 'kwin',
                                      'output_name': 'Virtual-4', 'pipewire_node': 42})

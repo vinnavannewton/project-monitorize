@@ -27,6 +27,18 @@ class DescriptorStore:
             raise ValueError('Unsafe remote-login runtime directory.')
         if gid is not None and info.st_gid!=gid:raise ValueError('Remote-login runtime group changed.')
 
+    @staticmethod
+    def _wayland_socket(uid, session, name):
+        from monitorize_vkms.helper import _session_connection_environment, _validate_session_socket
+        runtime = Path('/run/user') / str(uid)
+        if not name:
+            name = _session_connection_environment(uid, session).get('WAYLAND_DISPLAY', '')
+        path = Path(name)
+        if not re.fullmatch(r'wayland-[0-9]+', path.name):
+            raise ValueError('Could not resolve the active desktop Wayland socket.')
+        _validate_session_socket(runtime / path, uid, session)
+        return path.name
+
     def write(self,caller,generation,descriptor):
         if caller['uid']!=self.settings.uid or not re.fullmatch(r'[0-9a-f]{32}',generation):
             raise PermissionError('Invalid descriptor owner/generation.')
@@ -41,8 +53,11 @@ class DescriptorStore:
             context = desktop_context(environment)
             if context['desktop'] == 'X-Cinnamon' and values['capture'] != 'kms':
                 raise ValueError('Cinnamon remote login requires KMS capture.')
-            if context.get('session_type') == 'x11':
-                values.pop('wayland_display', None)
+            values.pop('wayland_display', None)
+            if environment.get('XDG_SESSION_TYPE') == 'wayland':
+                values.pop('display', None)
+                socket_name = self._wayland_socket(caller['uid'], actual, environment.get('WAYLAND_DISPLAY', ''))
+                context.update(session_type='wayland', wayland_display=socket_name)
             values.update(context)
         if 'mirror_output' in values and (
                 getattr(self.settings, 'manager', None) != 'lightdm.service'
