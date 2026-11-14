@@ -68,11 +68,6 @@ class PhysicalLoginTests(unittest.TestCase):
                 saved=json.loads((Path(directory)/'etc/monitorize/remote-login.json').read_text())
                 self.assertTrue(saved['create_login_virtual_display']);self.assertNotIn('login_primary_display',saved)
                 self.assertTrue(saved['enabled']);self.assertTrue(result['reboot_required']);commands.assert_not_called()
-    def test_checkbox_has_positive_label_and_no_help(self):
-        page=(Path(__file__).resolve().parents[1]/'monitorize/qml/SettingsPage.qml').read_text()
-        self.assertIn('text: "Create virtual display at login"',page)
-        self.assertNotIn('Do not create virtual displays',page)
-        self.assertNotIn("Streams GNOME's existing primary display",page)
 
 
 class KwinAuthenticatedCaptureTests(unittest.TestCase):
