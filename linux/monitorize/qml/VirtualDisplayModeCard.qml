@@ -34,7 +34,22 @@ Rectangle {
     border.color: theme.border
 
     readonly property var resolutionOptions: vkmsSelected
-        ? vkmsResolutionOptions : nativeResolutionOptions
+        ? vkmsResolutionOptions.map(function(mode) {
+            let dimensions = /^(\d+)x(\d+)$/.exec(mode)
+            if (!dimensions) return mode
+            let width = Number(dimensions[1])
+            let height = Number(dimensions[2])
+            let divisor = width
+            let remainder = height
+            while (remainder > 0) {
+                let next = divisor % remainder
+                divisor = remainder
+                remainder = next
+            }
+            let ratio = width / divisor + ":" + height / divisor
+            if (ratio === "8:5") ratio = "16:10"
+            return mode + " (" + ratio + ")"
+        }) : nativeResolutionOptions
     readonly property bool customSelected: resolution.currentText === "Custom..."
     readonly property bool customInputsVisible: customSelected && !clientRequested
 
@@ -51,14 +66,19 @@ Rectangle {
         if (!displayConfig) return
         syncing = true
         let requestedResolution = displayConfig.resolution || (vkmsSelected ? "" : "1920x1080")
-        if (!resolution.selectValue(requestedResolution, true)) {
-            if (vkmsSelected && /^\d+x\d+$/.test(requestedResolution))
+        let dimensions = requestedResolution.split(" ")[0]
+        let modeIndex = resolutionOptions.findIndex(option => option === requestedResolution
+            || (/^\d+x\d+$/.test(dimensions) && option.split(" ")[0] === dimensions))
+        if (modeIndex >= 0) {
+            resolution.currentIndex = modeIndex
+        } else {
+            if (vkmsSelected && /^\d+x\d+$/.test(dimensions))
                 resolution.selectValue("Custom...", true)
             else if (vkmsSelected) resolution.currentIndex = -1
             else resolution.selectValue(requestedResolution)
         }
-        let legacySize = /^\d+x\d+$/.test(requestedResolution)
-            ? requestedResolution.split("x") : []
+        let legacySize = /^\d+x\d+$/.test(dimensions)
+            ? dimensions.split("x") : []
         if (!customWidth.activeFocus)
             customWidth.text = displayConfig.custom_w || legacySize[0] || "1920"
         if (!customHeight.activeFocus)
@@ -84,7 +104,8 @@ Rectangle {
 
     function getCurrentMode() {
         return {
-            resolution: resolution.currentText,
+            resolution: vkmsSelected && !customSelected ? resolution.currentText.split(" ")[0]
+                : resolution.currentText,
             custom_w: customSelected ? (customWidth.text.trim() || (displayConfig && displayConfig.custom_w) || "1920") : "",
             custom_h: customSelected ? (customHeight.text.trim() || (displayConfig && displayConfig.custom_h) || "1080") : "",
             fps: refreshValue(),
