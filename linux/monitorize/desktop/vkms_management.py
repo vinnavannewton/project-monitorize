@@ -151,6 +151,14 @@ class VkmsManagement(QObject):
         elif kind == 'prepare':
             if not value.get('revision'):
                 self.finish(value)
+            elif (self.operation == 'update' and value.get('up_to_date')
+                  and self.health.get('state') in ('working', 'restart_required')):
+                self.busy = False
+                self.operation = ''
+                self.message = ''
+                self.up_to_date = True
+                self.append_log('Monitorize VKMS is already up to date.')
+                self.notice_timer.start()
             else:
                 self.prepared = value
                 self.message = 'Preparing VKMS reinstall…' if self.operation == 'reinstall' else 'Preparing VKMS update…'

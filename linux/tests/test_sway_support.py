@@ -74,6 +74,7 @@ class SwaySupportTest(unittest.TestCase):
 
     @patch("monitorize.platform.display_controller.subprocess.run")
     def test_removes_sway_output_with_unplug(self, run):
+        run.return_value = Mock(returncode=0)
         controller = DisplayController("sway")
         controller.additional_output = "HEADLESS-2"
         controller.remove_sway_output("additional")
@@ -85,7 +86,7 @@ class SwaySupportTest(unittest.TestCase):
         )
         self.assertIsNone(controller.additional_output)
 
-    def test_removes_all_exact_stagnant_headless_outputs(self):
+    def test_recovery_preserves_unowned_headless_outputs(self):
         controller = DisplayController("sway")
         controller.sway_outputs = Mock(return_value=[
             {"name": "HEADLESS-1"},
@@ -101,15 +102,8 @@ class SwaySupportTest(unittest.TestCase):
 
         removed = controller.remove_stagnant_virtual_displays()
 
-        self.assertEqual(removed, 3)
-        self.assertEqual(
-            [call.args for call in controller._run_swaymsg.call_args_list],
-            [
-                ("output", "HEADLESS-1", "unplug"),
-                ("output", "HEADLESS-22", "unplug"),
-                ("output", "Monitorize-2", "unplug"),
-            ],
-        )
+        self.assertEqual(removed, 0)
+        controller._run_swaymsg.assert_not_called()
 
 
 if __name__ == "__main__":

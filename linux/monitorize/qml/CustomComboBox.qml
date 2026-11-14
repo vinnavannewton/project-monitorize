@@ -3,6 +3,7 @@ import QtQuick.Controls
 
 ComboBox {
     id: cb
+    wheelEnabled: false
     property int disabledIndex: -1
     property int accentedIndex: -1
     delegate: ItemDelegate {

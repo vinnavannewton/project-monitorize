@@ -6,6 +6,7 @@ Rectangle {
     id: card
     property string title: ""
     property string symbol: "display"
+    property bool collapsible: true
     property bool expanded: true
     property Component headerAction: null
     default property alias content: body.data
@@ -23,13 +24,17 @@ Rectangle {
             AbstractButton {
                 Layout.fillWidth: true
                 implicitHeight: 28
-                onClicked: card.expanded = !card.expanded
+                focusPolicy: card.collapsible ? Qt.StrongFocus : Qt.NoFocus
+                Accessible.ignored: !card.collapsible
+                onClicked: {
+                    if (card.collapsible) card.expanded = !card.expanded
+                }
                 Accessible.name: card.title
                 contentItem: RowLayout {
                     spacing: 12
                     LineIcon { symbol: card.symbol; Layout.preferredWidth: 22; Layout.preferredHeight: 22 }
                     Text { text: card.title; color: theme.headingText; font.pixelSize: 13; font.weight: Font.DemiBold; Layout.fillWidth: true; elide: Text.ElideRight }
-                    Text { text: card.expanded ? "⌃" : "⌄"; color: theme.textPrimary; font.pixelSize: 20 }
+                    Text { visible: card.collapsible; text: card.expanded ? "⌃" : "⌄"; color: theme.textPrimary; font.pixelSize: 20 }
                 }
             }
             Loader {
@@ -42,7 +47,7 @@ Rectangle {
         }
         ColumnLayout {
             id: body
-            visible: card.expanded
+            visible: !card.collapsible || card.expanded
             Layout.fillWidth: true
             spacing: 12
         }

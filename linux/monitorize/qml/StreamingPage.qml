@@ -5,6 +5,7 @@ import QtQuick.Layouts
 Item {
     id: page
     objectName: "streamingPage"
+    readonly property bool displayOnly: backend.streamingBackend === "none"
     property int pairInstance: 1
     property int pairRequest: 0
     property bool logsExpanded: false
@@ -77,16 +78,18 @@ Item {
         onTriggered: page.refreshDiagnostics()
     }
     ScrollView {
+        id: pageScroll
         anchors.fill: parent
         clip: true
+        rightPadding: 28
         contentWidth: availableWidth
         ColumnLayout {
-            width: parent.width
+            width: pageScroll.availableWidth
             spacing: 16
             SectionCard {
                 objectName: "remoteLoginCard"
                 title: "REMOTE LOGIN"; symbol: "session"
-                visible: backend.remoteLoginEnabled
+                visible: !page.displayOnly && backend.remoteLoginEnabled
                 Layout.fillWidth: true
                 Text {
                     text: backend.remoteLoginMessage
@@ -101,7 +104,7 @@ Item {
                 DisplayError { id: remoteError; instance: 1; Layout.fillWidth: true }
             }
             Rectangle {
-                visible: !backend.remoteLoginEnabled && backend.sessionMode === "Mirror"
+                visible: !page.displayOnly && !backend.remoteLoginEnabled && backend.sessionMode === "Mirror"
                 Layout.fillWidth: true
                 implicitHeight: summary.implicitHeight + 40
                 radius: theme.cardRadius; color: theme.surface; border.color: theme.border
@@ -136,7 +139,7 @@ Item {
                 }
             }
             Repeater {
-                model: backend.sessionMode === "Mirror" ? [] : backend.sessionDisplays
+                model: page.displayOnly || backend.sessionMode === "Mirror" ? [] : backend.sessionDisplays
                 delegate: Rectangle {
                     id: displayCard
                     objectName: "sessionDisplayCard" + modelData.number
@@ -189,6 +192,7 @@ Item {
             }
             GridLayout {
                 objectName: "sessionActionButtons"
+                visible: !page.displayOnly
                 columns: page.width < 400 ? 1 : page.width < 640 ? 2 : 4
                 Layout.fillWidth: true
                 columnSpacing: 10
@@ -240,7 +244,15 @@ Item {
             Text {
                 objectName: "savedConfigurationRestartNotice"
                 text: "Changes saved. Restart streaming to apply."
-                visible: backend.configurationRestartRequired
+                visible: !page.displayOnly && backend.configurationRestartRequired
+                color: theme.textSecondary
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+            }
+            Text {
+                visible: page.displayOnly
+                text: "Virtual display only mode is enabled."
+                font.pixelSize: 12
                 color: theme.textSecondary
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap

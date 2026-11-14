@@ -120,6 +120,7 @@ class VkmsManagementTests(unittest.TestCase):
                          '', '0', '', 'a' * 40]
             with patch.object(m, 'source_checkout', return_value=root), \
                  patch.object(m, 'git', side_effect=responses), \
+                 patch.object(m, 'installed_source_matches', return_value=True), \
                  patch.object(m.os, 'geteuid', return_value=1000):
                 self.assertTrue(m.prepare_update()['up_to_date'])
 

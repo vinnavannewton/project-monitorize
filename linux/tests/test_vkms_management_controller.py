@@ -82,6 +82,16 @@ class VkmsControllerTests(unittest.TestCase):
         self.assertFalse(c.busy)
         self.assertTrue(c.checking)
 
+    def test_current_update_skips_install_coordinator(self):
+        c = self.controller
+        c.health = dict(state='working', installed=True)
+        self.assertTrue(c.start('update'))
+        self.backend.futures[0][0].set_result(dict(revision='a' * 40, up_to_date=True))
+        self.backend.coordinator.begin.assert_not_called()
+        self.assertFalse(c.busy)
+        self.assertTrue(c.up_to_date)
+        self.assertIn('already up to date', c.logs)
+
     def test_reinstall_prepares_without_fetch_then_uses_install_coordinator(self):
         c = self.controller
         c.health = dict(state='working', installed=True)

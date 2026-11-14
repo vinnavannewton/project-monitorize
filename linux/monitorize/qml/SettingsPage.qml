@@ -7,7 +7,6 @@ Item {
     id: page
     objectName: "startupSettingsPage"
     readonly property bool compact: width < 640
-    property bool startupDetailsExpanded: false
     readonly property bool canStartAtBoot: bootStatus.enabled === true
         || (bootStatus.available && bootStatus.supported && bootStatus.live_available === true)
     readonly property int startupMode: bootStatus.enabled === true ? 2 : (settingsAutostartEnabled ? 1 : 0)
@@ -25,9 +24,6 @@ Item {
     property int loginAfterBootDisable: -1
     property string sunshineResetMessage: ""
     property bool sunshineResetSucceeded: false
-    property var vkmsAuthorization: ({success: false})
-    property string vkmsAuthorizationMessage: ""
-    property bool vkmsChecking: false
     property var bootStatus: ({available: false, enabled: false, supported: false})
     function startupResultMessage(result) {
         if (!result.success) return ""
@@ -37,10 +33,6 @@ Item {
             return result.pairing_required ? result.message : "Remote login enabled. Available now and after future boots."
         return result.message || "Startup settings saved."
     }
-    function refreshAuthorization() {
-        vkmsChecking = true
-        backend.refreshVkmsAuthorization()
-    }
     function refreshStartup() {
         bootStatus = backend.getRemoteLoginSetupStatus()
         settingsLoading = true
@@ -49,7 +41,10 @@ Item {
         displayTimeout.value = savedTimeout
         settingsLoading = false
     }
-    StackView.onActivated: backend.refreshVkmsManagement()
+    StackView.onActivated: {
+        refreshStartup()
+        backend.refreshVkmsManagement()
+    }
     Component.onCompleted: loadAppSettings()
     function loadAppSettings() {
         settingsLoading = true
@@ -60,17 +55,12 @@ Item {
         settingsError = ""
         settingsLoading = false
         refreshStartup()
-        refreshAuthorization()
     }
 
     Connections {
         target: backend
         function onRemoteLoginRepairOptionsReady(result) {
             page.bootStatus = Object.assign({}, page.bootStatus, result)
-        }
-        function onVkmsAuthorizationReady(result) {
-            page.vkmsChecking = false
-            page.vkmsAuthorization = result
         }
         function onRemoteLoginSetupFinished(result) {
             if (result.repair) {
@@ -117,15 +107,6 @@ Item {
                 page.loginAfterBootDisable = -1
             }
         }
-        function onRecoveryOperationFinished(result) {
-            if (result.operation !== "host_recovery") return
-            page.vkmsAuthorizationMessage = result.message || "Host recovery finished."
-            page.refreshAuthorization()
-        }
-        function onSystemSetupFinished(result) {
-            page.vkmsAuthorizationMessage = result.success ? "" : (result.message || "Authorization failed.")
-            page.refreshAuthorization()
-        }
     }
 
     function saveAppSettings() {
@@ -148,13 +129,14 @@ Item {
         }
     }
 
+    readonly property int startupIndicatorInset: 6
+
     component StartupChoice: Basic.RadioButton {
         id: choice
+        leftPadding: page.startupIndicatorInset
         required property int mode
-        required property string detail
         Layout.fillWidth: true
         Layout.minimumWidth: 0
-        Accessible.description: choice.detail
         autoExclusive: false
         checkable: false
         checked: page.startupMode === mode
@@ -165,67 +147,62 @@ Item {
             implicitWidth: 16
             implicitHeight: 16
             x: choice.leftPadding
-            y: choice.topPadding + (choiceLabel.height - height) / 2
+            y: (choice.height - height) / 2
             radius: width / 2
             color: theme.surface
             border.width: choice.visualFocus ? 2 : 1
             border.color: !choice.enabled ? theme.border : choice.checked || choice.visualFocus
-                ? theme.buttonBackground : theme.textSecondary
+                ? theme.accent : theme.textSecondary
             Rectangle {
                 anchors.centerIn: parent
                 width: 8
                 height: 8
                 radius: width / 2
-                color: choice.enabled ? theme.buttonBackground : theme.textMuted
+                color: choice.enabled ? theme.accent : theme.textMuted
                 visible: choice.checked
             }
         }
-        contentItem: Column {
+        contentItem: Text {
             leftPadding: choice.indicator.width + choice.spacing
-            spacing: 4
-            Text {
-                width: parent.width - parent.leftPadding
-                id: choiceLabel
-                text: choice.text
-                color: choice.enabled ? theme.textPrimary : theme.textMuted
-                font.pixelSize: 14
-                wrapMode: Text.WordWrap
-            }
-            Text {
-                width: parent.width - parent.leftPadding
-                text: choice.detail
-                color: theme.textSecondary
-                font.pixelSize: 12
-                wrapMode: Text.WordWrap
-            }
+            text: choice.text
+            color: choice.enabled ? theme.textPrimary : theme.textMuted
+            font.pixelSize: 14
+            wrapMode: Text.WordWrap
+            verticalAlignment: Text.AlignVCenter
         }
         Accessible.checked: checked
         onClicked: page.selectStartupMode(mode)
     }
 
     ScrollView {
+        id: pageScroll
         anchors.fill: parent
         clip: true
+        rightPadding: 28
         contentWidth: availableWidth
         ColumnLayout {
-            width: parent.width; spacing: 18
-            Text { text: "Settings"; color: theme.textPrimary; font.pixelSize: 28; font.weight: Font.Bold }
+            width: pageScroll.availableWidth; spacing: 18
             SectionCard {
+                collapsible: false
                 title: "GENERAL"; symbol: "settings"; Layout.fillWidth: true
                 RowLayout {
                     Layout.fillWidth: true
                     Text { text: "Theme"; color: theme.textPrimary; font.pixelSize: 13 }
-                    Item { Layout.fillWidth: true }
+                    spacing: 12
                     CustomComboBox {
                         objectName: "themeModeCombo"
                         Layout.preferredWidth: 180
+                        Layout.minimumWidth: 0
                         model: ["System", "Light", "Dark"]
                         currentIndex: backend ? ["system", "light", "dark"].indexOf(backend.themeMode) : 0
                         onActivated: backend.setThemeMode(["system", "light", "dark"][currentIndex])
                     }
+                    Item { Layout.fillWidth: true }
                 }
                 CustomCheckBox {
                     objectName: "systemAccentCheck"
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
                     text: "Use system accent color"
                     checked: backend ? backend.useSystemAccent : false
                     keepCheckedBlue: true
@@ -234,133 +211,10 @@ Item {
                 CustomCheckBox {
                     keepCheckedBlue: true
                     id: minimizeTrayCheck; text: "Minimize to tray on close"
-                    Layout.fillWidth: true; onCheckedChanged: page.saveAppSettings()
-                }
-                RowLayout {
                     Layout.fillWidth: true
-                    spacing: 8
-                    CustomCheckBox {
-                        id: loginDisplay
-                        objectName: "loginScreenVirtualDisplayCheck"
-                        text: "Create Virtual Display at Login Screen"
-                        Layout.minimumWidth: 0
-                        keepCheckedBlue: true
-                        checked: page.bootStatus.create_login_virtual_display === true
-                        enabled: page.startupMode === 2 && page.bootStatus.login_display_policy_available === true
-                            && !backend.remoteLoginSetupBusy
-                            && (!page.bootStatus.existing_login_display_only || page.bootStatus.create_login_virtual_display === true)
-                        onClicked: {
-                            const requested = checked
-                            checked = Qt.binding(() => page.bootStatus.create_login_virtual_display === true)
-                            backend.configureLoginVirtualDisplay(requested)
-                        }
-                    }
-                    StartupHelp {
-                        objectName: "loginScreenVirtualDisplayHelp"
-                        hoverOnly: true
-                        helpText: "For headless setups with no physical monitor connected."
-                    }
-                    Item { Layout.fillWidth: true }
+                    Layout.minimumWidth: 0
+                    onCheckedChanged: page.saveAppSettings()
                 }
-                Text {
-                    text: "Startup"
-                    color: theme.textPrimary
-                    font.pixelSize: 16
-                    font.weight: Font.DemiBold
-                }
-                StartupChoice {
-                    objectName: "manualStartupRadio"
-                    mode: 0
-                    text: "Start manually"
-                    detail: "Open Monitorize when you need it."
-                }
-                StartupChoice {
-                    objectName: "loginStartupRadio"
-                    mode: 1
-                    text: "Start after sign-in"
-                    detail: "Start with your desktop session."
-                }
-                StartupChoice {
-                    objectName: "bootStartupRadio"
-                    mode: 2
-                    text: "Start at the login screen"
-                    detail: "Connect before signing in. Desktop startup is included."
-                }
-                SelectableMessage {
-                    visible: page.startupMode === 2 && page.bootStatus.existing_login_display_only === true
-                    text: "This login screen streams an existing physical display."
-                    color: theme.textSecondary
-                    Layout.fillWidth: true
-                }
-                SelectableMessage {
-                    objectName: "bootStartupStatusMessage"
-                    visible: !page.canStartAtBoot
-                    text: !page.bootStatus.available || !page.bootStatus.supported
-                          ? (page.bootStatus.message || "") : (page.bootStatus.live_message || "Install matching service updates to enable login-screen startup.")
-                    color: theme.textSecondary
-                    Layout.fillWidth: true
-                }
-                ToolButton {
-                    text: page.startupDetailsExpanded ? "Hide startup details" : "Startup details"
-                    onClicked: page.startupDetailsExpanded = !page.startupDetailsExpanded
-                }
-                SelectableMessage {
-                    objectName: "remoteLoginRepairExplanation"
-                    text: page.bootStatus.repair_message || ""
-                    visible: repairRemoteLoginButton.visible
-                    Layout.fillWidth: true
-                }
-                CustomButton {
-                    id: repairRemoteLoginButton
-                    objectName: "repairRemoteLoginButton"
-                    text: "Repair remote login"
-                    visible: page.startupDetailsExpanded && page.bootStatus.repair_kind === "source" && (!page.bootStatus.available || page.bootStatus.repair_needed || page.settingsError.length > 0)
-                    enabled: !backend.remoteLoginSetupBusy && !backend.sessionBusy
-                    onClicked: backend.repairRemoteLogin()
-                }
-                CustomButton {
-                    objectName: "resumeRemoteLoginMaintenance"
-                    text: "Resume remote-login recovery"
-                    visible: page.startupDetailsExpanded && page.bootStatus.maintenance_pending === true && page.bootStatus.recovery_available === true
-                    enabled: !backend.remoteLoginSetupBusy && !backend.sessionBusy
-                    onClicked: backend.recoverRemoteLogin(page.pendingBootAction === 0)
-                }
-                CustomButton {
-                    objectName: "rerunRemoteLoginSetup"
-                    text: "Re-run remote-login setup"
-                    visible: page.startupDetailsExpanded && page.bootStatus.repair_kind !== "source"
-                    enabled: !backend.remoteLoginSetupBusy && !backend.sessionBusy && page.startupMode !== 0
-                        && page.bootStatus.available && page.bootStatus.supported && page.bootStatus.live_available === true
-                    onClicked: {
-                        page.pendingBootAction = 1
-                        backend.configureRemoteLogin(true)
-                    }
-                }
-                CustomButton {
-                    objectName: "refreshBootStartupStatus"
-                    text: "Refresh startup status"
-                    visible: page.startupDetailsExpanded
-                    enabled: !backend.remoteLoginSetupBusy
-                    onClicked: page.refreshStartup()
-                }
-                SelectableMessage {
-                    objectName: "startupErrorMessage"
-                    text: page.settingsError; visible: text.length > 0
-                    color: theme.errorText; Layout.fillWidth: true; wrapMode: Text.WordWrap
-                }
-                SelectableMessage {
-                    objectName: "startupNoticeText"
-                    text: backend.remoteLoginSetupBusy && !page.savingTimeout ? (backend.remoteLoginSetupProgress || "Applying startup settings…") : page.startupNotice
-                    visible: text.length > 0
-                    color: theme.textSecondary; Layout.fillWidth: true; wrapMode: Text.WordWrap
-                }
-                CustomButton {
-                    text: "Retry display release"
-                    visible: page.startupCleanupPending
-                    enabled: !backend.remoteLoginSetupBusy
-                    onClicked: backend.configureRemoteLogin(false)
-                }
-
                 Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: theme.border; Layout.topMargin: 8; Layout.bottomMargin: 8 }
                 GridLayout {
                     objectName: "displayIdleTimeoutRow"
@@ -369,15 +223,16 @@ Item {
                     Text { text: "Remove virtual display after disconnect"; color: theme.textPrimary; Layout.fillWidth: true; wrapMode: Text.WordWrap; Layout.row: 0; Layout.column: 0; Layout.columnSpan: page.compact ? 3 : 1 }
                     SpinBox {
                         id: displayTimeout
+                        wheelEnabled: false
                         objectName: "displayIdleTimeoutSeconds"
                         Layout.row: page.compact ? 1 : 0
                         Layout.column: page.compact ? 0 : 1
                         from: 1; to: 600; value: 20; editable: true
                         enabled: !backend.remoteLoginSetupBusy
-                        implicitWidth: 124
+                        implicitWidth: 76
                         implicitHeight: 42
-                        leftPadding: 32
-                        rightPadding: 32
+                        leftPadding: 6
+                        rightPadding: 28
                         opacity: enabled ? 1.0 : 0.45
                         contentItem: TextInput {
                             text: displayTimeout.textFromValue(displayTimeout.value, displayTimeout.locale)
@@ -399,24 +254,25 @@ Item {
                             radius: theme.controlRadius
                         }
                         down.indicator: Rectangle {
-                            x: 1; y: 1
-                            width: 30; height: displayTimeout.height - 2
+                            x: displayTimeout.width - width - 1
+                            y: 1 + height
+                            width: 26; height: (displayTimeout.height - 2) / 2
                             radius: theme.controlRadius
                             color: displayTimeout.down.pressed ? theme.surfaceAlt : (displayTimeout.down.hovered ? theme.borderHover : "transparent")
                             Text {
                                 anchors.centerIn: parent
-                                text: "−"; font.pixelSize: 18
+                                text: "▾"; font.pixelSize: 14
                                 color: displayTimeout.value > displayTimeout.from ? theme.cardTextPrimary : theme.textMuted
                             }
                         }
                         up.indicator: Rectangle {
                             x: displayTimeout.width - width - 1; y: 1
-                            width: 30; height: displayTimeout.height - 2
+                            width: 26; height: (displayTimeout.height - 2) / 2
                             radius: theme.controlRadius
                             color: displayTimeout.up.pressed ? theme.surfaceAlt : (displayTimeout.up.hovered ? theme.borderHover : "transparent")
                             Text {
                                 anchors.centerIn: parent
-                                text: "+"; font.pixelSize: 18
+                                text: "▴"; font.pixelSize: 14
                                 color: displayTimeout.value < displayTimeout.to ? theme.cardTextPrimary : theme.textMuted
                             }
                         }
@@ -443,9 +299,126 @@ Item {
                     color: page.timeoutFailed ? theme.errorText : theme.textSecondary
                     Layout.fillWidth: true; wrapMode: Text.WordWrap
                 }
-
             }
             SectionCard {
+                collapsible: false
+                title: "STARTUP"; symbol: "power"; Layout.fillWidth: true
+                StartupChoice {
+                    objectName: "manualStartupRadio"
+                    mode: 0
+                    text: "Start manually"
+                }
+                StartupChoice {
+                    objectName: "loginStartupRadio"
+                    mode: 1
+                    text: "Start after sign-in"
+                }
+                StartupChoice {
+                    objectName: "bootStartupRadio"
+                    mode: 2
+                    text: "Start at login screen"
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+                    CustomCheckBox {
+                        id: loginDisplay
+                        leftPadding: page.startupIndicatorInset
+                        objectName: "loginScreenVirtualDisplayCheck"
+                        Layout.fillWidth: true
+                        Layout.maximumWidth: implicitWidth
+                        text: "Create Virtual Display at Login Screen"
+                        Layout.minimumWidth: 0
+                        keepCheckedBlue: true
+                        checked: page.bootStatus.create_login_virtual_display === true
+                        enabled: page.startupMode === 2 && page.bootStatus.login_display_policy_available === true
+                            && !backend.remoteLoginSetupBusy
+                            && (!page.bootStatus.existing_login_display_only || page.bootStatus.create_login_virtual_display === true)
+                        onClicked: {
+                            const requested = checked
+                            checked = Qt.binding(() => page.bootStatus.create_login_virtual_display === true)
+                            backend.configureLoginVirtualDisplay(requested)
+                        }
+                    }
+                    StartupHelp {
+                        objectName: "loginScreenVirtualDisplayHelp"
+                        hoverOnly: true
+                        helpText: "For headless setups with no physical monitor connected."
+                    }
+                    Item { Layout.fillWidth: true }
+                }
+                SelectableMessage {
+                    visible: page.startupMode === 2 && page.bootStatus.existing_login_display_only === true
+                    text: "This login screen streams an existing physical display."
+                    color: theme.textSecondary
+                    Layout.fillWidth: true
+                }
+                SelectableMessage {
+                    objectName: "bootStartupStatusMessage"
+                    visible: !page.canStartAtBoot
+                    text: !page.bootStatus.available || !page.bootStatus.supported
+                          ? (page.bootStatus.message || "") : (page.bootStatus.live_message || "Install matching service updates to enable login-screen startup.")
+                    color: theme.textSecondary
+                    Layout.fillWidth: true
+                }
+                SelectableMessage {
+                    objectName: "remoteLoginRepairExplanation"
+                    text: page.bootStatus.repair_message || ""
+                    visible: repairRemoteLoginButton.visible
+                    Layout.fillWidth: true
+                }
+                CustomButton {
+                    id: repairRemoteLoginButton
+                    objectName: "repairRemoteLoginButton"
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    text: "Repair remote login"
+                    visible: page.bootStatus.repair_kind === "source" && (!page.bootStatus.available || page.bootStatus.repair_needed || page.settingsError.length > 0)
+                    enabled: !backend.remoteLoginSetupBusy && !backend.sessionBusy
+                    onClicked: backend.repairRemoteLogin()
+                }
+                CustomButton {
+                    objectName: "resumeRemoteLoginMaintenance"
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    text: "Resume remote-login recovery"
+                    visible: page.bootStatus.maintenance_pending === true && page.bootStatus.recovery_available === true
+                    enabled: !backend.remoteLoginSetupBusy && !backend.sessionBusy
+                    onClicked: backend.recoverRemoteLogin(page.pendingBootAction === 0)
+                }
+                CustomButton {
+                    objectName: "rerunRemoteLoginSetup"
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    text: "Re-run remote-login setup"
+                    visible: page.bootStatus.repair_kind !== "source"
+                    enabled: !backend.remoteLoginSetupBusy && !backend.sessionBusy && page.startupMode !== 0
+                        && page.bootStatus.available && page.bootStatus.supported && page.bootStatus.live_available === true
+                    onClicked: {
+                        page.pendingBootAction = 1
+                        backend.configureRemoteLogin(true)
+                    }
+                }
+                SelectableMessage {
+                    objectName: "startupErrorMessage"
+                    text: page.settingsError; visible: text.length > 0
+                    color: theme.errorText; Layout.fillWidth: true; wrapMode: Text.WordWrap
+                }
+                SelectableMessage {
+                    objectName: "startupNoticeText"
+                    text: backend.remoteLoginSetupBusy && !page.savingTimeout ? (backend.remoteLoginSetupProgress || "Applying startup settings…") : page.startupNotice
+                    visible: text.length > 0
+                    color: theme.textSecondary; Layout.fillWidth: true; wrapMode: Text.WordWrap
+                }
+                CustomButton {
+                    text: "Retry display release"
+                    visible: page.startupCleanupPending
+                    enabled: !backend.remoteLoginSetupBusy
+                    onClicked: backend.configureRemoteLogin(false)
+                }
+            }
+            SectionCard {
+                collapsible: false
                 title: "MISCELLANEOUS"; symbol: "extras"; Layout.fillWidth: true
                 SettingsActionRow {
                     title: "Wi-Fi before login"
@@ -453,21 +426,6 @@ Item {
                     symbol: "wifi-settings"; actionText: "Configure"
                     Layout.fillWidth: true
                     onClicked: page.StackView.view.push("BootWifiSetupPage.qml")
-                }
-                SettingsActionRow {
-                    title: "Passwordless Display Creation"
-                    description: page.vkmsChecking ? "Checking authorization…" : page.vkmsAuthorizationMessage.length > 0 ? page.vkmsAuthorizationMessage : page.vkmsAuthorization.success
-                        ? (page.vkmsAuthorization.repair_required ? page.vkmsAuthorization.message : page.vkmsAuthorization.unattended_enabled ? "Passwordless Display Creation is enabled for your user. Display creation does not request a password." : "Passwordless Display Creation is disabled. Enable it to create virtual displays without recurring password prompts.")
-                        : (page.vkmsAuthorization.message || "Install or upgrade monitorize-vkms first.")
-                    symbol: "key-slash"
-                    actionText: page.vkmsChecking ? "Checking…" : !page.vkmsAuthorization.success ? "Recover host" : page.vkmsAuthorization.repair_required ? "Reauthorize" : page.vkmsAuthorization.unattended_enabled ? "Disable" : "Enable"
-                    actionEnabled: !page.vkmsChecking && (!backend.isStreaming || (page.vkmsAuthorization.success && !page.vkmsAuthorization.unattended_enabled)) && !backend.sessionBusy && !backend.systemSetupRunning && !backend.applyingConfiguration
-                    Layout.fillWidth: true
-                    onClicked: {
-                        page.vkmsAuthorizationMessage = ""
-                        if (!page.vkmsAuthorization.success) backend.recoverVkmsHost()
-                        else backend.setVkmsUnattended(page.vkmsAuthorization.repair_required || !page.vkmsAuthorization.unattended_enabled)
-                    }
                 }
                 SettingsActionRow {
                     title: "Reset Sunshine settings to defaults"

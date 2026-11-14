@@ -23,26 +23,34 @@ Button {
         radius: theme.controlRadius
         Behavior on color { ColorAnimation { duration: 150 } }
     }
-    contentItem: RowLayout {
-        spacing: btn.iconSymbol.length > 0 ? 10 : 0
-        LineIcon {
-            visible: btn.iconSymbol.length > 0
-            symbol: btn.iconSymbol
-            tint: !btn.enabled ? theme.textMuted : btn.iconTint
-            Layout.preferredWidth: 18
-            Layout.preferredHeight: 20
-        }
-        Text {
-            id: buttonLabel
-            text: btn.text
-            color: !btn.enabled ? theme.textMuted : (btn.primary ? theme.buttonText : theme.cardTextPrimary)
-            font.pixelSize: 13
-            font.weight: Font.DemiBold
-            Layout.fillWidth: true
-            Layout.minimumWidth: 0
-            wrapMode: Text.Wrap
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
+    contentItem: Item {
+        implicitWidth: labelRow.implicitWidth
+        implicitHeight: labelRow.implicitHeight
+
+        RowLayout {
+            id: labelRow
+            anchors.centerIn: parent
+            width: Math.min(implicitWidth, parent.width)
+            spacing: btn.iconSymbol.length > 0 ? 10 : 0
+            LineIcon {
+                visible: btn.iconSymbol.length > 0
+                symbol: btn.iconSymbol
+                tint: !btn.enabled ? theme.textMuted : btn.iconTint
+                Layout.preferredWidth: 18
+                Layout.preferredHeight: 20
+            }
+            Text {
+                id: buttonLabel
+                text: btn.text
+                color: !btn.enabled ? theme.textMuted : (btn.primary ? theme.buttonText : theme.cardTextPrimary)
+                font.pixelSize: 13
+                font.weight: Font.DemiBold
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                wrapMode: Text.Wrap
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+            }
         }
     }
 }

@@ -674,14 +674,14 @@ exit 0
             display_setup,
         )
         self.assertIn(
-            'visible: displayType.currentText === "Extend" && page.virtualDisplays.length < 2',
+            'visible: displayType.currentText === "Extend"',
             display_setup,
         )
         self.assertIn("displayNumber: displayId", display_setup)
-        self.assertIn("canRemove: displayId === 2", display_setup)
+        self.assertIn("canRemove: displayId > 1", display_setup)
         self.assertIn("function mirrorResolutionLabel()", display_setup)
         self.assertEqual(streaming.count('text: "Pair Moonlight PIN"'), 1)
-        self.assertIn('model: backend.sessionMode === "Mirror" ? [] : backend.sessionDisplays', streaming)
+        self.assertIn('model: page.displayOnly || backend.sessionMode === "Mirror" ? [] : backend.sessionDisplays', streaming)
         self.assertIn("text: displayCard.modelData.title", streaming)
         mode_card = (ROOT / "linux/monitorize/qml/SunshineSettingsButton.qml").read_text()
         self.assertIn('text: "Sunshine settings"', mode_card)
@@ -690,15 +690,15 @@ exit 0
         self.assertNotIn('text: "Sunshine settings"', streaming)
         self.assertNotIn('text: "Add Display"', streaming)
 
-    def test_add_display_uses_the_same_two_card_limit_in_vkms_mode(self):
+    def test_add_display_remains_available_in_vkms_mode(self):
         qml = (ROOT / "linux/monitorize/qml/DisplaySetupPage.qml").read_text()
         button = qml.split("id: addDisplayButton", 1)[1].split("SectionCard {", 1)[0]
         self.assertIn("enabled: !backend.applyingConfiguration", button)
-        self.assertIn('page.virtualDisplays.length < 2', button)
+        self.assertNotIn('page.virtualDisplays.length < 2', button)
         self.assertNotIn("!page.vkmsSelected", button)
         self.assertIn('color: addDisplayButton.enabled ? theme.headingText : theme.textMuted', button)
         self.assertIn("addDisplayButton.enabled && addDisplayButton.hovered", button)
-        self.assertIn("if (virtualDisplays.length >= 2) return", qml)
+        self.assertNotIn("if (virtualDisplays.length >= 2) return", qml)
         self.assertNotIn("Creates up to two displays using Linux's experimental VKMS path", qml)
 
     def test_navigation_avoids_hidden_synchronous_work(self):

@@ -235,22 +235,28 @@ def run_sway_headless(slot, width, height, fps):
         "backend": "Sunshine",
     })
 
-    def cleanup(*_args):
-        controller.remove_sway_output(slot=slot)
+    stopping = False
 
-    signal.signal(signal.SIGINT, cleanup)
-    signal.signal(signal.SIGTERM, cleanup)
+    def request_stop(*_args):
+        nonlocal stopping
+        stopping = True
+
+    signal.signal(signal.SIGINT, request_stop)
+    signal.signal(signal.SIGTERM, request_stop)
 
     try:
-        while True:
+        while not stopping:
             ready, _, _ = select.select([sys.stdin], [], [], 0.5)
             if ready:
                 line = sys.stdin.readline()
                 if not line or line.strip() == "quit":
                     break
-        return 0
     finally:
-        cleanup()
+        removed = controller.remove_sway_output(slot=slot)
+    if not removed:
+        print(f"[ERROR] Could not unplug Sway output {output}.", flush=True)
+        return 1
+    return 0
 
 
 def run_gnome_headless(slot, width, height, fps, display_type="Extend"):
@@ -310,7 +316,8 @@ def run_gnome_headless(slot, width, height, fps, display_type="Extend"):
             role for role in ("primary", "additional") if role in roles
         )
 
-        preferred_scale = gnome_virtual_monitor.load_saved_virtual_scale(
+        independent = slot.startswith("independent-")
+        preferred_scale = None if independent else gnome_virtual_monitor.load_saved_virtual_scale(
             topology, role=slot
         )
         mode_val = {
@@ -408,8 +415,8 @@ def run_gnome_headless(slot, width, height, fps, display_type="Extend"):
         )
 
         roles[slot] = connector
-        saved_layout = gnome_virtual_monitor.has_saved_virtual_layout(topology)
-        restored = gnome_virtual_monitor.restore_virtual_layout(
+        saved_layout = not independent and gnome_virtual_monitor.has_saved_virtual_layout(topology)
+        restored = not independent and gnome_virtual_monitor.restore_virtual_layout(
             slot=topology,
             display_config=display_config,
             dbus=dbus,
@@ -430,7 +437,7 @@ def run_gnome_headless(slot, width, height, fps, display_type="Extend"):
         offset_x, offset_y = 0, 0
         try:
             state = display_config.GetCurrentState()
-            if os.path.isfile("/.flatpak-info"):
+            if not independent and os.path.isfile("/.flatpak-info"):
                 gnome_virtual_monitor.map_sunshine_gnome_peripherals(state, connector)
             logical_monitors = state[2]
             for lm in logical_monitors:

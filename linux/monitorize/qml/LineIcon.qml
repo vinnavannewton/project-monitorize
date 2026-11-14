@@ -118,6 +118,9 @@ Canvas {
             c.moveTo(14, 16); line(12, 18, 10, 20)
             c.bezierCurveTo(6, 23, 1, 18, 4, 14)
             line(4, 14, 8, 10); line(8, 10, 16, 10)
+        } else if (symbol === "power") {
+            c.arc(12, 13, 8, -Math.PI / 3, 4 * Math.PI / 3)
+            line(12, 3, 12, 12)
         } else if (symbol === "play") {
             c.moveTo(7, 4); c.lineTo(7, 20); c.lineTo(20, 12); c.closePath()
             c.fillStyle = tint; c.fill()

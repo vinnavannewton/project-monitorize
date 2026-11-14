@@ -14,6 +14,9 @@ class VirtualDisplayCleanupTest(unittest.TestCase):
     def test_exact_helper_matching(self):
         self.assertTrue(cleanup._is_display_owner(['/usr/bin/python3', '-m', 'monitorize.streaming.headless_virtual_display', '1920']))
         self.assertTrue(cleanup._is_display_owner(['/opt/monitorize-kde-virtual-output', 'Monitorize-1']))
+        self.assertFalse(cleanup._is_display_owner(['/usr/bin/python3', '-m',
+            'monitorize.streaming.headless_virtual_display', '1920', '1080', '60', 'independent-3', 'sway']))
+        self.assertFalse(cleanup._is_display_owner(['/opt/monitorize-kde-virtual-output', 'Monitorize-Independent-3']))
         self.assertFalse(cleanup._is_display_owner(['/bin/sh', '-c', 'python3 -m monitorize.streaming.headless_virtual_display']))
         self.assertFalse(cleanup._is_display_owner(['/usr/bin/python3', '-c', 'print("monitorize.streaming.headless_virtual_display")']))
         self.assertFalse(cleanup._is_display_owner(['/usr/bin/gnome-shell']))
@@ -104,6 +107,17 @@ class VirtualDisplayCleanupTest(unittest.TestCase):
         self.assertTrue(result['success'])
         self.assertEqual(run.call_args.args[0],['/usr/bin/monitorize-vkms','remove','--managed','--json'])
         client.remove_all.assert_not_called()
+
+    def test_explicit_cleanup_includes_independent_compositor_owners(self):
+        independent = ['/opt/monitorize-kde-virtual-output', 'Monitorize-Independent-3']
+        self.assertTrue(cleanup._is_display_owner(independent, include_independent=True))
+        with patch.object(cleanup, '_close_display_owners', return_value=(1, [])) as close, \
+             patch.object(cleanup, 'DisplayController') as controller:
+            controller.return_value.remove_stagnant_virtual_displays.return_value = 0
+            result = cleanup.remove_virtual_displays('kde', include_vkms=False, include_independent=True)
+        close.assert_called_once_with(True)
+        self.assertTrue(result['success'])
+        self.assertEqual(result['message'], 'Removed virtual displays')
 
     def test_cli_permission_failure_is_reported(self):
         import subprocess

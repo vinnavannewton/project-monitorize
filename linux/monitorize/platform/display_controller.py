@@ -8,6 +8,7 @@ import time
 
 
 MANAGED_VIRTUAL_OUTPUT_PATTERN = re.compile(r"^(?:HEADLESS|Monitorize)-\d+$")
+HYPRLAND_VIRTUAL_OUTPUT_PATTERN = re.compile(r"^(?:HEADLESS|Monitorize(?:-independent)?)-\d+$")
 
 
 class DisplayController:
@@ -232,7 +233,7 @@ class DisplayController:
         if monitors is not None:
             return [
                 item.get("name") for item in monitors
-                if MANAGED_VIRTUAL_OUTPUT_PATTERN.fullmatch(
+                if HYPRLAND_VIRTUAL_OUTPUT_PATTERN.fullmatch(
                     str(item.get("name", ""))
                 )
             ]
@@ -240,7 +241,7 @@ class DisplayController:
             result = self._run_hyprctl("monitors", "all")
             if result.returncode == 0:
                 return sorted(set(re.findall(
-                    r"(?<![\w-])(?:HEADLESS|Monitorize)-\d+(?![\w-])",
+                    r"(?<![\w-])(?:HEADLESS|Monitorize(?:-independent)?)-\d+(?![\w-])",
                     result.stdout,
                 )))
         except (OSError, subprocess.SubprocessError) as exc:
@@ -346,7 +347,9 @@ class DisplayController:
         error = self._verify_hyprland_ipc()
         if error:
             return "", error
-        output = "Monitorize-2" if slot == "additional" else "Monitorize-1"
+        output = ("Monitorize-2" if slot == "additional" else "Monitorize-1")
+        if slot.startswith("independent-") and slot.removeprefix("independent-").isdigit():
+            output = f"Monitorize-{slot}"
         if output in self.headless_monitors():
             return "", (
                 f"Hyprland output {output} already exists; remove stagnant "
@@ -550,14 +553,15 @@ class DisplayController:
             time.sleep(0.1)
         return "", []
 
-    def _wait_for_sway_output_ready(self, output_name, width, height,
+    def _wait_for_sway_output_ready(self, output_name, width, height, fps,
                                     timeout_s=2.0, poll_interval_s=0.1):
         deadline = time.monotonic() + timeout_s
         while time.monotonic() < deadline:
             for output in self.sway_outputs():
                 mode = output.get("current_mode") or {}
                 if (output.get("name") == output_name and output.get("active")
-                        and mode.get("width") == width and mode.get("height") == height):
+                        and mode.get("width") == width and mode.get("height") == height
+                        and abs((mode.get("refresh") or 0) - fps * 1000) <= 100):
                     return True
             time.sleep(poll_interval_s)
         return False
@@ -580,16 +584,20 @@ class DisplayController:
             return "", "Sway did not expose one new virtual output"
 
         mode = f"{width}x{height}@{fps}Hz"
-        configured = self._run_swaymsg(
-            "output", output, "mode", "--custom", mode,
-            "pos", str(self._sway_right_edge(observed_outputs)), "0", "scale", "1",
-        )
-        if configured.returncode != 0:
-            self._run_swaymsg("output", output, "unplug")
-            return "", f"Sway could not configure {output}"
-        if not self._wait_for_sway_output_ready(output, width, height):
-            self._run_swaymsg("output", output, "unplug")
-            return "", f"Sway did not activate {output} at the requested resolution"
+        ready = False
+        try:
+            configured = self._run_swaymsg(
+                "output", output, "mode", "--custom", mode,
+                "pos", str(self._sway_right_edge(observed_outputs)), "0", "scale", "1",
+            )
+            if configured.returncode != 0:
+                return "", f"Sway could not configure {output}"
+            ready = self._wait_for_sway_output_ready(output, width, height, fps)
+            if not ready:
+                return "", f"Sway did not activate {output} at the requested resolution"
+        finally:
+            if not ready:
+                self._run_swaymsg("output", output, "unplug")
 
         if slot == "additional":
             self.additional_output = output
@@ -602,16 +610,19 @@ class DisplayController:
         if not output or self.de != "sway":
             return
         try:
-            self._run_swaymsg("output", output, "unplug")
+            result = self._run_swaymsg("output", output, "unplug")
+            if result.returncode != 0:
+                return False
         except (OSError, subprocess.SubprocessError):
-            pass
+            return False
         if slot == "additional":
             self.additional_output = None
         else:
             self.created_output = None
+        return True
 
     def remove_stagnant_virtual_displays(self):
-        """Remove exact HEADLESS-<number> and Monitorize-<number> outputs."""
+        """Remove legacy Hyprland outputs with recognized names."""
         removed = 0
         if self.de == "hyprland":
             if self._verify_hyprland_ipc():
@@ -623,15 +634,8 @@ class DisplayController:
                     removed += 1
             return removed
 
-        if self.de == "sway":
-            outputs = sorted(self._sway_headless_outputs(self.sway_outputs()))
-            for output in outputs:
-                try:
-                    result = self._run_swaymsg("output", output, "unplug")
-                except (OSError, subprocess.SubprocessError):
-                    continue
-                if result.returncode == 0:
-                    removed += 1
+        # Sway assigns generic HEADLESS names to outputs from any client.
+        # Their owning process removes them by exact name.
         return removed
 
     def _monitor_details(self, output_name):

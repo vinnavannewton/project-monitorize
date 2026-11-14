@@ -14,6 +14,10 @@ Item {
     property string mirrorOutputId: ""
     property var nativeResolutionOptions: ["1280x720 (16:9)", "1280x800 (16:10)", "1920x1080 (16:9)", "1920x1200 (16:10)", "2560x1440 (16:9)", "2560x1600 (16:10)", "3840x2160 (16:9)", "Custom..."]
     property var virtualDisplays: []
+    property int extraDisplayBusy: 0
+    property int pendingCardDeletion: 0
+    property string extraDisplayMessage: ""
+    property bool extraDisplaySucceeded: false
     property var displayBehaviorConfig: ({value: "extend", supported: false})
     readonly property var displayBehaviorModes: displayBehaviorConfig.modes
         || (displayBehaviorConfig.supported ? ["extend", "primary", "virtual_only"] : ["extend"])
@@ -86,6 +90,14 @@ Item {
 
     Connections {
         target: backend
+        function onExtraDisplayFinished(displayId, removing, success, message) {
+            page.extraDisplayBusy = 0
+            page.extraDisplayMessage = message
+            page.extraDisplaySucceeded = success
+            if (success && removing && page.pendingCardDeletion === displayId)
+                page.removeDisplay(displayId)
+            page.pendingCardDeletion = 0
+        }
         function onMirrorOutputsReady(request, outputs) {
             if (request !== page.mirrorRequest) return
             page.mirrorRequest = 0
@@ -186,18 +198,33 @@ Item {
     }
 
     function addDisplay() {
-        if (virtualDisplays.length >= 2) return
-        let duplicate = Object.assign({}, primaryDisplay(), { id: 2 })
-        virtualDisplays = [primaryDisplay(), duplicate]
-        displayModel.append(displayRow(duplicate))
+        let nextId = virtualDisplays.some(config => config.id === 2)
+            ? virtualDisplays.reduce((highest, config) => Math.max(highest, config.id), 2) + 1 : 2
+        let configuration = nextId === 2 ? Object.assign({}, primaryDisplay(), {id: 2})
+            : {id: nextId, resolution: "1920x1080", fps: "60", use_client_display_settings: false}
+        let index = nextId === 2 ? 1 : virtualDisplays.length
+        let updated = virtualDisplays.slice()
+        updated.splice(index, 0, configuration)
+        virtualDisplays = updated
+        displayModel.insert(index, displayRow(configuration))
         saveDisplayModes()
     }
 
-    function removeDisplay() {
-        if (virtualDisplays.length < 2) return
-        virtualDisplays = [primaryDisplay()]
-        displayModel.remove(1)
+    function removeDisplay(displayId) {
+        let index = virtualDisplays.findIndex(config => config.id === displayId)
+        if (index <= 0) return
+        let updated = virtualDisplays.slice()
+        updated.splice(index, 1)
+        virtualDisplays = updated
+        displayModel.remove(index)
         saveDisplayModes()
+    }
+
+    function operateExtraDisplay(displayId, configuration, remove, deleteCard) {
+        pendingCardDeletion = deleteCard ? displayId : 0
+        extraDisplayBusy = displayId
+        extraDisplayMessage = ""
+        backend.operateExtraDisplay(displayId, configuration, remove, page.vkmsSelected)
     }
 
     function saveSettings() {
@@ -248,13 +275,16 @@ Item {
     }
 
     ScrollView {
+        id: pageScroll
         anchors.fill: parent
         clip: true
+        rightPadding: 28
         contentWidth: availableWidth
         ColumnLayout {
-            width: parent.width
+            width: pageScroll.availableWidth
             spacing: 14
             SectionCard {
+                collapsible: false
                 title: "DISPLAY"; symbol: "display"
                 headerAction: displayType.currentText === "Mirror" ? mirrorSunshineActions : null
                 Layout.fillWidth: true
@@ -373,17 +403,26 @@ Item {
                             fps: refreshRate, custom_fps: customRefresh,
                             use_client_display_settings: clientRequestedSettings})
                         clientSettingsAvailable: !createOnly.checked && backend.sunshineAvailable
-                        canRemove: displayId === 2
+                        displayOnly: extraDisplay || createOnly.checked
+                        canRemove: displayId > 1
                         vkmsSelected: page.vkmsSelected
                         nativeResolutionOptions: page.nativeResolutionOptions
                         vkmsResolutionOptions: backend.vkmsResolutionOptions
                         sunshineEnabled: !backend.applyingConfiguration
                             && !createOnly.checked && backend.sunshineAvailable
                         onConfigurationChanged: function(configuration) {
-                            let targetIndex = modeCard.displayNumber > 0 ? (modeCard.displayNumber - 1) : modeCard.index
+                            let targetIndex = modeCard.index
                             page.updateDisplay(targetIndex, configuration)
                         }
-                        onRemoveRequested: page.removeDisplay()
+                        extraDisplayBusy: page.extraDisplayBusy !== 0 || backend.applyingConfiguration
+                            || backend.virtualDisplayCleanupRunning
+                        outputActive: backend.activeExtraDisplays.indexOf(displayId) >= 0
+                        onCreateRequested: page.operateExtraDisplay(displayId, getCurrentMode(), false)
+                        onDeactivateRequested: page.operateExtraDisplay(displayId, displayConfig, true)
+                        onRemoveRequested: {
+                            if (modeCard.displayOnly) page.operateExtraDisplay(displayId, displayConfig, true, true)
+                            else page.removeDisplay(displayId)
+                        }
                     }
                 }
                 TextEdit {
@@ -394,9 +433,15 @@ Item {
                     color: theme.textSecondary
                     readOnly: true; selectByMouse: true
                 }
+                SelectableMessage {
+                    Layout.fillWidth: true
+                    visible: text.length > 0
+                    text: page.extraDisplayMessage
+                    color: page.extraDisplaySucceeded ? theme.successText : theme.errorText
+                }
                 AbstractButton {
                     id: addDisplayButton
-                    visible: displayType.currentText === "Extend" && page.virtualDisplays.length < 2
+                    visible: displayType.currentText === "Extend"
                     enabled: !backend.applyingConfiguration
                     Layout.fillWidth: true
                     implicitHeight: 54

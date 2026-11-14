@@ -17,7 +17,7 @@ Rectangle {
     property bool vkmsSelected: false
     property bool sunshineEnabled: true
     property bool clientSettingsAvailable: true
-    readonly property bool clientRequested: clientSettingsAvailable
+    readonly property bool clientRequested: !displayOnly && clientSettingsAvailable
         && !!(displayConfig && displayConfig.use_client_display_settings)
     property var nativeResolutionOptions: []
     property var vkmsResolutionOptions: []
@@ -26,6 +26,12 @@ Rectangle {
 
     signal configurationChanged(var configuration)
     signal removeRequested()
+    signal createRequested()
+    signal deactivateRequested()
+    property bool outputActive: false
+    readonly property bool extraDisplay: displayNumber > 2
+    property bool displayOnly: extraDisplay
+    property bool extraDisplayBusy: false
 
     Layout.fillWidth: true
     implicitHeight: content.implicitHeight + 32
@@ -67,7 +73,7 @@ Rectangle {
         syncing = true
         let requestedResolution = displayConfig.resolution || (vkmsSelected ? "" : "1920x1080")
         let dimensions = requestedResolution.split(" ")[0]
-        let modeIndex = resolutionOptions.findIndex(option => option === requestedResolution
+        let modeIndex = (resolutionOptions || []).findIndex(option => option === requestedResolution
             || (/^\d+x\d+$/.test(dimensions) && option.split(" ")[0] === dimensions))
         if (modeIndex >= 0) {
             resolution.currentIndex = modeIndex
@@ -135,9 +141,44 @@ Rectangle {
             Text {
                 text: "Virtual Display " + card.displayNumber
                 color: theme.headingText; font.pixelSize: 14; font.weight: Font.DemiBold
-                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                elide: Text.ElideRight
+            }
+            Text {
+                visible: card.outputActive
+                text: "Active"
+                color: theme.successText
+                font.pixelSize: 12
+            }
+            Item { Layout.fillWidth: true }
+            ToolButton {
+                id: removeDisplayButton
+                visible: card.displayOnly
+                enabled: !card.extraDisplayBusy
+                implicitWidth: 36
+                implicitHeight: 36
+                Accessible.name: "Remove Virtual Display " + card.displayNumber
+                ToolTip.text: "Remove display"
+                ToolTip.visible: hovered
+                background: Rectangle {
+                    radius: theme.controlRadius
+                    color: removeDisplayButton.down || removeDisplayButton.hovered
+                        ? theme.surfaceAlt : "transparent"
+                    border.color: removeDisplayButton.visualFocus ? theme.accent : "transparent"
+                }
+                contentItem: Item {
+                    LineIcon {
+                        anchors.centerIn: parent
+                        width: 18
+                        height: 18
+                        symbol: "trash"
+                        tint: removeDisplayButton.enabled ? theme.errorText : theme.textMuted
+                    }
+                }
+                onClicked: card.removeRequested()
             }
             SunshineSettingsButton {
+                visible: !card.displayOnly
                 instance: card.displayNumber
                 canRemove: card.canRemove
                 onRemoveRequested: card.removeRequested()
@@ -145,6 +186,7 @@ Rectangle {
         }
 
         RowLayout {
+            visible: !card.displayOnly
             spacing: 8
             Layout.fillWidth: true
             CustomCheckBox {
@@ -251,7 +293,19 @@ Rectangle {
                 onTextEdited: card.commitCurrentMode()
             }
         }
+        CustomButton {
+            visible: card.displayOnly
+            Layout.alignment: Qt.AlignRight
+            text: card.outputActive ? "Remove display" : "Create display"
+            enabled: !card.extraDisplayBusy
+                && (card.outputActive || (resolution.currentIndex >= 0 && refresh.currentIndex >= 0))
+            onClicked: {
+                if (card.outputActive) card.deactivateRequested()
+                else card.createRequested()
+            }
+        }
         SunshineDisplayCard {
+            visible: !card.displayOnly
             instance: card.displayNumber
             Layout.fillWidth: true
             Layout.topMargin: 8

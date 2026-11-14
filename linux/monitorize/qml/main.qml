@@ -385,7 +385,7 @@ Rectangle {
             NavigationButton {
                 id: configureButton
                 compact: root.compact
-                label: "Configure"; symbol: "display"; Layout.fillWidth: true
+                label: "Displays"; symbol: "display"; Layout.fillWidth: true
                 selected: root.selectedPage === "DisplaySetupPage.qml"
                 onClicked: root.navigate("DisplaySetupPage.qml")
             }
@@ -461,7 +461,7 @@ Rectangle {
                 root.restoreTokenClearMessage = result.message
                 restoreTokenClearToast.open()
                 restoreTokenClearToastTimer.restart()
-            } else if (result.operation === "vkms_update" && result.success === true) {
+            } else if (result.operation === "vkms_update" && result.success === true && result.reboot_required === true) {
                 vkmsUpdateRebootDialog.open()
             } else {
                 root.stagnantCleanupSucceeded = result.success
@@ -525,7 +525,7 @@ Rectangle {
             text: "Please reboot your system to apply the VKMS update."
             wrapMode: Text.WordWrap
             verticalAlignment: Text.AlignVCenter
-            color: theme.textPrimary
+            color: theme.successText
         }
     }
     Dialog {

@@ -77,11 +77,17 @@ with tempfile.TemporaryDirectory() as directory:
     backend.status={**backend.status,'state':'working','up_to_date':True}
     backend.changed.emit();settle()
     health=card.findChild(QObject,'vkmsHealthMessage')
-    assert health.property('text')=='Up to date'
+    assert card.findChild(QObject,'vkmsCurrentNotice').property('visible')
     backend.status={**backend.status,'up_to_date':False,'message':'Verified — working'}
     backend.changed.emit();settle()
     assert health.property('text')=='Verified — working'
-    click(restart);click(update);assert backend.actions==['github','reinstall','update']
+    details=card.findChild(QObject,'vkmsDetailsButton')
+    log=card.findChild(QObject,'vkmsLogText')
+    assert not log.property('visible')
+    click(restart);settle();assert log.property('visible')
+    click(details);settle();assert not log.property('visible')
+    click(update);settle();assert log.property('visible')
+    assert backend.actions==['github','reinstall','update']
     backend.status={**backend.status,'busy':True,'operation_message':'Installing VKMS…'}
     backend.changed.emit();settle()
     assert not restart.property('enabled') and not update.property('enabled')
@@ -145,6 +151,12 @@ with tempfile.TemporaryDirectory() as directory:
         assert 'completed' in health.property('text')
         assert 'Please reboot your system' in health.property('text')
         assert not card.property('detailsExpanded')
+    card.setProperty('detailsExpanded',True)
+    view.setSource(QUrl())
+    view.setSource(QUrl.fromLocalFile(str(path)));settle()
+    recreated=view.rootObject().findChild(QObject,'vkmsManagementCard')
+    assert not recreated.property('detailsExpanded')
+    assert not recreated.findChild(QObject,'vkmsLogText').property('visible')
     view.setSource(QUrl());view.close()
 '''
 

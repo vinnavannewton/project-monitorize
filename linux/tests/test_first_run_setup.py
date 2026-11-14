@@ -365,7 +365,7 @@ class FirstRunSetupTest(unittest.TestCase):
             process.readAllStandardOutput.return_value = b'MONITORIZE_CLEANUP {"success": true, "message": "Removed virtual displays"}\n'
             backend.removeStagnantVirtualDisplays()
             self.assertTrue(backend.virtualDisplayCleanupRunning)
-            self.assertEqual(process.start.call_args.args[1][-1], desktop)
+            self.assertEqual(process.start.call_args.args[1][-2:], [desktop, '--include-independent'])
             backend._finish_virtual_display_cleanup(process, 0)
             self.assertFalse(backend.virtualDisplayCleanupRunning)
             self.assertEqual(results, [(True, "Removed virtual displays")])

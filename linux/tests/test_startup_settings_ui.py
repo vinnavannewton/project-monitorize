@@ -37,6 +37,8 @@ with tempfile.TemporaryDirectory() as d:
         login_read=patch('monitorize.desktop.backend.autostart.is_enabled',side_effect=lambda:login_state[0]);login_read.start()
         login_write=patch('monitorize.desktop.backend.autostart.set_enabled',side_effect=set_login);login_write.start()
         backend=MonitorizeBackend('sway');view=QQuickWidget()
+        authorization_results=[]
+        backend.vkmsAuthorizationReady.connect(authorization_results.append)
         view.rootContext().setContextProperty('backend',backend)
         try:
             view.setSource(QUrl.fromLocalFile(str(__import__('pathlib').Path('linux/monitorize/qml/main.qml').resolve())))
@@ -50,7 +52,6 @@ with tempfile.TemporaryDirectory() as d:
             page=view.rootObject().findChild(QObject,'startupSettingsPage')
             status.return_value=dict(available=True,supported=True,live_available=True,enabled=True)
             Q=QQmlExpression(qmlContext(page),page,'refreshStartup()');Q.evaluate();assert not Q.hasError()
-            page.setProperty('startupDetailsExpanded',True)
             from PyQt6.QtCore import QMetaObject
             rerun=view.rootObject().findChild(QObject,'rerunRemoteLoginSetup')
             page.setProperty('bootStatus',dict(available=True,supported=True,live_available=True,enabled=True))
@@ -61,7 +62,6 @@ with tempfile.TemporaryDirectory() as d:
                 configure.assert_called_once_with(True)
             page.setProperty('bootStatus',dict(available=False,supported=True,live_available=False,enabled=False))
             settle();assert not rerun.property('enabled')
-            page.setProperty('startupDetailsExpanded',False)
             status.return_value=dict(available=True,live_available=True,enabled=False,supported=True)
             login_state[0]=False
             Q=QQmlExpression(qmlContext(page),page,'refreshStartup()');Q.evaluate()
@@ -82,12 +82,12 @@ with tempfile.TemporaryDirectory() as d:
                 assert not e.hasError(),e.error().toString()
                 resolve.assert_called_once_with('cancel-test',False)
 
-            # Only a successful Update opens the acknowledgment-only reminder.
+            # Only a successful Update that requires reboot opens the reminder.
             reboot_dialog=view.rootObject().findChild(QObject,'vkmsUpdateRebootDialog')
-            for operation, success in [('vkms_update',False),('vkms_reinstall',True),('vkms_update',True)]:
-                backend.recoveryOperationFinished.emit(dict(operation=operation,success=success,message='Finished'))
+            for operation, success, reboot in [('vkms_update',False,True),('vkms_reinstall',True,True),('vkms_update',True,False),('vkms_update',True,True)]:
+                backend.recoveryOperationFinished.emit(dict(operation=operation,success=success,reboot_required=reboot,message='Finished'))
                 settle()
-                assert reboot_dialog.property('visible') == (operation=='vkms_update' and success)
+                assert reboot_dialog.property('visible') == (operation=='vkms_update' and success and reboot)
             with patch.object(backend,'requestSystemRestart') as restart:
                 e=QQmlExpression(qmlContext(reboot_dialog),reboot_dialog,
                     'standardButton(Dialog.Ok).text === "OK" && standardButtons === Dialog.Ok')
@@ -135,8 +135,6 @@ with tempfile.TemporaryDirectory() as d:
             page=view.rootObject().findChild(QObject,'startupSettingsPage');assert page
             def prop(code):
                 e=QQmlExpression(view.rootContext(),page,code);value=e.evaluate();assert not e.hasError(),e.error().toString();return value[0]
-            assert prop('vkmsAuthorization.success')
-            assert not prop('vkmsChecking')
             # Settings diagnostics are selectable plain text with one-click copy.
             page.setProperty('settingsError', 'Run command <literal> safely')
             settle()
@@ -182,7 +180,6 @@ with tempfile.TemporaryDirectory() as d:
                 assert not page.findChild(QObject,'bootStartupRadio').property('checked')
             backend._remote_login.status=previous_status
             # A pending disable is recovered directly, without first enabling hosting.
-            page.setProperty('startupDetailsExpanded',True)
             page.setProperty('pendingBootAction',0)
             status.return_value={'available':True,'live_available':True,'enabled':False,'supported':True,'maintenance_pending':True,'recovery_available':True}
             e=QQmlExpression(qmlContext(page),page,'page.refreshStartup()');e.evaluate();settle()
@@ -196,7 +193,6 @@ with tempfile.TemporaryDirectory() as d:
                 assert not backend.remoteLoginSetupBusy
                 assert prop('pendingBootAction')==-1
                 assert not page.findChild(QObject,'bootStartupRadio').property('checked')
-            page.setProperty('startupDetailsExpanded',False)
             status.return_value={'available':True,'live_available':True,'enabled':False,'supported':True}
             # Source repair runs asynchronously through the coordinator; no live helper is invoked.
             with patch('monitorize.platform.remote_login_repair.repair_options',return_value={'repair_kind':'source','repair_message':'Repair','repair_needed':True}), patch('monitorize.platform.remote_login_repair.repair_remote_login',return_value={'success':True,'message':'Repaired'}) as repair, patch('monitorize.platform.sunshine_service.is_sunshine_running',return_value=False):
@@ -209,7 +205,6 @@ with tempfile.TemporaryDirectory() as d:
                 assert prop('startupNotice')=='Repaired'
                 assert not page.findChild(QObject,'bootStartupRadio').property('checked')
             with patch('monitorize.platform.remote_login_repair.repair_options',return_value={'repair_kind':'','repair_message':'Package managed'}), patch('monitorize.platform.remote_login_repair.repair_remote_login') as repair:
-                page.setProperty('startupDetailsExpanded',True)
                 page.setProperty('settingsError','Package managed')
                 e=QQmlExpression(qmlContext(page),page,'page.refreshStartup()');e.evaluate();settle()
                 assert not page.findChild(QObject,'repairRemoteLoginButton').property('visible')
@@ -217,10 +212,6 @@ with tempfile.TemporaryDirectory() as d:
                 repair.assert_not_called()
                 assert not backend.remoteLoginSetupBusy
             page.setProperty('settingsError','')
-            page.setProperty('startupDetailsExpanded',False)
-            backend.vkmsAuthorizationReady.emit({'success':False,'message':'Unavailable fixture'});settle()
-            assert not prop('vkmsAuthorization.success')
-            assert not prop('vkmsAuthorization.unattended_enabled === false')
             primary=page.findChild(QObject,'loginScreenVirtualDisplayCheck');assert primary
             assert not primary.property('enabled') and not primary.property('checked')
             status.return_value={'available':True,'enabled':True,'supported':True,'manager':'gdm.service','create_login_virtual_display':False,'login_display_policy_available':True}
@@ -329,7 +320,7 @@ with tempfile.TemporaryDirectory() as d:
             explanation=page.findChild(QObject,'bootStartupStatusMessage')
             assert not explanation.property('visible')
             # The general timer remains visible/editable without either startup option.
-            page.setProperty('startupDetailsExpanded',False);settle()
+            settle()
             assert page.findChild(QObject,'displayIdleTimeoutRow').property('visible')
             assert timeout.property('enabled')
             timeout.setProperty('value',45)
@@ -340,7 +331,7 @@ with tempfile.TemporaryDirectory() as d:
                     if not backend.remoteLoginSetupBusy:break
                 admin.assert_not_called()
                 assert timeout.property('value')==45 and not save_timeout.property('enabled')
-            page.setProperty('startupDetailsExpanded',True);settle()
+            settle()
             # Disabling just boot preserves login startup.
             page.setProperty('loginAfterBootDisable',1)
             backend.remoteLoginSetupFinished.emit({'success':True});settle()
@@ -351,9 +342,8 @@ with tempfile.TemporaryDirectory() as d:
             assert not boot.property('enabled') and explanation.property('visible')
             assert explanation.property('text')==status.return_value['message']
             status.return_value={'available':True,'live_available':True,'enabled':False,'supported':True}
-            refresh=page.findChild(QObject,'refreshBootStartupStatus')
-            assert refresh.property('visible') and refresh.property('enabled')
-            e=QQmlExpression(qmlContext(page),refresh,'clicked()');e.evaluate();assert not e.hasError(),e.error().toString()
+            assert page.findChild(QObject,'refreshBootStartupStatus') is None
+            e=QQmlExpression(qmlContext(page),page,'refreshStartup()');e.evaluate();assert not e.hasError(),e.error().toString()
             settle()
             assert boot.property('enabled') and not explanation.property('visible')
             # Failed/cancelled authorization restores actual enrollment state.
@@ -389,7 +379,7 @@ with tempfile.TemporaryDirectory() as d:
             for _ in range(15):
                 settle()
                 if not backend._vkms_authorization_busy:break
-            assert prop('vkmsAuthorization.unattended_enabled')
+            assert authorization_results[-1].get('unattended_enabled')
             assert client.return_value.get_authorization_state.call_count==2
             assert client.return_value.close.called
             client.return_value.get_authorization_state.side_effect=VkmsServiceUnavailableError('Still unavailable')
@@ -397,13 +387,13 @@ with tempfile.TemporaryDirectory() as d:
             for _ in range(25):
                 settle()
                 if not backend._vkms_authorization_busy:break
-            assert not prop('vkmsAuthorization.success')
-            assert not prop('vkmsAuthorization.unattended_enabled === false')
+            assert not authorization_results[-1].get('success')
+            assert authorization_results[-1].get('unattended_enabled') is not False
             client.return_value.get_authorization_state.side_effect=None
             client.return_value.get_authorization_state.return_value={'success':True,'unattended_enabled':False}
             backend.refreshVkmsAuthorization();settle()
-            assert prop('vkmsAuthorization.success') and not prop('vkmsAuthorization.unattended_enabled')
-            # An idle listener must not hide the missing authorization or recovery actions.
+            assert authorization_results[-1].get('success') and not authorization_results[-1].get('unattended_enabled')
+            # Recovery actions remain available while the listener is idle.
             backend.streaming.streaming = True
             backend.streaming.primary_ready = True
             backend.sessionChanged.emit()
@@ -412,12 +402,8 @@ with tempfile.TemporaryDirectory() as d:
             settle()
             rows = {obj.property('title'): obj for obj in page.findChildren(QObject)
                     if obj.property('title') in ('Passwordless Display Creation', 'Remove virtual display', 'Clear restore tokens')}
-            assert len(rows) == 3
-            assert all(row.property('actionEnabled') for row in rows.values()), ([(title,row.property('actionEnabled')) for title,row in rows.items()], backend.sessionBusy, backend.applyingConfiguration, backend.systemSetupRunning, page.property('vkmsChecking'))
-            client.return_value.get_authorization_state.return_value={'success':True,'unattended_enabled':True}
-            page.setProperty('vkmsAuthorization', {'success':True,'unattended_enabled':True})
-            settle()
-            assert not rows['Passwordless Display Creation'].property('actionEnabled')
+            assert set(rows) == {'Remove virtual display', 'Clear restore tokens'}
+            assert all(row.property('actionEnabled') for row in rows.values())
             backend.streaming.streaming = False
             backend.isStreamingChanged.emit(False)
             settle()

@@ -129,6 +129,30 @@ def git(checkout, *args, timeout=15):
     return result.stdout.strip()
 
 
+def installed_source_matches(checkout):
+    """Check installed files independently of the checkout's current HEAD."""
+    try:
+        if VERSION.read_bytes() != (checkout / 'VERSION').read_bytes():
+            return False
+        version = VERSION.read_text().strip()
+        if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.+_-]*', version):
+            return False
+        staged = Path('/usr/src') / f'monitorize-vkms-{version}'
+        module_files = [checkout / 'dkms.conf', checkout / 'src/vkms/Makefile',
+                        checkout / 'scripts/probe-drm-atomic-api.sh']
+        module_files.extend((checkout / 'src/vkms').glob('*.[ch]'))
+        if any(source.read_bytes() != (staged / source.relative_to(checkout)).read_bytes()
+               for source in module_files if source.name != 'vkms_oot_features.h'):
+            return False
+        sources = list((checkout / 'monitorize_vkms').glob('*.py'))
+        return bool(sources) and all(
+            source.read_bytes() == (VERSION.parent / 'monitorize_vkms' / source.name).read_bytes()
+            for source in sources
+        )
+    except OSError:
+        return False
+
+
 def prepare_update(log=lambda text: None, *, reinstall=False):
     """Validate source, optionally fetch, before session interruption or root access."""
     if os.geteuid() == 0:
@@ -152,9 +176,10 @@ def prepare_update(log=lambda text: None, *, reinstall=False):
         raise ValueError('Invalid VKMS source revision.')
     if not (checkout / 'monitorize_vkms/managed_install.py').is_file():
         raise ValueError('This VKMS source version does not support graphical updates. Update it using its README first.')
-    log('Source ready. Preparing installation…')
-    return dict(checkout=str(checkout), revision=revision,
-                up_to_date=not reinstall and previous_revision == revision)
+    up_to_date = not reinstall and previous_revision == revision and installed_source_matches(checkout)
+    if not up_to_date:
+        log('Source ready. Preparing installation…')
+    return dict(checkout=str(checkout), revision=revision, up_to_date=up_to_date)
 
 
 def install_update(prepared, log=lambda text: None, *, resume_expired=False):

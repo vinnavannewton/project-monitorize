@@ -98,36 +98,18 @@ Item {
                     visible: page.selectedUuid.length > 0
                     color: theme.textSecondary; wrapMode: Text.WordWrap; Layout.fillWidth: true
                 }
-                Text {
-                    text: "The Wi-Fi password will be stored in NetworkManager’s protected system configuration. Other local users can use this network. Your current connection will not be deliberately restarted."
-                    color: theme.textSecondary; wrapMode: Text.WordWrap; Layout.fillWidth: true
-                }
                 CustomTextField {
                     id: passwordField
                     objectName: "bootWifiPassword"
-                    placeholderText: "Wi-Fi password"
+                    placeholderText: "Enter the Wi-Fi password"
                     echoMode: TextInput.Password
                     inputMethodHints: Qt.ImhSensitiveData | Qt.ImhNoPredictiveText | Qt.ImhNoAutoUppercase
                     enabled: page.selectedProfile.eligible === true && !backend.bootWifiBusy
                     Layout.fillWidth: true
                 }
                 Text {
-                    text: "Make this network available to all users and connect automatically before login."
+                    text: "This will make the network available to all users and connect it automatically before login."
                     color: theme.textSecondary; wrapMode: Text.WordWrap; Layout.fillWidth: true
-                }
-                CustomButton {
-                    objectName: "bootWifiApply"
-                    text: backend.bootWifiBusy ? "Working…" : page.selectedProfile.setup_saved === true ? "Update configuration" : "Authorize and configure"
-                    enabled: !backend.bootWifiBusy && passwordField.text.length > 0 && page.selectedProfile.eligible === true
-                    onClicked: {
-                        page.resultMessage = ""
-                        backend.configureBootWifi(page.selectedUuid, page.selectedVersion, passwordField.text)
-                        passwordField.clear()
-                    }
-                }
-                Text {
-                    text: "Administrator authorization may be requested. Closing this page cannot undo a change already sent to NetworkManager."
-                    color: theme.textMuted; wrapMode: Text.WordWrap; Layout.fillWidth: true
                 }
             }
             Text {
@@ -136,15 +118,49 @@ Item {
                 color: page.resultSucceeded ? theme.textSecondary : theme.errorText
                 wrapMode: Text.WordWrap; Layout.fillWidth: true
             }
-            RowLayout {
+            GridLayout {
+                id: footer
+                readonly property bool compact: width < 520
+                Layout.fillWidth: true
+                columns: compact ? 2 : 4
+                columnSpacing: 8
+                rowSpacing: 8
                 CustomButton {
+                    Layout.row: 0
+                    Layout.column: 0
+                    Layout.minimumWidth: 0
+                    Layout.fillWidth: footer.compact
                     text: "Back"; primary: false
                     onClicked: page.StackView.view.pop()
                 }
                 CustomButton {
+                    Layout.row: 0
+                    Layout.column: 1
+                    Layout.minimumWidth: 0
+                    Layout.fillWidth: footer.compact
                     text: "Refresh"; primary: false
                     enabled: !backend.bootWifiBusy
                     onClicked: backend.refreshBootWifi()
+                }
+                Item {
+                    visible: !footer.compact
+                    Layout.row: 0
+                    Layout.column: 2
+                    Layout.fillWidth: true
+                }
+                CustomButton {
+                    Layout.row: footer.compact ? 1 : 0
+                    Layout.column: footer.compact ? 0 : 3
+                    Layout.columnSpan: footer.compact ? 2 : 1
+                    Layout.fillWidth: footer.compact
+                    objectName: "bootWifiApply"
+                    text: backend.bootWifiBusy ? "Working…" : page.selectedProfile.setup_saved === true ? "Update configuration" : "Authorize and configure"
+                    enabled: !backend.bootWifiBusy && passwordField.text.length > 0 && page.selectedProfile.eligible === true
+                    onClicked: {
+                        page.resultMessage = ""
+                        backend.configureBootWifi(page.selectedUuid, page.selectedVersion, passwordField.text)
+                        passwordField.clear()
+                    }
                 }
             }
         }

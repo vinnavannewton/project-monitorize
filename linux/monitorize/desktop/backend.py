@@ -5,6 +5,7 @@ import copy
 import logging
 import os
 import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -65,6 +66,205 @@ class MonitorizeBackend(QObject):
     _desktopFallbackFinished = pyqtSignal(object)
     configureDisplayRequestedForDraft = pyqtSignal()
     configurationChanged = pyqtSignal()
+    extraDisplayFinished = pyqtSignal(int, bool, bool, str)
+    extraDisplayStateChanged = pyqtSignal()
+
+    @pyqtProperty("QVariantList", notify=extraDisplayStateChanged)
+    def activeExtraDisplays(self):
+        with self._independent_display_lock:
+            return sorted(self._active_extra_displays)
+
+
+    @pyqtSlot(int, "QVariantMap", bool, bool)
+    def operateExtraDisplay(self, display_id, config, remove, vkms):
+        if self._closing or display_id < 1 or self._extra_display_busy or self.virtualDisplayCleanupRunning:
+            self.extraDisplayFinished.emit(display_id, remove, False, "Another display operation is in progress.")
+            return
+        self._extra_display_busy = True
+
+        def work():
+            try:
+                message = self._operate_independent_display(display_id, config, remove, vkms)
+                with self._independent_display_lock:
+                    if remove:
+                        self._active_extra_displays.discard(display_id)
+                    else:
+                        self._active_extra_displays.add(display_id)
+                self.extraDisplayStateChanged.emit()
+                success = True
+            except Exception as exc:
+                success, message = False, str(exc)
+            finally:
+                self._extra_display_busy = False
+            self.extraDisplayFinished.emit(display_id, remove, success, message)
+
+        self._background_executor.submit(work)
+
+    def _operate_independent_display(self, display_id, config, remove, vkms):
+        from monitorize.platform.kde_helper import stop_helper
+        from monitorize.platform.monitorize_vkms_dbus import MonitorizeVkmsClient as HostVkmsClient
+        from monitorize.platform.monitorize_vkms_cli import MonitorizeVkmsClient
+
+        name = f"Monitorize Display {display_id}"
+        owner = self._independent_display_owners.get(display_id)
+        if owner is not None and owner.poll() is not None:
+            self._independent_display_owners.pop(display_id, None)
+            owner = None
+        if owner is not None:
+            if not remove:
+                raise ValueError(f"{name} is already active. Remove it before changing its mode.")
+            stop_helper(owner)
+            self._independent_display_owners.pop(display_id, None)
+            if owner.returncode != 0:
+                raise RuntimeError(f"{name} stopped with an error. Check desktop display settings before recreating it.")
+            return ""
+
+        managed = self._independent_vkms_generations.get(display_id)
+        if managed is not None:
+            if not remove:
+                raise ValueError(f"{name} is already active. Remove it before changing its mode.")
+            client = HostVkmsClient()
+            try:
+                client.remove_display(f"mon{display_id}", managed)
+            finally:
+                client.close()
+            self._independent_vkms_generations.pop(display_id, None)
+            return ""
+
+        client = MonitorizeVkmsClient()
+        if remove:
+            if client.is_available():
+                state = client._run_cli(["list", "--json"], timeout=150)
+                if any(item.get("name") == name and not item.get("managed")
+                       for item in state["displays"]):
+                    client._run_cli(["remove", name, "--json"], timeout=150)
+            return ""
+
+        resolution = str(config.get("resolution") or "").split()
+        if not resolution:
+            raise ValueError("Select a resolution before creating the display.")
+        if resolution[0] == "Custom...":
+            width, height = int(config["custom_w"]), int(config["custom_h"])
+        else:
+            width, height = map(int, resolution[0].split("x"))
+        fps = int(config.get("custom_fps") or config["fps"])
+        if width <= 0 or height <= 0 or not 24 <= fps <= 240:
+            raise ValueError("Select a valid resolution and refresh rate.")
+        if vkms and display_id in (1, 2):
+            # Reuse the bootstrapped managed connectors on the existing VKMS card.
+            client = HostVkmsClient()
+            try:
+                desktop = self._detected_de.lower()
+                if desktop in ("kde", "hyprland", "x11"):
+                    client.require_managed_backend(desktop)
+                if desktop == "hyprland":
+                    from monitorize.platform.hyprland_layout import HyprlandLayout
+                    HyprlandLayout().require_vkms_lifecycle()
+                result = client.create_display(width, height, fps, display=f"mon{display_id}")
+                if not result["created"]:
+                    raise RuntimeError(f"VKMS slot {display_id} already belongs to another session.")
+                self._independent_vkms_generations[display_id] = result["generation"]
+            finally:
+                client.close()
+        elif vkms:
+            try:
+                client._run_cli(["create", name, f"{width}x{height}@{fps}", "--json"], timeout=150)
+            except Exception as exc:
+                if "KWin did not expose" not in str(exc):
+                    raise
+                if "The pending display was released." in str(exc):
+                    raise RuntimeError(
+                        f"{exc} KWin may be excluding new DRM cards. Select Compositor to create the display directly."
+                    ) from exc
+                if "Cleanup also failed:" in str(exc):
+                    raise
+                # A failed activation can leave an owned pending record.
+                try:
+                    client._run_cli(["remove", name, "--json"], timeout=150)
+                except Exception:
+                    logging.getLogger(__name__).warning("Could not clean up %s", name, exc_info=True)
+                    raise RuntimeError(f"{exc}. Use Remove to clear the pending display before retrying.") from exc
+                raise RuntimeError(
+                    f"{exc}. The failed display was removed. If KWin restricts DRM devices, "
+                    "it may exclude newly created VKMS cards. Select Compositor to use KWin’s native output."
+                ) from exc
+        else:
+            if self._detected_de == "kde" and not os.path.isfile("/.flatpak-info"):
+                self._create_independent_kde_display(display_id, name, width, height, fps)
+            elif self._detected_de in ("kde", "gnome", "hyprland", "sway"):
+                self._create_independent_native_display(display_id, width, height, fps)
+            else:
+                raise ValueError("This desktop has no native virtual display backend. Select VKMS if supported.")
+        return f"{name} created."
+
+    def _create_independent_native_display(self, display_id, width, height, fps):
+        import queue
+        import subprocess
+        from monitorize.platform.kde_helper import stop_helper
+
+        owner = subprocess.Popen(
+            [sys.executable, "-m", "monitorize.streaming.headless_virtual_display",
+             str(width), str(height), str(fps), f"independent-{display_id}", self._detected_de],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True,
+        )
+        events = queue.Queue()
+
+        def read_output():
+            with owner.stdout:
+                for line in owner.stdout:
+                    if line.startswith("MONITORIZE_EVENT ") or line.startswith("[ERROR]"):
+                        events.put(line.strip())
+            events.put(f"[ERROR] Display owner exited with status {owner.wait()}.")
+
+        threading.Thread(target=read_output, daemon=True).start()
+        try:
+            try:
+                line = events.get(timeout=30)
+            except queue.Empty as exc:
+                raise RuntimeError("Timed out waiting for the compositor to create the display.") from exc
+            if line.startswith("[ERROR]"):
+                raise RuntimeError(line.removeprefix("[ERROR] "))
+            event = json.loads(line.removeprefix("MONITORIZE_EVENT "))
+            if event.get("type") != "headless_ready" or owner.poll() is not None:
+                raise RuntimeError("The compositor did not confirm a live virtual display.")
+            with self._independent_display_lock:
+                if self._closing:
+                    raise RuntimeError("Monitorize is closing.")
+                self._independent_display_owners[display_id] = owner
+        except Exception:
+            stop_helper(owner)
+            raise
+
+    def _create_independent_kde_display(self, display_id, name, width, height, fps):
+        import subprocess
+        from monitorize.platform.kde_helper import find_helper, read_helper_event, stop_helper
+        from monitorize.platform.kde_virtual_monitor import configure_native_virtual_output, wait_for_output_absent
+
+        helper = find_helper()
+        if not helper:
+            raise RuntimeError("KDE native display helper is missing. Re-run the Monitorize installer.")
+        base = f"Monitorize-Independent-{display_id}"
+        output_name = f"Virtual-{base}"
+        if not wait_for_output_absent(output_name):
+            raise RuntimeError(f"{output_name} is already present in KWin.")
+        owner = subprocess.Popen([helper, base, name, str(width), str(height)],
+                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                 stderr=subprocess.STDOUT, text=True, bufsize=1)
+        try:
+            ready = read_helper_event(owner, "owner_ready")
+            actual_name = ready.get("name") or output_name
+            ok, _, message = configure_native_virtual_output(actual_name, width, height, fps)
+            if not ok or owner.poll() is not None:
+                raise RuntimeError(message or "KWin virtual display owner exited.")
+            with self._independent_display_lock:
+                if self._closing:
+                    raise RuntimeError("Monitorize is closing.")
+                self._independent_display_owners[display_id] = owner
+        except Exception:
+            stop_helper(owner)
+            raise
+
     configurationApplyFinished = pyqtSignal(bool, str)
     themeModeChanged = pyqtSignal()
     accentChanged = pyqtSignal()
@@ -150,6 +350,11 @@ class MonitorizeBackend(QObject):
         self._background_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="monitorize-ui")
         self._remote_runtime_closures = []
         self._closing = False
+        self._extra_display_busy = False
+        self._independent_display_owners = {}
+        self._active_extra_displays = set()
+        self._independent_vkms_generations = {}
+        self._independent_display_lock = threading.Lock()
         self._firewall_scope_status = {'available': False, 'checking': True, 'scope_current': None}
         self._firewall_scope_busy = False
         self._firewall_scope_checked_at = 0.0
@@ -1536,17 +1741,27 @@ class MonitorizeBackend(QObject):
                 "custom_fps": second["custom_fps"],
                 "use_client_display_settings": second["use_client_display_settings"],
             })
+        from monitorize.config.settings import _get_settings
+        try:
+            extras = json.loads(_get_settings().value("extra_displays/modes", "[]", type=str))
+            displays.extend(config for config in extras if isinstance(config, dict)
+                            and type(config.get("id")) is int and config["id"] >= 3)
+        except (ValueError, TypeError):
+            pass
         return displays
 
     @pyqtSlot("QVariantList")
     def saveVirtualDisplaySettings(self, display_configs):
-        """Persist one or two independent display-mode configurations."""
+        """Persist streaming display modes and independent named display modes."""
         if self.applyingConfiguration:
             return
         configs = [dict(config) for config in list(display_configs or []) if isinstance(config, dict)]
         if not configs:
             return
-        configs = configs[:2]
+        from monitorize.config.settings import _save_group
+        _save_group("extra_displays", {"modes": json.dumps([config for config in configs
+                     if type(config.get("id")) is int and config["id"] >= 3])})
+        configs = [config for config in configs if config.get("id", 1) in (1, 2)]
         mode_keys = ("resolution", "custom_w", "custom_h", "fps", "custom_fps",
                      "use_client_display_settings")
 
@@ -2272,6 +2487,18 @@ class MonitorizeBackend(QObject):
                 except ValueError:
                     pass
         self._virtual_display_cleanup_process = None
+        with self._independent_display_lock:
+            if "removed_managed_ids" in result:
+                for display_id in result["removed_managed_ids"]:
+                    self._independent_vkms_generations.pop(display_id, None)
+                    self._active_extra_displays.discard(display_id)
+            for display_id in result.get("removed_independent_ids", []):
+                self._active_extra_displays.discard(display_id)
+            for display_id, owner in list(self._independent_display_owners.items()):
+                if owner.poll() is not None and owner.returncode == 0:
+                    self._independent_display_owners.pop(display_id)
+                    self._active_extra_displays.discard(display_id)
+        self.extraDisplayStateChanged.emit()
         process.deleteLater()
         self.virtualDisplayCleanupChanged.emit()
         self.virtualDisplayCleanupFinished.emit(
@@ -2281,7 +2508,7 @@ class MonitorizeBackend(QObject):
 
     @pyqtSlot()
     def removeStagnantVirtualDisplays(self):
-        if self.virtualDisplayCleanupRunning:
+        if self.virtualDisplayCleanupRunning or self._extra_display_busy:
             return
         if self.isStreaming and not getattr(self,'_applying_recovery',False):
             self._recovery_operations().begin('cleanup_displays');return
@@ -2304,7 +2531,7 @@ class MonitorizeBackend(QObject):
         )
         self._virtual_display_cleanup_process = process
         self.virtualDisplayCleanupChanged.emit()
-        process.start(sys.executable, ["-m", "monitorize.platform.virtual_display_cleanup", self._detected_de])
+        process.start(sys.executable, ["-m", "monitorize.platform.virtual_display_cleanup", self._detected_de, "--include-independent"])
 
     @pyqtSlot(result="QVariantMap")
     def clearRestoreTokens(self):
@@ -2777,6 +3004,12 @@ class MonitorizeBackend(QObject):
         self._vkms_pending_preset = None
         self._vkms_pending_start = None
         self._closing = True
+        from monitorize.platform.kde_helper import stop_helper
+        with self._independent_display_lock:
+            owners = list(self._independent_display_owners.values())
+            self._independent_display_owners.clear()
+        for owner in owners:
+            stop_helper(owner)
         if self._remote_login is not None:
             self._remote_login.close()
         if self._boot_wifi_client is not None:
