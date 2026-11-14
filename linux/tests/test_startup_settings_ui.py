@@ -50,7 +50,7 @@ with tempfile.TemporaryDirectory() as d:
             page=view.rootObject().findChild(QObject,'startupSettingsPage')
             status.return_value=dict(available=True,supported=True,live_available=True,enabled=True)
             Q=QQmlExpression(qmlContext(page),page,'refreshStartup()');Q.evaluate();assert not Q.hasError()
-            page.setProperty('bootOptionsExpanded',True)
+            page.setProperty('startupDetailsExpanded',True)
             from PyQt6.QtCore import QMetaObject
             rerun=view.rootObject().findChild(QObject,'rerunRemoteLoginSetup')
             page.setProperty('bootStatus',dict(available=True,supported=True,live_available=True,enabled=True))
@@ -61,7 +61,7 @@ with tempfile.TemporaryDirectory() as d:
                 configure.assert_called_once_with(True)
             page.setProperty('bootStatus',dict(available=False,supported=True,live_available=False,enabled=False))
             settle();assert not rerun.property('enabled')
-            page.setProperty('bootOptionsExpanded',False)
+            page.setProperty('startupDetailsExpanded',False)
             status.return_value=dict(available=True,live_available=True,enabled=False,supported=True)
             login_state[0]=False
             Q=QQmlExpression(qmlContext(page),page,'refreshStartup()');Q.evaluate()
@@ -149,7 +149,7 @@ with tempfile.TemporaryDirectory() as d:
             # Cancelling repair retains the authoritative checkbox state.
             backend.remoteLoginSetupFinished.emit({'success':False,'repair':True,'cancelled':True,'message':'Cancelled'})
             settle()
-            assert not page.findChild(QObject,'bootStartupCheck').property('checked')
+            assert not page.findChild(QObject,'bootStartupRadio').property('checked')
             page.setProperty('settingsError','')
             # Active remote capture asks before stopping anything; cancel retains the saved state.
             previous_status=backend._remote_login.status
@@ -179,10 +179,10 @@ with tempfile.TemporaryDirectory() as d:
                 stop_owned.assert_called_once()
                 admin.assert_called_once_with(False)
                 assert not backend.remoteLoginSetupBusy
-                assert not page.findChild(QObject,'bootStartupCheck').property('checked')
+                assert not page.findChild(QObject,'bootStartupRadio').property('checked')
             backend._remote_login.status=previous_status
             # A pending disable is recovered directly, without first enabling hosting.
-            page.setProperty('bootOptionsExpanded',True)
+            page.setProperty('startupDetailsExpanded',True)
             page.setProperty('pendingBootAction',0)
             status.return_value={'available':True,'live_available':True,'enabled':False,'supported':True,'maintenance_pending':True,'recovery_available':True}
             e=QQmlExpression(qmlContext(page),page,'page.refreshStartup()');e.evaluate();settle()
@@ -195,8 +195,8 @@ with tempfile.TemporaryDirectory() as d:
                 recover.assert_called_once_with(False)
                 assert not backend.remoteLoginSetupBusy
                 assert prop('pendingBootAction')==-1
-                assert not page.findChild(QObject,'bootStartupCheck').property('checked')
-            page.setProperty('bootOptionsExpanded',False)
+                assert not page.findChild(QObject,'bootStartupRadio').property('checked')
+            page.setProperty('startupDetailsExpanded',False)
             status.return_value={'available':True,'live_available':True,'enabled':False,'supported':True}
             # Source repair runs asynchronously through the coordinator; no live helper is invoked.
             with patch('monitorize.platform.remote_login_repair.repair_options',return_value={'repair_kind':'source','repair_message':'Repair','repair_needed':True}), patch('monitorize.platform.remote_login_repair.repair_remote_login',return_value={'success':True,'message':'Repaired'}) as repair, patch('monitorize.platform.sunshine_service.is_sunshine_running',return_value=False):
@@ -207,9 +207,9 @@ with tempfile.TemporaryDirectory() as d:
                 repair.assert_called_once_with()
                 assert not backend.remoteLoginSetupBusy
                 assert prop('startupNotice')=='Repaired'
-                assert not page.findChild(QObject,'bootStartupCheck').property('checked')
+                assert not page.findChild(QObject,'bootStartupRadio').property('checked')
             with patch('monitorize.platform.remote_login_repair.repair_options',return_value={'repair_kind':'','repair_message':'Package managed'}), patch('monitorize.platform.remote_login_repair.repair_remote_login') as repair:
-                page.setProperty('bootOptionsExpanded',True)
+                page.setProperty('startupDetailsExpanded',True)
                 page.setProperty('settingsError','Package managed')
                 e=QQmlExpression(qmlContext(page),page,'page.refreshStartup()');e.evaluate();settle()
                 assert not page.findChild(QObject,'repairRemoteLoginButton').property('visible')
@@ -217,24 +217,20 @@ with tempfile.TemporaryDirectory() as d:
                 repair.assert_not_called()
                 assert not backend.remoteLoginSetupBusy
             page.setProperty('settingsError','')
-            page.setProperty('bootOptionsExpanded',False)
+            page.setProperty('startupDetailsExpanded',False)
             backend.vkmsAuthorizationReady.emit({'success':False,'message':'Unavailable fixture'});settle()
             assert not prop('vkmsAuthorization.success')
             assert not prop('vkmsAuthorization.unattended_enabled === false')
-            primary=page.findChild(QObject,'loginPrimaryDisplayCheck');assert primary
-            assert not primary.property('enabled') and not primary.property('checked')
+            primary=page.findChild(QObject,'loginScreenDisplayCombo');assert primary
+            assert not primary.property('visible') and primary.property('currentIndex') == 0
             status.return_value={'available':True,'enabled':True,'supported':True,'manager':'gdm.service','create_login_virtual_display':False,'login_display_policy_available':True}
             backend.remoteLoginSetupFinished.emit({'success':True,'message':'Reboot after setup.'});settle()
             assert prop('bootStatus.enabled')
-            login=page.findChild(QObject,'loginStartupCheck')
-            boot=page.findChild(QObject,'bootStartupCheck')
-            assert login.property('checked') and login.property('enabled')
+            login=page.findChild(QObject,'loginStartupRadio')
+            boot=page.findChild(QObject,'bootStartupRadio')
+            assert not login.property('checked') and login.property('enabled')
             assert boot.property('checked')
-            nested=page.findChild(QObject,'bootStartupOptions')
-            assert not nested.property('visible')
-            e=QQmlExpression(qmlContext(page),page,'bootOptionsExpanded = true');e.evaluate();settle()
-            assert nested.property('visible')
-            assert primary.property('enabled')
+            assert primary.property('visible') and primary.property('enabled')
             # Live enrollment must never inherit a generic reboot hint.
             backend.remoteLoginSetupFinished.emit({'success':True,'activated':True,'reboot_required':True,'message':'Old generic reboot hint'})
             settle()
@@ -253,25 +249,23 @@ with tempfile.TemporaryDirectory() as d:
             # Saving this boot-only preference must not replace the live runtime.
             runtime=backend._remote_login
             with patch('monitorize.platform.system_setup.apply_login_virtual_display',return_value={'success':False,'message':'Cancelled'}) as save:
-                primary.setProperty('checked',True)
-                e=QQmlExpression(qmlContext(page),page,'loginPrimaryCheck.clicked()');e.evaluate();assert not e.hasError(),e.error().toString()
+                e=QQmlExpression(qmlContext(page),page,'loginDisplay.activated(1)');e.evaluate();assert not e.hasError(),e.error().toString()
                 for _ in range(10):
                     settle()
                     if not backend.remoteLoginSetupBusy:break
                 save.assert_called_once_with(True)
-                assert not primary.property('checked')
+                assert primary.property('currentIndex') == 0
                 assert backend._remote_login is runtime
             def saved_primary(enabled):
                 status.return_value={**status.return_value,'create_login_virtual_display':enabled}
                 return {'success':True,'reboot_required':True}
             with patch('monitorize.platform.system_setup.apply_login_virtual_display',side_effect=saved_primary) as save:
-                primary.setProperty('checked',True)
-                e=QQmlExpression(qmlContext(page),page,'loginPrimaryCheck.clicked()');e.evaluate();assert not e.hasError(),e.error().toString()
+                e=QQmlExpression(qmlContext(page),page,'loginDisplay.activated(1)');e.evaluate();assert not e.hasError(),e.error().toString()
                 for _ in range(10):
                     settle()
                     if not backend.remoteLoginSetupBusy:break
                 save.assert_called_once_with(True)
-                assert primary.property('checked') and backend._remote_login is runtime
+                assert primary.property('currentIndex') == 1 and backend._remote_login is runtime
             timeout=page.findChild(QObject,'displayIdleTimeoutSeconds');assert timeout
             save_timeout=page.findChild(QObject,'saveDisplayIdleTimeout');assert save_timeout
             assert timeout.property('value')==20 and timeout.property('enabled')
@@ -308,14 +302,13 @@ with tempfile.TemporaryDirectory() as d:
             backend.remoteLoginSetupChanged.emit();settle()
             # Cancelling parent disable keeps both options selected.
             with patch('monitorize.desktop.remote_login_setup.apply_remote_login_setup',return_value={'success':False,'message':'Cancelled'}) as disable:
-                login.setProperty('checked',False)
-                e=QQmlExpression(qmlContext(page),page,'autostartCheck.clicked()');e.evaluate()
+                e=QQmlExpression(qmlContext(page),page,'selectStartupMode(0)');e.evaluate()
                 assert not e.hasError(),e.error().toString()
                 for _ in range(10):
                     settle()
                     if not backend.remoteLoginSetupBusy:break
                 disable.assert_called_once_with(False)
-                assert login.property('checked') and boot.property('checked')
+                assert not login.property('checked') and boot.property('checked')
                 assert not login_state[0]
             # Successful parent disable clears login only after boot is disabled.
             page.setProperty('loginAfterBootDisable',0)
@@ -323,14 +316,13 @@ with tempfile.TemporaryDirectory() as d:
             login_state[0]=True
             backend.remoteLoginSetupFinished.emit({'success':True});settle()
             assert not login_state[0] and not login.property('checked')
-            assert not primary.property('enabled')
-            assert nested.property('visible')
-            assert not boot.property('enabled')
+            assert not primary.property('visible')
+            assert not primary.property('visible')
+            assert boot.property('enabled')
             explanation=page.findChild(QObject,'bootStartupStatusMessage')
-            assert explanation.property('visible')
-            assert 'after login first' in explanation.property('text')
+            assert not explanation.property('visible')
             # The general timer remains visible/editable without either startup option.
-            page.setProperty('bootOptionsExpanded',False);settle()
+            page.setProperty('startupDetailsExpanded',False);settle()
             assert page.findChild(QObject,'displayIdleTimeoutRow').property('visible')
             assert timeout.property('enabled')
             timeout.setProperty('value',45)
@@ -341,11 +333,11 @@ with tempfile.TemporaryDirectory() as d:
                     if not backend.remoteLoginSetupBusy:break
                 admin.assert_not_called()
                 assert timeout.property('value')==45 and not save_timeout.property('enabled')
-            page.setProperty('bootOptionsExpanded',True);settle()
+            page.setProperty('startupDetailsExpanded',True);settle()
             # Disabling just boot preserves login startup.
             page.setProperty('loginAfterBootDisable',1)
             backend.remoteLoginSetupFinished.emit({'success':True});settle()
-            assert login_state[0] and login.property('checked') and nested.property('visible')
+            assert login_state[0] and login.property('checked') and not primary.property('visible')
             # External asset repairs can be rechecked without navigating away.
             status.return_value={'available':False,'enabled':False,'supported':True,'message':'Installed host VERSION and manifest disagree'}
             e=QQmlExpression(qmlContext(page),page,'refreshStartup()');e.evaluate();settle()
@@ -364,10 +356,9 @@ with tempfile.TemporaryDirectory() as d:
             assert prop('settingsError')=='Cancelled'
             for accepted_capture in ('kms','auto'):
                 with patch('monitorize.desktop.backend.load_display_settings',return_value={'sunshine_capture':accepted_capture}) as preflight, patch('monitorize.desktop.remote_login_setup.apply_remote_login_setup',return_value={'success':False,'message':'Cancelled'}) as configure, patch('monitorize.desktop.remote_login_setup.configure'), patch('monitorize.desktop.remote_login_setup.controller_snapshot',return_value={}), patch('monitorize.desktop.remote_login_setup.restore_controller_snapshot'):
-                    boot.setProperty('checked', True)
-                    e=QQmlExpression(qmlContext(page),page,'bootCheck.clicked()');e.evaluate()
+                    e=QQmlExpression(qmlContext(page),page,'selectStartupMode(2)');e.evaluate()
                     assert not e.hasError(),e.error().toString()
-                    assert boot.property('checked') and not boot.property('enabled')
+                    assert not boot.property('checked') and not boot.property('enabled')
                     assert backend.remoteLoginSetupBusy
                     preflight.assert_not_called()
                     for _ in range(10):
@@ -377,7 +368,6 @@ with tempfile.TemporaryDirectory() as d:
                     assert not boot.property('checked') and boot.property('enabled')
             for capture in ('kwin','portal','wlr','x11','nvfbc','pipewire_node'):
                 with patch('monitorize.desktop.backend.load_display_settings',return_value={'sunshine_capture':capture}), patch('monitorize.platform.system_setup.apply_remote_login_setup') as configure:
-                    boot.setProperty('checked',True)
                     backend.configureRemoteLogin(True);settle()
                     configure.assert_not_called()
                     assert not boot.property('checked')

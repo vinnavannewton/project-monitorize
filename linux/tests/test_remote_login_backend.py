@@ -7,6 +7,7 @@ import unittest
 
 PROGRAM=r'''
 import tempfile,os
+from concurrent.futures import Future
 from unittest.mock import Mock,patch
 from PyQt6.QtCore import QObject,pyqtSignal,QUrl,QEventLoop,QTimer
 from PyQt6.QtWidgets import QApplication
@@ -27,11 +28,14 @@ class Runtime(QObject):
     def message(self):return 'Fixture desktop available'
     def start(self):self.calls.append('start')
     def stop(self):self.calls.append('stop');self.status={'state':'stopped','capture_ready':False};self.changed.emit()
-    def close(self):self.calls.append('close')
+    def close(self):
+        self.calls.append('close')
+        future=Future();future.set_result(None);return future
 def settle():
     loop=QEventLoop();QTimer.singleShot(100,loop.quit);loop.exec()
 with tempfile.TemporaryDirectory() as d:
     os.environ['XDG_CONFIG_HOME']=d
+    os.environ['XDG_STATE_HOME']=d
     from monitorize.config.settings import load_display_settings
     auto_settings=dict(load_display_settings(),sunshine_capture='auto')
     with patch('monitorize.platform.remote_login_identity.desktop_fallback_allowed',return_value=False), \

@@ -1,12 +1,16 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Controls.Basic as Basic
 import QtQuick.Layouts
 
 Item {
     id: page
     objectName: "startupSettingsPage"
     readonly property bool compact: width < 640
-    property bool bootOptionsExpanded: false
+    property bool startupDetailsExpanded: false
+    readonly property bool canStartAtBoot: bootStatus.enabled === true
+        || (bootStatus.available && bootStatus.supported && bootStatus.live_available === true)
+    readonly property int startupMode: bootStatus.enabled === true ? 2 : (settingsAutostartEnabled ? 1 : 0)
     property bool settingsLoading: true
     property bool settingsMinimizeToTray: false
     property bool settingsAutostartEnabled: false
@@ -40,11 +44,9 @@ Item {
     function refreshStartup() {
         bootStatus = backend.getRemoteLoginSetupStatus()
         settingsLoading = true
-        bootCheck.checked = bootStatus.enabled === true
+        settingsAutostartEnabled = backend.isAutostartEnabled()
         savedTimeout = backend.getDisplayIdleTimeout()
         displayTimeout.value = savedTimeout
-        loginPrimaryCheck.checked = bootStatus.create_login_virtual_display === true
-        autostartCheck.checked = bootStatus.enabled === true || backend.isAutostartEnabled()
         settingsLoading = false
     }
     StackView.onActivated: backend.refreshVkmsManagement()
@@ -55,7 +57,6 @@ Item {
         settingsMinimizeToTray = gen["minimize_to_tray"] !== undefined ? gen["minimize_to_tray"] : false
         settingsAutostartEnabled = backend.isAutostartEnabled()
         minimizeTrayCheck.checked = settingsMinimizeToTray
-        autostartCheck.checked = settingsAutostartEnabled
         settingsError = ""
         settingsLoading = false
         refreshStartup()
@@ -133,26 +134,52 @@ Item {
         backend.saveGeneralSettings(settingsMinimizeToTray)
     }
 
-    function saveAutostartSettings() {
-        if (settingsLoading) return
-        if (!autostartCheck.checked && bootStatus.enabled) {
-            // Keep the dependency visible until administrator disable succeeds.
-            autostartCheck.checked = true
-            loginAfterBootDisable = 0
-            page.pendingBootAction = 0
-            backend.configureRemoteLogin(false)
-            return
-        }
-        settingsAutostartEnabled = autostartCheck.checked
-        settingsError = backend.setAutostartEnabled(settingsAutostartEnabled)
-        if (settingsError.length > 0) {
-            settingsLoading = true
-            settingsAutostartEnabled = backend.isAutostartEnabled()
-            autostartCheck.checked = settingsAutostartEnabled
-            settingsLoading = false
+    function selectStartupMode(mode) {
+        if (settingsLoading || backend.remoteLoginSetupBusy || startupMode === mode) return
+        settingsError = ""
+        startupNotice = ""
+        if (mode === 2 || bootStatus.enabled === true) {
+            loginAfterBootDisable = mode === 2 ? -1 : mode
+            pendingBootAction = mode === 2 ? 1 : 0
+            backend.queueBootStartupChange(mode === 2)
+        } else {
+            settingsError = backend.setAutostartEnabled(mode === 1)
+            refreshStartup()
         }
     }
 
+    component StartupChoice: Basic.RadioButton {
+        id: choice
+        required property int mode
+        required property string detail
+        Layout.fillWidth: true
+        Layout.minimumWidth: 0
+        Accessible.description: choice.detail
+        autoExclusive: false
+        checkable: false
+        checked: page.startupMode === mode
+        enabled: !backend.remoteLoginSetupBusy && (mode !== 2 || page.canStartAtBoot)
+        contentItem: Column {
+            leftPadding: choice.indicator.width + choice.spacing
+            spacing: 4
+            Text {
+                width: parent.width - parent.leftPadding
+                text: choice.text
+                color: choice.enabled ? theme.textPrimary : theme.textMuted
+                font.pixelSize: 14
+                wrapMode: Text.WordWrap
+            }
+            Text {
+                width: parent.width - parent.leftPadding
+                text: choice.detail
+                color: theme.textSecondary
+                font.pixelSize: 12
+                wrapMode: Text.WordWrap
+            }
+        }
+        Accessible.checked: checked
+        onClicked: page.selectStartupMode(mode)
+    }
 
     ScrollView {
         anchors.fill: parent
@@ -187,81 +214,71 @@ Item {
                     id: minimizeTrayCheck; text: "Minimize to tray on close"
                     Layout.fillWidth: true; onCheckedChanged: page.saveAppSettings()
                 }
-                RowLayout {
-                    spacing: 8
-                    Layout.fillWidth: true
-                    CustomCheckBox {
-                        keepCheckedBlue: true
-                        id: autostartCheck; objectName: "loginStartupCheck"; text: "Start Monitorize after login"
-                        expandableLabel: true
-                        onLabelClicked: page.bootOptionsExpanded = !page.bootOptionsExpanded
-                        enabled: !backend.remoteLoginSetupBusy
-                        Layout.fillWidth: true; Layout.minimumWidth: 0; onClicked: page.saveAutostartSettings()
-                    }
-                    StartupHelp { helpText: "Starts Monitorize after you sign in and reach your desktop." }
-                    Item { Layout.fillWidth: true }
-                    ToolButton {
-                        objectName: "bootStartupExpander"
-                        text: page.bootOptionsExpanded ? "⌃" : "⌄"
-                        Accessible.name: "Show boot startup options"
-                        onClicked: page.bootOptionsExpanded = !page.bootOptionsExpanded
-                    }
+                Text {
+                    text: "Startup"
+                    color: theme.textPrimary
+                    font.pixelSize: 16
+                    font.weight: Font.DemiBold
                 }
-                RowLayout {
-                    spacing: 8
-                    id: bootOptions
-                    objectName: "bootStartupOptions"
-                    visible: page.bootOptionsExpanded
+                StartupChoice {
+                    objectName: "manualStartupRadio"
+                    mode: 0
+                    text: "Start manually"
+                    detail: "Open Monitorize when you need it."
+                }
+                StartupChoice {
+                    objectName: "loginStartupRadio"
+                    mode: 1
+                    text: "Start after sign-in"
+                    detail: "Start with your desktop session."
+                }
+                StartupChoice {
+                    objectName: "bootStartupRadio"
+                    mode: 2
+                    text: "Start at the login screen"
+                    detail: "Connect before signing in. Desktop startup is included."
+                }
+                ColumnLayout {
                     Layout.fillWidth: true
-                    Layout.leftMargin: 24
-                    CustomCheckBox {
-                        keepCheckedBlue: true
-                        id: bootCheck; objectName: "bootStartupCheck"; text: "Also start at boot (login screen)"
+                    visible: page.startupMode === 2
+                    Label {
+                        text: "Display at the login screen"
+                        color: theme.textPrimary
+                    }
+                    CustomComboBox {
+                        id: loginDisplay
+                        objectName: "loginScreenDisplayCombo"
+                        Accessible.name: "Display at the login screen"
                         Layout.fillWidth: true
-                        Layout.minimumWidth: 0
-                        enabled: !backend.remoteLoginSetupBusy && (page.bootStatus.enabled || (autostartCheck.checked && page.bootStatus.available && page.bootStatus.supported && page.bootStatus.live_available === true))
-                        onClicked: {
-                            page.loginAfterBootDisable = checked ? -1 : 1
-                            page.pendingBootAction = checked ? 1 : 0
-                            backend.queueBootStartupChange(checked)
+                        model: ["Physical display", "Virtual display"]
+                        disabledIndex: page.bootStatus.existing_login_display_only ? 1 : -1
+                        currentIndex: page.bootStatus.create_login_virtual_display === true ? 1 : 0
+                        enabled: page.bootStatus.login_display_policy_available === true && !backend.remoteLoginSetupBusy
+                            && (!page.bootStatus.existing_login_display_only || page.bootStatus.create_login_virtual_display === true)
+                        onActivated: function(index) {
+                            currentIndex = Qt.binding(() => page.bootStatus.create_login_virtual_display === true ? 1 : 0)
+                            if (index !== currentIndex && (index === 0 || !page.bootStatus.existing_login_display_only))
+                                backend.configureLoginVirtualDisplay(index === 1)
                         }
                     }
-                    StartupHelp { helpText: "Enables remote login now and after future boots, without restarting your PC.\nAfter signing in, reconnect to the same Moonlight PC. Desktop startup is included." }
-                    Item { Layout.fillWidth: true }
-                }
-                RowLayout {
-                    visible: page.bootOptionsExpanded
-                    spacing: 8
-                    Layout.fillWidth: true
-                    Layout.leftMargin: 48
-                    CustomCheckBox {
-                        id: loginPrimaryCheck
-                        objectName: "loginPrimaryDisplayCheck"
-                        text: "Create virtual display at login"
-                        keepCheckedBlue: true
+                    SelectableMessage {
+                        visible: page.bootStatus.existing_login_display_only === true
+                        text: "This login screen streams an existing physical display."
+                        color: theme.textSecondary
                         Layout.fillWidth: true
-                        enabled: page.bootStatus.enabled === true && page.bootStatus.login_display_policy_available === true && !backend.remoteLoginSetupBusy
-                            && (!page.bootStatus.existing_login_display_only || checked)
-                        opacity: enabled ? 1.0 : 0.45
-                        onClicked: backend.configureLoginVirtualDisplay(checked)
                     }
                 }
-
-                SelectableMessage {
-                    visible: page.bootOptionsExpanded && page.bootStatus.enabled === true
-                             && page.bootStatus.existing_login_display_only === true
-                    text: "SDDM on X11 streams an existing display at the sign-in screen."
-                    color: theme.textSecondary
-                    Layout.fillWidth: true
-                    wrapMode: Text.WordWrap
-                }
-
                 SelectableMessage {
                     objectName: "bootStartupStatusMessage"
-                    visible: page.bootOptionsExpanded && (!page.bootStatus.available || (!page.bootStatus.enabled && (!autostartCheck.checked || !page.bootStatus.supported || page.bootStatus.live_available !== true)))
-                    text: !page.bootStatus.available || (!page.bootStatus.supported && !page.bootStatus.enabled)
-                          ? (page.bootStatus.message || "") : (!autostartCheck.checked ? "Enable Start Monitorize after login first." : (page.bootStatus.live_message || "Install matching live-enrollment service updates before enabling boot startup."))
-                    color: theme.textSecondary; Layout.fillWidth: true; wrapMode: Text.WordWrap
+                    visible: !page.canStartAtBoot
+                    text: !page.bootStatus.available || !page.bootStatus.supported
+                          ? (page.bootStatus.message || "") : (page.bootStatus.live_message || "Install matching service updates to enable login-screen startup.")
+                    color: theme.textSecondary
+                    Layout.fillWidth: true
+                }
+                ToolButton {
+                    text: page.startupDetailsExpanded ? "Hide startup details" : "Startup details"
+                    onClicked: page.startupDetailsExpanded = !page.startupDetailsExpanded
                 }
                 SelectableMessage {
                     objectName: "remoteLoginRepairExplanation"
@@ -273,22 +290,22 @@ Item {
                     id: repairRemoteLoginButton
                     objectName: "repairRemoteLoginButton"
                     text: "Repair remote login"
-                    visible: page.bootOptionsExpanded && page.bootStatus.repair_kind === "source" && (!page.bootStatus.available || page.bootStatus.repair_needed || page.settingsError.length > 0)
+                    visible: page.startupDetailsExpanded && page.bootStatus.repair_kind === "source" && (!page.bootStatus.available || page.bootStatus.repair_needed || page.settingsError.length > 0)
                     enabled: !backend.remoteLoginSetupBusy && !backend.sessionBusy
                     onClicked: backend.repairRemoteLogin()
                 }
                 CustomButton {
                     objectName: "resumeRemoteLoginMaintenance"
                     text: "Resume remote-login recovery"
-                    visible: page.bootOptionsExpanded && page.bootStatus.maintenance_pending === true && page.bootStatus.recovery_available === true
+                    visible: page.startupDetailsExpanded && page.bootStatus.maintenance_pending === true && page.bootStatus.recovery_available === true
                     enabled: !backend.remoteLoginSetupBusy && !backend.sessionBusy
                     onClicked: backend.recoverRemoteLogin(page.pendingBootAction === 0)
                 }
                 CustomButton {
                     objectName: "rerunRemoteLoginSetup"
                     text: "Re-run remote-login setup"
-                    visible: page.bootOptionsExpanded && page.bootStatus.repair_kind !== "source"
-                    enabled: !backend.remoteLoginSetupBusy && !backend.sessionBusy && autostartCheck.checked
+                    visible: page.startupDetailsExpanded && page.bootStatus.repair_kind !== "source"
+                    enabled: !backend.remoteLoginSetupBusy && !backend.sessionBusy && page.startupMode !== 0
                         && page.bootStatus.available && page.bootStatus.supported && page.bootStatus.live_available === true
                     onClicked: {
                         page.pendingBootAction = 1
@@ -298,7 +315,7 @@ Item {
                 CustomButton {
                     objectName: "refreshBootStartupStatus"
                     text: "Refresh startup status"
-                    visible: page.bootOptionsExpanded
+                    visible: page.startupDetailsExpanded
                     enabled: !backend.remoteLoginSetupBusy
                     onClicked: page.refreshStartup()
                 }
