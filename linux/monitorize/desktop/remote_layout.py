@@ -20,6 +20,13 @@ class RemoteLayout:
             self.guardian.command('detach',slot=1)
             self.target=None
 
+    def retire(self):
+        """End layout ownership when the desktop runtime stops or closes."""
+        if self.guardian is not None:
+            self.guardian.retire()
+            self.guardian = None
+            self.target = None
+
     def update(self, mode, active, target=None):
         if mode not in ('extend','primary','virtual_only'):
             raise ValueError('Unsupported remote desktop display behavior.')

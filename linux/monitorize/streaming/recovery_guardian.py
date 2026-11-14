@@ -33,6 +33,22 @@ def recovery_paths():
     return directory, suffix
 
 
+def recovery_lock_available():
+    """Observe whether the session guardian has relinquished ownership."""
+    directory, suffix = recovery_paths()
+    try:
+        lock = os.open(directory / f'{suffix}.lock', os.O_RDONLY | os.O_NOFOLLOW)
+    except FileNotFoundError:
+        return True
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return True
+    except BlockingIOError:
+        return False
+    finally:
+        os.close(lock)
+
+
 def recover_before_cleanup():
     """Never let legacy stale-output cleanup race the independent owner."""
     directory, suffix = recovery_paths()
@@ -107,6 +123,11 @@ class GuardianClient:
                 raise RuntimeError(reply.get('error') or 'Display recovery guardian failed.')
             return reply
 
+    def retire(self):
+        """Ask our child to restore and exit through its existing SIGTERM handler."""
+        if self.process is not None and self.process.poll() is None:
+            self.process.terminate()
+
     def relay_args(self, slot, args):
         return ['-m', __name__, 'hold', self.path, self.token, str(slot), *args]
 
@@ -131,6 +152,9 @@ class Guardian:
     async def release(self, slot):
         self.pending_release.add(slot)
         async with self.lock:
+            if slot not in self.reserved:
+                self.pending_release.discard(slot)
+                return
             await self._layout('prepare_release', slot)
             process = self.holders.get(slot)
             if process:
@@ -195,8 +219,8 @@ class Guardian:
                     if not any(o['name']==name and self.layout.backend.active(o) for o in outputs):
                         raise RuntimeError('Remote display is not active.')
                     await self._layout('reserve',slot,(name,),outputs)
-                    await self._layout('ready',slot,name)
                     self.reserved.add(slot);self.borrowed.add(slot)
+                    await self._layout('ready',slot,name)
             elif operation == 'detach':
                 slot=request.get('slot')
                 if type(slot) is not int or slot!=1 or slot in self.holders:

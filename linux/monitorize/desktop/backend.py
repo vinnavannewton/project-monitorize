@@ -148,6 +148,7 @@ class MonitorizeBackend(QObject):
         self._system_setup_timed_out = False
         self._system_setup_cancelled = False
         self._background_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="monitorize-ui")
+        self._remote_runtime_closures = []
         self._closing = False
         self._firewall_scope_status = {'available': False, 'checking': True, 'scope_current': None}
         self._firewall_scope_busy = False
@@ -573,7 +574,7 @@ class MonitorizeBackend(QObject):
         if live_pending and not reset_runtime and self._remote_login is not None:
             self._remote_login.refresh_enrollment()
         else:
-            if self._remote_login is not None:self._remote_login.close()
+            if self._remote_login is not None:self._close_remote_runtime()
             self._remote_login = RemoteLoginRuntime(self)
             self._remote_login.changed.connect(self._remote_login_changed)
         if live_pending and result.get('configured'):
@@ -727,7 +728,7 @@ class MonitorizeBackend(QObject):
             return
         # Enrollment remains on disk; only this desktop uses ordinary hosting.
         self._desktop_fallback=True
-        self._remote_login.close()
+        self._close_remote_runtime()
         self._remote_login.enabled=False
         error=self._reconcile_desktop_configuration()
         self.remoteLoginChanged.emit();self.sessionChanged.emit()
@@ -738,7 +739,21 @@ class MonitorizeBackend(QObject):
         action=result['action']
         if action=='apply':self.applyConfiguration()
         elif action=='restart':self.restartSession()
-        else:self.startSession()
+        else:self._resume_fallback_start(result['generation'], time.monotonic() + 30)
+
+    def _resume_fallback_start(self, generation, deadline):
+        if self._closing or generation != self._desktop_fallback_generation:
+            return
+        try:
+            if self._owned_session_stopped():
+                self.startSession()
+                return
+            if time.monotonic() >= deadline:
+                raise RuntimeError('Timed out waiting for display recovery. Check Diagnostics & logs, then retry Start.')
+        except (OSError, RuntimeError) as error:
+            self.configurationApplyFinished.emit(False, str(error))
+            return
+        QTimer.singleShot(100, lambda: self._resume_fallback_start(generation, deadline))
 
     @pyqtSlot()
     def startSession(self):
@@ -841,12 +856,12 @@ class MonitorizeBackend(QObject):
     @pyqtSlot()
     def stopSession(self):
         self._session_start_generation += 1
+        self._desktop_fallback_generation += 1
         self._kms_authorization.cancel()
         if getattr(self,'_operations',None) is not None:self._operations.cancel()
         if getattr(self,'_live_setup',None) is not None and self._live_setup.busy:
             self._live_setup.cancel()
         if getattr(self,'_desktop_fallback_pending',False):
-            self._desktop_fallback_generation+=1
             return
         if hasattr(self, "_restart"):
             self._restart.cancel()
@@ -1958,10 +1973,14 @@ class MonitorizeBackend(QObject):
         self.presetsChanged.emit()
         self.sunshineSettingsChanged.emit()
         result["restarting"] = False
-        if not self.isStreaming:
+        recovering = bool(self._remote_runtime_closures)
+        if restart and not self.remoteLoginEnabled and not self.isStreaming:
+            from monitorize.streaming.recovery_guardian import recovery_lock_available
+            recovering = recovering or not recovery_lock_available()
+        if not self.isStreaming and not (restart and recovering):
             self._stage_host_configuration(bundle)
             result["message"] = "Configuration saved for the next start."
-        elif (bundle == self.configuration_state.applied and not result["streaming_changed"]
+        elif (not recovering and bundle == self.configuration_state.applied and not result["streaming_changed"]
               and result.get("streaming_revision") == streaming_revision):
             result["message"] = "Configuration is up to date."
         else:
@@ -1973,7 +1992,8 @@ class MonitorizeBackend(QObject):
             else:
                 self._require_host_capture(bundle)
                 self._restart_display_only = self.session.active and self._streaming_backend == "none"
-                self._restart.begin(bundle, self._verified_configuration)
+                if not self._restart.begin(bundle, self._verified_configuration):
+                    raise RuntimeError(self._restart.message or "A configuration restart is already in progress.")
                 result["restarting"] = True
         return result
 
@@ -2030,14 +2050,36 @@ class MonitorizeBackend(QObject):
         if self.remoteLoginEnabled:self._remote_login.stop()
         else:self.session.stop()
 
+    def _close_remote_runtime(self):
+        for pending in self._remote_runtime_closures[:]:
+            if pending.done() and pending.exception() is None:
+                self._remote_runtime_closures.remove(pending)
+        future = self._remote_login.close()
+        if future not in self._remote_runtime_closures:
+            self._remote_runtime_closures.append(future)
+
     def _owned_session_stopped(self):
+        from monitorize.streaming.recovery_guardian import recovery_lock_available
+
+        closures = self._remote_runtime_closures
+        if any(not future.done() for future in closures):
+            return False
+        self._remote_runtime_closures = []
+        for future in closures:
+            future.result()
         if self.remoteLoginEnabled:
-            return not self._remote_login.busy and self._remote_login.status.get("state") == "stopped"
+            if self._remote_login.busy:
+                return False
+            status = self._remote_login.status
+            if status.get("startup_error"):
+                raise RuntimeError(status["startup_error"])
+            return status.get("state") == "stopped" and recovery_lock_available()
         runtime = self.session.client_runtime
         if runtime and runtime.cleanup_blocked and not runtime.retiring:
             raise RuntimeError(next(iter(runtime.cleanup_blocked.values())))
         return (not self.session.active and not self.session.busy
-                and not any(is_sunshine_running(i) for i in (1,2)))
+                and not any(is_sunshine_running(i) for i in (1,2))
+                and recovery_lock_available())
 
     def _launch_configuration(self, bundle):
         self._streaming_backend = bundle["streaming_backend"]

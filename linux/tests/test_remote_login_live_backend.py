@@ -199,6 +199,9 @@ class PlatformSetupTests(unittest.TestCase):
 class PauseTests(unittest.TestCase):
     def setUp(self):
         self.temp=TemporaryDirectory();self.addCleanup(self.temp.cleanup)
+        isolated_state = patch.dict(os.environ, {'XDG_STATE_HOME': self.temp.name})
+        isolated_state.start()
+        self.addCleanup(isolated_state.stop)
         self.runtime=ClientDisplayRuntime(runtime_dir=self.temp.name)
         self.addCleanup(self.runtime.stop)
         for name in ('stop_sunshine','is_sunshine_running'):

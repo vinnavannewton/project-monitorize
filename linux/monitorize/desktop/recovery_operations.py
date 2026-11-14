@@ -60,9 +60,15 @@ class RecoveryOperations(QObject):
         if not self.busy or self.inflight or self.waiting:return
         if self.cancelled or self.backend._closing:
             self.complete(dict(success=False,cancelled=True,message='Recovery cancelled.'));return
-        if self.stopping and not self.backend._owned_session_stopped():
-            if time.monotonic()>self.deadline:self.complete(dict(success=False,message='Owned session cleanup did not finish. No recovery changes were applied.'))
-            return
+        if self.stopping:
+            try:
+                stopped = self.backend._owned_session_stopped()
+            except (OSError, RuntimeError) as error:
+                self.complete(dict(success=False, message=str(error)))
+                return
+            if not stopped:
+                if time.monotonic()>self.deadline:self.complete(dict(success=False,message='Owned session cleanup did not finish. No recovery changes were applied.'))
+                return
         if self.paused and not self.paused.enrollment_pause_complete(self.snapshot):
             if time.monotonic()>self.deadline:self.complete(dict(success=False,message='Idle listener cleanup did not finish.'))
             return

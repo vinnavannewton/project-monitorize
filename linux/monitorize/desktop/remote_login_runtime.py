@@ -136,7 +136,7 @@ class Participant:
         status=self._poll()
         if self.layout is not None:
             try:
-                streaming=(status.get('state')=='streaming' or
+                streaming=self.want_running and (status.get('state')=='streaming' or
                            (status.get('state')=='desktop_available' and bool(status.get('capture_ready'))))
                 target=(status.get('output_name') or self.output_finder()) if streaming else None
                 self.layout.update('extend' if self._mirroring else self.layout_mode,streaming,target)
@@ -231,8 +231,9 @@ class Participant:
         return ''
 
     def stop(self):
-        error=self._restore_layout()
         self.want_running=False
+        error=self._restore_layout()
+        if self.layout is not None:self.layout.retire()
         try:
             if self.generation:status=self._call('Stop',self.generation)
             else:status=self.poll()
@@ -260,18 +261,22 @@ class Participant:
         return self.poll()
 
     def close(self):
-        self._restore_layout()
         try:
-            if self.generation:self._call('ReleaseDesktop',self.generation)
-        except Exception:pass
+            self._restore_layout()
+            if self.layout is not None:self.layout.retire()
         finally:
-            if self.bus is not None:self.bus.close()
-            self.bus=None;self.interface=None;self.generation=''
+            try:
+                if self.generation:self._call('ReleaseDesktop',self.generation)
+            except Exception:pass
+            finally:
+                if self.bus is not None:self.bus.close()
+                self.bus=None;self.interface=None;self.generation=''
 
 
 class RemoteLoginRuntime(QObject):
     changed=pyqtSignal()
     _finished=pyqtSignal(object)
+    _stop_finished=pyqtSignal(object)
     def __init__(self,parent=None,*,participant=None,enabled=None):
         super().__init__(parent)
         if enabled is None:
@@ -284,6 +289,9 @@ class RemoteLoginRuntime(QObject):
         self.participant=participant or Participant();self.closed=False;self.busy=False
         self.executor=ThreadPoolExecutor(max_workers=1,thread_name_prefix='monitorize-handoff')
         self._finished.connect(self._finish)
+        self._stop_finished.connect(self._finish_stop)
+        self._stopping = False
+        self._close_future = None
         self.timer=QTimer(self);self.timer.setInterval(1500);self.timer.timeout.connect(self.poll)
         if self.enabled:self.timer.start();QTimer.singleShot(0,self.poll)
 
@@ -317,7 +325,12 @@ class RemoteLoginRuntime(QObject):
 
     def _finish(self,result):
         if self.closed:return
+        if self._stopping:return
         self.busy=False;self.status=result;self.changed.emit()
+
+    def _finish_stop(self, result):
+        self._stopping = False
+        self._finish(result)
     def poll(self):self._submit(self.participant.poll)
     def start(self, options=None, display_behavior=None, *, mirror_output=None):
         if options is None and display_behavior is None and mirror_output is None:
@@ -329,11 +342,19 @@ class RemoteLoginRuntime(QObject):
     def stop(self):
         # Queue behind an already dispatched PrepareDesktop; a user Stop must
         # never be dropped just because the ownership worker is currently busy.
-        if self.closed or not self.enabled:return
-        self.executor.submit(self.participant.stop).add_done_callback(
-            lambda f:self._finished.emit(f.result()) if not self.closed else None)
+        if self.closed or not self.enabled or self._stopping:return
+        self._stopping = self.busy = True
+        def done(future):
+            if self.closed:return
+            try:result=future.result()
+            except Exception as error:
+                app_log.write('REMOTE','Desktop stop failed: '+type(error).__name__)
+                result=dict(state='error', startup_error='Could not stop remote-login streaming. See Diagnostics & logs.')
+            self._stop_finished.emit(result)
+        self.executor.submit(self.participant.stop).add_done_callback(done)
     def close(self):
-        if self.closed:return
+        if self.closed:return self._close_future
         self.closed=True;self.timer.stop()
-        if self.enabled:self.executor.submit(self.participant.close)
-        self.executor.shutdown(wait=False,cancel_futures=not self.enabled)
+        self._close_future = self.executor.submit(self.participant.close)
+        self.executor.shutdown(wait=False)
+        return self._close_future

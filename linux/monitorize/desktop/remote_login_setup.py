@@ -101,7 +101,12 @@ class RemoteLoginSetupCoordinator(QObject):
         if self._cancelled or self.backend._closing:
             self._finish(dict(success=False,cancelled=True,message='Remote-login setup cancelled.'));return
         if self._waiting_for_stop:
-            if not self.backend._owned_session_stopped():
+            try:
+                stopped = self.backend._owned_session_stopped()
+            except (OSError, RuntimeError) as error:
+                self._finish(dict(success=False, message=str(error)))
+                return
+            if not stopped:
                 if time.monotonic()>=self._deadline:
                     self._finish(dict(success=False,message='The owned session did not stop. No startup changes were made.'))
                 return

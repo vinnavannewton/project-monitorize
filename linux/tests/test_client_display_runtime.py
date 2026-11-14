@@ -609,7 +609,7 @@ class ClientDisplayLifecycleTest(ClientDisplayRuntimeTest):
         slot.config['display_behavior'] = 'virtual_only'
         slot.owner, slot.request_id = 'alice', 'one'
         slot.target = {'output_name': 'Virtual-1'}
-        self.runtime.guardian = SimpleNamespace(command=Mock())
+        self.runtime.guardian = SimpleNamespace(command=Mock(), retire=Mock())
         self.assertTrue(self.exchange(self.request(operation='stream_started'))['ok'])
         self.runtime.guardian.command.assert_not_called()
         self.assertTrue(self.exchange(self.request(operation='stream_ready'))['ok'])
@@ -622,7 +622,7 @@ class ClientDisplayLifecycleTest(ClientDisplayRuntimeTest):
         slot = self.runtime.slots[1]
         slot.manual = True
         slot.target = {'output_name': 'Virtual-1'}
-        self.runtime.guardian = SimpleNamespace(command=Mock())
+        self.runtime.guardian = SimpleNamespace(command=Mock(), retire=Mock())
         self.assertFalse(self.exchange(self.request())['ok'])
         self.assertTrue(self.exchange(self.request(operation='stream_started'))['ok'])
         self.runtime.guardian.command.assert_not_called()

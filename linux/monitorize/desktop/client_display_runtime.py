@@ -82,6 +82,7 @@ class ClientDisplayRuntime(QObject):
         self._clean_holders = set()
         self._outcome_buffers = {}
         self.guardian = None
+        self._guardian_retirement_requested = False
         self.error = ''
         self._enrollment_pause = None
         self.token = secrets.token_hex(32)
@@ -791,6 +792,8 @@ class ClientDisplayRuntime(QObject):
         if slot and slot.status == 'stopping':
             slot.status = 'recovering' if slot.intentional_recycle else 'waiting'
         process.deleteLater()
+        if self._guardian_retirement_requested:
+            self._retire_guardian()
         self.changed.emit()
 
     def _holder_cleanup_timeout(self, process):
@@ -918,10 +921,13 @@ class ClientDisplayRuntime(QObject):
         self._enrollment_pause=snapshot
         self._watchdog.stop()
         for instance in list(self.slots):self.stop_slot(instance)
+        self._retire_guardian()
         return snapshot
 
     def enrollment_pause_complete(self,snapshot):
+        from monitorize.streaming.recovery_guardian import recovery_lock_available
         return (self._enrollment_pause is snapshot and not self.retiring and not self.cleanup_blocked
+                and recovery_lock_available()
                 and not any(is_sunshine_running(i) for i in snapshot['configs']))
 
     def resume_enrollment_pause(self,snapshot,*,instances=(1,)):
@@ -934,6 +940,7 @@ class ClientDisplayRuntime(QObject):
         self._enrollment_pause=None  # Explicit Stop/Quit cancels restoration intent.
         for instance in list(self.slots):
             self.stop_slot(instance)
+        self._retire_guardian()
         for peer in list(self._connections):
             peer.abort()
         self._server.close()
@@ -942,3 +949,11 @@ class ClientDisplayRuntime(QObject):
             Path(self._directory).rmdir()
         except OSError:
             pass
+
+    def _retire_guardian(self):
+        self._guardian_retirement_requested = bool(self.retiring)
+        if self._guardian_retirement_requested:
+            return
+        if self.guardian is not None:
+            self.guardian.retire()
+            self.guardian = None

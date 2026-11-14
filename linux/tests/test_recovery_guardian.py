@@ -214,6 +214,79 @@ class GuardianProtocolTest(unittest.IsolatedAsyncioTestCase):
 
 
 class DetachedGuardianTest(unittest.TestCase):
+    def test_remote_to_local_restart_with_live_gui_waits_for_guardian_lock(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            code = """
+import os
+from concurrent.futures import Future
+from pathlib import Path
+from types import SimpleNamespace as Namespace
+from unittest.mock import Mock, patch
+from PyQt6.QtCore import QCoreApplication
+from monitorize.desktop.backend import MonitorizeBackend
+from monitorize.desktop.remote_layout import RemoteLayout
+from monitorize.desktop.remote_login_runtime import Participant
+from monitorize.desktop.restart_transaction import RestartTransaction
+from monitorize.streaming.recovery_guardian import GuardianClient, recovery_lock_available
+from linux.tests.test_session_layout import SimulatedKde, output
+
+app = QCoreApplication([])
+client = GuardianClient('virtual_only', 'kde', os.environ['XDG_STATE_HOME'])
+manager = '''
+from unittest.mock import patch
+from linux.tests.test_session_layout import SimulatedKde, output
+from monitorize.streaming.recovery_guardian import main
+backend = SimulatedKde()
+backend.state.append(output('Virtual-1', 2))
+with patch('monitorize.streaming.recovery_guardian.current_layout_backend', return_value=backend):
+    main()
+'''
+import subprocess, sys, time
+client.process = subprocess.Popen([sys.executable, '-c', manager, 'serve', client.path,
+                                   client.token, 'virtual_only', str(os.getpid())])
+try:
+    deadline = time.monotonic() + 3
+    while not Path(client.path).exists() and time.monotonic() < deadline:
+        time.sleep(.02)
+    assert not recovery_lock_available()
+    desktop = SimulatedKde()
+    desktop.state.append(output('Virtual-1', 2))
+    layout = RemoteLayout(backend=desktop, guardian=client)
+    layout.update('virtual_only', True, 'Virtual-1')
+    assert list(Path(os.environ['XDG_STATE_HOME']).rglob('*.json'))
+    layout.restore()
+    assert not list(Path(os.environ['XDG_STATE_HOME']).rglob('*.json'))
+    assert not recovery_lock_available()
+    participant = Participant(factory=Mock())
+    participant.layout = layout
+    closed = Future()
+    backend = Namespace(remoteLoginEnabled=False, _remote_runtime_closures=[closed],
+                        session=Namespace(active=False, busy=False, client_runtime=None))
+    launch = Mock()
+    tx = RestartTransaction(lambda: None, lambda: MonitorizeBackend._owned_session_stopped(backend),
+                            launch, lambda: False, lambda: '', lambda config: None)
+    with patch('monitorize.desktop.backend.is_sunshine_running', return_value=False):
+        assert tx.begin({'v': 2}, {'v': 1})
+        tx.tick()
+        launch.assert_not_called()
+        closed.set_result(None)
+        tx.tick()
+        launch.assert_not_called()
+        participant.close()
+        assert client.process.wait(timeout=5) == 0
+        assert recovery_lock_available()
+        assert not Path(client.path).exists()
+        tx.tick()
+        launch.assert_called_once_with({'v': 2})
+        tx.cancel()
+finally:
+    client.retire()
+    client.process.wait(timeout=5)
+"""
+            env = {**os.environ, 'XDG_STATE_HOME': tmp, 'XDG_SESSION_ID': 'monitorize-test'}
+            result = subprocess.run([sys.executable, '-c', code], env=env, capture_output=True, text=True, timeout=12)
+            self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_detached_manager_exits_after_owner_dies_without_layout_mutation(self):
         with tempfile.TemporaryDirectory() as tmp:
             # No holder is requested: no KScreen commands can be run here.

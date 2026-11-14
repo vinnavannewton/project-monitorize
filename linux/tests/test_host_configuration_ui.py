@@ -5,7 +5,7 @@ import sys
 import unittest
 
 PROGRAM=r'''
-import copy,tempfile
+import copy,os,tempfile
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch,Mock
@@ -19,6 +19,7 @@ app=QApplication([])
 def settle():
     loop=QEventLoop();QTimer.singleShot(80,loop.quit);loop.exec()
 with tempfile.TemporaryDirectory() as d:
+    os.environ['XDG_STATE_HOME'] = d
     settings.CONFIG_DIR=d;settings.CONFIG_FILE=str(Path(d)/'settings.ini')
     settings.save_display_settings(resolution='1920x1080',use_client_display_settings=True)
     settings.save_general_settings(client_listen_on_open=False,client_restart_on_crash=False)

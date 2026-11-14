@@ -66,13 +66,14 @@ class RestartTransaction(QObject):
             if self.clock()>self.deadline:
                 if self.phase=='stopping':
                     # Never launch over a cleanup/ownership timeout.
-                    self._finish(False,'Timed out waiting for the previous session to stop. '+self.error)
+                    self._finish(False,('Timed out waiting for the previous stream to stop or release display recovery. '
+                                        'Check Diagnostics & logs, then retry Restart. '+self.error).strip())
                 else:self._fail('Session did not become ready within 100 seconds.')
                 return
             if self.phase=='stopping':
                 if not self.stopped():return
                 if self.recovering:
-                    self._finish(False,self.error+' Session stopped. Correct the configuration and use Apply or Restart.')
+                    self._finish(False,self.error+' Session stopped. Use Apply or Restart to retry.')
                     return
                 target=self.previous if self.rollback else self.candidate
                 self.phase='starting';self.deadline=self.clock()+100
