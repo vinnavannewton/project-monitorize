@@ -221,8 +221,8 @@ with tempfile.TemporaryDirectory() as d:
             backend.vkmsAuthorizationReady.emit({'success':False,'message':'Unavailable fixture'});settle()
             assert not prop('vkmsAuthorization.success')
             assert not prop('vkmsAuthorization.unattended_enabled === false')
-            primary=page.findChild(QObject,'loginScreenDisplayCombo');assert primary
-            assert not primary.property('visible') and primary.property('currentIndex') == 0
+            primary=page.findChild(QObject,'loginScreenVirtualDisplayCheck');assert primary
+            assert not primary.property('enabled') and not primary.property('checked')
             status.return_value={'available':True,'enabled':True,'supported':True,'manager':'gdm.service','create_login_virtual_display':False,'login_display_policy_available':True}
             backend.remoteLoginSetupFinished.emit({'success':True,'message':'Reboot after setup.'});settle()
             assert prop('bootStatus.enabled')
@@ -231,6 +231,14 @@ with tempfile.TemporaryDirectory() as d:
             assert not login.property('checked') and login.property('enabled')
             assert boot.property('checked')
             assert primary.property('visible') and primary.property('enabled')
+            help_button = page.findChild(QObject,'loginScreenVirtualDisplayHelp')
+            assert 'no physical monitor' in help_button.property('helpText')
+            appearance = view.rootObject().findChild(QObject,'appearanceTheme')
+            indicator = boot.property('indicator')
+            for mode in ('dark', 'light'):
+                backend.setThemeMode(mode);settle()
+                assert indicator.property('color') == appearance.property('surface')
+            backend.setThemeMode('system');settle()
             # Live enrollment must never inherit a generic reboot hint.
             backend.remoteLoginSetupFinished.emit({'success':True,'activated':True,'reboot_required':True,'message':'Old generic reboot hint'})
             settle()
@@ -249,23 +257,23 @@ with tempfile.TemporaryDirectory() as d:
             # Saving this boot-only preference must not replace the live runtime.
             runtime=backend._remote_login
             with patch('monitorize.platform.system_setup.apply_login_virtual_display',return_value={'success':False,'message':'Cancelled'}) as save:
-                e=QQmlExpression(qmlContext(page),page,'loginDisplay.activated(1)');e.evaluate();assert not e.hasError(),e.error().toString()
+                e=QQmlExpression(qmlContext(page),page,'loginDisplay.checked = true; loginDisplay.clicked()');e.evaluate();assert not e.hasError(),e.error().toString()
                 for _ in range(10):
                     settle()
                     if not backend.remoteLoginSetupBusy:break
                 save.assert_called_once_with(True)
-                assert primary.property('currentIndex') == 0
+                assert not primary.property('checked')
                 assert backend._remote_login is runtime
             def saved_primary(enabled):
                 status.return_value={**status.return_value,'create_login_virtual_display':enabled}
                 return {'success':True,'reboot_required':True}
             with patch('monitorize.platform.system_setup.apply_login_virtual_display',side_effect=saved_primary) as save:
-                e=QQmlExpression(qmlContext(page),page,'loginDisplay.activated(1)');e.evaluate();assert not e.hasError(),e.error().toString()
+                e=QQmlExpression(qmlContext(page),page,'loginDisplay.checked = true; loginDisplay.clicked()');e.evaluate();assert not e.hasError(),e.error().toString()
                 for _ in range(10):
                     settle()
                     if not backend.remoteLoginSetupBusy:break
                 save.assert_called_once_with(True)
-                assert primary.property('currentIndex') == 1 and backend._remote_login is runtime
+                assert primary.property('checked') and backend._remote_login is runtime
             timeout=page.findChild(QObject,'displayIdleTimeoutSeconds');assert timeout
             save_timeout=page.findChild(QObject,'saveDisplayIdleTimeout');assert save_timeout
             assert timeout.property('value')==20 and timeout.property('enabled')
@@ -316,8 +324,7 @@ with tempfile.TemporaryDirectory() as d:
             login_state[0]=True
             backend.remoteLoginSetupFinished.emit({'success':True});settle()
             assert not login_state[0] and not login.property('checked')
-            assert not primary.property('visible')
-            assert not primary.property('visible')
+            assert not primary.property('enabled')
             assert boot.property('enabled')
             explanation=page.findChild(QObject,'bootStartupStatusMessage')
             assert not explanation.property('visible')
@@ -337,7 +344,7 @@ with tempfile.TemporaryDirectory() as d:
             # Disabling just boot preserves login startup.
             page.setProperty('loginAfterBootDisable',1)
             backend.remoteLoginSetupFinished.emit({'success':True});settle()
-            assert login_state[0] and login.property('checked') and not primary.property('visible')
+            assert login_state[0] and login.property('checked') and not primary.property('enabled')
             # External asset repairs can be rechecked without navigating away.
             status.return_value={'available':False,'enabled':False,'supported':True,'message':'Installed host VERSION and manifest disagree'}
             e=QQmlExpression(qmlContext(page),page,'refreshStartup()');e.evaluate();settle()

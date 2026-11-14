@@ -159,11 +159,33 @@ Item {
         checkable: false
         checked: page.startupMode === mode
         enabled: !backend.remoteLoginSetupBusy && (mode !== 2 || page.canStartAtBoot)
+        hoverEnabled: true
+        indicator: Rectangle {
+            objectName: "startupRadioIndicator"
+            implicitWidth: 16
+            implicitHeight: 16
+            x: choice.leftPadding
+            y: choice.topPadding + (choiceLabel.height - height) / 2
+            radius: width / 2
+            color: theme.surface
+            border.width: choice.visualFocus ? 2 : 1
+            border.color: !choice.enabled ? theme.border : choice.checked || choice.visualFocus
+                ? theme.buttonBackground : theme.textSecondary
+            Rectangle {
+                anchors.centerIn: parent
+                width: 8
+                height: 8
+                radius: width / 2
+                color: choice.enabled ? theme.buttonBackground : theme.textMuted
+                visible: choice.checked
+            }
+        }
         contentItem: Column {
             leftPadding: choice.indicator.width + choice.spacing
             spacing: 4
             Text {
                 width: parent.width - parent.leftPadding
+                id: choiceLabel
                 text: choice.text
                 color: choice.enabled ? theme.textPrimary : theme.textMuted
                 font.pixelSize: 14
@@ -214,6 +236,32 @@ Item {
                     id: minimizeTrayCheck; text: "Minimize to tray on close"
                     Layout.fillWidth: true; onCheckedChanged: page.saveAppSettings()
                 }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+                    CustomCheckBox {
+                        id: loginDisplay
+                        objectName: "loginScreenVirtualDisplayCheck"
+                        text: "Create Virtual Display at Login Screen"
+                        Layout.minimumWidth: 0
+                        keepCheckedBlue: true
+                        checked: page.bootStatus.create_login_virtual_display === true
+                        enabled: page.startupMode === 2 && page.bootStatus.login_display_policy_available === true
+                            && !backend.remoteLoginSetupBusy
+                            && (!page.bootStatus.existing_login_display_only || page.bootStatus.create_login_virtual_display === true)
+                        onClicked: {
+                            const requested = checked
+                            checked = Qt.binding(() => page.bootStatus.create_login_virtual_display === true)
+                            backend.configureLoginVirtualDisplay(requested)
+                        }
+                    }
+                    StartupHelp {
+                        objectName: "loginScreenVirtualDisplayHelp"
+                        hoverOnly: true
+                        helpText: "For headless setups with no physical monitor connected."
+                    }
+                    Item { Layout.fillWidth: true }
+                }
                 Text {
                     text: "Startup"
                     color: theme.textPrimary
@@ -238,35 +286,11 @@ Item {
                     text: "Start at the login screen"
                     detail: "Connect before signing in. Desktop startup is included."
                 }
-                ColumnLayout {
+                SelectableMessage {
+                    visible: page.startupMode === 2 && page.bootStatus.existing_login_display_only === true
+                    text: "This login screen streams an existing physical display."
+                    color: theme.textSecondary
                     Layout.fillWidth: true
-                    visible: page.startupMode === 2
-                    Label {
-                        text: "Display at the login screen"
-                        color: theme.textPrimary
-                    }
-                    CustomComboBox {
-                        id: loginDisplay
-                        objectName: "loginScreenDisplayCombo"
-                        Accessible.name: "Display at the login screen"
-                        Layout.fillWidth: true
-                        model: ["Physical display", "Virtual display"]
-                        disabledIndex: page.bootStatus.existing_login_display_only ? 1 : -1
-                        currentIndex: page.bootStatus.create_login_virtual_display === true ? 1 : 0
-                        enabled: page.bootStatus.login_display_policy_available === true && !backend.remoteLoginSetupBusy
-                            && (!page.bootStatus.existing_login_display_only || page.bootStatus.create_login_virtual_display === true)
-                        onActivated: function(index) {
-                            currentIndex = Qt.binding(() => page.bootStatus.create_login_virtual_display === true ? 1 : 0)
-                            if (index !== currentIndex && (index === 0 || !page.bootStatus.existing_login_display_only))
-                                backend.configureLoginVirtualDisplay(index === 1)
-                        }
-                    }
-                    SelectableMessage {
-                        visible: page.bootStatus.existing_login_display_only === true
-                        text: "This login screen streams an existing physical display."
-                        color: theme.textSecondary
-                        Layout.fillWidth: true
-                    }
                 }
                 SelectableMessage {
                     objectName: "bootStartupStatusMessage"
