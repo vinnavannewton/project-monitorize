@@ -48,6 +48,11 @@ class MonitorizeVkmsClient:
                     "The host VKMS service disconnected or did not respond. Recheck; if this repeats, inspect monitorize-vkms.service logs.",
                     "service_unavailable", raw_response={"message": str(exc)}) from exc
             message = str(exc)
+            if name == "org.freedesktop.DBus.Error.UnknownMethod" and method in (
+                    "CreateNamedDisplay", "DestroyNamedDisplay", "ListNamedDisplays"):
+                raise VkmsProtocolError(
+                    "Update monitorize-vkms and restart its service to manage extra displays."
+                ) from exc
             if name == 'org.freedesktop.DBus.Error.UnknownMethod' and method == 'GetAuthorizationState':
                 raise VkmsProtocolError(
                     'Update monitorize-vkms on the host and restart monitorize-vkms.service. '
@@ -147,6 +152,23 @@ class MonitorizeVkmsClient:
         return {"name": data["connector"], "card": data["card"], "width": width, "height": height,
                 "fps": float(fps), "display": display, "generation": data["generation"],
                 "created": data["created"], "raw": data}
+
+    def create_named_display(self, name, width, height, fps):
+        result = self._call("CreateNamedDisplay", name, width, height, float(fps), timeout=CREATE_TIMEOUT)
+        if (result.get("name") != name or type(result.get("created")) is not bool
+                or not isinstance(result.get("generation"), str) or not result["generation"]):
+            raise VkmsProtocolError("The host VKMS service returned invalid named display ownership.")
+        return result
+
+    def remove_named_display(self, name, generation=""):
+        return self._call("DestroyNamedDisplay", name, generation, timeout=REMOVE_TIMEOUT)
+
+    def list_named_displays(self):
+        result = self._call("ListNamedDisplays")
+        displays = result.get("displays")
+        if not isinstance(displays, list) or not all(isinstance(item, dict) for item in displays):
+            raise VkmsProtocolError("The host VKMS service returned an invalid named display list.")
+        return displays
 
     def remove_display(self, display, generation):
         self._display(display)

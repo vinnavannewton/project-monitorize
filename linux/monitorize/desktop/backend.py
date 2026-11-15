@@ -103,7 +103,6 @@ class MonitorizeBackend(QObject):
     def _operate_independent_display(self, display_id, config, remove, vkms):
         from monitorize.platform.kde_helper import stop_helper
         from monitorize.platform.monitorize_vkms_dbus import MonitorizeVkmsClient as HostVkmsClient
-        from monitorize.platform.monitorize_vkms_cli import MonitorizeVkmsClient
 
         name = f"Monitorize Display {display_id}"
         owner = self._independent_display_owners.get(display_id)
@@ -125,19 +124,27 @@ class MonitorizeBackend(QObject):
                 raise ValueError(f"{name} is already active. Remove it before changing its mode.")
             client = HostVkmsClient()
             try:
-                client.remove_display(f"mon{display_id}", managed)
+                if display_id <= 2:
+                    client.remove_display(f"mon{display_id}", managed)
+                else:
+                    client.remove_named_display(name, managed)
             finally:
                 client.close()
             self._independent_vkms_generations.pop(display_id, None)
             return ""
 
-        client = MonitorizeVkmsClient()
         if remove:
-            if client.is_available():
-                state = client._run_cli(["list", "--json"], timeout=150)
-                if any(item.get("name") == name and not item.get("managed")
-                       for item in state["displays"]):
-                    client._run_cli(["remove", name, "--json"], timeout=150)
+            if display_id > 2:
+                client = HostVkmsClient()
+                try:
+                    if any(item.get("name") == name and item.get("managed") is False
+                           for item in client.list_named_displays()):
+                        client.remove_named_display(name)
+                except VkmsCliNotFoundError:
+                    if vkms:
+                        raise
+                finally:
+                    client.close()
             return ""
 
         resolution = str(config.get("resolution") or "").split()
@@ -167,27 +174,14 @@ class MonitorizeBackend(QObject):
             finally:
                 client.close()
         elif vkms:
+            client = HostVkmsClient()
             try:
-                client._run_cli(["create", name, f"{width}x{height}@{fps}", "--json"], timeout=150)
-            except Exception as exc:
-                if "KWin did not expose" not in str(exc):
-                    raise
-                if "The pending display was released." in str(exc):
-                    raise RuntimeError(
-                        f"{exc} KWin may be excluding new DRM cards. Select Compositor to create the display directly."
-                    ) from exc
-                if "Cleanup also failed:" in str(exc):
-                    raise
-                # A failed activation can leave an owned pending record.
-                try:
-                    client._run_cli(["remove", name, "--json"], timeout=150)
-                except Exception:
-                    logging.getLogger(__name__).warning("Could not clean up %s", name, exc_info=True)
-                    raise RuntimeError(f"{exc}. Use Remove to clear the pending display before retrying.") from exc
-                raise RuntimeError(
-                    f"{exc}. The failed display was removed. If KWin restricts DRM devices, "
-                    "it may exclude newly created VKMS cards. Select Compositor to use KWin’s native output."
-                ) from exc
+                result = client.create_named_display(name, width, height, fps)
+                if not result["created"]:
+                    raise RuntimeError(f"{name} already belongs to another session.")
+                self._independent_vkms_generations[display_id] = result["generation"]
+            finally:
+                client.close()
         else:
             if self._detected_de == "kde" and not os.path.isfile("/.flatpak-info"):
                 self._create_independent_kde_display(display_id, name, width, height, fps)
@@ -2493,6 +2487,8 @@ class MonitorizeBackend(QObject):
                     self._independent_vkms_generations.pop(display_id, None)
                     self._active_extra_displays.discard(display_id)
             for display_id in result.get("removed_independent_ids", []):
+                if display_id > 2:
+                    self._independent_vkms_generations.pop(display_id, None)
                 self._active_extra_displays.discard(display_id)
             for display_id, owner in list(self._independent_display_owners.items()):
                 if owner.poll() is not None and owner.returncode == 0:
