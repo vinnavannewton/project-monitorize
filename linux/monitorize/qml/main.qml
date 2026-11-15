@@ -27,6 +27,7 @@ Rectangle {
     property string pendingNavigation: ""
     property string pendingConfigurationPage: ""
     property string configurationNavigationError: ""
+    property bool vkmsSettingsRequested: false
 
     function navigationGroup(page) {
         return (page === "DisplaySetupPage.qml" || page === "StreamingPage.qml")
@@ -87,6 +88,14 @@ Rectangle {
     function finishNavigation(page) {
         selectedPage = page
         stack.replace(null, page)
+    }
+
+    function showRequestedVkmsSettings() {
+        if (vkmsSettingsRequested && stack.currentItem
+                && typeof stack.currentItem.showVkmsSettings === "function") {
+            vkmsSettingsRequested = false
+            Qt.callLater(stack.currentItem.showVkmsSettings)
+        }
     }
 
     function resolveConfigurationNavigation(save) {
@@ -230,6 +239,7 @@ Rectangle {
             }
         }
         onOpened: keepConfigurationEditingButton.forceActiveFocus()
+        onRejected: root.vkmsSettingsRequested = false
         onClosed: {
             root.pendingConfigurationPage = ""
             root.configurationNavigationError = ""
@@ -327,6 +337,7 @@ Rectangle {
         anchors.topMargin: setupAttention.visible ? setupAttention.y + setupAttention.height + 12 : root.showGlobalBack ? 56 : root.contentMargin
         anchors.bottomMargin: root.compact ? 12 : 20
         initialItem: "DisplaySetupPage.qml"
+        onCurrentItemChanged: root.showRequestedVkmsSettings()
         onBusyChanged: {
             if (!busy && root.pendingNavigation) {
                 let destination = root.pendingNavigation
@@ -451,6 +462,11 @@ Rectangle {
 
     Connections {
         target: backend
+        function onVkmsCompatibilityNotice(kind, message) {
+            vkmsCompatibilityToast.noticeKind = kind
+            vkmsCompatibilityToast.message = message
+            vkmsCompatibilityToast.open()
+        }
         function onRemoteLoginSetupFinished(result) {
             if (result.request_id === recoveryDecision.requestId) recoveryDecision.close()
         }
@@ -613,6 +629,73 @@ Rectangle {
                     onClicked: vkmsRecoveryPopup.close()
                 }
             }
+        }
+    }
+
+    Popup {
+        id: vkmsCompatibilityToast
+        objectName: "vkmsCompatibilityToast"
+        property string noticeKind: ""
+        property string message: ""
+        parent: Overlay.overlay
+        x: (parent.width - width) / 2
+        y: parent.height - height - 28
+        z: 1001
+        width: Math.min(480, parent.width - 32)
+        padding: 12
+        modal: false
+        closePolicy: Popup.CloseOnEscape
+        background: Rectangle {
+            color: theme.surface
+            border.color: theme.border
+            radius: theme.controlRadius
+        }
+        contentItem: ColumnLayout {
+            Text {
+                text: vkmsCompatibilityToast.noticeKind === "update"
+                    ? "Update Monitorize VKMS" : "Restart to activate Monitorize VKMS"
+                color: theme.headingText
+                font.bold: true
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+            Text {
+                text: vkmsCompatibilityToast.message
+                color: theme.textPrimary
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+            Text {
+                visible: vkmsCompatibilityToast.noticeKind === "update"
+                text: "Settings → Monitorize VKMS → Update"
+                color: theme.textSecondary
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+            RowLayout {
+                CustomButton {
+                    objectName: "openVkmsSettingsButton"
+                    text: "Open VKMS Settings"
+                    onClicked: {
+                        vkmsCompatibilityToast.close()
+                        root.vkmsSettingsRequested = true
+                        root.navigate("SettingsPage.qml")
+                        root.showRequestedVkmsSettings()
+                    }
+                }
+                CustomButton {
+                    text: "Dismiss"
+                    primary: false
+                    onClicked: vkmsCompatibilityToast.close()
+                }
+            }
+        }
+        onOpened: vkmsCompatibilityTimer.restart()
+        onClosed: vkmsCompatibilityTimer.stop()
+        Timer {
+            id: vkmsCompatibilityTimer
+            interval: 15000
+            onTriggered: vkmsCompatibilityToast.close()
         }
     }
 

@@ -3,6 +3,7 @@
 import json
 import math
 import time
+from xml.etree import ElementTree
 
 from monitorize.platform.polkit_errors import authentication_error_message
 from monitorize.platform.monitorize_vkms_cli import (
@@ -86,6 +87,23 @@ class MonitorizeVkmsClient:
         bus, self._bus = self._bus, None
         if bus is not None:
             bus.close()
+
+    def running_service_supports_named_displays(self):
+        """Inspect the current bus owner without starting it or requesting authorization."""
+        import dbus
+        if self._bus is None:
+            self._bus = dbus.SystemBus(private=True)
+        try:
+            owner = self._bus.get_name_owner(BUS_NAME)
+            service = self._bus.get_object(owner, OBJECT_PATH, introspect=False)
+            xml = dbus.Interface(service, "org.freedesktop.DBus.Introspectable").Introspect(timeout=3)
+            interface = ElementTree.fromstring(xml).find(f"./interface[@name='{BUS_NAME}']")
+        except (dbus.DBusException, ElementTree.ParseError):
+            return None
+        if interface is None:
+            return None
+        methods = {method.get("name") for method in interface.findall("method")}
+        return {"CreateNamedDisplay", "DestroyNamedDisplay", "ListNamedDisplays"} <= methods
 
     def require_managed_backend(self, desktop):
         capabilities = self.get_capabilities()

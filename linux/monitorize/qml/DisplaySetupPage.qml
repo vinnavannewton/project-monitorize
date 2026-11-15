@@ -42,6 +42,7 @@ Item {
     }
     readonly property bool vkmsSelected: displayType.currentText === "Extend"
         && displayCreator.currentText === "VKMS (Experimental)"
+    onVkmsSelectedChanged: if (vkmsSelected) backend.checkVkmsCompatibility()
 
     function mirrorResolutionLabel() {
         for (let i = 0; i < mirrorOutputs.length; ++i) {

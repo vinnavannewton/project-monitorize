@@ -25,6 +25,10 @@ Item {
     property string sunshineResetMessage: ""
     property bool sunshineResetSucceeded: false
     property var bootStatus: ({available: false, enabled: false, supported: false})
+    function showVkmsSettings() {
+        let view = pageScroll.contentItem
+        view.contentY = Math.max(0, Math.min(vkmsCard.y, view.contentHeight - view.height))
+    }
     function startupResultMessage(result) {
         if (!result.success) return ""
         if (result.primary_display_setting)
@@ -176,6 +180,7 @@ Item {
 
     ScrollView {
         id: pageScroll
+        objectName: "settingsScrollView"
         anchors.fill: parent
         clip: true
         rightPadding: 28
@@ -465,7 +470,7 @@ Item {
                     onClicked: page.StackView.view.push("SystemSetupPage.qml")
                 }
             }
-            VkmsManagementCard { Layout.fillWidth: true }
+            VkmsManagementCard { id: vkmsCard; Layout.fillWidth: true }
         }
     }
 

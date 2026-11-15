@@ -1,5 +1,6 @@
 """VKMS Settings adapter tests never fetch the network or run privileged commands."""
 import json
+from io import BytesIO
 from pathlib import Path
 import subprocess
 import tempfile
@@ -9,6 +10,34 @@ from monitorize.platform import vkms_management as m
 
 
 class VkmsManagementTests(unittest.TestCase):
+    def test_settings_reports_only_a_valid_newer_compatible_version(self):
+        for upstream, expected in ((b"1.6\n", {"available_version": "1.6"}),
+                                   (b"1.5.0\n", {}), (b"invalid", {})):
+            with self.subTest(upstream=upstream), patch.object(m, 'urlopen', return_value=BytesIO(upstream)) as fetch:
+                self.assertEqual(m.available_update("1.5"), expected)
+                fetch.assert_called_once_with(m.UPSTREAM_VERSION, timeout=3)
+        with patch.object(m, 'urlopen', side_effect=TimeoutError):
+            self.assertEqual(m.available_update("1.5"), {})
+
+    def test_compatibility_checks_installed_version_and_running_components(self):
+        for installed, loaded, named, expected in (
+            ('1.4', '1.4', True, 'update'),
+            ('1.5', '1.4', True, 'restart'),
+            ('1.5', '1.5', False, 'restart'),
+            ('1.5.0', '1.5', True, ''),
+            ('1.10', '1.10', True, ''),
+            ('1.5', '', None, ''),
+            ('', '', None, ''),
+        ):
+            with (self.subTest(installed=installed, loaded=loaded, named=named),
+                  patch.object(m, 'VERSION', Mock(read_text=Mock(return_value=installed))),
+                  patch.object(m, 'RUNNING_MODULE_VERSION', Mock(read_text=Mock(return_value=loaded))),
+                  patch('monitorize.platform.monitorize_vkms_dbus.MonitorizeVkmsClient') as client):
+                client.return_value.running_service_supports_named_displays.return_value = named
+                kind, message = m.compatibility_notice()
+                self.assertEqual(kind, expected)
+                self.assertEqual(bool(message), bool(expected))
+
     def completed(self, code=0, value=None, stderr=''):
         return subprocess.CompletedProcess([], code, json.dumps(value or {}), stderr)
 

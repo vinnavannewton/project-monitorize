@@ -284,6 +284,9 @@ class MonitorizeBackend(QObject):
     streamingBackendChanged = pyqtSignal(str)
     vkmsHelperAvailabilityChanged = pyqtSignal()
     _vkmsWorkerFinished = pyqtSignal(bool, str, bool)
+    _vkmsCompatibilityChecked = pyqtSignal(str, str)
+    vkmsCompatibilityNotice = pyqtSignal(str, str)
+    vkmsCompatibilityChanged = pyqtSignal()
     virtualDisplayCleanupChanged = pyqtSignal()
     virtualDisplayCleanupFinished = pyqtSignal(bool, str)
     uiVisibleChanged = pyqtSignal(bool)
@@ -458,10 +461,14 @@ class MonitorizeBackend(QObject):
         self._vkms_install_required = False
         self._vkms_status_message = "Checking host monitorize-vkms…"
         self._vkms_check_running = False
+        self._vkms_compatibility_running = False
+        self._vkms_compatibility_message = ""
+        self._vkms_compatibility_notified = False
         self._vkms_pending_start = None
         self._vkms_pending_preset = None
         self.streaming.primaryReadyChanged.connect(self._resume_vkms_preset)
         self._vkmsWorkerFinished.connect(self._finish_vkms_check)
+        self._vkmsCompatibilityChecked.connect(self._finish_vkms_compatibility_check)
         self._system_setup_available = bool(get_system_setup_status()["available"])
         self._system_setup_decided = bool(
             general.get("system_setup_decided", False)
@@ -478,7 +485,10 @@ class MonitorizeBackend(QObject):
         # Retain failures independently of status text, cleanup and QML page lifetime.
         self.configurationApplyFinished.connect(self._remember_session_failure)
         self.virtualDisplayCleanupFinished.connect(self._remember_session_failure)
+        self.virtualDisplayCleanupFinished.connect(self._recheck_failed_vkms_cleanup)
         self.streamingStartFailed.connect(self._remember_streaming_failure)
+        self.streamingStartFailed.connect(self._recheck_selected_vkms)
+        self.extraDisplayFinished.connect(self._recheck_failed_extra_display)
         self.streamingCodecMismatch.connect(self._remember_codec_failure)
         self.remoteLoginSetupBlocked.connect(self._remember_session_error)
         self.sunshineChoicesFinished.connect(
@@ -1299,6 +1309,51 @@ class MonitorizeBackend(QObject):
     @pyqtSlot()
     def refreshVkmsManagement(self):self._vkms_manager().refresh()
 
+    @pyqtProperty(str, notify=vkmsCompatibilityChanged)
+    def vkmsCompatibilityMessage(self):
+        return self._vkms_compatibility_message
+
+    @pyqtSlot()
+    def checkVkmsCompatibility(self):
+        if self._vkms_compatibility_running or self._closing:
+            return
+        self._vkms_compatibility_running = True
+
+        def check():
+            from monitorize.platform.vkms_management import compatibility_notice
+            try:
+                result = compatibility_notice()
+            except Exception:
+                result = ("", "")
+            if not self._closing:
+                self._vkmsCompatibilityChecked.emit(*result)
+
+        self._background_executor.submit(check)
+
+    def _finish_vkms_compatibility_check(self, kind, message):
+        self._vkms_compatibility_running = False
+        if self._vkms_compatibility_message != message:
+            self._vkms_compatibility_message = message
+            self.vkmsCompatibilityChanged.emit()
+        if kind and not self._vkms_compatibility_notified:
+            self._vkms_compatibility_notified = True
+            self.vkmsCompatibilityNotice.emit(kind, message)
+
+    def _recheck_selected_vkms(self):
+        for configuration in (self.configuration_state.applied, self.configuration_state.draft):
+            primary = configuration["primary"]
+            if primary.get("display_type") == "Extend" and primary.get("virtual_display_creator") == "vkms":
+                self.checkVkmsCompatibility()
+                return
+
+    def _recheck_failed_extra_display(self, _display_id, _remove, success, _message):
+        if not success:
+            self._recheck_selected_vkms()
+
+    def _recheck_failed_vkms_cleanup(self, success, _message):
+        if not success:
+            self.checkVkmsCompatibility()
+
     @pyqtSlot()
     def reinstallMonitorizeVkms(self):self._vkms_manager().start('reinstall')
 
@@ -1337,6 +1392,7 @@ class MonitorizeBackend(QObject):
         self.sessionChanged.emit()
         if pending is None or self._closing:
             return
+        self.checkVkmsCompatibility()
         if not ready:
             self.streaming._set_status(message)
             if pending[0] == "preset":

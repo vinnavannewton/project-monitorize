@@ -37,6 +37,20 @@ SectionCard {
             color: theme.textSecondary
         }
         Text {
+            Layout.fillWidth: true
+            visible: text.length > 0 && !card.status.busy
+            text: backend.vkmsCompatibilityMessage
+            color: theme.textPrimary
+            wrapMode: Text.WordWrap
+        }
+        Text {
+            Layout.fillWidth: true
+            visible: !!card.status.available_version && !card.status.busy
+            text: "Version " + (card.status.available_version || "") + " is available"
+            color: theme.textSecondary
+            wrapMode: Text.WordWrap
+        }
+        Text {
             visible: card.status.up_to_date && !card.status.busy && !card.status.completion_message
             objectName: "vkmsCurrentNotice"
             text: "Already up to date"

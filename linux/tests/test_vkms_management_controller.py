@@ -18,6 +18,7 @@ class Backend(QObject):
         self.applyingConfiguration = False
         self.systemSetupRunning = False
         self.remoteLoginSetupBusy = False
+        self.checkVkmsCompatibility = Mock()
         self.futures = []
         self._background_executor = Mock()
         self._background_executor.submit.side_effect = self.submit

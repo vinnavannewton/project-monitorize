@@ -77,6 +77,18 @@ SCENARIOS = r'''
             assert app.clipboard().text()=='First display failure'
             assert backend.copyDisplayError(2)
             assert app.clipboard().text()=='Second display failure'
+            with patch('monitorize.platform.vkms_management.compatibility_notice',
+                       return_value=('update', 'VKMS 1.5 is required.')):
+                backend.checkVkmsCompatibility();settle()
+                toast=find('vkmsCompatibilityToast')
+                assert toast.property('visible')
+                QMetaObject.invokeMethod(find('openVkmsSettingsButton'),'clicked');settle();settle()
+                assert view.rootObject().property('selectedPage')=='SettingsPage.qml'
+                scroll=find('settingsScrollView')
+                assert scroll.property('contentItem').property('contentY')>0
+                assert not toast.property('visible')
+                backend.checkVkmsCompatibility();settle()
+                assert not toast.property('visible')
             view.setSource(QUrl());backend.close()
 print('Configure display menus and per-display error copying passed')
 '''
