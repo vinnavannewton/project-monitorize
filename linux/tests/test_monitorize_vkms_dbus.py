@@ -1,33 +1,13 @@
 """Host-service protocol, explicit identity, and per-slot removal."""
 import json
 import unittest
-from types import SimpleNamespace
 from unittest.mock import Mock, patch
 from monitorize.platform.monitorize_vkms_dbus import (
-    BUS_NAME, OBJECT_PATH,
     MonitorizeVkmsClient, VkmsProtocolError, VkmsCommandError, CREATE_TIMEOUT, REMOVE_TIMEOUT,
     VkmsServiceUnavailableError, VkmsCliNotFoundError,
 )
 
 class VkmsDbusTest(unittest.TestCase):
-    def test_passive_compatibility_checks_the_running_owner(self):
-        for methods, expected in (
-            (("CreateNamedDisplay", "DestroyNamedDisplay", "ListNamedDisplays"), True),
-            (("CreateNamedDisplay",), False),
-        ):
-            with self.subTest(methods=methods):
-                bus = Mock()
-                bus.get_name_owner.return_value = ":1.42"
-                interface = Mock()
-                entries = "".join(f'<method name="{name}"/>' for name in methods)
-                interface.Introspect.return_value = f'<node><interface name="{BUS_NAME}">{entries}</interface></node>'
-                dbus = SimpleNamespace(Interface=Mock(return_value=interface), DBusException=RuntimeError)
-                with patch.dict('sys.modules', dbus=dbus):
-                    self.assertIs(MonitorizeVkmsClient(bus).running_service_supports_named_displays(), expected)
-                bus.get_name_owner.assert_called_once_with(BUS_NAME)
-                bus.get_object.assert_called_once_with(":1.42", OBJECT_PATH, introspect=False)
-                interface.Introspect.assert_called_once_with(timeout=3)
-
     @staticmethod
     def bus_error(name):
         error = RuntimeError('bus connection failed')

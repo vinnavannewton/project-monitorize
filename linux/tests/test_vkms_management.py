@@ -6,38 +6,10 @@ import subprocess
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
-from monitorize.platform import vkms_management as m
+from monitorize.platform import update_versions as versions, vkms_management as m
 
 
 class VkmsManagementTests(unittest.TestCase):
-    def test_settings_reports_only_a_valid_newer_compatible_version(self):
-        for upstream, expected in ((b"1.6\n", {"available_version": "1.6"}),
-                                   (b"1.5.0\n", {}), (b"invalid", {})):
-            with self.subTest(upstream=upstream), patch.object(m, 'urlopen', return_value=BytesIO(upstream)) as fetch:
-                self.assertEqual(m.available_update("1.5"), expected)
-                fetch.assert_called_once_with(m.UPSTREAM_VERSION, timeout=3)
-        with patch.object(m, 'urlopen', side_effect=TimeoutError):
-            self.assertEqual(m.available_update("1.5"), {})
-
-    def test_compatibility_checks_installed_version_and_running_components(self):
-        for installed, loaded, named, expected in (
-            ('1.4', '1.4', True, 'update'),
-            ('1.5', '1.4', True, 'restart'),
-            ('1.5', '1.5', False, 'restart'),
-            ('1.5.0', '1.5', True, ''),
-            ('1.10', '1.10', True, ''),
-            ('1.5', '', None, ''),
-            ('', '', None, ''),
-        ):
-            with (self.subTest(installed=installed, loaded=loaded, named=named),
-                  patch.object(m, 'VERSION', Mock(read_text=Mock(return_value=installed))),
-                  patch.object(m, 'RUNNING_MODULE_VERSION', Mock(read_text=Mock(return_value=loaded))),
-                  patch('monitorize.platform.monitorize_vkms_dbus.MonitorizeVkmsClient') as client):
-                client.return_value.running_service_supports_named_displays.return_value = named
-                kind, message = m.compatibility_notice()
-                self.assertEqual(kind, expected)
-                self.assertEqual(bool(message), bool(expected))
-
     def completed(self, code=0, value=None, stderr=''):
         return subprocess.CompletedProcess([], code, json.dumps(value or {}), stderr)
 
@@ -164,3 +136,25 @@ class VkmsManagementTests(unittest.TestCase):
         self.assertEqual(command, ['/usr/bin/pkexec','/usr/bin/python3','-I','-B',
             '/fixture with spaces/monitorize_vkms/managed_install.py','resume-expired','--revision','a'*40])
         self.assertNotIn('shell',spawn.call_args.kwargs)
+
+
+class UpdateVersionsTest(unittest.TestCase):
+    def test_desktop_release_ignores_android_drafts_and_prereleases(self):
+        def release(tag, **flags):
+            return {"tag_name": tag, "published_at": "2026-11-15", **flags}
+
+        entries = [release("monitorize-v0.43", draft=True), release("monitorize-v0.44", prerelease=True),
+                   release("android-v9.0"), release("monitorize-v0.9"), release("monitorize-v0.41")]
+        with patch.object(versions, "urlopen", return_value=BytesIO(json.dumps(entries).encode())) as fetch:
+            latest, url = versions.latest_project_release()
+        self.assertEqual(latest, "0.41")
+        self.assertEqual(url, f"{versions.PROJECT_URL}/releases/tag/monitorize-v0.41")
+        fetch.assert_called_once_with(versions.PROJECT_RELEASES, timeout=4)
+
+    def test_vkms_version_and_update_status(self):
+        with patch.object(versions, "urlopen", return_value=BytesIO(b"1.10\n")):
+            latest, url = versions.latest_vkms_version()
+        self.assertEqual(versions.update_status("1.9", latest, url)["state"], "available")
+        self.assertEqual(versions.update_status("1.10.0", latest)["state"], "current")
+        self.assertEqual(versions.update_status("1.11", latest)["state"], "unknown")
+        self.assertEqual(versions.update_status("1.10", "")["state"], "unknown")

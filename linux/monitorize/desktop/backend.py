@@ -13,7 +13,8 @@ from pathlib import Path
 from PyQt6.QtCore import QCoreApplication, QObject, QProcess, QTimer, QUrl, pyqtProperty, pyqtSignal, pyqtSlot
 from PyQt6.QtGui import QDesktopServices, QGuiApplication
 
-from monitorize.config import app_log, autostart
+from monitorize.config import app_log, autostart, settings
+from monitorize.platform import update_versions
 from monitorize.config.settings import (
     CAPTURE_MODES,
     DISPLAY_DEFAULTS,
@@ -284,9 +285,9 @@ class MonitorizeBackend(QObject):
     streamingBackendChanged = pyqtSignal(str)
     vkmsHelperAvailabilityChanged = pyqtSignal()
     _vkmsWorkerFinished = pyqtSignal(bool, str, bool)
-    _vkmsCompatibilityChecked = pyqtSignal(str, str)
-    vkmsCompatibilityNotice = pyqtSignal(str, str)
-    vkmsCompatibilityChanged = pyqtSignal()
+    _updateChecked = pyqtSignal(str, object)
+    updateNotice = pyqtSignal(str, str)
+    updateStatusChanged = pyqtSignal()
     virtualDisplayCleanupChanged = pyqtSignal()
     virtualDisplayCleanupFinished = pyqtSignal(bool, str)
     uiVisibleChanged = pyqtSignal(bool)
@@ -345,6 +346,7 @@ class MonitorizeBackend(QObject):
         self._system_setup_timed_out = False
         self._system_setup_cancelled = False
         self._background_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="monitorize-ui")
+        self._update_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="monitorize-updates")
         self._remote_runtime_closures = []
         self._closing = False
         self._extra_display_busy = False
@@ -461,14 +463,19 @@ class MonitorizeBackend(QObject):
         self._vkms_install_required = False
         self._vkms_status_message = "Checking host monitorize-vkms…"
         self._vkms_check_running = False
-        self._vkms_compatibility_running = False
-        self._vkms_compatibility_message = ""
-        self._vkms_compatibility_notified = False
+        self._update_status = {
+            "project": update_versions.update_status(update_versions.project_version()),
+            "vkms": update_versions.update_status(""),
+        }
+        self._update_results = {}
+        self._update_checks = set()
+        self._update_queued = set()
+        self._vkms_update_reminders = False
         self._vkms_pending_start = None
         self._vkms_pending_preset = None
         self.streaming.primaryReadyChanged.connect(self._resume_vkms_preset)
         self._vkmsWorkerFinished.connect(self._finish_vkms_check)
-        self._vkmsCompatibilityChecked.connect(self._finish_vkms_compatibility_check)
+        self._updateChecked.connect(self._finish_update_check)
         self._system_setup_available = bool(get_system_setup_status()["available"])
         self._system_setup_decided = bool(
             general.get("system_setup_decided", False)
@@ -485,10 +492,7 @@ class MonitorizeBackend(QObject):
         # Retain failures independently of status text, cleanup and QML page lifetime.
         self.configurationApplyFinished.connect(self._remember_session_failure)
         self.virtualDisplayCleanupFinished.connect(self._remember_session_failure)
-        self.virtualDisplayCleanupFinished.connect(self._recheck_failed_vkms_cleanup)
         self.streamingStartFailed.connect(self._remember_streaming_failure)
-        self.streamingStartFailed.connect(self._recheck_selected_vkms)
-        self.extraDisplayFinished.connect(self._recheck_failed_extra_display)
         self.streamingCodecMismatch.connect(self._remember_codec_failure)
         self.remoteLoginSetupBlocked.connect(self._remember_session_error)
         self.sunshineChoicesFinished.connect(
@@ -1309,50 +1313,84 @@ class MonitorizeBackend(QObject):
     @pyqtSlot()
     def refreshVkmsManagement(self):self._vkms_manager().refresh()
 
-    @pyqtProperty(str, notify=vkmsCompatibilityChanged)
-    def vkmsCompatibilityMessage(self):
-        return self._vkms_compatibility_message
+    @pyqtProperty("QVariantMap", notify=updateStatusChanged)
+    def projectUpdateStatus(self):
+        return self._update_status["project"]
+
+    @pyqtProperty("QVariantMap", notify=updateStatusChanged)
+    def vkmsUpdateStatus(self):
+        return self._update_status["vkms"]
+
+    @pyqtProperty(str, constant=True)
+    def projectGitHubUrl(self):
+        return update_versions.PROJECT_URL
 
     @pyqtSlot()
-    def checkVkmsCompatibility(self):
-        if self._vkms_compatibility_running or self._closing:
+    def checkProjectUpdate(self):
+        self._check_update("project", update_versions.latest_project_release)
+
+    @pyqtSlot(bool)
+    def checkVkmsUpdate(self, selected):
+        self._vkms_update_reminders = selected
+        if selected:
+            self.refreshVkmsVersionStatus()
+
+    @pyqtSlot()
+    def refreshVkmsVersionStatus(self):
+        self._update_status["vkms"] = update_versions.update_status(
+            update_versions.vkms_version(), *self._update_results.get("vkms", ("", ""))
+        )
+        self.updateStatusChanged.emit()
+        if self.vkmsUpdateStatus["installed"]:
+            self._check_update("vkms", update_versions.latest_vkms_version)
+
+    def _check_update(self, product, fetch):
+        if self._closing:
             return
-        self._vkms_compatibility_running = True
+        if product in self._update_results:
+            self._offer_update_notice(product)
+            return
+        if product in self._update_checks:
+            return
+        self._update_checks.add(product)
 
         def check():
-            from monitorize.platform.vkms_management import compatibility_notice
             try:
-                result = compatibility_notice()
-            except Exception:
+                result = fetch()
+            except (OSError, ValueError):
                 result = ("", "")
             if not self._closing:
-                self._vkmsCompatibilityChecked.emit(*result)
+                self._updateChecked.emit(product, result)
 
-        self._background_executor.submit(check)
+        self._update_executor.submit(check)
 
-    def _finish_vkms_compatibility_check(self, kind, message):
-        self._vkms_compatibility_running = False
-        if self._vkms_compatibility_message != message:
-            self._vkms_compatibility_message = message
-            self.vkmsCompatibilityChanged.emit()
-        if kind and not self._vkms_compatibility_notified:
-            self._vkms_compatibility_notified = True
-            self.vkmsCompatibilityNotice.emit(kind, message)
+    def _finish_update_check(self, product, result):
+        if self._closing:
+            return
+        self._update_checks.discard(product)
+        self._update_results[product] = result
+        current = self._update_status[product]["installed"]
+        self._update_status[product] = update_versions.update_status(current, *result)
+        self.updateStatusChanged.emit()
+        self._offer_update_notice(product)
 
-    def _recheck_selected_vkms(self):
-        for configuration in (self.configuration_state.applied, self.configuration_state.draft):
-            primary = configuration["primary"]
-            if primary.get("display_type") == "Extend" and primary.get("virtual_display_creator") == "vkms":
-                self.checkVkmsCompatibility()
-                return
+    def _offer_update_notice(self, product):
+        if product == "vkms" and not self._vkms_update_reminders:
+            return
+        status = self._update_status[product]
+        version = status["latest"]
+        if status["state"] != "available" or (product, version) in self._update_queued:
+            return
+        shown = update_versions.version_key(settings.last_update_reminder(product))
+        if shown is not None and shown >= update_versions.version_key(version):
+            return
+        self._update_queued.add((product, version))
+        self.updateNotice.emit(product, version)
 
-    def _recheck_failed_extra_display(self, _display_id, _remove, success, _message):
-        if not success:
-            self._recheck_selected_vkms()
-
-    def _recheck_failed_vkms_cleanup(self, success, _message):
-        if not success:
-            self.checkVkmsCompatibility()
+    @pyqtSlot(str, str)
+    def markUpdateNoticeShown(self, product, version):
+        if (product, version) in self._update_queued:
+            settings.save_update_reminder(product, version)
 
     @pyqtSlot()
     def reinstallMonitorizeVkms(self):self._vkms_manager().start('reinstall')
@@ -1392,7 +1430,6 @@ class MonitorizeBackend(QObject):
         self.sessionChanged.emit()
         if pending is None or self._closing:
             return
-        self.checkVkmsCompatibility()
         if not ready:
             self.streaming._set_status(message)
             if pending[0] == "preset":
@@ -3067,6 +3104,7 @@ class MonitorizeBackend(QObject):
         if self._boot_wifi_client is not None:
             self._boot_wifi_client.close()
         self._background_executor.shutdown(wait=False, cancel_futures=True)
+        self._update_executor.shutdown(wait=False, cancel_futures=True)
         if self._system_setup_process is not None:
             self._leave_system_setup_running()
         self._cancel_settings_open()

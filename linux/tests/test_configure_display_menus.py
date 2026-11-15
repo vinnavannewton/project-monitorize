@@ -7,7 +7,12 @@ import unittest
 
 from linux.tests.test_host_configuration_ui import PROGRAM
 
-PREFIX = PROGRAM.split('            # Live changes')[0]
+PREFIX = PROGRAM.split('            # Live changes')[0].replace(
+    "            view=QQuickWidget();",
+    "            latest_release = patch('monitorize.platform.update_versions.latest_project_release', return_value=('', ''))\n"
+    "            latest_release.start()\n"
+    "            view=QQuickWidget();",
+)
 SCENARIOS = r'''
             from PyQt6.QtCore import QMetaObject
             view.setResizeMode(QQuickWidget.ResizeMode.SizeRootObjectToView)
@@ -77,18 +82,31 @@ SCENARIOS = r'''
             assert app.clipboard().text()=='First display failure'
             assert backend.copyDisplayError(2)
             assert app.clipboard().text()=='Second display failure'
-            with patch('monitorize.platform.vkms_management.compatibility_notice',
-                       return_value=('update', 'VKMS 1.5 is required.')):
-                backend.checkVkmsCompatibility();settle()
-                toast=find('vkmsCompatibilityToast')
+            from monitorize.config.settings import last_update_reminder
+            from monitorize.platform import update_versions
+            with (patch.object(update_versions, 'vkms_version', return_value='1.4'),
+                  patch.object(update_versions, 'latest_vkms_version', return_value=('1.5', '')) as fetch):
+                backend.checkVkmsUpdate(True);settle()
+                toast=find('updateToast')
                 assert toast.property('visible')
-                QMetaObject.invokeMethod(find('openVkmsSettingsButton'),'clicked');settle();settle()
+                QMetaObject.invokeMethod(find('updateToastAction'),'clicked');settle();settle()
                 assert view.rootObject().property('selectedPage')=='SettingsPage.qml'
                 scroll=find('settingsScrollView')
                 assert scroll.property('contentItem').property('contentY')>0
                 assert not toast.property('visible')
-                backend.checkVkmsCompatibility();settle()
+                assert last_update_reminder('vkms')=='1.5'
+                backend._update_queued.clear()
+                backend.checkVkmsUpdate(True);settle()
                 assert not toast.property('visible')
+                fetch.assert_called_once()
+                assert backend.vkmsUpdateStatus['state']=='available'
+                assert find('projectMonitorizeCard') is not None
+                backend._finish_update_check('project', ('99.1', update_versions.PROJECT_URL + '/releases/tag/monitorize-v99.1'))
+                settle()
+                assert toast.property('visible')
+                assert toast.property('product')=='project'
+                assert last_update_reminder('project')=='99.1'
+                assert find('downloadMonitorizeUpdateButton').property('visible')
             view.setSource(QUrl());backend.close()
 print('Configure display menus and per-display error copying passed')
 '''

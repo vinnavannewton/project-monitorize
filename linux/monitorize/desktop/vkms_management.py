@@ -125,7 +125,7 @@ class VkmsManagement(QObject):
                 # displayed health, including errors and restart requirements.
                 self.message = ''
                 self._verifying_success = False
-                self.backend.checkVkmsCompatibility()
+                self.backend.refreshVkmsVersionStatus()
             if value.get('state'):
                 self.health = value
                 self.reboot_required = self.reboot_required or bool(value.get('reboot_required')) or value.get('state') == 'restart_required'
@@ -149,13 +149,6 @@ class VkmsManagement(QObject):
                 elif self.health.get('state') != 'working':
                     self.completion_message += ' ' + self.health.get('message', 'Could not verify installation.')
             self.changed.emit()
-            installed = self.health.get('version')
-            if installed:
-                self.submit('available_update', lambda: platform.available_update(installed))
-        elif kind == 'available_update':
-            if value.get('available_version'):
-                self.health['available_version'] = value['available_version']
-                self.changed.emit()
         elif kind == 'prepare':
             if not value.get('revision'):
                 self.finish(value)

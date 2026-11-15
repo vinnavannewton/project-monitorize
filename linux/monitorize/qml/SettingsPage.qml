@@ -48,6 +48,7 @@ Item {
     StackView.onActivated: {
         refreshStartup()
         backend.refreshVkmsManagement()
+        backend.refreshVkmsVersionStatus()
     }
     Component.onCompleted: loadAppSettings()
     function loadAppSettings() {
@@ -471,6 +472,32 @@ Item {
                 }
             }
             VkmsManagementCard { id: vkmsCard; Layout.fillWidth: true }
+            SectionCard {
+                objectName: "projectMonitorizeCard"
+                title: "Project Monitorize"
+                symbol: "display"
+                collapsible: false
+                Layout.fillWidth: true
+                UpdateVersionLabel {
+                    Layout.fillWidth: true
+                    status: backend.projectUpdateStatus
+                }
+                Flow {
+                    Layout.fillWidth: true
+                    spacing: 8
+                    CustomButton {
+                        text: "GitHub"
+                        primary: false
+                        onClicked: Qt.openUrlExternally(backend.projectGitHubUrl)
+                    }
+                    CustomButton {
+                        objectName: "downloadMonitorizeUpdateButton"
+                        text: "Download latest version"
+                        visible: backend.projectUpdateStatus.state === "available"
+                        onClicked: Qt.openUrlExternally(backend.projectUpdateStatus.url)
+                    }
+                }
+            }
         }
     }
 

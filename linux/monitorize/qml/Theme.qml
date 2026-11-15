@@ -46,6 +46,7 @@ QtObject {
 
     readonly property color headingText: useSystemAccent && systemAccentColors.headingText ? systemAccentColors.headingText : (dark ? "#b1d6ff" : "#1764a5")
     readonly property color errorText: dark ? "#fca5a5" : "#b42323"
+    readonly property color warningText: dark ? "#fde68a" : "#795400"
     readonly property color successText: dark ? "#86efac" : "#187238"
 
     readonly property color iconTint: useSystemAccent && systemAccentColors.iconTint ? systemAccentColors.iconTint : (dark ? "#a6caff" : textSecondary)

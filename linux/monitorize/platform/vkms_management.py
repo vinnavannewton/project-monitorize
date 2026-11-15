@@ -7,13 +7,9 @@ import shutil
 import stat
 import subprocess
 import time
-from urllib.request import urlopen
 
 SOURCE_RECORD = Path('/usr/lib/monitorize-vkms/source-checkout')
 VERSION = Path('/usr/lib/monitorize-vkms/VERSION')
-RUNNING_MODULE_VERSION = Path('/sys/module/monitorize_vkms/version')
-MINIMUM_VERSION = (1, 5, 0)
-UPSTREAM_VERSION = 'https://raw.githubusercontent.com/vinnavannewton/monitorize-vkms/main/VERSION'
 REBOOT_RECORD = Path('/var/lib/monitorize-vkms/reboot-required.json')
 HOST_ACTIVATION = Path('/usr/share/dbus-1/system-services/io.github.vinnavannewton.MonitorizeVkms1.service')
 OFFICIAL_REMOTES = {
@@ -23,57 +19,6 @@ OFFICIAL_REMOTES = {
     'ssh://git@github.com/vinnavannewton/monitorize-vkms.git',
 }
 STATES = {'not_installed', 'working', 'needs_attention', 'restart_required', 'could_not_verify'}
-
-
-def _parse_version(value):
-    match = re.fullmatch(r'([0-9]{1,6})\.([0-9]{1,6})(?:\.([0-9]{1,6}))?', value)
-    return tuple(int(part or 0) for part in match.groups()) if match else None
-
-
-def _read_version(path):
-    try:
-        value = path.read_text().strip()
-    except (OSError, UnicodeError):
-        return "", None
-    return value, _parse_version(value)
-
-
-def available_update(installed):
-    """Compare with the same source branch used by the Settings Update action."""
-    version = _parse_version(installed)
-    if version is None or version < MINIMUM_VERSION:
-        return {}
-    try:
-        with urlopen(UPSTREAM_VERSION, timeout=3) as response:
-            latest = response.read(64).decode('ascii').strip()
-    except (OSError, UnicodeError):
-        return {}
-    latest_version = _parse_version(latest)
-    return {'available_version': latest} if latest_version and latest_version > version else {}
-
-
-def compatibility_notice():
-    """Return an advisory for a confirmed incompatible component."""
-    from monitorize.platform.monitorize_vkms_dbus import MonitorizeVkmsClient
-
-    installed, version = _read_version(VERSION)
-    minimum = ".".join(str(part) for part in MINIMUM_VERSION[:2])
-    if version is not None and version < MINIMUM_VERSION:
-        return "update", f"Version {installed} is installed. Monitorize requires VKMS {minimum} or later for current display features."
-
-    loaded, module_version = _read_version(RUNNING_MODULE_VERSION)
-    if version is not None and module_version is not None and module_version < MINIMUM_VERSION:
-        return "restart", f"VKMS {installed} is installed, but the loaded kernel module is {loaded}. Restart your system."
-
-    client = MonitorizeVkmsClient()
-    try:
-        if client.running_service_supports_named_displays() is False:
-            if version is None:
-                return "update", "The running VKMS service is missing support for named displays."
-            return "restart", "The running VKMS service is missing support for named displays. Restart your system, then check Monitorize VKMS in Settings."
-    finally:
-        client.close()
-    return "", ""
 
 
 def result_object(stdout):

@@ -20,9 +20,9 @@ class Backend(QObject):
         super().__init__();self.status={};self.actions=[]
     @pyqtProperty('QVariantMap',notify=changed)
     def vkmsManagementStatus(self):return self.status
-    @pyqtProperty(str,constant=True)
-    def vkmsCompatibilityMessage(self):return ""
-    def checkVkmsCompatibility(self):pass
+    @pyqtProperty('QVariantMap',constant=True)
+    def vkmsUpdateStatus(self):return {}
+    def refreshVkmsVersionStatus(self):pass
     @pyqtProperty(bool,constant=True)
     def systemSetupRunning(self):return False
     @pyqtProperty(bool,constant=True)

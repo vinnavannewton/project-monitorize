@@ -149,6 +149,14 @@ def load_general_settings() -> dict:
     return data
 
 
+def last_update_reminder(product):
+    return _load_group("update_reminders", {product: ""})[product]
+
+
+def save_update_reminder(product, version):
+    _save_group("update_reminders", {product: version})
+
+
 DISPLAY_DEFAULTS = {
     "resolution": "1920x1080",
     "custom_w": "",

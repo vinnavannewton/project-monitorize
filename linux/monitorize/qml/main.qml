@@ -28,6 +28,15 @@ Rectangle {
     property string pendingConfigurationPage: ""
     property string configurationNavigationError: ""
     property bool vkmsSettingsRequested: false
+    property var pendingUpdateNotices: []
+
+    function showNextUpdateNotice() {
+        if (updateToast.visible || pendingUpdateNotices.length === 0) return
+        let notice = pendingUpdateNotices.shift()
+        updateToast.product = notice.product
+        updateToast.version = notice.version
+        updateToast.open()
+    }
 
     function navigationGroup(page) {
         return (page === "DisplaySetupPage.qml" || page === "StreamingPage.qml")
@@ -291,6 +300,7 @@ Rectangle {
         // QQuickWidget attaches the root to its window after completion.
         Qt.callLater(function() {
             if (backend.systemSetupPending) firstRunSetupPopup.open()
+            backend.checkProjectUpdate()
         })
     }
 
@@ -462,10 +472,9 @@ Rectangle {
 
     Connections {
         target: backend
-        function onVkmsCompatibilityNotice(kind, message) {
-            vkmsCompatibilityToast.noticeKind = kind
-            vkmsCompatibilityToast.message = message
-            vkmsCompatibilityToast.open()
+        function onUpdateNotice(product, version) {
+            root.pendingUpdateNotices.push({product: product, version: version})
+            root.showNextUpdateNotice()
         }
         function onRemoteLoginSetupFinished(result) {
             if (result.request_id === recoveryDecision.requestId) recoveryDecision.close()
@@ -633,10 +642,11 @@ Rectangle {
     }
 
     Popup {
-        id: vkmsCompatibilityToast
-        objectName: "vkmsCompatibilityToast"
-        property string noticeKind: ""
-        property string message: ""
+        id: updateToast
+        objectName: "updateToast"
+        property string product: ""
+        property string version: ""
+        readonly property bool vkms: product === "vkms"
         parent: Overlay.overlay
         x: (parent.width - width) / 2
         y: parent.height - height - 28
@@ -652,21 +662,15 @@ Rectangle {
         }
         contentItem: ColumnLayout {
             Text {
-                text: vkmsCompatibilityToast.noticeKind === "update"
-                    ? "Update Monitorize VKMS" : "Restart to activate Monitorize VKMS"
+                text: updateToast.vkms ? "Monitorize VKMS update available"
+                    : "Monitorize " + updateToast.version + " is available"
                 color: theme.headingText
                 font.bold: true
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
             }
             Text {
-                text: vkmsCompatibilityToast.message
-                color: theme.textPrimary
-                wrapMode: Text.WordWrap
-                Layout.fillWidth: true
-            }
-            Text {
-                visible: vkmsCompatibilityToast.noticeKind === "update"
+                visible: updateToast.vkms
                 text: "Settings → Monitorize VKMS → Update"
                 color: theme.textSecondary
                 wrapMode: Text.WordWrap
@@ -674,10 +678,15 @@ Rectangle {
             }
             RowLayout {
                 CustomButton {
-                    objectName: "openVkmsSettingsButton"
-                    text: "Open VKMS Settings"
+                    objectName: "updateToastAction"
+                    text: updateToast.vkms ? "Open VKMS Settings" : "View release"
                     onClicked: {
-                        vkmsCompatibilityToast.close()
+                        if (!updateToast.vkms) {
+                            Qt.openUrlExternally(backend.projectUpdateStatus.url)
+                            updateToast.close()
+                            return
+                        }
+                        updateToast.close()
                         root.vkmsSettingsRequested = true
                         root.navigate("SettingsPage.qml")
                         root.showRequestedVkmsSettings()
@@ -686,16 +695,22 @@ Rectangle {
                 CustomButton {
                     text: "Dismiss"
                     primary: false
-                    onClicked: vkmsCompatibilityToast.close()
+                    onClicked: updateToast.close()
                 }
             }
         }
-        onOpened: vkmsCompatibilityTimer.restart()
-        onClosed: vkmsCompatibilityTimer.stop()
+        onOpened: {
+            backend.markUpdateNoticeShown(updateToast.product, updateToast.version)
+            updateToastTimer.restart()
+        }
+        onClosed: {
+            updateToastTimer.stop()
+            Qt.callLater(root.showNextUpdateNotice)
+        }
         Timer {
-            id: vkmsCompatibilityTimer
+            id: updateToastTimer
             interval: 15000
-            onTriggered: vkmsCompatibilityToast.close()
+            onTriggered: updateToast.close()
         }
     }
 
