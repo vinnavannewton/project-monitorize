@@ -153,7 +153,8 @@ Rectangle {
             Item { Layout.fillWidth: true }
             ToolButton {
                 id: removeDisplayButton
-                visible: card.displayOnly
+                objectName: "removeDisplayCard" + card.displayNumber
+                visible: card.displayOnly && card.canRemove
                 enabled: !card.extraDisplayBusy
                 implicitWidth: 36
                 implicitHeight: 36
