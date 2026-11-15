@@ -69,6 +69,111 @@ def _close_display_owners(include_independent=False):
     return len(owners - remaining), errors
 
 
+def _remove_managed_vkms_with_cli(command, errors, *, allow_legacy=False):
+    removed = 0
+    removed_managed_ids = []
+    # The CLI also routes reserved remote-login outputs through their owner.
+    # Ordinary remove_all deliberately cannot remove those protected outputs.
+    try:
+        completed = subprocess.run([command, 'remove', '--managed', '--json'], capture_output=True,
+                                   text=True, timeout=120, check=False)
+        if allow_legacy and completed.returncode == 2 and '--managed' in completed.stderr:
+            completed = subprocess.run([command, 'remove', '--json'], capture_output=True,
+                                       text=True, timeout=120, check=False)
+        result = json.loads(completed.stdout)
+        if not isinstance(result, dict):
+            raise ValueError('Invalid VKMS cleanup response')
+        removed = int(bool(result.get('removed')))
+        outcomes = result.get('results', {})
+        removed_managed_ids = [
+            display_id for display_id in (1, 2)
+            if outcomes.get(f'mon{display_id}', {}).get('changed') is True
+        ]
+        if completed.returncode or not result.get('success', False):
+            details = [str(item['error']) for item in outcomes.values()
+                       if isinstance(item, dict) and item.get('error')]
+            errors.append('VKMS cleanup failed: ' + ' '.join([str(result.get('message') or 'Removal failed'), *details]))
+    except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
+        errors.append(f'VKMS cleanup failed: {exc}')
+    return removed, removed_managed_ids
+
+
+def _remove_settings_vkms(command, errors):
+    client = MonitorizeVkmsClient()
+    removed = 0
+    managed_ids = []
+    independent_ids = []
+    pending = []
+    try:
+        try:
+            slots = client.get_status()["displays"]
+            if any(slot.get("protected") for slot in slots.values()):
+                removed, managed_ids = _remove_managed_vkms_with_cli(command, errors)
+            elif any(slot.get("connector_connected") for slot in slots.values()):
+                pending.append((None, ""))
+        except Exception as exc:
+            errors.append(f"VKMS cleanup failed: {exc}")
+
+        try:
+            for display in client.list_named_displays():
+                name = display.get("name", "")
+                match = re.fullmatch(r"Monitorize Display ([1-9][0-9]*)", name)
+                if match and display.get("managed") is False:
+                    pending.insert(0, (int(match[1]), name))
+        except Exception as exc:
+            errors.append(f"Could not check standalone VKMS displays: {exc}")
+
+        # Removing an interior GNOME output can leave a gap in the layout.
+        # Retry only after another output was removed and the layout changed.
+        while pending:
+            retry = []
+            failures = []
+            previous_count = removed
+            for display_id, name in pending:
+                if display_id is not None:
+                    try:
+                        client.remove_named_display(name)
+                        independent_ids.append(display_id)
+                        removed += 1
+                    except Exception as exc:
+                        message = f"{name}: {exc}"
+                        if "GNOME did not confirm removal" in str(exc):
+                            retry.append((display_id, name))
+                            failures.append(message)
+                        else:
+                            errors.append(message)
+                    continue
+
+                try:
+                    result = client.remove_all()
+                    changed = [
+                        index for index in (1, 2)
+                        if result["results"][f"mon{index}"].get("changed") is True
+                    ]
+                    managed_ids.extend(changed)
+                    removed += len(changed)
+                    if not result["success"]:
+                        details = [str(item["error"]) for item in result["results"].values()
+                                   if item.get("error")]
+                        message = "VKMS cleanup failed: " + " ".join(
+                            details or [result.get("message") or "Managed removal failed."]
+                        )
+                        if details and all("GNOME did not confirm removal" in item for item in details):
+                            retry.append((None, ""))
+                            failures.append(message)
+                        else:
+                            errors.append(message)
+                except Exception as exc:
+                    errors.append(f"VKMS cleanup failed: {exc}")
+            if removed == previous_count:
+                errors.extend(failures)
+                break
+            pending = retry
+    finally:
+        client.close()
+    return removed, managed_ids, independent_ids
+
+
 def remove_virtual_displays(desktop, *, include_vkms=True, include_independent=False):
     """Clean outputs, optionally leaving the independently managed VKMS host alone.
 
@@ -93,30 +198,12 @@ def remove_virtual_displays(desktop, *, include_vkms=True, include_independent=F
         )
 
     command = shutil.which('monitorize-vkms') if include_vkms else None
-    if command:
-        # The CLI also routes reserved remote-login outputs through their owner.
-        # Ordinary remove_all deliberately cannot remove those protected outputs.
-        try:
-            completed = subprocess.run([command, 'remove', '--managed', '--json'], capture_output=True,
-                                       text=True, timeout=120, check=False)
-            if not include_independent and completed.returncode == 2 and '--managed' in completed.stderr:
-                completed = subprocess.run([command, 'remove', '--json'], capture_output=True,
-                                           text=True, timeout=120, check=False)
-            result = json.loads(completed.stdout)
-            if not isinstance(result, dict):raise ValueError('Invalid VKMS cleanup response')
-            removed += int(bool(result.get('removed')))
-            if include_independent:
-                outcomes = result.get('results', {})
-                removed_managed_ids = [
-                    display_id for display_id in (1, 2)
-                    if outcomes.get(f'mon{display_id}', {}).get('changed') is True
-                ]
-            if completed.returncode or not result.get('success', False):
-                details = [str(item['error']) for item in result.get('results', {}).values()
-                           if isinstance(item, dict) and item.get('error')]
-                errors.append('VKMS cleanup failed: ' + ' '.join([str(result.get('message') or 'Removal failed'), *details]))
-        except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
-            errors.append(f'VKMS cleanup failed: {exc}')
+    if command and include_independent:
+        count, removed_managed_ids, removed_independent_ids = _remove_settings_vkms(command, errors)
+        removed += count
+    elif command:
+        count, _ = _remove_managed_vkms_with_cli(command, errors, allow_legacy=True)
+        removed += count
     elif include_vkms:
         client = MonitorizeVkmsClient()
         if client.is_available():
@@ -134,24 +221,6 @@ def remove_virtual_displays(desktop, *, include_vkms=True, include_independent=F
                         errors.append(result.get('message') or 'VKMS displays could not be removed')
             except Exception as exc:
                 errors.append(f'VKMS cleanup failed: {exc}')
-    if command and include_independent:
-        from monitorize.platform.monitorize_vkms_cli import MonitorizeVkmsClient as NamedVkmsClient
-        client = NamedVkmsClient(executable=command)
-        try:
-            displays = client._run_cli(["list", "--json"], timeout=120)["displays"]
-            for display in displays:
-                name = display.get("name", "")
-                match = re.fullmatch(r"Monitorize Display ([1-9][0-9]*)", name)
-                if not match or display.get("managed") is not False:
-                    continue
-                try:
-                    client._run_cli(["remove", name, "--json"], timeout=120)
-                    removed += 1
-                    removed_independent_ids.append(int(match[1]))
-                except Exception as exc:
-                    errors.append(f"{name}: {exc}")
-        except Exception as exc:
-            errors.append(f"Could not check standalone VKMS displays: {exc}")
     if include_independent:
         result = {"removed_independent_ids": removed_independent_ids, "removed_managed_ids": removed_managed_ids}
     else:

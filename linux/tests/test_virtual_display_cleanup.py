@@ -1,7 +1,7 @@
 import unittest
 from pathlib import Path
 import tempfile
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 from monitorize.platform import virtual_display_cleanup as cleanup
 
@@ -118,6 +118,52 @@ class VirtualDisplayCleanupTest(unittest.TestCase):
         close.assert_called_once_with(True)
         self.assertTrue(result['success'])
         self.assertEqual(result['message'], 'Removed virtual displays')
+
+    def test_settings_removes_managed_and_named_displays_through_host_service(self):
+        with (patch.object(cleanup, '_close_display_owners', return_value=(0, [])),
+              patch.object(cleanup, 'DisplayController') as controller,
+              patch.object(cleanup.shutil, 'which', return_value='/usr/bin/monitorize-vkms'),
+              patch.object(cleanup.subprocess, 'run') as command,
+              patch.object(cleanup, 'MonitorizeVkmsClient') as host):
+            controller.return_value.remove_stagnant_virtual_displays.return_value = 0
+            client = host.return_value
+            client.get_status.return_value = {'displays': {'mon1': {'connector_connected': True}}}
+            client.remove_all.return_value = {
+                'success': True, 'results': {'mon1': {'changed': True}, 'mon2': {'changed': False}},
+            }
+            client.list_named_displays.return_value = [
+                {'name': 'Monitorize mon1', 'managed': True},
+                {'name': 'Monitorize Display 3', 'managed': False},
+                {'name': 'Unrelated display', 'managed': False},
+            ]
+            result = cleanup.remove_virtual_displays('gnome', include_independent=True)
+            self.assertEqual(result, {'success': True, 'message': 'Removed virtual displays',
+                                      'removed_managed_ids': [1], 'removed_independent_ids': [3]})
+            self.assertEqual(client.mock_calls, [
+                call.get_status(), call.list_named_displays(),
+                call.remove_named_display('Monitorize Display 3'), call.remove_all(), call.close(),
+            ])
+            command.assert_not_called()
+
+    def test_settings_routes_protected_remote_login_output_through_cli(self):
+        import subprocess
+        with (patch.object(cleanup, '_close_display_owners', return_value=(0, [])),
+              patch.object(cleanup, 'DisplayController') as controller,
+              patch.object(cleanup.shutil, 'which', return_value='/usr/bin/monitorize-vkms'),
+              patch.object(cleanup.subprocess, 'run', return_value=subprocess.CompletedProcess(
+                  [], 0, '{"success":true,"removed":true,"results":{"mon1":{"changed":true}}}'
+              )) as command,
+              patch.object(cleanup, 'MonitorizeVkmsClient') as host):
+            controller.return_value.remove_stagnant_virtual_displays.return_value = 0
+            client = host.return_value
+            client.get_status.return_value = {'displays': {'mon1': {'protected': True}}}
+            client.list_named_displays.return_value = []
+            result = cleanup.remove_virtual_displays('gnome', include_independent=True)
+            self.assertTrue(result['success'])
+            self.assertEqual(result['removed_managed_ids'], [1])
+            self.assertEqual(command.call_args.args[0],
+                             ['/usr/bin/monitorize-vkms', 'remove', '--managed', '--json'])
+            client.remove_all.assert_not_called()
 
     def test_cli_permission_failure_is_reported(self):
         import subprocess
